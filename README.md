@@ -72,3 +72,4 @@ Dastur ishga tushganda quyidagi ishchilar avtomatik yaratiladi:
 
 # Prodeklarant_taskmanager
 # Prodeklarant_taskmanager
+# Prodeklarant_taskmanager

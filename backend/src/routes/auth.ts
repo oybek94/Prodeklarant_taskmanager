@@ -8,7 +8,6 @@ import { z } from 'zod';
 const router = Router();
 
 const loginSchema = z.object({
-  email: z.string().email(),
   password: z.string().min(4),
 });
 
@@ -16,19 +15,56 @@ router.post('/login', async (req, res) => {
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    const { email, password } = parsed.data;
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    const ok = await comparePassword(password, user.passwordHash);
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-    const payload = { sub: user.id, role: user.role, branchId: user.branchId, name: user.name };
+    const { password } = parsed.data;
+    
+    // Find user by password - check all users using raw SQL to avoid enum issues
+    const users = await prisma.$queryRaw<Array<{ id: number; name: string; passwordHash: string; role: string; branchId: number }>>`
+      SELECT id, name, "passwordHash", role::text as role, "branchId"
+      FROM "User"
+      WHERE active = true
+    `;
+    
+    let matchedUser = null;
+    for (const user of users) {
+      const ok = await comparePassword(password, user.passwordHash);
+      if (ok) {
+        if (matchedUser) {
+          // Multiple users with same password - security issue
+          return res.status(400).json({ 
+            error: 'Xatolik: Bir nechta foydalanuvchi bir xil parolga ega. Iltimos, parollarni o\'zgartiring.' 
+          });
+        }
+        matchedUser = user;
+      }
+    }
+    
+    if (!matchedUser) {
+      return res.status(401).json({ error: 'Noto\'g\'ri parol' });
+    }
+    
+    // Convert role to valid enum value
+    let validRole = matchedUser.role;
+    if (matchedUser.role === 'WORKER' || matchedUser.role === 'ACCOUNTANT') {
+      validRole = 'DEKLARANT';
+    } else if (matchedUser.role === 'ADMIN' || matchedUser.role === 'MANAGER' || matchedUser.role === 'DEKLARANT') {
+      validRole = matchedUser.role;
+    } else {
+      validRole = 'DEKLARANT';
+    }
+    
+    const payload = { sub: matchedUser.id, role: validRole, branchId: matchedUser.branchId || null, name: matchedUser.name };
     return res.json({
       accessToken: signAccessToken(payload),
       refreshToken: signRefreshToken(payload),
-      user: { id: user.id, name: user.name, role: user.role, branchId: user.branchId },
+      user: { id: matchedUser.id, name: matchedUser.name, role: validRole, branchId: matchedUser.branchId || null },
     });
   } catch (error: any) {
     console.error('Login error:', error);
+    if (error.message && error.message.includes('not found in enum')) {
+      return res.status(500).json({ 
+        error: 'Database rollarida muammo. Iltimos, backend/fix-roles.sql faylini pgAdmin orqali bajarishingiz kerak.' 
+      });
+    }
     return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
@@ -42,7 +78,7 @@ router.post('/refresh', async (req, res) => {
     const payload = verifyRefreshToken(parsed.data.refreshToken);
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user) return res.status(401).json({ error: 'Invalid refresh' });
-    const newPayload = { sub: user.id, role: user.role, branchId: user.branchId, name: user.name };
+    const newPayload = { sub: user.id, role: user.role, branchId: user.branchId || null, name: user.name };
     return res.json({
       accessToken: signAccessToken(newPayload),
       refreshToken: signRefreshToken(newPayload),
@@ -57,7 +93,7 @@ const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(6),
-  role: z.enum(['ADMIN', 'MANAGER', 'WORKER', 'ACCOUNTANT']),
+  role: z.enum(['ADMIN', 'MANAGER', 'DEKLARANT']),
   branchId: z.number(),
 });
 

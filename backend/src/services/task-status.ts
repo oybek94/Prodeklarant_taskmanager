@@ -1,10 +1,13 @@
 import { PrismaClient, Prisma, TaskStatus } from '@prisma/client';
 
 /**
- * Calculate task status based on stages:
- * - BOSHLANMAGAN: All stages are not started
- * - JARAYONDA: At least one stage is completed but not all
- * - TAYYOR: All stages are completed
+ * Calculate task status based on stages using the formula:
+ * 1. Barcha jarayonlar bo'sh = BOSHLANMAGAN
+ * 2. Deklaratsiya = TAYYOR → TAYYOR
+ * 3. Tekshirish = TAYYOR → TEKSHIRILGAN
+ * 4. Topshirish = TAYYOR → TOPSHIRILDI
+ * 5. Pochta = TAYYOR → YAKUNLANDI
+ * 6. Invoys, Zayavka, TIR-SMR, ST, FITO TAYYOR → JARAYONDA
  */
 export async function calculateTaskStatus(
   tx: PrismaClient | Prisma.TransactionClient,
@@ -12,23 +15,63 @@ export async function calculateTaskStatus(
 ): Promise<TaskStatus> {
   const stages = await tx.taskStage.findMany({
     where: { taskId },
-    select: { status: true },
+    select: { name: true, status: true },
   });
 
   if (stages.length === 0) {
     return TaskStatus.BOSHLANMAGAN;
   }
 
-  const completedCount = stages.filter((s) => s.status === 'TAYYOR').length;
-  const totalCount = stages.length;
+  // Create a map of stage names to status
+  const stageMap = new Map(stages.map((s) => [s.name, s.status]));
+  
+  // Helper function to check if stage is TAYYOR
+  const isReady = (name: string): boolean => {
+    return stageMap.get(name) === 'TAYYOR';
+  };
 
-  if (completedCount === 0) {
+  // 1. Check if all stages are blank (BOSHLANMAGAN)
+  const allBlank = stages.every((s) => s.status === 'BOSHLANMAGAN');
+  if (allBlank) {
     return TaskStatus.BOSHLANMAGAN;
-  } else if (completedCount === totalCount) {
+  }
+
+  // Priority order based on formula (check from highest to lowest priority):
+  // 5. Pochta = TAYYOR → YAKUNLANDI
+  if (isReady('Pochta')) {
+    return TaskStatus.YAKUNLANDI;
+  }
+
+  // 4. Topshirish = TAYYOR → TOPSHIRILDI
+  if (isReady('Topshirish')) {
+    return TaskStatus.TOPSHIRILDI;
+  }
+
+  // 3. Tekshirish = TAYYOR → TEKSHIRILGAN
+  if (isReady('Tekshirish')) {
+    return TaskStatus.TEKSHIRILGAN;
+  }
+
+  // 2. Deklaratsiya = TAYYOR → TAYYOR
+  if (isReady('Deklaratsiya')) {
     return TaskStatus.TAYYOR;
-  } else {
+  }
+
+  // 6. Invoys, Zayavka, TIR-SMR, ST, FITO TAYYOR → JARAYONDA
+  const earlyStages = ['Invoys', 'Zayavka', 'TIR-SMR', 'ST', 'Fito', 'FITO'];
+  const hasEarlyStageReady = earlyStages.some((name) => isReady(name));
+  if (hasEarlyStageReady) {
     return TaskStatus.JARAYONDA;
   }
+
+  // If any other stage is TAYYOR, also return JARAYONDA
+  const hasAnyReady = stages.some((s) => s.status === 'TAYYOR');
+  if (hasAnyReady) {
+    return TaskStatus.JARAYONDA;
+  }
+
+  // Otherwise -> BOSHLANMAGAN
+  return TaskStatus.BOSHLANMAGAN;
 }
 
 /**

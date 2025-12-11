@@ -5,7 +5,7 @@ export interface AuthRequest extends Request {
   user?: {
     id: number;
     role: string;
-    branchId: number;
+    branchId: number | null;
     name: string;
   };
 }
@@ -23,7 +23,7 @@ export const requireAuth =
       req.user = {
         id: payload.sub,
         role: payload.role,
-        branchId: payload.branchId,
+        branchId: payload.branchId || null,
         name: payload.name,
       };
       if (roles.length && !roles.includes(payload.role)) {

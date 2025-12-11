@@ -4,7 +4,7 @@ import { config } from '../config';
 export interface JwtPayload {
   sub: number;
   role: string;
-  branchId: number;
+  branchId: number | null;
   name: string;
 }
 

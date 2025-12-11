@@ -15,7 +15,7 @@ const updateSchema = z.object({
   price: z.number().nonnegative(),
 });
 
-router.put('/configs', requireAuth('ADMIN', 'MANAGER'), async (req, res) => {
+router.put('/configs', requireAuth('ADMIN'), async (req, res) => {
   const parsed = updateSchema.array().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -31,7 +31,7 @@ router.put('/configs', requireAuth('ADMIN', 'MANAGER'), async (req, res) => {
   res.json(result);
 });
 
-router.get('/logs', requireAuth('ADMIN', 'MANAGER'), async (_req, res) => {
+router.get('/logs', requireAuth('ADMIN'), async (_req, res) => {
   const logs = await prisma.kpiLog.findMany({
     orderBy: { createdAt: 'desc' },
     take: 200,

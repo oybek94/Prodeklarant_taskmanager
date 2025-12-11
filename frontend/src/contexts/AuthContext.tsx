@@ -5,13 +5,13 @@ interface User {
   id: number;
   name: string;
   email: string;
-  role: 'ADMIN' | 'MANAGER' | 'WORKER' | 'ACCOUNTANT';
-  branchId?: number;
+  role: 'ADMIN' | 'MANAGER' | 'DEKLARANT';
+  branchId?: number | null;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -41,9 +41,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (password: string) => {
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
+      const response = await apiClient.post('/auth/login', { password });
       const { accessToken, refreshToken, user: userData } = response.data;
 
       localStorage.setItem('accessToken', accessToken);

@@ -13,6 +13,7 @@ model Branch {
   tasks        Task[]
   transactions Transaction[]
   users        User[]
+  statePayments StatePayment[]
 }
 
 model User {
@@ -23,7 +24,7 @@ model User {
   role         Role
   position     String?
   salary       Decimal?      @db.Decimal(12, 2)
-  branchId     Int
+  branchId     Int?
   passwordHash String
   photoUrl     String?
   active       Boolean       @default(true)
@@ -31,10 +32,12 @@ model User {
   auditLogs    AuditLog[]
   kpiLogs      KpiLog[]
   tasks        Task[]        @relation("TaskCreatedBy")
+  updatedTasks Task[]         @relation("TaskUpdatedBy")
   taskErrors   TaskError[]
   stages       TaskStage[]   @relation("StageAssignedTo")
   transactions Transaction[] @relation("TransactionWorker")
-  branch       Branch        @relation(fields: [branchId], references: [id])
+  taskVersions TaskVersion[]
+  branch       Branch?       @relation(fields: [branchId], references: [id])
 }
 
 model Client {
@@ -55,18 +58,26 @@ model Task {
   title        String
   status       TaskStatus    @default(BOSHLANMAGAN)
   createdById  Int
+  updatedById  Int?
   comments     String?
   hasPsr       Boolean       @default(false)
   driverPhone  String?
+  snapshotDealAmount Decimal? @db.Decimal(12, 2)  // Task yaratilgan vaqtdagi kelishuv summasi (snapshot)
+  snapshotCertificatePayment Decimal? @db.Decimal(12, 2)  // Task yaratilgan vaqtdagi sertifikat to'lovi (snapshot)
+  snapshotPsrPrice Decimal? @db.Decimal(12, 2)  // Task yaratilgan vaqtdagi PSR narxi (snapshot)
+  snapshotWorkerPrice Decimal? @db.Decimal(12, 2)  // Task yaratilgan vaqtdagi ishchi narxi (snapshot)
+  snapshotCustomsPayment Decimal? @db.Decimal(12, 2)  // Task yaratilgan vaqtdagi bojxona to'lovi (snapshot)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   kpiLogs      KpiLog[]
   branch       Branch        @relation(fields: [branchId], references: [id])
   client       Client        @relation(fields: [clientId], references: [id])
   createdBy    User          @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("TaskUpdatedBy", fields: [updatedById], references: [id])
   errors       TaskError[]
   stages       TaskStage[]
   transactions Transaction[]
+  versions     TaskVersion[]
 }
 
 model TaskStage {
@@ -146,17 +157,53 @@ model AuditLog {
   user      User?    @relation(fields: [userId], references: [id])
 }
 
+model TaskVersion {
+  id           Int      @id @default(autoincrement())
+  taskId       Int
+  version      Int
+  title        String
+  status       TaskStatus
+  comments     String?
+  hasPsr       Boolean
+  driverPhone  String?
+  clientId     Int
+  branchId     Int
+  changedBy    Int
+  changes      Json?    // O'zgarishlar haqida ma'lumot
+  createdAt    DateTime @default(now())
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  changedByUser User    @relation(fields: [changedBy], references: [id])
+  
+  @@unique([taskId, version])
+  @@index([taskId])
+}
+
+model StatePayment {
+  id                Int      @id @default(autoincrement())
+  branchId          Int      // Har bir filial uchun bir nechta davlat to'lovi bo'lishi mumkin
+  certificatePayment Decimal @default(0) @db.Decimal(12, 2)  // Sertifikat to'lovi
+  psrPrice          Decimal  @default(0) @db.Decimal(12, 2)  // PSR narxi
+  workerPrice       Decimal  @default(0) @db.Decimal(12, 2)  // Ishchi narxi
+  customsPayment    Decimal  @default(0) @db.Decimal(12, 2)  // Bojxona to'lovi
+  createdAt         DateTime @default(now())  // Bu davlat to'lovi qachon yaratilgan (shu vaqtdan boshlab amal qiladi)
+  branch            Branch   @relation(fields: [branchId], references: [id])
+  
+  @@index([branchId, createdAt])
+}
+
 enum Role {
   ADMIN
   MANAGER
-  WORKER
-  ACCOUNTANT
+  DEKLARANT
 }
 
 enum TaskStatus {
   BOSHLANMAGAN
   JARAYONDA
   TAYYOR
+  TEKSHIRILGAN
+  TOPSHIRILDI
+  YAKUNLANDI
 }
 
 enum StageStatus {

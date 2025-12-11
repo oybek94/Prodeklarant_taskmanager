@@ -17,7 +17,7 @@ const Layout = () => {
   ];
 
   const canAccess = (path: string) => {
-    if (path === '/workers' && user?.role !== 'ADMIN' && user?.role !== 'MANAGER') {
+    if (path === '/workers' && user?.role !== 'ADMIN') {
       return false;
     }
     return true;

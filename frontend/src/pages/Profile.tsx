@@ -16,8 +16,8 @@ interface WorkerDetail {
   name: string;
   email: string;
   role: string;
-  position?: string;
   salary?: number | string;
+  branchId?: number | null;
   branch?: { id: number; name: string };
 }
 
@@ -34,9 +34,11 @@ const Profile = () => {
     name: '',
     email: '',
     password: '',
-    position: '',
+    role: 'DEKLARANT' as 'ADMIN' | 'MANAGER' | 'DEKLARANT',
+    branchId: '',
     salary: '',
   });
+  const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
 
   const workerId = id ? parseInt(id) : user?.id;
 
@@ -47,7 +49,17 @@ const Profile = () => {
         loadWorkerDetail();
       }
     }
+    loadBranches();
   }, [workerId, period, id]);
+
+  const loadBranches = async () => {
+    try {
+      const response = await apiClient.get('/branches');
+      setBranches(response.data);
+    } catch (error) {
+      console.error('Error loading branches:', error);
+    }
+  };
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -70,7 +82,8 @@ const Profile = () => {
         name: response.data.name,
         email: response.data.email,
         password: '',
-        position: response.data.position || '',
+        role: response.data.role || 'DEKLARANT',
+        branchId: response.data.branchId ? response.data.branchId.toString() : '',
         salary: response.data.salary ? response.data.salary.toString() : '',
       });
     } catch (error) {
@@ -98,7 +111,8 @@ const Profile = () => {
         name: workerDetail.name,
         email: workerDetail.email,
         password: '',
-        position: workerDetail.position || '',
+        role: workerDetail.role || 'DEKLARANT',
+        branchId: workerDetail.branch?.id ? workerDetail.branch.id.toString() : '',
         salary: workerDetail.salary ? Number(workerDetail.salary).toString() : '',
       });
       setShowEditModal(true);
@@ -113,9 +127,14 @@ const Profile = () => {
       const updateData: any = {
         name: editForm.name,
         email: editForm.email,
-        position: editForm.position || undefined,
+        role: editForm.role,
         salary: editForm.salary ? parseFloat(editForm.salary) : undefined,
       };
+      if (editForm.branchId) {
+        updateData.branchId = parseInt(editForm.branchId);
+      } else if (editForm.role === 'MANAGER') {
+        updateData.branchId = null;
+      }
       if (editForm.password) {
         updateData.password = editForm.password;
       }
@@ -146,7 +165,7 @@ const Profile = () => {
   };
 
   const displayUser = id ? workerDetail : user;
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const isAdmin = user?.role === 'ADMIN';
 
   return (
     <div>
@@ -186,19 +205,9 @@ const Profile = () => {
               <div className="font-medium">{displayUser?.name}</div>
             </div>
             <div>
-              <span className="text-sm text-gray-500">Email:</span>
-              <div className="font-medium">{displayUser?.email}</div>
-            </div>
-            <div>
               <span className="text-sm text-gray-500">Rol:</span>
               <div className="font-medium">{displayUser?.role}</div>
             </div>
-            {workerDetail?.position && (
-              <div>
-                <span className="text-sm text-gray-500">Lavozim:</span>
-                <div className="font-medium">{workerDetail.position}</div>
-              </div>
-            )}
             {workerDetail?.salary && (
               <div>
                 <span className="text-sm text-gray-500">Oylik maosh:</span>
@@ -341,7 +350,6 @@ const Profile = () => {
                 </label>
                 <input
                   type="password"
-                  minLength={6}
                   value={editForm.password}
                   onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -351,16 +359,40 @@ const Profile = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Lavozim
+                  Role <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={editForm.position}
-                  onChange={(e) => setEditForm({ ...editForm, position: e.target.value })}
+                <select
+                  required
+                  value={editForm.role}
+                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value as 'ADMIN' | 'MANAGER' | 'DEKLARANT', branchId: e.target.value === 'MANAGER' ? '' : editForm.branchId })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Lavozim"
-                />
+                >
+                  <option value="DEKLARANT">DEKLARANT</option>
+                  <option value="MANAGER">MANAGER</option>
+                  <option value="ADMIN">ADMIN</option>
+                </select>
               </div>
+
+              {editForm.role !== 'MANAGER' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Filial <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required={editForm.role !== 'MANAGER'}
+                    value={editForm.branchId}
+                    onChange={(e) => setEditForm({ ...editForm, branchId: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Filialni tanlang</option>
+                    {branches.map((branch) => (
+                      <option key={branch.id} value={branch.id.toString()}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

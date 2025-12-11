@@ -33,7 +33,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
   // Completed tasks
   const completedTasks = await prisma.task.count({
-    where: { ...where, status: 'COMPLETED' },
+    where: { ...where, status: 'TAYYOR' },
   });
 
   // Process statistics (stages)
@@ -100,8 +100,8 @@ router.get('/charts', requireAuth(), async (req: AuthRequest, res) => {
 
   // Tasks completed by time
   const tasksCompleted = await prisma.task.findMany({
-    where: { ...where, status: 'COMPLETED' },
-    select: { createdAt: true },
+    where: { ...where, status: 'TAYYOR' },
+    select: { createdAt: true, updatedAt: true },
   });
 
   // KPI by worker

@@ -80,7 +80,7 @@ const TaskDetail = () => {
   const loadWorkers = async () => {
     try {
       const response = await apiClient.get('/users');
-      setWorkers(response.data.filter((u: any) => u.role === 'WORKER'));
+      setWorkers(response.data.filter((u: any) => u.role === 'DEKLARANT'));
     } catch (error) {
       console.error('Error loading workers:', error);
     }

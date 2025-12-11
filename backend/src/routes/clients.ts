@@ -102,8 +102,19 @@ router.get('/:id', async (req, res) => {
   const totalIncome = client.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
   const totalTasks = client.tasks.length;
   const dealAmount = Number(client.dealAmount || 0);
-  // Qoldiq = (Jami loyihalar soni * Shartnoma summasi) - Jami kirim
-  const balance = (totalTasks * dealAmount) - totalIncome;
+  
+  // PSR bor bo'lgan tasklar sonini hisoblash
+  const tasksWithPsr = client.tasks.filter(task => task.hasPsr).length;
+  const tasksWithoutPsr = totalTasks - tasksWithPsr;
+  
+  // PSR bor bo'lgan tasklar uchun dealAmount + 10, qolganlari uchun dealAmount
+  // Jami shartnoma summasi = (dealAmount + 10) * tasksWithPsr + dealAmount * tasksWithoutPsr
+  // Yoki oddiyroq: dealAmount * totalTasks + 10 * tasksWithPsr
+  const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+  
+  // Qoldiq = Jami shartnoma summasi - Jami kirim
+  const balance = totalDealAmount - totalIncome;
+  
   const tasksByBranch = client.tasks.reduce((acc: any, task) => {
     const branchName = task.branch.name;
     acc[branchName] = (acc[branchName] || 0) + 1;
@@ -114,10 +125,12 @@ router.get('/:id', async (req, res) => {
     ...client,
     stats: {
       dealAmount,
+      totalDealAmount, // Jami shartnoma summasi (PSR hisobga olingan)
       totalIncome,
       balance,
       tasksByBranch,
       totalTasks,
+      tasksWithPsr, // PSR bor bo'lgan tasklar soni
     },
   });
 });

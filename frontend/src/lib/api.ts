@@ -8,6 +8,8 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: false, // For now, we'll use localStorage for refresh token
+  timeout: 30000, // 30 seconds timeout
+  validateStatus: (status) => status < 500, // Don't throw on 4xx errors
 });
 
 // Request interceptor: Add access token to headers
@@ -43,6 +45,12 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
+    // Network error handling
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      console.error('Network Error: Backend serverga ulanib bo\'lmayapti. Iltimos, backend server ishlayotganini tekshiring.');
+      return Promise.reject(new Error('Backend serverga ulanib bo\'lmayapti. Iltimos, server ishlayotganini tekshiring.'));
+    }
+    
     const originalRequest = error.config as any;
 
     // If 401 and not already retrying

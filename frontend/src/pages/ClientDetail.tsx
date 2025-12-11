@@ -27,10 +27,12 @@ interface Client {
   transactions: Transaction[];
   stats: {
     dealAmount: number | string;
+    totalDealAmount?: number | string; // Jami shartnoma summasi (PSR hisobga olingan)
     totalIncome: number | string;
     balance: number | string;
     tasksByBranch: Record<string, number>;
     totalTasks: number;
+    tasksWithPsr?: number; // PSR bor bo'lgan tasklar soni
   };
 }
 
@@ -92,8 +94,19 @@ const ClientDetail = () => {
             <div className="font-medium">{client.phone || '-'}</div>
           </div>
           <div>
-            <div className="text-sm text-gray-500">Kelishuv summasi</div>
+            <div className="text-sm text-gray-500">Kelishuv summasi (bitta task)</div>
             <div className="font-medium">${Number(client.stats.dealAmount).toFixed(2)}</div>
+            {client.stats.totalDealAmount !== undefined && (
+              <>
+                <div className="text-xs text-gray-400 mt-1">Jami (PSR hisobga olingan)</div>
+                <div className="font-medium text-blue-600">${Number(client.stats.totalDealAmount).toFixed(2)}</div>
+                {client.stats.tasksWithPsr !== undefined && client.stats.tasksWithPsr > 0 && (
+                  <div className="text-xs text-gray-400 mt-1">
+                    (+${(client.stats.tasksWithPsr * 10).toFixed(2)} PSR uchun)
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <div>
             <div className="text-sm text-gray-500">Jami tushgan</div>

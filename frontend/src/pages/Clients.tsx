@@ -33,10 +33,12 @@ interface ClientDetail {
   }>;
   stats?: {
     dealAmount: number;
+    totalDealAmount?: number; // Jami shartnoma summasi (PSR hisobga olingan)
     totalIncome: number;
     balance: number;
     totalTasks: number;
     tasksByBranch: Record<string, number>;
+    tasksWithPsr?: number; // PSR bor bo'lgan tasklar soni
   };
 }
 
@@ -103,9 +105,14 @@ const Clients = () => {
     try {
       setLoading(true);
       const response = await apiClient.get('/clients');
-      setClients(response.data);
+      if (Array.isArray(response.data)) {
+        setClients(response.data);
+      } else {
+        setClients([]);
+      }
     } catch (error) {
       console.error('Error loading clients:', error);
+      setClients([]);
     } finally {
       setLoading(false);
     }
@@ -230,7 +237,7 @@ const Clients = () => {
     const colors = [
       'bg-blue-500',
       'bg-green-500',
-      'bg-purple-500',
+      'bg-blue-500',
       'bg-pink-500',
       'bg-yellow-500',
       'bg-indigo-500',
@@ -241,9 +248,9 @@ const Clients = () => {
     return colors[index];
   };
 
-  const sortedClients = clients.sort((a, b) => {
+  const sortedClients = Array.isArray(clients) ? clients.sort((a, b) => {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  }) : [];
 
   return (
     <div>
@@ -268,83 +275,119 @@ const Clients = () => {
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           {/* Total Clients */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <div className={`px-2 py-1 rounded text-xs font-medium ${
+          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
+            {/* Decorative pattern */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
+            
+            <div className="absolute top-3 right-3">
+              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
                 stats.total.change >= 0
                   ? 'bg-green-100 text-green-800'
                   : 'bg-red-100 text-red-800'
               }`}>
-                {stats.total.change >= 0 ? '↑' : '↓'} {formatChange(stats.total.change)}
+                <span className="inline-flex items-center">
+                  <span className="mr-1">{stats.total.change >= 0 ? '↑' : '↓'}</span>
+                  {formatChange(stats.total.change)}
+                </span>
               </div>
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">{stats.total.current}</div>
-            <div className="text-xs text-gray-500">Jami mijozlar</div>
+            <div className="flex items-center gap-3 mb-3 relative z-10">
+              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.total.current}</div>
+            <div className="text-sm text-blue-100 relative z-10 font-medium">Jami mijozlar</div>
           </div>
 
           {/* Active Clients */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className={`px-2 py-1 rounded text-xs font-medium ${
+          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
+            {/* Decorative pattern */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
+            
+            <div className="absolute top-3 right-3">
+              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
                 stats.active.change >= 0
                   ? 'bg-green-100 text-green-800'
                   : 'bg-red-100 text-red-800'
               }`}>
-                {stats.active.change >= 0 ? '↑' : '↓'} {formatChange(stats.active.change)}
+                <span className="inline-flex items-center">
+                  <span className="mr-1">{stats.active.change >= 0 ? '↑' : '↓'}</span>
+                  {formatChange(stats.active.change)}
+                </span>
               </div>
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">{stats.active.current}</div>
-            <div className="text-xs text-gray-500">Faol mijozlar</div>
+            <div className="flex items-center gap-3 mb-3 relative z-10">
+              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.active.current}</div>
+            <div className="text-sm text-blue-100 relative z-10 font-medium">Faol mijozlar</div>
           </div>
 
           {/* Inactive Clients */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className={`px-2 py-1 rounded text-xs font-medium ${
+          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
+            {/* Decorative pattern */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
+            
+            <div className="absolute top-3 right-3">
+              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
                 stats.inactive.change >= 0
                   ? 'bg-green-100 text-green-800'
                   : 'bg-red-100 text-red-800'
               }`}>
-                {stats.inactive.change >= 0 ? '↑' : '↓'} {formatChange(stats.inactive.change)}
+                <span className="inline-flex items-center">
+                  <span className="mr-1">{stats.inactive.change >= 0 ? '↑' : '↓'}</span>
+                  {formatChange(stats.inactive.change)}
+                </span>
               </div>
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">{stats.inactive.current}</div>
-            <div className="text-xs text-gray-500">Nofaol mijozlar</div>
+            <div className="flex items-center gap-3 mb-3 relative z-10">
+              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.inactive.current}</div>
+            <div className="text-sm text-blue-100 relative z-10 font-medium">Nofaol mijozlar</div>
           </div>
 
           {/* Archived Clients */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                </svg>
-              </div>
-              <div className={`px-2 py-1 rounded text-xs font-medium ${
+          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
+            {/* Decorative pattern */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
+            
+            <div className="absolute top-3 right-3">
+              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
                 stats.archived.change >= 0
                   ? 'bg-green-100 text-green-800'
                   : 'bg-red-100 text-red-800'
               }`}>
-                {stats.archived.change >= 0 ? '↑' : '↓'} {formatChange(stats.archived.change)}
+                <span className="inline-flex items-center">
+                  <span className="mr-1">{stats.archived.change >= 0 ? '↑' : '↓'}</span>
+                  {formatChange(stats.archived.change)}
+                </span>
               </div>
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">{stats.archived.current}</div>
-            <div className="text-xs text-gray-500">Arxivlangan mijozlar</div>
+            <div className="flex items-center gap-3 mb-3 relative z-10">
+              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.archived.current}</div>
+            <div className="text-sm text-blue-100 relative z-10 font-medium">Arxivlangan mijozlar</div>
           </div>
         </div>
       )}
@@ -589,10 +632,17 @@ const Clients = () => {
             {selectedClient.stats && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Barcha loyihalar summasi</div>
+                  <div className="text-sm text-gray-600 mb-1">Barcha loyihalar summasi (PSR hisobga olingan)</div>
                   <div className="text-2xl font-bold text-gray-900">
-                    ${(Number(selectedClient.stats.totalTasks) * Number(selectedClient.stats.dealAmount)).toFixed(2)}
+                    ${selectedClient.stats.totalDealAmount !== undefined 
+                      ? Number(selectedClient.stats.totalDealAmount).toFixed(2)
+                      : (Number(selectedClient.stats.totalTasks) * Number(selectedClient.stats.dealAmount)).toFixed(2)}
                   </div>
+                  {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +${(selectedClient.stats.tasksWithPsr * 10).toFixed(2)})
+                    </div>
+                  )}
                 </div>
                 <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
                   <div className="text-sm text-gray-600 mb-1">Jami to'lovlar</div>
@@ -628,12 +678,25 @@ const Clients = () => {
                 <div className="font-medium text-gray-900">{selectedClient.phone || '-'}</div>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-500 mb-1">Shartnoma summasi</div>
+                <div className="text-sm text-gray-500 mb-1">Shartnoma summasi (bitta task)</div>
                 <div className="font-medium text-gray-900">
                   {selectedClient.dealAmount
                     ? `$${Number(selectedClient.dealAmount).toFixed(2)}`
                     : '-'}
                 </div>
+                {selectedClient.stats?.totalDealAmount !== undefined && (
+                  <>
+                    <div className="text-sm text-gray-500 mb-1 mt-2">Jami shartnoma summasi (PSR hisobga olingan)</div>
+                    <div className="font-medium text-blue-600">
+                      ${Number(selectedClient.stats.totalDealAmount).toFixed(2)}
+                    </div>
+                    {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +${(selectedClient.stats.tasksWithPsr * 10).toFixed(2)})
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
@@ -673,7 +736,7 @@ const Clients = () => {
                             </div>
                           )}
                           <div
-                            className="w-full bg-gradient-to-t from-purple-500 to-purple-400 rounded-t transition-all duration-500 hover:from-purple-600 hover:to-purple-500 cursor-pointer relative"
+                            className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t transition-all duration-500 hover:from-blue-600 hover:to-blue-500 cursor-pointer relative"
                             style={{ 
                               height: `${height}%`,
                               minHeight: item.count > 0 ? '4px' : '0px'

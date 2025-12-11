@@ -282,91 +282,101 @@ const Transactions = () => {
       {monthlyStats && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {/* Income Card */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-600">Oylik Kirim</h3>
-              <div className={`px-2 py-1 rounded text-xs font-medium ${
+          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
+            {/* Decorative pattern */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
+            
+            <div className="absolute top-3 right-3">
+              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
                 monthlyStats.income.change >= 0
                   ? 'bg-green-100 text-green-800'
                   : 'bg-red-100 text-red-800'
               }`}>
-                {monthlyStats.income.change >= 0 ? '↑' : '↓'} {formatChange(monthlyStats.income.change)}
+                <span className="inline-flex items-center">
+                  <span className="mr-1">{monthlyStats.income.change >= 0 ? '↑' : '↓'}</span>
+                  {formatChange(monthlyStats.income.change)}
+                </span>
               </div>
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-2">
+            <div className="flex items-center gap-3 mb-3 relative z-10">
+              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">
               {formatCurrency(monthlyStats.income.current)}
             </div>
-            <div className="text-xs text-gray-500">Oxirgi oy bilan solishtirganda</div>
-            {/* Simple line chart placeholder */}
-            <div className="mt-4 h-12 flex items-end gap-1">
-              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <div
-                  key={i}
-                  className="flex-1 bg-green-200 rounded-t"
-                  style={{ height: `${Math.random() * 60 + 20}%` }}
-                />
-              ))}
-            </div>
+            <div className="text-sm text-blue-100 relative z-10 font-medium mb-2">Oylik Kirim</div>
+            <div className="text-xs text-blue-200 relative z-10">Oxirgi oy bilan solishtirganda</div>
           </div>
 
           {/* Expense Card */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-600">Oylik Chiqim</h3>
-              <div className={`px-2 py-1 rounded text-xs font-medium ${
+          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
+            {/* Decorative pattern */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
+            
+            <div className="absolute top-3 right-3">
+              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
                 monthlyStats.expense.change >= 0
                   ? 'bg-red-100 text-red-800'
                   : 'bg-green-100 text-green-800'
               }`}>
-                {monthlyStats.expense.change >= 0 ? '↑' : '↓'} {formatChange(monthlyStats.expense.change)}
+                <span className="inline-flex items-center">
+                  <span className="mr-1">{monthlyStats.expense.change >= 0 ? '↑' : '↓'}</span>
+                  {formatChange(monthlyStats.expense.change)}
+                </span>
               </div>
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-2">
+            <div className="flex items-center gap-3 mb-3 relative z-10">
+              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">
               {formatCurrency(monthlyStats.expense.current)}
             </div>
-            <div className="text-xs text-gray-500">Oxirgi oy bilan solishtirganda</div>
-            {/* Simple line chart placeholder */}
-            <div className="mt-4 h-12 flex items-end gap-1">
-              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <div
-                  key={i}
-                  className="flex-1 bg-red-200 rounded-t"
-                  style={{ height: `${Math.random() * 60 + 20}%` }}
-                />
-              ))}
-            </div>
+            <div className="text-sm text-blue-100 relative z-10 font-medium mb-2">Oylik Chiqim</div>
+            <div className="text-xs text-blue-200 relative z-10">Oxirgi oy bilan solishtirganda</div>
           </div>
 
           {/* Net Card */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-600">Foyda</h3>
-              <div className={`px-2 py-1 rounded text-xs font-medium ${
+          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
+            {/* Decorative pattern */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
+            
+            <div className="absolute top-3 right-3">
+              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
                 monthlyStats.net.change >= 0
                   ? 'bg-green-100 text-green-800'
                   : 'bg-red-100 text-red-800'
               }`}>
-                {monthlyStats.net.change >= 0 ? '↑' : '↓'} {formatChange(monthlyStats.net.change)}
+                <span className="inline-flex items-center">
+                  <span className="mr-1">{monthlyStats.net.change >= 0 ? '↑' : '↓'}</span>
+                  {formatChange(monthlyStats.net.change)}
+                </span>
               </div>
             </div>
-            <div className={`text-2xl font-bold mb-2 ${
-              monthlyStats.net.current >= 0 ? 'text-green-600' : 'text-red-600'
+            <div className="flex items-center gap-3 mb-3 relative z-10">
+              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+            </div>
+            <div className={`text-3xl font-bold mb-1 relative z-10 drop-shadow-lg ${
+              monthlyStats.net.current >= 0 ? 'text-white' : 'text-white'
             }`}>
               {formatCurrency(monthlyStats.net.current)}
             </div>
-            <div className="text-xs text-gray-500">Oxirgi oy bilan solishtirganda</div>
-            {/* Simple line chart placeholder */}
-            <div className="mt-4 h-12 flex items-end gap-1">
-              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <div
-                  key={i}
-                  className={`flex-1 rounded-t ${
-                    monthlyStats.net.current >= 0 ? 'bg-green-200' : 'bg-red-200'
-                  }`}
-                  style={{ height: `${Math.random() * 60 + 20}%` }}
-                />
-              ))}
-            </div>
+            <div className="text-sm text-blue-100 relative z-10 font-medium mb-2">Foyda</div>
+            <div className="text-xs text-blue-200 relative z-10">Oxirgi oy bilan solishtirganda</div>
           </div>
         </div>
       )}
@@ -732,40 +742,42 @@ const Transactions = () => {
       {loading ? (
         <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-xl overflow-hidden border-2 border-blue-200">
+          <table className="min-w-full divide-y divide-blue-100">
+            <thead className="bg-gradient-to-r from-blue-600 to-indigo-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Client/Worker/Category
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Amount
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Comment
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-blue-100">
               {transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 bg-blue-50">
                     Ma'lumotlar yo'q
                   </td>
                 </tr>
               ) : (
-                transactions.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50">
+                transactions.map((t, index) => (
+                  <tr key={t.id} className={`hover:bg-blue-100 transition-colors ${
+                    index % 2 === 0 ? 'bg-blue-50' : 'bg-white'
+                  }`}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-1 text-xs rounded-full ${

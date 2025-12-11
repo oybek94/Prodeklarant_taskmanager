@@ -13,11 +13,15 @@ const Layout = () => {
     { path: '/transactions', label: 'Transactions', icon: '💰' },
     { path: '/clients', label: 'Clients', icon: '👥' },
     { path: '/workers', label: 'Workers', icon: '👷' },
+    { path: '/state-payments', label: 'Davlat to\'lovlari', icon: '🏛️' },
     { path: '/profile', label: 'Profile', icon: '👤' },
   ];
 
   const canAccess = (path: string) => {
     if (path === '/workers' && user?.role !== 'ADMIN') {
+      return false;
+    }
+    if (path === '/state-payments' && user?.role !== 'ADMIN') {
       return false;
     }
     return true;
@@ -113,7 +117,7 @@ const Layout = () => {
               <div className="text-sm text-gray-500">{user?.role}</div>
             </div>
             <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-              {user?.name.charAt(0).toUpperCase()}
+              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
           </div>
         </header>

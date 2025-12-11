@@ -200,7 +200,7 @@ const Workers = () => {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3 flex-1">
                       <div className="relative">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-full flex items-center justify-center text-white text-sm font-semibold">
                           {getInitials()}
                         </div>
                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>

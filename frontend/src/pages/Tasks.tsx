@@ -40,6 +40,7 @@ interface TaskDetail {
   updatedBy?: { id: number; name: string; email: string };
   stages: TaskStage[];
   netProfit?: number | null; // Sof foyda (faqat ADMIN uchun)
+  adminEarnedAmount?: number | null; // Admin ishlab topgan pul
   snapshotDealAmount?: number | null; // Task yaratilgan vaqtdagi kelishuv summasi
   snapshotCertificatePayment?: number | null; // Task yaratilgan vaqtdagi sertifikat to'lovi
   snapshotPsrPrice?: number | null; // Task yaratilgan vaqtdagi PSR narxi
@@ -1594,7 +1595,7 @@ const Tasks = () => {
               </div>
             </div>
 
-            {/* Sof Foyda (faqat ADMIN uchun) */}
+            {/* Sof Foyda va Admin ishlab topgan pul (faqat ADMIN uchun) */}
             {user?.role === 'ADMIN' && selectedTask.netProfit !== null && selectedTask.netProfit !== undefined && (
               <div className={`mb-6 p-4 border rounded-lg ${
                 selectedTask.netProfit >= 0 
@@ -1606,7 +1607,7 @@ const Tasks = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div className={`text-sm font-semibold ${selectedTask.netProfit >= 0 ? 'text-green-800' : 'text-orange-800'}`}>
-                    Sof Foyda
+                    Foyda hisoboti
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -1647,7 +1648,7 @@ const Tasks = () => {
                     <span className={`text-sm font-semibold ${selectedTask.netProfit >= 0 ? 'text-green-800' : 'text-orange-800'}`}>
                       Sof foyda:
                     </span>
-                    <span className={`text-lg font-bold ${selectedTask.netProfit >= 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                    <span className={`text-sm font-bold ${selectedTask.netProfit >= 0 ? 'text-green-600' : 'text-orange-600'}`}>
                       {new Intl.NumberFormat('uz-UZ', {
                         style: 'currency',
                         currency: 'USD',
@@ -1655,6 +1656,34 @@ const Tasks = () => {
                       }).format(selectedTask.netProfit)}
                     </span>
                   </div>
+                  {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
+                    <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-blue-800">
+                        Admin ishlab topgan pul:
+                      </span>
+                      <span className="text-sm font-bold text-blue-600">
+                        {new Intl.NumberFormat('uz-UZ', {
+                          style: 'currency',
+                          currency: 'USD',
+                          minimumFractionDigits: 2,
+                        }).format(selectedTask.adminEarnedAmount)}
+                      </span>
+                    </div>
+                  )}
+                  {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
+                    <div className="pt-2 border-t-2 border-gray-300 flex items-center justify-between">
+                      <span className="text-sm font-bold text-gray-800">
+                        Jami foyda:
+                      </span>
+                      <span className="text-lg font-bold text-purple-600">
+                        {new Intl.NumberFormat('uz-UZ', {
+                          style: 'currency',
+                          currency: 'USD',
+                          minimumFractionDigits: 2,
+                        }).format((selectedTask.netProfit || 0) + (selectedTask.adminEarnedAmount || 0))}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

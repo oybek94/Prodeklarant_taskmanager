@@ -215,6 +215,7 @@ router.get('/:id', async (req, res) => {
               id: true,
               name: true,
               email: true,
+              role: true,
             },
           },
         },
@@ -293,9 +294,67 @@ router.get('/:id', async (req, res) => {
     console.error('Error calculating net profit:', error);
   }
   
+  // Calculate admin earned amount from stages
+  let adminEarnedAmount = 0;
+  try {
+    const STAGE_PERCENTAGES: Record<string, number> = {
+      'Invoys': 20,
+      'Zayavka': 10,
+      'TIR-SMR': 10,
+      'ST': 5,
+      'FITO': 5,
+      'Deklaratsiya': 15,
+      'Tekshirish': 15,
+      'Topshirish': 10,
+      'Pochta': 10,
+    };
+    
+    // Get workerPrice from snapshot or state payment
+    let workerPrice = 0;
+    if (task.snapshotWorkerPrice !== null && task.snapshotWorkerPrice !== undefined) {
+      workerPrice = Number(task.snapshotWorkerPrice);
+    } else {
+      const taskCreatedAt = new Date(task.createdAt);
+      const statePayment = await prisma.statePayment.findFirst({
+        where: {
+          branchId: task.branchId,
+          createdAt: { lte: taskCreatedAt },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+      if (statePayment) {
+        workerPrice = Number(statePayment.workerPrice);
+      }
+    }
+    
+    // Calculate admin earned amount from completed stages assigned to ADMIN
+    for (const stage of task.stages) {
+      if (stage.status === 'TAYYOR' && stage.assignedTo?.role === 'ADMIN') {
+        let stageName = stage.name;
+        // Normalize stage names
+        if (stageName === 'Xujjat_tekshirish' || stageName === 'Xujjat tekshirish' || stageName === 'Tekshirish') {
+          stageName = 'Tekshirish';
+        } else if (stageName === 'Xujjat_topshirish' || stageName === 'Xujjat topshirish' || stageName === 'Topshirish') {
+          stageName = 'Topshirish';
+        } else if (stageName === 'Fito' || stageName === 'FITO') {
+          stageName = 'FITO';
+        }
+        
+        const percentage = STAGE_PERCENTAGES[stageName] || 0;
+        const earnedForThisStage = (workerPrice * percentage) / 100;
+        adminEarnedAmount += earnedForThisStage;
+      }
+    }
+  } catch (error) {
+    console.error('Error calculating admin earned amount:', error);
+  }
+  
   res.json({
     ...task,
     netProfit, // Sof foyda (faqat ADMIN uchun ko'rsatiladi)
+    adminEarnedAmount, // Admin ishlab topgan pul
   });
 });
 

@@ -83,8 +83,6 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/workers', workersRouter);
 app.use('/api/branches', requireAuth(), branchesRouter);
 app.use('/api/state-payments', requireAuth('ADMIN'), statePaymentsRouter);
-app.use('/api/training', trainingRouter);
-app.use('/api/exams', examsRouter);
 app.use('/api/bxm', bxmRouter);
 app.use('/api/training', trainingRouter);
 app.use('/api/exams', examsRouter);

@@ -67,6 +67,7 @@ model Task {
   snapshotPsrPrice Decimal? @db.Decimal(12, 2)  // Task yaratilgan vaqtdagi PSR narxi (snapshot)
   snapshotWorkerPrice Decimal? @db.Decimal(12, 2)  // Task yaratilgan vaqtdagi ishchi narxi (snapshot)
   snapshotCustomsPayment Decimal? @db.Decimal(12, 2)  // Task yaratilgan vaqtdagi bojxona to'lovi (snapshot)
+  customsPaymentMultiplier Decimal? @db.Decimal(5, 2)  // Deklaratsiya jarayonida tanlangan BXM multiplier (0.5 dan 4 gacha)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   kpiLogs      KpiLog[]
@@ -189,6 +190,14 @@ model StatePayment {
   branch            Branch   @relation(fields: [branchId], references: [id])
   
   @@index([branchId, createdAt])
+}
+
+model BXMConfig {
+  id        Int      @id @default(autoincrement())
+  amount    Decimal  @default(34.4) @db.Decimal(12, 2)  // Bazaviy Xisoblash Miqdori (BXM)
+  year      Int      @unique  // Yil (har yil uchun alohida BXM)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum Role {

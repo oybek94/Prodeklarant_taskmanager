@@ -92,6 +92,9 @@ const Tasks = () => {
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [selectedStageForReminder, setSelectedStageForReminder] = useState<TaskStage | null>(null);
+  const [showBXMModal, setShowBXMModal] = useState(false);
+  const [bxmMultiplier, setBxmMultiplier] = useState<string>('1');
+  const [currentBXM, setCurrentBXM] = useState<number>(34.4);
   const [clients, setClients] = useState<Client[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [stats, setStats] = useState<TaskStats | null>(null);
@@ -416,25 +419,55 @@ const Tasks = () => {
     setShowReminderModal(false);
     
     if (confirmed) {
-      try {
-        setUpdatingStage(selectedStageForReminder.id);
-        // Small delay for animation
-        await new Promise(resolve => setTimeout(resolve, 300));
-        await apiClient.patch(`/tasks/${selectedTask.id}/stages/${selectedStageForReminder.id}`, {
-          status: 'TAYYOR',
-        });
-        await loadTaskDetail(selectedTask.id);
-        await loadTasks();
-      } catch (error: any) {
-        console.error('Error updating stage:', error);
-        alert(error.response?.data?.error || 'Xatolik yuz berdi');
-      } finally {
-        setUpdatingStage(null);
-        setSelectedStageForReminder(null);
+      // If Deklaratsiya stage, show BXM multiplier modal
+      if (selectedStageForReminder.name === 'Deklaratsiya') {
+        try {
+          const bxmResponse = await apiClient.get('/bxm/current');
+          setCurrentBXM(Number(bxmResponse.data.amount));
+          setBxmMultiplier('1');
+          setShowBXMModal(true);
+        } catch (error) {
+          console.error('Error loading BXM:', error);
+          setShowBXMModal(true);
+        }
+      } else {
+        await updateStageToReady();
       }
     } else {
       setSelectedStageForReminder(null);
     }
+  };
+
+  const updateStageToReady = async (customsPaymentMultiplier?: number) => {
+    if (!selectedStageForReminder || !selectedTask) return;
+    
+    try {
+      setUpdatingStage(selectedStageForReminder.id);
+      // Small delay for animation
+      await new Promise(resolve => setTimeout(resolve, 300));
+      await apiClient.patch(`/tasks/${selectedTask.id}/stages/${selectedStageForReminder.id}`, {
+        status: 'TAYYOR',
+        ...(customsPaymentMultiplier && { customsPaymentMultiplier }),
+      });
+      await loadTaskDetail(selectedTask.id);
+      await loadTasks();
+      setShowBXMModal(false);
+      setSelectedStageForReminder(null);
+    } catch (error: any) {
+      console.error('Error updating stage:', error);
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    } finally {
+      setUpdatingStage(null);
+    }
+  };
+
+  const handleBXMConfirm = async () => {
+    const multiplier = parseFloat(bxmMultiplier);
+    if (isNaN(multiplier) || multiplier < 0.5 || multiplier > 4) {
+      alert('Multiplier 0.5 dan 4 gacha bo\'lishi kerak');
+      return;
+    }
+    await updateStageToReady(multiplier);
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -1899,6 +1932,76 @@ const Tasks = () => {
                 </div>
               )}
             </div>
+
+            {/* BXM Multiplier Modal */}
+            {showBXMModal && selectedStageForReminder && (
+              <div 
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] backdrop-blur-sm"
+                style={{
+                  animation: 'backdropFadeIn 0.3s ease-out'
+                }}
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setShowBXMModal(false);
+                    setSelectedStageForReminder(null);
+                  }
+                }}
+              >
+                <div 
+                  className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+                  style={{
+                    animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  }}
+                >
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Deklaratsiya To'lovi</h3>
+                  <div className="mb-4">
+                    <div className="text-sm text-gray-600 mb-2">
+                      Joriy BXM: <span className="font-semibold text-blue-600">${currentBXM.toFixed(2)}</span>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-4">
+                      BXMning 0.5 dan 4 barobarigacha tanlash mumkin
+                    </div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      BXM Multiplier (0.5 - 4)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.5"
+                      max="4"
+                      value={bxmMultiplier}
+                      onChange={(e) => setBxmMultiplier(e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      placeholder="1.0"
+                    />
+                    {bxmMultiplier && !isNaN(parseFloat(bxmMultiplier)) && (
+                      <div className="mt-2 text-sm text-gray-600">
+                        Deklaratsiya to'lovi: <span className="font-semibold text-green-600">
+                          ${(currentBXM * parseFloat(bxmMultiplier)).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleBXMConfirm}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      Tasdiqlash
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowBXMModal(false);
+                        setSelectedStageForReminder(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                    >
+                      Bekor qilish
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Reminder Modal */}
             {showReminderModal && selectedStageForReminder && (

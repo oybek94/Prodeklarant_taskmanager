@@ -64,6 +64,7 @@ const Layout = () => {
     { path: '/clients', label: 'Clients' },
     { path: '/workers', label: 'Workers' },
     { path: '/state-payments', label: 'Davlat to\'lovlari' },
+    { path: '/settings', label: 'Sozlamalar' },
     { path: '/profile', label: 'Profile' },
   ];
 
@@ -72,6 +73,9 @@ const Layout = () => {
       return false;
     }
     if (path === '/state-payments' && user?.role !== 'ADMIN') {
+      return false;
+    }
+    if (path === '/settings' && user?.role !== 'ADMIN') {
       return false;
     }
     return true;

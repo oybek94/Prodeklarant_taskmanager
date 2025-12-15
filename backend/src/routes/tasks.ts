@@ -27,6 +27,7 @@ const createTaskSchema = z.object({
   comments: z.string().optional(),
   hasPsr: z.boolean(),
   driverPhone: z.string().optional(),
+  customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
 });
 
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
@@ -171,6 +172,7 @@ router.post('/', async (req: AuthRequest, res) => {
         snapshotPsrPrice,
         snapshotWorkerPrice,
         snapshotCustomsPayment,
+        customsPaymentMultiplier,
       },
     });
     await tx.taskStage.createMany({
@@ -379,6 +381,7 @@ router.get('/:id/versions', async (req, res) => {
 
 const updateStageSchema = z.object({
   status: z.enum(['BOSHLANMAGAN', 'TAYYOR']),
+  customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
 });
 
 router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
@@ -419,6 +422,24 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
 
   const now = new Date();
   const updated = await prisma.$transaction(async (tx) => {
+    // If Deklaratsiya stage is being started and multiplier is provided, update task's customs payment
+    if (stage.name === 'Deklaratsiya' && parsed.data.status === 'TAYYOR' && parsed.data.customsPaymentMultiplier) {
+      const currentYear = new Date().getFullYear();
+      const bxmConfig = await tx.bXMConfig.findUnique({
+        where: { year: currentYear },
+      });
+      const bxmAmount = bxmConfig ? Number(bxmConfig.amount) : 34.4; // Default BXM
+      const calculatedCustomsPayment = bxmAmount * parsed.data.customsPaymentMultiplier;
+      
+      await tx.task.update({
+        where: { id: taskId },
+        data: {
+          customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
+          snapshotCustomsPayment: calculatedCustomsPayment,
+        },
+      });
+    }
+    
     const upd = await tx.taskStage.update({
       where: { id: stageId },
       data: {

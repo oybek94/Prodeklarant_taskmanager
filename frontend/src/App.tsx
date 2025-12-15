@@ -12,6 +12,7 @@ import ClientDetail from './pages/ClientDetail';
 import Workers from './pages/Workers';
 import Profile from './pages/Profile';
 import StatePayments from './pages/StatePayments';
+import Settings from './pages/Settings';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -54,6 +55,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <StatePayments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Settings />
             </ProtectedRoute>
           }
         />

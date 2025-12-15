@@ -12,6 +12,7 @@ import dashboardRouter from './routes/dashboard';
 import workersRouter from './routes/workers';
 import branchesRouter from './routes/branches';
 import statePaymentsRouter from './routes/state-payments';
+import bxmRouter from './routes/bxm';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 // import { fixDatabaseRoles } from './utils/fixDatabaseRoles'; // Vaqtinchalik o'chirilgan
@@ -40,6 +41,7 @@ app.get('/', (_req, res) => {
       users: '/api/users',
       dashboard: '/api/dashboard',
       workers: '/api/workers',
+      bxm: '/api/bxm',
     },
   });
 });
@@ -63,6 +65,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/workers', workersRouter);
 app.use('/api/branches', requireAuth(), branchesRouter);
 app.use('/api/state-payments', requireAuth('ADMIN'), statePaymentsRouter);
+app.use('/api/bxm', bxmRouter);
 
 // Server'ni darhol ishga tushirish - database ulanishini kutmasdan
 app.listen(PORT, '0.0.0.0', () => {

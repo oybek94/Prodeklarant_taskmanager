@@ -17,6 +17,7 @@ import TrainingDetail from './pages/TrainingDetail';
 import TrainingManagement from './pages/TrainingManagement';
 import TrainingManageDetail from './pages/TrainingManageDetail';
 import Exam from './pages/Exam';
+import ExamResult from './pages/ExamResult';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -64,6 +65,7 @@ const AppRoutes = () => {
           }
         />
         <Route path="/exam/:id" element={<Exam />} />
+        <Route path="/exam/:id/result" element={<ExamResult />} />
         <Route
           path="/workers"
           element={

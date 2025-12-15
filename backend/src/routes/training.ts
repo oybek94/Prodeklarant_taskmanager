@@ -205,8 +205,11 @@ router.post('/:id/materials/:materialId/complete', requireAuth(), async (req, re
       },
     });
 
-    const progressPercent = Math.round((completedMaterialsCount / totalMaterials) * 100);
-    const completed = progressPercent === 100;
+    // Agar materiallar bo'lmasa, progress 0% bo'ladi
+    const progressPercent = totalMaterials > 0 
+      ? Math.round((completedMaterialsCount / totalMaterials) * 100)
+      : 0;
+    const completed = totalMaterials > 0 && progressPercent === 100;
 
     // Progress yangilash
     const updatedProgress = await prisma.trainingProgress.update({

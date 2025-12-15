@@ -35,7 +35,12 @@ app.use(cors({
       return callback(null, true);
     }
     
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Production: origin bo'lishi shart
+    if (!origin) {
+      return callback(new Error('CORS policy violation: Origin header is required'));
+    }
+    
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('CORS policy violation'));

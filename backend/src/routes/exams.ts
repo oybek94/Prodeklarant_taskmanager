@@ -157,6 +157,13 @@ router.post('/:id/submit', requireAuth(), async (req, res) => {
     }
 
     // Imtihon natijasini yangilash
+    // Agar savollar bo'lmasa, maxScore 0 bo'ladi, shuning uchun tekshirish kerak
+    if (attempt.maxScore === 0) {
+      return res.status(400).json({ 
+        error: 'Imtihonda savollar mavjud emas. Avval savollar qo\'shing.' 
+      });
+    }
+    
     const scorePercent = Math.round((totalScore / attempt.maxScore) * 100);
     const passed = scorePercent >= exam.passingScore;
 
@@ -197,6 +204,14 @@ router.post('/:id/submit', requireAuth(), async (req, res) => {
 router.get('/:id/results', requireAuth(), async (req, res) => {
   try {
     const examId = parseInt(req.params.id);
+    const exam = await prisma.exam.findUnique({
+      where: { id: examId },
+    });
+
+    if (!exam) {
+      return res.status(404).json({ error: 'Imtihon topilmadi' });
+    }
+
     const attempts = await prisma.examAttempt.findMany({
       where: {
         userId: req.user!.id,
@@ -212,7 +227,14 @@ router.get('/:id/results', requireAuth(), async (req, res) => {
       },
     });
 
-    res.json(attempts);
+    res.json({
+      exam: {
+        id: exam.id,
+        title: exam.title,
+        passingScore: exam.passingScore,
+      },
+      attempts,
+    });
   } catch (error) {
     console.error('Error fetching exam results:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });

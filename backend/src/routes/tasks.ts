@@ -27,6 +27,7 @@ const createTaskSchema = z.object({
   comments: z.string().optional(),
   hasPsr: z.boolean(),
   driverPhone: z.string().optional(),
+  customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
 });
 
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
@@ -171,6 +172,7 @@ router.post('/', async (req: AuthRequest, res) => {
         snapshotPsrPrice,
         snapshotWorkerPrice,
         snapshotCustomsPayment,
+        customsPaymentMultiplier,
       },
     });
     await tx.taskStage.createMany({
@@ -215,6 +217,7 @@ router.get('/:id', async (req, res) => {
               id: true,
               name: true,
               email: true,
+              role: true,
             },
           },
         },
@@ -293,9 +296,67 @@ router.get('/:id', async (req, res) => {
     console.error('Error calculating net profit:', error);
   }
   
+  // Calculate admin earned amount from stages
+  let adminEarnedAmount = 0;
+  try {
+    const STAGE_PERCENTAGES: Record<string, number> = {
+      'Invoys': 20,
+      'Zayavka': 10,
+      'TIR-SMR': 10,
+      'ST': 5,
+      'FITO': 5,
+      'Deklaratsiya': 15,
+      'Tekshirish': 15,
+      'Topshirish': 10,
+      'Pochta': 10,
+    };
+    
+    // Get workerPrice from snapshot or state payment
+    let workerPrice = 0;
+    if (task.snapshotWorkerPrice !== null && task.snapshotWorkerPrice !== undefined) {
+      workerPrice = Number(task.snapshotWorkerPrice);
+    } else {
+      const taskCreatedAt = new Date(task.createdAt);
+      const statePayment = await prisma.statePayment.findFirst({
+        where: {
+          branchId: task.branchId,
+          createdAt: { lte: taskCreatedAt },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+      if (statePayment) {
+        workerPrice = Number(statePayment.workerPrice);
+      }
+    }
+    
+    // Calculate admin earned amount from completed stages assigned to ADMIN
+    for (const stage of task.stages) {
+      if (stage.status === 'TAYYOR' && stage.assignedTo?.role === 'ADMIN') {
+        let stageName = stage.name;
+        // Normalize stage names
+        if (stageName === 'Xujjat_tekshirish' || stageName === 'Xujjat tekshirish' || stageName === 'Tekshirish') {
+          stageName = 'Tekshirish';
+        } else if (stageName === 'Xujjat_topshirish' || stageName === 'Xujjat topshirish' || stageName === 'Topshirish') {
+          stageName = 'Topshirish';
+        } else if (stageName === 'Fito' || stageName === 'FITO') {
+          stageName = 'FITO';
+        }
+        
+        const percentage = STAGE_PERCENTAGES[stageName] || 0;
+        const earnedForThisStage = (workerPrice * percentage) / 100;
+        adminEarnedAmount += earnedForThisStage;
+      }
+    }
+  } catch (error) {
+    console.error('Error calculating admin earned amount:', error);
+  }
+  
   res.json({
     ...task,
     netProfit, // Sof foyda (faqat ADMIN uchun ko'rsatiladi)
+    adminEarnedAmount, // Admin ishlab topgan pul
   });
 });
 
@@ -320,6 +381,7 @@ router.get('/:id/versions', async (req, res) => {
 
 const updateStageSchema = z.object({
   status: z.enum(['BOSHLANMAGAN', 'TAYYOR']),
+  customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
 });
 
 router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
@@ -360,6 +422,24 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
 
   const now = new Date();
   const updated = await prisma.$transaction(async (tx) => {
+    // If Deklaratsiya stage is being started and multiplier is provided, update task's customs payment
+    if (stage.name === 'Deklaratsiya' && parsed.data.status === 'TAYYOR' && parsed.data.customsPaymentMultiplier) {
+      const currentYear = new Date().getFullYear();
+      const bxmConfig = await tx.bXMConfig.findUnique({
+        where: { year: currentYear },
+      });
+      const bxmAmount = bxmConfig ? Number(bxmConfig.amount) : 34.4; // Default BXM
+      const calculatedCustomsPayment = bxmAmount * parsed.data.customsPaymentMultiplier;
+      
+      await tx.task.update({
+        where: { id: taskId },
+        data: {
+          customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
+          snapshotCustomsPayment: calculatedCustomsPayment,
+        },
+      });
+    }
+    
     const upd = await tx.taskStage.update({
       where: { id: stageId },
       data: {

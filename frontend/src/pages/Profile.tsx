@@ -2,6 +2,18 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import {
+  Chart as ChartJS,
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Pie, Bar } from 'react-chartjs-2';
+
+ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 interface Stats {
   period: string;
@@ -9,6 +21,26 @@ interface Stats {
   completedStages: number;
   totalSalary: number;
   tasksAssigned: number;
+}
+
+interface StageStat {
+  stageName: string;
+  participationCount: number;
+  earnedAmount: number;
+  receivedAmount: number;
+  pendingAmount: number;
+  percentage: number;
+}
+
+interface StageStats {
+  period: string;
+  stageStats: StageStat[];
+  totals: {
+    totalParticipation: number;
+    totalEarned: number;
+    totalReceived: number;
+    totalPending: number;
+  };
 }
 
 interface WorkerDetail {
@@ -26,7 +58,9 @@ const Profile = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
+  const [stageStats, setStageStats] = useState<StageStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [stageStatsLoading, setStageStatsLoading] = useState(true);
   const [period, setPeriod] = useState('month');
   const [workerDetail, setWorkerDetail] = useState<WorkerDetail | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -45,6 +79,7 @@ const Profile = () => {
   useEffect(() => {
     if (workerId) {
       loadStats();
+      loadStageStats();
       if (id) {
         loadWorkerDetail();
       }
@@ -102,6 +137,20 @@ const Profile = () => {
       console.error('Error loading stats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadStageStats = async () => {
+    try {
+      setStageStatsLoading(true);
+      const response = await apiClient.get(`/workers/${workerId}/stage-stats`, {
+        params: { period },
+      });
+      setStageStats(response.data);
+    } catch (error) {
+      console.error('Error loading stage stats:', error);
+    } finally {
+      setStageStatsLoading(false);
     }
   };
 
@@ -195,94 +244,285 @@ const Profile = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* User Info */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Profil ma'lumotlari</h2>
-          <div className="space-y-3">
-            <div>
-              <span className="text-sm text-gray-500">Ism:</span>
-              <div className="font-medium">{displayUser?.name}</div>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Rol:</span>
-              <div className="font-medium">{displayUser?.role}</div>
-            </div>
-            {workerDetail?.salary && (
-              <div>
-                <span className="text-sm text-gray-500">Oylik maosh:</span>
-                <div className="font-medium">${Number(workerDetail.salary).toFixed(2)}</div>
-              </div>
-            )}
-            {workerDetail?.branch && (
-              <div>
-                <span className="text-sm text-gray-500">Filial:</span>
-                <div className="font-medium">{workerDetail.branch.name}</div>
-              </div>
-            )}
-          </div>
+      {/* Stage Statistics */}
+      <div className="mt-6 bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold text-gray-800">Jarayonlar bo'yicha statistika</h2>
+          <select
+            value={period}
+            onChange={(e) => {
+              setPeriod(e.target.value);
+            }}
+            className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
+          >
+            <option value="day">Kun</option>
+            <option value="week">Hafta</option>
+            <option value="month">Oy</option>
+            <option value="year">Yil</option>
+              <option value="all">Barchasi</option>
+          </select>
         </div>
 
-        {/* Statistics */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Statistika</h2>
-            <select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-              className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="day">Kun</option>
-              <option value="week">Hafta</option>
-              <option value="month">Oy</option>
-              <option value="year">Yil</option>
-            </select>
-          </div>
-          {loading ? (
-            <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-          ) : stats ? (
-            <div className="space-y-4">
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Qancha pul olgan (KPI)</div>
-                <div className="text-2xl font-bold text-gray-800">
-                  ${Number(stats.totalKPI).toFixed(2)}
+        {stageStatsLoading ? (
+          <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
+        ) : stageStats && stageStats.stageStats.length > 0 ? (
+          <>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              <div className="bg-blue-50 rounded-lg p-3">
+                <div className="text-xs text-blue-600 mb-1">Jami ishtirok</div>
+                <div className="text-xl font-bold text-blue-800">
+                  {stageStats.totals.totalParticipation}
                 </div>
               </div>
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Qancha ish qilgan</div>
-                <div className="text-xl font-bold text-gray-800">
-                  {stats.completedStages} ta bosqich
-                </div>
-                <div className="text-sm text-gray-500 mt-1">
-                  {stats.tasksAssigned} ta task yakunlangan
+              <div className="bg-green-50 rounded-lg p-3">
+                <div className="text-xs text-green-600 mb-1">Ishlab topilgan</div>
+                <div className="text-xl font-bold text-green-800">
+                  ${Number(stageStats.totals.totalEarned).toFixed(2)}
                 </div>
               </div>
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Oylik to'lov</div>
-                <div className="text-xl font-bold text-gray-800">
-                  ${Number(stats.totalSalary).toFixed(2)}
+              <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
+                <div className="text-xs text-purple-600 mb-1">Jami olingan</div>
+                <div className="text-xl font-bold text-purple-800">
+                  ${Number(stageStats.totals.totalReceived).toFixed(2)}
                 </div>
               </div>
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Balans</div>
-                <div
-                  className={`text-xl font-bold ${
-                    Number(stats.totalKPI) - Number(stats.totalSalary) >= 0
-                      ? 'text-green-600'
-                      : 'text-red-600'
-                  }`}
-                >
-                  ${(Number(stats.totalKPI) - Number(stats.totalSalary)).toFixed(2)}
+              <div className={`rounded-lg p-3 border-2 ${
+                stageStats.totals.totalPending > 0 
+                  ? 'bg-orange-50 border-orange-200' 
+                  : 'bg-gray-50 border-gray-200'
+              }`}>
+                <div className={`text-xs mb-1 ${
+                  stageStats.totals.totalPending > 0 ? 'text-orange-600' : 'text-gray-600'
+                }`}>
+                  Haqdorlik
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {Number(stats.totalKPI) - Number(stats.totalSalary) >= 0 ? 'Haqdor' : 'Qarzdor'}
+                <div className={`text-xl font-bold ${
+                  stageStats.totals.totalPending > 0 ? 'text-orange-800' : 'text-gray-800'
+                }`}>
+                  ${Number(stageStats.totals.totalPending).toFixed(2)}
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="text-center py-4 text-gray-400">Ma'lumotlar yo'q</div>
-          )}
-        </div>
+
+            {/* Stage Details Table and Pie Chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Table - 50% */}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Jarayon</th>
+                    <th className="text-center py-3 px-4 font-semibold text-gray-700">Bosqich to'lovi</th>
+                    <th className="text-center py-3 px-4 font-semibold text-gray-700">Ishtirok</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishlab topilgan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stageStats.stageStats.map((stat, idx) => (
+                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 font-medium text-gray-800">{stat.stageName}</td>
+                      <td className="py-3 px-4 text-center text-gray-800 font-semibold">
+                        ${stat.participationCount > 0 ? (Number(stat.earnedAmount) / stat.participationCount).toFixed(2) : '0.00'}
+                      </td>
+                        <td className="py-3 px-4 text-center text-gray-800 font-semibold">
+                          {stat.participationCount}
+                        </td>
+                        <td className="py-3 px-4 text-right text-green-600 font-semibold">
+                          ${Number(stat.earnedAmount).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pie Chart - 50% */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Ishtirok foizi</h3>
+                <div className="flex flex-col items-center">
+                  {(() => {
+                    const totalParticipation = stageStats.totals.totalParticipation || 1;
+                    const colors = [
+                      '#3b82f6', // blue
+                      '#10b981', // green
+                      '#8b5cf6', // purple
+                      '#f97316', // orange
+                      '#ef4444', // red
+                      '#eab308', // yellow
+                      '#ec4899', // pink
+                      '#6366f1', // indigo
+                      '#14b8a6', // teal
+                    ];
+                    
+                    const chartData = {
+                      labels: stageStats.stageStats.map(stat => stat.stageName),
+                      datasets: [
+                        {
+                          data: stageStats.stageStats.map(stat => stat.participationCount),
+                          backgroundColor: stageStats.stageStats.map((_, idx) => colors[idx % colors.length]),
+                          borderColor: '#fff',
+                          borderWidth: 2,
+                        },
+                      ],
+                    };
+                    
+                    const chartOptions = {
+                      responsive: true,
+                      maintainAspectRatio: true,
+                      plugins: {
+                        legend: {
+                          position: 'bottom' as const,
+                          labels: {
+                            padding: 15,
+                            font: {
+                              size: 12,
+                            },
+                            generateLabels: (chart: any) => {
+                              const data = chart.data;
+                              if (data.labels.length && data.datasets.length) {
+                                return data.labels.map((label: string, idx: number) => {
+                                  const dataset = data.datasets[0];
+                                  const value = dataset.data[idx];
+                                  const total = dataset.data.reduce((a: number, b: number) => a + b, 0);
+                                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+                                  
+                                  return {
+                                    text: `${label}: ${value} (${percentage}%)`,
+                                    fillStyle: dataset.backgroundColor[idx],
+                                    strokeStyle: dataset.borderColor,
+                                    lineWidth: dataset.borderWidth,
+                                    hidden: false,
+                                    index: idx,
+                                  };
+                                });
+                              }
+                              return [];
+                            },
+                          },
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: (context: any) => {
+                              const label = context.label || '';
+                              const value = context.parsed || 0;
+                              const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+                              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+                              return `${label}: ${value} (${percentage}%)`;
+                            },
+                          },
+                        },
+                      },
+                    };
+                    
+                    return (
+                      <div className="w-full" style={{ maxWidth: '400px' }}>
+                        <Pie data={chartData} options={chartOptions} />
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+              {/* Participation Chart */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Ishtirok soni</h3>
+                <div style={{ height: '300px' }}>
+                  <Bar
+                    data={{
+                      labels: stageStats.stageStats.map(stat => stat.stageName),
+                      datasets: [
+                        {
+                          label: 'Ishtirok soni',
+                          data: stageStats.stageStats.map(stat => stat.participationCount),
+                          backgroundColor: '#3b82f6',
+                          borderColor: '#2563eb',
+                          borderWidth: 1,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false,
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: (context: any) => {
+                              return `Ishtirok: ${context.parsed.y}`;
+                            },
+                          },
+                        },
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          ticks: {
+                            stepSize: 1,
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Earnings Chart */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Ishlab topilgan summa</h3>
+                <div style={{ height: '300px' }}>
+                  <Bar
+                    data={{
+                      labels: stageStats.stageStats.map(stat => stat.stageName),
+                      datasets: [
+                        {
+                          label: 'Ishlab topilgan summa',
+                          data: stageStats.stageStats.map(stat => Number(stat.earnedAmount)),
+                          backgroundColor: '#10b981',
+                          borderColor: '#059669',
+                          borderWidth: 1,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false,
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: (context: any) => {
+                              return `Summa: $${context.parsed.y.toFixed(2)}`;
+                            },
+                          },
+                        },
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          ticks: {
+                            callback: function(value: any) {
+                              return '$' + value.toFixed(2);
+                            },
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-8 text-gray-400">Jarayonlar bo'yicha ma'lumotlar yo'q</div>
+        )}
       </div>
 
       {/* Edit Modal */}

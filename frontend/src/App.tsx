@@ -11,7 +11,7 @@ import Clients from './pages/Clients';
 import ClientDetail from './pages/ClientDetail';
 import Workers from './pages/Workers';
 import Profile from './pages/Profile';
-import StatePayments from './pages/StatePayments';
+import Settings from './pages/Settings';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,10 +50,10 @@ const AppRoutes = () => {
         />
         <Route path="/workers/:id" element={<Profile />} />
         <Route
-          path="/state-payments"
+          path="/settings"
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
-              <StatePayments />
+              <Settings />
             </ProtectedRoute>
           }
         />

@@ -93,7 +93,7 @@ const Tasks = () => {
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [selectedStageForReminder, setSelectedStageForReminder] = useState<TaskStage | null>(null);
   const [showBXMModal, setShowBXMModal] = useState(false);
-  const [bxmMultiplier, setBxmMultiplier] = useState<string>('1');
+  const [bxmMultiplier, setBxmMultiplier] = useState<string>('0.5');
   const [currentBXM, setCurrentBXM] = useState<number>(34.4);
   const [clients, setClients] = useState<Client[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -424,7 +424,7 @@ const Tasks = () => {
         try {
           const bxmResponse = await apiClient.get('/bxm/current');
           setCurrentBXM(Number(bxmResponse.data.amount));
-          setBxmMultiplier('1');
+          setBxmMultiplier('0.5');
           setShowBXMModal(true);
         } catch (error) {
           console.error('Error loading BXM:', error);

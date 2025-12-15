@@ -12,6 +12,11 @@ import ClientDetail from './pages/ClientDetail';
 import Workers from './pages/Workers';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import Training from './pages/Training';
+import TrainingDetail from './pages/TrainingDetail';
+import TrainingManagement from './pages/TrainingManagement';
+import TrainingManageDetail from './pages/TrainingManageDetail';
+import Exam from './pages/Exam';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -40,6 +45,25 @@ const AppRoutes = () => {
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/clients" element={<Clients />} />
         <Route path="/clients/:id" element={<ClientDetail />} />
+        <Route path="/training" element={<Training />} />
+        <Route path="/training/:id" element={<TrainingDetail />} />
+        <Route
+          path="/training/manage"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <TrainingManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/training/:id/manage"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <TrainingManageDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/exam/:id" element={<Exam />} />
         <Route
           path="/workers"
           element={

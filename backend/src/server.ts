@@ -13,6 +13,8 @@ import workersRouter from './routes/workers';
 import branchesRouter from './routes/branches';
 import statePaymentsRouter from './routes/state-payments';
 import bxmRouter from './routes/bxm';
+import trainingRouter from './routes/training';
+import examsRouter from './routes/exams';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 // import { fixDatabaseRoles } from './utils/fixDatabaseRoles'; // Vaqtinchalik o'chirilgan
@@ -21,8 +23,24 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 
 // CORS sozlamalari
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
+];
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: (origin, callback) => {
+    // Development: origin yo'q bo'lsa ham ruxsat berish (Postman, curl kabi)
+    if (process.env.NODE_ENV !== 'production' && !origin) {
+      return callback(null, true);
+    }
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS policy violation'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -65,7 +83,11 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/workers', workersRouter);
 app.use('/api/branches', requireAuth(), branchesRouter);
 app.use('/api/state-payments', requireAuth('ADMIN'), statePaymentsRouter);
+app.use('/api/training', trainingRouter);
+app.use('/api/exams', examsRouter);
 app.use('/api/bxm', bxmRouter);
+app.use('/api/training', trainingRouter);
+app.use('/api/exams', examsRouter);
 
 // Server'ni darhol ishga tushirish - database ulanishini kutmasdan
 app.listen(PORT, '0.0.0.0', () => {

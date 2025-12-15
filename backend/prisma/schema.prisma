@@ -37,6 +37,8 @@ model User {
   stages       TaskStage[]   @relation("StageAssignedTo")
   transactions Transaction[] @relation("TransactionWorker")
   taskVersions TaskVersion[]
+  trainingProgress TrainingProgress[]
+  examAttempts ExamAttempt[]
   branch       Branch?       @relation(fields: [branchId], references: [id])
 }
 
@@ -224,4 +226,131 @@ enum TransactionType {
   INCOME
   EXPENSE
   SALARY
+}
+
+// O'qitish tizimi modellari
+model Training {
+  id          Int              @id @default(autoincrement())
+  title       String
+  description String?
+  orderIndex  Int              @default(0)  // Tartib raqami
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  materials   TrainingMaterial[]
+  progress    TrainingProgress[]
+  exams       Exam[]
+}
+
+model TrainingMaterial {
+  id          Int       @id @default(autoincrement())
+  trainingId  Int
+  title       String
+  content     String?   // Matn kontenti
+  type        MaterialType
+  fileUrl     String?   // Audio yoki Video fayl URL
+  orderIndex  Int       @default(0)  // Tartib raqami
+  durationMin Int?      // Video/Audio davomiyligi (daqiqa)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  training    Training  @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  
+  @@index([trainingId])
+}
+
+model TrainingProgress {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  trainingId  Int
+  materialId  Int?      // Qaysi materialni o'qigan
+  completed   Boolean   @default(false)
+  progressPercent Int   @default(0)  // 0-100%
+  lastAccessedAt DateTime @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  training    Training  @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, trainingId])
+  @@index([userId])
+  @@index([trainingId])
+}
+
+model Exam {
+  id          Int           @id @default(autoincrement())
+  trainingId  Int
+  title       String
+  description String?
+  passingScore Int          @default(70)  // O'tish balli (foiz)
+  timeLimitMin Int?         // Vaqt cheklovi (daqiqa)
+  active      Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  training    Training      @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  questions   ExamQuestion[]
+  attempts    ExamAttempt[]
+  
+  @@index([trainingId])
+}
+
+model ExamQuestion {
+  id          Int       @id @default(autoincrement())
+  examId      Int
+  question    String
+  type        QuestionType @default(SINGLE_CHOICE)
+  options     Json      // Variantlar: ["A", "B", "C", "D"]
+  correctAnswer Json    // To'g'ri javob
+  points      Int       @default(1)  // Ball
+  orderIndex  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  exam        Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers     ExamAnswer[]
+  
+  @@index([examId])
+}
+
+model ExamAttempt {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  examId      Int
+  score       Int       @default(0)  // Olingan ball
+  maxScore    Int       // Maksimal ball
+  passed      Boolean   @default(false)
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  answers     ExamAnswer[]
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam        Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([examId])
+}
+
+model ExamAnswer {
+  id          Int       @id @default(autoincrement())
+  attemptId   Int
+  questionId  Int
+  answer      Json      // Foydalanuvchi javobi
+  isCorrect   Boolean   @default(false)
+  points      Int       @default(0)
+  createdAt   DateTime  @default(now())
+  attempt     ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question    ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  @@index([attemptId])
+  @@index([questionId])
+}
+
+enum MaterialType {
+  TEXT
+  AUDIO
+  VIDEO
+}
+
+enum QuestionType {
+  SINGLE_CHOICE    // Bitta javob tanlash
+  MULTIPLE_CHOICE  // Bir nechta javob tanlash
+  TEXT             // Matnli javob
 }

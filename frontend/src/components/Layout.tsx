@@ -53,6 +53,18 @@ const Layout = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
         );
+      case '/training':
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+        );
+      case '/training/manage':
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+        );
       default:
         return null;
     }
@@ -63,6 +75,8 @@ const Layout = () => {
     { path: '/tasks', label: 'Tasks' },
     { path: '/transactions', label: 'Transactions' },
     { path: '/clients', label: 'Clients' },
+    { path: '/training', label: 'O\'qitish' },
+    { path: '/training/manage', label: 'O\'qitish Boshqaruvi', adminOnly: true },
     { path: '/workers', label: 'Workers' },
     { path: '/settings', label: 'Sozlamalar' },
     { path: '/profile', label: 'Profile' },
@@ -111,7 +125,8 @@ const Layout = () => {
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {menuItems.map((item) => {
             if (!canAccess(item.path)) return null;
-            const isActive = location.pathname === item.path;
+            if (item.adminOnly && user?.role !== 'ADMIN') return null;
+            const isActive = location.pathname === item.path || (item.path === '/training/manage' && location.pathname.startsWith('/training/') && location.pathname.includes('/manage'));
             return (
               <Link
                 key={item.path}

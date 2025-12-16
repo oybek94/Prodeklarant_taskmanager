@@ -71,10 +71,10 @@ const Layout = () => {
   };
 
   const menuItems = [
-    { path: '/dashboard', label: 'Dashboard' },
+    { path: '/dashboard', label: 'Dashboard', adminOnly: true },
     { path: '/tasks', label: 'Tasks' },
     { path: '/transactions', label: 'Transactions' },
-    { path: '/clients', label: 'Clients' },
+    { path: '/clients', label: 'Clients', adminOnly: true },
     { path: '/training', label: 'O\'qitish' },
     { path: '/training/manage', label: 'O\'qitish Boshqaruvi', adminOnly: true },
     { path: '/workers', label: 'Workers' },
@@ -83,6 +83,12 @@ const Layout = () => {
   ];
 
   const canAccess = (path: string) => {
+    if (path === '/dashboard' && user?.role !== 'ADMIN') {
+      return false;
+    }
+    if (path === '/clients' && user?.role !== 'ADMIN') {
+      return false;
+    }
     if (path === '/workers' && user?.role !== 'ADMIN') {
       return false;
     }

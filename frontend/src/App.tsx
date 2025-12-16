@@ -20,7 +20,7 @@ import Exam from './pages/Exam';
 import ExamResult from './pages/ExamResult';
 
 const AppRoutes = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -32,7 +32,14 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} />
+      <Route 
+        path="/login" 
+        element={
+          isAuthenticated 
+            ? <Navigate to={user?.role === 'ADMIN' ? "/dashboard" : "/tasks"} /> 
+            : <Login /> 
+        } 
+      />
       <Route
         element={
           <ProtectedRoute>
@@ -40,12 +47,33 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/tasks/:id" element={<TaskDetail />} />
         <Route path="/transactions" element={<Transactions />} />
-        <Route path="/clients" element={<Clients />} />
-        <Route path="/clients/:id" element={<ClientDetail />} />
+        <Route
+          path="/clients"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Clients />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/clients/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <ClientDetail />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/training" element={<Training />} />
         <Route path="/training/:id" element={<TrainingDetail />} />
         <Route
@@ -85,7 +113,19 @@ const AppRoutes = () => {
         />
         <Route path="/profile" element={<Profile />} />
       </Route>
-      <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
+      <Route 
+        path="/" 
+        element={
+          <Navigate 
+            to={
+              isAuthenticated 
+                ? (user?.role === 'ADMIN' ? "/dashboard" : "/tasks")
+                : "/login"
+            } 
+            replace 
+          />
+        } 
+      />
     </Routes>
   );
 };

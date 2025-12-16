@@ -95,6 +95,15 @@ const Tasks = () => {
   const [showBXMModal, setShowBXMModal] = useState(false);
   const [bxmMultiplier, setBxmMultiplier] = useState<string>('0.5');
   const [currentBXM, setCurrentBXM] = useState<number>(34.4);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorForm, setErrorForm] = useState({
+    workerId: '',
+    stageName: '',
+    amount: '',
+    comment: '',
+    date: new Date().toISOString().split('T')[0],
+  });
+  const [workers, setWorkers] = useState<{ id: number; name: string; role: string }[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [stats, setStats] = useState<TaskStats | null>(null);
@@ -133,6 +142,7 @@ const Tasks = () => {
     loadTasks();
     loadClients();
     loadBranches();
+    loadWorkers();
   }, [showArchive]);
 
   // Clear archive filters when switching tabs
@@ -218,6 +228,15 @@ const Tasks = () => {
     } catch (error) {
       console.error('Error loading clients:', error);
       setClients([]);
+    }
+  };
+
+  const loadWorkers = async () => {
+    try {
+      const response = await apiClient.get('/users');
+      setWorkers(response.data.filter((u: any) => u.role === 'DEKLARANT' || u.role === 'ADMIN'));
+    } catch (error) {
+      console.error('Error loading workers:', error);
     }
   };
 
@@ -1511,45 +1530,67 @@ const Tasks = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    if (selectedTask) {
-                      setEditForm({
-                        title: selectedTask.title,
-                        clientId: selectedTask.client.id.toString(),
-                        branchId: selectedTask.branch.id.toString(),
-                        comments: selectedTask.comments || '',
-                        hasPsr: selectedTask.hasPsr || false,
-                        driverPhone: selectedTask.driverPhone || '',
-                      });
-                      setShowEditModal(true);
-                    }
+                    setErrorForm({
+                      workerId: '',
+                      stageName: '',
+                      amount: '',
+                      comment: '',
+                      date: new Date().toISOString().split('T')[0],
+                    });
+                    setShowErrorModal(true);
                   }}
-                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium flex items-center gap-1.5"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                  O'zgartirish
+                  Xato
                 </button>
-                <button
-                  onClick={async () => {
-                    if (confirm('Bu taskni o\'chirishni xohlaysizmi?')) {
-                      try {
-                        await apiClient.delete(`/tasks/${selectedTask.id}`);
-                        setShowTaskModal(false);
-                        setSelectedTask(null);
-                        await loadTasks();
-                      } catch (error: any) {
-                        alert(error.response?.data?.error || 'Xatolik yuz berdi');
+                {(selectedTask.status !== 'YAKUNLANDI' || user?.role === 'ADMIN') && (
+                  <button
+                    onClick={() => {
+                      if (selectedTask) {
+                        setEditForm({
+                          title: selectedTask.title,
+                          clientId: selectedTask.client.id.toString(),
+                          branchId: selectedTask.branch.id.toString(),
+                          comments: selectedTask.comments || '',
+                          hasPsr: selectedTask.hasPsr || false,
+                          driverPhone: selectedTask.driverPhone || '',
+                        });
+                        setShowEditModal(true);
                       }
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center gap-1.5"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  O'chirish
-                </button>
+                    }}
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    O'zgartirish
+                  </button>
+                )}
+                {(selectedTask.status !== 'YAKUNLANDI' || user?.role === 'ADMIN') && (
+                  <button
+                    onClick={async () => {
+                      if (confirm('Bu taskni o\'chirishni xohlaysizmi?')) {
+                        try {
+                          await apiClient.delete(`/tasks/${selectedTask.id}`);
+                          setShowTaskModal(false);
+                          setSelectedTask(null);
+                          await loadTasks();
+                        } catch (error: any) {
+                          alert(error.response?.data?.error || 'Xatolik yuz berdi');
+                        }
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    O'chirish
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setShowTaskModal(false);
@@ -2242,6 +2283,184 @@ const Tasks = () => {
                   className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
                 >
                   Bekor
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {showErrorModal && selectedTask && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowErrorModal(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">Xato qo'shish</h2>
+              <button
+                onClick={() => setShowErrorModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  await apiClient.post(`/tasks/${selectedTask.id}/errors`, {
+                    taskTitle: selectedTask.title,
+                    workerId: parseInt(errorForm.workerId),
+                    stageName: errorForm.stageName,
+                    amount: parseFloat(errorForm.amount),
+                    comment: errorForm.comment,
+                    date: new Date(errorForm.date),
+                  });
+                  setShowErrorModal(false);
+                  setErrorForm({
+                    workerId: '',
+                    stageName: '',
+                    amount: '',
+                    comment: '',
+                    date: new Date().toISOString().split('T')[0],
+                  });
+                  // Reload task to show updated data
+                  if (selectedTask) {
+                    const response = await apiClient.get(`/tasks/${selectedTask.id}`);
+                    setSelectedTask(response.data);
+                  }
+                  await loadTasks();
+                  alert('Xato muvaffaqiyatli qo\'shildi');
+                } catch (error: any) {
+                  alert(error.response?.data?.error || 'Xatolik yuz berdi');
+                }
+              }}
+              className="space-y-4"
+            >
+              {/* Task nomi (read-only) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Task nomi
+                </label>
+                <input
+                  type="text"
+                  value={selectedTask.title}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                />
+              </div>
+
+              {/* Ishchi */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ishchi <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={errorForm.workerId}
+                  onChange={(e) => setErrorForm({ ...errorForm, workerId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">Ishchini tanlang</option>
+                  {workers.map((worker) => (
+                    <option key={worker.id} value={worker.id.toString()}>
+                      {worker.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Bosqich */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Bosqich <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={errorForm.stageName}
+                  onChange={(e) => setErrorForm({ ...errorForm, stageName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">Bosqichni tanlang</option>
+                  <option value="Invoys">Invoys</option>
+                  <option value="Zayavka">Zayavka</option>
+                  <option value="TIR-SMR">TIR-SMR</option>
+                  <option value="ST">ST</option>
+                  <option value="Fito">Fito</option>
+                  <option value="Deklaratsiya">Deklaratsiya</option>
+                  <option value="Tekshirish">Tekshirish</option>
+                  <option value="Topshirish">Topshirish</option>
+                  <option value="Pochta">Pochta</option>
+                </select>
+              </div>
+
+              {/* Summa */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Summa <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={errorForm.amount}
+                  onChange={(e) => setErrorForm({ ...errorForm, amount: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="0.00"
+                />
+              </div>
+
+              {/* Tavsif */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tavsif
+                </label>
+                <textarea
+                  value={errorForm.comment}
+                  onChange={(e) => setErrorForm({ ...errorForm, comment: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  rows={3}
+                  placeholder="Xato haqida batafsil ma'lumot"
+                />
+              </div>
+
+              {/* Sana */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sana <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={errorForm.date}
+                  onChange={(e) => setErrorForm({ ...errorForm, date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowErrorModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                >
+                  Saqlash
                 </button>
               </div>
             </form>

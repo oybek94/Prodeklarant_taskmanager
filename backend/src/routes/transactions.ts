@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { z } from 'zod';
+import { AuthRequest, requireAuth } from '../middleware/auth';
 
 const router = Router();
 
@@ -17,10 +18,24 @@ const baseSchema = z.object({
   branchId: z.number().optional(),
 });
 
-router.get('/', async (req, res) => {
+router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   const { type } = req.query;
+  const user = req.user;
+  
+  // Build where clause based on user role
+  const where: any = {};
+  
+  if (type) {
+    where.type = type as any;
+  }
+  
+  // If user is not ADMIN, show only transactions where they are the worker
+  if (user && user.role !== 'ADMIN') {
+    where.workerId = user.id;
+  }
+  
   const items = await prisma.transaction.findMany({
-    where: { type: type ? (type as any) : undefined },
+    where,
     include: {
       client: {
         select: {
@@ -138,7 +153,7 @@ router.get('/stats/monthly', async (req, res) => {
   });
 });
 
-router.post('/', async (req, res) => {
+router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   const parsed = baseSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 

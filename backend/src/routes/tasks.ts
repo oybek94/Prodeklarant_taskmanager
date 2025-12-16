@@ -126,65 +126,65 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     const parsed = createTaskSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-    const task = await prisma.$transaction(async (tx) => {
-      // Client'ning kelishuv summasini olish
-      const client = await tx.client.findUnique({
-        where: { id: parsed.data.clientId },
-        select: { dealAmount: true },
-      });
-
-      // Davlat to'lovlarini olish (task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovi)
-      const taskCreatedAt = new Date();
-      const statePayment = await tx.statePayment.findFirst({
-        where: {
-          branchId: parsed.data.branchId,
-          createdAt: { lte: taskCreatedAt }, // Task yaratilgunga qadar yaratilgan davlat to'lovlari
-        },
-        orderBy: {
-          createdAt: 'desc', // Eng so'nggi davlat to'lovi
-        },
-      });
-
-      let snapshotDealAmount = client?.dealAmount ? Number(client.dealAmount) : null;
-      let snapshotCertificatePayment = null;
-      let snapshotPsrPrice = null;
-      let snapshotWorkerPrice = null;
-      let snapshotCustomsPayment = null;
-
-      if (statePayment) {
-        // Task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovidan foydalanamiz
-        snapshotCertificatePayment = Number(statePayment.certificatePayment);
-        snapshotPsrPrice = Number(statePayment.psrPrice);
-        snapshotWorkerPrice = Number(statePayment.workerPrice);
-        snapshotCustomsPayment = Number(statePayment.customsPayment);
-      }
-
-      const createdTask = await tx.task.create({
-        data: {
-          clientId: parsed.data.clientId,
-          branchId: parsed.data.branchId,
-          title: parsed.data.title,
-          comments: parsed.data.comments,
-          hasPsr: parsed.data.hasPsr,
-          driverPhone: parsed.data.driverPhone || null,
-          createdById: req.user!.id,
-          snapshotDealAmount,
-          snapshotCertificatePayment,
-          snapshotPsrPrice,
-          snapshotWorkerPrice,
-          snapshotCustomsPayment,
-          customsPaymentMultiplier: parsed.data.customsPaymentMultiplier || null,
-        },
-      });
-      await tx.taskStage.createMany({
-        data: stageTemplates.map((name, idx) => ({
-          taskId: createdTask.id,
-          name,
-          stageOrder: idx + 1,
-        })),
-      });
-      return createdTask;
+  const task = await prisma.$transaction(async (tx) => {
+    // Client'ning kelishuv summasini olish
+    const client = await tx.client.findUnique({
+      where: { id: parsed.data.clientId },
+      select: { dealAmount: true },
     });
+
+    // Davlat to'lovlarini olish (task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovi)
+    const taskCreatedAt = new Date();
+    const statePayment = await tx.statePayment.findFirst({
+      where: {
+        branchId: parsed.data.branchId,
+        createdAt: { lte: taskCreatedAt }, // Task yaratilgunga qadar yaratilgan davlat to'lovlari
+      },
+      orderBy: {
+        createdAt: 'desc', // Eng so'nggi davlat to'lovi
+      },
+    });
+
+    let snapshotDealAmount = client?.dealAmount ? Number(client.dealAmount) : null;
+    let snapshotCertificatePayment = null;
+    let snapshotPsrPrice = null;
+    let snapshotWorkerPrice = null;
+    let snapshotCustomsPayment = null;
+
+    if (statePayment) {
+      // Task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovidan foydalanamiz
+      snapshotCertificatePayment = Number(statePayment.certificatePayment);
+      snapshotPsrPrice = Number(statePayment.psrPrice);
+      snapshotWorkerPrice = Number(statePayment.workerPrice);
+      snapshotCustomsPayment = Number(statePayment.customsPayment);
+    }
+
+    const createdTask = await tx.task.create({
+      data: {
+        clientId: parsed.data.clientId,
+        branchId: parsed.data.branchId,
+        title: parsed.data.title,
+        comments: parsed.data.comments,
+        hasPsr: parsed.data.hasPsr,
+        driverPhone: parsed.data.driverPhone || null,
+        createdById: req.user!.id,
+        snapshotDealAmount,
+        snapshotCertificatePayment,
+        snapshotPsrPrice,
+        snapshotWorkerPrice,
+        snapshotCustomsPayment,
+        customsPaymentMultiplier: parsed.data.customsPaymentMultiplier || null,
+      },
+    });
+    await tx.taskStage.createMany({
+      data: stageTemplates.map((name, idx) => ({
+        taskId: createdTask.id,
+        name,
+        stageOrder: idx + 1,
+      })),
+    });
+    return createdTask;
+  });
 
     res.status(201).json(task);
   } catch (error: any) {
@@ -512,18 +512,38 @@ router.post('/:taskId/errors', async (req: AuthRequest, res) => {
   const parsed = errorSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const error = await prisma.taskError.create({
-    data: {
-      taskId,
-      stageName: parsed.data.stageName,
-      workerId: parsed.data.workerId,
-      amount: parsed.data.amount,
-      comment: parsed.data.comment,
-      date: parsed.data.date,
-    },
-    include: { worker: { select: { id: true, name: true } } },
+  // Create error and deduct from worker's earned amount using transaction
+  const result = await prisma.$transaction(async (tx) => {
+    // Create the error record
+    const error = await tx.taskError.create({
+      data: {
+        taskId,
+        stageName: parsed.data.stageName,
+        workerId: parsed.data.workerId,
+        amount: parsed.data.amount,
+        comment: parsed.data.comment,
+        date: parsed.data.date,
+      },
+      include: {
+        worker: { select: { id: true, name: true } },
+      },
+    });
+
+    // Create a negative KPI log entry to deduct from worker's earned amount
+    // This will be reflected in their totalReceived calculation
+    await tx.kpiLog.create({
+      data: {
+        userId: parsed.data.workerId,
+        taskId: taskId,
+        stageName: parsed.data.stageName,
+        amount: -parsed.data.amount, // Negative amount to deduct
+      },
+    });
+
+    return error;
   });
-  res.status(201).json(error);
+
+  res.status(201).json(result);
 });
 
 router.delete('/:taskId/errors/:errorId', async (req: AuthRequest, res) => {

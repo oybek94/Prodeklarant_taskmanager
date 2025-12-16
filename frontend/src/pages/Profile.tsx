@@ -12,8 +12,9 @@ import {
   Legend,
 } from 'chart.js';
 import { Pie, Bar } from 'react-chartjs-2';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
-ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
 
 interface Stats {
   period: string;
@@ -59,8 +60,10 @@ const Profile = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
   const [stageStats, setStageStats] = useState<StageStats | null>(null);
+  const [errorStats, setErrorStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [stageStatsLoading, setStageStatsLoading] = useState(true);
+  const [errorStatsLoading, setErrorStatsLoading] = useState(true);
   const [period, setPeriod] = useState('month');
   const [workerDetail, setWorkerDetail] = useState<WorkerDetail | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -80,6 +83,7 @@ const Profile = () => {
     if (workerId) {
       loadStats();
       loadStageStats();
+      loadErrorStats();
       if (id) {
         loadWorkerDetail();
       }
@@ -151,6 +155,20 @@ const Profile = () => {
       console.error('Error loading stage stats:', error);
     } finally {
       setStageStatsLoading(false);
+    }
+  };
+
+  const loadErrorStats = async () => {
+    try {
+      setErrorStatsLoading(true);
+      const response = await apiClient.get(`/workers/${workerId}/error-stats`, {
+        params: { period },
+      });
+      setErrorStats(response.data);
+    } catch (error) {
+      console.error('Error loading error stats:', error);
+    } finally {
+      setErrorStatsLoading(false);
     }
   };
 
@@ -372,34 +390,28 @@ const Profile = () => {
                       maintainAspectRatio: true,
                       plugins: {
                         legend: {
-                          position: 'bottom' as const,
-                          labels: {
-                            padding: 15,
-                            font: {
-                              size: 12,
-                            },
-                            generateLabels: (chart: any) => {
-                              const data = chart.data;
-                              if (data.labels.length && data.datasets.length) {
-                                return data.labels.map((label: string, idx: number) => {
-                                  const dataset = data.datasets[0];
-                                  const value = dataset.data[idx];
-                                  const total = dataset.data.reduce((a: number, b: number) => a + b, 0);
-                                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
-                                  
-                                  return {
-                                    text: `${label}: ${value} (${percentage}%)`,
-                                    fillStyle: dataset.backgroundColor[idx],
-                                    strokeStyle: dataset.borderColor,
-                                    lineWidth: dataset.borderWidth,
-                                    hidden: false,
-                                    index: idx,
-                                  };
-                                });
-                              }
-                              return [];
-                            },
+                          display: false,
+                        },
+                        datalabels: {
+                          color: '#fff',
+                          font: {
+                            size: 9,
+                            weight: 'bold' as const,
                           },
+                          formatter: (value: number, context: any) => {
+                            const label = context.chart.data.labels[context.dataIndex];
+                            const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(0) : '0';
+                            // Agar segment kichik bo'lsa (5% dan kichik), faqat foizni ko'rsat
+                            if (Number(percentage) < 5) {
+                              return '';
+                            }
+                            // Katta segmentlarda jarayon nomi va foizni ko'rsat
+                            return `${label}\n${percentage}%`;
+                          },
+                          anchor: 'center' as const,
+                          align: 'center' as const,
+                          textAlign: 'center' as const,
                         },
                         tooltip: {
                           callbacks: {
@@ -522,6 +534,98 @@ const Profile = () => {
           </>
         ) : (
           <div className="text-center py-8 text-gray-400">Jarayonlar bo'yicha ma'lumotlar yo'q</div>
+        )}
+      </div>
+
+      {/* Error Statistics */}
+      <div className="mt-6 bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold text-gray-800">Xatoliklar statistikasi</h2>
+        </div>
+
+        {errorStatsLoading ? (
+          <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
+        ) : errorStats && errorStats.totalErrors > 0 ? (
+          <>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+              <div className="bg-red-50 rounded-lg p-3">
+                <div className="text-xs text-red-600 mb-1">Jami xatolar</div>
+                <div className="text-xl font-bold text-red-800">
+                  {errorStats.totalErrors}
+                </div>
+              </div>
+              <div className="bg-orange-50 rounded-lg p-3">
+                <div className="text-xs text-orange-600 mb-1">Jami undirilgan summa</div>
+                <div className="text-xl font-bold text-orange-800">
+                  ${Number(errorStats.totalErrorAmount).toFixed(2)}
+                </div>
+              </div>
+              <div className="bg-yellow-50 rounded-lg p-3">
+                <div className="text-xs text-yellow-600 mb-1">O'rtacha xato summasi</div>
+                <div className="text-xl font-bold text-yellow-800">
+                  ${errorStats.totalErrors > 0 ? (Number(errorStats.totalErrorAmount) / errorStats.totalErrors).toFixed(2) : '0.00'}
+                </div>
+              </div>
+            </div>
+
+            {/* Errors by Stage */}
+            {errorStats.errorsByStage && errorStats.errorsByStage.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Bosqichlar bo'yicha xatolar</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Bosqich</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-700">Xatolar soni</th>
+                        <th className="text-right py-3 px-4 font-semibold text-gray-700">Jami summa</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {errorStats.errorsByStage.map((stage: any, idx: number) => (
+                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-3 px-4 font-medium text-gray-800">{stage.stageName}</td>
+                          <td className="py-3 px-4 text-center text-gray-800 font-semibold">
+                            {stage.count}
+                          </td>
+                          <td className="py-3 px-4 text-right text-red-600 font-semibold">
+                            ${Number(stage.totalAmount).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Recent Errors */}
+            {errorStats.errors && errorStats.errors.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">So'nggi xatolar</h3>
+                <div className="space-y-2">
+                  {errorStats.errors.slice(0, 10).map((error: any) => (
+                    <div key={error.id} className="border rounded-lg p-4 bg-red-50">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-800">{error.taskTitle}</div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            Bosqich: {error.stageName} | Summa: ${Number(error.amount).toFixed(2)} | Sana: {new Date(error.date).toLocaleDateString()}
+                          </div>
+                          {error.comment && (
+                            <div className="text-sm text-gray-600 mt-2">{error.comment}</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-8 text-gray-400">Xatolar yo'q</div>
         )}
       </div>
 

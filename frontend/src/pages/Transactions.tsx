@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 // Handle ESC key to close modal
 const useEscKey = (isOpen: boolean, onClose: () => void) => {
@@ -48,6 +49,7 @@ interface MonthlyStats {
 }
 
 const Transactions = () => {
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -70,8 +72,10 @@ const Transactions = () => {
     loadTransactions();
     loadClients();
     loadWorkers();
-    loadMonthlyStats();
-  }, []);
+    if (user?.role === 'ADMIN') {
+      loadMonthlyStats();
+    }
+  }, [user]);
 
   const loadMonthlyStats = async () => {
     try {
@@ -113,7 +117,7 @@ const Transactions = () => {
   const loadWorkers = async () => {
     try {
       const response = await apiClient.get('/users');
-      setWorkers(response.data.filter((u: any) => u.role === 'DEKLARANT'));
+      setWorkers(response.data.filter((u: any) => u.role === 'DEKLARANT' || u.role === 'ADMIN'));
     } catch (error) {
       console.error('Error loading workers:', error);
     }
@@ -270,16 +274,18 @@ const Transactions = () => {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Transactions</h1>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          + Add Transaction
-        </button>
+        {user?.role === 'ADMIN' && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            + Add Transaction
+          </button>
+        )}
       </div>
 
       {/* Monthly Stats Cards */}
-      {monthlyStats && (
+      {user?.role === 'ADMIN' && monthlyStats && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {/* Income Card */}
           <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">

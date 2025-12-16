@@ -121,71 +121,78 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/', async (req: AuthRequest, res) => {
-  const parsed = createTaskSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+router.post('/', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const parsed = createTaskSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const task = await prisma.$transaction(async (tx) => {
-    // Client'ning kelishuv summasini olish
-    const client = await tx.client.findUnique({
-      where: { id: parsed.data.clientId },
-      select: { dealAmount: true },
+    const task = await prisma.$transaction(async (tx) => {
+      // Client'ning kelishuv summasini olish
+      const client = await tx.client.findUnique({
+        where: { id: parsed.data.clientId },
+        select: { dealAmount: true },
+      });
+
+      // Davlat to'lovlarini olish (task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovi)
+      const taskCreatedAt = new Date();
+      const statePayment = await tx.statePayment.findFirst({
+        where: {
+          branchId: parsed.data.branchId,
+          createdAt: { lte: taskCreatedAt }, // Task yaratilgunga qadar yaratilgan davlat to'lovlari
+        },
+        orderBy: {
+          createdAt: 'desc', // Eng so'nggi davlat to'lovi
+        },
+      });
+
+      let snapshotDealAmount = client?.dealAmount ? Number(client.dealAmount) : null;
+      let snapshotCertificatePayment = null;
+      let snapshotPsrPrice = null;
+      let snapshotWorkerPrice = null;
+      let snapshotCustomsPayment = null;
+
+      if (statePayment) {
+        // Task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovidan foydalanamiz
+        snapshotCertificatePayment = Number(statePayment.certificatePayment);
+        snapshotPsrPrice = Number(statePayment.psrPrice);
+        snapshotWorkerPrice = Number(statePayment.workerPrice);
+        snapshotCustomsPayment = Number(statePayment.customsPayment);
+      }
+
+      const createdTask = await tx.task.create({
+        data: {
+          clientId: parsed.data.clientId,
+          branchId: parsed.data.branchId,
+          title: parsed.data.title,
+          comments: parsed.data.comments,
+          hasPsr: parsed.data.hasPsr,
+          driverPhone: parsed.data.driverPhone || null,
+          createdById: req.user!.id,
+          snapshotDealAmount,
+          snapshotCertificatePayment,
+          snapshotPsrPrice,
+          snapshotWorkerPrice,
+          snapshotCustomsPayment,
+          customsPaymentMultiplier: parsed.data.customsPaymentMultiplier || null,
+        },
+      });
+      await tx.taskStage.createMany({
+        data: stageTemplates.map((name, idx) => ({
+          taskId: createdTask.id,
+          name,
+          stageOrder: idx + 1,
+        })),
+      });
+      return createdTask;
     });
 
-    // Davlat to'lovlarini olish (task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovi)
-    const taskCreatedAt = new Date();
-    const statePayment = await tx.statePayment.findFirst({
-      where: {
-        branchId: parsed.data.branchId,
-        createdAt: { lte: taskCreatedAt }, // Task yaratilgunga qadar yaratilgan davlat to'lovlari
-      },
-      orderBy: {
-        createdAt: 'desc', // Eng so'nggi davlat to'lovi
-      },
+    res.status(201).json(task);
+  } catch (error: any) {
+    console.error('Error creating task:', error);
+    res.status(500).json({ 
+      error: error.message || 'Task yaratishda xatolik yuz berdi' 
     });
-
-    let snapshotDealAmount = client?.dealAmount ? Number(client.dealAmount) : null;
-    let snapshotCertificatePayment = null;
-    let snapshotPsrPrice = null;
-    let snapshotWorkerPrice = null;
-    let snapshotCustomsPayment = null;
-
-    if (statePayment) {
-      // Task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovidan foydalanamiz
-      snapshotCertificatePayment = Number(statePayment.certificatePayment);
-      snapshotPsrPrice = Number(statePayment.psrPrice);
-      snapshotWorkerPrice = Number(statePayment.workerPrice);
-      snapshotCustomsPayment = Number(statePayment.customsPayment);
-    }
-
-    const createdTask = await tx.task.create({
-      data: {
-        clientId: parsed.data.clientId,
-        branchId: parsed.data.branchId,
-        title: parsed.data.title,
-        comments: parsed.data.comments,
-        hasPsr: parsed.data.hasPsr,
-        driverPhone: parsed.data.driverPhone || null,
-        createdById: req.user!.id,
-        snapshotDealAmount,
-        snapshotCertificatePayment,
-        snapshotPsrPrice,
-        snapshotWorkerPrice,
-        snapshotCustomsPayment,
-        customsPaymentMultiplier,
-      },
-    });
-    await tx.taskStage.createMany({
-      data: stageTemplates.map((name, idx) => ({
-        taskId: createdTask.id,
-        name,
-        stageOrder: idx + 1,
-      })),
-    });
-    return createdTask;
-  });
-
-  res.status(201).json(task);
+  }
 });
 
 router.get('/:id', async (req, res) => {

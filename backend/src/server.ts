@@ -15,8 +15,10 @@ import statePaymentsRouter from './routes/state-payments';
 import bxmRouter from './routes/bxm';
 import trainingRouter from './routes/training';
 import examsRouter from './routes/exams';
+import uploadRouter from './routes/upload';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
+import path from 'path';
 // import { fixDatabaseRoles } from './utils/fixDatabaseRoles'; // Vaqtinchalik o'chirilgan
 
 const app = express();
@@ -49,6 +51,10 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Static file serving - uploads papkasini serve qilish
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.get('/', (_req, res) => {
   res.json({
@@ -91,6 +97,7 @@ app.use('/api/state-payments', requireAuth('ADMIN'), statePaymentsRouter);
 app.use('/api/bxm', bxmRouter);
 app.use('/api/training', trainingRouter);
 app.use('/api/exams', examsRouter);
+app.use('/api/upload', uploadRouter);
 
 // Server'ni darhol ishga tushirish - database ulanishini kutmasdan
 app.listen(PORT, '0.0.0.0', () => {

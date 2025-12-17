@@ -320,7 +320,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     const examAttempts = await prisma.examAttempt.findMany({
       where: {
         userId: req.user!.id,
-        examId: { in: training.exams.map((e) => e.id) },
+        examId: { in: training.exams.map((e: any) => e.id) },
       },
       orderBy: { startedAt: 'desc' },
       take: 5,

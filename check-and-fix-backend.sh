@@ -22,10 +22,19 @@ if [ -f "dist/server.js" ]; then
 else
     echo "❌ dist/server.js topilmadi!"
     echo "🏗️  Build qilinmoqda..."
-    npm run build
+    if ! npm run build 2>&1 | tee build.log; then
+        echo "❌ Build xatolik!"
+        echo "📝 To'liq xatolik xabari:"
+        cat build.log
+        echo ""
+        echo "🔍 TypeScript'ni to'g'ridan-to'g'ri ishga tushirish:"
+        npx tsc --noEmit 2>&1 | head -100
+        exit 1
+    fi
     if [ ! -f "dist/server.js" ]; then
-        echo "❌ Build xatolik! Xatolik xabarini ko'ring:"
-        npm run build 2>&1 | tail -50
+        echo "❌ Build xatolik! dist/server.js fayli yaratilmadi."
+        echo "📝 Xatolik xabari:"
+        cat build.log 2>/dev/null || echo "Build log topilmadi"
         exit 1
     fi
     echo "✅ Build muvaffaqiyatli!"

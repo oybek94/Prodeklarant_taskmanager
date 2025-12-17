@@ -16,6 +16,7 @@ import bxmRouter from './routes/bxm';
 import trainingRouter from './routes/training';
 import examsRouter from './routes/exams';
 import uploadRouter from './routes/upload';
+import documentsRouter from './routes/documents';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 import path from 'path';
@@ -55,6 +56,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Static file serving - uploads papkasini serve qilish
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.get('/', (_req, res) => {
   res.json({
@@ -98,6 +100,7 @@ app.use('/api/bxm', bxmRouter);
 app.use('/api/training', trainingRouter);
 app.use('/api/exams', examsRouter);
 app.use('/api/upload', uploadRouter);
+app.use('/api/documents', documentsRouter);
 
 // Server'ni darhol ishga tushirish - database ulanishini kutmasdan
 app.listen(PORT, '0.0.0.0', () => {

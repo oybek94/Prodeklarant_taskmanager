@@ -116,10 +116,18 @@ const Transactions = () => {
 
   const loadWorkers = async () => {
     try {
-      const response = await apiClient.get('/users');
-      setWorkers(response.data.filter((u: any) => u.role === 'DEKLARANT' || u.role === 'ADMIN'));
+      if (user?.role === 'ADMIN') {
+        const response = await apiClient.get('/users');
+        setWorkers(Array.isArray(response.data) 
+          ? response.data.filter((u: any) => u.role === 'DEKLARANT' || u.role === 'ADMIN' || u.role === 'MANAGER')
+          : []);
+      } else {
+        // Admin bo'lmagan foydalanuvchilar uchun bo'sh array
+        setWorkers([]);
+      }
     } catch (error) {
       console.error('Error loading workers:', error);
+      setWorkers([]);
     }
   };
 

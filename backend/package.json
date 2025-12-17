@@ -19,7 +19,9 @@
   "type": "commonjs",
   "dependencies": {
     "@prisma/client": "^5.18.0",
+    "@types/archiver": "^7.0.0",
     "@types/multer": "^2.0.0",
+    "archiver": "^7.0.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

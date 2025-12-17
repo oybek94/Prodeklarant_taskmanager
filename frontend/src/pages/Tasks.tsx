@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
+import PdfIcon from '../assets/icons/pdf-icon.svg?react';
+import ExcelIcon from '../assets/icons/excel-icon.svg?react';
+import WordIcon from '../assets/icons/word-icon.svg?react';
+import JpgIcon from '../assets/icons/jpg-icon.svg?react';
+import PngIcon from '../assets/icons/png-icon.svg?react';
+import PptIcon from '../assets/icons/ppt-icon.svg?react';
+import RarIcon from '../assets/icons/rar-icon.svg?react';
+import ZipIcon from '../assets/icons/zip-icon.svg?react';
 
 interface Task {
   id: number;
@@ -103,6 +111,13 @@ const Tasks = () => {
     comment: '',
     date: new Date().toISOString().split('T')[0],
   });
+  const [taskDocuments, setTaskDocuments] = useState<any[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [documentNames, setDocumentNames] = useState<string[]>([]);
+  const [documentDescriptions, setDocumentDescriptions] = useState<string[]>([]);
+  const [previewDocument, setPreviewDocument] = useState<{ url: string; type: string; name: string } | null>(null);
   const [workers, setWorkers] = useState<{ id: number; name: string; role: string }[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -233,10 +248,19 @@ const Tasks = () => {
 
   const loadWorkers = async () => {
     try {
-      const response = await apiClient.get('/users');
-      setWorkers(response.data.filter((u: any) => u.role === 'DEKLARANT' || u.role === 'ADMIN'));
+      // Admin bo'lsa /users, aks holda /workers endpoint'ini ishlatamiz
+      if (user?.role === 'ADMIN') {
+        const response = await apiClient.get('/users');
+        setWorkers(Array.isArray(response.data) 
+          ? response.data.filter((u: any) => u.role === 'DEKLARANT' || u.role === 'ADMIN')
+          : []);
+      } else {
+        const response = await apiClient.get('/workers');
+        setWorkers(Array.isArray(response.data) ? response.data : []);
+      }
     } catch (error) {
       console.error('Error loading workers:', error);
+      setWorkers([]);
     }
   };
 
@@ -384,12 +408,238 @@ const Tasks = () => {
       setShowTaskModal(true);
       // Load versions
       await loadTaskVersions(taskId);
+      // Load documents
+      await loadTaskDocuments(taskId);
     } catch (error) {
       console.error('Error loading task detail:', error);
       alert('Task ma\'lumotlarini yuklashda xatolik');
     } finally {
       setLoadingTask(false);
     }
+  };
+
+  const loadTaskDocuments = async (taskId: number) => {
+    try {
+      setLoadingDocuments(true);
+      // Avval task'ning statusini tekshiramiz
+      const taskResponse = await apiClient.get(`/tasks/${taskId}`);
+      const task = taskResponse.data;
+      
+      // Agar task yakunlangan bo'lsa, arxiv hujjatlarini yuklaymiz
+      if (task.status === 'YAKUNLANDI') {
+        const response = await apiClient.get(`/documents/archive/task/${taskId}`);
+        setTaskDocuments(Array.isArray(response.data) ? response.data : []);
+      } else {
+        const response = await apiClient.get(`/documents/task/${taskId}`);
+        setTaskDocuments(Array.isArray(response.data) ? response.data : []);
+      }
+    } catch (error) {
+      console.error('Error loading task documents:', error);
+      setTaskDocuments([]);
+    } finally {
+      setLoadingDocuments(false);
+    }
+  };
+
+  const handleDocumentUpload = async () => {
+    if (!selectedTask || uploadFiles.length === 0) {
+      alert('Kamida bitta faylni tanlang');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      
+      // Barcha fayllarni qo'shamiz
+      uploadFiles.forEach((file) => {
+        formData.append('files', file);
+      });
+      
+      // Nomlar va tavsiflar
+      formData.append('names', JSON.stringify(documentNames));
+      formData.append('descriptions', JSON.stringify(documentDescriptions));
+
+      // Agar task yakunlangan bo'lsa, arxiv endpoint'iga yuboramiz
+      if (selectedTask.status === 'YAKUNLANDI') {
+        await apiClient.post(`/documents/archive/task/${selectedTask.id}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        await apiClient.post(`/documents/task/${selectedTask.id}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      }
+
+      setUploadFiles([]);
+      setDocumentNames([]);
+      setDocumentDescriptions([]);
+      setShowDocumentUpload(false);
+      await loadTaskDocuments(selectedTask.id);
+    } catch (error: any) {
+      console.error('Error uploading documents:', error);
+      alert(error.response?.data?.error || 'Hujjat yuklashda xatolik');
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setUploadFiles(files);
+    setDocumentNames(files.map(f => f.name));
+    setDocumentDescriptions(files.map(() => ''));
+  };
+
+  const openPreview = (fileUrl: string, fileType: string, fileName: string) => {
+    // URL'ni to'g'ri qurish - baseURL'dan /api ni olib tashlaymiz
+    const baseUrl = apiClient.defaults.baseURL || 'http://localhost:3001/api';
+    const serverBaseUrl = baseUrl.replace('/api', ''); // http://localhost:3001
+    
+    const urlParts = fileUrl.split('/');
+    const fileNamePart = urlParts[urlParts.length - 1];
+    const path = urlParts.slice(0, -1).join('/');
+    
+    // Fayl nomini encode qilamiz
+    const encodedFileName = encodeURIComponent(decodeURIComponent(fileNamePart));
+    const url = `${serverBaseUrl}${path}/${encodedFileName}`;
+    setPreviewDocument({ url, type: fileType, name: fileName });
+  };
+
+  const handleDeleteDocument = async (documentId: number) => {
+    if (!confirm('Bu hujjatni o\'chirishni xohlaysizmi?')) {
+      return;
+    }
+
+    try {
+      await apiClient.delete(`/documents/${documentId}`);
+      if (selectedTask) {
+        await loadTaskDocuments(selectedTask.id);
+      }
+    } catch (error: any) {
+      console.error('Error deleting document:', error);
+      alert(error.response?.data?.error || 'Hujjatni o\'chirishda xatolik');
+    }
+  };
+
+  const downloadDocument = (fileUrl: string) => {
+    // URL'ni to'g'ri qurish - baseURL'dan /api ni olib tashlaymiz
+    const baseUrl = apiClient.defaults.baseURL || 'http://localhost:3001/api';
+    const serverBaseUrl = baseUrl.replace('/api', ''); // http://localhost:3001
+    
+    // Fayl URL'i /uploads/documents/... ko'rinishida
+    const urlParts = fileUrl.split('/');
+    const fileName = urlParts[urlParts.length - 1];
+    const path = urlParts.slice(0, -1).join('/');
+    
+    // Fayl nomini encode qilamiz
+    const encodedFileName = encodeURIComponent(decodeURIComponent(fileName));
+    const url = `${serverBaseUrl}${path}/${encodedFileName}`;
+    
+    window.open(url, '_blank');
+  };
+
+  const canPreview = (fileType: string) => {
+    return fileType?.includes('image') || 
+           fileType?.includes('pdf') || 
+           fileType?.includes('video') ||
+           fileType?.includes('audio');
+  };
+
+  const getFileIcon = (fileType: string, fileName?: string) => {
+    const lowerType = fileType?.toLowerCase() || '';
+    const lowerName = fileName?.toLowerCase() || '';
+    
+    // PDF
+    if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) {
+      return <PdfIcon className="w-10 h-10" />;
+    }
+    // Excel (xls, xlsx)
+    if (lowerType.includes('excel') || lowerType.includes('spreadsheet') || 
+        lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx')) {
+      return <ExcelIcon className="w-10 h-10" />;
+    }
+    // Word (doc, docx)
+    if (lowerType.includes('word') || lowerType.includes('document') ||
+        lowerName.endsWith('.doc') || lowerName.endsWith('.docx')) {
+      return <WordIcon className="w-10 h-10" />;
+    }
+    // JPG/JPEG
+    if (lowerType.includes('jpeg') || lowerType.includes('jpg') ||
+        lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
+      return <JpgIcon className="w-10 h-10" />;
+    }
+    // PNG
+    if (lowerType.includes('png') || lowerName.endsWith('.png')) {
+      return <PngIcon className="w-10 h-10" />;
+    }
+    // PPT/PPTX
+    if (lowerType.includes('powerpoint') || lowerType.includes('presentation') ||
+        lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx')) {
+      return <PptIcon className="w-10 h-10" />;
+    }
+    // RAR
+    if (lowerType.includes('rar') || lowerName.endsWith('.rar')) {
+      return <RarIcon className="w-10 h-10" />;
+    }
+    // ZIP
+    if (lowerType.includes('zip') || lowerName.endsWith('.zip')) {
+      return <ZipIcon className="w-10 h-10" />;
+    }
+    // Rasm (boshqa formatlar)
+    if (lowerType.includes('image') || lowerType.includes('gif') || lowerType.includes('webp') ||
+        lowerName.match(/\.(gif|webp|bmp|svg)$/i)) {
+      return <JpgIcon className="w-10 h-10" />;
+    }
+    // Video
+    if (lowerType.includes('video') || lowerName.match(/\.(mp4|avi|mov|wmv|flv|mkv)$/i)) {
+      return (
+        <div className="relative w-10 h-10">
+          <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
+            <rect x="4" y="4" width="16" height="20" rx="1.5" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="1.5"/>
+            <rect x="6" y="8" width="12" height="8" rx="1" fill="#EF4444"/>
+            <polygon points="10,11 10,13 13,12" fill="white"/>
+          </svg>
+        </div>
+      );
+    }
+    // Audio
+    if (lowerType.includes('audio') || lowerName.match(/\.(mp3|wav|ogg|m4a)$/i)) {
+      return (
+        <div className="relative w-10 h-10">
+          <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
+            <rect x="4" y="4" width="16" height="20" rx="1.5" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="1.5"/>
+            <path d="M8 10v4c0 1.1.9 2 2 2s2-.9 2-2v-4" stroke="#9333EA" strokeWidth="2" strokeLinecap="round" fill="none"/>
+            <path d="M14 8v8c0 1.1.9 2 2 2s2-.9 2-2V8" stroke="#9333EA" strokeWidth="2" strokeLinecap="round" fill="none"/>
+            <circle cx="10" cy="10" r="1" fill="#9333EA"/>
+            <circle cx="16" cy="12" r="1" fill="#9333EA"/>
+          </svg>
+        </div>
+      );
+    }
+    // Boshqa fayllar (default)
+    return (
+      <div className="relative w-10 h-10">
+        <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
+          <rect x="4" y="4" width="16" height="20" rx="1.5" fill="#F3F4F6" stroke="#9CA3AF" strokeWidth="1.5"/>
+          <path d="M18 4v4h4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+          <path d="M18 4l4 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+          <line x1="7" y1="11" x2="17" y2="11" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round"/>
+          <line x1="7" y1="14" x2="17" y2="14" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round"/>
+          <line x1="7" y1="17" x2="14" y2="17" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+    );
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return 'N/A';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
   const loadTaskVersions = async (taskId: number) => {
@@ -1855,6 +2105,160 @@ const Tasks = () => {
               </div>
             </div>
 
+            {/* Documents Section */}
+            <div className="mt-6 border-t border-gray-200 pt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">Hujjatlar</h3>
+                <div className="flex items-center gap-2">
+                  {taskDocuments.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const baseUrl = apiClient.defaults.baseURL || 'http://localhost:3001/api';
+                          const serverBaseUrl = baseUrl.replace('/api', '');
+                          const url = `${serverBaseUrl}/api/documents/task/${selectedTask?.id}/download-all`;
+                          
+                          // Token bilan so'rov yuborish
+                          const accessToken = localStorage.getItem('accessToken');
+                          const response = await fetch(url, {
+                            headers: {
+                              'Authorization': `Bearer ${accessToken}`,
+                            },
+                          });
+
+                          if (!response.ok) {
+                            throw new Error('Yuklab olishda xatolik');
+                          }
+
+                          // Blob olish va yuklab olish
+                          const blob = await response.blob();
+                          const downloadUrl = window.URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = downloadUrl;
+                          link.download = `${selectedTask?.title || 'task'}.zip`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          window.URL.revokeObjectURL(downloadUrl);
+                        } catch (error: any) {
+                          console.error('Error downloading ZIP:', error);
+                          alert(error.message || 'Yuklab olishda xatolik');
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                      title="Barcha hujjatlarni ZIP qilib yuklab olish"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Barchasini yuklab olish
+                    </button>
+                  )}
+                  {(selectedTask.status !== 'YAKUNLANDI' || user?.role === 'ADMIN') && (
+                    <button
+                      onClick={() => {
+                        setShowDocumentUpload(true);
+                        setUploadFiles([]);
+                        setDocumentNames([]);
+                        setDocumentDescriptions([]);
+                      }}
+                      className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Hujjat qo'shish
+                    </button>
+                  )}
+                </div>
+              </div>
+              {loadingDocuments ? (
+                <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+              ) : !Array.isArray(taskDocuments) || taskDocuments.length === 0 ? (
+                <div className="text-center py-4 text-gray-400">Hujjatlar yo'q</div>
+              ) : (
+                <div className="space-y-2">
+                  {taskDocuments.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="flex-shrink-0">
+                          {getFileIcon(doc.fileType, doc.name)}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">{doc.name}</div>
+                          {doc.description && (
+                            <div className="text-sm text-gray-500">{doc.description}</div>
+                          )}
+                          <div className="text-xs text-gray-400 mt-1">
+                            {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt).toLocaleDateString('uz-UZ')}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {canPreview(doc.fileType) && (
+                          <button
+                            onClick={() => openPreview(doc.fileUrl, doc.fileType, doc.name)}
+                            className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                            title="Ko'rish"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => downloadDocument(doc.fileUrl)}
+                          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          title="Yuklab olish"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </button>
+                        {(() => {
+                          const canDelete = () => {
+                            // Admin har doim o'chira oladi
+                            if (user?.role === 'ADMIN') return true;
+                            
+                            // Faqat yuklagan foydalanuvchi o'chira oladi
+                            if (doc.uploadedById !== user?.id) return false;
+                            
+                            // 2 kundan keyin o'chira oladi
+                            const uploadTime = new Date(doc.createdAt || doc.archivedAt);
+                            const now = new Date();
+                            const diffInMs = now.getTime() - uploadTime.getTime();
+                            const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
+                            
+                            return diffInDays >= 2;
+                          };
+                          
+                          return canDelete() ? (
+                            <button
+                              onClick={() => handleDeleteDocument(doc.id)}
+                              className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                              title="O'chirish"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          ) : doc.uploadedById === user?.id ? (
+                            <span className="text-xs text-gray-400" title="2 kundan keyin o'chirish mumkin">
+                              2 kun
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Versions Section */}
             <div className="mt-6 border-t border-gray-200 pt-6">
               <div className="flex justify-between items-center mb-4">
@@ -2286,6 +2690,181 @@ const Tasks = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Document Upload Modal */}
+      {showDocumentUpload && selectedTask && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDocumentUpload(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">Hujjat yuklash (bir nechta fayl)</h2>
+              <button
+                onClick={() => {
+                  setShowDocumentUpload(false);
+                  setUploadFiles([]);
+                  setDocumentNames([]);
+                  setDocumentDescriptions([]);
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleDocumentUpload();
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fayllar (bir nechta tanlash mumkin)
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+                {uploadFiles.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {uploadFiles.map((file, index) => (
+                      <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">{file.name}</span>
+                          <span className="text-xs text-gray-500">{formatFileSize(file.size)}</span>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Hujjat nomi"
+                          value={documentNames[index] || ''}
+                          onChange={(e) => {
+                            const newNames = [...documentNames];
+                            newNames[index] = e.target.value;
+                            setDocumentNames(newNames);
+                          }}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent mb-2"
+                          required
+                        />
+                        <textarea
+                          placeholder="Tavsif (ixtiyoriy)"
+                          value={documentDescriptions[index] || ''}
+                          onChange={(e) => {
+                            const newDescriptions = [...documentDescriptions];
+                            newDescriptions[index] = e.target.value;
+                            setDocumentDescriptions(newDescriptions);
+                          }}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                          rows={2}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
+                >
+                  Yuklash ({uploadFiles.length} fayl)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDocumentUpload(false);
+                    setUploadFiles([]);
+                    setDocumentNames([]);
+                    setDocumentDescriptions([]);
+                  }}
+                  className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                >
+                  Bekor
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Document Preview Modal */}
+      {previewDocument && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] backdrop-blur-sm"
+          onClick={() => setPreviewDocument(null)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">{previewDocument.name}</h2>
+              <button
+                onClick={() => setPreviewDocument(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex justify-center items-center min-h-[400px]">
+              {previewDocument.type?.includes('image') ? (
+                <img 
+                  src={previewDocument.url} 
+                  alt={previewDocument.name}
+                  className="max-w-full max-h-[70vh] object-contain"
+                />
+              ) : previewDocument.type?.includes('pdf') ? (
+                <iframe
+                  src={previewDocument.url}
+                  className="w-full h-[70vh] border-0"
+                  title={previewDocument.name}
+                />
+              ) : previewDocument.type?.includes('video') ? (
+                <video
+                  src={previewDocument.url}
+                  controls
+                  className="max-w-full max-h-[70vh]"
+                >
+                  Sizning brauzeringiz video elementini qo'llab-quvvatlamaydi.
+                </video>
+              ) : previewDocument.type?.includes('audio') ? (
+                <audio
+                  src={previewDocument.url}
+                  controls
+                  className="w-full"
+                >
+                  Sizning brauzeringiz audio elementini qo'llab-quvvatlamaydi.
+                </audio>
+              ) : (
+                <div className="text-center text-gray-500">
+                  <p className="mb-4">Bu fayl turini dasturdan ko'rish mumkin emas.</p>
+                  <a
+                    href={previewDocument.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Yuklab olish
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

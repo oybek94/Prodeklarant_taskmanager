@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma, TaskStatus } from '@prisma/client';
+import { archiveTaskDocuments } from './archive-documents';
 
 /**
  * Calculate task status based on stages using the formula:
@@ -81,10 +82,26 @@ export async function updateTaskStatus(
   tx: PrismaClient | Prisma.TransactionClient,
   taskId: number
 ): Promise<void> {
+  // Eski statusni olish
+  const oldTask = await tx.task.findUnique({
+    where: { id: taskId },
+    select: { status: true },
+  });
+
   const newStatus = await calculateTaskStatus(tx, taskId);
   await tx.task.update({
     where: { id: taskId },
     data: { status: newStatus },
   });
+
+  // Agar task YAKUNLANDI bo'lsa va oldin YAKUNLANDI bo'lmagan bo'lsa, hujjatlarni arxivga ko'chirish
+  if (newStatus === TaskStatus.YAKUNLANDI && oldTask?.status !== TaskStatus.YAKUNLANDI) {
+    try {
+      await archiveTaskDocuments(tx, taskId);
+    } catch (error) {
+      console.error('Error archiving task documents:', error);
+      // Xatolik bo'lsa ham task status o'zgarishi kerak, shuning uchun error'ni log qilamiz lekin throw qilmaymiz
+    }
+  }
 }
 

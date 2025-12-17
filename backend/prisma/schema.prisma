@@ -39,6 +39,8 @@ model User {
   taskVersions     TaskVersion[]
   trainingProgress TrainingProgress[]
   examAttempts     ExamAttempt[]
+  taskDocuments    TaskDocument[]     @relation("DocumentUploadedBy")
+  archiveDocuments ArchiveDocument[]  @relation("ArchiveDocumentUploadedBy")
   branch           Branch?            @relation(fields: [branchId], references: [id])
 }
 
@@ -81,6 +83,7 @@ model Task {
   stages                     TaskStage[]
   transactions               Transaction[]
   versions                   TaskVersion[]
+  documents                  TaskDocument[]
 }
 
 model TaskStage {
@@ -396,4 +399,44 @@ enum QuestionType {
   SINGLE_CHOICE // Bitta javob tanlash
   MULTIPLE_CHOICE // Bir nechta javob tanlash
   TEXT // Matnli javob
+}
+
+// Hujjatlar aylanmasi
+model TaskDocument {
+  id          Int      @id @default(autoincrement())
+  taskId      Int
+  name        String   // Hujjat nomi
+  fileUrl     String   // Fayl URL
+  fileType    String   // Fayl turi (image, video, audio, document, pdf, etc.)
+  fileSize    Int?     // Fayl hajmi (bytes)
+  description String?  // Hujjat tavsifi
+  uploadedById Int     // Kim yuklagan
+  createdAt   DateTime @default(now())
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy  User     @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([taskId])
+  @@index([uploadedById])
+}
+
+model ArchiveDocument {
+  id          Int      @id @default(autoincrement())
+  taskId      Int      // Yakunlangan task ID
+  taskTitle   String   // Task nomi (snapshot)
+  clientName  String   // Client nomi (snapshot)
+  branchName  String   // Filial nomi (snapshot)
+  name        String   // Hujjat nomi
+  fileUrl     String   // Fayl URL
+  fileType    String   // Fayl turi
+  fileSize    Int?     // Fayl hajmi (bytes)
+  description String?  // Hujjat tavsifi
+  uploadedById Int     // Kim yuklagan
+  archivedAt  DateTime @default(now()) // Qachon arxivga ko'chirilgan
+  originalTaskDocumentId Int? // Original TaskDocument ID (reference)
+  uploadedBy  User     @relation("ArchiveDocumentUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([taskId])
+  @@index([uploadedById])
+  @@index([archivedAt])
+  @@index([clientName])
 }

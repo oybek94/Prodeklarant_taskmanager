@@ -16,13 +16,18 @@ fi
 
 # Build qilish
 echo "🏗️  Build qilinmoqda..."
-npm run build
+if ! npm run build 2>&1 | tee build.log; then
+    echo "❌ Build xatolik!"
+    echo "📝 Xatolik xabari:"
+    cat build.log
+    exit 1
+fi
 
 # Build muvaffaqiyatli bo'lganini tekshirish
 if [ ! -f "dist/server.js" ]; then
     echo "❌ Build xatolik! dist/server.js fayli yaratilmadi."
-    echo "📝 Xatoliklarni ko'ring:"
-    npm run build 2>&1 | tail -50
+    echo "📝 Xatolik xabari:"
+    cat build.log 2>/dev/null || echo "Build log topilmadi"
     exit 1
 fi
 

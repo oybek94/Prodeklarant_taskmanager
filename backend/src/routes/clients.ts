@@ -99,12 +99,12 @@ router.get('/:id', async (req, res) => {
   if (!client) return res.status(404).json({ error: 'Not found' });
 
   // Calculate stats
-  const totalIncome = client.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalIncome = client.transactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
   const totalTasks = client.tasks.length;
   const dealAmount = Number(client.dealAmount || 0);
   
   // PSR bor bo'lgan tasklar sonini hisoblash
-  const tasksWithPsr = client.tasks.filter(task => task.hasPsr).length;
+  const tasksWithPsr = client.tasks.filter((task: any) => task.hasPsr).length;
   const tasksWithoutPsr = totalTasks - tasksWithPsr;
   
   // PSR bor bo'lgan tasklar uchun dealAmount + 10, qolganlari uchun dealAmount
@@ -115,7 +115,7 @@ router.get('/:id', async (req, res) => {
   // Qoldiq = Jami shartnoma summasi - Jami kirim
   const balance = totalDealAmount - totalIncome;
   
-  const tasksByBranch = client.tasks.reduce((acc: any, task) => {
+  const tasksByBranch = client.tasks.reduce((acc: any, task: any) => {
     const branchName = task.branch.name;
     acc[branchName] = (acc[branchName] || 0) + 1;
     return acc;

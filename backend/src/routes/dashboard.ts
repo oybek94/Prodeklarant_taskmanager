@@ -56,13 +56,13 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
   });
 
   const workerDetails = await prisma.user.findMany({
-    where: { id: { in: workerActivity.map((w) => w.userId) } },
+    where: { id: { in: workerActivity.map((w: any) => w.userId) } },
     select: { id: true, name: true },
   });
 
-  const workerActivityWithNames = workerActivity.map((w) => ({
+  const workerActivityWithNames = workerActivity.map((w: any) => ({
     userId: w.userId,
-    name: workerDetails.find((d) => d.id === w.userId)?.name || 'Unknown',
+    name: workerDetails.find((d: any) => d.id === w.userId)?.name || 'Unknown',
     totalKPI: w._sum.amount || 0,
     completedStages: w._count,
   }));
@@ -80,10 +80,10 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
   res.json({
     newTasks,
     completedTasks,
-    tasksByStatus: tasksByStatus.map((t) => ({ status: t.status, count: t._count })),
-    processStats: processStats.map((p) => ({ status: p.status, count: p._count })),
+    tasksByStatus: tasksByStatus.map((t: any) => ({ status: t.status, count: t._count })),
+    processStats: processStats.map((p: any) => ({ status: p.status, count: p._count })),
     workerActivity: workerActivityWithNames,
-    financialStats: financialStats.map((f) => ({ type: f.type, total: f._sum.amount || 0 })),
+    financialStats: financialStats.map((f: any) => ({ type: f.type, total: f._sum.amount || 0 })),
   });
 });
 
@@ -114,7 +114,7 @@ router.get('/charts', requireAuth(), async (req: AuthRequest, res) => {
   });
 
   const workers = await prisma.user.findMany({
-    where: { id: { in: kpiByWorker.map((k) => k.userId) } },
+    where: { id: { in: kpiByWorker.map((k: any) => k.userId) } },
     select: { id: true, name: true },
   });
 
@@ -129,15 +129,15 @@ router.get('/charts', requireAuth(), async (req: AuthRequest, res) => {
   });
 
   res.json({
-    tasksCompleted: tasksCompleted.map((t) => ({
+    tasksCompleted: tasksCompleted.map((t: any) => ({
       date: t.createdAt.toISOString().split('T')[0],
     })),
-    kpiByWorker: kpiByWorker.map((k) => ({
+    kpiByWorker: kpiByWorker.map((k: any) => ({
       userId: k.userId,
-      name: workers.find((w) => w.id === k.userId)?.name || 'Unknown',
+      name: workers.find((w: any) => w.id === k.userId)?.name || 'Unknown',
       total: k._sum.amount || 0,
     })),
-    transactionsByType: transactionsByType.map((t) => ({
+    transactionsByType: transactionsByType.map((t: any) => ({
       type: t.type,
       date: t.date.toISOString().split('T')[0],
       amount: t._sum.amount || 0,

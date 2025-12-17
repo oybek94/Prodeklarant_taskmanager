@@ -38,7 +38,7 @@ router.get('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     });
 
     // Convert Decimal values to numbers
-    const formattedPayments = statePayments.map((payment) => ({
+    const formattedPayments = statePayments.map((payment: any) => ({
       ...payment,
       certificatePayment: Number(payment.certificatePayment),
       psrPrice: Number(payment.psrPrice),
@@ -73,7 +73,7 @@ router.get('/branch/:branchId', requireAuth(), async (req: AuthRequest, res) => 
     });
 
     // Convert Decimal values to numbers
-    const formattedPayments = statePayments.map((payment) => ({
+    const formattedPayments = statePayments.map((payment: any) => ({
       ...payment,
       certificatePayment: Number(payment.certificatePayment),
       psrPrice: Number(payment.psrPrice),

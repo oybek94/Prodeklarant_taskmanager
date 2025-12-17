@@ -14,7 +14,7 @@ export async function calculateTaskStatus(
   tx: PrismaClient | Prisma.TransactionClient,
   taskId: number
 ): Promise<TaskStatus> {
-  const stages = await tx.taskStage.findMany({
+  const stages = await (tx as any).taskStage.findMany({
     where: { taskId },
     select: { name: true, status: true },
   });
@@ -24,7 +24,7 @@ export async function calculateTaskStatus(
   }
 
   // Create a map of stage names to status
-  const stageMap = new Map(stages.map((s) => [s.name, s.status]));
+  const stageMap = new Map(stages.map((s: any) => [s.name, s.status]));
   
   // Helper function to check if stage is TAYYOR
   const isReady = (name: string): boolean => {
@@ -32,7 +32,7 @@ export async function calculateTaskStatus(
   };
 
   // 1. Check if all stages are blank (BOSHLANMAGAN)
-  const allBlank = stages.every((s) => s.status === 'BOSHLANMAGAN');
+  const allBlank = stages.every((s: any) => s.status === 'BOSHLANMAGAN');
   if (allBlank) {
     return TaskStatus.BOSHLANMAGAN;
   }
@@ -66,7 +66,7 @@ export async function calculateTaskStatus(
   }
 
   // If any other stage is TAYYOR, also return JARAYONDA
-  const hasAnyReady = stages.some((s) => s.status === 'TAYYOR');
+  const hasAnyReady = stages.some((s: any) => s.status === 'TAYYOR');
   if (hasAnyReady) {
     return TaskStatus.JARAYONDA;
   }
@@ -83,13 +83,13 @@ export async function updateTaskStatus(
   taskId: number
 ): Promise<void> {
   // Eski statusni olish
-  const oldTask = await tx.task.findUnique({
+  const oldTask = await (tx as any).task.findUnique({
     where: { id: taskId },
     select: { status: true },
   });
 
   const newStatus = await calculateTaskStatus(tx, taskId);
-  await tx.task.update({
+  await (tx as any).task.update({
     where: { id: taskId },
     data: { status: newStatus },
   });

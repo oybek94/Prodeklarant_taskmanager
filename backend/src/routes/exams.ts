@@ -44,7 +44,7 @@ router.post('/:id/start', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     // Savollarni tayyorlash (to'g'ri javoblarni olib tashlash)
-    const questionsForUser = exam.questions.map((q) => ({
+    const questionsForUser = exam.questions.map((q: any) => ({
       id: q.id,
       question: q.question,
       type: q.type,
@@ -54,7 +54,7 @@ router.post('/:id/start', requireAuth(), async (req: AuthRequest, res) => {
     }));
 
     // Maksimal ballni hisoblash
-    const maxScore = exam.questions.reduce((sum, q) => sum + q.points, 0);
+    const maxScore = exam.questions.reduce((sum: number, q: any) => sum + q.points, 0);
 
     res.json({
       exam: {
@@ -116,7 +116,7 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
     const examAnswers = [];
 
     for (const userAnswer of answers) {
-      const question = exam.questions.find((q) => q.id === userAnswer.questionId);
+      const question = exam.questions.find((q: any) => q.id === userAnswer.questionId);
       if (!question) continue;
 
       let isCorrect = false;

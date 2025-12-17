@@ -9,7 +9,7 @@
 
 ```bash
 ssh root@138.249.7.15
-# Password: cG0nV9fG5msD
+# Password: oD7yY9mL8wlG
 ```
 
 ## Step 2: Upload and Run Deployment Script

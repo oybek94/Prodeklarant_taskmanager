@@ -7,7 +7,7 @@ export async function archiveTaskDocuments(
   tx: PrismaClient | Prisma.TransactionClient,
   taskId: number
 ): Promise<void> {
-  const task = await tx.task.findUnique({
+  const task = await (tx as any).task.findUnique({
     where: { id: taskId },
     include: {
       client: { select: { name: true } },
@@ -22,8 +22,8 @@ export async function archiveTaskDocuments(
 
   // Hujjatlarni arxivga ko'chirish
   await Promise.all(
-    task.documents.map((doc) =>
-      tx.archiveDocument.create({
+    task.documents.map((doc: any) =>
+      (tx as any).archiveDocument.create({
         data: {
           taskId: task.id,
           taskTitle: task.title,

@@ -112,7 +112,7 @@ app.listen(PORT, '0.0.0.0', () => {
     .then(() => {
       console.log('✅ Database ulanishi muvaffaqiyatli!');
     })
-    .catch((err) => {
+    .catch((err: any) => {
       console.error('⚠️  Database ulanishi muammosi:', err.message);
       console.log('⚠️  Server ishlayapti, lekin database ulanishi yo\'q. Iltimos, database sozlamalarini tekshiring.');
     });

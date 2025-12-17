@@ -7,13 +7,13 @@ export async function logKpiForStage(
   userId?: number | null
 ) {
   if (!userId) return;
-  const cfg = await tx.kpiConfig.upsert({
+  const cfg = await (tx as any).kpiConfig.upsert({
     where: { stageName },
     update: {},
     create: { stageName, price: 0 },
   });
   const amount = cfg.price ?? 0;
-  await tx.kpiLog.create({
+  await (tx as any).kpiLog.create({
     data: {
       userId,
       taskId,

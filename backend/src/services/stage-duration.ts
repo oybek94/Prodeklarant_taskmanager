@@ -3,18 +3,18 @@ import { Prisma, PrismaClient } from '@prisma/client';
 // Helper to compute durations per formula
 export async function computeDurations(tx: PrismaClient | Prisma.TransactionClient, taskId: number) {
   // Get task to access createdAt
-  const task = await tx.task.findUnique({
+  const task = await (tx as any).task.findUnique({
     where: { id: taskId },
     select: { createdAt: true },
   });
   
   if (!task) return;
 
-  const stages = await tx.taskStage.findMany({
+  const stages = await (tx as any).taskStage.findMany({
     where: { taskId },
     orderBy: { stageOrder: 'asc' },
   });
-  const map = new Map(stages.map((s) => [s.name, s]));
+  const map = new Map(stages.map((s: any) => [s.name, s]));
 
   const completed = (name: string) => map.get(name)?.completedAt ?? null;
   const setDuration = async (name: string, start: Date | null, end: Date | null) => {
@@ -22,7 +22,7 @@ export async function computeDurations(tx: PrismaClient | Prisma.TransactionClie
     if (!stage || !end || !start) return;
     const minutes = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
     if (stage.durationMin !== minutes) {
-      await tx.taskStage.update({
+      await (tx as any).taskStage.update({
         where: { id: stage.id },
         data: { durationMin: minutes },
       });

@@ -26,7 +26,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
 
     // Foydalanuvchining progressini qo'shish
     const trainingsWithProgress = await Promise.all(
-      trainings.map(async (training) => {
+      trainings.map(async (training: any) => {
         const progress = await prisma.trainingProgress.findUnique({
           where: {
             userId_trainingId: {

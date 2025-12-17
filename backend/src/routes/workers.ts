@@ -42,7 +42,7 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
     },
   });
 
-  const totalKPI = kpiLogs.reduce((sum, log) => sum + Number(log.amount), 0);
+  const totalKPI = kpiLogs.reduce((sum: number, log: any) => sum + Number(log.amount), 0);
   const completedStages = kpiLogs.length;
 
   // Salary transactions
@@ -54,7 +54,7 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
     },
   });
 
-  const totalSalary = salaryTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalSalary = salaryTransactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
   // Tasks assigned
   const tasksAssigned = await prisma.taskStage.count({
@@ -71,13 +71,13 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
     completedStages,
     totalSalary,
     tasksAssigned,
-    kpiLogs: kpiLogs.map((log) => ({
+    kpiLogs: kpiLogs.map((log: any) => ({
       id: log.id,
       amount: log.amount,
       stageName: log.stageName,
       createdAt: log.createdAt,
     })),
-    salaryTransactions: salaryTransactions.map((t) => ({
+    salaryTransactions: salaryTransactions.map((t: any) => ({
       id: t.id,
       amount: t.amount,
       date: t.date,
@@ -257,7 +257,7 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
 
   // Calculate total received amount from SALARY transactions
   // Note: SALARY transactions are not tied to specific stages, so we add them to totalReceived only
-  const totalReceivedFromSalary = salaryTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalReceivedFromSalary = salaryTransactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
   // Calculate pending amount and ensure percentage is correct
   Object.keys(stageStats).forEach(stageName => {
@@ -341,11 +341,11 @@ router.get('/:id/error-stats', requireAuth(), async (req, res) => {
   });
 
   const totalErrors = errors.length;
-  const totalErrorAmount = errors.reduce((sum, error) => sum + Number(error.amount), 0);
+  const totalErrorAmount = errors.reduce((sum: number, error: any) => sum + Number(error.amount), 0);
 
   // Group by stage
   const errorsByStage: Record<string, { count: number; totalAmount: number }> = {};
-  errors.forEach(error => {
+  errors.forEach((error: any) => {
     if (!errorsByStage[error.stageName]) {
       errorsByStage[error.stageName] = { count: 0, totalAmount: 0 };
     }
@@ -362,7 +362,7 @@ router.get('/:id/error-stats', requireAuth(), async (req, res) => {
       count: stats.count,
       totalAmount: stats.totalAmount,
     })),
-    errors: errors.map(error => ({
+    errors: errors.map((error: any) => ({
       id: error.id,
       taskTitle: error.task.title,
       stageName: error.stageName,

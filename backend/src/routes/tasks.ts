@@ -126,7 +126,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     const parsed = createTaskSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const task = await prisma.$transaction(async (tx) => {
+  const task = await prisma.$transaction(async (tx: any) => {
     // Client'ning kelishuv summasini olish
     const client = await tx.client.findUnique({
       where: { id: parsed.data.clientId },

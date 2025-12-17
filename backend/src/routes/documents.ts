@@ -425,7 +425,7 @@ router.post('/archive-task/:taskId', requireAuth('ADMIN'), async (req: AuthReque
 
     // Hujjatlarni arxivga ko'chirish
     const archivedDocuments = await prisma.$transaction(
-      task.documents.map((doc) =>
+      task.documents.map((doc: any) =>
         prisma.archiveDocument.create({
           data: {
             taskId: task.id,

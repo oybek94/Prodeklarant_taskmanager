@@ -200,7 +200,7 @@ const Dashboard = () => {
               <div key={idx} className="flex-1 flex flex-col items-center">
                 <div
                   className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t transition-all duration-300 hover:from-blue-600 hover:to-blue-500 cursor-pointer relative group"
-                  style={{ height: `${(item.count / maxTasksCount) * 100}%`, minHeight: '4px' }}
+                  style={{ height: `${(Number(item.count) / maxTasksCount) * 100}%`, minHeight: '4px' }}
                   title={`${item.date}: ${item.count} ish`}
                 >
                   <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">

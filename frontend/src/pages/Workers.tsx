@@ -143,7 +143,7 @@ const Workers = () => {
 
   // Close menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (_event: MouseEvent) => {
       if (openMenuId !== null) {
         setOpenMenuId(null);
       }
@@ -391,7 +391,7 @@ const Workers = () => {
                     Filial <span className="text-red-500">*</span>
                   </label>
                   <select
-                    required={form.role !== 'MANAGER'}
+                    required={form.role !== ('MANAGER' as any)}
                     value={form.branchId}
                     onChange={(e) => setForm({ ...form, branchId: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

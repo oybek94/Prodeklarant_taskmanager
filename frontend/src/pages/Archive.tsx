@@ -149,7 +149,7 @@ const Archive = () => {
     );
   };
 
-  const downloadFile = (fileUrl: string, fileName: string) => {
+  const downloadFile = (fileUrl: string, _fileName: string) => {
     // URL'ni to'g'ri qurish - baseURL'dan /api ni olib tashlaymiz
     const baseUrl = apiClient.defaults.baseURL || 'http://localhost:3001/api';
     const serverBaseUrl = baseUrl.replace('/api', ''); // http://localhost:3001

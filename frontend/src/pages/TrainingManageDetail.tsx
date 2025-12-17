@@ -442,7 +442,7 @@ export default function TrainingManageDetail() {
           }
         }
 
-        const payload = { ...materialForm };
+        const payload: any = { ...materialForm };
         // TEXT type uchun fileUrl ni o'chirish
         if (materialForm.type === 'TEXT') {
           delete payload.fileUrl;

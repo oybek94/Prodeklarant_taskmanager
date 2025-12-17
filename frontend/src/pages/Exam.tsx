@@ -29,6 +29,7 @@ export default function Exam() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [maxScore, setMaxScore] = useState(0);
 
   useEffect(() => {

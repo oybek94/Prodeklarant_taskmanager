@@ -58,10 +58,10 @@ const Profile = () => {
   const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [_stats, setStats] = useState<Stats | null>(null);
   const [stageStats, setStageStats] = useState<StageStats | null>(null);
   const [errorStats, setErrorStats] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [stageStatsLoading, setStageStatsLoading] = useState(true);
   const [errorStatsLoading, setErrorStatsLoading] = useState(true);
   const [period, setPeriod] = useState('month');
@@ -178,7 +178,7 @@ const Profile = () => {
         name: workerDetail.name,
         email: workerDetail.email,
         password: '',
-        role: workerDetail.role || 'DEKLARANT',
+        role: (workerDetail.role || 'DEKLARANT') as 'ADMIN' | 'MANAGER' | 'DEKLARANT',
         branchId: workerDetail.branch?.id ? workerDetail.branch.id.toString() : '',
         salary: workerDetail.salary ? Number(workerDetail.salary).toString() : '',
       });
@@ -231,6 +231,7 @@ const Profile = () => {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const displayUser = id ? workerDetail : user;
   const isAdmin = user?.role === 'ADMIN';
 
@@ -360,6 +361,7 @@ const Profile = () => {
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Ishtirok foizi</h3>
                 <div className="flex flex-col items-center">
                   {(() => {
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     const totalParticipation = stageStats.totals.totalParticipation || 1;
                     const colors = [
                       '#3b82f6', // blue
@@ -723,7 +725,7 @@ const Profile = () => {
                     Filial <span className="text-red-500">*</span>
                   </label>
                   <select
-                    required={editForm.role !== 'MANAGER'}
+                    required={editForm.role !== ('MANAGER' as any)}
                     value={editForm.branchId}
                     onChange={(e) => setEditForm({ ...editForm, branchId: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

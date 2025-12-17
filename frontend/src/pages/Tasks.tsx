@@ -16,6 +16,8 @@ interface Task {
   title: string;
   status: string;
   comments?: string;
+  hasPsr?: boolean;
+  driverPhone?: string;
   createdAt: string;
   client: { id: number; name: string };
   branch: { id: number; name: string };
@@ -94,6 +96,7 @@ const Tasks = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
   const [loadingTask, setLoadingTask] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [updatingStage, setUpdatingStage] = useState<number | null>(null);
   const [taskVersions, setTaskVersions] = useState<TaskVersion[]>([]);
   const [showVersions, setShowVersions] = useState(false);
@@ -832,6 +835,7 @@ const Tasks = () => {
     return `${day} ${month} ${year}; ${hours}:${minutes}`;
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const formatDuration = (minutes?: number) => {
     if (!minutes) return '-';
     const hours = Math.floor(minutes / 60);

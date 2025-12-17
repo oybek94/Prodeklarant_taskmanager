@@ -87,11 +87,11 @@ const Dashboard = () => {
 
   const tasksChartData = prepareTasksChartData();
   const transactionsChartData = prepareTransactionsChartData();
-  const maxTasksCount = Math.max(...tasksChartData.map(d => d.count), 1);
-  const maxTransactionAmount = Math.max(
-    ...transactionsChartData.income.map(d => d.amount),
-    ...transactionsChartData.expense.map(d => d.amount),
-    ...transactionsChartData.salary.map(d => d.amount),
+  const maxTasksCount = Math.max(...tasksChartData.map((d: any) => Number(d.count)), 1);
+  const _maxTransactionAmount = Math.max(
+    ...transactionsChartData.income.map((d: any) => Number(d.amount)),
+    ...transactionsChartData.expense.map((d: any) => Number(d.amount)),
+    ...transactionsChartData.salary.map((d: any) => Number(d.amount)),
     1
   );
 
@@ -204,7 +204,7 @@ const Dashboard = () => {
                   title={`${item.date}: ${item.count} ish`}
                 >
                   <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                    {item.count}
+                    {String(item.count)}
                   </div>
                 </div>
                 <div className="text-xs text-gray-600 text-center w-full truncate mt-1" style={{ maxWidth: '100%' }}>

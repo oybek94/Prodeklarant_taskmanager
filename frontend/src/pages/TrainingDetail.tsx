@@ -427,7 +427,7 @@ export default function TrainingDetail() {
                                                   // Agar rasm yuklanmasa, asl URL'ni sinab ko'rish
                                                   const target = e.target as HTMLImageElement;
                                                   if (target.src !== material.fileUrl) {
-                                                    target.src = material.fileUrl;
+                                                    target.src = material.fileUrl || '';
                                                   }
                                                 }}
                                               />

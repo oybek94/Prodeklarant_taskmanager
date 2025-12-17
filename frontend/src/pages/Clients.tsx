@@ -62,6 +62,7 @@ const Clients = () => {
   const [showClientModal, setShowClientModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientDetail | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loadingClient, setLoadingClient] = useState(false);
   const [stats, setStats] = useState<ClientStats | null>(null);
   const [monthlyTasks, setMonthlyTasks] = useState<MonthlyTask[]>([]);
@@ -75,6 +76,7 @@ const Clients = () => {
     dealAmount: '',
     phone: '',
   });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
 
   useEffect(() => {

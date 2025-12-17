@@ -25,7 +25,7 @@ router.post('/login', async (req, res) => {
       WHERE active = true
     `;
     
-    let matchedUser: User | null = null;
+    let matchedUser: Pick<User, 'id' | 'name' | 'passwordHash' | 'role' | 'branchId'> | null = null;
     for (const user of users) {
       const ok = await comparePassword(password, user.passwordHash);
       if (ok) {
@@ -35,7 +35,7 @@ router.post('/login', async (req, res) => {
             error: 'Xatolik: Bir nechta foydalanuvchi bir xil parolga ega. Iltimos, parollarni o\'zgartiring.' 
           });
         }
-        matchedUser = user;
+        matchedUser = user as Pick<User, 'id' | 'name' | 'passwordHash' | 'role' | 'branchId'>;
       }
     }
     

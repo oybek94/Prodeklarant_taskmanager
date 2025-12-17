@@ -45,22 +45,31 @@ echo ""
 echo "📁 dist papkasini tekshirish..."
 ls -la dist/ 2>/dev/null || echo "⚠️  dist papkasi mavjud emas"
 
-# dist/index.js ni tekshirish (asosiy fayl)
+# dist/index.js, dist/server.js yoki dist/src/server.js ni tekshirish
 if [ -f "dist/index.js" ]; then
+    SERVER_FILE="dist/index.js"
     echo "✅ dist/index.js mavjud"
     ls -lh dist/index.js
 elif [ -f "dist/server.js" ]; then
+    SERVER_FILE="dist/server.js"
     echo "✅ dist/server.js mavjud"
     ls -lh dist/server.js
-    echo "⚠️  package.json'da main fayl dist/index.js deb sozlangan"
-    echo "   Lekin dist/server.js mavjud. PM2 dist/server.js ni ishlatadi."
+elif [ -f "dist/src/server.js" ]; then
+    SERVER_FILE="dist/src/server.js"
+    echo "✅ dist/src/server.js mavjud"
+    ls -lh dist/src/server.js
+    echo "⚠️  Fayl dist/src/server.js da. tsconfig.json'da rootDir sozlash kerak."
+elif [ -f "dist/src/index.js" ]; then
+    SERVER_FILE="dist/src/index.js"
+    echo "✅ dist/src/index.js mavjud"
+    ls -lh dist/src/index.js
 else
-    echo "❌ dist/index.js yoki dist/server.js topilmadi!"
+    echo "❌ Hech qanday server fayli topilmadi!"
     echo "📝 Build log:"
     cat build.log 2>/dev/null || echo "Build log topilmadi"
     echo ""
     echo "📁 dist papkasidagi fayllar:"
-    ls -la dist/ 2>/dev/null || echo "dist papkasi mavjud emas"
+    find dist -name "*.js" -type f 2>/dev/null | head -20 || echo "dist papkasi mavjud emas"
     exit 1
 fi
 echo ""
@@ -72,15 +81,7 @@ echo ""
 
 # 6. Backend'ni ishga tushirish
 echo "▶️  Backend'ni ishga tushirish..."
-# dist/index.js yoki dist/server.js ni aniqlash
-if [ -f "dist/index.js" ]; then
-    SERVER_FILE="dist/index.js"
-elif [ -f "dist/server.js" ]; then
-    SERVER_FILE="dist/server.js"
-else
-    echo "❌ dist/index.js yoki dist/server.js topilmadi!"
-    exit 1
-fi
+# SERVER_FILE yuqorida aniqlangan
 pm2 start $SERVER_FILE --name prodeklarant-backend
 pm2 save
 echo ""

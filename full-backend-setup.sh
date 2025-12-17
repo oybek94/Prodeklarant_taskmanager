@@ -42,15 +42,27 @@ fi
 echo ""
 
 # 4. Build tekshirish
-if [ ! -f "dist/server.js" ]; then
-    echo "❌ dist/server.js fayli yaratilmadi!"
+echo "📁 dist papkasini tekshirish..."
+ls -la dist/ 2>/dev/null || echo "⚠️  dist papkasi mavjud emas"
+
+# dist/server.js yoki dist/index.js ni tekshirish
+if [ -f "dist/server.js" ]; then
+    echo "✅ dist/server.js mavjud"
+    ls -lh dist/server.js
+elif [ -f "dist/index.js" ]; then
+    echo "✅ dist/index.js mavjud (server.js emas)"
+    ls -lh dist/index.js
+    echo "⚠️  package.json'da main fayl dist/server.js deb sozlangan"
+    echo "   Lekin dist/index.js mavjud. PM2 dist/index.js ni ishlatadi."
+else
+    echo "❌ dist/server.js yoki dist/index.js topilmadi!"
     echo "📝 Build log:"
     cat build.log 2>/dev/null || echo "Build log topilmadi"
+    echo ""
+    echo "📁 dist papkasidagi fayllar:"
+    ls -la dist/ 2>/dev/null || echo "dist papkasi mavjud emas"
     exit 1
 fi
-
-echo "✅ dist/server.js mavjud"
-ls -lh dist/server.js
 echo ""
 
 # 5. Eski PM2 process'ni o'chirish
@@ -60,7 +72,16 @@ echo ""
 
 # 6. Backend'ni ishga tushirish
 echo "▶️  Backend'ni ishga tushirish..."
-pm2 start dist/server.js --name prodeklarant-backend
+# dist/server.js yoki dist/index.js ni aniqlash
+if [ -f "dist/server.js" ]; then
+    SERVER_FILE="dist/server.js"
+elif [ -f "dist/index.js" ]; then
+    SERVER_FILE="dist/index.js"
+else
+    echo "❌ dist/server.js yoki dist/index.js topilmadi!"
+    exit 1
+fi
+pm2 start $SERVER_FILE --name prodeklarant-backend
 pm2 save
 echo ""
 

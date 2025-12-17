@@ -112,7 +112,7 @@ npm install
 if [ ! -f .env ]; then
     echo "Creating frontend .env file..."
     cat > .env << EOF
-VITE_API_URL=http://138.249.7.15:3001/api
+VITE_API_BASE_URL=http://138.249.7.15/api
 EOF
 fi
 

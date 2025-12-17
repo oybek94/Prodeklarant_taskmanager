@@ -84,11 +84,19 @@ echo "🔧 Frontend .env faylini tekshirish..."
 cd ../frontend
 if [ ! -f .env ]; then
     cat > .env << EOF
-VITE_API_URL=http://138.249.7.15:3001/api
+VITE_API_BASE_URL=http://138.249.7.15/api
 EOF
     echo "✅ Frontend .env fayli yaratildi!"
 else
-    echo "✅ Frontend .env fayli mavjud"
+    # Update existing .env file
+    if ! grep -q "VITE_API_BASE_URL" .env; then
+        echo "VITE_API_BASE_URL=http://138.249.7.15/api" >> .env
+        echo "✅ Frontend .env fayliga VITE_API_BASE_URL qo'shildi!"
+    else
+        # Update existing VITE_API_BASE_URL
+        sed -i 's|VITE_API_BASE_URL=.*|VITE_API_BASE_URL=http://138.249.7.15/api|' .env
+        echo "✅ Frontend .env fayli yangilandi!"
+    fi
 fi
 
 # Restart services

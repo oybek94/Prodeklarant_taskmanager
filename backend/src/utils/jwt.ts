@@ -16,11 +16,17 @@ export const signRefreshToken = (payload: JwtPayload): string =>
 
 export const verifyAccessToken = (token: string): JwtPayload => {
   const decoded = jwt.verify(token, config.jwtSecret);
-  return decoded as JwtPayload;
+  if (typeof decoded === 'string') {
+    throw new Error('Invalid token format');
+  }
+  return decoded as unknown as JwtPayload;
 };
 
 export const verifyRefreshToken = (token: string): JwtPayload => {
   const decoded = jwt.verify(token, config.jwtRefreshSecret);
-  return decoded as JwtPayload;
+  if (typeof decoded === 'string') {
+    throw new Error('Invalid token format');
+  }
+  return decoded as unknown as JwtPayload;
 };
 

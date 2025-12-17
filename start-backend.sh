@@ -6,10 +6,18 @@ echo "🚀 Starting backend with PM2..."
 
 cd /var/www/prodeklarant/backend
 
-# Build'ni tekshirish
-if [ ! -d "dist" ]; then
+# Build'ni tekshirish va qilish
+if [ ! -d "dist" ] || [ ! -f "dist/server.js" ]; then
     echo "📦 Building backend..."
     npm run build
+    
+    # Build muvaffaqiyatli bo'lganini tekshirish
+    if [ ! -f "dist/server.js" ]; then
+        echo "❌ Build xatolik! dist/server.js fayli yaratilmadi."
+        echo "📝 Loglarni tekshiring va xatoliklarni tuzating."
+        exit 1
+    fi
+    echo "✅ Build muvaffaqiyatli!"
 fi
 
 # PM2'da process bor-yo'qligini tekshirish

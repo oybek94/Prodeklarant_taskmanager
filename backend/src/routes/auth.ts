@@ -24,7 +24,8 @@ router.post('/login', async (req, res) => {
       WHERE active = true
     `;
     
-    let matchedUser = null;
+    type UserType = { id: number; name: string; passwordHash: string; role: string; branchId: number };
+    let matchedUser: UserType | null = null;
     for (const user of users) {
       const ok = await comparePassword(password, user.passwordHash);
       if (ok) {

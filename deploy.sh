@@ -64,13 +64,20 @@ npm install
 # Create .env file if it doesn't exist
 if [ ! -f .env ]; then
     echo "Creating .env file..."
+    # Generate secure passwords
+    DB_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+    JWT_SECRET=$(openssl rand -base64 64 | tr -d "=+/" | cut -c1-64)
+    
     cat > .env << EOF
-DATABASE_URL="postgresql://prodeklarant:prodeklarant_password@localhost:5432/prodeklarant?schema=public"
-JWT_SECRET="your-secret-key-change-this-in-production"
+DATABASE_URL="postgresql://prodeklarant:${DB_PASSWORD}@localhost:5432/prodeklarant?schema=public"
+JWT_SECRET="${JWT_SECRET}"
 PORT=3001
 NODE_ENV=production
 EOF
-    echo "⚠️  Please update .env file with your actual credentials!"
+    echo "✅ .env file created with secure credentials!"
+    echo "📋 Database Password: $DB_PASSWORD"
+    echo "📋 JWT Secret: $JWT_SECRET"
+    echo "⚠️  Please save these credentials securely!"
 fi
 
 # Setup database

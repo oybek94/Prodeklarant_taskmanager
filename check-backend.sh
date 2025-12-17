@@ -60,3 +60,4 @@ systemctl status nginx --no-pager -l | head -20
 echo ""
 echo "✅ Tekshirish yakunlandi!"
 
+

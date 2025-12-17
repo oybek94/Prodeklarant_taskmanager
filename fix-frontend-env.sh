@@ -36,3 +36,4 @@ echo "   cd /var/www/prodeklarant/frontend"
 echo "   npm run build"
 echo "   systemctl reload nginx"
 
+

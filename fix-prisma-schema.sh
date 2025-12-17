@@ -59,3 +59,4 @@ echo "📊 Keyingi qadamlar:"
 echo "   1. npm run build"
 echo "   2. pm2 restart prodeklarant-backend"
 
+

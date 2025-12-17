@@ -46,3 +46,4 @@ pm2 status
 echo ""
 echo "📝 View logs with: pm2 logs prodeklarant-backend"
 
+

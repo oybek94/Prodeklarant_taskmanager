@@ -162,3 +162,4 @@ echo "📝 Muhim ma'lumotlar:"
 echo "   Backend .env: /var/www/prodeklarant/backend/.env"
 echo "   Frontend .env: /var/www/prodeklarant/frontend/.env"
 
+

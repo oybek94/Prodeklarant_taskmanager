@@ -87,3 +87,4 @@ echo ""
 echo "🧪 Health check:"
 echo "   curl http://localhost:3001/health"
 
+

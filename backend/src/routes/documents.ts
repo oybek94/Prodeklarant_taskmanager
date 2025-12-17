@@ -106,7 +106,7 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
       return res.status(404).json({ error: 'Task topilmadi' });
     }
 
-    const documents = [];
+    const documents: any[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -214,7 +214,7 @@ router.post('/archive/task/:taskId', requireAuth('ADMIN'), upload.array('files',
       return res.status(404).json({ error: 'Task topilmadi' });
     }
 
-    const documents = [];
+    const documents: any[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];

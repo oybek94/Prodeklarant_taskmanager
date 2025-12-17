@@ -43,20 +43,21 @@ router.post('/login', async (req, res) => {
     }
     
     // Convert role to valid enum value
-    let validRole = matchedUser.role;
-    if (matchedUser.role === 'WORKER' || matchedUser.role === 'ACCOUNTANT') {
+    const user = matchedUser as any;
+    let validRole = user.role;
+    if (user.role === 'WORKER' || user.role === 'ACCOUNTANT') {
       validRole = 'DEKLARANT';
-    } else if (matchedUser.role === 'ADMIN' || matchedUser.role === 'MANAGER' || matchedUser.role === 'DEKLARANT') {
-      validRole = matchedUser.role;
+    } else if (user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'DEKLARANT') {
+      validRole = user.role;
     } else {
       validRole = 'DEKLARANT';
     }
     
-    const payload = { sub: matchedUser.id, role: validRole, branchId: matchedUser.branchId || null, name: matchedUser.name };
+    const payload = { sub: user.id, role: validRole, branchId: user.branchId || null, name: user.name };
     return res.json({
       accessToken: signAccessToken(payload),
       refreshToken: signRefreshToken(payload),
-      user: { id: matchedUser.id, name: matchedUser.name, role: validRole, branchId: matchedUser.branchId || null },
+      user: { id: user.id, name: user.name, role: validRole, branchId: user.branchId || null },
     });
   } catch (error: any) {
     console.error('Login error:', error);

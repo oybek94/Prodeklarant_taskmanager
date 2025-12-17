@@ -14,7 +14,7 @@ export async function computeDurations(tx: PrismaClient | Prisma.TransactionClie
     where: { taskId },
     orderBy: { stageOrder: 'asc' },
   });
-  const map = new Map(stages.map((s: any) => [s.name, s]));
+  const map = new Map<string, any>(stages.map((s: any) => [s.name, s]));
 
   const completed = (name: string) => map.get(name)?.completedAt ?? null;
   const setDuration = async (name: string, start: Date | null, end: Date | null) => {

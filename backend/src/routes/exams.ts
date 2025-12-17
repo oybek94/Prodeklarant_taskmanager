@@ -113,7 +113,7 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
 
     // Har bir savolni tekshirish va javoblar yozuvini yaratish
     let totalScore = 0;
-    const examAnswers = [];
+    const examAnswers: any[] = [];
 
     for (const userAnswer of answers) {
       const question = exam.questions.find((q: any) => q.id === userAnswer.questionId);

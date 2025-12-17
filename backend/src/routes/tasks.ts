@@ -153,10 +153,10 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
 
     if (statePayment) {
       // Task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovidan foydalanamiz
-      snapshotCertificatePayment = Number(statePayment.certificatePayment);
-      snapshotPsrPrice = Number(statePayment.psrPrice);
-      snapshotWorkerPrice = Number(statePayment.workerPrice);
-      snapshotCustomsPayment = Number(statePayment.customsPayment);
+      snapshotCertificatePayment = Number(statePayment.certificatePayment) as any;
+      snapshotPsrPrice = Number(statePayment.psrPrice) as any;
+      snapshotWorkerPrice = Number(statePayment.workerPrice) as any;
+      snapshotCustomsPayment = Number(statePayment.customsPayment) as any;
     }
 
     const createdTask = await tx.task.create({
@@ -298,7 +298,7 @@ router.get('/:id', async (req, res) => {
       totalPayments += psrPrice;
     }
     
-    netProfit = finalDealAmount - totalPayments;
+    netProfit = (finalDealAmount - totalPayments) as any;
   } catch (error) {
     console.error('Error calculating net profit:', error);
   }
@@ -432,13 +432,13 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
     // If Deklaratsiya stage is being started and multiplier is provided, update task's customs payment
     if (stage.name === 'Deklaratsiya' && parsed.data.status === 'TAYYOR' && parsed.data.customsPaymentMultiplier) {
       const currentYear = new Date().getFullYear();
-      const bxmConfig = await tx.bXMConfig.findUnique({
+      const bxmConfig = await (tx as any).bXMConfig.findUnique({
         where: { year: currentYear },
       });
       const bxmAmount = bxmConfig ? Number(bxmConfig.amount) : 34.4; // Default BXM
       const calculatedCustomsPayment = bxmAmount * parsed.data.customsPaymentMultiplier;
       
-      await tx.task.update({
+      await (tx as any).task.update({
         where: { id: taskId },
         data: {
           customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
@@ -447,7 +447,7 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
       });
     }
     
-    const upd = await tx.taskStage.update({
+    const upd = await (tx as any).taskStage.update({
       where: { id: stageId },
       data: {
         status: parsed.data.status,
@@ -515,7 +515,7 @@ router.post('/:taskId/errors', async (req: AuthRequest, res) => {
   // Create error and deduct from worker's earned amount using transaction
   const result = await prisma.$transaction(async (tx) => {
     // Create the error record
-    const error = await tx.taskError.create({
+      const error = await (tx as any).taskError.create({
       data: {
         taskId,
         stageName: parsed.data.stageName,
@@ -531,7 +531,7 @@ router.post('/:taskId/errors', async (req: AuthRequest, res) => {
 
     // Create a negative KPI log entry to deduct from worker's earned amount
     // This will be reflected in their totalReceived calculation
-    await tx.kpiLog.create({
+      await (tx as any).kpiLog.create({
       data: {
         userId: parsed.data.workerId,
         taskId: taskId,
@@ -673,7 +673,7 @@ router.patch('/:id', async (req: AuthRequest, res) => {
       await createTaskVersion(tx, id, req.user.id);
     }
 
-    const updatedTask = await tx.task.update({
+    const updatedTask = await (tx as any).task.update({
       where: { id },
       data: {
         ...(parsed.data.title && { title: parsed.data.title }),
@@ -698,11 +698,11 @@ router.delete('/:id', async (req: AuthRequest, res) => {
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   await prisma.$transaction(async (tx) => {
-    await tx.taskError.deleteMany({ where: { taskId: id } });
-    await tx.taskStage.deleteMany({ where: { taskId: id } });
-    await tx.kpiLog.deleteMany({ where: { taskId: id } });
-    await tx.transaction.deleteMany({ where: { taskId: id } });
-    await tx.task.delete({ where: { id } });
+    await (tx as any).taskError.deleteMany({ where: { taskId: id } });
+    await (tx as any).taskStage.deleteMany({ where: { taskId: id } });
+    await (tx as any).kpiLog.deleteMany({ where: { taskId: id } });
+    await (tx as any).transaction.deleteMany({ where: { taskId: id } });
+    await (tx as any).task.delete({ where: { id } });
   });
 
   res.status(204).send();

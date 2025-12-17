@@ -42,7 +42,7 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
     },
   });
 
-  const totalKPI = kpiLogs.reduce((sum, log) => sum + log.amount, 0);
+  const totalKPI = kpiLogs.reduce((sum, log) => sum + Number(log.amount), 0);
   const completedStages = kpiLogs.length;
 
   // Salary transactions
@@ -54,7 +54,7 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
     },
   });
 
-  const totalSalary = salaryTransactions.reduce((sum, t) => sum + t.amount, 0);
+  const totalSalary = salaryTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
   // Tasks assigned
   const tasksAssigned = await prisma.taskStage.count({

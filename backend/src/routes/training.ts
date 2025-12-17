@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();
 
 // Barcha o'qitish kurslarini olish
-router.get('/', requireAuth(), async (req, res) => {
+router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const trainings = await prisma.training.findMany({
       where: { active: true },
@@ -55,7 +55,7 @@ router.get('/', requireAuth(), async (req, res) => {
 });
 
 // Admin: Bosqich (Stage) qo'shish - SPECIFIC ROUTE, :id dan oldin bo'lishi kerak
-router.post('/:id/stages', requireAuth('ADMIN'), async (req, res) => {
+router.post('/:id/stages', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const trainingId = parseInt(req.params.id);
     const schema = z.object({
@@ -75,7 +75,7 @@ router.post('/:id/stages', requireAuth('ADMIN'), async (req, res) => {
     res.json(stage);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error creating stage:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
@@ -83,7 +83,7 @@ router.post('/:id/stages', requireAuth('ADMIN'), async (req, res) => {
 });
 
 // Admin: Bosqich (Stage) yangilash
-router.put('/:id/stages/:stageId', requireAuth('ADMIN'), async (req, res) => {
+router.put('/:id/stages/:stageId', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const stageId = parseInt(req.params.stageId);
     const schema = z.object({
@@ -101,7 +101,7 @@ router.put('/:id/stages/:stageId', requireAuth('ADMIN'), async (req, res) => {
     res.json(stage);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error updating stage:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
@@ -109,7 +109,7 @@ router.put('/:id/stages/:stageId', requireAuth('ADMIN'), async (req, res) => {
 });
 
 // Admin: Bosqich (Stage) o'chirish
-router.delete('/:id/stages/:stageId', requireAuth('ADMIN'), async (req, res) => {
+router.delete('/:id/stages/:stageId', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const stageId = parseInt(req.params.stageId);
     await prisma.trainingStage.delete({
@@ -124,7 +124,7 @@ router.delete('/:id/stages/:stageId', requireAuth('ADMIN'), async (req, res) => 
 });
 
 // Admin: Qadam (Step) qo'shish
-router.post('/:id/stages/:stageId/steps', requireAuth('ADMIN'), async (req, res) => {
+router.post('/:id/stages/:stageId/steps', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const stageId = parseInt(req.params.stageId);
     const schema = z.object({
@@ -144,7 +144,7 @@ router.post('/:id/stages/:stageId/steps', requireAuth('ADMIN'), async (req, res)
     res.json(step);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error creating step:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
@@ -152,7 +152,7 @@ router.post('/:id/stages/:stageId/steps', requireAuth('ADMIN'), async (req, res)
 });
 
 // Admin: Qadam (Step) yangilash
-router.put('/:id/stages/:stageId/steps/:stepId', requireAuth('ADMIN'), async (req, res) => {
+router.put('/:id/stages/:stageId/steps/:stepId', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const stepId = parseInt(req.params.stepId);
     const schema = z.object({
@@ -170,7 +170,7 @@ router.put('/:id/stages/:stageId/steps/:stepId', requireAuth('ADMIN'), async (re
     res.json(step);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error updating step:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
@@ -178,7 +178,7 @@ router.put('/:id/stages/:stageId/steps/:stepId', requireAuth('ADMIN'), async (re
 });
 
 // Admin: Qadam (Step) o'chirish
-router.delete('/:id/stages/:stageId/steps/:stepId', requireAuth('ADMIN'), async (req, res) => {
+router.delete('/:id/stages/:stageId/steps/:stepId', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const stepId = parseInt(req.params.stepId);
     await prisma.trainingStep.delete({
@@ -193,7 +193,7 @@ router.delete('/:id/stages/:stageId/steps/:stepId', requireAuth('ADMIN'), async 
 });
 
 // Admin: Qadam ichiga material qo'shish
-router.post('/:id/stages/:stageId/steps/:stepId/materials', requireAuth('ADMIN'), async (req, res) => {
+router.post('/:id/stages/:stageId/steps/:stepId/materials', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const stepId = parseInt(req.params.stepId);
     console.log('Creating material for step:', stepId, 'Body:', req.body);
@@ -233,8 +233,8 @@ router.post('/:id/stages/:stageId/steps/:stepId/materials', requireAuth('ADMIN')
     if (data.content !== undefined && data.content !== '') {
       cleanData.content = data.content;
     }
-    if (data.fileUrl !== undefined && data.fileUrl !== '') {
-      cleanData.fileUrl = data.fileUrl;
+    if ((data as any).fileUrl !== undefined && (data as any).fileUrl !== '') {
+      cleanData.fileUrl = (data as any).fileUrl;
     }
     if (data.durationMin !== undefined && data.durationMin !== null) {
       cleanData.durationMin = data.durationMin;
@@ -250,10 +250,10 @@ router.post('/:id/stages/:stageId/steps/:stepId/materials', requireAuth('ADMIN')
     res.json(material);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('Validation error in step material:', error.errors);
+      console.error('Validation error in step material:', error.issues);
       return res.status(400).json({ 
         error: 'Validation xatosi',
-        details: error.errors 
+        details: error.issues 
       });
     }
     console.error('Error creating material:', error);
@@ -266,7 +266,7 @@ router.post('/:id/stages/:stageId/steps/:stepId/materials', requireAuth('ADMIN')
 });
 
 // Bitta o'qitish kursini olish - GET route, specific route'lardan keyin
-router.get('/:id', requireAuth(), async (req, res) => {
+router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const trainingId = parseInt(req.params.id);
     const training = await prisma.training.findUnique({
@@ -342,7 +342,7 @@ router.get('/:id', requireAuth(), async (req, res) => {
 });
 
 // Material o'qilganini belgilash
-router.post('/:id/materials/:materialId/complete', requireAuth(), async (req, res) => {
+router.post('/:id/materials/:materialId/complete', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const trainingId = parseInt(req.params.id);
     const materialId = parseInt(req.params.materialId);
@@ -490,7 +490,7 @@ router.post('/:id/materials/:materialId/complete', requireAuth(), async (req, re
 });
 
 // Admin: Yangi o'qitish kursi yaratish
-router.post('/', requireAuth('ADMIN'), async (req, res) => {
+router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const schema = z.object({
       title: z.string().min(1),
@@ -506,7 +506,7 @@ router.post('/', requireAuth('ADMIN'), async (req, res) => {
     res.json(training);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error creating training:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
@@ -514,7 +514,7 @@ router.post('/', requireAuth('ADMIN'), async (req, res) => {
 });
 
 // Admin: O'qitish kursini yangilash
-router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
+router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const trainingId = parseInt(req.params.id);
     const schema = z.object({
@@ -533,7 +533,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
     res.json(training);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error updating training:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
@@ -541,7 +541,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
 });
 
 // Admin: Material qo'shish
-router.post('/:id/materials', requireAuth('ADMIN'), async (req, res) => {
+router.post('/:id/materials', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const trainingId = parseInt(req.params.id);
     console.log('Creating material for training:', trainingId, 'Body:', req.body);
@@ -581,8 +581,8 @@ router.post('/:id/materials', requireAuth('ADMIN'), async (req, res) => {
     if (data.content !== undefined && data.content !== '') {
       cleanData.content = data.content;
     }
-    if (data.fileUrl !== undefined && data.fileUrl !== '') {
-      cleanData.fileUrl = data.fileUrl;
+    if ((data as any).fileUrl !== undefined && (data as any).fileUrl !== '') {
+      cleanData.fileUrl = (data as any).fileUrl;
     }
     if (data.durationMin !== undefined && data.durationMin !== null) {
       cleanData.durationMin = data.durationMin;
@@ -597,10 +597,10 @@ router.post('/:id/materials', requireAuth('ADMIN'), async (req, res) => {
     res.json(material);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('Validation error in material:', error.errors);
+      console.error('Validation error in material:', error.issues);
       return res.status(400).json({ 
         error: 'Validation xatosi',
-        details: error.errors 
+        details: error.issues 
       });
     }
     console.error('Error creating material:', error);
@@ -612,7 +612,7 @@ router.post('/:id/materials', requireAuth('ADMIN'), async (req, res) => {
 });
 
 // Admin: Material yangilash
-router.put('/:id/materials/:materialId', requireAuth('ADMIN'), async (req, res) => {
+router.put('/:id/materials/:materialId', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const materialId = parseInt(req.params.materialId);
     const baseSchema = z.object({
@@ -655,7 +655,7 @@ router.put('/:id/materials/:materialId', requireAuth('ADMIN'), async (req, res) 
     res.json(material);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error updating material:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
@@ -663,7 +663,7 @@ router.put('/:id/materials/:materialId', requireAuth('ADMIN'), async (req, res) 
 });
 
 // Admin: Material o'chirish
-router.delete('/:id/materials/:materialId', requireAuth('ADMIN'), async (req, res) => {
+router.delete('/:id/materials/:materialId', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const materialId = parseInt(req.params.materialId);
     await prisma.trainingMaterial.delete({

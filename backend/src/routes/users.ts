@@ -102,7 +102,7 @@ router.post('/', requireAuth('ADMIN'), async (req, res) => {
     let branchId = parsed.data.branchId;
     if (parsed.data.role === 'MANAGER') {
       // Manager roli uchun branchId null bo'lishi mumkin (barcha filiallarga kirish)
-      branchId = branchId || null;
+      branchId = branchId || undefined;
     } else if (parsed.data.role === 'DEKLARANT') {
       // Deklarant roli uchun branchId majburiy
       if (!branchId) {

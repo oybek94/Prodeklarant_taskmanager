@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();
 
 // Imtihonni boshlash
-router.post('/:id/start', requireAuth(), async (req, res) => {
+router.post('/:id/start', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const examId = parseInt(req.params.id);
     const exam = await prisma.exam.findUnique({
@@ -74,7 +74,7 @@ router.post('/:id/start', requireAuth(), async (req, res) => {
 });
 
 // Imtihonni topshirish
-router.post('/:id/submit', requireAuth(), async (req, res) => {
+router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const examId = parseInt(req.params.id);
     const schema = z.object({
@@ -193,7 +193,7 @@ router.post('/:id/submit', requireAuth(), async (req, res) => {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error submitting exam:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
@@ -201,7 +201,7 @@ router.post('/:id/submit', requireAuth(), async (req, res) => {
 });
 
 // Imtihon natijalarini olish
-router.get('/:id/results', requireAuth(), async (req, res) => {
+router.get('/:id/results', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const examId = parseInt(req.params.id);
     const exam = await prisma.exam.findUnique({
@@ -242,7 +242,7 @@ router.get('/:id/results', requireAuth(), async (req, res) => {
 });
 
 // Admin: Imtihon yaratish
-router.post('/', requireAuth('ADMIN'), async (req, res) => {
+router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const schema = z.object({
       trainingId: z.number(),
@@ -260,7 +260,7 @@ router.post('/', requireAuth('ADMIN'), async (req, res) => {
     res.json(exam);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error creating exam:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
@@ -268,7 +268,7 @@ router.post('/', requireAuth('ADMIN'), async (req, res) => {
 });
 
 // Admin: Savol qo'shish
-router.post('/:id/questions', requireAuth('ADMIN'), async (req, res) => {
+router.post('/:id/questions', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const examId = parseInt(req.params.id);
     const schema = z.object({
@@ -291,7 +291,7 @@ router.post('/:id/questions', requireAuth('ADMIN'), async (req, res) => {
     res.json(question);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error creating question:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
@@ -299,7 +299,7 @@ router.post('/:id/questions', requireAuth('ADMIN'), async (req, res) => {
 });
 
 // Admin: Savol yangilash
-router.put('/:id/questions/:questionId', requireAuth('ADMIN'), async (req, res) => {
+router.put('/:id/questions/:questionId', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const questionId = parseInt(req.params.questionId);
     const schema = z.object({
@@ -320,7 +320,7 @@ router.put('/:id/questions/:questionId', requireAuth('ADMIN'), async (req, res) 
     res.json(question);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error updating question:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
@@ -328,7 +328,7 @@ router.put('/:id/questions/:questionId', requireAuth('ADMIN'), async (req, res) 
 });
 
 // Admin: Savol o'chirish
-router.delete('/:id/questions/:questionId', requireAuth('ADMIN'), async (req, res) => {
+router.delete('/:id/questions/:questionId', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const questionId = parseInt(req.params.questionId);
     await prisma.examQuestion.delete({
@@ -343,7 +343,7 @@ router.delete('/:id/questions/:questionId', requireAuth('ADMIN'), async (req, re
 });
 
 // Admin: Imtihon yangilash
-router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
+router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const examId = parseInt(req.params.id);
     const schema = z.object({
@@ -363,7 +363,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
     res.json(exam);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     console.error('Error updating exam:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });

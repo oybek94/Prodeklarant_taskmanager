@@ -295,7 +295,7 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
 
     // Admin'dan boshqa foydalanuvchilar 2 kundan keyin o'chira oladi
     if (req.user!.role !== 'ADMIN' && document.uploadedById === req.user!.id) {
-      const uploadTime = new Date(document.createdAt || document.archivedAt);
+      const uploadTime = new Date(document.createdAt || (document as any).archivedAt);
       const now = new Date();
       const diffInMs = now.getTime() - uploadTime.getTime();
       const diffInDays = diffInMs / (1000 * 60 * 60 * 24);

@@ -26,9 +26,10 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 
 // CORS sozlamalari
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || [
   'http://localhost:5173',
-  'http://127.0.0.1:5173'
+  'http://127.0.0.1:5173',
+  'http://138.249.7.15'
 ];
 
 app.use(cors({

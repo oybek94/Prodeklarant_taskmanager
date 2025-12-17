@@ -4,6 +4,7 @@ import { comparePassword, hashPassword } from '../utils/hash';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
+import { User } from '@prisma/client';
 
 const router = Router();
 
@@ -24,8 +25,7 @@ router.post('/login', async (req, res) => {
       WHERE active = true
     `;
     
-    type UserType = { id: number; name: string; passwordHash: string; role: string; branchId: number };
-    let matchedUser: UserType | null = null;
+    let matchedUser: User | null = null;
     for (const user of users) {
       const ok = await comparePassword(password, user.passwordHash);
       if (ok) {

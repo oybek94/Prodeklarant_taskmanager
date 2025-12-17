@@ -135,6 +135,9 @@ server {
     listen 80;
     server_name 138.249.7.15;
 
+    # Content Security Policy headers (development uchun)
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http://localhost:3001 http://138.249.7.15 https:; frame-ancestors 'none';" always;
+
     # Frontend
     location / {
         root /var/www/prodeklarant/frontend/dist;

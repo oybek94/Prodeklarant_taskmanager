@@ -82,9 +82,17 @@ fi
 
 # Setup database
 echo "🗄️  Setting up database..."
-sudo -u postgres psql -c "CREATE USER prodeklarant WITH PASSWORD 'prodeklarant_password';" || true
-sudo -u postgres psql -c "CREATE DATABASE prodeklarant OWNER prodeklarant;" || true
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE prodeklarant TO prodeklarant;" || true
+# .env faylidan parolni o'qish
+DB_PASSWORD=$(grep DATABASE_URL .env | sed 's/.*:\([^@]*\)@.*/\1/' | tr -d '"')
+
+# Eski user va database'ni o'chirish (agar mavjud bo'lsa)
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS prodeklarant;" || true
+sudo -u postgres psql -c "DROP USER IF EXISTS prodeklarant;" || true
+
+# Yangi user va database yaratish
+sudo -u postgres psql -c "CREATE USER prodeklarant WITH PASSWORD '${DB_PASSWORD}';"
+sudo -u postgres psql -c "CREATE DATABASE prodeklarant OWNER prodeklarant;"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE prodeklarant TO prodeklarant;"
 
 # Run migrations
 echo "🔄 Running database migrations..."

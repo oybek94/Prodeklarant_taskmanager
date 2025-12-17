@@ -45,17 +45,17 @@ echo ""
 echo "📁 dist papkasini tekshirish..."
 ls -la dist/ 2>/dev/null || echo "⚠️  dist papkasi mavjud emas"
 
-# dist/server.js yoki dist/index.js ni tekshirish
-if [ -f "dist/server.js" ]; then
+# dist/index.js ni tekshirish (asosiy fayl)
+if [ -f "dist/index.js" ]; then
+    echo "✅ dist/index.js mavjud"
+    ls -lh dist/index.js
+elif [ -f "dist/server.js" ]; then
     echo "✅ dist/server.js mavjud"
     ls -lh dist/server.js
-elif [ -f "dist/index.js" ]; then
-    echo "✅ dist/index.js mavjud (server.js emas)"
-    ls -lh dist/index.js
-    echo "⚠️  package.json'da main fayl dist/server.js deb sozlangan"
-    echo "   Lekin dist/index.js mavjud. PM2 dist/index.js ni ishlatadi."
+    echo "⚠️  package.json'da main fayl dist/index.js deb sozlangan"
+    echo "   Lekin dist/server.js mavjud. PM2 dist/server.js ni ishlatadi."
 else
-    echo "❌ dist/server.js yoki dist/index.js topilmadi!"
+    echo "❌ dist/index.js yoki dist/server.js topilmadi!"
     echo "📝 Build log:"
     cat build.log 2>/dev/null || echo "Build log topilmadi"
     echo ""
@@ -72,13 +72,13 @@ echo ""
 
 # 6. Backend'ni ishga tushirish
 echo "▶️  Backend'ni ishga tushirish..."
-# dist/server.js yoki dist/index.js ni aniqlash
-if [ -f "dist/server.js" ]; then
-    SERVER_FILE="dist/server.js"
-elif [ -f "dist/index.js" ]; then
+# dist/index.js yoki dist/server.js ni aniqlash
+if [ -f "dist/index.js" ]; then
     SERVER_FILE="dist/index.js"
+elif [ -f "dist/server.js" ]; then
+    SERVER_FILE="dist/server.js"
 else
-    echo "❌ dist/server.js yoki dist/index.js topilmadi!"
+    echo "❌ dist/index.js yoki dist/server.js topilmadi!"
     exit 1
 fi
 pm2 start $SERVER_FILE --name prodeklarant-backend

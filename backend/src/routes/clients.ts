@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { z } from 'zod';
 import { AuthRequest } from '../middleware/auth';
+import bcrypt from 'bcrypt';
 
 const router = Router();
 
@@ -9,16 +10,27 @@ const clientSchema = z.object({
   name: z.string().min(1),
   dealAmount: z.number().optional(),
   phone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
+  password: z.string().min(6).optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
 });
 
 router.get('/', async (_req, res) => {
   const clients = await prisma.client.findMany({ 
-    include: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      dealAmount: true,
+      active: true,
+      createdAt: true,
+      updatedAt: true,
       tasks: {
         select: {
           id: true,
         },
       },
+      // Don't include passwordHash for security
     },
     orderBy: { createdAt: 'desc' } 
   });
@@ -69,16 +81,54 @@ router.get('/stats', async (_req, res) => {
 });
 
 router.post('/', async (req: AuthRequest, res) => {
-  const parsed = clientSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const client = await prisma.client.create({
-    data: {
+  try {
+    const parsed = clientSchema.safeParse(req.body);
+    if (!parsed.success) {
+      console.error('Validation error:', parsed.error.flatten());
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+    
+    // Prepare client data
+    const clientData: any = {
       name: parsed.data.name,
       dealAmount: parsed.data.dealAmount ?? null,
       phone: parsed.data.phone ?? null,
-    },
-  });
-  res.status(201).json(client);
+    };
+
+    // Only add email if it's provided
+    if (parsed.data.email) {
+      clientData.email = parsed.data.email;
+    }
+
+    // Hash password if both email and password are provided
+    if (parsed.data.password && parsed.data.email) {
+      const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+      clientData.passwordHash = passwordHash;
+    }
+
+    console.log('Creating client with data:', { ...clientData, passwordHash: clientData.passwordHash ? '[HIDDEN]' : undefined });
+
+    const client = await prisma.client.create({
+      data: clientData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        dealAmount: true,
+        active: true,
+        createdAt: true,
+        updatedAt: true,
+        // Don't return passwordHash
+      },
+    });
+    
+    console.log('Client created successfully:', { id: client.id, email: client.email });
+    res.status(201).json(client);
+  } catch (error: any) {
+    console.error('Error creating client:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
 });
 
 router.get('/:id', async (req, res) => {
@@ -141,8 +191,11 @@ router.get('/:id', async (req, res) => {
     fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logBeforeResponse)}).catch(()=>{});
     // #endregion
 
+  // Remove passwordHash for security
+  const { passwordHash, ...clientData } = client;
+  
   res.json({
-    ...client,
+    ...clientData,
     stats: {
       dealAmount,
       totalDealAmount, // Jami shartnoma summasi (PSR hisobga olingan)
@@ -199,18 +252,60 @@ router.get('/:id/monthly-tasks', async (req, res) => {
 });
 
 router.patch('/:id', async (req, res) => {
-  const id = Number(req.params.id);
-  const parsed = clientSchema.partial().safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const client = await prisma.client.update({
-    where: { id },
-    data: {
-      name: parsed.data.name,
-      dealAmount: parsed.data.dealAmount ?? undefined,
-      phone: parsed.data.phone ?? undefined,
-    },
-  });
-  res.json(client);
+  try {
+    const id = Number(req.params.id);
+    const parsed = clientSchema.partial().safeParse(req.body);
+    if (!parsed.success) {
+      console.error('Validation error:', parsed.error.flatten());
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+    
+    // Prepare update data - only include fields that are provided
+    const updateData: any = {};
+    
+    if (parsed.data.name !== undefined) {
+      updateData.name = parsed.data.name;
+    }
+    if (parsed.data.dealAmount !== undefined) {
+      updateData.dealAmount = parsed.data.dealAmount;
+    }
+    if (parsed.data.phone !== undefined) {
+      updateData.phone = parsed.data.phone;
+    }
+    if (parsed.data.email !== undefined) {
+      updateData.email = parsed.data.email;
+    }
+
+    // Hash password if provided
+    if (parsed.data.password) {
+      const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+      updateData.passwordHash = passwordHash;
+    }
+
+    console.log('Updating client', id, 'with data:', { ...updateData, passwordHash: updateData.passwordHash ? '[HIDDEN]' : undefined });
+
+    const client = await prisma.client.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        dealAmount: true,
+        active: true,
+        createdAt: true,
+        updatedAt: true,
+        // Don't return passwordHash
+      },
+    });
+    
+    console.log('Client updated successfully:', { id: client.id, email: client.email });
+    res.json(client);
+  } catch (error: any) {
+    console.error('Error updating client:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
 });
 
 router.delete('/:id', async (req, res) => {

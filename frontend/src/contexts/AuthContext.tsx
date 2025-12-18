@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
+import axios from 'axios';
 import apiClient from '../lib/api';
 
 interface User {
@@ -27,13 +29,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const checkAuth = async () => {
       const accessToken = localStorage.getItem('accessToken');
-      if (accessToken) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      
+      if (accessToken || refreshToken) {
         try {
+          // Avval access token bilan urinib ko'ramiz
           const response = await apiClient.get('/auth/me');
           setUser(response.data);
-        } catch (error) {
+        } catch (error: any) {
+          // Agar access token eskirgan bo'lsa, refresh token bilan yangilashga harakat qilamiz
+          if (refreshToken && error.response?.status === 401) {
+            try {
+              const refreshResponse = await axios.post(
+                `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/auth/refresh`,
+                { refreshToken }
+              );
+              const { accessToken: newAccessToken, refreshToken: newRefreshToken } = refreshResponse.data;
+              localStorage.setItem('accessToken', newAccessToken);
+              if (newRefreshToken) {
+                localStorage.setItem('refreshToken', newRefreshToken);
+              }
+              // Yangi token bilan user ma'lumotlarini olamiz
+              const userResponse = await apiClient.get('/auth/me');
+              setUser(userResponse.data);
+            } catch (refreshError) {
+              // Refresh ham ishlamasa, logout qilamiz
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+            }
+          } else {
+            // Boshqa xatolik bo'lsa, tokenlarni tozalaymiz
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
+          }
         }
       }
       setIsLoading(false);

@@ -122,16 +122,41 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
 });
 
 router.post('/', requireAuth(), async (req: AuthRequest, res) => {
+  // #region agent log
+  const logEntry = {location:'tasks.ts:124',message:'POST /tasks entry',data:{hasUser:!!req.user,userId:req.user?.id,body:req.body},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'};
+  console.log('[DEBUG]', JSON.stringify(logEntry));
+  fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntry)}).catch(()=>{});
+  // #endregion
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const parsed = createTaskSchema.safeParse(req.body);
+    // #region agent log
+    const logValidation = {location:'tasks.ts:131',message:'Schema validation',data:{success:parsed.success,parsedData:parsed.success?parsed.data:null,errors:parsed.success?null:parsed.error.flatten()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'};
+    console.log('[DEBUG]', JSON.stringify(logValidation));
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logValidation)}).catch(()=>{});
+    // #endregion
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const task = await prisma.$transaction(async (tx: any) => {
-    // Client'ning kelishuv summasini olish
-    const client = await tx.client.findUnique({
-      where: { id: parsed.data.clientId },
-      select: { dealAmount: true },
-    });
+    const task = await prisma.$transaction(async (tx) => {
+      // Client va Branch mavjudligini tekshirish
+      const client = await tx.client.findUnique({
+        where: { id: parsed.data.clientId },
+        select: { dealAmount: true },
+      });
+      if (!client) {
+        throw new Error(`Client with id ${parsed.data.clientId} not found`);
+      }
+      
+      const branch = await tx.branch.findUnique({
+        where: { id: parsed.data.branchId },
+        select: { id: true },
+      });
+      if (!branch) {
+        throw new Error(`Branch with id ${parsed.data.branchId} not found`);
+      }
 
     // Davlat to'lovlarini olish (task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovi)
     const taskCreatedAt = new Date();
@@ -159,23 +184,62 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       snapshotCustomsPayment = Number(statePayment.customsPayment) as any;
     }
 
+    // Prisma data object - faqat mavjud field'larni qo'shamiz
+    const taskData: any = {
+      clientId: parsed.data.clientId,
+      branchId: parsed.data.branchId,
+      title: parsed.data.title,
+      hasPsr: parsed.data.hasPsr,
+      createdById: req.user.id,
+    };
+
+    // Optional field'larni qo'shamiz - faqat mavjud va null bo'lmagan qiymatlarni
+    if (parsed.data.comments !== undefined && parsed.data.comments !== null && parsed.data.comments !== '') {
+      taskData.comments = parsed.data.comments;
+    }
+    if (parsed.data.driverPhone !== undefined && parsed.data.driverPhone !== null && parsed.data.driverPhone !== '') {
+      taskData.driverPhone = parsed.data.driverPhone;
+    }
+    // Decimal field'lar uchun - faqat mavjud va null bo'lmagan qiymatlarni (Prisma number qabul qiladi)
+    // state-payments.ts dagi kabi to'g'ridan-to'g'ri number sifatida yuboramiz
+    if (snapshotDealAmount != null) {
+      taskData.snapshotDealAmount = snapshotDealAmount;
+    }
+    if (snapshotCertificatePayment != null) {
+      taskData.snapshotCertificatePayment = snapshotCertificatePayment;
+    }
+    if (snapshotPsrPrice != null) {
+      taskData.snapshotPsrPrice = snapshotPsrPrice;
+    }
+    if (snapshotWorkerPrice != null) {
+      taskData.snapshotWorkerPrice = snapshotWorkerPrice;
+    }
+    if (snapshotCustomsPayment != null) {
+      taskData.snapshotCustomsPayment = snapshotCustomsPayment;
+    }
+    if (parsed.data.customsPaymentMultiplier != null) {
+      taskData.customsPaymentMultiplier = parsed.data.customsPaymentMultiplier;
+    }
+    // #region agent log
+    const logBeforeCreate = {location:'tasks.ts:199',message:'taskData before Prisma create',data:{taskData:JSON.parse(JSON.stringify(taskData)),taskDataTypes:Object.keys(taskData).reduce((acc,key)=>{acc[key]=typeof taskData[key];return acc;},{})},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
+    console.log('[DEBUG]', JSON.stringify(logBeforeCreate));
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logBeforeCreate)}).catch(()=>{});
+    // #endregion
+
     const createdTask = await tx.task.create({
-      data: {
-        clientId: parsed.data.clientId,
-        branchId: parsed.data.branchId,
-        title: parsed.data.title,
-        comments: parsed.data.comments,
-        hasPsr: parsed.data.hasPsr,
-        driverPhone: parsed.data.driverPhone || null,
-        createdById: req.user!.id,
-        snapshotDealAmount,
-        snapshotCertificatePayment,
-        snapshotPsrPrice,
-        snapshotWorkerPrice,
-        snapshotCustomsPayment,
-        customsPaymentMultiplier: parsed.data.customsPaymentMultiplier || null,
-      },
+      data: taskData,
     });
+    // #region agent log
+    const logAfterCreate = {location:'tasks.ts:203',message:'Task created successfully',data:{taskId:createdTask.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'};
+    console.log('[DEBUG]', JSON.stringify(logAfterCreate));
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logAfterCreate)}).catch(()=>{});
+    // #endregion
+    // #region agent log
+    const logBeforeStages = {location:'tasks.ts:225',message:'Before creating task stages',data:{taskId:createdTask.id,stageCount:stageTemplates.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
+    console.log('[DEBUG]', JSON.stringify(logBeforeStages));
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logBeforeStages)}).catch(()=>{});
+    // #endregion
+    
     await tx.taskStage.createMany({
       data: stageTemplates.map((name, idx) => ({
         taskId: createdTask.id,
@@ -183,14 +247,28 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         stageOrder: idx + 1,
       })),
     });
+    
+    // #region agent log
+    const logAfterStages = {location:'tasks.ts:235',message:'Task stages created successfully',data:{taskId:createdTask.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
+    console.log('[DEBUG]', JSON.stringify(logAfterStages));
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logAfterStages)}).catch(()=>{});
+    // #endregion
+    
     return createdTask;
   });
 
     res.status(201).json(task);
   } catch (error: any) {
+    // #region agent log
+    const logError = {location:'tasks.ts:215',message:'Error caught',data:{errorMessage:error?.message,errorName:error?.name,errorCode:error?.code,prismaError:error?.meta,prismaClientVersion:error?.clientVersion,errorStack:error instanceof Error?error.stack:'No stack'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'};
+    console.log('[DEBUG ERROR]', JSON.stringify(logError, null, 2));
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logError)}).catch(()=>{});
+    // #endregion
     console.error('Error creating task:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
     res.status(500).json({ 
-      error: error.message || 'Task yaratishda xatolik yuz berdi' 
+      error: 'Xatolik yuz berdi',
+      details: error instanceof Error ? error.message : String(error)
     });
   }
 });

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Logo from '../components/Logo';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -51,8 +52,45 @@ const STATUS_COLORS: Record<string, string> = {
   JARAYONDA: 'bg-blue-100 text-blue-800',
   TAYYOR: 'bg-yellow-100 text-yellow-800',
   TEKSHIRILGAN: 'bg-purple-100 text-purple-800',
-  TOPSHIRILDI: 'bg-indigo-100 text-indigo-800',
+  TOPSHIRILDI: 'bg-brand-primary/10 text-brand-primary',
   YAKUNLANDI: 'bg-green-100 text-green-800',
+};
+
+// Sanani chiroyli formatda ko'rsatish
+const formatDate = (dateString: string, includeTime: boolean = false): string => {
+  const date = new Date(dateString);
+  const day = date.getDate();
+  const year = date.getFullYear();
+  
+  const months = [
+    'yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun',
+    'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'
+  ];
+  
+  const month = months[date.getMonth()];
+  
+  if (includeTime) {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}-${month}, ${year}, ${hours}:${minutes}`;
+  }
+  
+  return `${day}-${month}, ${year}`;
+};
+
+// Umumiy davomiylikni hisoblash (soat va minut)
+const calculateTotalDuration = (stages: Task['stages']): string => {
+  const totalMinutes = stages.reduce((sum, stage) => sum + (stage.durationMin || 0), 0);
+  
+  if (totalMinutes === 0) return '0 soat 0 minut';
+  
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  
+  if (hours === 0) return `${minutes} minut`;
+  if (minutes === 0) return `${hours} soat`;
+  
+  return `${hours} soat ${minutes} minut`;
 };
 
 export default function ClientTaskDetail() {
@@ -150,19 +188,20 @@ export default function ClientTaskDetail() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow">
+      <header className="bg-white shadow-sm border-b-2 border-brand-primary/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-4">
+            <Logo size="sm" showText={false} />
             <button
               onClick={() => navigate('/client/tasks')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition"
+              className="p-2 hover:bg-brand-primary/10 rounded-lg transition text-brand-primary"
             >
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <div className="flex-1">
-              <h1 className="text-2xl font-bold text-gray-900">{task.title}</h1>
+              <h1 className="text-2xl font-bold text-brand-primary">{task.title}</h1>
               <p className="text-sm text-gray-600 mt-1">#{task.id} • {task.branch.name}</p>
             </div>
             <span className={`px-4 py-2 rounded-full text-sm font-medium ${STATUS_COLORS[task.status] || 'bg-gray-100 text-gray-800'}`}>
@@ -185,22 +224,14 @@ export default function ClientTaskDetail() {
                 <div className="flex items-center justify-between py-3 border-b border-gray-200">
                   <span className="text-gray-600">Yaratilgan</span>
                   <span className="font-medium text-gray-900">
-                    {new Date(task.createdAt).toLocaleDateString('uz-UZ', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
+                    {formatDate(task.createdAt, true)}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                  <span className="text-gray-600">Yangilangan</span>
-                  <span className="font-medium text-gray-900">
-                    {new Date(task.updatedAt).toLocaleDateString('uz-UZ', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
+                  <span className="text-gray-600">Hujjat tayyorlash uchun ketgan vaqt</span>
+                  <span className="font-semibold text-gray-900 text-lg">
+                    {calculateTotalDuration(task.stages)}
                   </span>
                 </div>
 
@@ -231,47 +262,80 @@ export default function ClientTaskDetail() {
 
             {/* Documents */}
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Hujjatlar ({task.documents?.length || 0})
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Hujjatlar
+                </h2>
+                {task.documents && task.documents.length > 0 && (
+                  <a
+                    href={`${API_BASE_URL}/documents/task/${task.id}/download-all`}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Barchasini yuklab olish
+                  </a>
+                )}
+              </div>
               
               {!task.documents || task.documents.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="text-center py-12 text-gray-400">
+                  <svg className="w-20 h-20 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <p className="text-gray-500">Hujjatlar hali yuklanmagan</p>
+                  <p className="text-lg font-medium text-gray-500">Hujjatlar hali yuklanmagan</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {task.documents.map(doc => (
-                    <a
+                    <div
                       key={doc.id}
-                      href={`${API_BASE_URL.replace('/api', '')}${doc.fileUrl}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition group"
+                      className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-indigo-300 transition"
                     >
                       <div className="flex-shrink-0">
-                        {getFileIcon(doc.fileType)}
+                        <div className="w-8 h-8">
+                          {getFileIcon(doc.fileType)}
+                        </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate group-hover:text-indigo-600">
+                        <p className="font-medium text-gray-900 truncate text-sm">
                           {doc.name}
                         </p>
-                        <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
                           <span>{formatFileSize(doc.fileSize)}</span>
                           <span>•</span>
-                          <span>{new Date(doc.createdAt).toLocaleDateString('uz-UZ')}</span>
+                          <span>{formatDate(doc.createdAt, true)}</span>
                         </div>
                         {doc.description && (
-                          <p className="text-sm text-gray-600 mt-1 truncate">{doc.description}</p>
+                          <p className="text-xs text-gray-600 mt-1">{doc.description}</p>
                         )}
                       </div>
-                      <svg className="w-5 h-5 text-gray-400 group-hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
+                      <div className="flex items-center gap-1">
+                        <a
+                          href={`${API_BASE_URL.replace('/api', '')}${doc.fileUrl}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                          title="Ko'rish"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </a>
+                        <a
+                          href={`${API_BASE_URL.replace('/api', '')}${doc.fileUrl}`}
+                          download={doc.name}
+                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                          title="Yuklab olish"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </a>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -325,7 +389,7 @@ export default function ClientTaskDetail() {
                         </p>
                         {stage.completedAt && (
                           <p className="text-xs text-gray-600 mt-1">
-                            {new Date(stage.completedAt).toLocaleDateString('uz-UZ')}
+                            {formatDate(stage.completedAt, true)}
                           </p>
                         )}
                         {stage.durationMin && (

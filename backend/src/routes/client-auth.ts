@@ -364,24 +364,51 @@ router.get('/tasks/:id', async (req: Request, res: Response) => {
       },
     });
 
-    console.log('Task found:', task ? 'YES' : 'NO');
-    if (task) {
-      console.log('Task has documents:', task.documents?.length || 0);
-      console.log('Documents data:', JSON.stringify(task.documents, null, 2));
-    }
-
     if (!task) {
       return res.status(404).json({ error: 'Topshiriq topilmadi' });
     }
 
-    console.log('Task detail for client:', {
-      taskId: task.id,
-      title: task.title,
-      documentsCount: task.documents?.length || 0,
-      documents: task.documents,
-    });
+    console.log('Task found, status:', task.status);
 
-    res.json(task);
+    // Agar task yakunlangan bo'lsa, arxiv hujjatlarni ham qo'shamiz
+    let allDocuments = [...task.documents];
+    
+    if (task.status === 'YAKUNLANDI') {
+      console.log('Task is completed, fetching archive documents...');
+      const archiveDocuments = await prisma.archiveDocument.findMany({
+        where: { taskId },
+        select: {
+          id: true,
+          name: true,
+          fileUrl: true,
+          fileType: true,
+          fileSize: true,
+          description: true,
+          archivedAt: true,
+        },
+        orderBy: { archivedAt: 'desc' },
+      });
+      
+      console.log('Archive documents found:', archiveDocuments.length);
+      
+      // Archive hujjatlarni formatlash (createdAt o'rniga archivedAt)
+      const formattedArchiveDocs = archiveDocuments.map(doc => ({
+        ...doc,
+        createdAt: doc.archivedAt,
+      }));
+      
+      allDocuments = [...allDocuments, ...formattedArchiveDocs];
+    }
+
+    console.log('Total documents (TaskDocument + ArchiveDocument):', allDocuments.length);
+
+    // Response'ga documents qo'shamiz
+    const response = {
+      ...task,
+      documents: allDocuments,
+    };
+
+    res.json(response);
   } catch (error) {
     console.error('Client task detail error:', error);
     res.status(500).json({ error: 'Server xatosi' });

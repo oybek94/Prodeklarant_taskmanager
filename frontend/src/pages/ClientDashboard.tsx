@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useClientAuth } from '../contexts/ClientAuthContext';
 import axios from 'axios';
+import Logo from '../components/Logo';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -62,7 +63,7 @@ export default function ClientDashboard() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Yuklanmoqda...</p>
         </div>
       </div>
@@ -76,7 +77,7 @@ export default function ClientDashboard() {
           <p className="text-red-600">{error || 'Ma\'lumot topilmadi'}</p>
           <button
             onClick={fetchDashboardData}
-            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="mt-4 px-4 py-2 bg-brand-primary-600 text-white rounded-lg hover:bg-brand-primary-700"
           >
             Qayta urinish
           </button>
@@ -90,25 +91,28 @@ export default function ClientDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow">
+      <header className="bg-white shadow-sm border-b-2 border-brand-primary/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Xush kelibsiz, {stats.client.name}!
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">{stats.client.email}</p>
+            <div className="flex items-center gap-6">
+              <Logo size="md" showText={true} showTagline={false} />
+              <div className="border-l-2 border-gray-200 pl-6">
+                <h1 className="text-xl font-bold text-brand-primary">
+                  Xush kelibsiz, {stats.client.name}!
+                </h1>
+                <p className="text-sm text-gray-600 mt-0.5">{stats.client.email}</p>
+              </div>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <button
                 onClick={() => navigate('/client/tasks')}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition font-medium shadow-sm"
               >
                 Loyihalarim
               </button>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
               >
                 Chiqish
               </button>
@@ -122,7 +126,7 @@ export default function ClientDashboard() {
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Total Tasks */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500">
+          <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-brand-secondary">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Jami loyihalar</p>
@@ -188,7 +192,7 @@ export default function ClientDashboard() {
           {/* Total Project Amount */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Umumiy summa</h3>
-            <p className="text-3xl font-bold text-indigo-600">
+            <p className="text-3xl font-bold text-brand-primary-600">
               ${statistics.totalProjectAmount.toLocaleString()}
             </p>
             <p className="text-sm text-gray-600 mt-2">Barcha loyihalar summasi</p>
@@ -221,11 +225,11 @@ export default function ClientDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <button
               onClick={() => navigate('/client/tasks')}
-              className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition group"
+              className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-lg hover:border-brand-primary-500 hover:bg-brand-primary-50 transition group"
             >
               <div className="flex items-center">
-                <div className="bg-indigo-100 p-2 rounded-lg group-hover:bg-indigo-200 transition">
-                  <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-brand-primary-100 p-2 rounded-lg group-hover:bg-brand-primary-200 transition">
+                  <svg className="w-6 h-6 text-brand-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                 </div>
@@ -234,7 +238,7 @@ export default function ClientDashboard() {
                   <p className="text-sm text-gray-600">Barcha loyihalar ro'yxati</p>
                 </div>
               </div>
-              <svg className="w-6 h-6 text-gray-400 group-hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-gray-400 group-hover:text-brand-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>

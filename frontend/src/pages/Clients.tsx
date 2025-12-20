@@ -5,7 +5,6 @@ import apiClient from '../lib/api';
 interface Client {
   id: number;
   name: string;
-  email?: string;
   dealAmount?: number | string | null;
   phone?: string;
   createdAt: string;
@@ -71,15 +70,11 @@ const Clients = () => {
     name: '',
     dealAmount: '',
     phone: '',
-    email: '',
-    password: '',
   });
   const [editForm, setEditForm] = useState({
     name: '',
     dealAmount: '',
     phone: '',
-    email: '',
-    password: '',
   });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
@@ -159,11 +154,9 @@ const Clients = () => {
         name: form.name,
         dealAmount: form.dealAmount ? parseFloat(form.dealAmount) : undefined,
         phone: form.phone || undefined,
-        email: form.email || undefined,
-        password: form.password || undefined,
       });
       setShowForm(false);
-      setForm({ name: '', dealAmount: '', phone: '', email: '', password: '' });
+      setForm({ name: '', dealAmount: '', phone: '' });
       await loadClients();
       await loadStats();
     } catch (error: any) {
@@ -177,8 +170,6 @@ const Clients = () => {
       name: client.name,
       dealAmount: client.dealAmount ? client.dealAmount.toString() : '',
       phone: client.phone || '',
-      email: client.email || '',
-      password: '', // Don't show existing password
     });
     setShowEditModal(true);
   };
@@ -188,22 +179,14 @@ const Clients = () => {
     if (!editingClient) return;
 
     try {
-      const updateData: any = {
+      await apiClient.patch(`/clients/${editingClient.id}`, {
         name: editForm.name,
         dealAmount: editForm.dealAmount ? parseFloat(editForm.dealAmount) : undefined,
         phone: editForm.phone || undefined,
-        email: editForm.email || undefined,
-      };
-      
-      // Only include password if it's been changed
-      if (editForm.password) {
-        updateData.password = editForm.password;
-      }
-
-      await apiClient.patch(`/clients/${editingClient.id}`, updateData);
+      });
       setShowEditModal(false);
       setEditingClient(null);
-      setEditForm({ name: '', dealAmount: '', phone: '', email: '', password: '' });
+      setEditForm({ name: '', dealAmount: '', phone: '' });
       await loadClients();
       await loadStats();
       if (selectedClient && selectedClient.id === editingClient.id) {
@@ -472,42 +455,7 @@ const Clients = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-              
-              {/* Client Portal Access */}
-              <div className="border-t pt-4 mt-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Mijoz portali kirish (ixtiyoriy)</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                      <span className="text-xs text-gray-500 ml-2">(Portlaga kirish uchun)</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      placeholder="mijoz@example.com"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Parol
-                      <span className="text-xs text-gray-500 ml-2">(Portlaga kirish uchun)</span>
-                    </label>
-                    <input
-                      type="password"
-                      value={form.password}
-                      onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      placeholder="Kamida 6 ta belgi"
-                      minLength={6}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2">
                 <button
                   type="submit"
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
@@ -539,9 +487,6 @@ const Clients = () => {
                   Client
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Deal Amount
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -554,7 +499,7 @@ const Clients = () => {
                   Created Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Portal Access
+                  Status
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                   Actions
@@ -564,7 +509,7 @@ const Clients = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {sortedClients.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-4 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-400">
                     Ma'lumotlar yo'q
                   </td>
                 </tr>
@@ -589,9 +534,6 @@ const Clients = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {client.email || <span className="text-gray-400">-</span>}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {client.dealAmount
                         ? `$${Number(client.dealAmount).toFixed(2)}`
@@ -607,21 +549,9 @@ const Clients = () => {
                       {formatDate(client.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {client.email ? (
-                        <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center gap-1 w-fit">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Ha
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 flex items-center gap-1 w-fit">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                          Yo'q
-                        </span>
-                      )}
+                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                        Active
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
@@ -930,45 +860,7 @@ const Clients = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-
-              {/* Client Portal Access */}
-              <div className="border-t pt-4 mt-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Mijoz portali kirish</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                      <span className="text-xs text-gray-500 ml-2">(Portlaga kirish uchun)</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={editForm.email}
-                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                      placeholder="mijoz@example.com"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Yangi parol
-                      <span className="text-xs text-gray-500 ml-2">(Bo'sh qoldiring agar o'zgartirmasangiz)</span>
-                    </label>
-                    <input
-                      type="password"
-                      value={editForm.password}
-                      onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                      placeholder="Yangi parol (ixtiyoriy)"
-                      minLength={6}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Parolni o'zgartirmoqchi bo'lsangiz, yangi parolni kiriting
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2">
                 <button
                   type="submit"
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"

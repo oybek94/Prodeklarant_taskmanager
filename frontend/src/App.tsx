@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ClientAuthProvider, useClientAuth } from './contexts/ClientAuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -19,30 +18,6 @@ import TrainingManagement from './pages/TrainingManagement';
 import TrainingManageDetail from './pages/TrainingManageDetail';
 import Exam from './pages/Exam';
 import ExamResult from './pages/ExamResult';
-// Client Portal Pages
-import ClientLogin from './pages/ClientLogin';
-import ClientDashboard from './pages/ClientDashboard';
-import ClientTasks from './pages/ClientTasks';
-import ClientTaskDetail from './pages/ClientTaskDetail';
-
-// Client Protected Route Component
-const ClientProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useClientAuth();
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-600">Yuklanmoqda...</div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/client/login" replace />;
-  }
-
-  return <>{children}</>;
-};
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -57,13 +32,6 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      {/* Client Portal Routes */}
-      <Route path="/client/login" element={<ClientLogin />} />
-      <Route path="/client/dashboard" element={<ClientProtectedRoute><ClientDashboard /></ClientProtectedRoute>} />
-      <Route path="/client/tasks" element={<ClientProtectedRoute><ClientTasks /></ClientProtectedRoute>} />
-      <Route path="/client/tasks/:id" element={<ClientProtectedRoute><ClientTaskDetail /></ClientProtectedRoute>} />
-
-      {/* Staff Routes */}
       <Route 
         path="/login" 
         element={
@@ -166,9 +134,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <ClientAuthProvider>
-          <AppRoutes />
-        </ClientAuthProvider>
+        <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
   );

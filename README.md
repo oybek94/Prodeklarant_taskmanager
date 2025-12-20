@@ -52,6 +52,42 @@ Frontend `http://localhost:3000` da ishlaydi.
    - "Yakunlash" tugmasi bilan yakunlang
    - Vaqt avtomatik hisoblanadi
 
+## Tashqi API Integratsiya
+
+### My.gov.uz yoki boshqa tashqi API dan ma'lumot olish
+
+1. **Backend da axios o'rnatish:**
+```bash
+cd backend
+npm install axios
+```
+
+2. **Environment sozlamalari (.env fayl):**
+```env
+MYGOV_API_URL=https://api.my.gov.uz/api/v1
+MYGOV_API_KEY=your-api-key-here
+```
+
+3. **Backend endpoint:**
+- `GET /api/external/mygov-data` - My.gov.uz dan ma'lumot olish
+- `GET /api/external/data-gov?datasetId=xxx` - Data.gov.uz dan ma'lumot olish
+- `POST /api/external/proxy` - Umumiy proxy endpoint
+
+4. **Frontend da ishlatish:**
+```typescript
+import apiClient from '../lib/api';
+
+// My.gov.uz dan ma'lumot olish
+const response = await apiClient.get('/external/mygov-data');
+console.log(response.data);
+```
+
+**Mavjud API portallari:**
+- [data.gov.uz](https://data.gov.uz) - Ochiq ma'lumotlar portali
+- [api-portal.gov.uz](https://api-portal.gov.uz) - API portali
+
+**Eslatma:** My.gov.uz ning ochiq API mavjudligi aniq emas. Rasmiy API hujjatlari uchun portalning qo'llab-quvvatlash xizmatiga murojaat qiling.
+
 ## Texnologiyalar
 
 - **Backend**: Node.js, Express, TypeScript, SQLite

@@ -5,8 +5,8 @@ import apiClient from '../lib/api';
 interface User {
   id: number;
   name: string;
-  email: string;
-  role: 'ADMIN' | 'MANAGER' | 'DEKLARANT';
+  email?: string;
+  role: 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'CLIENT';
   branchId?: number | null;
 }
 
@@ -24,6 +24,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Helper function to decode JWT token and get role
+  const getRoleFromToken = (token: string): string | null => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.role || null;
+    } catch {
+      return null;
+    }
+  };
+
   // Check if user is already logged in on mount
   useEffect(() => {
     const checkAuth = async () => {
@@ -32,9 +42,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (accessToken || refreshToken) {
         try {
+          // Determine which endpoint to use based on token role
+          const role = accessToken ? getRoleFromToken(accessToken) : null;
+          const endpoint = role === 'CLIENT' ? '/auth/client/me' : '/auth/me';
+          
           // Avval access token bilan urinib ko'ramiz
-          const response = await apiClient.get('/auth/me');
-          setUser(response.data);
+          const response = await apiClient.get(endpoint);
+          const userData = response.data;
+          
+          // For CLIENT, add role from token since backend doesn't return it
+          if (role === 'CLIENT') {
+            userData.role = 'CLIENT';
+          }
+          
+          setUser(userData);
         } catch (error: any) {
           // Agar access token eskirgan bo'lsa, refresh token bilan yangilashga harakat qilamiz
           if (refreshToken && error.response?.status === 401) {
@@ -48,9 +69,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               if (newRefreshToken) {
                 localStorage.setItem('refreshToken', newRefreshToken);
               }
+              // Determine endpoint from new token
+              const newRole = newAccessToken ? getRoleFromToken(newAccessToken) : null;
+              const endpoint = newRole === 'CLIENT' ? '/auth/client/me' : '/auth/me';
               // Yangi token bilan user ma'lumotlarini olamiz
-              const userResponse = await apiClient.get('/auth/me');
-              setUser(userResponse.data);
+              const userResponse = await apiClient.get(endpoint);
+              const userData = userResponse.data;
+              
+              // For CLIENT, add role from token since backend doesn't return it
+              if (newRole === 'CLIENT') {
+                userData.role = 'CLIENT';
+              }
+              
+              setUser(userData);
             } catch (refreshError) {
               // Refresh ham ishlamasa, logout qilamiz
               localStorage.removeItem('accessToken');
@@ -58,8 +89,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
           } else {
             // Boshqa xatolik bo'lsa, tokenlarni tozalaymiz
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
           }
         }
       }

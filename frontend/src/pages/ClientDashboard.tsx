@@ -22,6 +22,41 @@ interface Task {
   } | null;
 }
 
+interface TaskDetail {
+  id: number;
+  title: string;
+  status: string;
+  comments?: string | null;
+  hasPsr?: boolean;
+  driverPhone?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  client: {
+    id: number;
+    name: string;
+    phone: string | null;
+  };
+  branch: {
+    id: number;
+    name: string;
+  };
+  stages: Array<{
+    id: number;
+    name: string;
+    status: string;
+    stageOrder: number;
+    durationMin: number | null;
+    startedAt: string | null;
+    completedAt: string | null;
+    durationText: string;
+    assignedTo: {
+      id: number;
+      name: string;
+      email: string;
+    } | null;
+  }>;
+}
+
 interface Transaction {
   id: number;
   amount: number;
@@ -37,6 +72,9 @@ const ClientDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'tasks' | 'transactions'>('tasks');
+  const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isLoadingTaskDetail, setIsLoadingTaskDetail] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -87,6 +125,54 @@ const ClientDashboard = () => {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     navigate('/client/login');
+  };
+
+  const handleTaskClick = async (taskId: number) => {
+    try {
+      setIsLoadingTaskDetail(true);
+      const accessToken = localStorage.getItem('accessToken');
+      const response = await axios.get(`${API_BASE_URL}/clients/tasks/${taskId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      setSelectedTask(response.data);
+      setIsTaskModalOpen(true);
+    } catch (err: any) {
+      console.error('Error loading task detail:', err);
+      alert('Task ma\'lumotlarini yuklashda xatolik yuz berdi');
+    } finally {
+      setIsLoadingTaskDetail(false);
+    }
+  };
+
+  const closeTaskModal = () => {
+    setIsTaskModalOpen(false);
+    setSelectedTask(null);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'TAYYOR':
+        return 'bg-green-100 text-green-800';
+      case 'JARAYONDA':
+        return 'bg-blue-100 text-blue-800';
+      case 'BOSHLANMAGAN':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'TAYYOR':
+        return 'Tayyor';
+      case 'JARAYONDA':
+        return 'Jarayonda';
+      case 'BOSHLANMAGAN':
+        return 'Boshlanmagan';
+      default:
+        return status;
+    }
   };
 
   if (isLoading) {
@@ -185,7 +271,8 @@ const ClientDashboard = () => {
                     {tasks.map((task) => (
                       <div
                         key={task.id}
-                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
+                        onClick={() => handleTaskClick(task.id)}
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition"
                       >
                         <div className="flex justify-between items-start">
                           <div>
@@ -250,6 +337,136 @@ const ClientDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Task Detail Modal */}
+      {isTaskModalOpen && selectedTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Task ma'lumotlari</h2>
+              <button
+                onClick={closeTaskModal}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {/* Task Basic Info */}
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">{selectedTask.title}</h3>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Status</p>
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium mt-1 ${getStatusColor(selectedTask.status)}`}>
+                      {getStatusText(selectedTask.status)}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Filial</p>
+                    <p className="text-sm font-medium text-gray-900 mt-1">{selectedTask.branch.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Yaratilgan sana</p>
+                    <p className="text-sm font-medium text-gray-900 mt-1">
+                      {new Date(selectedTask.createdAt).toLocaleString('uz-UZ')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Yangilangan sana</p>
+                    <p className="text-sm font-medium text-gray-900 mt-1">
+                      {new Date(selectedTask.updatedAt).toLocaleString('uz-UZ')}
+                    </p>
+                  </div>
+                  {selectedTask.hasPsr && (
+                    <div>
+                      <p className="text-sm text-gray-600">PSR</p>
+                      <p className="text-sm font-medium text-green-600 mt-1">Bor</p>
+                    </div>
+                  )}
+                  {selectedTask.driverPhone && (
+                    <div>
+                      <p className="text-sm text-gray-600">Haydovchi telefon</p>
+                      <p className="text-sm font-medium text-gray-900 mt-1">{selectedTask.driverPhone}</p>
+                    </div>
+                  )}
+                </div>
+                {selectedTask.comments && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600">Izohlar</p>
+                    <p className="text-sm text-gray-900 mt-1 bg-gray-50 p-3 rounded">{selectedTask.comments}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Stages Progress */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Jarayonlar</h3>
+                <div className="space-y-4">
+                  {selectedTask.stages.map((stage, index) => (
+                    <div key={stage.id} className="flex items-start gap-4">
+                      {/* Progress Line */}
+                      <div className="flex flex-col items-center">
+                        <div
+                          className={`w-3 h-3 rounded-full ${
+                            stage.status === 'TAYYOR'
+                              ? 'bg-green-500'
+                              : stage.status === 'JARAYONDA'
+                              ? 'bg-blue-500'
+                              : 'bg-gray-300'
+                          }`}
+                        />
+                        {index < selectedTask.stages.length - 1 && (
+                          <div
+                            className={`w-0.5 h-16 ${
+                              stage.status === 'TAYYOR'
+                                ? 'bg-green-500'
+                                : stage.status === 'JARAYONDA'
+                                ? 'bg-blue-500'
+                                : 'bg-gray-300'
+                            }`}
+                          />
+                        )}
+                      </div>
+                      
+                      {/* Stage Info */}
+                      <div className="flex-1 pb-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-medium text-gray-900">{stage.name}</h4>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {stage.durationText}
+                            </p>
+                            {stage.assignedTo && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Mas'ul: {stage.assignedTo.name}
+                              </p>
+                            )}
+                            {stage.startedAt && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Boshlangan: {new Date(stage.startedAt).toLocaleString('uz-UZ')}
+                              </p>
+                            )}
+                            {stage.completedAt && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Tugallangan: {new Date(stage.completedAt).toLocaleString('uz-UZ')}
+                              </p>
+                            )}
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(stage.status)}`}>
+                            {getStatusText(stage.status)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

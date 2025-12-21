@@ -25,6 +25,113 @@ router.get('/', async (_req, res) => {
   res.json(clients);
 });
 
+// Get task detail with stages and duration - CLIENT can access their own tasks, ADMIN can access any
+// IMPORTANT: This route must come BEFORE all /:id/* routes to avoid route matching conflicts
+router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const taskId = Number(req.params.taskId);
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
+    
+    // For CLIENT role, userId is the clientId
+    const clientId = userRole === 'CLIENT' ? userId : Number(req.query.clientId || userId);
+    
+    // Check if CLIENT is accessing their own data
+    if (userRole === 'CLIENT' && userId !== clientId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Get task with all details including stages
+    const task = await prisma.task.findFirst({
+      where: { 
+        id: taskId,
+        clientId: clientId, // Ensure task belongs to this client
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        stages: {
+          orderBy: { stageOrder: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            stageOrder: true,
+            durationMin: true,
+            startedAt: true,
+            completedAt: true,
+            assignedTo: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    
+    if (!task) {
+      return res.status(404).json({ error: 'Task topilmadi' });
+    }
+    
+    // Format stages with duration information
+    const formattedStages = task.stages.map((stage) => {
+      let durationText = '';
+      if (stage.status === 'TAYYOR' && stage.durationMin !== null) {
+        const hours = Math.floor(stage.durationMin / 60);
+        const minutes = stage.durationMin % 60;
+        if (hours > 0) {
+          durationText = `${hours} soat ${minutes} daqiqa`;
+        } else {
+          durationText = `${minutes} daqiqa`;
+        }
+      } else if (stage.status === 'BOSHLANMAGAN') {
+        durationText = 'Boshlanmagan';
+      } else {
+        durationText = 'Jarayonda...';
+      }
+      
+      return {
+        ...stage,
+        durationText,
+      };
+    });
+    
+    res.json({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      comments: task.comments,
+      hasPsr: task.hasPsr,
+      driverPhone: task.driverPhone,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      client: task.client,
+      branch: task.branch,
+      stages: formattedStages,
+    });
+  } catch (error: any) {
+    console.error('Error fetching task detail:', error);
+    res.status(500).json({ 
+      error: 'Task ma\'lumotlarini yuklashda xatolik yuz berdi', 
+      details: error.message 
+    });
+  }
+});
+
 router.get('/stats', async (_req, res) => {
   const now = new Date();
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);

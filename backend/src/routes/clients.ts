@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { z } from 'zod';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, requireAuth } from '../middleware/auth';
 
 const router = Router();
 
@@ -217,6 +217,84 @@ router.delete('/:id', async (req, res) => {
   const id = Number(req.params.id);
   await prisma.client.delete({ where: { id } });
   res.status(204).send();
+});
+
+// Client tasks endpoint (for client dashboard) - CLIENT can access their own, ADMIN can access any
+router.get('/:id/tasks', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const id = Number(req.params.id);
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
+    
+    // Check if CLIENT is accessing their own data
+    if (userRole === 'CLIENT' && userId !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Get tasks with branch information
+    const tasks = await prisma.task.findMany({
+      where: { clientId: id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+    
+    // Format response to match frontend expectations
+    const formattedTasks = tasks.map(task => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      createdAt: task.createdAt,
+      branch: task.branch ? {
+        name: task.branch.name
+      } : null,
+    }));
+    
+    res.json(formattedTasks);
+  } catch (error: any) {
+    console.error('Error fetching client tasks:', error);
+    res.status(500).json({ 
+      error: 'Ishlarni yuklashda xatolik yuz berdi', 
+      details: error.message || 'Noma\'lum xatolik'
+    });
+  }
+});
+
+// Client transactions endpoint (for client dashboard) - CLIENT can access their own, ADMIN can access any
+router.get('/:id/transactions', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const id = Number(req.params.id);
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
+    
+    // Check if CLIENT is accessing their own data
+    if (userRole === 'CLIENT' && userId !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const transactions = await prisma.transaction.findMany({
+      where: { clientId: id },
+      orderBy: { date: 'desc' },
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        date: true,
+        comment: true,
+      },
+    });
+    
+    res.json(transactions);
+  } catch (error: any) {
+    console.error('Error fetching client transactions:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi', details: error.message });
+  }
 });
 
 export default router;

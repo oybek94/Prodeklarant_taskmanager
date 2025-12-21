@@ -18,6 +18,8 @@ import TrainingManagement from './pages/TrainingManagement';
 import TrainingManageDetail from './pages/TrainingManageDetail';
 import Exam from './pages/Exam';
 import ExamResult from './pages/ExamResult';
+import ClientLogin from './pages/ClientLogin';
+import ClientDashboard from './pages/ClientDashboard';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -39,6 +41,14 @@ const AppRoutes = () => {
             ? <Navigate to={user?.role === 'ADMIN' ? "/dashboard" : "/tasks"} /> 
             : <Login /> 
         } 
+      />
+      <Route 
+        path="/client/login" 
+        element={<ClientLogin />} 
+      />
+      <Route 
+        path="/client/dashboard" 
+        element={<ClientDashboard />} 
       />
       <Route
         element={

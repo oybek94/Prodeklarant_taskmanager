@@ -121,6 +121,77 @@ router.post('/register', async (req, res) => {
   });
 });
 
+// Client login endpoint
+const clientLoginSchema = z.object({
+  phone: z.string().min(1),
+  password: z.string().min(4),
+});
+
+router.post('/client/login', async (req, res) => {
+  try {
+    const parsed = clientLoginSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const { phone, password } = parsed.data;
+    
+    // Find client by phone
+    const client = await prisma.client.findFirst({
+      where: { phone },
+    });
+    
+    if (!client) {
+      return res.status(401).json({ error: 'Telefon raqam yoki parol noto\'g\'ri' });
+    }
+    
+    // Check if client has password set
+    if (!client.passwordHash) {
+      return res.status(401).json({ error: 'Parol o\'rnatilmagan. Iltimos, administrator bilan bog\'laning.' });
+    }
+    
+    // Verify password
+    const isValid = await comparePassword(password, client.passwordHash);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Telefon raqam yoki parol noto\'g\'ri' });
+    }
+    
+    // Generate tokens for client
+    const payload = { sub: client.id, role: 'CLIENT', branchId: null, name: client.name };
+    return res.json({
+      accessToken: signAccessToken(payload),
+      refreshToken: signRefreshToken(payload),
+      user: { id: client.id, name: client.name, role: 'CLIENT', branchId: null },
+    });
+  } catch (error: any) {
+    console.error('Client login error:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// Client me endpoint
+router.get('/client/me', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    if (req.user!.role !== 'CLIENT') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const client = await prisma.client.findUnique({
+      where: { id: req.user!.id },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        dealAmount: true,
+        createdAt: true,
+      },
+    });
+    
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+    res.json(client);
+  } catch (error: any) {
+    console.error('Client me error:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 router.get('/me', requireAuth(), async (req: AuthRequest, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user!.id },

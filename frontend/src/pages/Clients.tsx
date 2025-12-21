@@ -9,6 +9,9 @@ interface Client {
   phone?: string;
   createdAt: string;
   tasks?: { id: number }[];
+  balance?: number;
+  totalDealAmount?: number;
+  totalIncome?: number;
 }
 
 interface ClientDetail {
@@ -108,7 +111,20 @@ const Clients = () => {
       setLoading(true);
       const response = await apiClient.get('/clients');
       if (Array.isArray(response.data)) {
-        setClients(response.data);
+        // Ensure balance is calculated for each client
+        const clientsWithBalance = response.data.map((client: any) => {
+          if (client.balance === undefined || client.balance === null) {
+            const dealAmount = Number(client.dealAmount || 0);
+            const totalTasks = client.tasks?.length || 0;
+            const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
+            const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+            const totalIncome = client.transactions?.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0) || 0;
+            const balance = totalDealAmount - totalIncome;
+            return { ...client, balance, totalDealAmount, totalIncome };
+          }
+          return client;
+        });
+        setClients(clientsWithBalance);
       } else {
         setClients([]);
       }
@@ -496,7 +512,7 @@ const Clients = () => {
                   No of Projects
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Created Date
+                  Mijoz qardorligi
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Status
@@ -545,8 +561,45 @@ const Clients = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {client.tasks?.length || 0}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(client.createdAt)}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {(() => {
+                        // Get balance from client data
+                        const balance = typeof client.balance === 'number' ? client.balance : 
+                                       (client.balance !== undefined && client.balance !== null ? Number(client.balance) : null);
+                        
+                        if (balance !== null && balance !== undefined && !isNaN(balance)) {
+                          return (
+                            <span className={`font-medium ${
+                              balance > 0
+                                ? 'text-red-600'
+                                : balance === 0
+                                ? 'text-gray-600'
+                                : 'text-green-600'
+                            }`}>
+                              {balance > 0 ? '+' : ''}${balance.toFixed(2)}
+                            </span>
+                          );
+                        }
+                        
+                        // Fallback: calculate balance if not provided
+                        const dealAmount = Number(client.dealAmount || 0);
+                        const totalTasks = client.tasks?.length || 0;
+                        const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
+                        const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+                        const calculatedBalance = totalDealAmount;
+                        
+                        return (
+                          <span className={`font-medium ${
+                            calculatedBalance > 0
+                              ? 'text-red-600'
+                              : calculatedBalance === 0
+                              ? 'text-gray-600'
+                              : 'text-green-600'
+                          }`}>
+                            {calculatedBalance > 0 ? '+' : ''}${calculatedBalance.toFixed(2)}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">

@@ -17,12 +17,43 @@ router.get('/', async (_req, res) => {
       tasks: {
         select: {
           id: true,
+          hasPsr: true,
+        },
+      },
+      transactions: {
+        where: { type: 'INCOME' },
+        select: {
+          amount: true,
         },
       },
     },
     orderBy: { createdAt: 'desc' } 
   });
-  res.json(clients);
+  
+  // Calculate balance for each client
+  const clientsWithBalance = clients.map(client => {
+    const dealAmount = Number(client.dealAmount || 0);
+    const totalTasks = client.tasks.length;
+    const tasksWithPsr = client.tasks.filter(t => t.hasPsr).length;
+    
+    // Calculate total deal amount (with PSR)
+    const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+    
+    // Calculate total income
+    const totalIncome = client.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    // Calculate balance (debt)
+    const balance = totalDealAmount - totalIncome;
+    
+    return {
+      ...client,
+      balance,
+      totalDealAmount,
+      totalIncome,
+    };
+  });
+  
+  res.json(clientsWithBalance);
 });
 
 // Get task detail with stages and duration - CLIENT can access their own tasks, ADMIN can access any

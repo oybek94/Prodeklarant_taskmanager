@@ -20,6 +20,7 @@ import Exam from './pages/Exam';
 import ExamResult from './pages/ExamResult';
 import ClientLogin from './pages/ClientLogin';
 import ClientDashboard from './pages/ClientDashboard';
+import Finance from './pages/Finance';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -68,6 +69,14 @@ const AppRoutes = () => {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/tasks/:id" element={<TaskDetail />} />
         <Route path="/transactions" element={<Transactions />} />
+        <Route
+          path="/finance"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Finance />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/clients"
           element={

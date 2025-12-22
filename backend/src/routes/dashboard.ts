@@ -180,19 +180,167 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
 // Charts data
 router.get('/charts', requireAuth(), async (req: AuthRequest, res) => {
-  const { period = 'daily', startDate, endDate, branchId } = req.query;
+  const { period = 'monthly', startDate, endDate, branchId } = req.query;
   const where: any = {};
-  if (startDate || endDate) {
-    where.createdAt = {};
-    if (startDate) where.createdAt.gte = new Date(startDate as string);
-    if (endDate) where.createdAt.lte = new Date(endDate as string);
-  }
   if (branchId) where.branchId = parseInt(branchId as string);
 
-  // Tasks completed by time
+  const now = new Date();
+  let dateRange: { start: Date; end: Date } = { start: now, end: now };
+
+  // Determine date range based on period
+  if (period === 'weekly') {
+    // Last 7 days
+    dateRange.end = new Date(now);
+    dateRange.end.setHours(23, 59, 59, 999);
+    dateRange.start = new Date(now);
+    dateRange.start.setDate(dateRange.start.getDate() - 6);
+    dateRange.start.setHours(0, 0, 0, 0);
+  } else if (period === 'monthly') {
+    // Current month - all days
+    dateRange.start = new Date(now.getFullYear(), now.getMonth(), 1);
+    dateRange.start.setHours(0, 0, 0, 0);
+    dateRange.end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    dateRange.end.setHours(23, 59, 59, 999);
+  } else if (period === 'yearly') {
+    // Current year - all months
+    dateRange.start = new Date(now.getFullYear(), 0, 1);
+    dateRange.start.setHours(0, 0, 0, 0);
+    dateRange.end = new Date(now.getFullYear() + 1, 0, 0); // Last day of current year
+    dateRange.end.setHours(23, 59, 59, 999);
+  }
+
+  // Override with custom dates if provided
+  if (startDate) dateRange.start = new Date(startDate as string);
+  if (endDate) dateRange.end = new Date(endDate as string);
+
+  // For TAYYOR tasks, we need to filter by when they became TAYYOR (not when created)
+  // So we'll get all TAYYOR tasks and filter by their completion date later
+  const baseWhere: any = {};
+  if (branchId) baseWhere.branchId = parseInt(branchId as string);
+
+  // Tasks completed by time - include both TAYYOR and archived tasks (YAKUNLANDI)
+  // Get TAYYOR tasks with their stages to find when they became TAYYOR
   const tasksCompleted = await prisma.task.findMany({
-    where: { ...where, status: 'TAYYOR' },
-    select: { createdAt: true, updatedAt: true },
+    where: { ...baseWhere, status: 'TAYYOR' },
+    select: { 
+      id: true,
+      createdAt: true, 
+      updatedAt: true,
+      stages: {
+        where: { name: 'Deklaratsiya', status: 'TAYYOR' },
+        select: { completedAt: true },
+        orderBy: { completedAt: 'desc' },
+        take: 1,
+      },
+    },
+  });
+
+  // Get TAYYOR task dates - use Deklaratsiya completedAt if available, otherwise updatedAt
+  // Filter by date range to only include tasks completed within the range
+  const tayyorTasks = tasksCompleted
+    .map((task: any) => {
+      let completionDate = task.updatedAt; // Default to updatedAt
+      
+      // If Deklaratsiya stage is completed, use that date (most accurate)
+      if (task.stages && task.stages.length > 0 && task.stages[0].completedAt) {
+        completionDate = task.stages[0].completedAt;
+      }
+      
+      return {
+        date: completionDate.toISOString().split('T')[0],
+        completionDate: completionDate,
+      };
+    })
+    .filter((task: any) => {
+      // Only include tasks completed within the date range
+      return task.completionDate >= dateRange.start && task.completionDate <= dateRange.end;
+    })
+    .map((task: any) => ({
+      date: task.date,
+    }));
+
+  // Get YAKUNLANDI (archived) tasks with their stages to find when they were completed
+  const yakunlandiTasks = await prisma.task.findMany({
+    where: { ...baseWhere, status: 'YAKUNLANDI' },
+    select: { 
+      id: true,
+      updatedAt: true,
+      stages: {
+        where: { name: 'Pochta', status: 'TAYYOR' },
+        select: { completedAt: true },
+        orderBy: { completedAt: 'desc' },
+        take: 1,
+      },
+    },
+  });
+
+  // Get YAKUNLANDI task dates - use Pochta completedAt if available, otherwise updatedAt
+  const yakunlandiTasksWithDates = yakunlandiTasks
+    .map((task: any) => {
+      let completionDate = task.updatedAt; // Default to updatedAt
+      
+      // If Pochta stage is completed, use that date (most accurate)
+      if (task.stages && task.stages.length > 0 && task.stages[0].completedAt) {
+        completionDate = task.stages[0].completedAt;
+      }
+      
+      return {
+        date: completionDate.toISOString().split('T')[0],
+        completionDate: completionDate,
+      };
+    })
+    .filter((task: any) => {
+      // Only include tasks completed within the date range
+      return task.completionDate >= dateRange.start && task.completionDate <= dateRange.end;
+    })
+    .map((task: any) => ({
+      date: task.date,
+    }));
+
+  // Get archived tasks from ArchiveDocument as backup (for tasks that might not have YAKUNLANDI status)
+  // Get all archived documents and group by taskId to get the earliest archivedAt date
+  const allArchivedDocs = await prisma.archiveDocument.findMany({
+    where: {
+      archivedAt: {
+        gte: dateRange.start,
+        lte: dateRange.end,
+      },
+    },
+    select: {
+      taskId: true,
+      archivedAt: true,
+    },
+    orderBy: {
+      archivedAt: 'asc',
+    },
+  });
+
+  // Group by taskId and get the earliest archivedAt date for each task
+  const archivedTasksMap = new Map<number, Date>();
+  for (const doc of allArchivedDocs) {
+    if (!archivedTasksMap.has(doc.taskId)) {
+      archivedTasksMap.set(doc.taskId, doc.archivedAt);
+    }
+  }
+
+  // Convert to array format and filter out tasks that are already in yakunlandiTasksWithDates
+  const yakunlandiTaskIds = new Set(yakunlandiTasks.map((t: any) => t.id));
+  const archivedTasks = Array.from(archivedTasksMap.entries())
+    .filter(([taskId]) => !yakunlandiTaskIds.has(taskId))
+    .map(([taskId, archivedAt]) => ({
+      date: archivedAt.toISOString().split('T')[0],
+    }));
+
+  // Combine all completed tasks (TAYYOR + YAKUNLANDI + ArchiveDocument)
+  const allCompletedTasks = [
+    ...tayyorTasks,
+    ...yakunlandiTasksWithDates,
+    ...archivedTasks,
+  ];
+
+  // Sort by date to ensure proper ordering
+  allCompletedTasks.sort((a, b) => {
+    return a.date.localeCompare(b.date);
   });
 
   // KPI by worker
@@ -213,16 +361,19 @@ router.get('/charts', requireAuth(), async (req: AuthRequest, res) => {
   const transactionsByType = await prisma.transaction.groupBy({
     by: ['type', 'date'],
     where: {
-      date: where.createdAt ? { gte: where.createdAt.gte, lte: where.createdAt.lte } : undefined,
+      date: { gte: dateRange.start, lte: dateRange.end },
       branchId: branchId ? parseInt(branchId as string) : undefined,
     },
     _sum: { amount: true },
   });
 
   res.json({
-    tasksCompleted: tasksCompleted.map((t: any) => ({
-      date: t.createdAt.toISOString().split('T')[0],
-    })),
+    period,
+    dateRange: {
+      start: dateRange.start.toISOString(),
+      end: dateRange.end.toISOString(),
+    },
+    tasksCompleted: allCompletedTasks,
     kpiByWorker: kpiByWorker.map((k: any) => ({
       userId: k.userId,
       name: workers.find((w: any) => w.id === k.userId)?.name || 'Unknown',

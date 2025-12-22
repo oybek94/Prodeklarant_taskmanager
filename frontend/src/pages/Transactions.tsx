@@ -25,6 +25,7 @@ interface Transaction {
   type: 'INCOME' | 'EXPENSE' | 'SALARY';
   amount: number;
   currency: string;
+  paymentMethod?: 'CASH' | 'CARD';
   comment?: string;
   date: string;
   client?: { id: number; name: string };
@@ -61,6 +62,8 @@ const Transactions = () => {
   const [form, setForm] = useState({
     type: 'INCOME' as 'INCOME' | 'EXPENSE' | 'SALARY',
     amount: '',
+    currency: 'USD' as 'USD' | 'UZS',
+    paymentMethod: '' as '' | 'CASH' | 'CARD',
     comment: '',
     date: new Date().toISOString().split('T')[0],
     clientId: '',
@@ -137,7 +140,7 @@ const Transactions = () => {
       const payload: any = {
         type: form.type,
         amount: parseFloat(form.amount),
-        currency: 'USD',
+        currency: form.currency,
         comment: form.comment,
         date: new Date(form.date),
       };
@@ -167,6 +170,8 @@ const Transactions = () => {
       setForm({
         type: 'INCOME',
         amount: '',
+        currency: 'USD',
+        paymentMethod: '',
         comment: '',
         date: new Date().toISOString().split('T')[0],
         clientId: '',
@@ -186,6 +191,8 @@ const Transactions = () => {
     const newForm = {
       type: transaction.type,
       amount: transaction.amount.toString(),
+      currency: (transaction.currency || 'USD') as 'USD' | 'UZS',
+      paymentMethod: (transaction.paymentMethod || '') as '' | 'CASH' | 'CARD',
       comment: transaction.comment || '',
       date: new Date(transaction.date).toISOString().split('T')[0],
       clientId: transaction.client?.id ? transaction.client.id.toString() : '',
@@ -204,7 +211,8 @@ const Transactions = () => {
       const payload: any = {
         type: form.type,
         amount: parseFloat(form.amount),
-        currency: 'USD',
+        currency: form.currency,
+        paymentMethod: form.paymentMethod || undefined,
         comment: form.comment,
         date: new Date(form.date),
       };
@@ -235,6 +243,8 @@ const Transactions = () => {
       setForm({
         type: 'INCOME',
         amount: '',
+        currency: 'USD',
+        paymentMethod: '',
         comment: '',
         date: new Date().toISOString().split('T')[0],
         clientId: '',
@@ -529,14 +539,57 @@ const Transactions = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Valyuta <span className="text-red-500">*</span></label>
+                <select
+                  value={form.currency}
+                  onChange={(e) => setForm({ ...form, currency: e.target.value as 'USD' | 'UZS' })}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
+                >
+                  <option value="USD">USD</option>
+                  <option value="UZS">UZS</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
+              <input
+                type="date"
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                To'lov usuli
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, paymentMethod: 'CASH' })}
+                  className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${
+                    form.paymentMethod === 'CASH'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                  }`}
+                >
+                  Naqt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, paymentMethod: 'CARD' })}
+                  className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${
+                    form.paymentMethod === 'CARD'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                  }`}
+                >
+                  Karta
+                </button>
               </div>
             </div>
 
@@ -709,14 +762,57 @@ const Transactions = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Valyuta <span className="text-red-500">*</span></label>
+                  <select
+                    value={form.currency}
+                    onChange={(e) => setForm({ ...form, currency: e.target.value as 'USD' | 'UZS' })}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
+                  >
+                    <option value="USD">USD</option>
+                    <option value="UZS">UZS</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  To'lov usuli
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, paymentMethod: 'CASH' })}
+                    className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${
+                      form.paymentMethod === 'CASH'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                    }`}
+                  >
+                    Naqt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, paymentMethod: 'CARD' })}
+                    className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${
+                      form.paymentMethod === 'CARD'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                    }`}
+                  >
+                    Karta
+                  </button>
                 </div>
               </div>
 
@@ -770,6 +866,9 @@ const Transactions = () => {
                   Amount
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
+                  To'lov usuli
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
@@ -783,7 +882,7 @@ const Transactions = () => {
             <tbody className="bg-white divide-y divide-blue-100">
               {transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 bg-blue-50">
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500 bg-blue-50">
                     Ma'lumotlar yo'q
                   </td>
                 </tr>
@@ -814,6 +913,19 @@ const Transactions = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {t.amount} {t.currency}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {t.paymentMethod ? (
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          t.paymentMethod === 'CASH'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {t.paymentMethod === 'CASH' ? 'Naqt' : 'Karta'}
+                        </span>
+                      ) : (
+                        '-'
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(t.date)}

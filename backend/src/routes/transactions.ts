@@ -2,13 +2,15 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
 const baseSchema = z.object({
   type: z.enum(['INCOME', 'EXPENSE', 'SALARY']),
   amount: z.number().positive(),
-  currency: z.string().default('USD'),
+  currency: z.enum(['USD', 'UZS']), // Majburiy
+  paymentMethod: z.enum(['CASH', 'CARD']).optional(),
   comment: z.string().optional(),
   date: z.coerce.date(),
   clientId: z.number().optional(),
@@ -169,21 +171,63 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     return res.status(400).json({ error: 'workerId required for SALARY' });
   }
 
-  const created = await prisma.transaction.create({
-    data: {
-      type: data.type,
-      amount: data.amount,
-      currency: data.currency || 'USD',
-      comment: data.comment,
-      date: data.date,
-      clientId: data.clientId ?? null,
-      workerId: data.workerId ?? null,
-      expenseCategory: data.expenseCategory ?? null,
-      taskId: data.taskId ?? null,
-      branchId: data.branchId ?? null,
-    },
+  // Transaction yaratish va balansni yangilash
+  const result = await prisma.$transaction(async (tx) => {
+    // Transaction yaratish
+    const created = await tx.transaction.create({
+      data: {
+        type: data.type,
+        amount: data.amount,
+        currency: data.currency || 'USD',
+        paymentMethod: data.paymentMethod ?? null,
+        comment: data.comment,
+        date: data.date,
+        clientId: data.clientId ?? null,
+        workerId: data.workerId ?? null,
+        expenseCategory: data.expenseCategory ?? null,
+        taskId: data.taskId ?? null,
+        branchId: data.branchId ?? null,
+      },
+    });
+
+    // Balansni yangilash (faqat paymentMethod bo'lsa)
+    if (data.paymentMethod) {
+      const amount = new Prisma.Decimal(data.amount);
+      const balanceChange = data.type === 'INCOME' ? amount : amount.negated();
+
+      // Balansni topish yoki yaratish
+      const existingBalance = await tx.accountBalance.findUnique({
+          where: {
+            type_currency: {
+              type: data.paymentMethod,
+              currency: data.currency,
+            },
+          },
+      });
+
+      if (existingBalance) {
+        // Mavjud balansni yangilash
+        const newBalance = new Prisma.Decimal(existingBalance.balance).plus(balanceChange);
+        await tx.accountBalance.update({
+          where: { id: existingBalance.id },
+          data: { balance: newBalance },
+        });
+      } else {
+        // Yangi balans yaratish
+        await tx.accountBalance.create({
+          data: {
+            type: data.paymentMethod,
+            currency: data.currency,
+            balance: balanceChange,
+          },
+        });
+      }
+    }
+
+    return created;
   });
-  res.status(201).json(created);
+
+  res.status(201).json(result);
 });
 
 router.get('/:id', async (req, res) => {
@@ -196,8 +240,18 @@ router.get('/:id', async (req, res) => {
   res.json(item);
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
+  
+  // Eski transaction'ni olish
+  const oldTransaction = await prisma.transaction.findUnique({
+    where: { id },
+  });
+  
+  if (!oldTransaction) {
+    return res.status(404).json({ error: 'Transaction topilmadi' });
+  }
+
   const parsed = baseSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -212,27 +266,131 @@ router.put('/:id', async (req, res) => {
     return res.status(400).json({ error: 'workerId required for SALARY' });
   }
 
-  const updated = await prisma.transaction.update({
-    where: { id },
-    data: {
-      type: data.type,
-      amount: data.amount,
-      currency: data.currency || 'USD',
-      comment: data.comment,
-      date: data.date,
-      clientId: data.clientId ?? null,
-      workerId: data.workerId ?? null,
-      expenseCategory: data.expenseCategory ?? null,
-      taskId: data.taskId ?? null,
-      branchId: data.branchId ?? null,
-    },
+  // Transaction yangilash va balansni to'g'rilash
+  const result = await prisma.$transaction(async (tx) => {
+    // Eski balansni qaytarish (agar paymentMethod bo'lsa)
+    if (oldTransaction.paymentMethod) {
+      const oldAmount = new Prisma.Decimal(oldTransaction.amount);
+      const oldBalanceChange = oldTransaction.type === 'INCOME' 
+        ? oldAmount.negated() 
+        : oldAmount;
+
+      const oldBalance = await tx.accountBalance.findUnique({
+        where: {
+          type_currency: {
+            type: oldTransaction.paymentMethod,
+            currency: oldTransaction.currency,
+          },
+        },
+      });
+
+      if (oldBalance) {
+        const newBalance = new Prisma.Decimal(oldBalance.balance).plus(oldBalanceChange);
+        await tx.accountBalance.update({
+          where: { id: oldBalance.id },
+          data: { balance: newBalance },
+        });
+      }
+    }
+
+    // Transaction yangilash
+    const updated = await tx.transaction.update({
+      where: { id },
+      data: {
+        type: data.type,
+        amount: data.amount,
+        currency: data.currency || 'USD',
+        paymentMethod: data.paymentMethod ?? null,
+        comment: data.comment,
+        date: data.date,
+        clientId: data.clientId ?? null,
+        workerId: data.workerId ?? null,
+        expenseCategory: data.expenseCategory ?? null,
+        taskId: data.taskId ?? null,
+        branchId: data.branchId ?? null,
+      },
+    });
+
+    // Yangi balansni yangilash (agar paymentMethod bo'lsa)
+    if (data.paymentMethod) {
+      const newAmount = new Prisma.Decimal(data.amount);
+      const newBalanceChange = data.type === 'INCOME' ? newAmount : newAmount.negated();
+
+      const existingBalance = await tx.accountBalance.findUnique({
+          where: {
+            type_currency: {
+              type: data.paymentMethod,
+              currency: data.currency,
+            },
+          },
+      });
+
+      if (existingBalance) {
+        const newBalance = new Prisma.Decimal(existingBalance.balance).plus(newBalanceChange);
+        await tx.accountBalance.update({
+          where: { id: existingBalance.id },
+          data: { balance: newBalance },
+        });
+      } else {
+        await tx.accountBalance.create({
+          data: {
+            type: data.paymentMethod,
+            currency: data.currency || 'USD',
+            balance: newBalanceChange,
+          },
+        });
+      }
+    }
+
+    return updated;
   });
-  res.json(updated);
+
+  res.json(result);
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
-  await prisma.transaction.delete({ where: { id } });
+  
+  // Eski transaction'ni olish
+  const transaction = await prisma.transaction.findUnique({
+    where: { id },
+  });
+  
+  if (!transaction) {
+    return res.status(404).json({ error: 'Transaction topilmadi' });
+  }
+
+  // Transaction o'chirish va balansni qaytarish
+  await prisma.$transaction(async (tx) => {
+    // Balansni qaytarish (agar paymentMethod bo'lsa)
+    if (transaction.paymentMethod) {
+      const amount = new Prisma.Decimal(transaction.amount);
+      const balanceChange = transaction.type === 'INCOME' 
+        ? amount.negated() 
+        : amount;
+
+      const balance = await tx.accountBalance.findUnique({
+        where: {
+          type_currency: {
+            type: transaction.paymentMethod,
+            currency: transaction.currency,
+          },
+        },
+      });
+
+      if (balance) {
+        const newBalance = new Prisma.Decimal(balance.balance).plus(balanceChange);
+        await tx.accountBalance.update({
+          where: { id: balance.id },
+          data: { balance: newBalance },
+        });
+      }
+    }
+
+    // Transaction o'chirish
+    await tx.transaction.delete({ where: { id } });
+  });
+
   res.status(204).send();
 });
 

@@ -209,18 +209,11 @@ const Tasks = () => {
 
   const loadBranches = async () => {
     try {
-      const response = await apiClient.get('/tasks');
-      if (Array.isArray(response.data)) {
-        const uniqueBranches = Array.from(
-          new Map(
-            response.data.map((task: Task) => [task.branch.id, task.branch])
-          ).values()
-        );
-        setBranches(uniqueBranches.length > 0 ? uniqueBranches : [
-          { id: 1, name: 'Toshkent' },
-          { id: 2, name: 'Oltiariq' },
-        ]);
+      const response = await apiClient.get('/branches');
+      if (Array.isArray(response.data) && response.data.length > 0) {
+        setBranches(response.data);
       } else {
+        // Fallback to default branches if API returns empty
         setBranches([
           { id: 1, name: 'Toshkent' },
           { id: 2, name: 'Oltiariq' },
@@ -228,6 +221,7 @@ const Tasks = () => {
       }
     } catch (error) {
       console.error('Error loading branches:', error);
+      // Fallback to default branches on error
       setBranches([
         { id: 1, name: 'Toshkent' },
         { id: 2, name: 'Oltiariq' },
@@ -1641,13 +1635,28 @@ const Tasks = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        const toshkentBranch = branches.find((b) => b.name === 'Toshkent');
-                        if (toshkentBranch) setForm({ ...form, branchId: toshkentBranch.id.toString() });
+                        if (branches.length === 0) {
+                          console.warn('Branches not loaded yet');
+                          return;
+                        }
+                        const toshkentBranch = branches.find((b) => 
+                          b.name?.toLowerCase().trim() === 'toshkent' || 
+                          b.name === 'Toshkent'
+                        );
+                        if (toshkentBranch) {
+                          setForm({ ...form, branchId: toshkentBranch.id.toString() });
+                        } else {
+                          console.error('Toshkent branch not found. Available branches:', branches);
+                        }
                       }}
+                      disabled={branches.length === 0}
                       className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        form.branchId === branches.find((b) => b.name === 'Toshkent')?.id.toString()
+                        form.branchId === branches.find((b) => 
+                          b.name?.toLowerCase().trim() === 'toshkent' || 
+                          b.name === 'Toshkent'
+                        )?.id.toString()
                           ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
                       }`}
                     >
                       Toshkent
@@ -1655,13 +1664,28 @@ const Tasks = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        const oltiariqBranch = branches.find((b) => b.name === 'Oltiariq');
-                        if (oltiariqBranch) setForm({ ...form, branchId: oltiariqBranch.id.toString() });
+                        if (branches.length === 0) {
+                          console.warn('Branches not loaded yet');
+                          return;
+                        }
+                        const oltiariqBranch = branches.find((b) => 
+                          b.name?.toLowerCase().trim() === 'oltiariq' || 
+                          b.name === 'Oltiariq'
+                        );
+                        if (oltiariqBranch) {
+                          setForm({ ...form, branchId: oltiariqBranch.id.toString() });
+                        } else {
+                          console.error('Oltiariq branch not found. Available branches:', branches);
+                        }
                       }}
+                      disabled={branches.length === 0}
                       className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        form.branchId === branches.find((b) => b.name === 'Oltiariq')?.id.toString()
+                        form.branchId === branches.find((b) => 
+                          b.name?.toLowerCase().trim() === 'oltiariq' || 
+                          b.name === 'Oltiariq'
+                        )?.id.toString()
                           ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
                       }`}
                     >
                       Oltiariq
@@ -2580,13 +2604,28 @@ const Tasks = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        const toshkentBranch = branches.find((b) => b.name === 'Toshkent');
-                        if (toshkentBranch) setEditForm({ ...editForm, branchId: toshkentBranch.id.toString() });
+                        if (branches.length === 0) {
+                          console.warn('Branches not loaded yet');
+                          return;
+                        }
+                        const toshkentBranch = branches.find((b) => 
+                          b.name?.toLowerCase().trim() === 'toshkent' || 
+                          b.name === 'Toshkent'
+                        );
+                        if (toshkentBranch) {
+                          setEditForm({ ...editForm, branchId: toshkentBranch.id.toString() });
+                        } else {
+                          console.error('Toshkent branch not found. Available branches:', branches);
+                        }
                       }}
+                      disabled={branches.length === 0}
                       className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        editForm.branchId === branches.find((b) => b.name === 'Toshkent')?.id.toString()
+                        editForm.branchId === branches.find((b) => 
+                          b.name?.toLowerCase().trim() === 'toshkent' || 
+                          b.name === 'Toshkent'
+                        )?.id.toString()
                           ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
                       }`}
                     >
                       Toshkent
@@ -2594,13 +2633,28 @@ const Tasks = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        const oltiariqBranch = branches.find((b) => b.name === 'Oltiariq');
-                        if (oltiariqBranch) setEditForm({ ...editForm, branchId: oltiariqBranch.id.toString() });
+                        if (branches.length === 0) {
+                          console.warn('Branches not loaded yet');
+                          return;
+                        }
+                        const oltiariqBranch = branches.find((b) => 
+                          b.name?.toLowerCase().trim() === 'oltiariq' || 
+                          b.name === 'Oltiariq'
+                        );
+                        if (oltiariqBranch) {
+                          setEditForm({ ...editForm, branchId: oltiariqBranch.id.toString() });
+                        } else {
+                          console.error('Oltiariq branch not found. Available branches:', branches);
+                        }
                       }}
+                      disabled={branches.length === 0}
                       className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        editForm.branchId === branches.find((b) => b.name === 'Oltiariq')?.id.toString()
+                        editForm.branchId === branches.find((b) => 
+                          b.name?.toLowerCase().trim() === 'oltiariq' || 
+                          b.name === 'Oltiariq'
+                        )?.id.toString()
                           ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
                       }`}
                     >
                       Oltiariq

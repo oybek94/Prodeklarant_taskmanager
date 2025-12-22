@@ -10,6 +10,7 @@ const router = Router();
 const clientSchema = z.object({
   name: z.string().min(1),
   dealAmount: z.number().optional(),
+  dealAmountCurrency: z.enum(['USD', 'UZS']).optional(),
   phone: z.string().optional(),
   creditType: z.enum(['TASK_COUNT', 'AMOUNT']).optional().nullable(),
   creditLimit: z.union([z.number(), z.string()]).optional().nullable().transform((val) => {
@@ -38,6 +39,7 @@ router.get('/', async (_req, res) => {
         where: { type: 'INCOME' },
         select: {
           amount: true,
+          currency: true,
         },
       },
     },
@@ -47,14 +49,17 @@ router.get('/', async (_req, res) => {
   // Calculate balance for each client
   const clientsWithBalance = clients.map(client => {
     const dealAmount = Number(client.dealAmount || 0);
+    const dealCurrency = (client as any).dealAmountCurrency || 'USD';
     const totalTasks = client.tasks.length;
     const tasksWithPsr = client.tasks.filter(t => t.hasPsr).length;
     
     // Calculate total deal amount (with PSR)
     const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
     
-    // Calculate total income
-    const totalIncome = client.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+    // Calculate total income - faqat shu valyutadagi transaction'larni hisoblash
+    const totalIncome = client.transactions
+      .filter(t => t.currency === dealCurrency)
+      .reduce((sum, t) => sum + Number(t.amount), 0);
     
     // Calculate balance (debt)
     const balance = totalDealAmount - totalIncome;
@@ -228,6 +233,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     const createData: any = {
       name: parsed.data.name,
       dealAmount: parsed.data.dealAmount ?? null,
+      dealAmountCurrency: parsed.data.dealAmountCurrency ?? 'USD',
       phone: parsed.data.phone ?? null,
     };
     
@@ -256,9 +262,9 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     
     console.log('Created client:', {
       id: client.id,
-      creditType: client.creditType,
-      creditLimit: client.creditLimit,
-      creditStartDate: client.creditStartDate,
+      creditType: (client as any).creditType,
+      creditLimit: (client as any).creditLimit,
+      creditStartDate: (client as any).creditStartDate,
     });
     
     res.status(201).json(client);
@@ -303,7 +309,11 @@ router.get('/:id', async (req, res) => {
     if (!client) return res.status(404).json({ error: 'Not found' });
 
     // Calculate stats
-    const totalIncome = client.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+    const dealCurrency = (client as any).dealAmountCurrency || 'USD';
+    // Faqat shu valyutadagi transaction'larni hisoblash
+    const totalIncome = client.transactions
+      .filter(t => t.currency === dealCurrency)
+      .reduce((sum, t) => sum + Number(t.amount), 0);
     const totalTasks = client.tasks.length;
     const dealAmount = Number(client.dealAmount || 0);
     
@@ -404,6 +414,9 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         ? null 
         : parseFloat(req.body.dealAmount);
     }
+    if (req.body.dealAmountCurrency !== undefined) {
+      updateData.dealAmountCurrency = req.body.dealAmountCurrency || 'USD';
+    }
     if (req.body.phone !== undefined) {
       updateData.phone = req.body.phone === null || req.body.phone === '' ? null : req.body.phone;
     }
@@ -449,9 +462,9 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     
     console.log('Updated client from Prisma:', {
       id: updatedClient.id,
-      creditType: updatedClient.creditType,
-      creditLimit: updatedClient.creditLimit,
-      creditStartDate: updatedClient.creditStartDate,
+      creditType: (updatedClient as any).creditType,
+      creditLimit: (updatedClient as any).creditLimit,
+      creditStartDate: (updatedClient as any).creditStartDate,
     });
     
     // Return all fields explicitly
@@ -461,9 +474,9 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       dealAmount: updatedClient.dealAmount,
       phone: updatedClient.phone,
       passwordHash: updatedClient.passwordHash,
-      creditType: updatedClient.creditType,
-      creditLimit: updatedClient.creditLimit,
-      creditStartDate: updatedClient.creditStartDate,
+      creditType: (updatedClient as any).creditType,
+      creditLimit: (updatedClient as any).creditLimit,
+      creditStartDate: (updatedClient as any).creditStartDate,
       createdAt: updatedClient.createdAt,
       updatedAt: updatedClient.updatedAt,
     });

@@ -75,6 +75,7 @@ const Clients = () => {
   const [form, setForm] = useState({
     name: '',
     dealAmount: '',
+    dealAmountCurrency: 'USD' as 'USD' | 'UZS',
     phone: '',
     creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
     creditLimit: '',
@@ -83,6 +84,7 @@ const Clients = () => {
   const [editForm, setEditForm] = useState({
     name: '',
     dealAmount: '',
+    dealAmountCurrency: 'USD' as 'USD' | 'UZS',
     phone: '',
     creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
     creditLimit: '',
@@ -178,6 +180,7 @@ const Clients = () => {
       const createData: any = {
         name: form.name,
         dealAmount: form.dealAmount ? parseFloat(form.dealAmount) : undefined,
+        dealAmountCurrency: form.dealAmountCurrency,
         phone: form.phone || undefined,
       };
 
@@ -199,7 +202,7 @@ const Clients = () => {
 
       await apiClient.post('/clients', createData);
       setShowForm(false);
-      setForm({ name: '', dealAmount: '', phone: '', creditType: '', creditLimit: '', creditStartDate: '' });
+      setForm({ name: '', dealAmount: '', dealAmountCurrency: 'USD', phone: '', creditType: '', creditLimit: '', creditStartDate: '' });
       await loadClients();
       await loadStats();
     } catch (error: any) {
@@ -213,6 +216,7 @@ const Clients = () => {
     setEditForm({
       name: client.name,
       dealAmount: client.dealAmount ? client.dealAmount.toString() : '',
+      dealAmountCurrency: (client.dealAmountCurrency || 'USD') as 'USD' | 'UZS',
       phone: client.phone || '',
       creditType: client.creditType || '',
       creditLimit: client.creditLimit ? client.creditLimit.toString() : '',
@@ -229,6 +233,7 @@ const Clients = () => {
       const updateData: any = {
         name: editForm.name,
         dealAmount: editForm.dealAmount ? parseFloat(editForm.dealAmount) : undefined,
+        dealAmountCurrency: editForm.dealAmountCurrency,
         phone: editForm.phone || undefined,
       };
 
@@ -273,7 +278,7 @@ const Clients = () => {
       
       setShowEditModal(false);
       setEditingClient(null);
-      setEditForm({ name: '', dealAmount: '', phone: '', creditType: '', creditLimit: '', creditStartDate: '' });
+      setEditForm({ name: '', dealAmount: '', dealAmountCurrency: 'USD', phone: '', creditType: '', creditLimit: '', creditStartDate: '' });
       
       // Reload clients list to get updated data
       await loadClients();
@@ -527,17 +532,32 @@ const Clients = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Deal Amount (USD)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.dealAmount}
-                  onChange={(e) => setForm({ ...form, dealAmount: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Deal Amount
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.dealAmount}
+                    onChange={(e) => setForm({ ...form, dealAmount: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Valyuta
+                  </label>
+                  <select
+                    value={form.dealAmountCurrency}
+                    onChange={(e) => setForm({ ...form, dealAmountCurrency: e.target.value as 'USD' | 'UZS' })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="UZS">UZS</option>
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
@@ -1076,16 +1096,33 @@ const Clients = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Deal Amount (USD)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={editForm.dealAmount}
-                  onChange={(e) => setEditForm({ ...editForm, dealAmount: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Deal Amount
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editForm.dealAmount}
+                      onChange={(e) => setEditForm({ ...editForm, dealAmount: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Valyuta
+                    </label>
+                    <select
+                      value={editForm.dealAmountCurrency}
+                      onChange={(e) => setEditForm({ ...editForm, dealAmountCurrency: e.target.value as 'USD' | 'UZS' })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="USD">USD</option>
+                      <option value="UZS">UZS</option>
+                    </select>
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>

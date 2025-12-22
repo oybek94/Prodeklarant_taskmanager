@@ -11,6 +11,7 @@ const createStatePaymentSchema = z.object({
   psrPrice: z.number().min(0),
   workerPrice: z.number().min(0),
   customsPayment: z.number().min(0),
+  currency: z.enum(['USD', 'UZS']).optional().default('UZS'),
 });
 
 
@@ -130,7 +131,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
 
-    const { branchId, certificatePayment, psrPrice, workerPrice, customsPayment } = parsed.data;
+    const { branchId, certificatePayment, psrPrice, workerPrice, customsPayment, currency } = parsed.data;
 
     // Branch mavjudligini tekshirish
     const branch = await prisma.branch.findUnique({ where: { id: branchId } });
@@ -146,6 +147,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         psrPrice,
         workerPrice,
         customsPayment,
+        currency: currency || 'UZS',
       },
       include: {
         branch: {

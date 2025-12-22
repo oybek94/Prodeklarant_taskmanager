@@ -17,6 +17,7 @@ import trainingRouter from './routes/training';
 import examsRouter from './routes/exams';
 import uploadRouter from './routes/upload';
 import documentsRouter from './routes/documents';
+import financeRouter from './routes/finance';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 import path from 'path';
@@ -103,6 +104,7 @@ app.use('/api/training', trainingRouter);
 app.use('/api/exams', examsRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/documents', documentsRouter);
+app.use('/api/finance', financeRouter);
 
 // Server'ni darhol ishga tushirish - database ulanishini kutmasdan
 app.listen(PORT, '0.0.0.0', () => {

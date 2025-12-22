@@ -31,6 +31,7 @@ const StatePayments = () => {
     psrPrice: '',
     workerPrice: '',
     customsPayment: '',
+    currency: 'UZS' as 'USD' | 'UZS',
   });
 
   useEffect(() => {
@@ -68,6 +69,7 @@ const StatePayments = () => {
         psrPrice: Number(form.psrPrice),
         workerPrice: Number(form.workerPrice),
         customsPayment: Number(form.customsPayment),
+        currency: form.currency,
       });
       setShowForm(false);
       setForm({
@@ -76,6 +78,7 @@ const StatePayments = () => {
         psrPrice: '',
         workerPrice: '',
         customsPayment: '',
+        currency: 'UZS',
       });
       await loadStatePayments();
     } catch (error: any) {
@@ -311,6 +314,21 @@ const StatePayments = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="0.00"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Valyuta <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.currency}
+                    onChange={(e) => setForm({ ...form, currency: e.target.value as 'USD' | 'UZS' })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="UZS">UZS</option>
+                    <option value="USD">USD</option>
+                  </select>
                 </div>
               </div>
 

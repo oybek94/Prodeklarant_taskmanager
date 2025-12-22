@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
-import { formatDateTime, formatDate } from '../utils/dateFormat';
 import PdfIcon from '../assets/icons/pdf-icon.svg?react';
 import ExcelIcon from '../assets/icons/excel-icon.svg?react';
 import WordIcon from '../assets/icons/word-icon.svg?react';
@@ -826,6 +825,15 @@ const Tasks = () => {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = date.toLocaleDateString('en-GB', { month: 'short' });
+    const year = date.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${day} ${month} ${year}; ${hours}:${minutes}`;
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const formatDuration = (minutes?: number) => {
@@ -1005,7 +1013,7 @@ const Tasks = () => {
                         </td>
                       )}
                       <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900 border-b border-blue-100">
-                        {formatDateTime(task.createdAt)}
+                        {formatDate(task.createdAt)}
                       </td>
                       {isArchive && (
                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900 border-b border-blue-100">
@@ -1113,7 +1121,7 @@ const Tasks = () => {
         'PSR': task.hasPsr ? 'Bor' : 'Yo\'q',
         'Sho\'pir tel': task.driverPhone || '-',
         'Izohlar': task.comments || '-',
-        'Yaratilgan sana': formatDateTime(task.createdAt),
+        'Yaratilgan sana': formatDate(task.createdAt),
         'Yaratgan': task.createdBy?.name || '-',
         'Umumiy vaqt': durationInfo.text,
       };
@@ -1869,7 +1877,7 @@ const Tasks = () => {
               </div>
               <div>
                 <div className="text-sm text-gray-500">Yaratilgan</div>
-                <div className="font-medium text-sm">{formatDateTime(selectedTask.createdAt)}</div>
+                <div className="font-medium text-sm">{formatDate(selectedTask.createdAt)}</div>
                 {selectedTask.createdBy && (
                   <div className="text-xs text-gray-400 mt-1">by {selectedTask.createdBy.name}</div>
                 )}
@@ -1878,7 +1886,7 @@ const Tasks = () => {
             {selectedTask.updatedBy && (
               <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="text-sm text-gray-600">
-                  <span className="font-medium">Oxirgi o'zgartirilgan:</span> {selectedTask.updatedAt ? formatDateTime(selectedTask.updatedAt) : ''} 
+                  <span className="font-medium">Oxirgi o'zgartirilgan:</span> {selectedTask.updatedAt ? formatDate(selectedTask.updatedAt) : ''} 
                   {selectedTask.updatedBy && <span className="ml-2">by {selectedTask.updatedBy.name}</span>}
                 </div>
               </div>
@@ -2093,7 +2101,7 @@ const Tasks = () => {
                             ({stage.assignedTo.name})
                           </span>
                         )}{' '}
-                        {stage.completedAt ? formatDateTime(stage.completedAt) : ''}
+                        {stage.completedAt ? formatDate(stage.completedAt) : ''}
                       </div>
                     )}
                   </div>
@@ -2189,7 +2197,7 @@ const Tasks = () => {
                             <div className="text-sm text-gray-500">{doc.description}</div>
                           )}
                           <div className="text-xs text-gray-400 mt-1">
-                            {formatFileSize(doc.fileSize)} • {formatDateTime(doc.createdAt || doc.archivedAt)}
+                            {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt).toLocaleDateString('uz-UZ')}
                           </div>
                         </div>
                       </div>
@@ -2295,7 +2303,7 @@ const Tasks = () => {
                               <span className="text-sm font-medium text-gray-700">{version.title}</span>
                             </div>
                             <div className="text-xs text-gray-500">
-                              {formatDateTime(version.createdAt)}
+                              {formatDate(version.createdAt)}
                             </div>
                           </div>
                           <div className="text-xs text-gray-600 mb-2">

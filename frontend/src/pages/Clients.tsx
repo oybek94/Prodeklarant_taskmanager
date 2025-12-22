@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
-import { formatDateTime, formatDate } from '../utils/dateFormat';
 
 interface Client {
   id: number;
@@ -307,6 +306,13 @@ const Clients = () => {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = date.toLocaleDateString('en-GB', { month: 'short' });
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+  };
 
   const formatChange = (change: number) => {
     const sign = change >= 0 ? '+' : '';
@@ -787,7 +793,7 @@ const Clients = () => {
                 <div>
                   <h2 className="text-2xl font-semibold text-gray-800">{selectedClient.name}</h2>
                   <div className="text-sm text-gray-500 mt-1">
-                    Yaratilgan: {formatDateTime(selectedClient.createdAt)}
+                    Yaratilgan: {formatDate(selectedClient.createdAt)}
                   </div>
                 </div>
               </div>
@@ -910,7 +916,11 @@ const Clients = () => {
                     <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
                       <div className="text-xs text-gray-600 mb-1">Nasiya boshlangan sana</div>
                       <div className="font-semibold text-gray-900">
-                        {formatDateTime(selectedClient.creditStartDate)}
+                        {new Date(selectedClient.creditStartDate).toLocaleDateString('uz-UZ', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
                       </div>
                     </div>
                   )}
@@ -1005,7 +1015,7 @@ const Clients = () => {
                               +${Number(transaction.amount).toFixed(2)} {transaction.currency}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                              {formatDateTime(transaction.date)}
+                              {formatDate(transaction.date)}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-900">
                               {transaction.comment || '-'}

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
-import { formatDateTime } from '../utils/dateFormat';
 import PdfIcon from '../assets/icons/pdf-icon.svg?react';
 import ExcelIcon from '../assets/icons/excel-icon.svg?react';
 import WordIcon from '../assets/icons/word-icon.svg?react';
@@ -281,7 +280,13 @@ const Archive = () => {
                       <div className="text-sm text-gray-500">{doc.uploadedBy.email}</div>
                     </td>
                     <td className="py-3 px-4 text-gray-600">
-                      {formatDateTime(doc.archivedAt)}
+                      {new Date(doc.archivedAt).toLocaleDateString('uz-UZ', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </td>
                     <td className="py-3 px-4">
                       <button

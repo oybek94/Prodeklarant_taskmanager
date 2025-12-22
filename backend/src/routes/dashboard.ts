@@ -180,47 +180,19 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
 // Charts data
 router.get('/charts', requireAuth(), async (req: AuthRequest, res) => {
-  const { period = 'monthly', startDate, endDate, branchId } = req.query;
+  const { period = 'daily', startDate, endDate, branchId } = req.query;
   const where: any = {};
-  
-  // Set date range based on period if not provided
-  const now = new Date();
-  if (!startDate && !endDate) {
-    if (period === 'weekly') {
-      const weekAgo = new Date(now);
-      weekAgo.setDate(weekAgo.getDate() - 6);
-      weekAgo.setHours(0, 0, 0, 0);
-      where.createdAt = { gte: weekAgo };
-    } else if (period === 'monthly') {
-      const monthAgo = new Date(now);
-      monthAgo.setDate(monthAgo.getDate() - 29);
-      monthAgo.setHours(0, 0, 0, 0);
-      where.createdAt = { gte: monthAgo };
-    } else if (period === 'yearly') {
-      const yearAgo = new Date(now);
-      yearAgo.setMonth(yearAgo.getMonth() - 11);
-      yearAgo.setDate(1);
-      yearAgo.setHours(0, 0, 0, 0);
-      where.createdAt = { gte: yearAgo };
-    }
-  } else {
-    if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) where.createdAt.gte = new Date(startDate as string);
-      if (endDate) where.createdAt.lte = new Date(endDate as string);
-    }
+  if (startDate || endDate) {
+    where.createdAt = {};
+    if (startDate) where.createdAt.gte = new Date(startDate as string);
+    if (endDate) where.createdAt.lte = new Date(endDate as string);
   }
-  
   if (branchId) where.branchId = parseInt(branchId as string);
 
-  // Tasks completed by time - include both TAYYOR and YAKUNLANDI (archived) tasks
+  // Tasks completed by time
   const tasksCompleted = await prisma.task.findMany({
-    where: { 
-      ...where, 
-      status: { in: ['TAYYOR', 'YAKUNLANDI'] }
-    },
+    where: { ...where, status: 'TAYYOR' },
     select: { createdAt: true, updatedAt: true },
-    orderBy: { createdAt: 'asc' },
   });
 
   // KPI by worker
@@ -247,27 +219,10 @@ router.get('/charts', requireAuth(), async (req: AuthRequest, res) => {
     _sum: { amount: true },
   });
 
-  // Also get archived tasks from ArchiveDocument (if they have archivedAt date)
-  const archivedTasks = await prisma.archiveDocument.findMany({
-    where: {
-      archivedAt: where.createdAt ? { gte: where.createdAt.gte, lte: where.createdAt.lte } : undefined,
-    },
-    select: { archivedAt: true },
-    distinct: ['taskId'],
-  });
-
-  // Combine both completed and archived tasks
-  const allCompletedTasks = [
-    ...tasksCompleted.map((t: any) => ({
+  res.json({
+    tasksCompleted: tasksCompleted.map((t: any) => ({
       date: t.createdAt.toISOString().split('T')[0],
     })),
-    ...archivedTasks.map((a: any) => ({
-      date: a.archivedAt.toISOString().split('T')[0],
-    })),
-  ];
-
-  res.json({
-    tasksCompleted: allCompletedTasks,
     kpiByWorker: kpiByWorker.map((k: any) => ({
       userId: k.userId,
       name: workers.find((w: any) => w.id === k.userId)?.name || 'Unknown',

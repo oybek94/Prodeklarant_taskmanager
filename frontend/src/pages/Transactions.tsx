@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
-import { formatDateTime } from '../utils/dateFormat';
 import { useAuth } from '../contexts/AuthContext';
 
 // Handle ESC key to close modal
@@ -261,6 +260,9 @@ const Transactions = () => {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('uz-UZ');
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('uz-UZ', {
@@ -814,7 +816,7 @@ const Transactions = () => {
                       {t.amount} {t.currency}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDateTime(t.date)}
+                      {formatDate(t.date)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       <div className="max-w-xs truncate" title={t.comment || undefined}>

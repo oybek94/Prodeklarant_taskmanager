@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { formatDateTime } from '../utils/dateFormat';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -341,7 +340,11 @@ const ClientDashboard = () => {
                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    {formatDateTime(task.createdAt)}
+                                    {new Date(task.createdAt).toLocaleDateString('uz-UZ', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
                                   </span>
                                   <span>•</span>
                                   <span>{task.branch?.name || 'Filial topilmadi'}</span>
@@ -412,7 +415,10 @@ const ClientDashboard = () => {
                           <p className="text-xs text-gray-500 mt-0.5 truncate">{transaction.comment}</p>
                         )}
                         <p className="text-xs text-gray-400 mt-1">
-                          {formatDateTime(transaction.date)}
+                          {new Date(transaction.date).toLocaleDateString('uz-UZ', {
+                            month: 'short',
+                            day: 'numeric'
+                          })}
                         </p>
                       </div>
                     </div>
@@ -445,7 +451,11 @@ const ClientDashboard = () => {
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Ro'yxatdan o'tgan</p>
                   <p className="text-sm font-medium text-gray-900">
-                    {client?.createdAt ? formatDateTime(client.createdAt) : 'N/A'}
+                    {client?.createdAt ? new Date(client.createdAt).toLocaleDateString('uz-UZ', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    }) : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -491,13 +501,13 @@ const ClientDashboard = () => {
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Yaratilgan</p>
                     <p className="text-sm text-gray-900">
-                      {formatDateTime(selectedTask.createdAt)}
+                      {new Date(selectedTask.createdAt).toLocaleString('uz-UZ')}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Yangilangan</p>
                     <p className="text-sm text-gray-900">
-                      {formatDateTime(selectedTask.updatedAt)}
+                      {new Date(selectedTask.updatedAt).toLocaleString('uz-UZ')}
                     </p>
                   </div>
                   {selectedTask.hasPsr && (
@@ -562,10 +572,10 @@ const ClientDashboard = () => {
                             <p className="text-xs">Mas'ul: {stage.assignedTo.name}</p>
                           )}
                           {stage.startedAt && (
-                            <p className="text-xs">Boshlangan: {formatDateTime(stage.startedAt)}</p>
+                            <p className="text-xs">Boshlangan: {new Date(stage.startedAt).toLocaleString('uz-UZ')}</p>
                           )}
                           {stage.completedAt && (
-                            <p className="text-xs">Tugallangan: {formatDateTime(stage.completedAt)}</p>
+                            <p className="text-xs">Tugallangan: {new Date(stage.completedAt).toLocaleString('uz-UZ')}</p>
                           )}
                         </div>
                       </div>

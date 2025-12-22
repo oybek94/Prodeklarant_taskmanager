@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
-import { formatDateTime } from '../utils/dateFormat';
 
 interface StatePayment {
   id: number;
@@ -103,6 +102,13 @@ const StatePayments = () => {
     }).format(amount);
   };
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('uz-UZ', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
 
   if (loading) {
@@ -192,7 +198,7 @@ const StatePayments = () => {
                       {formatCurrency(totalPayments)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDateTime(payment.createdAt)}
+                      {formatDate(payment.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button

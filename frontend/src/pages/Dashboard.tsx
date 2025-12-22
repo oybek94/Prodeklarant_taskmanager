@@ -3,6 +3,27 @@ import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { formatDateTime, formatDate } from '../utils/dateFormat';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+  Filler,
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface PaymentReminder {
   clientId: number;
@@ -47,7 +68,7 @@ const Dashboard = () => {
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
+  const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
 
   useEffect(() => {
     loadStats();
@@ -72,6 +93,7 @@ const Dashboard = () => {
       const params: any = { period };
       const response = await apiClient.get('/dashboard/charts', { params });
       setChartData(response.data);
+      console.log('Chart data loaded:', response.data);
     } catch (error) {
       console.error('Error loading chart data:', error);
     }
@@ -97,17 +119,116 @@ const Dashboard = () => {
 
   // Prepare chart data for tasks over time
   const prepareTasksChartData = () => {
-    if (!chartData?.tasksCompleted) return [];
+    if (!chartData?.tasksCompleted) return { labels: [], datasets: [] };
+    
+    const now = new Date();
+    let dateRange: { start: Date; end: Date; labels: string[]; dates: Date[] } = {
+      start: new Date(),
+      end: new Date(),
+      labels: [],
+      dates: [],
+    };
+
+    // Generate date ranges based on period
+    if (period === 'weekly') {
+      // Last 7 days
+      dateRange.end = new Date(now);
+      dateRange.end.setHours(23, 59, 59, 999);
+      dateRange.start = new Date(now);
+      dateRange.start.setDate(dateRange.start.getDate() - 6);
+      dateRange.start.setHours(0, 0, 0, 0);
+      
+      // Generate all 7 days
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(dateRange.start);
+        date.setDate(date.getDate() + i);
+        dateRange.dates.push(date);
+        dateRange.labels.push(formatDate(date.toISOString().split('T')[0]));
+      }
+    } else if (period === 'monthly') {
+      // Last 30 days
+      dateRange.end = new Date(now);
+      dateRange.end.setHours(23, 59, 59, 999);
+      dateRange.start = new Date(now);
+      dateRange.start.setDate(dateRange.start.getDate() - 29);
+      dateRange.start.setHours(0, 0, 0, 0);
+      
+      // Generate all 30 days
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(dateRange.start);
+        date.setDate(date.getDate() + i);
+        dateRange.dates.push(date);
+        dateRange.labels.push(formatDate(date.toISOString().split('T')[0]));
+      }
+    } else if (period === 'yearly') {
+      // Last 12 months
+      dateRange.end = new Date(now);
+      dateRange.start = new Date(now);
+      dateRange.start.setMonth(dateRange.start.getMonth() - 11);
+      dateRange.start.setDate(1);
+      dateRange.start.setHours(0, 0, 0, 0);
+      
+      // Generate all 12 months
+      for (let i = 0; i < 12; i++) {
+        const date = new Date(dateRange.start);
+        date.setMonth(date.getMonth() + i);
+        dateRange.dates.push(date);
+        const monthName = date.toLocaleDateString('uz-UZ', { month: 'short', year: 'numeric' });
+        dateRange.labels.push(monthName);
+      }
+    }
+
+    // Group tasks by date
     const grouped = chartData.tasksCompleted.reduce((acc: any, item) => {
-      const date = item.date;
-      acc[date] = (acc[date] || 0) + 1;
+      const taskDate = new Date(item.date + 'T00:00:00'); // Ensure correct timezone
+      let key: string;
+      
+      if (period === 'yearly') {
+        // Group by month (year-month format)
+        key = `${taskDate.getFullYear()}-${taskDate.getMonth()}`;
+      } else {
+        // Group by day
+        key = item.date;
+      }
+      
+      acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
-    return Object.entries(grouped).map(([date, count]) => ({ date, count }));
+
+    // Map dates to counts
+    const data = dateRange.dates.map((date) => {
+      let key: string;
+      if (period === 'yearly') {
+        // Use year-month format for matching
+        key = `${date.getFullYear()}-${date.getMonth()}`;
+      } else {
+        // Use date string for daily matching
+        key = date.toISOString().split('T')[0];
+      }
+      return grouped[key] || 0;
+    });
+    
+    return {
+      labels: dateRange.labels,
+      datasets: [
+        {
+          label: 'Tugallangan ishlar',
+          data: data,
+          borderColor: 'rgb(139, 92, 246)', // purple-500
+          backgroundColor: 'rgba(139, 92, 246, 0.1)',
+          tension: 0.4, // Smooth curve (bezier interpolation)
+          fill: true,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: 'rgb(139, 92, 246)',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+        },
+      ],
+    };
   };
 
-  const tasksChartData = prepareTasksChartData();
-  const maxTasksCount = Math.max(...tasksChartData.map((d: any) => Number(d.count)), 1);
+  const chartDataConfig = prepareTasksChartData();
 
   const getTaskProgress = (task: Task) => {
     if (task.status === 'YAKUNLANDI' || task.status === 'TAYYOR') return 100;
@@ -170,7 +291,7 @@ const Dashboard = () => {
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex justify-between items-start mb-4">
     <div>
-                <p className="text-sm text-gray-600 mb-1">Task Completed</p>
+                <p className="text-sm text-gray-600 mb-1">Tugallangan ishlar</p>
                 <p className="text-3xl font-bold text-gray-900">{completedTasksCount}</p>
               </div>
               <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -183,7 +304,7 @@ const Dashboard = () => {
               <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
-              {completedTasksCount > 0 ? `${completedTasksCount}+ more from last week` : 'No completed tasks'}
+              {completedTasksCount > 0 ? `${completedTasksCount}+ o'tgan haftadan` : 'Tugallangan ishlar yo\'q'}
             </div>
           </div>
 
@@ -191,7 +312,7 @@ const Dashboard = () => {
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <p className="text-sm text-gray-600 mb-1">New Task</p>
+                <p className="text-sm text-gray-600 mb-1">Yangi ish</p>
                 <p className="text-3xl font-bold text-gray-900">{newTasksCount}</p>
               </div>
               <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -204,7 +325,7 @@ const Dashboard = () => {
               <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
-              {newTasksCount > 0 ? `${newTasksCount}+ more from last week` : 'No new tasks'}
+              {newTasksCount > 0 ? `${newTasksCount}+ o'tgan haftadan` : 'Yangi ishlar yo\'q'}
             </div>
           </div>
 
@@ -212,7 +333,7 @@ const Dashboard = () => {
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Project Done</p>
+                <p className="text-sm text-gray-600 mb-1">Yakunlangan loyihalar</p>
                 <p className="text-3xl font-bold text-gray-900">{projectDoneCount}</p>
               </div>
               <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
@@ -225,7 +346,7 @@ const Dashboard = () => {
               <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
-              {projectDoneCount > 0 ? `${projectDoneCount}+ more from last week` : 'No projects done'}
+              {projectDoneCount > 0 ? `${projectDoneCount}+ o'tgan haftadan` : 'Yakunlangan loyihalar yo\'q'}
             </div>
           </div>
         </div>
@@ -237,18 +358,8 @@ const Dashboard = () => {
             {/* Task Done Graph */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Task Done</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Tugallangan ishlar</h2>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => setPeriod('daily')}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      period === 'daily'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    Daily
-                  </button>
                   <button
                     onClick={() => setPeriod('weekly')}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -257,7 +368,7 @@ const Dashboard = () => {
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
-                    Weekly
+                    Haftalik
                   </button>
                   <button
                     onClick={() => setPeriod('monthly')}
@@ -267,44 +378,91 @@ const Dashboard = () => {
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
-                    Monthly
+                    Oylik
+                  </button>
+                  <button
+                    onClick={() => setPeriod('yearly')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      period === 'yearly'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Yillik
                   </button>
                 </div>
         </div>
               
-              {/* Simple Line Chart */}
-              <div className="h-64 flex items-end justify-between gap-2">
-          {tasksChartData.length > 0 ? (
-                  tasksChartData.map((item, idx) => {
-                    const height = (Number(item.count) / maxTasksCount) * 100;
-                    return (
-                      <div key={idx} className="flex-1 flex flex-col items-center group">
-                        <div className="relative w-full flex items-end justify-center h-full">
-                          <div
-                            className="w-full bg-gradient-to-t from-purple-500 to-blue-400 rounded-t transition-all duration-300 hover:from-purple-600 hover:to-blue-500 cursor-pointer"
-                            style={{ height: `${Math.max(height, 5)}%`, minHeight: '4px' }}
-                            title={`${item.date}: ${item.count} tasks`}
-                          />
-                  <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                    {String(item.count)}
+              {/* Charts.js Line Chart */}
+              <div className="h-64">
+                {chartDataConfig.labels.length > 0 ? (
+                  <Line
+                    data={chartDataConfig}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false,
+                        },
+                        tooltip: {
+                          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                          padding: 12,
+                          titleFont: {
+                            size: 14,
+                            weight: 'bold',
+                          },
+                          bodyFont: {
+                            size: 13,
+                          },
+                        },
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          ticks: {
+                            stepSize: 1,
+                            precision: 0,
+                          },
+                          grid: {
+                            color: 'rgba(0, 0, 0, 0.05)',
+                          },
+                        },
+                        x: {
+                          grid: {
+                            display: false,
+                          },
+                          ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            font: {
+                              size: 11,
+                            },
+                          },
+                        },
+                      },
+                      elements: {
+                        line: {
+                          tension: 0.4, // Smooth curve (bezier interpolation)
+                        },
+                      },
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-sm text-gray-400 mb-1">Ma'lumotlar yo'q</p>
+                      <p className="text-xs text-gray-300">Tugallangan ishlar mavjud emas</p>
+                    </div>
                   </div>
-                </div>
-                        <div className="text-xs text-gray-500 text-center w-full truncate mt-2">
-                  {formatDate(item.date)}
-                </div>
+                )}
               </div>
-                    );
-                  })
-          ) : (
-                  <div className="w-full text-center text-gray-400 py-12">Ma'lumotlar yo'q</div>
-          )}
-        </div>
       </div>
 
             {/* Tasks List */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Task</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Ishlar</h2>
                 <button
                   onClick={() => navigate('/tasks')}
                   className="text-sm text-blue-600 hover:text-blue-700"
@@ -342,7 +500,7 @@ const Dashboard = () => {
                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    Start from {formatDateTime(task.createdAt)}
+                                    Boshlangan: {formatDateTime(task.createdAt)}
                                   </span>
                                 </div>
                                 <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
@@ -389,76 +547,58 @@ const Dashboard = () => {
           {/* Right Sidebar */}
           <div className="space-y-6">
             {/* Payment Reminders - Main Section */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900">To'lov qilishi kerak</h2>
-                    <p className="text-xs text-gray-500">
-                      {stats?.paymentReminders && stats.paymentReminders.length > 0 
-                        ? `${stats.paymentReminders.length} ta mijoz` 
-                        : 'Mijozlar yo\'q'}
-                    </p>
-                  </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-5">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-base font-medium text-gray-900 mb-0.5">To'lov qilishi kerak</h2>
+                  <p className="text-xs text-gray-400">
+                    {stats?.paymentReminders && stats.paymentReminders.length > 0 
+                      ? `${stats.paymentReminders.length} ta mijoz` 
+                      : 'Mijozlar yo\'q'}
+                  </p>
                 </div>
                 {stats?.paymentReminders && stats.paymentReminders.length > 0 && (
                   <button
                     onClick={() => navigate('/clients')}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
                   >
-                    Barchasini ko'rish
+                    Barchasini ko'rish →
                   </button>
                 )}
               </div>
               
               {!stats?.paymentReminders || stats.paymentReminders.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <p className="text-gray-400 text-sm">To'lov qilishi kerak bo'lgan mijozlar yo'q</p>
+                <div className="text-center py-16">
+                  <p className="text-sm text-gray-400">To'lov qilishi kerak bo'lgan mijozlar yo'q</p>
                 </div>
               ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
+                <div className="space-y-4 max-h-96 overflow-y-auto">
                   {stats.paymentReminders.map((reminder) => (
                     <div
                       key={reminder.clientId}
-                      onClick={() => navigate(`/clients`)}
-                      className="group bg-gradient-to-r from-red-50 to-orange-50 rounded-lg p-4 border border-red-200 hover:border-red-300 hover:shadow-md transition-all cursor-pointer"
+                      onClick={() => navigate(`/clients/${reminder.clientId}`)}
+                      className="group border-b border-gray-100 pb-4 last:border-0 last:pb-0 cursor-pointer hover:opacity-70 transition-opacity"
                     >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 text-sm mb-1 group-hover:text-red-700 transition-colors">
-                            {reminder.clientName}
-                          </h3>
-                          {reminder.phone && (
-                            <p className="text-xs text-gray-600 mb-2 flex items-center gap-1">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                              </svg>
-                              {reminder.phone}
-                            </p>
-                          )}
-                        </div>
-                        <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full whitespace-nowrap flex-shrink-0">
-                          To'lov kerak
-                        </span>
+                      <div className="mb-2">
+                        <h3 className="text-sm font-medium text-red-600 mb-1">
+                          {reminder.clientName}
+                        </h3>
+                        {reminder.phone && (
+                          <p className="text-xs text-gray-500">
+                            {reminder.phone}
+                          </p>
+                        )}
                       </div>
-                      <p className="text-xs text-gray-700 mt-2 bg-white/60 rounded px-2 py-1.5 border border-red-100">
-                        {reminder.dueReason}
+                      <p className="text-xs text-gray-600 mb-2 leading-relaxed">
+                        {reminder.dueReason.split(/(\$[\d,]+\.?\d*)/).map((part, idx) => {
+                          if (part.match(/^\$[\d,]+\.?\d*$/)) {
+                            return <span key={idx} className="text-red-600 font-medium">{part}</span>;
+                          }
+                          return part;
+                        })}
                       </p>
-                      <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span>Boshlangan: {formatDateTime(reminder.creditStartDate)}</span>
+                      <div className="text-xs text-gray-400">
+                        {formatDateTime(reminder.creditStartDate)}
                       </div>
                     </div>
                   ))}
@@ -468,7 +608,7 @@ const Dashboard = () => {
 
             {/* Messages */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Messages</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Xabarlar</h2>
               <div className="space-y-3">
                 {[
                   { name: 'Cris Morich', message: 'Hi Angelina! How are You?', color: 'bg-yellow-100' },
@@ -491,13 +631,13 @@ const Dashboard = () => {
 
             {/* New Task */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">New Task</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Yangi ish</h2>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Task Title</label>
+                  <label className="text-xs text-gray-500 mb-1 block">Ish nomi</label>
                   <input
                     type="text"
-                    placeholder="Create new"
+                    placeholder="Yangi yaratish"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -512,7 +652,7 @@ const Dashboard = () => {
                   ))}
                 </div>
                 <button className="w-full text-sm text-gray-600 hover:text-gray-900 py-2 text-left">
-                  Add Collaborators
+                  Hamkorlar qo'shish
                 </button>
               </div>
             </div>

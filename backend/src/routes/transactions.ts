@@ -161,7 +161,8 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 
   const data = parsed.data;
   // Validation by type
-  if (data.type === 'INCOME' && !data.clientId) {
+  // INCOME uchun clientId majburiy, lekin konvertatsiya uchun istisno (comment'da "Konvertatsiya" bo'lsa)
+  if (data.type === 'INCOME' && !data.clientId && !data.comment?.includes('Konvertatsiya')) {
     return res.status(400).json({ error: 'clientId required for INCOME' });
   }
   if (data.type === 'EXPENSE' && !data.expenseCategory) {
@@ -169,6 +170,10 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   }
   if (data.type === 'SALARY' && !data.workerId) {
     return res.status(400).json({ error: 'workerId required for SALARY' });
+  }
+  // CARD faqat UZS bo'lishi mumkin
+  if (data.paymentMethod === 'CARD' && data.currency === 'USD') {
+    return res.status(400).json({ error: 'Karta faqat UZS valyutasida bo\'lishi mumkin' });
   }
 
   // Transaction yaratish va balansni yangilash
@@ -264,6 +269,10 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   }
   if (data.type === 'SALARY' && !data.workerId) {
     return res.status(400).json({ error: 'workerId required for SALARY' });
+  }
+  // CARD faqat UZS bo'lishi mumkin
+  if (data.paymentMethod === 'CARD' && data.currency === 'USD') {
+    return res.status(400).json({ error: 'Karta faqat UZS valyutasida bo\'lishi mumkin' });
   }
 
   // Transaction yangilash va balansni to'g'rilash

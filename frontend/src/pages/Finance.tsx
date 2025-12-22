@@ -52,8 +52,19 @@ const Finance = () => {
   const [loading, setLoading] = useState(true);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [showDebtModal, setShowDebtModal] = useState(false);
+  const [showConvertModal, setShowConvertModal] = useState(false);
   const [selectedBalance, setSelectedBalance] = useState<AccountBalance | null>(null);
-  const [balanceForm, setBalanceForm] = useState({ balance: '' });
+  const [balanceForm, setBalanceForm] = useState({ balance: '', type: '' as '' | 'CASH' | 'CARD', currency: 'USD' as 'USD' | 'UZS' });
+  const [convertForm, setConvertForm] = useState({
+    fromType: 'CASH' as 'CASH' | 'CARD',
+    fromCurrency: 'USD' as 'USD' | 'UZS',
+    toType: 'CASH' as 'CASH' | 'CARD',
+    toCurrency: 'UZS' as 'USD' | 'UZS',
+    amount: '',
+    rate: '',
+    comment: '',
+    date: new Date().toISOString().split('T')[0],
+  });
   const [debtForm, setDebtForm] = useState({
     debtorType: 'CLIENT' as 'CLIENT' | 'WORKER' | 'CERTIFICATE_WORKER' | 'OTHER',
     debtorId: '',
@@ -143,7 +154,34 @@ const Finance = () => {
   };
 
   const handleUpdateBalance = async () => {
-    if (!selectedBalance) return;
+    if (!selectedBalance) {
+      // Yangi balans qo'shish
+      if (!balanceForm.type) {
+        alert('Turi tanlang');
+        return;
+      }
+      // CARD faqat UZS bo'lishi kerak
+      if (balanceForm.type === 'CARD' && balanceForm.currency === 'USD') {
+        alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
+        return;
+      }
+      try {
+        await apiClient.post('/finance/balance', {
+          type: balanceForm.type,
+          balance: parseFloat(balanceForm.balance),
+          currency: balanceForm.currency,
+        });
+        setShowBalanceModal(false);
+        setSelectedBalance(null);
+        setBalanceForm({ balance: '', type: '', currency: 'USD' });
+        loadBalances();
+        loadStatistics();
+      } catch (error: any) {
+        alert('Xatolik: ' + (error.response?.data?.error || error.message));
+      }
+      return;
+    }
+    // Mavjud balansni yangilash
     try {
       await apiClient.post('/finance/balance', {
         type: selectedBalance.type,
@@ -152,7 +190,7 @@ const Finance = () => {
       });
       setShowBalanceModal(false);
       setSelectedBalance(null);
-      setBalanceForm({ balance: '' });
+      setBalanceForm({ balance: '', type: '', currency: 'USD' });
       loadBalances();
       loadStatistics();
     } catch (error: any) {
@@ -180,6 +218,52 @@ const Finance = () => {
       loadStatistics();
     } catch (error: any) {
       alert('Xatolik: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleConvertCurrency = async () => {
+    if (!convertForm.amount || !convertForm.rate) {
+      alert('Summa va kursni kiriting');
+      return;
+    }
+
+    // Validatsiya: CARD faqat UZS bo'lishi mumkin
+    if (convertForm.fromType === 'CARD' && convertForm.fromCurrency === 'USD') {
+      alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
+      return;
+    }
+    if (convertForm.toType === 'CARD' && convertForm.toCurrency === 'USD') {
+      alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
+      return;
+    }
+
+    try {
+      await apiClient.post('/finance/convert-currency', {
+        fromType: convertForm.fromType,
+        fromCurrency: convertForm.fromCurrency,
+        toType: convertForm.toType,
+        toCurrency: convertForm.toCurrency,
+        amount: parseFloat(convertForm.amount),
+        rate: parseFloat(convertForm.rate),
+        comment: convertForm.comment,
+        date: convertForm.date ? new Date(convertForm.date) : undefined,
+      });
+      setShowConvertModal(false);
+      setConvertForm({
+        fromType: 'CASH',
+        fromCurrency: 'USD',
+        toType: 'CASH',
+        toCurrency: 'UZS',
+        amount: '',
+        rate: '',
+        comment: '',
+        date: new Date().toISOString().split('T')[0],
+      });
+      loadBalances();
+      loadStatistics();
+      alert('Valyuta muvaffaqiyatli konvertatsiya qilindi');
+    } catch (error: any) {
+      alert('Xatolik: ' + (error.response?.data?.error || error.response?.data?.details || error.message));
     }
   };
 
@@ -411,7 +495,7 @@ const Finance = () => {
               <button
                 onClick={() => {
                   setSelectedBalance(null);
-                  setBalanceForm({ balance: '' });
+                  setBalanceForm({ balance: '', type: '', currency: 'USD' });
                   setShowBalanceModal(true);
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -441,7 +525,7 @@ const Finance = () => {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900">
-                        {balance.type === 'CASH' ? 'Naqt pul' : 'Karta'}
+                        {balance.type === 'CASH' ? 'Naqt pul' : 'Karta'} ({balance.currency})
                       </p>
                       <p className="text-xs text-gray-500">
                         {new Date(balance.updatedAt).toLocaleDateString('uz-UZ')}
@@ -449,7 +533,12 @@ const Finance = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-gray-900">{formatCurrency(balance.balance)}</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {balance.currency === 'USD' 
+                        ? formatCurrency(balance.balance)
+                        : new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'UZS', minimumFractionDigits: 0 }).format(balance.balance)
+                      }
+                    </p>
                     <button
                       onClick={() => {
                         setSelectedBalance(balance);
@@ -564,7 +653,7 @@ const Finance = () => {
                 onClick={() => {
                   setShowBalanceModal(false);
                   setSelectedBalance(null);
-                  setBalanceForm({ balance: '' });
+                  setBalanceForm({ balance: '', type: '', currency: 'USD' });
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -588,26 +677,55 @@ const Finance = () => {
                 </div>
               )}
               {!selectedBalance && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Turi <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={selectedBalance?.type || ''}
-                    onChange={(e) => {
-                      const balance = balances.find(b => b.type === e.target.value);
-                      if (balance) {
-                        setSelectedBalance(balance);
-                        setBalanceForm({ balance: balance.balance.toString() });
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="">Tanlang...</option>
-                    <option value="CASH">Naqt pul</option>
-                    <option value="CARD">Karta</option>
-                  </select>
-                </div>
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Turi <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={balanceForm.type}
+                      onChange={(e) => {
+                        const newType = e.target.value as 'CASH' | 'CARD';
+                        // Agar CARD tanlansa, currency avtomatik UZS bo'ladi
+                        setBalanceForm({ 
+                          ...balanceForm, 
+                          type: newType,
+                          currency: newType === 'CARD' ? 'UZS' : balanceForm.currency
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Tanlang...</option>
+                      <option value="CASH">Naqt pul</option>
+                      <option value="CARD">Karta</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Valyuta <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={balanceForm.currency}
+                      onChange={(e) => {
+                        const newCurrency = e.target.value as 'USD' | 'UZS';
+                        // Agar CARD tanlangan va USD tanlansa, ruxsat bermaslik
+                        if (balanceForm.type === 'CARD' && newCurrency === 'USD') {
+                          alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
+                          return;
+                        }
+                        setBalanceForm({ ...balanceForm, currency: newCurrency });
+                      }}
+                      disabled={balanceForm.type === 'CARD'}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="USD" disabled={balanceForm.type === 'CARD'}>USD</option>
+                      <option value="UZS">UZS</option>
+                    </select>
+                    {balanceForm.type === 'CARD' && (
+                      <p className="text-xs text-gray-500 mt-1">Karta faqat UZS valyutasida</p>
+                    )}
+                  </div>
+                </>
               )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -617,7 +735,7 @@ const Finance = () => {
                   type="number"
                   step="0.01"
                   value={balanceForm.balance}
-                  onChange={(e) => setBalanceForm({ balance: e.target.value })}
+                  onChange={(e) => setBalanceForm({ ...balanceForm, balance: e.target.value })}
                   placeholder="0.00"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
@@ -633,7 +751,7 @@ const Finance = () => {
                   onClick={() => {
                     setShowBalanceModal(false);
                     setSelectedBalance(null);
-                    setBalanceForm({ balance: '' });
+                    setBalanceForm({ balance: '', type: '', currency: 'USD' });
                   }}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                 >
@@ -738,6 +856,208 @@ const Finance = () => {
                 </button>
                 <button
                   onClick={() => setShowDebtModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Bekor
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Valyuta konvertatsiya modali */}
+      {showConvertModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Valyuta konvertatsiya</h3>
+              <button
+                onClick={() => setShowConvertModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4">
+              {/* From */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Qaysi balansdan</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Turi <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={convertForm.fromType}
+                      onChange={(e) => {
+                        const newType = e.target.value as 'CASH' | 'CARD';
+                        // Agar CARD tanlansa, currency avtomatik UZS bo'ladi
+                        setConvertForm({
+                          ...convertForm,
+                          fromType: newType,
+                          fromCurrency: newType === 'CARD' ? 'UZS' : convertForm.fromCurrency,
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="CASH">Naqt pul</option>
+                      <option value="CARD">Karta</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Valyuta <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={convertForm.fromCurrency}
+                      onChange={(e) => {
+                        const newCurrency = e.target.value as 'USD' | 'UZS';
+                        // Agar CARD tanlangan va USD tanlansa, ruxsat bermaslik
+                        if (convertForm.fromType === 'CARD' && newCurrency === 'USD') {
+                          alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
+                          return;
+                        }
+                        setConvertForm({ ...convertForm, fromCurrency: newCurrency });
+                      }}
+                      disabled={convertForm.fromType === 'CARD'}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="USD" disabled={convertForm.fromType === 'CARD'}>USD</option>
+                      <option value="UZS">UZS</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Summa <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={convertForm.amount}
+                    onChange={(e) => setConvertForm({ ...convertForm, amount: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              {/* Kurs */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Valyuta kursi <span className="text-red-500">*</span>
+                  {convertForm.fromCurrency === 'USD' && convertForm.toCurrency === 'UZS' && (
+                    <span className="text-xs text-gray-500 ml-2">(1 USD = ? UZS)</span>
+                  )}
+                  {convertForm.fromCurrency === 'UZS' && convertForm.toCurrency === 'USD' && (
+                    <span className="text-xs text-gray-500 ml-2">(? UZS = 1 USD)</span>
+                  )}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={convertForm.rate}
+                  onChange={(e) => setConvertForm({ ...convertForm, rate: e.target.value })}
+                  placeholder={convertForm.fromCurrency === 'USD' ? "Masalan: 12500" : "Masalan: 0.00008"}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                {convertForm.amount && convertForm.rate && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    Siz oladi: {convertForm.fromCurrency === 'USD' 
+                      ? `${(parseFloat(convertForm.amount) * parseFloat(convertForm.rate)).toFixed(2)} ${convertForm.toCurrency}`
+                      : `${(parseFloat(convertForm.amount) / parseFloat(convertForm.rate)).toFixed(2)} ${convertForm.toCurrency}`
+                    }
+                  </p>
+                )}
+              </div>
+
+              {/* To */}
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Qaysi balansga</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Turi <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={convertForm.toType}
+                      onChange={(e) => {
+                        const newType = e.target.value as 'CASH' | 'CARD';
+                        // Agar CARD tanlansa, currency avtomatik UZS bo'ladi
+                        setConvertForm({
+                          ...convertForm,
+                          toType: newType,
+                          toCurrency: newType === 'CARD' ? 'UZS' : convertForm.toCurrency,
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="CASH">Naqt pul</option>
+                      <option value="CARD">Karta</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Valyuta <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={convertForm.toCurrency}
+                      onChange={(e) => {
+                        const newCurrency = e.target.value as 'USD' | 'UZS';
+                        // Agar CARD tanlangan va USD tanlansa, ruxsat bermaslik
+                        if (convertForm.toType === 'CARD' && newCurrency === 'USD') {
+                          alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
+                          return;
+                        }
+                        setConvertForm({ ...convertForm, toCurrency: newCurrency });
+                      }}
+                      disabled={convertForm.toType === 'CARD'}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="USD" disabled={convertForm.toType === 'CARD'}>USD</option>
+                      <option value="UZS">UZS</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sana <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={convertForm.date}
+                  onChange={(e) => setConvertForm({ ...convertForm, date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Izoh
+                </label>
+                <textarea
+                  value={convertForm.comment}
+                  onChange={(e) => setConvertForm({ ...convertForm, comment: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  placeholder="Ixtiyoriy izoh..."
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleConvertCurrency}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Konvertatsiya qilish
+                </button>
+                <button
+                  onClick={() => setShowConvertModal(false)}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                 >
                   Bekor

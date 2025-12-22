@@ -54,9 +54,13 @@ CREATE INDEX IF NOT EXISTS "CurrencyExchangeRate_fromCurrency_toCurrency_idx" ON
 CREATE INDEX IF NOT EXISTS "CurrencyExchangeRate_date_idx" ON "CurrencyExchangeRate"("date");
 
 -- Insert default UZS balances if they don't exist
+-- CARD faqat UZS bo'lishi mumkin, shuning uchun CARD-USD yaratilmaydi
 INSERT INTO "AccountBalance" ("type", "balance", "currency", "createdAt", "updatedAt")
 VALUES 
     ('CASH', 0, 'UZS', NOW(), NOW()),
     ('CARD', 0, 'UZS', NOW(), NOW())
 ON CONFLICT ("type", "currency") DO NOTHING;
+
+-- CARD-USD balanslarini o'chirish (agar mavjud bo'lsa)
+DELETE FROM "AccountBalance" WHERE "type" = 'CARD' AND "currency" = 'USD';
 

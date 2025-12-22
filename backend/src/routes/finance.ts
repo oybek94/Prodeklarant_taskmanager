@@ -15,11 +15,11 @@ router.get('/balance', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
     });
 
     // Agar balanslar bo'lmasa, default yaratish
+    // CARD faqat UZS bo'lishi mumkin, shuning uchun CARD-USD yaratilmaydi
     if (balances.length === 0) {
       await prisma.accountBalance.createMany({
         data: [
           { type: 'CASH', balance: 0, currency: 'USD' },
-          { type: 'CARD', balance: 0, currency: 'USD' },
           { type: 'CASH', balance: 0, currency: 'UZS' },
           { type: 'CARD', balance: 0, currency: 'UZS' },
         ],
@@ -27,12 +27,21 @@ router.get('/balance', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
       const newBalances = await prisma.accountBalance.findMany({
         orderBy: [{ currency: 'asc' }, { type: 'asc' }],
       });
-      return res.json(newBalances);
+      return res.json({
+        byCurrency: {
+          USD: newBalances.filter(b => b.currency === 'USD'),
+          UZS: newBalances.filter(b => b.currency === 'UZS'),
+        },
+        all: newBalances,
+      });
     }
 
-    // Valyuta bo'yicha guruhlash
+    // CARD-USD balanslarini filtrlash (ko'rsatmaslik)
+    const filteredBalances = balances.filter(b => !(b.type === 'CARD' && b.currency === 'USD'));
+
+    // Valyuta bo'yicha guruhlash (CARD-USD ni olib tashlash)
     const balancesByCurrency: Record<string, any[]> = {};
-    balances.forEach(balance => {
+    filteredBalances.forEach(balance => {
       const currency = balance.currency;
       if (!balancesByCurrency[currency]) {
         balancesByCurrency[currency] = [];
@@ -42,7 +51,7 @@ router.get('/balance', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
 
     res.json({
       byCurrency: balancesByCurrency,
-      all: balances,
+      all: filteredBalances,
     });
   } catch (error: any) {
     console.error('Error fetching balances:', error);
@@ -58,7 +67,13 @@ const updateBalanceSchema = z.object({
   type: z.enum(['CASH', 'CARD']),
   balance: z.number(),
   currency: z.enum(['USD', 'UZS']),
-});
+}).refine(
+  (data) => !(data.type === 'CARD' && data.currency === 'USD'),
+  {
+    message: 'Karta faqat UZS valyutasida bo\'lishi mumkin',
+    path: ['currency'],
+  }
+);
 
 router.post('/balance', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
@@ -384,6 +399,159 @@ router.post('/exchange-rates', requireAuth('ADMIN'), async (req: AuthRequest, re
     console.error('Error setting rate:', error);
     res.status(500).json({ 
       error: 'Kursni saqlashda xatolik yuz berdi',
+      details: error.message 
+    });
+  }
+});
+
+// Valyuta konvertatsiya qilish
+const convertCurrencySchema = z.object({
+  fromType: z.enum(['CASH', 'CARD']),
+  fromCurrency: z.enum(['USD', 'UZS']),
+  toType: z.enum(['CASH', 'CARD']),
+  toCurrency: z.enum(['USD', 'UZS']),
+  amount: z.number().positive(),
+  rate: z.number().positive(), // Kurs ayriboshlash jarayonida belgilanadi
+  comment: z.string().optional(),
+  date: z.coerce.date().optional(),
+});
+
+router.post('/convert-currency', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const parsed = convertCurrencySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+
+    const { fromType, fromCurrency, toType, toCurrency, amount, rate, comment, date } = parsed.data;
+
+    // Validatsiya: CARD faqat UZS bo'lishi mumkin
+    if (fromType === 'CARD' && fromCurrency === 'USD') {
+      return res.status(400).json({ error: 'Karta faqat UZS valyutasida bo\'lishi mumkin' });
+    }
+    if (toType === 'CARD' && toCurrency === 'USD') {
+      return res.status(400).json({ error: 'Karta faqat UZS valyutasida bo\'lishi mumkin' });
+    }
+
+    // Konvertatsiya qilingan summani hisoblash
+    const convertedAmount = fromCurrency === 'USD' && toCurrency === 'UZS'
+      ? amount * rate // USD -> UZS: amount * rate
+      : amount / rate; // UZS -> USD: amount / rate
+
+    // Transaction yaratish va balanslarni yangilash
+    const result = await prisma.$transaction(async (tx) => {
+      // Kursni saqlash (agar kerak bo'lsa)
+      const targetDate = date || new Date();
+      targetDate.setHours(0, 0, 0, 0);
+      
+      await setManualRate(fromCurrency, toCurrency, rate, targetDate);
+
+      // From balansni topish
+      const fromBalance = await tx.accountBalance.findUnique({
+        where: {
+          type_currency: {
+            type: fromType,
+            currency: fromCurrency,
+          },
+        },
+      });
+
+      if (!fromBalance) {
+        throw new Error(`${fromType}-${fromCurrency} balans topilmadi`);
+      }
+
+      if (Number(fromBalance.balance) < amount) {
+        throw new Error(`Yetarli mablag' yo'q. Mavjud: ${fromBalance.balance}, Kerak: ${amount}`);
+      }
+
+      // To balansni topish yoki yaratish
+      const toBalance = await tx.accountBalance.findUnique({
+        where: {
+          type_currency: {
+            type: toType,
+            currency: toCurrency,
+          },
+        },
+      });
+
+      // From balansdan ayirish
+      const newFromBalance = new Prisma.Decimal(fromBalance.balance).minus(amount);
+      await tx.accountBalance.update({
+        where: { id: fromBalance.id },
+        data: { balance: newFromBalance },
+      });
+
+      // To balansga qo'shish
+      if (toBalance) {
+        const newToBalance = new Prisma.Decimal(toBalance.balance).plus(convertedAmount);
+        await tx.accountBalance.update({
+          where: { id: toBalance.id },
+          data: { balance: newToBalance },
+        });
+      } else {
+        await tx.accountBalance.create({
+          data: {
+            type: toType,
+            currency: toCurrency,
+            balance: new Prisma.Decimal(convertedAmount),
+          },
+        });
+      }
+
+      // Konvertatsiya transaction'ini yaratish (EXPENSE va INCOME)
+      const convertComment = comment || `Konvertatsiya: ${fromCurrency} -> ${toCurrency} (kurs: ${rate})`;
+      
+      const expenseTransaction = await tx.transaction.create({
+        data: {
+          type: 'EXPENSE',
+          amount: new Prisma.Decimal(amount),
+          currency: fromCurrency,
+          paymentMethod: fromType,
+          comment: convertComment,
+          date: date || new Date(),
+          expenseCategory: 'Valyuta konvertatsiyasi',
+        },
+      });
+
+      // INCOME transaction - comment'da "Konvertatsiya" bo'lgani uchun clientId majburiy emas
+      const incomeTransaction = await tx.transaction.create({
+        data: {
+          type: 'INCOME',
+          amount: new Prisma.Decimal(convertedAmount),
+          currency: toCurrency,
+          paymentMethod: toType,
+          comment: convertComment,
+          date: date || new Date(),
+          clientId: null, // Konvertatsiya uchun clientId yo'q
+        },
+      });
+
+      return {
+        fromBalance: {
+          ...fromBalance,
+          balance: newFromBalance,
+        },
+        toBalance: toBalance ? {
+          ...toBalance,
+          balance: new Prisma.Decimal(toBalance.balance).plus(convertedAmount),
+        } : {
+          type: toType,
+          currency: toCurrency,
+          balance: new Prisma.Decimal(convertedAmount),
+        },
+        convertedAmount: Number(convertedAmount),
+        transactions: [expenseTransaction, incomeTransaction],
+      };
+    });
+
+    res.json({
+      message: 'Valyuta muvaffaqiyatli konvertatsiya qilindi',
+      ...result,
+    });
+  } catch (error: any) {
+    console.error('Error converting currency:', error);
+    res.status(500).json({ 
+      error: 'Valyuta konvertatsiyasida xatolik yuz berdi',
       details: error.message 
     });
   }

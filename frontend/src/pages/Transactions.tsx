@@ -538,22 +538,34 @@ const Transactions = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Valyuta <span className="text-red-500">*</span></label>
-                <select
-                  value={form.currency}
-                  onChange={(e) => setForm({ ...form, currency: e.target.value as 'USD' | 'UZS' })}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="USD">USD</option>
-                  <option value="UZS">UZS</option>
-                </select>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Valyuta <span className="text-red-500">*</span></label>
+                  <select
+                    value={form.currency}
+                    onChange={(e) => {
+                      const newCurrency = e.target.value as 'USD' | 'UZS';
+                      // Agar CARD tanlangan va USD tanlansa, ruxsat bermaslik
+                      if (form.paymentMethod === 'CARD' && newCurrency === 'USD') {
+                        alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
+                        return;
+                      }
+                      setForm({ ...form, currency: newCurrency });
+                    }}
+                    required
+                    disabled={form.paymentMethod === 'CARD'} // Karta tanlanganida faqat UZS
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="USD" disabled={form.paymentMethod === 'CARD'}>USD</option>
+                    <option value="UZS">UZS</option>
+                  </select>
+                  {form.paymentMethod === 'CARD' && (
+                    <p className="text-xs text-gray-500 mt-1">Karta faqat UZS valyutasida</p>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
               <input
                 type="date"
                 value={form.date}
@@ -581,7 +593,10 @@ const Transactions = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setForm({ ...form, paymentMethod: 'CARD' })}
+                  onClick={() => {
+                    // Karta tanlansa, currency avtomatik UZS bo'ladi
+                    setForm({ ...form, paymentMethod: 'CARD', currency: 'UZS' });
+                  }}
                   className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${
                     form.paymentMethod === 'CARD'
                       ? 'bg-blue-600 text-white border-blue-600'
@@ -765,13 +780,25 @@ const Transactions = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Valyuta <span className="text-red-500">*</span></label>
                   <select
                     value={form.currency}
-                    onChange={(e) => setForm({ ...form, currency: e.target.value as 'USD' | 'UZS' })}
+                    onChange={(e) => {
+                      const newCurrency = e.target.value as 'USD' | 'UZS';
+                      // Agar CARD tanlangan va USD tanlansa, ruxsat bermaslik
+                      if (form.paymentMethod === 'CARD' && newCurrency === 'USD') {
+                        alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
+                        return;
+                      }
+                      setForm({ ...form, currency: newCurrency });
+                    }}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    disabled={form.paymentMethod === 'CARD'} // Karta tanlanganida faqat UZS
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
-                    <option value="USD">USD</option>
+                    <option value="USD" disabled={form.paymentMethod === 'CARD'}>USD</option>
                     <option value="UZS">UZS</option>
                   </select>
+                  {form.paymentMethod === 'CARD' && (
+                    <p className="text-xs text-gray-500 mt-1">Karta faqat UZS valyutasida</p>
+                  )}
                 </div>
               </div>
 
@@ -804,7 +831,10 @@ const Transactions = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setForm({ ...form, paymentMethod: 'CARD' })}
+                    onClick={() => {
+                      // Karta tanlansa, currency avtomatik UZS bo'ladi
+                      setForm({ ...form, paymentMethod: 'CARD', currency: 'UZS' });
+                    }}
                     className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${
                       form.paymentMethod === 'CARD'
                         ? 'bg-blue-600 text-white border-blue-600'

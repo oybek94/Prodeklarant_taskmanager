@@ -1,14 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import type { Prisma } from '@prisma/client';
-import { z } from 'zod';
-<<<<<<< HEAD
-import { AuthRequest } from '../middleware/auth';
-import { hashPassword } from '../utils/hash';
-=======
-import { AuthRequest, requireAuth } from '../middleware/auth';
 import { Prisma } from '@prisma/client';
->>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
+import { z } from 'zod';
+import { AuthRequest, requireAuth } from '../middleware/auth';
+import { hashPassword } from '../utils/hash';
 
 const router = Router();
 
@@ -45,20 +40,6 @@ router.get('/', async (_req, res) => {
           amount: true,
         },
       },
-<<<<<<< HEAD
-      // Don't include passwordHash for security
-    } as Prisma.ClientSelect,
-    orderBy: { createdAt: 'desc' } 
-  });
-  
-  // #region agent log
-  const logAfterQuery = {location:'clients.ts:40',message:'After Prisma query - checking if active field exists in results',data:{clientsCount:clients.length,firstClientHasActive:clients[0]?('active' in clients[0]):null,hypothesis:'D'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
-  console.log('[DEBUG]', JSON.stringify(logAfterQuery));
-  fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logAfterQuery)}).catch(()=>{});
-  // #endregion
-  
-  res.json(clients);
-=======
     },
     orderBy: { createdAt: 'desc' } 
   });
@@ -194,7 +175,6 @@ router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
       details: error.message 
     });
   }
->>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
 });
 
 router.get('/stats', async (_req, res) => {
@@ -255,39 +235,22 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     if (parsed.data.creditType !== undefined) {
       createData.creditType = parsed.data.creditType ?? null;
     }
-<<<<<<< HEAD
-
-    // Hash password if both email and password are provided
-    if (parsed.data.password && parsed.data.email) {
-      const passwordHash = await hashPassword(parsed.data.password);
-      clientData.passwordHash = passwordHash;
-=======
     if (parsed.data.creditLimit !== undefined) {
       createData.creditLimit = parsed.data.creditLimit ?? null;
->>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
     }
     if (parsed.data.creditStartDate !== undefined) {
       createData.creditStartDate = parsed.data.creditStartDate ? new Date(parsed.data.creditStartDate) : null;
     }
     
+    // Hash password if both email and password are provided
+    if (req.body.password && req.body.email) {
+      const passwordHash = await hashPassword(req.body.password);
+      createData.passwordHash = passwordHash;
+    }
+    
     console.log('Creating client with data:', JSON.stringify(createData, null, 2));
     
     const client = await prisma.client.create({
-<<<<<<< HEAD
-      data: clientData,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        dealAmount: true,
-        active: true,
-        createdAt: true,
-        updatedAt: true,
-        // Don't return passwordHash
-      } as Prisma.ClientSelect,
-    }) as unknown as { id: number; name: string; email: string | null; phone: string | null; dealAmount: any; active: boolean; createdAt: Date; updatedAt: Date };
-=======
       data: createData,
     });
     
@@ -297,7 +260,6 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       creditLimit: client.creditLimit,
       creditStartDate: client.creditStartDate,
     });
->>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
     
     res.status(201).json(client);
   } catch (error: any) {
@@ -452,13 +414,6 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         ? null
         : String(req.body.creditType);
     }
-<<<<<<< HEAD
-
-    // Hash password if provided
-    if (parsed.data.password) {
-      const passwordHash = await hashPassword(parsed.data.password);
-      updateData.passwordHash = passwordHash;
-=======
     
     if ('creditLimit' in req.body) {
       if (req.body.creditLimit === '' || req.body.creditLimit === null || req.body.creditLimit === undefined) {
@@ -470,7 +425,6 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         // Use Prisma.Decimal for proper type handling
         updateData.creditLimit = isNaN(limitValue) ? null : new Prisma.Decimal(limitValue);
       }
->>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
     }
     
     if ('creditStartDate' in req.body) {
@@ -479,28 +433,19 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         : new Date(req.body.creditStartDate);
     }
     
+    // Hash password if provided
+    if (req.body.password) {
+      const passwordHash = await hashPassword(req.body.password);
+      updateData.passwordHash = passwordHash;
+    }
+    
     console.log('Update data before Prisma:', JSON.stringify(updateData, null, 2));
     
     // Update using Prisma with explicit data object
     const updatedClient = await prisma.client.update({
       where: { id },
       data: updateData,
-<<<<<<< HEAD
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        dealAmount: true,
-        active: true,
-        createdAt: true,
-        updatedAt: true,
-        // Don't return passwordHash
-      } as Prisma.ClientSelect,
-    }) as unknown as { id: number; name: string; email: string | null; phone: string | null; dealAmount: any; active: boolean; createdAt: Date; updatedAt: Date };
-=======
     });
->>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
     
     console.log('Updated client from Prisma:', {
       id: updatedClient.id,

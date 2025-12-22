@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
+import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { AuthRequest } from '../middleware/auth';
-import bcrypt from 'bcrypt';
+import { hashPassword } from '../utils/hash';
 
 const router = Router();
 
@@ -15,6 +16,12 @@ const clientSchema = z.object({
 });
 
 router.get('/', async (_req, res) => {
+  // #region agent log
+  const logEntry = {location:'clients.ts:17',message:'GET /clients entry - checking active field',data:{hypothesis:'A'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
+  console.log('[DEBUG]', JSON.stringify(logEntry));
+  fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntry)}).catch(()=>{});
+  // #endregion
+  
   const clients = await prisma.client.findMany({ 
     select: {
       id: true,
@@ -31,9 +38,16 @@ router.get('/', async (_req, res) => {
         },
       },
       // Don't include passwordHash for security
-    },
+    } as Prisma.ClientSelect,
     orderBy: { createdAt: 'desc' } 
   });
+  
+  // #region agent log
+  const logAfterQuery = {location:'clients.ts:40',message:'After Prisma query - checking if active field exists in results',data:{clientsCount:clients.length,firstClientHasActive:clients[0]?('active' in clients[0]):null,hypothesis:'D'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
+  console.log('[DEBUG]', JSON.stringify(logAfterQuery));
+  fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logAfterQuery)}).catch(()=>{});
+  // #endregion
+  
   res.json(clients);
 });
 
@@ -102,7 +116,7 @@ router.post('/', async (req: AuthRequest, res) => {
 
     // Hash password if both email and password are provided
     if (parsed.data.password && parsed.data.email) {
-      const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+      const passwordHash = await hashPassword(parsed.data.password);
       clientData.passwordHash = passwordHash;
     }
 
@@ -120,8 +134,8 @@ router.post('/', async (req: AuthRequest, res) => {
         createdAt: true,
         updatedAt: true,
         // Don't return passwordHash
-      },
-    });
+      } as Prisma.ClientSelect,
+    }) as unknown as { id: number; name: string; email: string | null; phone: string | null; dealAmount: any; active: boolean; createdAt: Date; updatedAt: Date };
     
     console.log('Client created successfully:', { id: client.id, email: client.email });
     res.status(201).json(client);
@@ -278,7 +292,7 @@ router.patch('/:id', async (req, res) => {
 
     // Hash password if provided
     if (parsed.data.password) {
-      const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+      const passwordHash = await hashPassword(parsed.data.password);
       updateData.passwordHash = passwordHash;
     }
 
@@ -297,8 +311,8 @@ router.patch('/:id', async (req, res) => {
         createdAt: true,
         updatedAt: true,
         // Don't return passwordHash
-      },
-    });
+      } as Prisma.ClientSelect,
+    }) as unknown as { id: number; name: string; email: string | null; phone: string | null; dealAmount: any; active: boolean; createdAt: Date; updatedAt: Date };
     
     console.log('Client updated successfully:', { id: client.id, email: client.email });
     res.json(client);

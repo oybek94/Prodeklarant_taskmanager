@@ -77,6 +77,96 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     _sum: { amount: true },
   });
 
+  // Payment reminders - clients with due payments
+  // Get all clients with their tasks and transactions
+  const allClients = await prisma.client.findMany({
+    include: {
+      tasks: {
+        select: {
+          id: true,
+          createdAt: true,
+          hasPsr: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+      transactions: {
+        where: { type: 'INCOME' },
+        select: {
+          amount: true,
+          date: true,
+        },
+      },
+    },
+  });
+
+  const paymentReminders = allClients
+    .map((client) => {
+      // Calculate current debt for all clients
+      const dealAmount = Number(client.dealAmount || 0);
+      const totalTasks = client.tasks.length;
+      const tasksWithPsr = client.tasks.filter((t: any) => t.hasPsr).length;
+      const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+      const totalPaid = client.transactions.reduce(
+        (sum, t) => sum + Number(t.amount),
+        0
+      );
+      const currentDebt = totalDealAmount - totalPaid;
+
+      // If client has no debt, skip
+      if (currentDebt <= 0) {
+        return null;
+      }
+
+      let isDue = false;
+      let dueReason = '';
+
+      // Check if client has credit terms
+      if (client.creditType && client.creditLimit && client.creditStartDate) {
+        const creditLimit = Number(client.creditLimit);
+
+        if (client.creditType === 'TASK_COUNT') {
+          // Nasiya: ma'lum bir ish sonigacha
+          const tasksAfterCreditStart = client.tasks.filter(
+            (task) => new Date(task.createdAt) >= new Date(client.creditStartDate!)
+          );
+          const taskCount = tasksAfterCreditStart.length;
+          
+          if (taskCount >= creditLimit) {
+            isDue = true;
+            dueReason = `${creditLimit} ta ishdan keyin to'lov kerak (${taskCount} ta ish bajarildi). Joriy qardorlik: $${currentDebt.toFixed(2)}`;
+          }
+        } else if (client.creditType === 'AMOUNT') {
+          // Nasiya: ma'lum bir summagacha
+          if (currentDebt >= creditLimit) {
+            isDue = true;
+            dueReason = `Qardorlik ${creditLimit.toFixed(2)} ga yetdi (Joriy qardorlik: $${currentDebt.toFixed(2)})`;
+          }
+        }
+      } else {
+        // Client without credit terms - if they have debt, they need to pay
+        // Only show if they have tasks (active client)
+        if (totalTasks > 0 && currentDebt > 0) {
+          isDue = true;
+          dueReason = `Shartnomaga ko'ra to'lov qilish kerak. Joriy qardorlik: $${currentDebt.toFixed(2)}`;
+        }
+      }
+
+      if (isDue) {
+        return {
+          clientId: client.id,
+          clientName: client.name,
+          phone: client.phone,
+          creditType: client.creditType || 'NONE',
+          creditLimit: client.creditLimit ? Number(client.creditLimit) : null,
+          dueReason,
+          creditStartDate: client.creditStartDate || client.createdAt,
+          currentDebt: currentDebt,
+        };
+      }
+      return null;
+    })
+    .filter((reminder) => reminder !== null);
+
   res.json({
     newTasks,
     completedTasks,
@@ -84,6 +174,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     processStats: processStats.map((p: any) => ({ status: p.status, count: p._count })),
     workerActivity: workerActivityWithNames,
     financialStats: financialStats.map((f: any) => ({ type: f.type, total: f._sum.amount || 0 })),
+    paymentReminders,
   });
 });
 

@@ -2,6 +2,30 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
 
+const getPageTitle = (pathname: string) => {
+  const titles: Record<string, string> = {
+    '/dashboard': 'Dashboard',
+    '/tasks': 'Tasks',
+    '/transactions': 'Transactions',
+    '/clients': 'Clients',
+    '/workers': 'Workers',
+    '/settings': 'Sozlamalar',
+    '/profile': 'Profile',
+    '/training': 'O\'qitish',
+    '/training/manage': 'O\'qitish Boshqaruvi',
+  };
+  
+  // Check for dynamic routes
+  if (pathname.startsWith('/tasks/')) return 'Task Detail';
+  if (pathname.startsWith('/clients/')) return 'Client Detail';
+  if (pathname.startsWith('/workers/')) return 'Worker Profile';
+  if (pathname.startsWith('/training/') && !pathname.includes('/manage')) return 'Training';
+  if (pathname.startsWith('/training/') && pathname.includes('/manage')) return 'Training Management';
+  if (pathname.startsWith('/exam/')) return 'Exam';
+  
+  return titles[pathname] || 'Dashboard';
+};
+
 const Layout = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -169,32 +193,40 @@ const Layout = () => {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-gray-500 hover:text-gray-700 lg:hidden"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="font-medium text-gray-800">{user?.name}</div>
-              <div className="text-sm text-gray-500">{user?.role}</div>
-            </div>
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header - Fixed */}
+        <header className="fixed top-0 right-0 left-0 lg:left-64 z-30 bg-white border-b border-gray-200 shadow-sm">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="text-gray-500 hover:text-gray-700 lg:hidden"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+                <div>
+                  <h1 className="text-2xl font-semibold text-gray-900">{getPageTitle(location.pathname)}</h1>
+                  <p className="text-sm text-gray-500 mt-1">Xush kelibsiz, {user?.name}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <div className="font-medium text-gray-800">{user?.name}</div>
+                  <div className="text-sm text-gray-500">{user?.role}</div>
+                </div>
+                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+              </div>
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 pt-24 lg:pt-24">
           <Outlet />
         </main>
       </div>

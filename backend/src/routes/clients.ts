@@ -2,8 +2,13 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
+<<<<<<< HEAD
 import { AuthRequest } from '../middleware/auth';
 import { hashPassword } from '../utils/hash';
+=======
+import { AuthRequest, requireAuth } from '../middleware/auth';
+import { Prisma } from '@prisma/client';
+>>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
 
 const router = Router();
 
@@ -11,8 +16,12 @@ const clientSchema = z.object({
   name: z.string().min(1),
   dealAmount: z.number().optional(),
   phone: z.string().optional(),
-  email: z.string().email().optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
-  password: z.string().min(6).optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
+  creditType: z.enum(['TASK_COUNT', 'AMOUNT']).optional().nullable(),
+  creditLimit: z.union([z.number(), z.string()]).optional().nullable().transform((val) => {
+    if (val === null || val === undefined || val === '') return null;
+    return typeof val === 'string' ? parseFloat(val) : val;
+  }),
+  creditStartDate: z.union([z.string(), z.date()]).optional().nullable(), // ISO date string or Date
 });
 
 router.get('/', async (_req, res) => {
@@ -23,20 +32,20 @@ router.get('/', async (_req, res) => {
   // #endregion
   
   const clients = await prisma.client.findMany({ 
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      dealAmount: true,
-      active: true,
-      createdAt: true,
-      updatedAt: true,
+    include: {
       tasks: {
         select: {
           id: true,
+          hasPsr: true,
         },
       },
+      transactions: {
+        where: { type: 'INCOME' },
+        select: {
+          amount: true,
+        },
+      },
+<<<<<<< HEAD
       // Don't include passwordHash for security
     } as Prisma.ClientSelect,
     orderBy: { createdAt: 'desc' } 
@@ -49,6 +58,143 @@ router.get('/', async (_req, res) => {
   // #endregion
   
   res.json(clients);
+=======
+    },
+    orderBy: { createdAt: 'desc' } 
+  });
+  
+  // Calculate balance for each client
+  const clientsWithBalance = clients.map(client => {
+    const dealAmount = Number(client.dealAmount || 0);
+    const totalTasks = client.tasks.length;
+    const tasksWithPsr = client.tasks.filter(t => t.hasPsr).length;
+    
+    // Calculate total deal amount (with PSR)
+    const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+    
+    // Calculate total income
+    const totalIncome = client.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    // Calculate balance (debt)
+    const balance = totalDealAmount - totalIncome;
+    
+    return {
+      ...client,
+      balance,
+      totalDealAmount,
+      totalIncome,
+    };
+  });
+  
+  res.json(clientsWithBalance);
+});
+
+// Get task detail with stages and duration - CLIENT can access their own tasks, ADMIN can access any
+// IMPORTANT: This route must come BEFORE all /:id/* routes to avoid route matching conflicts
+router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const taskId = Number(req.params.taskId);
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
+    
+    // For CLIENT role, userId is the clientId
+    const clientId = userRole === 'CLIENT' ? userId : Number(req.query.clientId || userId);
+    
+    // Check if CLIENT is accessing their own data
+    if (userRole === 'CLIENT' && userId !== clientId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Get task with all details including stages
+    const task = await prisma.task.findFirst({
+      where: { 
+        id: taskId,
+        clientId: clientId, // Ensure task belongs to this client
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        stages: {
+          orderBy: { stageOrder: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            stageOrder: true,
+            durationMin: true,
+            startedAt: true,
+            completedAt: true,
+            assignedTo: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    
+    if (!task) {
+      return res.status(404).json({ error: 'Task topilmadi' });
+    }
+    
+    // Format stages with duration information
+    const formattedStages = task.stages.map((stage) => {
+      let durationText = '';
+      if (stage.status === 'TAYYOR' && stage.durationMin !== null) {
+        const hours = Math.floor(stage.durationMin / 60);
+        const minutes = stage.durationMin % 60;
+        if (hours > 0) {
+          durationText = `${hours} soat ${minutes} daqiqa`;
+        } else {
+          durationText = `${minutes} daqiqa`;
+        }
+      } else if (stage.status === 'BOSHLANMAGAN') {
+        durationText = 'Boshlanmagan';
+      } else {
+        durationText = 'Jarayonda...';
+      }
+      
+      return {
+        ...stage,
+        durationText,
+      };
+    });
+    
+    res.json({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      comments: task.comments,
+      hasPsr: task.hasPsr,
+      driverPhone: task.driverPhone,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      client: task.client,
+      branch: task.branch,
+      stages: formattedStages,
+    });
+  } catch (error: any) {
+    console.error('Error fetching task detail:', error);
+    res.status(500).json({ 
+      error: 'Task ma\'lumotlarini yuklashda xatolik yuz berdi', 
+      details: error.message 
+    });
+  }
+>>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
 });
 
 router.get('/stats', async (_req, res) => {
@@ -94,35 +240,40 @@ router.get('/stats', async (_req, res) => {
   });
 });
 
-router.post('/', async (req: AuthRequest, res) => {
+router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const parsed = clientSchema.safeParse(req.body);
-    if (!parsed.success) {
-      console.error('Validation error:', parsed.error.flatten());
-      return res.status(400).json({ error: parsed.error.flatten() });
-    }
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     
-    // Prepare client data
-    const clientData: any = {
+    const createData: any = {
       name: parsed.data.name,
       dealAmount: parsed.data.dealAmount ?? null,
       phone: parsed.data.phone ?? null,
     };
-
-    // Only add email if it's provided
-    if (parsed.data.email) {
-      clientData.email = parsed.data.email;
+    
+    // Handle credit fields explicitly
+    if (parsed.data.creditType !== undefined) {
+      createData.creditType = parsed.data.creditType ?? null;
     }
+<<<<<<< HEAD
 
     // Hash password if both email and password are provided
     if (parsed.data.password && parsed.data.email) {
       const passwordHash = await hashPassword(parsed.data.password);
       clientData.passwordHash = passwordHash;
+=======
+    if (parsed.data.creditLimit !== undefined) {
+      createData.creditLimit = parsed.data.creditLimit ?? null;
+>>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
     }
-
-    console.log('Creating client with data:', { ...clientData, passwordHash: clientData.passwordHash ? '[HIDDEN]' : undefined });
-
+    if (parsed.data.creditStartDate !== undefined) {
+      createData.creditStartDate = parsed.data.creditStartDate ? new Date(parsed.data.creditStartDate) : null;
+    }
+    
+    console.log('Creating client with data:', JSON.stringify(createData, null, 2));
+    
     const client = await prisma.client.create({
+<<<<<<< HEAD
       data: clientData,
       select: {
         id: true,
@@ -136,37 +287,50 @@ router.post('/', async (req: AuthRequest, res) => {
         // Don't return passwordHash
       } as Prisma.ClientSelect,
     }) as unknown as { id: number; name: string; email: string | null; phone: string | null; dealAmount: any; active: boolean; createdAt: Date; updatedAt: Date };
+=======
+      data: createData,
+    });
     
-    console.log('Client created successfully:', { id: client.id, email: client.email });
+    console.log('Created client:', {
+      id: client.id,
+      creditType: client.creditType,
+      creditLimit: client.creditLimit,
+      creditStartDate: client.creditStartDate,
+    });
+>>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
+    
     res.status(201).json(client);
   } catch (error: any) {
     console.error('Error creating client:', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Xatolik yuz berdi',
+      details: error instanceof Error ? error.message : String(error)
+    });
   }
 });
 
 router.get('/:id', async (req, res) => {
   try {
-  const id = Number(req.params.id);
+    const id = Number(req.params.id);
     // #region agent log
     const logEntry = {location:'clients.ts:84',message:'GET /clients/:id entry',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
     console.log('[DEBUG]', JSON.stringify(logEntry));
     fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntry)}).catch(()=>{});
     // #endregion
     
-  const client = await prisma.client.findUnique({
-    where: { id },
-    include: {
-      tasks: {
-        include: { branch: true },
-        orderBy: { createdAt: 'desc' },
+    const client = await prisma.client.findUnique({
+      where: { id },
+      include: {
+        tasks: {
+          include: { branch: true },
+          orderBy: { createdAt: 'desc' },
+        },
+        transactions: {
+          where: { type: 'INCOME' },
+          orderBy: { date: 'desc' },
+        },
       },
-      transactions: {
-        where: { type: 'INCOME' },
-        orderBy: { date: 'desc' },
-      },
-    },
-  });
+    });
     
     // #region agent log
     const logAfterQuery = {location:'clients.ts:99',message:'After Prisma query',data:{clientFound:!!client,hasTasks:!!client?.tasks,hasTransactions:!!client?.transactions,tasksCount:client?.tasks?.length,transactionsCount:client?.transactions?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'};
@@ -174,30 +338,30 @@ router.get('/:id', async (req, res) => {
     fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logAfterQuery)}).catch(()=>{});
     // #endregion
     
-  if (!client) return res.status(404).json({ error: 'Not found' });
+    if (!client) return res.status(404).json({ error: 'Not found' });
 
-  // Calculate stats
-  const totalIncome = client.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
-  const totalTasks = client.tasks.length;
-  const dealAmount = Number(client.dealAmount || 0);
-  
-  // PSR bor bo'lgan tasklar sonini hisoblash
-  const tasksWithPsr = client.tasks.filter(task => task.hasPsr).length;
-  const tasksWithoutPsr = totalTasks - tasksWithPsr;
-  
-  // PSR bor bo'lgan tasklar uchun dealAmount + 10, qolganlari uchun dealAmount
-  // Jami shartnoma summasi = (dealAmount + 10) * tasksWithPsr + dealAmount * tasksWithoutPsr
-  // Yoki oddiyroq: dealAmount * totalTasks + 10 * tasksWithPsr
-  const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
-  
-  // Qoldiq = Jami shartnoma summasi - Jami kirim
-  const balance = totalDealAmount - totalIncome;
-  
-  const tasksByBranch = client.tasks.reduce((acc: any, task) => {
+    // Calculate stats
+    const totalIncome = client.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalTasks = client.tasks.length;
+    const dealAmount = Number(client.dealAmount || 0);
+    
+    // PSR bor bo'lgan tasklar sonini hisoblash
+    const tasksWithPsr = client.tasks.filter(task => task.hasPsr).length;
+    const tasksWithoutPsr = totalTasks - tasksWithPsr;
+    
+    // PSR bor bo'lgan tasklar uchun dealAmount + 10, qolganlari uchun dealAmount
+    // Jami shartnoma summasi = (dealAmount + 10) * tasksWithPsr + dealAmount * tasksWithoutPsr
+    // Yoki oddiyroq: dealAmount * totalTasks + 10 * tasksWithPsr
+    const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+    
+    // Qoldiq = Jami shartnoma summasi - Jami kirim
+    const balance = totalDealAmount - totalIncome;
+    
+    const tasksByBranch = client.tasks.reduce((acc: any, task) => {
       const branchName = task.branch?.name || 'Unknown';
-    acc[branchName] = (acc[branchName] || 0) + 1;
-    return acc;
-  }, {});
+      acc[branchName] = (acc[branchName] || 0) + 1;
+      return acc;
+    }, {});
 
     // #region agent log
     const logBeforeResponse = {location:'clients.ts:135',message:'Before sending response',data:{totalIncome,totalTasks,dealAmount,totalDealAmount,balance},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'};
@@ -205,21 +369,18 @@ router.get('/:id', async (req, res) => {
     fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logBeforeResponse)}).catch(()=>{});
     // #endregion
 
-  // Remove passwordHash for security
-  const { passwordHash, ...clientData } = client;
-  
-  res.json({
-    ...clientData,
-    stats: {
-      dealAmount,
-      totalDealAmount, // Jami shartnoma summasi (PSR hisobga olingan)
-      totalIncome,
-      balance,
-      tasksByBranch,
-      totalTasks,
-      tasksWithPsr, // PSR bor bo'lgan tasklar soni
-    },
-  });
+    res.json({
+      ...client,
+      stats: {
+        dealAmount,
+        totalDealAmount, // Jami shartnoma summasi (PSR hisobga olingan)
+        totalIncome,
+        balance,
+        tasksByBranch,
+        totalTasks,
+        tasksWithPsr, // PSR bor bo'lgan tasklar soni
+      },
+    });
   } catch (error: any) {
     // #region agent log
     const logError = {location:'clients.ts:150',message:'Error in GET /:id',data:{errorMessage:error?.message,errorName:error?.name,errorCode:error?.code,prismaError:error?.meta,errorStack:error instanceof Error?error.stack:'No stack'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'};
@@ -265,42 +426,66 @@ router.get('/:id/monthly-tasks', async (req, res) => {
   res.json(months);
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
-    const parsed = clientSchema.partial().safeParse(req.body);
-    if (!parsed.success) {
-      console.error('Validation error:', parsed.error.flatten());
-      return res.status(400).json({ error: parsed.error.flatten() });
-    }
     
-    // Prepare update data - only include fields that are provided
+    // Build update data - use Prisma's update with explicit field mapping
     const updateData: any = {};
     
-    if (parsed.data.name !== undefined) {
-      updateData.name = parsed.data.name;
+    // Standard fields
+    if (req.body.name !== undefined) {
+      updateData.name = req.body.name;
     }
-    if (parsed.data.dealAmount !== undefined) {
-      updateData.dealAmount = parsed.data.dealAmount;
+    if (req.body.dealAmount !== undefined) {
+      updateData.dealAmount = req.body.dealAmount === null || req.body.dealAmount === '' 
+        ? null 
+        : parseFloat(req.body.dealAmount);
     }
-    if (parsed.data.phone !== undefined) {
-      updateData.phone = parsed.data.phone;
+    if (req.body.phone !== undefined) {
+      updateData.phone = req.body.phone === null || req.body.phone === '' ? null : req.body.phone;
     }
-    if (parsed.data.email !== undefined) {
-      updateData.email = parsed.data.email;
+    
+    // Credit fields - ALWAYS include if present in request
+    if ('creditType' in req.body) {
+      updateData.creditType = (req.body.creditType === '' || req.body.creditType === null || req.body.creditType === undefined)
+        ? null
+        : String(req.body.creditType);
     }
+<<<<<<< HEAD
 
     // Hash password if provided
     if (parsed.data.password) {
       const passwordHash = await hashPassword(parsed.data.password);
       updateData.passwordHash = passwordHash;
+=======
+    
+    if ('creditLimit' in req.body) {
+      if (req.body.creditLimit === '' || req.body.creditLimit === null || req.body.creditLimit === undefined) {
+        updateData.creditLimit = null;
+      } else {
+        const limitValue = typeof req.body.creditLimit === 'string' 
+          ? parseFloat(req.body.creditLimit) 
+          : Number(req.body.creditLimit);
+        // Use Prisma.Decimal for proper type handling
+        updateData.creditLimit = isNaN(limitValue) ? null : new Prisma.Decimal(limitValue);
+      }
+>>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
     }
-
-    console.log('Updating client', id, 'with data:', { ...updateData, passwordHash: updateData.passwordHash ? '[HIDDEN]' : undefined });
-
-    const client = await prisma.client.update({
+    
+    if ('creditStartDate' in req.body) {
+      updateData.creditStartDate = (req.body.creditStartDate === '' || req.body.creditStartDate === null || req.body.creditStartDate === undefined)
+        ? null
+        : new Date(req.body.creditStartDate);
+    }
+    
+    console.log('Update data before Prisma:', JSON.stringify(updateData, null, 2));
+    
+    // Update using Prisma with explicit data object
+    const updatedClient = await prisma.client.update({
       where: { id },
       data: updateData,
+<<<<<<< HEAD
       select: {
         id: true,
         name: true,
@@ -313,12 +498,41 @@ router.patch('/:id', async (req, res) => {
         // Don't return passwordHash
       } as Prisma.ClientSelect,
     }) as unknown as { id: number; name: string; email: string | null; phone: string | null; dealAmount: any; active: boolean; createdAt: Date; updatedAt: Date };
+=======
+    });
+>>>>>>> 0b1a101856e23a9f2ec083a757a12deb2096e574
     
-    console.log('Client updated successfully:', { id: client.id, email: client.email });
-    res.json(client);
+    console.log('Updated client from Prisma:', {
+      id: updatedClient.id,
+      creditType: updatedClient.creditType,
+      creditLimit: updatedClient.creditLimit,
+      creditStartDate: updatedClient.creditStartDate,
+    });
+    
+    // Return all fields explicitly
+    res.json({
+      id: updatedClient.id,
+      name: updatedClient.name,
+      dealAmount: updatedClient.dealAmount,
+      phone: updatedClient.phone,
+      passwordHash: updatedClient.passwordHash,
+      creditType: updatedClient.creditType,
+      creditLimit: updatedClient.creditLimit,
+      creditStartDate: updatedClient.creditStartDate,
+      createdAt: updatedClient.createdAt,
+      updatedAt: updatedClient.updatedAt,
+    });
   } catch (error: any) {
     console.error('Error updating client:', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      meta: error.meta,
+    });
+    res.status(500).json({ 
+      error: 'Xatolik yuz berdi',
+      details: error instanceof Error ? error.message : String(error)
+    });
   }
 });
 
@@ -326,6 +540,84 @@ router.delete('/:id', async (req, res) => {
   const id = Number(req.params.id);
   await prisma.client.delete({ where: { id } });
   res.status(204).send();
+});
+
+// Client tasks endpoint (for client dashboard) - CLIENT can access their own, ADMIN can access any
+router.get('/:id/tasks', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const id = Number(req.params.id);
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
+    
+    // Check if CLIENT is accessing their own data
+    if (userRole === 'CLIENT' && userId !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Get tasks with branch information
+    const tasks = await prisma.task.findMany({
+      where: { clientId: id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+    
+    // Format response to match frontend expectations
+    const formattedTasks = tasks.map(task => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      createdAt: task.createdAt,
+      branch: task.branch ? {
+        name: task.branch.name
+      } : null,
+    }));
+    
+    res.json(formattedTasks);
+  } catch (error: any) {
+    console.error('Error fetching client tasks:', error);
+    res.status(500).json({ 
+      error: 'Ishlarni yuklashda xatolik yuz berdi', 
+      details: error.message || 'Noma\'lum xatolik'
+    });
+  }
+});
+
+// Client transactions endpoint (for client dashboard) - CLIENT can access their own, ADMIN can access any
+router.get('/:id/transactions', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const id = Number(req.params.id);
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
+    
+    // Check if CLIENT is accessing their own data
+    if (userRole === 'CLIENT' && userId !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const transactions = await prisma.transaction.findMany({
+      where: { clientId: id },
+      orderBy: { date: 'desc' },
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        date: true,
+        comment: true,
+      },
+    });
+    
+    res.json(transactions);
+  } catch (error: any) {
+    console.error('Error fetching client transactions:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi', details: error.message });
+  }
 });
 
 export default router;

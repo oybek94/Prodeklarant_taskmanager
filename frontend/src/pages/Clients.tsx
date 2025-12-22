@@ -5,11 +5,13 @@ import apiClient from '../lib/api';
 interface Client {
   id: number;
   name: string;
-  email?: string;
   dealAmount?: number | string | null;
   phone?: string;
   createdAt: string;
   tasks?: { id: number }[];
+  balance?: number;
+  totalDealAmount?: number;
+  totalIncome?: number;
 }
 
 interface ClientDetail {
@@ -18,6 +20,9 @@ interface ClientDetail {
   dealAmount?: number | string | null;
   phone?: string;
   createdAt: string;
+  creditType?: string | null;
+  creditLimit?: number | string | null;
+  creditStartDate?: string | null;
   tasks: Array<{
     id: number;
     title: string;
@@ -71,15 +76,17 @@ const Clients = () => {
     name: '',
     dealAmount: '',
     phone: '',
-    email: '',
-    password: '',
+    creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
+    creditLimit: '',
+    creditStartDate: '',
   });
   const [editForm, setEditForm] = useState({
     name: '',
     dealAmount: '',
     phone: '',
-    email: '',
-    password: '',
+    creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
+    creditLimit: '',
+    creditStartDate: '',
   });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
@@ -113,7 +120,20 @@ const Clients = () => {
       setLoading(true);
       const response = await apiClient.get('/clients');
       if (Array.isArray(response.data)) {
-        setClients(response.data);
+        // Ensure balance is calculated for each client
+        const clientsWithBalance = response.data.map((client: any) => {
+          if (client.balance === undefined || client.balance === null) {
+            const dealAmount = Number(client.dealAmount || 0);
+            const totalTasks = client.tasks?.length || 0;
+            const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
+            const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+            const totalIncome = client.transactions?.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0) || 0;
+            const balance = totalDealAmount - totalIncome;
+            return { ...client, balance, totalDealAmount, totalIncome };
+          }
+          return client;
+        });
+        setClients(clientsWithBalance);
       } else {
         setClients([]);
       }
@@ -155,30 +175,48 @@ const Clients = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient.post('/clients', {
+      const createData: any = {
         name: form.name,
         dealAmount: form.dealAmount ? parseFloat(form.dealAmount) : undefined,
         phone: form.phone || undefined,
-        email: form.email || undefined,
-        password: form.password || undefined,
-      });
+      };
+
+      // Handle credit fields - if creditType is empty, set to null, otherwise use the value
+      if (form.creditType === '') {
+        createData.creditType = null;
+        createData.creditLimit = null;
+        createData.creditStartDate = null;
+      } else if (form.creditType) {
+        // Validate that creditLimit and creditStartDate are provided when creditType is set
+        if (!form.creditLimit || !form.creditStartDate) {
+          alert('Nasiya turi tanlangan bo\'lsa, limit va boshlanish sanasini kiriting');
+          return;
+        }
+        createData.creditType = form.creditType;
+        createData.creditLimit = parseFloat(form.creditLimit);
+        createData.creditStartDate = form.creditStartDate;
+      }
+
+      await apiClient.post('/clients', createData);
       setShowForm(false);
-      setForm({ name: '', dealAmount: '', phone: '', email: '', password: '' });
+      setForm({ name: '', dealAmount: '', phone: '', creditType: '', creditLimit: '', creditStartDate: '' });
       await loadClients();
       await loadStats();
     } catch (error: any) {
+      console.error('Create error:', error);
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
   };
 
-  const handleEdit = (client: Client) => {
+  const handleEdit = (client: any) => {
     setEditingClient(client);
     setEditForm({
       name: client.name,
       dealAmount: client.dealAmount ? client.dealAmount.toString() : '',
       phone: client.phone || '',
-      email: client.email || '',
-      password: '', // Don't show existing password
+      creditType: client.creditType || '',
+      creditLimit: client.creditLimit ? client.creditLimit.toString() : '',
+      creditStartDate: client.creditStartDate ? new Date(client.creditStartDate).toISOString().split('T')[0] : '',
     });
     setShowEditModal(true);
   };
@@ -192,25 +230,63 @@ const Clients = () => {
         name: editForm.name,
         dealAmount: editForm.dealAmount ? parseFloat(editForm.dealAmount) : undefined,
         phone: editForm.phone || undefined,
-        email: editForm.email || undefined,
       };
-      
-      // Only include password if it's been changed
-      if (editForm.password) {
-        updateData.password = editForm.password;
+
+      // Handle credit fields - if creditType is empty, set to null, otherwise use the value
+      if (editForm.creditType === '') {
+        updateData.creditType = null;
+        updateData.creditLimit = null;
+        updateData.creditStartDate = null;
+      } else if (editForm.creditType) {
+        updateData.creditType = editForm.creditType;
+        updateData.creditLimit = editForm.creditLimit ? parseFloat(editForm.creditLimit) : null;
+        updateData.creditStartDate = editForm.creditStartDate ? editForm.creditStartDate : null;
       }
 
-      await apiClient.patch(`/clients/${editingClient.id}`, updateData);
+      console.log('=== Sending update data ===');
+      console.log('Update data:', JSON.stringify(updateData, null, 2));
+      console.log('Credit fields being sent:', {
+        creditType: updateData.creditType,
+        creditLimit: updateData.creditLimit,
+        creditStartDate: updateData.creditStartDate,
+      });
+      
+      const response = await apiClient.patch(`/clients/${editingClient.id}`, updateData);
+      
+      console.log('=== Update response ===');
+      console.log('Full response:', JSON.stringify(response.data, null, 2));
+      console.log('Credit fields in response:', {
+        creditType: response.data.creditType,
+        creditLimit: response.data.creditLimit,
+        creditStartDate: response.data.creditStartDate,
+      });
+      
+      if (!response.data.creditType && updateData.creditType) {
+        console.error('⚠️ WARNING: creditType was sent but not returned!');
+      }
+      if (!response.data.creditLimit && updateData.creditLimit) {
+        console.error('⚠️ WARNING: creditLimit was sent but not returned!');
+      }
+      if (!response.data.creditStartDate && updateData.creditStartDate) {
+        console.error('⚠️ WARNING: creditStartDate was sent but not returned!');
+      }
+      
       setShowEditModal(false);
       setEditingClient(null);
-      setEditForm({ name: '', dealAmount: '', phone: '', email: '', password: '' });
+      setEditForm({ name: '', dealAmount: '', phone: '', creditType: '', creditLimit: '', creditStartDate: '' });
+      
+      // Reload clients list to get updated data
       await loadClients();
       await loadStats();
+      
+      // If client detail modal is open, reload it
       if (selectedClient && selectedClient.id === editingClient.id) {
         await loadClientDetail(editingClient.id);
       }
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+      console.error('Update error:', error);
+      console.error('Error response:', error.response?.data);
+      alert(error.response?.data?.error || error.response?.data?.details || 'Xatolik yuz berdi');
     }
   };
 
@@ -473,41 +549,54 @@ const Clients = () => {
                 />
               </div>
               
-              {/* Client Portal Access */}
-              <div className="border-t pt-4 mt-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Mijoz portali kirish (ixtiyoriy)</h3>
-                <div className="space-y-3">
+              {/* Nasiya shartlari */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                      <span className="text-xs text-gray-500 ml-2">(Portlaga kirish uchun)</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      placeholder="mijoz@example.com"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya turi</label>
+                    <select
+                      value={form.creditType}
+                      onChange={(e) => setForm({ ...form, creditType: e.target.value as 'TASK_COUNT' | 'AMOUNT' | '' })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
+                    >
+                      <option value="">Nasiya yo'q</option>
+                      <option value="TASK_COUNT">Ma'lum bir ish sonigacha</option>
+                      <option value="AMOUNT">Ma'lum bir summagacha</option>
+                    </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Parol
-                      <span className="text-xs text-gray-500 ml-2">(Portlaga kirish uchun)</span>
-                    </label>
-                    <input
-                      type="password"
-                      value={form.password}
-                      onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      placeholder="Kamida 6 ta belgi"
-                      minLength={6}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
+                  {form.creditType && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {form.creditType === 'TASK_COUNT' ? 'Ish soni' : 'Summa (USD)'}
+                        </label>
+                        <input
+                          type="number"
+                          step={form.creditType === 'TASK_COUNT' ? '1' : '0.01'}
+                          value={form.creditLimit}
+                          onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
+                          required={!!form.creditType}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder={form.creditType === 'TASK_COUNT' ? 'Masalan: 5' : 'Masalan: 1000'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya boshlangan sana</label>
+                        <input
+                          type="date"
+                          value={form.creditStartDate}
+                          onChange={(e) => setForm({ ...form, creditStartDate: e.target.value })}
+                          required={!!form.creditType}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
-
-              <div className="flex gap-2 pt-2">
+              
+              <div className="flex gap-2">
                 <button
                   type="submit"
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
@@ -539,9 +628,6 @@ const Clients = () => {
                   Client
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Deal Amount
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -551,10 +637,10 @@ const Clients = () => {
                   No of Projects
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Created Date
+                  Mijoz qardorligi
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Portal Access
+                  Status
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                   Actions
@@ -564,7 +650,7 @@ const Clients = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {sortedClients.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-4 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-400">
                     Ma'lumotlar yo'q
                   </td>
                 </tr>
@@ -589,9 +675,6 @@ const Clients = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {client.email || <span className="text-gray-400">-</span>}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {client.dealAmount
                         ? `$${Number(client.dealAmount).toFixed(2)}`
@@ -603,25 +686,50 @@ const Clients = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {client.tasks?.length || 0}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(client.createdAt)}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {(() => {
+                        // Get balance from client data
+                        const balance = typeof client.balance === 'number' ? client.balance : 
+                                       (client.balance !== undefined && client.balance !== null ? Number(client.balance) : null);
+                        
+                        if (balance !== null && balance !== undefined && !isNaN(balance)) {
+                          return (
+                            <span className={`font-medium ${
+                              balance > 0
+                                ? 'text-red-600'
+                                : balance === 0
+                                ? 'text-gray-600'
+                                : 'text-green-600'
+                            }`}>
+                              {balance > 0 ? '+' : ''}${balance.toFixed(2)}
+                            </span>
+                          );
+                        }
+                        
+                        // Fallback: calculate balance if not provided
+                        const dealAmount = Number(client.dealAmount || 0);
+                        const totalTasks = client.tasks?.length || 0;
+                        const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
+                        const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+                        const calculatedBalance = totalDealAmount;
+                        
+                        return (
+                          <span className={`font-medium ${
+                            calculatedBalance > 0
+                              ? 'text-red-600'
+                              : calculatedBalance === 0
+                              ? 'text-gray-600'
+                              : 'text-green-600'
+                          }`}>
+                            {calculatedBalance > 0 ? '+' : ''}${calculatedBalance.toFixed(2)}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {client.email ? (
-                        <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center gap-1 w-fit">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Ha
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 flex items-center gap-1 w-fit">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                          Yo'q
-                        </span>
-                      )}
+                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                        Active
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
@@ -771,6 +879,64 @@ const Clients = () => {
                 )}
               </div>
             </div>
+
+            {/* Kelishuv shartlari (Nasiya shartlari) */}
+            {(selectedClient.creditType || selectedClient.creditLimit) && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Kelishuv shartlari (Nasiya)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
+                    <div className="text-xs text-gray-600 mb-1">Nasiya turi</div>
+                    <div className="font-semibold text-gray-900">
+                      {selectedClient.creditType === 'TASK_COUNT' 
+                        ? 'Ma\'lum bir ish sonigacha'
+                        : selectedClient.creditType === 'AMOUNT'
+                        ? 'Ma\'lum bir summagacha'
+                        : 'Nasiya yo\'q'}
+                    </div>
+                  </div>
+                  {selectedClient.creditLimit && (
+                    <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
+                      <div className="text-xs text-gray-600 mb-1">
+                        {selectedClient.creditType === 'TASK_COUNT' ? 'Ish soni limiti' : 'Summa limiti'}
+                      </div>
+                      <div className="font-semibold text-gray-900">
+                        {selectedClient.creditType === 'TASK_COUNT'
+                          ? `${Number(selectedClient.creditLimit)} ta ish`
+                          : `$${Number(selectedClient.creditLimit).toFixed(2)}`}
+                      </div>
+                    </div>
+                  )}
+                  {selectedClient.creditStartDate && (
+                    <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
+                      <div className="text-xs text-gray-600 mb-1">Nasiya boshlangan sana</div>
+                      <div className="font-semibold text-gray-900">
+                        {new Date(selectedClient.creditStartDate).toLocaleDateString('uz-UZ', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {selectedClient.creditType && selectedClient.creditLimit && (
+                  <div className="mt-4 p-3 bg-blue-100/50 rounded-lg border border-blue-200">
+                    <div className="text-sm text-gray-700">
+                      <span className="font-medium">Shart:</span>{' '}
+                      {selectedClient.creditType === 'TASK_COUNT'
+                        ? `${Number(selectedClient.creditLimit)} ta ishdan keyin to'lov qilish kerak`
+                        : `Qardorlik $${Number(selectedClient.creditLimit).toFixed(2)} ga yetganda to'lov qilish kerak`}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Stats Summary */}
             {selectedClient.stats && (
@@ -930,45 +1096,55 @@ const Clients = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-
-              {/* Client Portal Access */}
-              <div className="border-t pt-4 mt-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Mijoz portali kirish</h3>
-                <div className="space-y-3">
+              
+              {/* Nasiya shartlari */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                      <span className="text-xs text-gray-500 ml-2">(Portlaga kirish uchun)</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={editForm.email}
-                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                      placeholder="mijoz@example.com"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya turi</label>
+                    <select
+                      value={editForm.creditType}
+                      onChange={(e) => setEditForm({ ...editForm, creditType: e.target.value as 'TASK_COUNT' | 'AMOUNT' | '' })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
+                    >
+                      <option value="">Nasiya yo'q</option>
+                      <option value="TASK_COUNT">Ma'lum bir ish sonigacha</option>
+                      <option value="AMOUNT">Ma'lum bir summagacha</option>
+                    </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Yangi parol
-                      <span className="text-xs text-gray-500 ml-2">(Bo'sh qoldiring agar o'zgartirmasangiz)</span>
-                    </label>
-                    <input
-                      type="password"
-                      value={editForm.password}
-                      onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                      placeholder="Yangi parol (ixtiyoriy)"
-                      minLength={6}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Parolni o'zgartirmoqchi bo'lsangiz, yangi parolni kiriting
-                    </p>
-                  </div>
+                  {editForm.creditType && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {editForm.creditType === 'TASK_COUNT' ? 'Ish soni' : 'Summa (USD)'}
+                        </label>
+                        <input
+                          type="number"
+                          step={editForm.creditType === 'TASK_COUNT' ? '1' : '0.01'}
+                          value={editForm.creditLimit}
+                          onChange={(e) => setEditForm({ ...editForm, creditLimit: e.target.value })}
+                          required={!!editForm.creditType}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder={editForm.creditType === 'TASK_COUNT' ? 'Masalan: 5' : 'Masalan: 1000'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya boshlangan sana</label>
+                        <input
+                          type="date"
+                          value={editForm.creditStartDate}
+                          onChange={(e) => setEditForm({ ...editForm, creditStartDate: e.target.value })}
+                          required={!!editForm.creditType}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
-
-              <div className="flex gap-2 pt-2">
+              
+              <div className="flex gap-2">
                 <button
                   type="submit"
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"

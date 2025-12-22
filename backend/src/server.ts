@@ -3,7 +3,6 @@ import express from 'express';
 import cors from 'cors';
 import { prisma } from './prisma';
 import authRouter from './routes/auth';
-import clientAuthRouter from './routes/client-auth';
 import clientsRouter from './routes/clients';
 import tasksRouter from './routes/tasks';
 import transactionsRouter from './routes/transactions';
@@ -89,8 +88,8 @@ app.get('/health', async (_req, res) => {
 });
 
 app.use('/api/auth', authRouter);
-app.use('/api/client', clientAuthRouter);
-app.use('/api/clients', requireAuth(), auditLog('ACCESS', 'CLIENT'), clientsRouter);
+// Client endpoints (public for client login, but protected for other operations)
+app.use('/api/clients', clientsRouter);
 app.use('/api/tasks', requireAuth(), auditLog('ACCESS', 'TASK'), tasksRouter);
 app.use('/api/transactions', requireAuth(), auditLog('ACCESS', 'TRANSACTION'), transactionsRouter);
 app.use('/api/kpi', requireAuth(), kpiRouter);

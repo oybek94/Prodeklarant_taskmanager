@@ -20,6 +20,9 @@ interface ClientDetail {
   dealAmount?: number | string | null;
   phone?: string;
   createdAt: string;
+  creditType?: string | null;
+  creditLimit?: number | string | null;
+  creditStartDate?: string | null;
   tasks: Array<{
     id: number;
     title: string;
@@ -73,11 +76,17 @@ const Clients = () => {
     name: '',
     dealAmount: '',
     phone: '',
+    creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
+    creditLimit: '',
+    creditStartDate: '',
   });
   const [editForm, setEditForm] = useState({
     name: '',
     dealAmount: '',
     phone: '',
+    creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
+    creditLimit: '',
+    creditStartDate: '',
   });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
@@ -166,26 +175,48 @@ const Clients = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient.post('/clients', {
+      const createData: any = {
         name: form.name,
         dealAmount: form.dealAmount ? parseFloat(form.dealAmount) : undefined,
         phone: form.phone || undefined,
-      });
+      };
+
+      // Handle credit fields - if creditType is empty, set to null, otherwise use the value
+      if (form.creditType === '') {
+        createData.creditType = null;
+        createData.creditLimit = null;
+        createData.creditStartDate = null;
+      } else if (form.creditType) {
+        // Validate that creditLimit and creditStartDate are provided when creditType is set
+        if (!form.creditLimit || !form.creditStartDate) {
+          alert('Nasiya turi tanlangan bo\'lsa, limit va boshlanish sanasini kiriting');
+          return;
+        }
+        createData.creditType = form.creditType;
+        createData.creditLimit = parseFloat(form.creditLimit);
+        createData.creditStartDate = form.creditStartDate;
+      }
+
+      await apiClient.post('/clients', createData);
       setShowForm(false);
-      setForm({ name: '', dealAmount: '', phone: '' });
+      setForm({ name: '', dealAmount: '', phone: '', creditType: '', creditLimit: '', creditStartDate: '' });
       await loadClients();
       await loadStats();
     } catch (error: any) {
+      console.error('Create error:', error);
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
   };
 
-  const handleEdit = (client: Client) => {
+  const handleEdit = (client: any) => {
     setEditingClient(client);
     setEditForm({
       name: client.name,
       dealAmount: client.dealAmount ? client.dealAmount.toString() : '',
       phone: client.phone || '',
+      creditType: client.creditType || '',
+      creditLimit: client.creditLimit ? client.creditLimit.toString() : '',
+      creditStartDate: client.creditStartDate ? new Date(client.creditStartDate).toISOString().split('T')[0] : '',
     });
     setShowEditModal(true);
   };
@@ -195,21 +226,67 @@ const Clients = () => {
     if (!editingClient) return;
 
     try {
-      await apiClient.patch(`/clients/${editingClient.id}`, {
+      const updateData: any = {
         name: editForm.name,
         dealAmount: editForm.dealAmount ? parseFloat(editForm.dealAmount) : undefined,
         phone: editForm.phone || undefined,
+      };
+
+      // Handle credit fields - if creditType is empty, set to null, otherwise use the value
+      if (editForm.creditType === '') {
+        updateData.creditType = null;
+        updateData.creditLimit = null;
+        updateData.creditStartDate = null;
+      } else if (editForm.creditType) {
+        updateData.creditType = editForm.creditType;
+        updateData.creditLimit = editForm.creditLimit ? parseFloat(editForm.creditLimit) : null;
+        updateData.creditStartDate = editForm.creditStartDate ? editForm.creditStartDate : null;
+      }
+
+      console.log('=== Sending update data ===');
+      console.log('Update data:', JSON.stringify(updateData, null, 2));
+      console.log('Credit fields being sent:', {
+        creditType: updateData.creditType,
+        creditLimit: updateData.creditLimit,
+        creditStartDate: updateData.creditStartDate,
       });
+      
+      const response = await apiClient.patch(`/clients/${editingClient.id}`, updateData);
+      
+      console.log('=== Update response ===');
+      console.log('Full response:', JSON.stringify(response.data, null, 2));
+      console.log('Credit fields in response:', {
+        creditType: response.data.creditType,
+        creditLimit: response.data.creditLimit,
+        creditStartDate: response.data.creditStartDate,
+      });
+      
+      if (!response.data.creditType && updateData.creditType) {
+        console.error('⚠️ WARNING: creditType was sent but not returned!');
+      }
+      if (!response.data.creditLimit && updateData.creditLimit) {
+        console.error('⚠️ WARNING: creditLimit was sent but not returned!');
+      }
+      if (!response.data.creditStartDate && updateData.creditStartDate) {
+        console.error('⚠️ WARNING: creditStartDate was sent but not returned!');
+      }
+      
       setShowEditModal(false);
       setEditingClient(null);
-      setEditForm({ name: '', dealAmount: '', phone: '' });
+      setEditForm({ name: '', dealAmount: '', phone: '', creditType: '', creditLimit: '', creditStartDate: '' });
+      
+      // Reload clients list to get updated data
       await loadClients();
       await loadStats();
+      
+      // If client detail modal is open, reload it
       if (selectedClient && selectedClient.id === editingClient.id) {
         await loadClientDetail(editingClient.id);
       }
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+      console.error('Update error:', error);
+      console.error('Error response:', error.response?.data);
+      alert(error.response?.data?.error || error.response?.data?.details || 'Xatolik yuz berdi');
     }
   };
 
@@ -471,6 +548,54 @@ const Clients = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
+              
+              {/* Nasiya shartlari */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya turi</label>
+                    <select
+                      value={form.creditType}
+                      onChange={(e) => setForm({ ...form, creditType: e.target.value as 'TASK_COUNT' | 'AMOUNT' | '' })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Nasiya yo'q</option>
+                      <option value="TASK_COUNT">Ma'lum bir ish sonigacha</option>
+                      <option value="AMOUNT">Ma'lum bir summagacha</option>
+                    </select>
+                  </div>
+                  {form.creditType && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {form.creditType === 'TASK_COUNT' ? 'Ish soni' : 'Summa (USD)'}
+                        </label>
+                        <input
+                          type="number"
+                          step={form.creditType === 'TASK_COUNT' ? '1' : '0.01'}
+                          value={form.creditLimit}
+                          onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
+                          required={!!form.creditType}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder={form.creditType === 'TASK_COUNT' ? 'Masalan: 5' : 'Masalan: 1000'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya boshlangan sana</label>
+                        <input
+                          type="date"
+                          value={form.creditStartDate}
+                          onChange={(e) => setForm({ ...form, creditStartDate: e.target.value })}
+                          required={!!form.creditType}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+              
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -755,6 +880,64 @@ const Clients = () => {
               </div>
             </div>
 
+            {/* Kelishuv shartlari (Nasiya shartlari) */}
+            {(selectedClient.creditType || selectedClient.creditLimit) && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Kelishuv shartlari (Nasiya)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
+                    <div className="text-xs text-gray-600 mb-1">Nasiya turi</div>
+                    <div className="font-semibold text-gray-900">
+                      {selectedClient.creditType === 'TASK_COUNT' 
+                        ? 'Ma\'lum bir ish sonigacha'
+                        : selectedClient.creditType === 'AMOUNT'
+                        ? 'Ma\'lum bir summagacha'
+                        : 'Nasiya yo\'q'}
+                    </div>
+                  </div>
+                  {selectedClient.creditLimit && (
+                    <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
+                      <div className="text-xs text-gray-600 mb-1">
+                        {selectedClient.creditType === 'TASK_COUNT' ? 'Ish soni limiti' : 'Summa limiti'}
+                      </div>
+                      <div className="font-semibold text-gray-900">
+                        {selectedClient.creditType === 'TASK_COUNT'
+                          ? `${Number(selectedClient.creditLimit)} ta ish`
+                          : `$${Number(selectedClient.creditLimit).toFixed(2)}`}
+                      </div>
+                    </div>
+                  )}
+                  {selectedClient.creditStartDate && (
+                    <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
+                      <div className="text-xs text-gray-600 mb-1">Nasiya boshlangan sana</div>
+                      <div className="font-semibold text-gray-900">
+                        {new Date(selectedClient.creditStartDate).toLocaleDateString('uz-UZ', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {selectedClient.creditType && selectedClient.creditLimit && (
+                  <div className="mt-4 p-3 bg-blue-100/50 rounded-lg border border-blue-200">
+                    <div className="text-sm text-gray-700">
+                      <span className="font-medium">Shart:</span>{' '}
+                      {selectedClient.creditType === 'TASK_COUNT'
+                        ? `${Number(selectedClient.creditLimit)} ta ishdan keyin to'lov qilish kerak`
+                        : `Qardorlik $${Number(selectedClient.creditLimit).toFixed(2)} ga yetganda to'lov qilish kerak`}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Stats Summary */}
             {selectedClient.stats && (
               <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -913,6 +1096,54 @@ const Clients = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
+              
+              {/* Nasiya shartlari */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya turi</label>
+                    <select
+                      value={editForm.creditType}
+                      onChange={(e) => setEditForm({ ...editForm, creditType: e.target.value as 'TASK_COUNT' | 'AMOUNT' | '' })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Nasiya yo'q</option>
+                      <option value="TASK_COUNT">Ma'lum bir ish sonigacha</option>
+                      <option value="AMOUNT">Ma'lum bir summagacha</option>
+                    </select>
+                  </div>
+                  {editForm.creditType && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {editForm.creditType === 'TASK_COUNT' ? 'Ish soni' : 'Summa (USD)'}
+                        </label>
+                        <input
+                          type="number"
+                          step={editForm.creditType === 'TASK_COUNT' ? '1' : '0.01'}
+                          value={editForm.creditLimit}
+                          onChange={(e) => setEditForm({ ...editForm, creditLimit: e.target.value })}
+                          required={!!editForm.creditType}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder={editForm.creditType === 'TASK_COUNT' ? 'Masalan: 5' : 'Masalan: 1000'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya boshlangan sana</label>
+                        <input
+                          type="date"
+                          value={editForm.creditStartDate}
+                          onChange={(e) => setEditForm({ ...editForm, creditStartDate: e.target.value })}
+                          required={!!editForm.creditType}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+              
               <div className="flex gap-2">
                 <button
                   type="submit"

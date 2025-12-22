@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -9,6 +10,12 @@ const clientSchema = z.object({
   name: z.string().min(1),
   dealAmount: z.number().optional(),
   phone: z.string().optional(),
+  creditType: z.enum(['TASK_COUNT', 'AMOUNT']).optional().nullable(),
+  creditLimit: z.union([z.number(), z.string()]).optional().nullable().transform((val) => {
+    if (val === null || val === undefined || val === '') return null;
+    return typeof val === 'string' ? parseFloat(val) : val;
+  }),
+  creditStartDate: z.union([z.string(), z.date()]).optional().nullable(), // ISO date string or Date
 });
 
 router.get('/', async (_req, res) => {
@@ -206,17 +213,49 @@ router.get('/stats', async (_req, res) => {
   });
 });
 
-router.post('/', async (req: AuthRequest, res) => {
-  const parsed = clientSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const client = await prisma.client.create({
-    data: {
+router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const parsed = clientSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    
+    const createData: any = {
       name: parsed.data.name,
       dealAmount: parsed.data.dealAmount ?? null,
       phone: parsed.data.phone ?? null,
-    },
-  });
-  res.status(201).json(client);
+    };
+    
+    // Handle credit fields explicitly
+    if (parsed.data.creditType !== undefined) {
+      createData.creditType = parsed.data.creditType ?? null;
+    }
+    if (parsed.data.creditLimit !== undefined) {
+      createData.creditLimit = parsed.data.creditLimit ?? null;
+    }
+    if (parsed.data.creditStartDate !== undefined) {
+      createData.creditStartDate = parsed.data.creditStartDate ? new Date(parsed.data.creditStartDate) : null;
+    }
+    
+    console.log('Creating client with data:', JSON.stringify(createData, null, 2));
+    
+    const client = await prisma.client.create({
+      data: createData,
+    });
+    
+    console.log('Created client:', {
+      id: client.id,
+      creditType: client.creditType,
+      creditLimit: client.creditLimit,
+      creditStartDate: client.creditStartDate,
+    });
+    
+    res.status(201).json(client);
+  } catch (error: any) {
+    console.error('Error creating client:', error);
+    res.status(500).json({ 
+      error: 'Xatolik yuz berdi',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
 });
 
 router.get('/:id', async (req, res) => {
@@ -336,19 +375,91 @@ router.get('/:id/monthly-tasks', async (req, res) => {
   res.json(months);
 });
 
-router.patch('/:id', async (req, res) => {
-  const id = Number(req.params.id);
-  const parsed = clientSchema.partial().safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const client = await prisma.client.update({
-    where: { id },
-    data: {
-      name: parsed.data.name,
-      dealAmount: parsed.data.dealAmount ?? undefined,
-      phone: parsed.data.phone ?? undefined,
-    },
-  });
-  res.json(client);
+router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const id = Number(req.params.id);
+    
+    // Build update data - use Prisma's update with explicit field mapping
+    const updateData: any = {};
+    
+    // Standard fields
+    if (req.body.name !== undefined) {
+      updateData.name = req.body.name;
+    }
+    if (req.body.dealAmount !== undefined) {
+      updateData.dealAmount = req.body.dealAmount === null || req.body.dealAmount === '' 
+        ? null 
+        : parseFloat(req.body.dealAmount);
+    }
+    if (req.body.phone !== undefined) {
+      updateData.phone = req.body.phone === null || req.body.phone === '' ? null : req.body.phone;
+    }
+    
+    // Credit fields - ALWAYS include if present in request
+    if ('creditType' in req.body) {
+      updateData.creditType = (req.body.creditType === '' || req.body.creditType === null || req.body.creditType === undefined)
+        ? null
+        : String(req.body.creditType);
+    }
+    
+    if ('creditLimit' in req.body) {
+      if (req.body.creditLimit === '' || req.body.creditLimit === null || req.body.creditLimit === undefined) {
+        updateData.creditLimit = null;
+      } else {
+        const limitValue = typeof req.body.creditLimit === 'string' 
+          ? parseFloat(req.body.creditLimit) 
+          : Number(req.body.creditLimit);
+        // Use Prisma.Decimal for proper type handling
+        updateData.creditLimit = isNaN(limitValue) ? null : new Prisma.Decimal(limitValue);
+      }
+    }
+    
+    if ('creditStartDate' in req.body) {
+      updateData.creditStartDate = (req.body.creditStartDate === '' || req.body.creditStartDate === null || req.body.creditStartDate === undefined)
+        ? null
+        : new Date(req.body.creditStartDate);
+    }
+    
+    console.log('Update data before Prisma:', JSON.stringify(updateData, null, 2));
+    
+    // Update using Prisma with explicit data object
+    const updatedClient = await prisma.client.update({
+      where: { id },
+      data: updateData,
+    });
+    
+    console.log('Updated client from Prisma:', {
+      id: updatedClient.id,
+      creditType: updatedClient.creditType,
+      creditLimit: updatedClient.creditLimit,
+      creditStartDate: updatedClient.creditStartDate,
+    });
+    
+    // Return all fields explicitly
+    res.json({
+      id: updatedClient.id,
+      name: updatedClient.name,
+      dealAmount: updatedClient.dealAmount,
+      phone: updatedClient.phone,
+      passwordHash: updatedClient.passwordHash,
+      creditType: updatedClient.creditType,
+      creditLimit: updatedClient.creditLimit,
+      creditStartDate: updatedClient.creditStartDate,
+      createdAt: updatedClient.createdAt,
+      updatedAt: updatedClient.updatedAt,
+    });
+  } catch (error: any) {
+    console.error('Error updating client:', error);
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      meta: error.meta,
+    });
+    res.status(500).json({ 
+      error: 'Xatolik yuz berdi',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
 });
 
 router.delete('/:id', async (req, res) => {

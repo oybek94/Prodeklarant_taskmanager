@@ -45,15 +45,18 @@ model User {
 }
 
 model Client {
-  id           Int           @id @default(autoincrement())
-  name         String
-  dealAmount   Decimal?      @db.Decimal(12, 2)
-  phone        String?
-  passwordHash String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  tasks        Task[]
-  transactions Transaction[] @relation("TransactionClient")
+  id              Int           @id @default(autoincrement())
+  name            String
+  dealAmount      Decimal?      @db.Decimal(12, 2)
+  phone           String?
+  passwordHash    String?
+  creditType      String?       // 'TASK_COUNT' yoki 'AMOUNT' - nasiya turi
+  creditLimit     Decimal?      @db.Decimal(12, 2) // Nasiya limiti (ish soni yoki summa)
+  creditStartDate DateTime?     // Nasiya boshlangan sana
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  tasks           Task[]
+  transactions    Transaction[] @relation("TransactionClient")
 }
 
 model Task {

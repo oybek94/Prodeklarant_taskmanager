@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { formatDateTime, formatDate } from '../utils/dateFormat';
 
 interface PaymentReminder {
   clientId: number;
@@ -289,7 +290,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                         <div className="text-xs text-gray-500 text-center w-full truncate mt-2">
-                  {new Date(item.date).toLocaleDateString('uz-UZ', { day: '2-digit', month: 'short' })}
+                  {formatDate(item.date)}
                 </div>
               </div>
                     );
@@ -341,7 +342,7 @@ const Dashboard = () => {
                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    Start from {new Date(task.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                                    Start from {formatDateTime(task.createdAt)}
                                   </span>
                                 </div>
                                 <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
@@ -387,51 +388,6 @@ const Dashboard = () => {
 
           {/* Right Sidebar */}
           <div className="space-y-6">
-            {/* Payment Reminders */}
-            {stats?.paymentReminders && stats.paymentReminders.length > 0 && (
-              <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl shadow-sm border-2 border-red-200 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900">To'lov eslatmalari</h2>
-                    <p className="text-xs text-gray-500">{stats.paymentReminders.length} ta mijoz</p>
-                  </div>
-                </div>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {stats.paymentReminders.map((reminder) => (
-                    <div
-                      key={reminder.clientId}
-                      onClick={() => navigate(`/clients`)}
-                      className="bg-white rounded-lg p-4 border border-red-200 hover:border-red-300 hover:shadow-md transition-all cursor-pointer"
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 text-sm">{reminder.clientName}</h3>
-                          {reminder.phone && (
-                            <p className="text-xs text-gray-500 mt-1">{reminder.phone}</p>
-                          )}
-                        </div>
-                        <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full whitespace-nowrap">
-                          To'lov kerak
-                      </span>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-2">{reminder.dueReason}</p>
-                      <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span>Boshlangan: {new Date(reminder.creditStartDate).toLocaleDateString('uz-UZ')}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
             {/* Payment Reminders - Main Section */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <div className="flex justify-between items-center mb-4">
@@ -502,7 +458,7 @@ const Dashboard = () => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span>Boshlangan: {new Date(reminder.creditStartDate).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span>Boshlangan: {formatDateTime(reminder.creditStartDate)}</span>
                       </div>
                     </div>
                   ))}

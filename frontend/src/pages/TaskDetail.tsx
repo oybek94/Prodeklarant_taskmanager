@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDateTime } from '../utils/dateFormat';
 
 interface TaskStage {
   id: number;
@@ -134,10 +135,6 @@ const TaskDetail = () => {
     }
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('uz-UZ');
-  };
 
   const formatDuration = (minutes?: number) => {
     if (!minutes) return '-';
@@ -186,7 +183,7 @@ const TaskDetail = () => {
           </div>
           <div>
             <div className="text-sm text-gray-500">Yaratilgan</div>
-            <div className="font-medium">{formatDate(task.createdAt)}</div>
+            <div className="font-medium">{formatDateTime(task.createdAt)}</div>
           </div>
         </div>
         {task.comments && (
@@ -258,11 +255,11 @@ const TaskDetail = () => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <div className="text-gray-500">Boshlangan</div>
-                      <div className="font-medium">{formatDate(stage.startedAt)}</div>
+                      <div className="font-medium">{formatDateTime(stage.startedAt)}</div>
                     </div>
                     <div>
                       <div className="text-gray-500">Tugallangan</div>
-                      <div className="font-medium">{formatDate(stage.completedAt)}</div>
+                      <div className="font-medium">{formatDateTime(stage.completedAt)}</div>
                     </div>
                     <div>
                       <div className="text-gray-500">Davomiyligi</div>
@@ -390,7 +387,7 @@ const TaskDetail = () => {
                         <div className="font-medium">{error.stageName}</div>
                         <div className="text-sm text-gray-500 mt-1">
                           Ishchi: {error.worker.name} | Summa: {error.amount} USD | Sana:{' '}
-                          {formatDate(error.date)}
+                          {formatDateTime(error.date)}
                         </div>
                         {error.comment && (
                           <div className="text-sm text-gray-600 mt-2">{error.comment}</div>

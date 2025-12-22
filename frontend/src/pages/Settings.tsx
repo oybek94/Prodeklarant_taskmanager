@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../lib/api';
+import { formatDateTime } from '../utils/dateFormat';
 
 interface BXMConfig {
   id: number;
@@ -183,15 +184,6 @@ const Settings = () => {
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('uz-UZ', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   if (user?.role !== 'ADMIN') {
     return (
@@ -365,7 +357,7 @@ const Settings = () => {
                     <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(payment.psrPrice)}</td>
                     <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(payment.workerPrice)}</td>
                     <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(payment.customsPayment)}</td>
-                    <td className="py-3 px-4 text-sm text-gray-500">{formatDate(payment.createdAt)}</td>
+                    <td className="py-3 px-4 text-sm text-gray-500">{formatDateTime(payment.createdAt)}</td>
                     <td className="py-3 px-4 text-center">
                       <button
                         onClick={() => handleDeleteStatePayment(payment.id)}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import { formatDateTime } from '../utils/dateFormat';
 
 interface Task {
   id: number;
@@ -60,9 +61,6 @@ const ClientDetail = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('uz-UZ');
-  };
 
   if (loading) {
     return <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>;
@@ -192,7 +190,7 @@ const ClientDetail = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(task.createdAt)}
+                      {formatDateTime(task.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button
@@ -238,7 +236,7 @@ const ClientDetail = () => {
                       ${Number(t.amount).toFixed(2)} {t.currency}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(t.date)}
+                      {formatDateTime(t.date)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">{t.comment || '-'}</td>
                   </tr>

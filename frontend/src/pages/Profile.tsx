@@ -613,7 +613,7 @@ const Profile = () => {
                         <div className="flex-1">
                           <div className="font-medium text-gray-800">{error.taskTitle}</div>
                           <div className="text-sm text-gray-600 mt-1">
-                            Bosqich: {error.stageName} | Summa: ${Number(error.amount).toFixed(2)} | Sana: {new Date(error.date).toLocaleDateString()}
+                            Bosqich: {error.stageName} | Summa: ${Number(error.amount).toFixed(2)} | Sana: {formatDateTime(error.date)}
                           </div>
                           {error.comment && (
                             <div className="text-sm text-gray-600 mt-2">{error.comment}</div>

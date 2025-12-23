@@ -55,6 +55,8 @@ const contractSchema = z.object({
   deliveryTerms: z.string().optional(),
   paymentMethod: z.string().optional(),
   gln: z.string().optional(), // Глобальный идентификационный номер GS1 (GLN)
+  supplierDirector: z.string().optional(), // Руководитель Поставщика
+  goodsReleasedBy: z.string().optional(), // Товар отпустил
 });
 
 // GET /contracts/client/:clientId - Mijozning barcha shartnomalari
@@ -195,6 +197,8 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
     if (data.deliveryTerms !== undefined) contractData.deliveryTerms = data.deliveryTerms;
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
     if (data.gln !== undefined) contractData.gln = data.gln;
+    if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
+    if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
 
     const contract = await prisma.contract.create({
       data: contractData,
@@ -312,6 +316,8 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
     if (data.deliveryTerms !== undefined) contractData.deliveryTerms = data.deliveryTerms;
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
     if (data.gln !== undefined) contractData.gln = data.gln;
+    if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
+    if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
 
     const contract = await prisma.contract.update({
       where: { id },

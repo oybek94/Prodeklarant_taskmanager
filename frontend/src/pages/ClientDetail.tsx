@@ -110,6 +110,8 @@ const ClientDetail = () => {
     deliveryTerms: '',
     paymentMethod: '',
     gln: '', // Глобальный идентификационный номер GS1 (GLN)
+    supplierDirector: '', // Руководитель Поставщика
+    goodsReleasedBy: '', // Товар отпустил
   });
 
   useEffect(() => {
@@ -326,6 +328,8 @@ const ClientDetail = () => {
         deliveryTerms: contractForm.deliveryTerms || undefined,
         paymentMethod: contractForm.paymentMethod || undefined,
         gln: contractForm.gln || undefined, // Глобальный идентификационный номер GS1 (GLN)
+        supplierDirector: contractForm.supplierDirector || undefined, // Руководитель Поставщика
+        goodsReleasedBy: contractForm.goodsReleasedBy || undefined, // Товар отпустил
       };
 
       if (editingContract) {
@@ -386,6 +390,8 @@ const ClientDetail = () => {
         deliveryTerms: '',
         paymentMethod: '',
         gln: '',
+        supplierDirector: '',
+        goodsReleasedBy: '',
       });
       await loadContracts();
     } catch (error: any) {
@@ -495,6 +501,8 @@ const ClientDetail = () => {
           deliveryTerms: contractData.deliveryTerms || '',
           paymentMethod: contractData.paymentMethod || '',
           gln: contractData.gln || '',
+          supplierDirector: contractData.supplierDirector || '',
+          goodsReleasedBy: contractData.goodsReleasedBy || '',
         });
         setEditingContract(contract);
         setShowContractForm(true);
@@ -1073,6 +1081,30 @@ const ClientDetail = () => {
                       onChange={(e) => setContractForm({ ...contractForm, gln: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       placeholder="GLN raqami"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Руководитель Поставщика
+                    </label>
+                    <input
+                      type="text"
+                      value={contractForm.supplierDirector}
+                      onChange={(e) => setContractForm({ ...contractForm, supplierDirector: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="ФИО руководителя"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Товар отпустил
+                    </label>
+                    <input
+                      type="text"
+                      value={contractForm.goodsReleasedBy}
+                      onChange={(e) => setContractForm({ ...contractForm, goodsReleasedBy: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="ФИО лица, отпустившего товар"
                     />
                   </div>
                 </div>

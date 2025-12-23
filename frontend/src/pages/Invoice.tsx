@@ -79,6 +79,8 @@ interface Contract {
   consigneeBankSwift?: string;
   deliveryTerms?: string;
   paymentMethod?: string;
+  supplierDirector?: string; // Руководитель Поставщика
+  goodsReleasedBy?: string; // Товар отпустил
 }
 
 interface Task {
@@ -943,6 +945,38 @@ const Invoice = () => {
               />
             </div>
 
+            {/* Руководитель Поставщика va Товар отпустил */}
+            {selectedContractId && contracts.find(c => c.id.toString() === selectedContractId) && (
+              <div className="mb-8 space-y-3">
+                {(() => {
+                  const contract = contracts.find(c => c.id.toString() === selectedContractId);
+                  return (
+                    <>
+                      {contract?.supplierDirector && (
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            Руководитель Поставщика:
+                          </label>
+                          <div className="text-sm text-gray-800">
+                            {contract.supplierDirector}
+                          </div>
+                        </div>
+                      )}
+                      {contract?.goodsReleasedBy && (
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            Товар отпустил:
+                          </label>
+                          <div className="text-sm text-gray-800">
+                            {contract.goodsReleasedBy}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-3 mt-8 pt-6 border-t">

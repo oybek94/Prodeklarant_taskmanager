@@ -29,6 +29,23 @@ interface Branch {
   name: string;
 }
 
+interface CompanySettings {
+  id: number;
+  name: string;
+  legalAddress: string;
+  actualAddress: string;
+  inn?: string;
+  phone?: string;
+  email?: string;
+  bankName?: string;
+  bankAddress?: string;
+  bankAccount?: string;
+  swiftCode?: string;
+  correspondentBank?: string;
+  correspondentBankAddress?: string;
+  correspondentBankSwift?: string;
+}
+
 const Settings = () => {
   const { user } = useAuth();
   const [bxmConfigs, setBxmConfigs] = useState<BXMConfig[]>([]);
@@ -47,12 +64,31 @@ const Settings = () => {
     workerPrice: '',
     customsPayment: '',
   });
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [loadingCompanySettings, setLoadingCompanySettings] = useState(true);
+  const [showCompanySettingsForm, setShowCompanySettingsForm] = useState(false);
+  const [companySettingsForm, setCompanySettingsForm] = useState({
+    name: '',
+    legalAddress: '',
+    actualAddress: '',
+    inn: '',
+    phone: '',
+    email: '',
+    bankName: '',
+    bankAddress: '',
+    bankAccount: '',
+    swiftCode: '',
+    correspondentBank: '',
+    correspondentBankAddress: '',
+    correspondentBankSwift: '',
+  });
 
   useEffect(() => {
     loadBXMConfigs();
     loadCurrentBXM();
     loadStatePayments();
     loadBranches();
+    loadCompanySettings();
   }, []);
 
   const loadBXMConfigs = async () => {
@@ -191,6 +227,47 @@ const Settings = () => {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const loadCompanySettings = async () => {
+    try {
+      setLoadingCompanySettings(true);
+      const response = await apiClient.get('/company-settings');
+      if (response.data) {
+        setCompanySettings(response.data);
+        setCompanySettingsForm({
+          name: response.data.name || '',
+          legalAddress: response.data.legalAddress || '',
+          actualAddress: response.data.actualAddress || '',
+          inn: response.data.inn || '',
+          phone: response.data.phone || '',
+          email: response.data.email || '',
+          bankName: response.data.bankName || '',
+          bankAddress: response.data.bankAddress || '',
+          bankAccount: response.data.bankAccount || '',
+          swiftCode: response.data.swiftCode || '',
+          correspondentBank: response.data.correspondentBank || '',
+          correspondentBankAddress: response.data.correspondentBankAddress || '',
+          correspondentBankSwift: response.data.correspondentBankSwift || '',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading company settings:', error);
+    } finally {
+      setLoadingCompanySettings(false);
+    }
+  };
+
+  const handleCompanySettingsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiClient.post('/company-settings', companySettingsForm);
+      setShowCompanySettingsForm(false);
+      await loadCompanySettings();
+      alert('Kompaniya sozlamalari muvaffaqiyatli saqlandi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
   };
 
   if (user?.role !== 'ADMIN') {
@@ -489,6 +566,221 @@ const Settings = () => {
                 <button
                   type="button"
                   onClick={() => setShowStatePaymentForm(false)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                >
+                  Bekor qilish
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Company Settings Section */}
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">Kompaniya ma'lumotlari</h2>
+          <button
+            onClick={() => {
+              if (companySettings) {
+                setShowCompanySettingsForm(true);
+              } else {
+                setShowCompanySettingsForm(true);
+              }
+            }}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            {companySettings ? 'O\'zgartirish' : '+ Qo\'shish'}
+          </button>
+        </div>
+
+        {loadingCompanySettings ? (
+          <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+        ) : companySettings ? (
+          <div className="space-y-2 text-sm">
+            <div><span className="font-semibold">Nomi:</span> {companySettings.name}</div>
+            <div><span className="font-semibold">Yuridik manzil:</span> {companySettings.legalAddress}</div>
+            <div><span className="font-semibold">Haqiqiy manzil:</span> {companySettings.actualAddress}</div>
+            {companySettings.inn && <div><span className="font-semibold">INN:</span> {companySettings.inn}</div>}
+            {companySettings.phone && <div><span className="font-semibold">Telefon:</span> {companySettings.phone}</div>}
+            {companySettings.email && <div><span className="font-semibold">Email:</span> {companySettings.email}</div>}
+            {companySettings.bankName && <div><span className="font-semibold">Bank:</span> {companySettings.bankName}</div>}
+            {companySettings.bankAccount && <div><span className="font-semibold">Hisob raqami:</span> {companySettings.bankAccount}</div>}
+          </div>
+        ) : (
+          <div className="text-center py-4 text-gray-400">
+            Kompaniya ma'lumotlari kiritilmagan. Invoice yaratish uchun kompaniya ma'lumotlarini kiriting.
+          </div>
+        )}
+      </div>
+
+      {/* Company Settings Form Modal */}
+      {showCompanySettingsForm && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCompanySettingsForm(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 my-8">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Kompaniya ma'lumotlari</h3>
+              <button
+                onClick={() => setShowCompanySettingsForm(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleCompanySettingsSubmit}>
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Kompaniya nomi <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettingsForm.name}
+                    onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, name: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Yuridik manzil <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={companySettingsForm.legalAddress}
+                    onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, legalAddress: e.target.value })}
+                    required
+                    rows={2}
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Haqiqiy manzil <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={companySettingsForm.actualAddress}
+                    onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, actualAddress: e.target.value })}
+                    required
+                    rows={2}
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">INN</label>
+                    <input
+                      type="text"
+                      value={companySettingsForm.inn}
+                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, inn: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                    <input
+                      type="text"
+                      value={companySettingsForm.phone}
+                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, phone: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={companySettingsForm.email}
+                    onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, email: e.target.value })}
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                </div>
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold text-gray-700 mb-3">Bank ma'lumotlari</h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank nomi</label>
+                    <input
+                      type="text"
+                      value={companySettingsForm.bankName}
+                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankName: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank manzili</label>
+                    <textarea
+                      value={companySettingsForm.bankAddress}
+                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankAddress: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Hisob raqami</label>
+                    <input
+                      type="text"
+                      value={companySettingsForm.bankAccount}
+                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankAccount: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">SWIFT kodi</label>
+                    <input
+                      type="text"
+                      value={companySettingsForm.swiftCode}
+                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, swiftCode: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold text-gray-700 mb-3">Bank-korrespondent ma'lumotlari</h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank-korrespondent</label>
+                    <input
+                      type="text"
+                      value={companySettingsForm.correspondentBank}
+                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, correspondentBank: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank-korrespondent manzili</label>
+                    <textarea
+                      value={companySettingsForm.correspondentBankAddress}
+                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, correspondentBankAddress: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank-korrespondent SWIFT</label>
+                    <input
+                      type="text"
+                      value={companySettingsForm.correspondentBankSwift}
+                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, correspondentBankSwift: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Saqlash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCompanySettingsForm(false)}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                 >
                   Bekor qilish

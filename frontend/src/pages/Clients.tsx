@@ -80,6 +80,19 @@ const Clients = () => {
     creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
     creditLimit: '',
     creditStartDate: '',
+    // Shartnoma maydonlari
+    contractNumber: '',
+    address: '',
+    inn: '',
+    email: '',
+    bankName: '',
+    bankAddress: '',
+    bankAccount: '',
+    transitAccount: '',
+    bankSwift: '',
+    correspondentBank: '',
+    correspondentBankAccount: '',
+    correspondentBankSwift: '',
   });
   const [editForm, setEditForm] = useState({
     name: '',
@@ -89,6 +102,19 @@ const Clients = () => {
     creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
     creditLimit: '',
     creditStartDate: '',
+    // Shartnoma maydonlari
+    contractNumber: '',
+    address: '',
+    inn: '',
+    email: '',
+    bankName: '',
+    bankAddress: '',
+    bankAccount: '',
+    transitAccount: '',
+    bankSwift: '',
+    correspondentBank: '',
+    correspondentBankAccount: '',
+    correspondentBankSwift: '',
   });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
@@ -182,6 +208,19 @@ const Clients = () => {
         dealAmount: form.dealAmount ? parseFloat(form.dealAmount) : undefined,
         dealAmountCurrency: form.dealAmountCurrency,
         phone: form.phone || undefined,
+        // Shartnoma maydonlari
+        contractNumber: form.contractNumber || undefined,
+        address: form.address || undefined,
+        inn: form.inn || undefined,
+        email: form.email || undefined,
+        bankName: form.bankName || undefined,
+        bankAddress: form.bankAddress || undefined,
+        bankAccount: form.bankAccount || undefined,
+        transitAccount: form.transitAccount || undefined,
+        bankSwift: form.bankSwift || undefined,
+        correspondentBank: form.correspondentBank || undefined,
+        correspondentBankAccount: form.correspondentBankAccount || undefined,
+        correspondentBankSwift: form.correspondentBankSwift || undefined,
       };
 
       // Handle credit fields - if creditType is empty, set to null, otherwise use the value
@@ -202,7 +241,27 @@ const Clients = () => {
 
       await apiClient.post('/clients', createData);
       setShowForm(false);
-      setForm({ name: '', dealAmount: '', dealAmountCurrency: 'USD', phone: '', creditType: '', creditLimit: '', creditStartDate: '' });
+      setForm({ 
+        name: '', 
+        dealAmount: '', 
+        dealAmountCurrency: 'USD', 
+        phone: '', 
+        creditType: '', 
+        creditLimit: '', 
+        creditStartDate: '',
+        contractNumber: '',
+        address: '',
+        inn: '',
+        email: '',
+        bankName: '',
+        bankAddress: '',
+        bankAccount: '',
+        transitAccount: '',
+        bankSwift: '',
+        correspondentBank: '',
+        correspondentBankAccount: '',
+        correspondentBankSwift: '',
+      });
       await loadClients();
       await loadStats();
     } catch (error: any) {
@@ -221,6 +280,19 @@ const Clients = () => {
       creditType: client.creditType || '',
       creditLimit: client.creditLimit ? client.creditLimit.toString() : '',
       creditStartDate: client.creditStartDate ? new Date(client.creditStartDate).toISOString().split('T')[0] : '',
+      // Shartnoma maydonlari
+      contractNumber: (client as any).contractNumber || '',
+      address: (client as any).address || '',
+      inn: (client as any).inn || '',
+      email: (client as any).email || '',
+      bankName: (client as any).bankName || '',
+      bankAddress: (client as any).bankAddress || '',
+      bankAccount: (client as any).bankAccount || '',
+      transitAccount: (client as any).transitAccount || '',
+      bankSwift: (client as any).bankSwift || '',
+      correspondentBank: (client as any).correspondentBank || '',
+      correspondentBankAccount: (client as any).correspondentBankAccount || '',
+      correspondentBankSwift: (client as any).correspondentBankSwift || '',
     });
     setShowEditModal(true);
   };
@@ -235,6 +307,19 @@ const Clients = () => {
         dealAmount: editForm.dealAmount ? parseFloat(editForm.dealAmount) : undefined,
         dealAmountCurrency: editForm.dealAmountCurrency,
         phone: editForm.phone || undefined,
+        // Shartnoma maydonlari
+        contractNumber: editForm.contractNumber || undefined,
+        address: editForm.address || undefined,
+        inn: editForm.inn || undefined,
+        email: editForm.email || undefined,
+        bankName: editForm.bankName || undefined,
+        bankAddress: editForm.bankAddress || undefined,
+        bankAccount: editForm.bankAccount || undefined,
+        transitAccount: editForm.transitAccount || undefined,
+        bankSwift: editForm.bankSwift || undefined,
+        correspondentBank: editForm.correspondentBank || undefined,
+        correspondentBankAccount: editForm.correspondentBankAccount || undefined,
+        correspondentBankSwift: editForm.correspondentBankSwift || undefined,
       };
 
       // Handle credit fields - if creditType is empty, set to null, otherwise use the value
@@ -278,7 +363,27 @@ const Clients = () => {
       
       setShowEditModal(false);
       setEditingClient(null);
-      setEditForm({ name: '', dealAmount: '', dealAmountCurrency: 'USD', phone: '', creditType: '', creditLimit: '', creditStartDate: '' });
+      setEditForm({ 
+        name: '', 
+        dealAmount: '', 
+        dealAmountCurrency: 'USD', 
+        phone: '', 
+        creditType: '', 
+        creditLimit: '', 
+        creditStartDate: '',
+        contractNumber: '',
+        address: '',
+        inn: '',
+        email: '',
+        bankName: '',
+        bankAddress: '',
+        bankAccount: '',
+        transitAccount: '',
+        bankSwift: '',
+        correspondentBank: '',
+        correspondentBankAccount: '',
+        correspondentBankSwift: '',
+      });
       
       // Reload clients list to get updated data
       await loadClients();
@@ -507,7 +612,7 @@ const Clients = () => {
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
             style={{
               animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
             }}
@@ -568,7 +673,7 @@ const Clients = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-              
+
               {/* Nasiya shartlari */}
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
@@ -1067,7 +1172,7 @@ const Clients = () => {
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
             style={{
               animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
             }}
@@ -1133,7 +1238,7 @@ const Clients = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-              
+
               {/* Nasiya shartlari */}
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>

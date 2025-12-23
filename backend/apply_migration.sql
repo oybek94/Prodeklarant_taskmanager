@@ -1,0 +1,14 @@
+-- AlterTable: Add shartnoma ma'lumotlari to Client
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "contractNumber" TEXT;
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "address" TEXT;
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "inn" TEXT;
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "email" TEXT;
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "bankName" TEXT;
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "bankAddress" TEXT;
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "bankAccount" TEXT;
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "transitAccount" TEXT;
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "bankSwift" TEXT;
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "correspondentBank" TEXT;
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "correspondentBankAccount" TEXT;
+ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "correspondentBankSwift" TEXT;
+

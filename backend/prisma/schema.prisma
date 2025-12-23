@@ -14,6 +14,7 @@ model Branch {
   transactions  Transaction[]
   users         User[]
   statePayments StatePayment[]
+  invoices      Invoice[]
 }
 
 model User {
@@ -45,19 +46,34 @@ model User {
 }
 
 model Client {
-  id                 Int           @id @default(autoincrement())
-  name               String
-  dealAmount         Decimal?      @db.Decimal(12, 2)
-  dealAmountCurrency Currency?     @default(USD) // Shartnoma valyutasi
-  phone              String?
-  passwordHash       String?
-  creditType         String? // 'TASK_COUNT' yoki 'AMOUNT' - nasiya turi
-  creditLimit        Decimal?      @db.Decimal(12, 2) // Nasiya limiti (ish soni yoki summa)
-  creditStartDate    DateTime? // Nasiya boshlangan sana
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  tasks              Task[]
-  transactions       Transaction[] @relation("TransactionClient")
+  id                       Int           @id @default(autoincrement())
+  name                     String
+  dealAmount               Decimal?      @db.Decimal(12, 2)
+  dealAmountCurrency       Currency?     @default(USD) // Shartnoma valyutasi
+  phone                    String?
+  passwordHash             String?
+  creditType               String? // 'TASK_COUNT' yoki 'AMOUNT' - nasiya turi
+  creditLimit              Decimal?      @db.Decimal(12, 2) // Nasiya limiti (ish soni yoki summa)
+  creditStartDate          DateTime? // Nasiya boshlangan sana
+  // Shartnoma ma'lumotlari (Invoice uchun)
+  contractNumber           String? // Shartnoma raqami (masalan: "RVI-FER-291019")
+  address                  String? // Адрес (Покупатель)
+  inn                      String? // ИНН
+  email                    String? // E-mail
+  bankName                 String? // Банк получателя
+  bankAddress              String? // Адрес банка
+  bankAccount              String? // Текущий счет
+  transitAccount           String? // Транзитный счет
+  bankSwift                String? // SWIFT
+  correspondentBank        String? // Наименование банка корреспондента
+  correspondentBankAccount String? // Кор счет
+  correspondentBankSwift   String? // SWIFT банка-корреспондента
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  tasks                    Task[]
+  transactions             Transaction[] @relation("TransactionClient")
+  invoices                 Invoice[]
+  contracts                Contract[]
 }
 
 model Task {
@@ -89,6 +105,7 @@ model Task {
   transactions               Transaction[]
   versions                   TaskVersion[]
   documents                  TaskDocument[]
+  invoice                    Invoice?
 }
 
 model TaskStage {
@@ -507,4 +524,149 @@ model Debt {
 
   @@index([debtorType, debtorId])
   @@index([date])
+}
+
+// Invoice modellari
+model Invoice {
+  id             Int      @id @default(autoincrement())
+  invoiceNumber  String   @unique // "49" yoki avtomatik generatsiya
+  contractNumber String? // Shartnoma raqami (masalan: "RVI-FER-291019")
+  taskId         Int      @unique // Qaysi task uchun
+  clientId       Int
+  branchId       Int
+  date           DateTime @default(now()) // Invoice sanasi
+  currency       Currency @default(USD)
+  totalAmount    Decimal  @db.Decimal(12, 2)
+  notes          String? // "Особые примечания"
+  additionalInfo Json? // Дополнительная информация (JSON formatida)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  task       Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  client     Client    @relation(fields: [clientId], references: [id])
+  branch     Branch    @relation(fields: [branchId], references: [id])
+  contractId Int?
+  contract   Contract? @relation(fields: [contractId], references: [id])
+
+  items InvoiceItem[]
+
+  @@index([clientId])
+  @@index([taskId])
+  @@index([invoiceNumber])
+  @@index([contractId])
+}
+
+model InvoiceItem {
+  id          Int      @id @default(autoincrement())
+  invoiceId   Int
+  tnvedCode   String? // Код ТН ВЭД
+  pluCode     String? // Код PLU
+  name        String // Наименование товара
+  packageType String? // Вид упаковки
+  unit        String // Ед. изм. (кг, шт, etc.)
+  quantity    Decimal  @db.Decimal(12, 2) // Мест
+  grossWeight Decimal? @db.Decimal(12, 2) // Брутто (кг)
+  netWeight   Decimal? @db.Decimal(12, 2) // Нетто (кг)
+  unitPrice   Decimal  @db.Decimal(12, 2) // Цена за ед.изм.
+  totalPrice  Decimal  @db.Decimal(12, 2) // Сумма с НДС
+  orderIndex  Int      @default(0) // Tartib raqami
+  createdAt   DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, orderIndex])
+}
+
+// Shartnoma modellari
+model Contract {
+  id             Int      @id @default(autoincrement())
+  clientId       Int
+  contractNumber String
+  contractDate   DateTime
+
+  // Sotuvchi ma'lumotlari
+  sellerName                     String
+  sellerLegalAddress             String
+  sellerDetails                  String? // To'g'ridan-to'g'ri textarea ma'lumotlari (INN, OGRN, bank va boshqa rekvizitlar)
+  sellerInn                      String?
+  sellerOgrn                     String?
+  sellerBankName                 String?
+  sellerBankAddress              String?
+  sellerBankAccount              String?
+  sellerBankSwift                String?
+  sellerCorrespondentBank        String?
+  sellerCorrespondentBankAccount String?
+  sellerCorrespondentBankSwift   String?
+
+  // Sotib oluvchi ma'lumotlari
+  buyerName                     String
+  buyerAddress                  String
+  buyerDetails                  String? // To'g'ridan-to'g'ri textarea ma'lumotlari (INN, OGRN, bank va boshqa rekvizitlar)
+  buyerInn                      String?
+  buyerOgrn                     String?
+  buyerBankName                 String?
+  buyerBankAddress              String?
+  buyerBankAccount              String?
+  buyerBankSwift                String?
+  buyerCorrespondentBank        String?
+  buyerCorrespondentBankAccount String?
+  buyerCorrespondentBankSwift   String?
+
+  // Yuk jo'natuvchi (ixtiyoriy)
+  shipperName        String?
+  shipperAddress     String?
+  shipperDetails     String? // To'g'ridan-to'g'ri textarea ma'lumotlari (INN, OGRN, bank va boshqa rekvizitlar)
+  shipperInn         String?
+  shipperOgrn        String?
+  shipperBankName    String?
+  shipperBankAddress String?
+  shipperBankAccount String?
+  shipperBankSwift   String?
+
+  // Yuk qabul qiluvchi (ixtiyoriy)
+  consigneeName        String?
+  consigneeAddress     String?
+  consigneeDetails     String? // To'g'ridan-to'g'ri textarea ma'lumotlari (INN, OGRN, bank va boshqa rekvizitlar)
+  consigneeInn         String?
+  consigneeOgrn        String?
+  consigneeBankName    String?
+  consigneeBankAddress String?
+  consigneeBankAccount String?
+  consigneeBankSwift   String?
+
+  // Qo'shimcha ma'lumotlar
+  deliveryTerms String? // Yetkazib berish sharti
+  paymentMethod String? // To'lov usuli
+  gln          String? // Глобальный идентификационный номер GS1 (GLN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@index([clientId])
+  @@index([contractNumber])
+}
+
+// Kompaniya sozlamalari (Invoice uchun)
+model CompanySettings {
+  id                       Int      @id @default(autoincrement())
+  name                     String // "ООО "FERGANA EXIM AGRO""
+  legalAddress             String // Юридический адрес
+  actualAddress            String // Фактический адрес
+  inn                      String? // ИНН
+  phone                    String?
+  email                    String?
+  bankName                 String? // Банк nomi
+  bankAddress              String? // Адрес банка
+  bankAccount              String? // Номер счета
+  swiftCode                String? // SWIFT
+  correspondentBank        String? // Банк-корреспондент
+  correspondentBankAddress String? // Адрес банка-корреспондента
+  correspondentBankSwift   String? // SWIFT банка-корреспондента
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@unique([id]) // Faqat bitta sozlama bo'lishi kerak
 }

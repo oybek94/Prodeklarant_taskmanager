@@ -18,6 +18,19 @@ const clientSchema = z.object({
     return typeof val === 'string' ? parseFloat(val) : val;
   }),
   creditStartDate: z.union([z.string(), z.date()]).optional().nullable(), // ISO date string or Date
+  // Shartnoma maydonlari
+  contractNumber: z.string().optional(),
+  address: z.string().optional(),
+  inn: z.string().optional(),
+  email: z.string().email().optional().or(z.literal('')),
+  bankName: z.string().optional(),
+  bankAddress: z.string().optional(),
+  bankAccount: z.string().optional(),
+  transitAccount: z.string().optional(),
+  bankSwift: z.string().optional(),
+  correspondentBank: z.string().optional(),
+  correspondentBankAccount: z.string().optional(),
+  correspondentBankSwift: z.string().optional(),
 });
 
 router.get('/', async (_req, res) => {
@@ -235,6 +248,19 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       dealAmount: parsed.data.dealAmount ?? null,
       dealAmountCurrency: parsed.data.dealAmountCurrency ?? 'USD',
       phone: parsed.data.phone ?? null,
+      // Shartnoma maydonlari
+      contractNumber: parsed.data.contractNumber || undefined,
+      address: parsed.data.address || undefined,
+      inn: parsed.data.inn || undefined,
+      email: parsed.data.email || undefined,
+      bankName: parsed.data.bankName || undefined,
+      bankAddress: parsed.data.bankAddress || undefined,
+      bankAccount: parsed.data.bankAccount || undefined,
+      transitAccount: parsed.data.transitAccount || undefined,
+      bankSwift: parsed.data.bankSwift || undefined,
+      correspondentBank: parsed.data.correspondentBank || undefined,
+      correspondentBankAccount: parsed.data.correspondentBankAccount || undefined,
+      correspondentBankSwift: parsed.data.correspondentBankSwift || undefined,
     };
     
     // Handle credit fields explicitly
@@ -419,6 +445,44 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     }
     if (req.body.phone !== undefined) {
       updateData.phone = req.body.phone === null || req.body.phone === '' ? null : req.body.phone;
+    }
+    
+    // Shartnoma maydonlari
+    if (req.body.contractNumber !== undefined) {
+      updateData.contractNumber = req.body.contractNumber === null || req.body.contractNumber === '' ? undefined : req.body.contractNumber;
+    }
+    if (req.body.address !== undefined) {
+      updateData.address = req.body.address === null || req.body.address === '' ? undefined : req.body.address;
+    }
+    if (req.body.inn !== undefined) {
+      updateData.inn = req.body.inn === null || req.body.inn === '' ? undefined : req.body.inn;
+    }
+    if (req.body.email !== undefined) {
+      updateData.email = req.body.email === null || req.body.email === '' ? undefined : req.body.email;
+    }
+    if (req.body.bankName !== undefined) {
+      updateData.bankName = req.body.bankName === null || req.body.bankName === '' ? undefined : req.body.bankName;
+    }
+    if (req.body.bankAddress !== undefined) {
+      updateData.bankAddress = req.body.bankAddress === null || req.body.bankAddress === '' ? undefined : req.body.bankAddress;
+    }
+    if (req.body.bankAccount !== undefined) {
+      updateData.bankAccount = req.body.bankAccount === null || req.body.bankAccount === '' ? undefined : req.body.bankAccount;
+    }
+    if (req.body.transitAccount !== undefined) {
+      updateData.transitAccount = req.body.transitAccount === null || req.body.transitAccount === '' ? undefined : req.body.transitAccount;
+    }
+    if (req.body.bankSwift !== undefined) {
+      updateData.bankSwift = req.body.bankSwift === null || req.body.bankSwift === '' ? undefined : req.body.bankSwift;
+    }
+    if (req.body.correspondentBank !== undefined) {
+      updateData.correspondentBank = req.body.correspondentBank === null || req.body.correspondentBank === '' ? undefined : req.body.correspondentBank;
+    }
+    if (req.body.correspondentBankAccount !== undefined) {
+      updateData.correspondentBankAccount = req.body.correspondentBankAccount === null || req.body.correspondentBankAccount === '' ? undefined : req.body.correspondentBankAccount;
+    }
+    if (req.body.correspondentBankSwift !== undefined) {
+      updateData.correspondentBankSwift = req.body.correspondentBankSwift === null || req.body.correspondentBankSwift === '' ? undefined : req.body.correspondentBankSwift;
     }
     
     // Credit fields - ALWAYS include if present in request

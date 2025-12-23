@@ -18,6 +18,9 @@ import examsRouter from './routes/exams';
 import uploadRouter from './routes/upload';
 import documentsRouter from './routes/documents';
 import financeRouter from './routes/finance';
+import invoicesRouter from './routes/invoices';
+import companySettingsRouter from './routes/company-settings';
+import contractsRouter from './routes/contracts';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 import path from 'path';
@@ -105,6 +108,9 @@ app.use('/api/exams', examsRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/finance', financeRouter);
+app.use('/api/invoices', requireAuth(), invoicesRouter);
+app.use('/api/company-settings', companySettingsRouter);
+app.use('/api/contracts', requireAuth(), contractsRouter);
 
 // Server'ni darhol ishga tushirish - database ulanishini kutmasdan
 app.listen(PORT, '0.0.0.0', () => {

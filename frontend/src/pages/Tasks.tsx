@@ -120,6 +120,10 @@ const Tasks = () => {
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [documentNames, setDocumentNames] = useState<string[]>([]);
   const [documentDescriptions, setDocumentDescriptions] = useState<string[]>([]);
+  const [showInvoiceUploadModal, setShowInvoiceUploadModal] = useState(false);
+  const [invoiceUploadFile, setInvoiceUploadFile] = useState<File | null>(null);
+  const [invoiceUploadName, setInvoiceUploadName] = useState<string>('Invoice');
+  const [uploadingInvoice, setUploadingInvoice] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<{ url: string; type: string; name: string } | null>(null);
   const [workers, setWorkers] = useState<{ id: number; name: string; role: string }[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -438,6 +442,47 @@ const Tasks = () => {
     }
   };
 
+  const handleInvoiceUpload = async () => {
+    if (!selectedTask || !invoiceUploadFile) {
+      alert('Invoice PDF faylni tanlang');
+      return;
+    }
+
+    try {
+      setUploadingInvoice(true);
+      const formData = new FormData();
+      formData.append('file', invoiceUploadFile);
+      formData.append('name', invoiceUploadName);
+      formData.append('documentType', 'INVOICE');
+
+      await apiClient.post(`/tasks/${selectedTask.id}/documents`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Invoice yuklangandan keyin stage'ni tayyor qilishga harakat qilamiz
+      if (selectedStageForReminder) {
+        setShowInvoiceUploadModal(false);
+        setInvoiceUploadFile(null);
+        setInvoiceUploadName('Invoice');
+        // Invoice yuklangandan keyin stage'ni tayyor qilish
+        await updateStageToReady();
+      } else {
+        setShowInvoiceUploadModal(false);
+        setInvoiceUploadFile(null);
+        setInvoiceUploadName('Invoice');
+        await loadTaskDetail(selectedTask.id);
+        await loadTaskDocuments(selectedTask.id);
+      }
+    } catch (error: any) {
+      console.error('Error uploading invoice:', error);
+      alert(error.response?.data?.error || 'Invoice yuklashda xatolik yuz berdi');
+    } finally {
+      setUploadingInvoice(false);
+    }
+  };
+
   const handleDocumentUpload = async () => {
     if (!selectedTask || uploadFiles.length === 0) {
       alert('Kamida bitta faylni tanlang');
@@ -670,9 +715,15 @@ const Tasks = () => {
       return;
     }
     if (stage.status === 'BOSHLANMAGAN') {
-      // Show reminder modal
-      setSelectedStageForReminder(stage);
-      setShowReminderModal(true);
+      // Invoys stage'i uchun Invoice yuklash modalini ochamiz
+      if (stage.name === 'Invoys') {
+        setSelectedStageForReminder(stage);
+        setShowInvoiceUploadModal(true);
+      } else {
+        // Boshqa stage'lar uchun eslatma modal
+        setSelectedStageForReminder(stage);
+        setShowReminderModal(true);
+      }
     } else {
       // If already completed, allow unchecking
       handleStageToggle(stage.id, stage.status);
@@ -721,6 +772,18 @@ const Tasks = () => {
       setSelectedStageForReminder(null);
     } catch (error: any) {
       console.error('Error updating stage:', error);
+      
+      // Agar Invoys stage'i bo'lsa va Invoice PDF talab qilinsa, modal ochamiz
+      if (
+        selectedStageForReminder.name === 'Invoys' &&
+        error.response?.status === 400 &&
+        error.response?.data?.error?.includes('Invoice PDF')
+      ) {
+        setShowInvoiceUploadModal(true);
+        setUpdatingStage(null);
+        return;
+      }
+      
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     } finally {
       setUpdatingStage(null);
@@ -2465,6 +2528,100 @@ const Tasks = () => {
                     <button
                       onClick={() => {
                         setShowBXMModal(false);
+                        setSelectedStageForReminder(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                    >
+                      Bekor qilish
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Invoice PDF yuklash modali */}
+            {showInvoiceUploadModal && selectedTask && (
+              <div 
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] backdrop-blur-sm"
+                style={{
+                  animation: 'fadeIn 0.2s ease-out'
+                }}
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setShowInvoiceUploadModal(false);
+                    setInvoiceUploadFile(null);
+                    setInvoiceUploadName('Invoice');
+                  }
+                }}
+              >
+                <div
+                  className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+                  style={{
+                    animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  }}
+                >
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                    Invoice PDF yuklash
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Invoys stage'ini tayyor qilish uchun Invoice PDF yuklanishi shart.
+                  </p>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Hujjat nomi
+                    </label>
+                    <input
+                      type="text"
+                      value={invoiceUploadName}
+                      onChange={(e) => setInvoiceUploadName(e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      placeholder="Invoice"
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      PDF fayl
+                    </label>
+                    <input
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.type !== 'application/pdf') {
+                            alert('Faqat PDF fayllar qabul qilinadi');
+                            return;
+                          }
+                          setInvoiceUploadFile(file);
+                          if (!invoiceUploadName || invoiceUploadName === 'Invoice') {
+                            setInvoiceUploadName(file.name.replace('.pdf', ''));
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    {invoiceUploadFile && (
+                      <p className="mt-2 text-sm text-gray-600">
+                        Tanlangan: {invoiceUploadFile.name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleInvoiceUpload}
+                      disabled={!invoiceUploadFile || uploadingInvoice}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploadingInvoice ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowInvoiceUploadModal(false);
+                        setInvoiceUploadFile(null);
+                        setInvoiceUploadName('Invoice');
                         setSelectedStageForReminder(null);
                       }}
                       className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"

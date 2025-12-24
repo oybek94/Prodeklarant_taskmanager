@@ -5,6 +5,7 @@ import { AuthRequest, requireAuth } from '../middleware/auth';
 import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
 import { updateTaskStatus, calculateTaskStatus } from '../services/task-status';
+import { ValidationService } from '../services/validation.service';
 
 const router = Router();
 
@@ -475,18 +476,194 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
   const parsed = updateStageSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const stage = await prisma.taskStage.findUnique({ 
-    where: { id: stageId },
-    include: {
-      assignedTo: {
-        select: {
-          id: true,
-          name: true,
+  try {
+    const stage = await prisma.taskStage.findUnique({ 
+      where: { id: stageId },
+      include: {
+        assignedTo: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
       },
-    },
-  });
-  if (!stage || stage.taskId !== taskId) return res.status(404).json({ error: 'Stage not found' });
+    });
+    if (!stage || stage.taskId !== taskId) return res.status(404).json({ error: 'Stage not found' });
+
+    // Invoys stage'ini tayyor qilishda Invoice PDF talab qilish
+    if (stage.name === 'Invoys' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
+      try {
+        // Barcha PDF fayllarni olamiz va JavaScript filter qilamiz
+        const allPdfs = await prisma.taskDocument.findMany({
+          where: {
+            taskId: taskId,
+            fileType: 'pdf',
+          },
+        });
+
+        // Nom va tavsif asosida Invoice'ni topamiz
+        const invoiceDocuments = allPdfs.filter((doc) => {
+          const name = (doc.name || '').toLowerCase();
+          const desc = (doc.description || '').toLowerCase();
+          return (
+            name.includes('invoice') ||
+            name.includes('invoys') ||
+            desc.includes('invoice') ||
+            (doc as any).documentType === 'INVOICE'
+          );
+        });
+
+        if (invoiceDocuments.length === 0) {
+          return res.status(400).json({ 
+            error: 'Invoys stage\'ini tayyor qilish uchun Invoice PDF yuklanishi shart. Iltimos, avval Invoice PDF yuklang.' 
+          });
+        }
+      } catch (error: any) {
+        console.error('Error checking Invoice documents:', error);
+        // Xatolik bo'lsa, validation'ni o'tkazib yuboramiz
+        console.log('Skipping Invoice validation due to error');
+      }
+    }
+
+    // ST stage'ini tayyor qilishda Invoice va ST PDF talab qilish
+    if (stage.name === 'ST' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
+      try {
+        const allPdfs = await prisma.taskDocument.findMany({
+          where: {
+            taskId: taskId,
+            fileType: 'pdf',
+          },
+        });
+
+        const invoiceDocuments = allPdfs.filter((doc) => {
+          const name = (doc.name || '').toLowerCase();
+          const desc = (doc.description || '').toLowerCase();
+          return (
+            name.includes('invoice') ||
+            name.includes('invoys') ||
+            desc.includes('invoice') ||
+            doc.documentType === 'INVOICE'
+          );
+        });
+
+        const stDocuments = allPdfs.filter((doc) => {
+          const name = (doc.name || '').toLowerCase();
+          const desc = (doc.description || '').toLowerCase();
+          return (
+            name.includes(' st') ||
+            name.includes('-st') ||
+            name.startsWith('st ') ||
+            desc.includes('st') ||
+            doc.documentType === 'ST'
+          );
+        });
+
+        if (invoiceDocuments.length === 0) {
+          return res.status(400).json({ 
+            error: 'ST stage\'ini tayyor qilish uchun Invoice PDF yuklanishi shart.' 
+          });
+        }
+
+        if (stDocuments.length === 0) {
+          return res.status(400).json({ 
+            error: 'ST stage\'ini tayyor qilish uchun ST PDF yuklanishi shart.' 
+          });
+        }
+      } catch (error) {
+        console.error('Error checking ST documents:', error);
+        // Xatolik bo'lsa, validation'ni o'tkazib yuboramiz
+        console.log('Skipping ST validation due to error');
+      }
+    }
+
+  // Fito stage'ini tayyor qilishda barcha PDF talab qilish
+  if ((stage.name === 'Fito' || stage.name === 'FITO') && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
+    try {
+      let invoiceDocuments: any[] = [];
+      let stDocuments: any[] = [];
+      let fitoDocuments: any[] = [];
+
+      try {
+        invoiceDocuments = await prisma.taskDocument.findMany({
+          where: {
+            taskId: taskId,
+            documentType: 'INVOICE',
+          },
+        });
+
+        stDocuments = await prisma.taskDocument.findMany({
+          where: {
+            taskId: taskId,
+            documentType: 'ST',
+          },
+        });
+
+        fitoDocuments = await prisma.taskDocument.findMany({
+          where: {
+            taskId: taskId,
+            documentType: 'FITO',
+          },
+        });
+      } catch (enumError) {
+        // Fallback: name asosida tekshirish
+        invoiceDocuments = await prisma.taskDocument.findMany({
+          where: {
+            taskId: taskId,
+            fileType: 'pdf',
+            OR: [
+              { name: { contains: 'invoice', mode: 'insensitive' } },
+              { name: { contains: 'invoys', mode: 'insensitive' } },
+            ],
+          },
+        });
+
+        stDocuments = await prisma.taskDocument.findMany({
+          where: {
+            taskId: taskId,
+            fileType: 'pdf',
+            OR: [
+              { name: { contains: ' st', mode: 'insensitive' } },
+              { name: { contains: '-st', mode: 'insensitive' } },
+            ],
+          },
+        });
+
+        fitoDocuments = await prisma.taskDocument.findMany({
+          where: {
+            taskId: taskId,
+            fileType: 'pdf',
+            OR: [
+              { name: { contains: 'fito', mode: 'insensitive' } },
+              { name: { contains: 'phytosanitary', mode: 'insensitive' } },
+            ],
+          },
+        });
+      }
+
+      if (invoiceDocuments.length === 0) {
+        return res.status(400).json({ 
+          error: 'Fito stage\'ini tayyor qilish uchun Invoice PDF yuklanishi shart.' 
+        });
+      }
+
+      if (stDocuments.length === 0) {
+        return res.status(400).json({ 
+          error: 'Fito stage\'ini tayyor qilish uchun ST PDF yuklanishi shart.' 
+        });
+      }
+
+      if (fitoDocuments.length === 0) {
+        return res.status(400).json({ 
+          error: 'Fito stage\'ini tayyor qilish uchun FITO PDF yuklanishi shart.' 
+        });
+      }
+    } catch (error) {
+      console.error('Error checking Fito documents:', error);
+      return res.status(500).json({ 
+        error: 'Hujjatlarni tekshirishda xatolik yuz berdi' 
+      });
+    }
+  }
 
   // Agar jarayonni tugallanmagan (BOSHLANMAGAN) qilishga harakat qilinayotgan bo'lsa,
   // faqat jarayonni boshlagan odam yoki admin buni qila oladi
@@ -561,10 +738,18 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
     // Update task status based on all stages
     await updateTaskStatus(tx, taskId);
     
-    return upd;
-  });
+      return upd;
+    });
 
-  res.json(updated);
+    res.json(updated);
+  } catch (error: any) {
+    console.error('Error updating stage:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+    res.status(500).json({ 
+      error: 'Stage yangilashda xatolik yuz berdi',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
 });
 
 const errorSchema = z.object({

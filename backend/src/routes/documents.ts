@@ -50,12 +50,28 @@ const upload = multer({
 
 // Task hujjatlarini olish
 router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:52',message:'GET /task/:taskId entry',data:{taskId:req.params.taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   try {
     const taskId = parseInt(req.params.taskId);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:55',message:'Before prisma query',data:{taskId,parsedTaskId:taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     
+    // documentType field hali migration qo'llanmagan bo'lishi mumkin, shuning uchun select qilamiz
     const documents = await prisma.taskDocument.findMany({
       where: { taskId },
-      include: {
+      select: {
+        id: true,
+        taskId: true,
+        name: true,
+        fileUrl: true,
+        fileType: true,
+        fileSize: true,
+        description: true,
+        uploadedById: true,
+        createdAt: true,
         uploadedBy: {
           select: {
             id: true,
@@ -63,12 +79,25 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
             email: true,
           },
         },
+        // documentType faqat mavjud bo'lsa qo'shiladi
       },
       orderBy: { createdAt: 'desc' },
     });
+    
+    // documentType'ni alohida qo'shamiz (agar mavjud bo'lsa)
+    const documentsWithType = documents.map((doc: any) => ({
+      ...doc,
+      documentType: (doc as any).documentType || null,
+    }));
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:70',message:'After prisma query success',data:{documentsCount:documents.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
     res.json(documents);
   } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:73',message:'Error in GET /task/:taskId',data:{errorMessage:error instanceof Error?error.message:String(error),errorName:error instanceof Error?error.name:'Unknown',errorStack:error instanceof Error?error.stack:'No stack'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+    // #endregion
     console.error('Error fetching task documents:', error);
     res.status(500).json({ error: 'Internal server error' });
   }

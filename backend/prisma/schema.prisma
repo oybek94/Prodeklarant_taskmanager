@@ -106,6 +106,8 @@ model Task {
   versions                   TaskVersion[]
   documents                  TaskDocument[]
   invoice                    Invoice?
+  structuredDocuments        StructuredDocument[]
+  aiChecks                   AiCheck[]
 }
 
 model TaskStage {
@@ -243,6 +245,11 @@ enum TaskStatus {
   TEKSHIRILGAN
   TOPSHIRILDI
   YAKUNLANDI
+  INVOICE_READY
+  ST_READY
+  FITO_READY
+  PASSED_AI_CHECK
+  RETURNED
 }
 
 enum StageStatus {
@@ -460,20 +467,84 @@ model CurrencyExchangeRate {
 
 // Hujjatlar aylanmasi
 model TaskDocument {
-  id           Int      @id @default(autoincrement())
-  taskId       Int
-  name         String // Hujjat nomi
-  fileUrl      String // Fayl URL
-  fileType     String // Fayl turi (image, video, audio, document, pdf, etc.)
-  fileSize     Int? // Fayl hajmi (bytes)
-  description  String? // Hujjat tavsifi
-  uploadedById Int // Kim yuklagan
-  createdAt    DateTime @default(now())
-  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  uploadedBy   User     @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  id                Int                  @id @default(autoincrement())
+  taskId            Int
+  name              String // Hujjat nomi
+  fileUrl           String // Fayl URL
+  fileType          String // Fayl turi (image, video, audio, document, pdf, etc.)
+  fileSize          Int? // Fayl hajmi (bytes)
+  description       String? // Hujjat tavsifi
+  documentType      DocumentType? // AI validation uchun: INVOICE, ST, FITO, OTHER
+  uploadedById      Int // Kim yuklagan
+  createdAt         DateTime             @default(now())
+  task              Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy        User                 @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  metadata          DocumentMetadata?
+  structuredData   StructuredDocument?
 
   @@index([taskId])
   @@index([uploadedById])
+  @@index([documentType])
+}
+
+// PDF metadata va extracted text
+model DocumentMetadata {
+  id                Int       @id @default(autoincrement())
+  taskDocumentId    Int       @unique
+  extractedText     String    @db.Text // PDF'dan extract qilingan to'liq text
+  pageCount         Int?
+  extractedAt       DateTime  @default(now())
+  taskDocument      TaskDocument @relation(fields: [taskDocumentId], references: [id], onDelete: Cascade)
+
+  @@index([taskDocumentId])
+}
+
+// AI tomonidan strukturizatsiya qilingan ma'lumotlar
+model StructuredDocument {
+  id                Int       @id @default(autoincrement())
+  taskDocumentId    Int       @unique
+  taskId            Int
+  documentType      DocumentType
+  structuredData    Json      // AI tomonidan strukturizatsiya qilingan JSON
+  extractedAt       DateTime  @default(now())
+  task              Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskDocument      TaskDocument @relation(fields: [taskDocumentId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([taskDocumentId])
+  @@index([documentType])
+}
+
+// AI tekshiruv natijalari
+model AiCheck {
+  id                Int       @id @default(autoincrement())
+  taskId            Int
+  checkType         AiCheckType
+  result            AiCheckResult
+  details           Json      // AI findings va comparison results
+  createdAt         DateTime  @default(now())
+  task              Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([checkType])
+  @@index([result])
+  @@index([createdAt])
+}
+
+enum DocumentType {
+  INVOICE
+  ST
+  FITO
+  OTHER
+}
+
+enum AiCheckType {
+  INVOICE_ST
+}
+
+enum AiCheckResult {
+  PASS
+  FAIL
 }
 
 model ArchiveDocument {

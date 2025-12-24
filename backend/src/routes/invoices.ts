@@ -487,46 +487,78 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
 
     console.log('Company settings found');
 
+    // Contract ma'lumotlarini olish
+    let contract = null;
+    if (invoice.contractId) {
+      try {
+        contract = await prisma.contract.findUnique({
+          where: { id: invoice.contractId }
+        });
+        console.log('Contract found:', contract ? `ID ${contract.id}` : 'not found');
+      } catch (contractError) {
+        console.error('Error fetching contract:', contractError);
+      }
+    } else {
+      console.log('No contractId in invoice');
+    }
+
     // PDF generatsiya
     try {
       console.log('Starting PDF generation...');
-      const doc = generateInvoicePDF({
-        invoice: {
-          ...invoice,
-          totalAmount: Number(invoice.totalAmount),
-          items: invoice.items.map(item => ({
-            ...item,
-            quantity: Number(item.quantity) || 0,
-            grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
-            netWeight: item.netWeight ? Number(item.netWeight) : null,
-            unitPrice: Number(item.unitPrice) || 0,
-            totalPrice: Number(item.totalPrice) || 0,
-          }))
-        },
-        client: invoice.client,
-        company: companySettings,
-      });
+      
+      let doc;
+      try {
+        doc = generateInvoicePDF({
+          invoice: {
+            ...invoice,
+            totalAmount: Number(invoice.totalAmount),
+            items: invoice.items.map(item => ({
+              ...item,
+              quantity: Number(item.quantity) || 0,
+              grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
+              netWeight: item.netWeight ? Number(item.netWeight) : null,
+              unitPrice: Number(item.unitPrice) || 0,
+              totalPrice: Number(item.totalPrice) || 0,
+            }))
+          },
+          client: invoice.client,
+          company: companySettings,
+          contract: contract,
+        });
+      } catch (genError: any) {
+        console.error('Error in generateInvoicePDF call:', genError);
+        throw genError; // Re-throw to be caught by outer catch
+      }
 
       console.log('PDF document created, setting headers...');
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`);
       
-      // Error handling for PDF stream
-      doc.on('error', (err) => {
-        console.error('PDF stream error:', err);
+      try {
+        res.setHeader('Content-Type', 'application/pdf; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`);
+        
+        // Error handling for PDF stream
+        doc.on('error', (err) => {
+          console.error('PDF stream error:', err);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'PDF generatsiya xatoligi: ' + err.message });
+          }
+        });
+
+        res.on('error', (err) => {
+          console.error('Response stream error:', err);
+        });
+
+        console.log('Piping PDF to response...');
+        doc.pipe(res);
+        doc.end();
+        console.log('PDF generation completed');
+      } catch (pipeError: any) {
+        console.error('Error in pipe/setHeader:', pipeError);
         if (!res.headersSent) {
-          res.status(500).json({ error: 'PDF generatsiya xatoligi: ' + err.message });
+          res.status(500).json({ error: 'PDF generatsiya xatoligi: ' + (pipeError.message || 'Noma\'lum xatolik') });
         }
-      });
-
-      res.on('error', (err) => {
-        console.error('Response stream error:', err);
-      });
-
-      console.log('Piping PDF to response...');
-      doc.pipe(res);
-      doc.end();
-      console.log('PDF generation completed');
+        throw pipeError;
+      }
     } catch (pdfError: any) {
       console.error('Error in PDF generation:', pdfError);
       console.error('Error stack:', pdfError.stack);

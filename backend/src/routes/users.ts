@@ -203,7 +203,7 @@ const updateUserSchema = z.object({
   email: z.string().email().optional(),
   password: z.string().min(6).optional(),
   role: z.enum(['ADMIN', 'MANAGER', 'DEKLARANT']).optional(),
-  branchId: z.number().optional(),
+  branchId: z.union([z.number(), z.null()]).optional(),
   position: z.string().optional(),
   salary: z.number().optional(),
   active: z.boolean().optional(),
@@ -211,7 +211,10 @@ const updateUserSchema = z.object({
 
 router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
   const parsed = updateUserSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!parsed.success) {
+    console.error('Validation error:', parsed.error);
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
   const data: any = { ...parsed.data };
   
   if (data.password) {
@@ -232,9 +235,10 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
   }
 
   // BranchId logic: Manager roli uchun branchId null bo'lishi kerak
+  // Agar branchId undefined bo'lsa, o'zgartirmaymiz (mavjud qiymatni saqlaymiz)
   if (data.role === 'MANAGER') {
     data.branchId = null;
-  } else if (data.role === 'DEKLARANT' && !data.branchId) {
+  } else if (data.role === 'DEKLARANT' && data.branchId === undefined) {
     // Agar Deklarant roli tanlangan va branchId berilmagan bo'lsa, default branch olish
     const firstBranch = await prisma.branch.findFirst();
     if (firstBranch) {
@@ -242,6 +246,12 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
     } else {
       return res.status(400).json({ error: 'Deklarant roli uchun filial tanlash majburiy. Iltimos, filial yarating.' });
     }
+  }
+  
+  // Agar branchId null bo'lsa, uni to'g'ridan-to'g'ri yuboramiz
+  // Agar branchId undefined bo'lsa, uni data'dan olib tashlaymiz (mavjud qiymatni saqlash uchun)
+  if (data.branchId === undefined) {
+    delete data.branchId;
   }
   
   const user = await prisma.user.update({

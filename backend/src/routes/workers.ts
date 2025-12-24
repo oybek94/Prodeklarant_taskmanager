@@ -1,8 +1,54 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, AuthRequest } from '../middleware/auth';
 
 const router = Router();
+
+// GET /api/workers - Get all workers (users with DEKLARANT or ADMIN role)
+router.get('/', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const user = req.user;
+    
+    // If user is not ADMIN, show only their own data
+    const where: any = {};
+    if (user && user.role !== 'ADMIN') {
+      where.id = user.id;
+    }
+    
+    const workers = await prisma.user.findMany({
+      where: {
+        ...where,
+        role: {
+          in: ['DEKLARANT', 'ADMIN'],
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        branchId: true,
+        position: true,
+        salary: true,
+        active: true,
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+    
+    res.json(workers);
+  } catch (error: any) {
+    console.error('Error fetching workers:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
 
 router.get('/:id/stats', requireAuth(), async (req, res) => {
   const workerId = parseInt(req.params.id);

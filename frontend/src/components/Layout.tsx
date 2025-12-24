@@ -83,12 +83,12 @@ const Layout = () => {
   };
 
   const menuItems = [
-    { path: '/dashboard', label: 'Dashboard' },
+    { path: '/dashboard', label: 'Dashboard', adminOnly: true },
     { path: '/tasks', label: 'Tasks' },
     { path: '/transactions', label: 'Transactions' },
     { path: '/finance', label: 'Pul nazorati', adminOnly: true },
     { path: '/invoices', label: 'Invoice\'lar', adminOnly: true },
-    { path: '/clients', label: 'Clients' },
+    { path: '/clients', label: 'Clients', adminOnly: true },
     { path: '/training', label: 'O\'qitish' },
     { path: '/training/manage', label: 'O\'qitish Boshqaruvi', adminOnly: true },
     { path: '/workers', label: 'Workers' },

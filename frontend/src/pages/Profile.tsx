@@ -197,11 +197,13 @@ const Profile = () => {
         role: editForm.role,
         salary: editForm.salary ? parseFloat(editForm.salary) : undefined,
       };
-      if (editForm.branchId) {
-        updateData.branchId = parseInt(editForm.branchId);
-      } else if (editForm.role === 'MANAGER') {
+      // BranchId ni yuborish - agar tanlangan bo'lsa yoki MANAGER bo'lsa
+      if (editForm.role === 'MANAGER') {
         updateData.branchId = null;
+      } else if (editForm.branchId) {
+        updateData.branchId = parseInt(editForm.branchId);
       }
+      // Agar branchId bo'sh bo'lsa va MANAGER bo'lmasa, branchId ni yubormaymiz (mavjud qiymat saqlanadi)
       if (editForm.password) {
         updateData.password = editForm.password;
       }

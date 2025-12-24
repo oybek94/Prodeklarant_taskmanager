@@ -612,7 +612,7 @@ const Clients = () => {
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
             style={{
               animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
             }}
@@ -674,6 +674,138 @@ const Clients = () => {
                 />
               </div>
 
+              {/* Shartnoma ma'lumotlari */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Shartnoma ma'lumotlari (Invoice uchun)</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma raqami</label>
+                      <input
+                        type="text"
+                        value={form.contractNumber}
+                        onChange={(e) => setForm({ ...form, contractNumber: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="Masalan: RVI-FER-291019"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ИНН</label>
+                      <input
+                        type="text"
+                        value={form.inn}
+                        onChange={(e) => setForm({ ...form, inn: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Manzil (Адрес)</label>
+                    <input
+                      type="text"
+                      value={form.address}
+                      onChange={(e) => setForm({ ...form, address: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Bank ma'lumotlari</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank nomi</label>
+                        <input
+                          type="text"
+                          value={form.bankName}
+                          onChange={(e) => setForm({ ...form, bankName: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank manzili</label>
+                        <input
+                          type="text"
+                          value={form.bankAddress}
+                          onChange={(e) => setForm({ ...form, bankAddress: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Текущий счет</label>
+                          <input
+                            type="text"
+                            value={form.bankAccount}
+                            onChange={(e) => setForm({ ...form, bankAccount: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Транзитный счет</label>
+                          <input
+                            type="text"
+                            value={form.transitAccount}
+                            onChange={(e) => setForm({ ...form, transitAccount: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">SWIFT</label>
+                        <input
+                          type="text"
+                          value={form.bankSwift}
+                          onChange={(e) => setForm({ ...form, bankSwift: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                      <div className="border-t border-gray-200 pt-3">
+                        <h5 className="text-sm font-medium text-gray-700 mb-2">Korrespondent bank</h5>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Bank nomi</label>
+                            <input
+                              type="text"
+                              value={form.correspondentBank}
+                              onChange={(e) => setForm({ ...form, correspondentBank: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Кор счет</label>
+                              <input
+                                type="text"
+                                value={form.correspondentBankAccount}
+                                onChange={(e) => setForm({ ...form, correspondentBankAccount: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">SWIFT</label>
+                              <input
+                                type="text"
+                                value={form.correspondentBankSwift}
+                                onChange={(e) => setForm({ ...form, correspondentBankSwift: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               {/* Nasiya shartlari */}
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
@@ -1172,7 +1304,7 @@ const Clients = () => {
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
             style={{
               animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
             }}
@@ -1239,6 +1371,138 @@ const Clients = () => {
                 />
               </div>
 
+              {/* Shartnoma ma'lumotlari */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Shartnoma ma'lumotlari (Invoice uchun)</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma raqami</label>
+                      <input
+                        type="text"
+                        value={editForm.contractNumber}
+                        onChange={(e) => setEditForm({ ...editForm, contractNumber: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="Masalan: RVI-FER-291019"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ИНН</label>
+                      <input
+                        type="text"
+                        value={editForm.inn}
+                        onChange={(e) => setEditForm({ ...editForm, inn: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Manzil (Адрес)</label>
+                    <input
+                      type="text"
+                      value={editForm.address}
+                      onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Bank ma'lumotlari</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank nomi</label>
+                        <input
+                          type="text"
+                          value={editForm.bankName}
+                          onChange={(e) => setEditForm({ ...editForm, bankName: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank manzili</label>
+                        <input
+                          type="text"
+                          value={editForm.bankAddress}
+                          onChange={(e) => setEditForm({ ...editForm, bankAddress: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Текущий счет</label>
+                          <input
+                            type="text"
+                            value={editForm.bankAccount}
+                            onChange={(e) => setEditForm({ ...editForm, bankAccount: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Транзитный счет</label>
+                          <input
+                            type="text"
+                            value={editForm.transitAccount}
+                            onChange={(e) => setEditForm({ ...editForm, transitAccount: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">SWIFT</label>
+                        <input
+                          type="text"
+                          value={editForm.bankSwift}
+                          onChange={(e) => setEditForm({ ...editForm, bankSwift: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                      <div className="border-t border-gray-200 pt-3">
+                        <h5 className="text-sm font-medium text-gray-700 mb-2">Korrespondent bank</h5>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Bank nomi</label>
+                            <input
+                              type="text"
+                              value={editForm.correspondentBank}
+                              onChange={(e) => setEditForm({ ...editForm, correspondentBank: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Кор счет</label>
+                              <input
+                                type="text"
+                                value={editForm.correspondentBankAccount}
+                                onChange={(e) => setEditForm({ ...editForm, correspondentBankAccount: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">SWIFT</label>
+                              <input
+                                type="text"
+                                value={editForm.correspondentBankSwift}
+                                onChange={(e) => setEditForm({ ...editForm, correspondentBankSwift: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               {/* Nasiya shartlari */}
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>

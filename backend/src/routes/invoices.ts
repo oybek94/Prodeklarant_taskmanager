@@ -509,22 +509,22 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
       let doc;
       try {
         doc = generateInvoicePDF({
-          invoice: {
-            ...invoice,
-            totalAmount: Number(invoice.totalAmount),
-            items: invoice.items.map(item => ({
-              ...item,
-              quantity: Number(item.quantity) || 0,
-              grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
-              netWeight: item.netWeight ? Number(item.netWeight) : null,
-              unitPrice: Number(item.unitPrice) || 0,
-              totalPrice: Number(item.totalPrice) || 0,
-            }))
-          },
-          client: invoice.client,
-          company: companySettings,
+        invoice: {
+          ...invoice,
+          totalAmount: Number(invoice.totalAmount),
+          items: invoice.items.map(item => ({
+            ...item,
+            quantity: Number(item.quantity) || 0,
+            grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
+            netWeight: item.netWeight ? Number(item.netWeight) : null,
+            unitPrice: Number(item.unitPrice) || 0,
+            totalPrice: Number(item.totalPrice) || 0,
+          }))
+        },
+        client: invoice.client,
+        company: companySettings,
           contract: contract,
-        });
+      });
       } catch (genError: any) {
         console.error('Error in generateInvoicePDF call:', genError);
         throw genError; // Re-throw to be caught by outer catch
@@ -534,24 +534,24 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
       
       try {
         res.setHeader('Content-Type', 'application/pdf; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`);
-        
-        // Error handling for PDF stream
-        doc.on('error', (err) => {
-          console.error('PDF stream error:', err);
-          if (!res.headersSent) {
-            res.status(500).json({ error: 'PDF generatsiya xatoligi: ' + err.message });
-          }
-        });
+      res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`);
+      
+      // Error handling for PDF stream
+      doc.on('error', (err) => {
+        console.error('PDF stream error:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'PDF generatsiya xatoligi: ' + err.message });
+        }
+      });
 
-        res.on('error', (err) => {
-          console.error('Response stream error:', err);
-        });
+      res.on('error', (err) => {
+        console.error('Response stream error:', err);
+      });
 
-        console.log('Piping PDF to response...');
-        doc.pipe(res);
-        doc.end();
-        console.log('PDF generation completed');
+      console.log('Piping PDF to response...');
+      doc.pipe(res);
+      doc.end();
+      console.log('PDF generation completed');
       } catch (pipeError: any) {
         console.error('Error in pipe/setHeader:', pipeError);
         if (!res.headersSent) {

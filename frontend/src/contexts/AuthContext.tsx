@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (refreshToken && error.response?.status === 401) {
             try {
               const refreshResponse = await axios.post(
-                `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/auth/refresh`,
+                `${import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')}/auth/refresh`,
                 { refreshToken }
               );
               const { accessToken: newAccessToken, refreshToken: newRefreshToken } = refreshResponse.data;

@@ -620,8 +620,8 @@ const Tasks = () => {
 
   const openPreview = (fileUrl: string, fileType: string, fileName: string) => {
     // URL'ni to'g'ri qurish - baseURL'dan /api ni olib tashlaymiz
-    const baseUrl = apiClient.defaults.baseURL || 'http://localhost:3001/api';
-    const serverBaseUrl = baseUrl.replace('/api', ''); // http://localhost:3001
+    const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+    const serverBaseUrl = baseUrl.replace('/api', '') || (import.meta.env.PROD ? '' : 'http://localhost:3001');
     
     const urlParts = fileUrl.split('/');
     const fileNamePart = urlParts[urlParts.length - 1];
@@ -651,8 +651,8 @@ const Tasks = () => {
 
   const downloadDocument = (fileUrl: string) => {
     // URL'ni to'g'ri qurish - baseURL'dan /api ni olib tashlaymiz
-    const baseUrl = apiClient.defaults.baseURL || 'http://localhost:3001/api';
-    const serverBaseUrl = baseUrl.replace('/api', ''); // http://localhost:3001
+    const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+    const serverBaseUrl = baseUrl.replace('/api', '') || (import.meta.env.PROD ? '' : 'http://localhost:3001');
     
     // Fayl URL'i /uploads/documents/... ko'rinishida
     const urlParts = fileUrl.split('/');

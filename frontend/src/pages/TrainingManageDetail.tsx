@@ -157,8 +157,8 @@ export default function TrainingManageDetail() {
       let fullUrl = fileUrl;
       if (!fileUrl.startsWith('http')) {
         // API base URL'dan server base URL'ni olish (/api ni olib tashlash)
-        const apiBaseUrl = apiClient.defaults.baseURL || 'http://localhost:3001/api';
-        const serverBaseUrl = apiBaseUrl.replace('/api', '');
+        const apiBaseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+        const serverBaseUrl = apiBaseUrl.replace('/api', '') || (import.meta.env.PROD ? '' : 'http://localhost:3001');
         fullUrl = `${serverBaseUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
       }
       

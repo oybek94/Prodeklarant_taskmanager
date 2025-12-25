@@ -42,15 +42,9 @@ router.post(
   requireAuth(),
   upload.single('file'),
   async (req: AuthRequest, res) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:44',message:'POST /:id/documents entry',data:{taskId:req.params.id,hasFile:!!req.file,bodyKeys:Object.keys(req.body)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     try {
       const taskId = parseInt(req.params.id);
       const user = req.user;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:47',message:'After parsing taskId',data:{taskId,hasUser:!!user,userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
 
       if (!user) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -62,9 +56,6 @@ router.post(
 
       // Validate request
       const parsed = uploadDocumentSchema.safeParse(req.body);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:59',message:'After schema validation',data:{success:parsed.success,parsedData:parsed.success?parsed.data:null,errors:parsed.success?null:parsed.error.flatten()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       if (!parsed.success) {
         // Clean up uploaded file
         await fs.unlink(req.file.path).catch(() => {});
@@ -96,7 +87,6 @@ router.post(
 
       // Process document
       const documentService = new DocumentService(prisma);
-      const aiService = new AiService(prisma);
 
       // Avval documentType ustunining mavjudligini tekshiramiz (transaction'dan oldin)
       let hasDocumentTypeColumn = false;
@@ -104,24 +94,12 @@ router.post(
         // Test query to check if documentType column exists
         await prisma.$queryRaw`SELECT "documentType" FROM "TaskDocument" LIMIT 1`;
         hasDocumentTypeColumn = true;
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:100',message:'documentType column exists',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
       } catch (checkError: any) {
         // Column doesn't exist
         hasDocumentTypeColumn = false;
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:107',message:'documentType column does not exist',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
       }
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:111',message:'Before transaction',data:{taskId,fileName:req.file!.filename,fileSize:req.file!.size,documentType:parsed.data.documentType,hasDocumentTypeColumn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       const result = await prisma.$transaction(async (tx) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:95',message:'Before taskDocument.create',data:{taskId,name:parsed.data.name,documentType:parsed.data.documentType||'OTHER'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         // Create task document record
         const documentData: any = {
           taskId,
@@ -144,14 +122,8 @@ router.post(
           taskDocument = await tx.taskDocument.create({
             data: documentData,
           });
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:142',message:'TaskDocument created with Prisma (has documentType)',data:{taskDocumentId:taskDocument.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
         } else {
           // Ustun yo'q - raw SQL ishlatamiz
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:150',message:'Using raw SQL insert (no documentType column)',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
           // Raw SQL bilan insert qilamiz va natijani qaytaramiz
           const insertedRows = await (tx as any).$queryRaw`
             INSERT INTO "TaskDocument" ("taskId", "name", "fileUrl", "fileType", "fileSize", "description", "uploadedById", "createdAt")
@@ -160,13 +132,7 @@ router.post(
           `;
           
           taskDocument = insertedRows[0];
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:162',message:'TaskDocument created with raw SQL',data:{taskDocumentId:taskDocument.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:130',message:'TaskDocument created successfully',data:{taskDocumentId:taskDocument.id,hasDocumentType:hasDocumentTypeColumn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
 
         // Extract text from PDF
         await documentService.processPdfDocument(
@@ -175,6 +141,7 @@ router.post(
         );
 
         // If document type is INVOICE or ST, structure with AI
+        const aiService = new AiService(tx);
         if (
           parsed.data.documentType === 'INVOICE' ||
           parsed.data.documentType === 'ST'
@@ -193,22 +160,100 @@ router.post(
           }
         }
 
-        return taskDocument;
+        // If ST is uploaded and Invoice exists, run AI comparison
+        let aiCheckResult = null;
+        if (parsed.data.documentType === 'ST') {
+          try {
+            // Check if Invoice exists
+            const invoiceDoc = await tx.taskDocument.findFirst({
+              where: {
+                taskId,
+                documentType: 'INVOICE',
+              },
+              include: {
+                metadata: true,
+                structuredData: true,
+              },
+            });
+
+            if (invoiceDoc && invoiceDoc.metadata && invoiceDoc.structuredData) {
+              // Get ST metadata and structured data
+              const stDoc = await tx.taskDocument.findUnique({
+                where: { id: taskDocument.id },
+                include: {
+                  metadata: true,
+                  structuredData: true,
+                },
+              });
+
+              if (stDoc && stDoc.metadata && stDoc.structuredData) {
+                // Run AI comparison
+                const comparisonResult = await aiService.compareDocuments(
+                  invoiceDoc.metadata.extractedText,
+                  invoiceDoc.structuredData.structuredData as any,
+                  stDoc.metadata.extractedText,
+                  stDoc.structuredData.structuredData as any
+                );
+
+                // Determine result: FAIL if any critical errors, otherwise PASS
+                const hasCriticalErrors = comparisonResult.some(
+                  (f) => f.severity === 'critical'
+                );
+                const result: 'PASS' | 'FAIL' = hasCriticalErrors ? 'FAIL' : 'PASS';
+
+                // Save AI check result - handle case when table doesn't exist
+                try {
+                  await tx.aiCheck.create({
+                    data: {
+                      taskId,
+                      checkType: 'INVOICE_ST',
+                      result,
+                      details: { findings: comparisonResult },
+                    },
+                  });
+                } catch (aiCheckError: any) {
+                  // If table doesn't exist, log warning but don't fail
+                  const isTableMissing = 
+                    aiCheckError?.code === 'P2021' || 
+                    aiCheckError?.code === 'P2010' ||
+                    aiCheckError?.prismaError?.code === '42P01' ||
+                    aiCheckError?.message?.includes('does not exist') ||
+                    aiCheckError?.message?.includes('не существует');
+                  
+                  if (isTableMissing) {
+                    console.warn('AiCheck table does not exist, skipping save');
+                  } else {
+                    // Other error - log but don't fail the upload
+                    console.error('Error saving AI check:', aiCheckError);
+                  }
+                }
+
+                aiCheckResult = {
+                  result,
+                  findings: comparisonResult,
+                };
+              }
+            }
+          } catch (aiError) {
+            console.error('AI comparison error:', aiError);
+            // Don't fail the upload if AI check fails
+          }
+        }
+
+        return { taskDocument, aiCheckResult };
       });
 
       res.json({
         success: true,
         document: {
-          id: result.id,
-          name: result.name,
-          fileUrl: result.fileUrl,
-          documentType: (result as any).documentType || null,
+          id: result.taskDocument.id,
+          name: result.taskDocument.name,
+          fileUrl: result.taskDocument.fileUrl,
+          documentType: (result.taskDocument as any).documentType || null,
         },
+        aiCheck: result.aiCheckResult || null,
       });
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'task-documents.ts:144',message:'Error in POST /:id/documents',data:{errorMessage:error instanceof Error?error.message:String(error),errorName:error instanceof Error?error.name:'Unknown',errorCode:(error as any)?.code,prismaError:(error as any)?.meta,errorStack:error instanceof Error?error.stack:'No stack'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
-      // #endregion
       // Clean up uploaded file on error
       if (req.file) {
         await fs.unlink(req.file.path).catch(() => {});

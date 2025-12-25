@@ -30,18 +30,38 @@ router.get('/:id/ai-checks', requireAuth(), async (req: AuthRequest, res) => {
       return res.status(403).json({ error: 'Bu taskga kirish huquqingiz yo\'q' });
     }
 
-    // Get AI checks
-    const aiChecks = await prisma.aiCheck.findMany({
-      where: { taskId },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        checkType: true,
-        result: true,
-        details: true,
-        createdAt: true,
-      },
-    });
+    // Get AI checks - handle case when table doesn't exist
+    let aiChecks: any[] = [];
+    try {
+      aiChecks = await prisma.aiCheck.findMany({
+        where: { taskId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          checkType: true,
+          result: true,
+          details: true,
+          createdAt: true,
+        },
+      });
+    } catch (dbError: any) {
+      // If table doesn't exist, return empty array
+      const isTableMissing = 
+        dbError?.code === 'P2021' || 
+        dbError?.code === 'P2010' ||
+        dbError?.prismaError?.code === '42P01' ||
+        dbError?.message?.includes('does not exist') ||
+        dbError?.message?.includes('не существует') ||
+        dbError?.message?.includes('relation') && dbError?.message?.includes('does not exist');
+      
+      if (isTableMissing) {
+        console.warn('AiCheck table does not exist, returning empty array');
+        aiChecks = [];
+      } else {
+        // Other database error - rethrow
+        throw dbError;
+      }
+    }
 
     res.json({
       success: true,

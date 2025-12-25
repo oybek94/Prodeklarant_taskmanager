@@ -112,6 +112,14 @@ app.use('/api/bxm', bxmRouter);
 app.use('/api/training', trainingRouter);
 app.use('/api/exams', examsRouter);
 app.use('/api/upload', uploadRouter);
+// #region agent log
+// Log all requests to /api/documents before routing
+app.use('/api/documents', (req, res, next) => {
+  fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.ts:115',message:'Request to /api/documents before router',data:{method:req.method,path:req.path,originalUrl:req.originalUrl,baseUrl:req.baseUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  next();
+});
+fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.ts:118',message:'Registering documents router',data:{path:'/api/documents'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+// #endregion
 app.use('/api/documents', documentsRouter);
 app.use('/api/finance', financeRouter);
 app.use('/api/invoices', requireAuth(), invoicesRouter);

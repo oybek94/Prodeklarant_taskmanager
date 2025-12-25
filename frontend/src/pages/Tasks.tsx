@@ -116,6 +116,8 @@ const Tasks = () => {
   });
   const [taskDocuments, setTaskDocuments] = useState<any[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [aiChecks, setAiChecks] = useState<any[]>([]);
+  const [loadingAiChecks, setLoadingAiChecks] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [documentNames, setDocumentNames] = useState<string[]>([]);
@@ -124,6 +126,20 @@ const Tasks = () => {
   const [invoiceUploadFile, setInvoiceUploadFile] = useState<File | null>(null);
   const [invoiceUploadName, setInvoiceUploadName] = useState<string>('Invoice');
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
+  const [showSTUploadModal, setShowSTUploadModal] = useState(false);
+  const [stUploadFile, setStUploadFile] = useState<File | null>(null);
+  const [stUploadName, setStUploadName] = useState<string>('ST');
+  const [uploadingST, setUploadingST] = useState(false);
+  const [aiCheckResult, setAiCheckResult] = useState<{
+    result: 'PASS' | 'FAIL';
+    findings: Array<{
+      field: string;
+      invoice_value: any;
+      st_value: any;
+      severity: 'critical' | 'warning';
+      explanation: string;
+    }>;
+  } | null>(null);
   const [previewDocument, setPreviewDocument] = useState<{ url: string; type: string; name: string } | null>(null);
   const [workers, setWorkers] = useState<{ id: number; name: string; role: string }[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -411,11 +427,30 @@ const Tasks = () => {
       await loadTaskVersions(taskId);
       // Load documents
       await loadTaskDocuments(taskId);
+      // Load AI checks
+      await loadAiChecks(taskId);
     } catch (error) {
       console.error('Error loading task detail:', error);
       alert('Task ma\'lumotlarini yuklashda xatolik');
     } finally {
       setLoadingTask(false);
+    }
+  };
+
+  const loadAiChecks = async (taskId: number) => {
+    try {
+      setLoadingAiChecks(true);
+      const response = await apiClient.get(`/tasks/${taskId}/ai-checks`);
+      if (response.data.success && Array.isArray(response.data.checks)) {
+        setAiChecks(response.data.checks);
+      } else {
+        setAiChecks([]);
+      }
+    } catch (error) {
+      console.error('Error loading AI checks:', error);
+      setAiChecks([]);
+    } finally {
+      setLoadingAiChecks(false);
     }
   };
 
@@ -480,6 +515,53 @@ const Tasks = () => {
       alert(error.response?.data?.error || 'Invoice yuklashda xatolik yuz berdi');
     } finally {
       setUploadingInvoice(false);
+    }
+  };
+
+  const handleSTUpload = async () => {
+    if (!selectedTask || !stUploadFile) {
+      alert('ST PDF faylni tanlang');
+      return;
+    }
+
+    try {
+      setUploadingST(true);
+      setAiCheckResult(null);
+      const formData = new FormData();
+      formData.append('file', stUploadFile);
+      formData.append('name', stUploadName);
+      formData.append('documentType', 'ST');
+
+      const response = await apiClient.post(`/tasks/${selectedTask.id}/documents`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // AI tekshiruv natijasini ko'rsatish
+      if (response.data.aiCheck) {
+        setAiCheckResult(response.data.aiCheck);
+      }
+
+      // ST yuklangandan keyin stage'ni tayyor qilishga harakat qilamiz
+      if (selectedStageForReminder) {
+        setShowSTUploadModal(false);
+        setStUploadFile(null);
+        setStUploadName('ST');
+        // ST yuklangandan keyin stage'ni tayyor qilish
+        await updateStageToReady();
+      } else {
+        setShowSTUploadModal(false);
+        setStUploadFile(null);
+        setStUploadName('ST');
+        await loadTaskDetail(selectedTask.id);
+        await loadTaskDocuments(selectedTask.id);
+      }
+    } catch (error: any) {
+      console.error('Error uploading ST:', error);
+      alert(error.response?.data?.error || 'ST yuklashda xatolik yuz berdi');
+    } finally {
+      setUploadingST(false);
     }
   };
 
@@ -556,6 +638,9 @@ const Tasks = () => {
       return;
     }
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:642',message:'Frontend DELETE request',data:{documentId,url:`/documents/${documentId}`,baseURL:apiClient.defaults.baseURL},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     try {
       await apiClient.delete(`/documents/${documentId}`);
       if (selectedTask) {
@@ -719,6 +804,10 @@ const Tasks = () => {
       if (stage.name === 'Invoys') {
         setSelectedStageForReminder(stage);
         setShowInvoiceUploadModal(true);
+      } else if (stage.name === 'ST') {
+        // ST stage'i uchun ST yuklash modalini ochamiz
+        setSelectedStageForReminder(stage);
+        setShowSTUploadModal(true);
       } else {
         // Boshqa stage'lar uchun eslatma modal
         setSelectedStageForReminder(stage);
@@ -2350,6 +2439,117 @@ const Tasks = () => {
               )}
             </div>
 
+            {/* AI Tekshiruv Natijalari Section */}
+            <div className="mt-6 border-t border-gray-200 pt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">AI Tekshiruv Natijalari</h3>
+                <button
+                  onClick={() => {
+                    if (selectedTask) {
+                      loadAiChecks(selectedTask.id);
+                    }
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                  title="Yangilash"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Yangilash
+                </button>
+              </div>
+              {loadingAiChecks ? (
+                <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+              ) : !Array.isArray(aiChecks) || aiChecks.length === 0 ? (
+                <div className="text-center py-4 text-gray-400">AI tekshiruv natijalari yo'q</div>
+              ) : (
+                <div className="space-y-4">
+                  {aiChecks.map((check: any) => {
+                    const findings = check.details?.findings || [];
+                    const isPass = check.result === 'PASS';
+                    
+                    return (
+                      <div
+                        key={check.id}
+                        className={`p-4 rounded-lg border-2 ${
+                          isPass
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-red-50 border-red-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-lg font-semibold ${
+                              isPass ? 'text-green-700' : 'text-red-700'
+                            }`}>
+                              {isPass ? '✓' : '✗'}
+                            </span>
+                            <div>
+                              <div className={`font-semibold ${
+                                isPass ? 'text-green-700' : 'text-red-700'
+                              }`}>
+                                {check.checkType === 'INVOICE_ST' ? 'Invoice-ST Tekshiruvi' : check.checkType}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(check.createdAt).toLocaleString('uz-UZ', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            isPass
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {isPass ? 'TO\'G\'RI' : 'XATO'}
+                          </span>
+                        </div>
+                        
+                        {findings.length > 0 ? (
+                          <div className="mt-3 space-y-2">
+                            {findings.map((finding: any, idx: number) => (
+                              <div
+                                key={idx}
+                                className={`p-3 rounded ${
+                                  finding.severity === 'critical'
+                                    ? 'bg-red-100 border border-red-300'
+                                    : 'bg-yellow-100 border border-yellow-300'
+                                }`}
+                              >
+                                <div className="font-medium text-sm mb-1">
+                                  {finding.severity === 'critical' ? '🔴 Kritik:' : '⚠️ Ogohlantirish:'} {finding.field}
+                                </div>
+                                <div className="text-xs text-gray-700 mb-1">
+                                  {finding.explanation}
+                                </div>
+                                <div className="text-xs text-gray-600 mt-1">
+                                  <div>Invoice: <span className="font-medium">{JSON.stringify(finding.invoice_value)}</span></div>
+                                  <div>ST: <span className="font-medium">{JSON.stringify(finding.st_value)}</span></div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className={`text-sm mt-2 ${
+                            isPass ? 'text-green-700' : 'text-red-700'
+                          }`}>
+                            {isPass 
+                              ? 'Barcha ma\'lumotlar to\'g\'ri keladi. Xatolik topilmadi.'
+                              : 'Xatoliklar aniqlangan. Yuqoridagi ma\'lumotlarni tekshiring.'}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Versions Section */}
             <div className="mt-6 border-t border-gray-200 pt-6">
               <div className="flex justify-between items-center mb-4">
@@ -2629,6 +2829,175 @@ const Tasks = () => {
                       Bekor qilish
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* ST PDF yuklash modali */}
+            {showSTUploadModal && selectedTask && (
+              <div 
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] backdrop-blur-sm"
+                style={{
+                  animation: 'fadeIn 0.2s ease-out'
+                }}
+                onClick={(e) => {
+                  if (e.target === e.currentTarget && !aiCheckResult) {
+                    setShowSTUploadModal(false);
+                    setStUploadFile(null);
+                    setStUploadName('ST');
+                    setAiCheckResult(null);
+                  }
+                }}
+              >
+                <div
+                  className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+                  style={{
+                    animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  }}
+                >
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                    ST PDF yuklash
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    ST stage'ini tayyor qilish uchun ST PDF yuklanishi shart. Yuklangandan keyin AI tekshiruvdan o'tkaziladi.
+                  </p>
+                  
+                  {!aiCheckResult ? (
+                    <>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Hujjat nomi
+                        </label>
+                        <input
+                          type="text"
+                          value={stUploadName}
+                          onChange={(e) => setStUploadName(e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                          placeholder="ST"
+                        />
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          PDF fayl
+                        </label>
+                        <input
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (file.type !== 'application/pdf') {
+                                alert('Faqat PDF fayllar qabul qilinadi');
+                                return;
+                              }
+                              setStUploadFile(file);
+                              if (!stUploadName || stUploadName === 'ST') {
+                                setStUploadName(file.name.replace('.pdf', ''));
+                              }
+                            }
+                          }}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                        {stUploadFile && (
+                          <p className="mt-2 text-sm text-gray-600">
+                            Tanlangan: {stUploadFile.name}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={handleSTUpload}
+                          disabled={!stUploadFile || uploadingST}
+                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {uploadingST ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowSTUploadModal(false);
+                            setStUploadFile(null);
+                            setStUploadName('ST');
+                            setSelectedStageForReminder(null);
+                            setAiCheckResult(null);
+                          }}
+                          className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                        >
+                          Bekor qilish
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <div className={`mb-4 p-4 rounded-lg ${
+                        aiCheckResult.result === 'PASS' 
+                          ? 'bg-green-50 border-2 border-green-200' 
+                          : 'bg-red-50 border-2 border-red-200'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`text-lg font-semibold ${
+                            aiCheckResult.result === 'PASS' ? 'text-green-700' : 'text-red-700'
+                          }`}>
+                            {aiCheckResult.result === 'PASS' ? '✓' : '✗'}
+                          </span>
+                          <h4 className={`text-lg font-semibold ${
+                            aiCheckResult.result === 'PASS' ? 'text-green-700' : 'text-red-700'
+                          }`}>
+                            AI Tekshiruv Natijasi: {aiCheckResult.result === 'PASS' ? 'TO\'G\'RI' : 'XATO'}
+                          </h4>
+                        </div>
+                        {aiCheckResult.findings.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {aiCheckResult.findings.map((finding, idx) => (
+                              <div 
+                                key={idx}
+                                className={`p-3 rounded ${
+                                  finding.severity === 'critical' 
+                                    ? 'bg-red-100 border border-red-300' 
+                                    : 'bg-yellow-100 border border-yellow-300'
+                                }`}
+                              >
+                                <div className="font-medium text-sm mb-1">
+                                  {finding.severity === 'critical' ? '🔴 Kritik:' : '⚠️ Ogohlantirish:'} {finding.field}
+                                </div>
+                                <div className="text-xs text-gray-700">
+                                  {finding.explanation}
+                                </div>
+                                <div className="text-xs text-gray-600 mt-1">
+                                  Invoice: {JSON.stringify(finding.invoice_value)} | ST: {JSON.stringify(finding.st_value)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {aiCheckResult.findings.length === 0 && (
+                          <p className="text-sm text-green-700">
+                            Barcha ma'lumotlar to'g'ri keladi. Xatolik topilmadi.
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={async () => {
+                            setShowSTUploadModal(false);
+                            setStUploadFile(null);
+                            setStUploadName('ST');
+                            setAiCheckResult(null);
+                            if (selectedStageForReminder) {
+                              await updateStageToReady();
+                            } else {
+                              await loadTaskDetail(selectedTask.id);
+                              await loadTaskDocuments(selectedTask.id);
+                            }
+                          }}
+                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        >
+                          Yopish
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

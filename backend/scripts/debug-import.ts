@@ -130,17 +130,22 @@ async function debugImport() {
   console.log(`Farq: ${importData.tasks.length - existingTasks.length} ta task server'da yo'q`);
   
   // Import fayldagi barcha task'larni server'dagi task'lar bilan solishtirish
-  const importTaskKeys = new Set(
-    importData.tasks.map((t: any) => `${t.title}|${t.clientName}`)
-  );
-  const serverTaskKeys = new Set(
-    existingTasks.map(t => `${t.title}|${t.client.name}`)
-  );
+  const serverTaskMap = new Map<string, { id: number; title: string; clientName: string }>();
+  existingTasks.forEach(t => {
+    const key = `${t.title}|${t.client.name}`;
+    serverTaskMap.set(key, { id: t.id, title: t.title, clientName: t.client.name });
+  });
   
   const missingInServer: any[] = [];
+  const foundTaskIds = new Set<number>();
+  
   for (const taskData of importData.tasks) {
     const key = `${taskData.title}|${taskData.clientName}`;
-    if (!serverTaskKeys.has(key)) {
+    const serverTask = serverTaskMap.get(key);
+    
+    if (serverTask) {
+      foundTaskIds.add(serverTask.id);
+    } else {
       missingInServer.push(taskData);
     }
   }
@@ -150,8 +155,18 @@ async function debugImport() {
     missingInServer.forEach((t, i) => {
       console.log(`\n${i + 1}. "${t.title}"`);
       console.log(`   Client: ${t.clientName}`);
+      console.log(`   Status: ${t.status}`);
+      console.log(`   Created: ${t.createdAt}`);
     });
+  } else {
+    console.log(`\n[INFO] Barcha task'lar server'da topildi!`);
   }
+  
+  console.log(`\n=== Xulosa ===`);
+  console.log(`Import fayldagi task'lar: ${importData.tasks.length}`);
+  console.log(`Server'dagi task'lar: ${existingTasks.length}`);
+  console.log(`Topilgan unique task'lar: ${foundTaskIds.size}`);
+  console.log(`Server'da yo'q task'lar: ${missingInServer.length}`);
   
   if (notFound.length > 0) {
     console.log(`\n=== Topilmagan task'lar (${notFound.length} ta) ===`);

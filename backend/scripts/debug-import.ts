@@ -162,11 +162,37 @@ async function debugImport() {
     console.log(`\n[INFO] Barcha task'lar server'da topildi!`);
   }
   
+  // Duplicate task'larni topish
+  const taskKeyCount = new Map<string, number>();
+  importData.tasks.forEach((t: any) => {
+    const key = `${t.title}|${t.clientName}`;
+    taskKeyCount.set(key, (taskKeyCount.get(key) || 0) + 1);
+  });
+  
+  const duplicates: any[] = [];
+  taskKeyCount.forEach((count, key) => {
+    if (count > 1) {
+      const [title, clientName] = key.split('|');
+      duplicates.push({ title, clientName, count });
+    }
+  });
+  
+  if (duplicates.length > 0) {
+    console.log(`\n=== Duplicate task'lar (${duplicates.length} ta) ===`);
+    duplicates.forEach((d, i) => {
+      console.log(`\n${i + 1}. "${d.title}"`);
+      console.log(`   Client: ${d.clientName}`);
+      console.log(`   Takrorlanish: ${d.count} marta`);
+    });
+  }
+  
   console.log(`\n=== Xulosa ===`);
   console.log(`Import fayldagi task'lar: ${importData.tasks.length}`);
   console.log(`Server'dagi task'lar: ${existingTasks.length}`);
   console.log(`Topilgan unique task'lar: ${foundTaskIds.size}`);
   console.log(`Server'da yo'q task'lar: ${missingInServer.length}`);
+  console.log(`Duplicate task'lar: ${duplicates.length}`);
+  console.log(`Unique task'lar: ${importData.tasks.length - duplicates.reduce((sum, d) => sum + (d.count - 1), 0)}`);
   
   if (notFound.length > 0) {
     console.log(`\n=== Topilmagan task'lar (${notFound.length} ta) ===`);

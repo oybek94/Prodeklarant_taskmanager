@@ -99,19 +99,30 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     });
     
     // Calculate and update status for each task using the new formula
-    for (const task of tasks) {
-      const calculatedStatus = await calculateTaskStatus(prisma, task.id);
-      
-      // Update task status if different
-      if (task.status !== calculatedStatus) {
-        await prisma.task.update({
-          where: { id: task.id },
-          data: { status: calculatedStatus },
-        });
-        (task as any).status = calculatedStatus;
-      } else {
-        // Update the task object with calculated status for response
-        (task as any).status = calculatedStatus;
+    // NOTE: We only recalculate if status filter is not set, to avoid overriding user's filter
+    // If status filter is set, we trust the database value
+    if (!status) {
+      // Only recalculate if no status filter is applied
+      for (const task of tasks) {
+        const calculatedStatus = await calculateTaskStatus(prisma, task.id);
+        
+        // Update task status if different
+        if (task.status !== calculatedStatus) {
+          await prisma.task.update({
+            where: { id: task.id },
+            data: { status: calculatedStatus },
+          });
+          (task as any).status = calculatedStatus;
+        } else {
+          // Update the task object with calculated status for response
+          (task as any).status = calculatedStatus;
+        }
+      }
+    } else {
+      // If status filter is set, use database status directly
+      // This ensures that when user filters by YAKUNLANDI, they get YAKUNLANDI tasks
+      for (const task of tasks) {
+        (task as any).status = task.status;
       }
     }
     

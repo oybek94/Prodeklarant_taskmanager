@@ -7,28 +7,71 @@ export async function archiveTaskDocuments(
   tx: PrismaClient | Prisma.TransactionClient,
   taskId: number
 ): Promise<void> {
-  const task = await (tx as any).task.findUnique({
-    where: { id: taskId },
-    include: {
-      client: { select: { name: true } },
-      branch: { select: { name: true } },
-      documents: true,
-    },
-  });
+  // Task ma'lumotlarini olish (raw SQL yordamida)
+  const taskResult = await (tx as any).$queryRaw<Array<{
+    id: number;
+    title: string;
+    status: string;
+    client_name: string;
+    branch_name: string;
+  }>>`
+    SELECT 
+      t.id,
+      t.title,
+      t.status::text as status,
+      c.name as client_name,
+      b.name as branch_name
+    FROM "Task" t
+    LEFT JOIN "Client" c ON t."clientId" = c.id
+    LEFT JOIN "Branch" b ON t."branchId" = b.id
+    WHERE t.id = ${taskId}
+  `;
 
-  if (!task || task.status !== 'YAKUNLANDI' || task.documents.length === 0) {
-    return; // Task yakunlanmagan yoki hujjatlar yo'q
+  if (!taskResult || taskResult.length === 0) {
+    return; // Task topilmadi
+  }
+
+  const task = taskResult[0];
+
+  if (task.status !== 'YAKUNLANDI') {
+    return; // Task yakunlanmagan
+  }
+
+  // Hujjatlarni raw SQL yordamida olish (documentType column'ni o'tkazib yuborish)
+  const documents = await (tx as any).$queryRaw<Array<{
+    id: number;
+    name: string;
+    fileUrl: string;
+    fileType: string;
+    fileSize: number;
+    description: string | null;
+    uploadedById: number | null;
+  }>>`
+    SELECT 
+      id,
+      name,
+      "fileUrl" as "fileUrl",
+      "fileType" as "fileType",
+      "fileSize" as "fileSize",
+      description,
+      "uploadedById"
+    FROM "TaskDocument"
+    WHERE "taskId" = ${taskId}
+  `;
+
+  if (!documents || documents.length === 0) {
+    return; // Hujjatlar yo'q
   }
 
   // Hujjatlarni arxivga ko'chirish
   await Promise.all(
-    task.documents.map((doc: any) =>
+    documents.map((doc: any) =>
       (tx as any).archiveDocument.create({
         data: {
           taskId: task.id,
           taskTitle: task.title,
-          clientName: task.client.name,
-          branchName: task.branch.name,
+          clientName: task.client_name,
+          branchName: task.branch_name,
           name: doc.name,
           fileUrl: doc.fileUrl,
           fileType: doc.fileType,

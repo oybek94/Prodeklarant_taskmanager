@@ -115,12 +115,43 @@ async function debugImport() {
     });
   }
   
+  // Unique found task IDs
+  const allFoundIds = new Set([...foundByTitle, ...foundByCode, ...foundByCaseInsensitive]);
+  
   console.log('=== Natijalar ===');
   console.log(`Jami import task'lar: ${importData.tasks.length}`);
   console.log(`Topilgan (title): ${foundByTitle.length}`);
   console.log(`Topilgan (code): ${foundByCode.length}`);
   console.log(`Topilgan (case-insensitive): ${foundByCaseInsensitive.length}`);
+  console.log(`Unique topilgan task'lar: ${allFoundIds.size}`);
   console.log(`Topilmagan: ${notFound.length}`);
+  console.log(`\nServer'dagi task'lar soni: ${existingTasks.length}`);
+  console.log(`Import fayldagi task'lar soni: ${importData.tasks.length}`);
+  console.log(`Farq: ${importData.tasks.length - existingTasks.length} ta task server'da yo'q`);
+  
+  // Import fayldagi barcha task'larni server'dagi task'lar bilan solishtirish
+  const importTaskKeys = new Set(
+    importData.tasks.map((t: any) => `${t.title}|${t.clientName}`)
+  );
+  const serverTaskKeys = new Set(
+    existingTasks.map(t => `${t.title}|${t.client.name}`)
+  );
+  
+  const missingInServer: any[] = [];
+  for (const taskData of importData.tasks) {
+    const key = `${taskData.title}|${taskData.clientName}`;
+    if (!serverTaskKeys.has(key)) {
+      missingInServer.push(taskData);
+    }
+  }
+  
+  if (missingInServer.length > 0) {
+    console.log(`\n=== Server'da yo'q task'lar (${missingInServer.length} ta) ===`);
+    missingInServer.forEach((t, i) => {
+      console.log(`\n${i + 1}. "${t.title}"`);
+      console.log(`   Client: ${t.clientName}`);
+    });
+  }
   
   if (notFound.length > 0) {
     console.log(`\n=== Topilmagan task'lar (${notFound.length} ta) ===`);

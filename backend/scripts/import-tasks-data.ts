@@ -59,20 +59,11 @@ async function importTasksData() {
   });
   console.log(`Server'da ${existingTasks.length} ta task mavjud\n`);
   
-  // Unique task'larni ajratish (title + clientName bo'yicha)
-  const uniqueTaskMap = new Map<string, any>();
+  // Barcha task'larni import qilish (duplicate'larni ham)
+  console.log(`Import fayldan ${importData.tasks.length} ta task import qilinmoqda...\n`);
+  
+  // Har bir task'ni import qilish (barcha 103 tasi)
   for (const taskData of importData.tasks) {
-    const key = `${taskData.title}|${taskData.clientName}`;
-    if (!uniqueTaskMap.has(key)) {
-      uniqueTaskMap.set(key, taskData);
-    }
-  }
-  
-  const uniqueTasks = Array.from(uniqueTaskMap.values());
-  console.log(`Import fayldan ${importData.tasks.length} ta task, ${uniqueTasks.length} ta unique task\n`);
-  
-  // Har bir unique task'ni import qilish
-  for (const taskData of uniqueTasks) {
     try {
       // Client'ni topish yoki yaratish
       let clientId = clientCache.get(taskData.clientName);
@@ -215,15 +206,15 @@ async function importTasksData() {
     }
   }
   
-  const skipped = importData.tasks.length - uniqueTasks.length;
-  
   console.log(`\n=== Natijalar ===`);
   console.log(`Import fayldagi task'lar: ${importData.tasks.length}`);
-  console.log(`Unique task'lar: ${uniqueTasks.length}`);
-  console.log(`Skip qilingan (duplicate): ${skipped}`);
   console.log(`Yaratilgan: ${created}`);
   console.log(`Yangilangan: ${updated}`);
   console.log(`Xatolar: ${errors}`);
+  
+  // Final verification
+  const finalTaskCount = await prisma.task.count();
+  console.log(`\nServer'dagi jami task'lar: ${finalTaskCount}`);
 }
 
 importTasksData()

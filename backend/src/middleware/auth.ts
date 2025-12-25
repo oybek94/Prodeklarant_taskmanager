@@ -13,25 +13,31 @@ export interface AuthRequest extends Request {
 export const requireAuth =
   (...roles: string[]) =>
   (req: AuthRequest, res: Response, next: NextFunction) => {
-    const auth = req.headers.authorization;
-    if (!auth?.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-    const token = auth.slice(7);
     try {
-      const payload = verifyAccessToken(token);
-      req.user = {
-        id: payload.sub,
-        role: payload.role,
-        branchId: payload.branchId || null,
-        name: payload.name,
-      };
-      if (roles.length && !roles.includes(payload.role)) {
-        return res.status(403).json({ error: 'Forbidden' });
+      const auth = req.headers.authorization;
+      if (!auth?.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
       }
-      next();
-    } catch (err) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      const token = auth.slice(7);
+      try {
+        const payload = verifyAccessToken(token);
+        req.user = {
+          id: payload.sub,
+          role: payload.role,
+          branchId: payload.branchId || null,
+          name: payload.name,
+        };
+        if (roles.length && !roles.includes(payload.role)) {
+          return res.status(403).json({ error: 'Forbidden' });
+        }
+        next();
+      } catch (err: any) {
+        console.error('JWT verification error:', err.message);
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+    } catch (err: any) {
+      console.error('Auth middleware error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   };
 

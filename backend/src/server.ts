@@ -118,6 +118,15 @@ app.use('/api/invoices', requireAuth(), invoicesRouter);
 app.use('/api/company-settings', companySettingsRouter);
 app.use('/api/contracts', requireAuth(), contractsRouter);
 
+// Global error handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Global error handler:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
+  });
+});
+
 // Server'ni darhol ishga tushirish - database ulanishini kutmasdan
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ API listening on http://localhost:${PORT}`);

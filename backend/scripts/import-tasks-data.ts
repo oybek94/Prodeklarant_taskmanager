@@ -59,8 +59,20 @@ async function importTasksData() {
   });
   console.log(`Server'da ${existingTasks.length} ta task mavjud\n`);
   
-  // Har bir task'ni import qilish
+  // Unique task'larni ajratish (title + clientName bo'yicha)
+  const uniqueTaskMap = new Map<string, any>();
   for (const taskData of importData.tasks) {
+    const key = `${taskData.title}|${taskData.clientName}`;
+    if (!uniqueTaskMap.has(key)) {
+      uniqueTaskMap.set(key, taskData);
+    }
+  }
+  
+  const uniqueTasks = Array.from(uniqueTaskMap.values());
+  console.log(`Import fayldan ${importData.tasks.length} ta task, ${uniqueTasks.length} ta unique task\n`);
+  
+  // Har bir unique task'ni import qilish
+  for (const taskData of uniqueTasks) {
     try {
       // Client'ni topish yoki yaratish
       let clientId = clientCache.get(taskData.clientName);
@@ -198,12 +210,17 @@ async function importTasksData() {
         }
       }
     } catch (error: any) {
-      console.error(`  [ERROR] Task ${taskData.id}: ${error.message}`);
+      console.error(`  [ERROR] Task "${taskData.title.substring(0, 40)}...": ${error.message}`);
       errors++;
     }
   }
   
+  const skipped = importData.tasks.length - uniqueTasks.length;
+  
   console.log(`\n=== Natijalar ===`);
+  console.log(`Import fayldagi task'lar: ${importData.tasks.length}`);
+  console.log(`Unique task'lar: ${uniqueTasks.length}`);
+  console.log(`Skip qilingan (duplicate): ${skipped}`);
   console.log(`Yaratilgan: ${created}`);
   console.log(`Yangilangan: ${updated}`);
   console.log(`Xatolar: ${errors}`);

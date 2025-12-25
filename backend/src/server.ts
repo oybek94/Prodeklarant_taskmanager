@@ -41,21 +41,24 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(origin => ori
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Development: origin yo'q bo'lsa ham ruxsat berish (Postman, curl kabi)
-    if (process.env.NODE_ENV !== 'production' && !origin) {
+    // Agar origin yo'q bo'lsa (masalan, Nginx orqali kelgan so'rovlar), ruxsat berish
+    if (!origin) {
       return callback(null, true);
     }
     
-    // Production: origin bo'lishi shart
-    if (!origin) {
-      return callback(new Error('CORS policy violation: Origin header is required'));
+    // Agar origin allowedOrigins ro'yxatida bo'lsa, ruxsat berish
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
     
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS policy violation'));
+    // Agar origin allowedOrigins ro'yxatida bo'lmasa, lekin production'da bo'lsa, 
+    // ham ruxsat berish (chunki Nginx orqali kelgan so'rovlar origin header bilan kelishi mumkin)
+    if (process.env.NODE_ENV === 'production') {
+      return callback(null, true);
     }
+    
+    // Development'da faqat allowedOrigins ro'yxatidagi originlarga ruxsat berish
+    callback(new Error('CORS policy violation'));
   },
   credentials: true
 }));

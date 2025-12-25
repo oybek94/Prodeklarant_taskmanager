@@ -109,34 +109,41 @@ async function importTasksData() {
       
       if (!task) {
         // Task yaratish
-        task = await prisma.task.create({
-          data: {
-            title: taskData.title,
-            clientId: clientId,
-            branchId: branchId,
-            createdById: adminUser.id,
-            status: taskData.status as any,
-            hasPsr: taskData.hasPsr,
-            driverPhone: taskData.driverPhone,
-            snapshotDealAmount: taskData.snapshotDealAmount ? parseFloat(taskData.snapshotDealAmount) : null,
-            createdAt: new Date(taskData.createdAt),
-            stages: {
-              create: taskData.stages.map((stage: any) => ({
-                name: stage.name,
-                stageOrder: stage.stageOrder,
-                status: stage.status as any,
-                assignedToId: stage.assignedToName ? userCache.get(stage.assignedToName) || null : null,
-                durationMin: stage.durationMin,
-                completedAt: stage.completedAt ? new Date(stage.completedAt) : null,
-              })),
+        try {
+          task = await prisma.task.create({
+            data: {
+              title: taskData.title,
+              clientId: clientId,
+              branchId: branchId,
+              createdById: adminUser.id,
+              status: taskData.status as any,
+              hasPsr: taskData.hasPsr,
+              driverPhone: taskData.driverPhone,
+              snapshotDealAmount: taskData.snapshotDealAmount ? parseFloat(taskData.snapshotDealAmount) : null,
+              createdAt: new Date(taskData.createdAt),
+              stages: {
+                create: taskData.stages.map((stage: any) => ({
+                  name: stage.name,
+                  stageOrder: stage.stageOrder,
+                  status: stage.status as any,
+                  assignedToId: stage.assignedToName ? userCache.get(stage.assignedToName) || null : null,
+                  durationMin: stage.durationMin,
+                  completedAt: stage.completedAt ? new Date(stage.completedAt) : null,
+                })),
+              },
             },
-          },
-          include: {
-            stages: true,
-          },
-        });
-        created++;
-        console.log(`  [CREATED] Task ${task.id}: ${taskData.title.substring(0, 40)}...`);
+            include: {
+              stages: true,
+            },
+          });
+          created++;
+          console.log(`  [CREATED] Task ${task.id}: ${taskData.title.substring(0, 40)}...`);
+        } catch (createError: any) {
+          // Agar yaratishda xatolik bo'lsa, log qilamiz
+          console.error(`  [ERROR] Task yaratishda xatolik: ${taskData.title.substring(0, 40)}... - ${createError.message}`);
+          errors++;
+          continue;
+        }
       } else {
         // Task mavjud, stage'lar va duration'larni yangilash
         for (const stageData of taskData.stages) {

@@ -638,9 +638,6 @@ const Tasks = () => {
       return;
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:642',message:'Frontend DELETE request',data:{documentId,url:`/documents/${documentId}`,baseURL:apiClient.defaults.baseURL},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     try {
       await apiClient.delete(`/documents/${documentId}`);
       if (selectedTask) {

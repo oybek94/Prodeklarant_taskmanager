@@ -290,32 +290,16 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
     // Avval TaskDocument'da qidiramiz
     let document: any = null;
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:318',message:'Before TaskDocument.findUnique',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       // Use raw SQL query to avoid documentType and updatedAt column issues
       // Only select columns that definitely exist in the database
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:324',message:'Before raw SQL query',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-      const queryStartTime = Date.now();
       const result = await prisma.$queryRaw<Array<{id: number, taskId: number, name: string, fileUrl: string, fileType: string, fileSize: number | null, description: string | null, uploadedById: number, createdAt: Date}>>`
         SELECT id, "taskId", name, "fileUrl", "fileType", "fileSize", description, "uploadedById", "createdAt"
         FROM "TaskDocument"
         WHERE id = ${id}
         LIMIT 1
       `;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:332',message:'After raw SQL query',data:{id,queryDuration:Date.now()-queryStartTime,resultCount:result?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       document = result[0] || null;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:328',message:'After TaskDocument.findUnique (raw SQL)',data:{id,found:!!document,documentId:document?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
     } catch (findError: any) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:331',message:'Error finding TaskDocument',data:{id,error:findError?.message,errorCode:findError?.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       console.error(`[DELETE /documents/${id}] Error finding TaskDocument:`, findError);
       // Continue to check ArchiveDocument
     }
@@ -324,46 +308,25 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
 
     // Agar TaskDocument'da topilmasa, ArchiveDocument'da qidiramiz
     if (!document) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:335',message:'Document not in TaskDocument, checking ArchiveDocument',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       try {
         document = await prisma.archiveDocument.findUnique({
           where: { id },
         }) as any;
         isArchive = true;
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:340',message:'Found in ArchiveDocument',data:{id,found:!!document},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
       } catch (archiveError: any) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:343',message:'Error finding ArchiveDocument',data:{id,error:archiveError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         console.error(`[DELETE /documents/${id}] Error finding ArchiveDocument:`, archiveError);
       }
     }
 
     if (!document) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:350',message:'Document not found - returning 404',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       console.log(`[DELETE /documents/${id}] Document not found`);
       return res.status(404).json({ error: 'Hujjat topilmadi' });
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:356',message:'Document found, checking permissions',data:{id,isArchive,uploadedById:document.uploadedById,userId:req.user?.id,userRole:req.user?.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     console.log(`[DELETE /documents/${id}] Document found, isArchive: ${isArchive}`);
 
     // Faqat yuklagan odam yoki admin o'chira oladi
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:378',message:'Checking permissions',data:{id,uploadedById:document.uploadedById,userId:req.user?.id,userRole:req.user?.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     if (document.uploadedById !== req.user!.id && req.user!.role !== 'ADMIN') {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:380',message:'Access denied - returning 403',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       console.log(`[DELETE /documents/${id}] Access denied - not owner and not admin`);
       return res.status(403).json({ error: 'Ruxsat yo\'q' });
     }
@@ -375,13 +338,7 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
       const diffInMs = now.getTime() - uploadTime.getTime();
       const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
       
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:391',message:'Checking 2-day rule',data:{id,diffInDays,createdAt:document.createdAt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       if (diffInDays < 2) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:394',message:'Too soon to delete - returning 403',data:{id,diffInDays},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         console.log(`[DELETE /documents/${id}] Too soon to delete (${diffInDays.toFixed(2)} days)`);
         return res.status(403).json({ 
           error: 'Hujjatni 2 kundan keyin o\'chirish mumkin' 
@@ -390,9 +347,6 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     // Faylni o'chirish
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:402',message:'Starting file deletion',data:{id,fileUrl:document.fileUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     if (document.fileUrl) {
       const filePath = path.join(__dirname, '../../', document.fileUrl);
       console.log(`[DELETE /documents/${id}] Attempting to delete file: ${filePath}`);
@@ -480,35 +434,20 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
       }
 
       // TaskDocument'ni o'chirish
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:490',message:'Before TaskDocument.delete',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       try {
         await prisma.taskDocument.delete({
           where: { id },
         });
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:495',message:'TaskDocument deleted successfully',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         console.log(`[DELETE /documents/${id}] TaskDocument deleted successfully`);
       } catch (deleteError: any) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:499',message:'Error deleting TaskDocument',data:{id,error:deleteError?.message,errorCode:deleteError?.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         console.error(`[DELETE /documents/${id}] Error deleting TaskDocument:`, deleteError);
         throw deleteError;
       }
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:505',message:'Deletion completed successfully - sending response',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     console.log(`[DELETE /documents/${id}] Deletion completed successfully`);
     res.json({ success: true });
   } catch (error) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'documents.ts:535',message:'Error caught in DELETE handler',data:{id:req.params.id,errorMessage:error instanceof Error?error.message:String(error),errorName:error instanceof Error?error.name:'Unknown',hasResponse:!res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     console.error(`[DELETE /documents/${req.params.id}] Error deleting document:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     const errorStack = error instanceof Error ? error.stack : undefined;

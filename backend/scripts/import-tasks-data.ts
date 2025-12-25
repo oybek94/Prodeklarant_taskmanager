@@ -86,16 +86,16 @@ async function importTasksData() {
       }
       
       // Task'ni topish (title, clientId va createdAt bo'yicha - duplicate'larni ham ajratish uchun)
-      // Avval createdAt bo'yicha qidirish (duplicate task'larni ajratish uchun)
       const taskCreatedAt = new Date(taskData.createdAt);
       
+      // Avval createdAt bo'yicha qidirish (duplicate task'larni ajratish uchun)
       let task = await prisma.task.findFirst({
         where: {
           title: taskData.title,
           clientId: clientId,
           createdAt: {
-            gte: new Date(taskCreatedAt.getTime() - 1000), // 1 soniya farq
-            lte: new Date(taskCreatedAt.getTime() + 1000),
+            gte: new Date(taskCreatedAt.getTime() - 2000), // 2 soniya farq
+            lte: new Date(taskCreatedAt.getTime() + 2000),
           },
         },
         include: {
@@ -104,8 +104,10 @@ async function importTasksData() {
       });
       
       // Agar createdAt bo'yicha topilmasa, faqat title va clientId bo'yicha qidirish
+      // Lekin bu holda ham yangi task yaratish mumkin (duplicate bo'lishi mumkin)
       if (!task) {
-        task = await prisma.task.findFirst({
+        // Barcha shu title va client'ga ega task'larni olish
+        const allMatchingTasks = await prisma.task.findMany({
           where: {
             title: taskData.title,
             clientId: clientId,
@@ -114,6 +116,14 @@ async function importTasksData() {
             stages: true,
           },
         });
+        
+        // Agar birorta task topilmasa, yangi task yaratish
+        if (allMatchingTasks.length === 0) {
+          task = null; // Yangi task yaratish
+        } else {
+          // Agar task'lar topilsa, ularni yangilash (birinchisini)
+          task = allMatchingTasks[0];
+        }
       }
       
       // Agar hali ham topilmasa, task code bo'yicha qidirish
@@ -147,8 +157,8 @@ async function importTasksData() {
         });
       }
       
-      // Agar task topilmasa, yangi task yaratish
-      if (!task) {
+      // Agar task topilmasa yoki createdAt farqli bo'lsa, yangi task yaratish
+      if (!task || (task.createdAt.getTime() !== taskCreatedAt.getTime())) {
         // Task yaratish
         try {
           task = await prisma.task.create({

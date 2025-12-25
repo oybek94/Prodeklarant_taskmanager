@@ -76,7 +76,7 @@ async function importTasksData() {
         branchCache.set(taskData.branchName, branchId);
       }
       
-      // Task'ni topish yoki yaratish
+      // Task'ni topish yoki yaratish (title va clientId bo'yicha)
       let task = await prisma.task.findFirst({
         where: {
           title: taskData.title,
@@ -86,6 +86,26 @@ async function importTasksData() {
           stages: true,
         },
       });
+      
+      // Agar title bo'yicha topilmasa, boshqa usul bilan qidirish
+      if (!task) {
+        // Task code'ni ajratib olish
+        const titleParts = taskData.title.split(/\s+/);
+        const taskCode = titleParts.find(p => /^[0-9A-Z]{6,}$/.test(p));
+        
+        if (taskCode) {
+          // Barcha task'larni o'qib, code bo'yicha qidirish
+          const allClientTasks = await prisma.task.findMany({
+            where: { clientId: clientId },
+            include: { stages: true },
+          });
+          
+          task = allClientTasks.find(t => {
+            const tParts = t.title.split(/\s+/);
+            return tParts.some(p => p === taskCode);
+          }) || null;
+        }
+      }
       
       if (!task) {
         // Task yaratish

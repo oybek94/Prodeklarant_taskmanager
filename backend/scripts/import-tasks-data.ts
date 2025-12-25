@@ -85,25 +85,43 @@ async function importTasksData() {
         branchCache.set(taskData.branchName, branchId);
       }
       
-      // Task'ni topish yoki yaratish (title va clientId bo'yicha)
+      // Task'ni topish (title, clientId va createdAt bo'yicha - duplicate'larni ham ajratish uchun)
+      // Avval createdAt bo'yicha qidirish (duplicate task'larni ajratish uchun)
+      const taskCreatedAt = new Date(taskData.createdAt);
+      
       let task = await prisma.task.findFirst({
         where: {
           title: taskData.title,
           clientId: clientId,
+          createdAt: {
+            gte: new Date(taskCreatedAt.getTime() - 1000), // 1 soniya farq
+            lte: new Date(taskCreatedAt.getTime() + 1000),
+          },
         },
         include: {
           stages: true,
         },
       });
       
-      // Agar title bo'yicha topilmasa, boshqa usul bilan qidirish
+      // Agar createdAt bo'yicha topilmasa, faqat title va clientId bo'yicha qidirish
       if (!task) {
-        // Task code'ni ajratib olish
+        task = await prisma.task.findFirst({
+          where: {
+            title: taskData.title,
+            clientId: clientId,
+          },
+          include: {
+            stages: true,
+          },
+        });
+      }
+      
+      // Agar hali ham topilmasa, task code bo'yicha qidirish
+      if (!task) {
         const titleParts = taskData.title.split(/\s+/);
         const taskCode = titleParts.find(p => /^[0-9A-Z]{6,}$/.test(p));
         
         if (taskCode) {
-          // Barcha task'larni o'qib, code bo'yicha qidirish
           const allClientTasks = await prisma.task.findMany({
             where: { clientId: clientId },
             include: { stages: true },
@@ -116,7 +134,7 @@ async function importTasksData() {
         }
       }
       
-      // Agar hali ham topilmasa, to'liq title bo'yicha qidirish (case-insensitive)
+      // Agar hali ham topilmasa, case-insensitive qidirish
       if (!task) {
         task = await prisma.task.findFirst({
           where: {
@@ -129,6 +147,7 @@ async function importTasksData() {
         });
       }
       
+      // Agar task topilmasa, yangi task yaratish
       if (!task) {
         // Task yaratish
         try {

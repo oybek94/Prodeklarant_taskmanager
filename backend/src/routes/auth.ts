@@ -193,20 +193,44 @@ router.get('/client/me', requireAuth(), async (req: AuthRequest, res) => {
 });
 
 router.get('/me', requireAuth(), async (req: AuthRequest, res) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.user!.id },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      branchId: true,
-      position: true,
-      salary: true,
-    },
-  });
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json(user);
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    // Use raw SQL to avoid enum issues
+    const users = await prisma.$queryRaw<Array<{
+      id: number;
+      name: string;
+      email: string;
+      role: string;
+      branchId: number | null;
+      position: string | null;
+      salary: number | null;
+    }>>`
+      SELECT id, name, email, role::text as role, "branchId", position, salary
+      FROM "User"
+      WHERE id = ${req.user.id} AND active = true
+    `;
+    
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = users[0];
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      branchId: user.branchId,
+      position: user.position,
+      salary: user.salary,
+    });
+  } catch (error: any) {
+    console.error('Error in /auth/me:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
 });
 
 export default router;

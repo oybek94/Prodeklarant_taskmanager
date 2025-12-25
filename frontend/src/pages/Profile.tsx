@@ -340,11 +340,17 @@ const Profile = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {stageStats.stageStats.map((stat, idx) => (
+                    {stageStats.stageStats.map((stat, idx) => {
+                      // Calculate stage payment per participation
+                      const stagePayment = stat.participationCount > 0 
+                        ? (Number(stat.earnedAmount) / stat.participationCount) 
+                        : 0;
+                      
+                      return (
                       <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 font-medium text-gray-800">{stat.stageName}</td>
                       <td className="py-3 px-4 text-center text-gray-800 font-semibold">
-                        ${stat.participationCount > 0 ? (Number(stat.earnedAmount) / stat.participationCount).toFixed(2) : '0.00'}
+                        {stagePayment > 0 ? `$${stagePayment.toFixed(2)}` : '-'}
                       </td>
                         <td className="py-3 px-4 text-center text-gray-800 font-semibold">
                           {stat.participationCount}
@@ -353,7 +359,8 @@ const Profile = () => {
                           ${Number(stat.earnedAmount).toFixed(2)}
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>

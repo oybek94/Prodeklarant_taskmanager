@@ -159,36 +159,60 @@ async function importTasksData() {
       
       // Agar task topilmasa yoki createdAt farqli bo'lsa, yangi task yaratish
       if (!task || (task.createdAt.getTime() !== taskCreatedAt.getTime())) {
+        // Task yaratishdan oldin snapshotWorkerPrice ni olish
+        let snapshotWorkerPrice = null;
+        const taskCreatedAtDate = new Date(taskData.createdAt);
+        const statePayment = await prisma.statePayment.findFirst({
+          where: {
+            branchId: branchId,
+            createdAt: { lte: taskCreatedAtDate },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+        
+        if (statePayment) {
+          snapshotWorkerPrice = Number(statePayment.workerPrice);
+        }
+        
         // Task yaratish
         try {
-          task = await prisma.task.create({
-            data: {
-              title: taskData.title,
-              clientId: clientId,
-              branchId: branchId,
-              createdById: adminUser.id,
-              status: taskData.status as any,
-              hasPsr: taskData.hasPsr,
-              driverPhone: taskData.driverPhone,
-              snapshotDealAmount: taskData.snapshotDealAmount ? parseFloat(taskData.snapshotDealAmount) : null,
-              createdAt: new Date(taskData.createdAt),
-              stages: {
-                create: taskData.stages.map((stage: any) => ({
-                  name: stage.name,
-                  stageOrder: stage.stageOrder,
-                  status: stage.status as any,
-                  assignedToId: stage.assignedToName ? userCache.get(stage.assignedToName) || null : null,
-                  durationMin: stage.durationMin,
-                  completedAt: stage.completedAt ? new Date(stage.completedAt) : null,
-                })),
-              },
+          const taskDataToCreate: any = {
+            title: taskData.title,
+            clientId: clientId,
+            branchId: branchId,
+            createdById: adminUser.id,
+            status: taskData.status as any,
+            hasPsr: taskData.hasPsr,
+            driverPhone: taskData.driverPhone,
+            snapshotDealAmount: taskData.snapshotDealAmount ? parseFloat(taskData.snapshotDealAmount) : null,
+            createdAt: taskCreatedAtDate,
+            stages: {
+              create: taskData.stages.map((stage: any) => ({
+                name: stage.name,
+                stageOrder: stage.stageOrder,
+                status: stage.status as any,
+                assignedToId: stage.assignedToName ? userCache.get(stage.assignedToName) || null : null,
+                durationMin: stage.durationMin,
+                completedAt: stage.completedAt ? new Date(stage.completedAt) : null,
+              })),
             },
+          };
+          
+          // snapshotWorkerPrice ni qo'shish
+          if (snapshotWorkerPrice !== null) {
+            taskDataToCreate.snapshotWorkerPrice = snapshotWorkerPrice;
+          }
+          
+          task = await prisma.task.create({
+            data: taskDataToCreate,
             include: {
               stages: true,
             },
           });
           created++;
-          console.log(`  [CREATED] Task ${task.id}: ${taskData.title.substring(0, 40)}...`);
+          console.log(`  [CREATED] Task ${task.id}: ${taskData.title.substring(0, 40)}... (workerPrice: ${snapshotWorkerPrice || 'N/A'})`);
         } catch (createError: any) {
           // Agar yaratishda xatolik bo'lsa, log qilamiz
           console.error(`  [ERROR] Task yaratishda xatolik: ${taskData.title.substring(0, 40)}... - ${createError.message}`);

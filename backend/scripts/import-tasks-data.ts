@@ -53,6 +53,12 @@ async function importTasksData() {
     process.exit(1);
   }
   
+  // Server'dagi barcha task'larni olish (tekshirish uchun)
+  const existingTasks = await prisma.task.findMany({
+    select: { id: true, title: true, clientId: true },
+  });
+  console.log(`Server'da ${existingTasks.length} ta task mavjud\n`);
+  
   // Har bir task'ni import qilish
   for (const taskData of importData.tasks) {
     try {
@@ -105,6 +111,19 @@ async function importTasksData() {
             return tParts.some(p => p === taskCode);
           }) || null;
         }
+      }
+      
+      // Agar hali ham topilmasa, to'liq title bo'yicha qidirish (case-insensitive)
+      if (!task) {
+        task = await prisma.task.findFirst({
+          where: {
+            title: { equals: taskData.title, mode: 'insensitive' },
+            clientId: clientId,
+          },
+          include: {
+            stages: true,
+          },
+        });
       }
       
       if (!task) {

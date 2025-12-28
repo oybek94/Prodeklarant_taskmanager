@@ -805,6 +805,14 @@ const Tasks = () => {
         // ST stage'i uchun ST yuklash modalini ochamiz
         setSelectedStageForReminder(stage);
         setShowSTUploadModal(true);
+      } else if (stage.name === 'Fito' || stage.name === 'FITO') {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:808',message:'Fito stage clicked',data:{stageId:stage.id,stageName:stage.name,stageStatus:stage.status,taskId:selectedTask?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        // Fito stage'i uchun to'g'ridan-to'g'ri tayyor qilishga harakat qilamiz
+        // Backend'da validation qilinadi (Invoice, ST va FITO PDF talab qilinadi)
+        setSelectedStageForReminder(stage);
+        updateStageToReady();
       } else {
         // Boshqa stage'lar uchun eslatma modal
         setSelectedStageForReminder(stage);
@@ -842,21 +850,48 @@ const Tasks = () => {
   };
 
   const updateStageToReady = async (customsPaymentMultiplier?: number) => {
-    if (!selectedStageForReminder || !selectedTask) return;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:849',message:'updateStageToReady entry',data:{hasStage:!!selectedStageForReminder,hasTask:!!selectedTask,stageId:selectedStageForReminder?.id,stageName:selectedStageForReminder?.name,taskId:selectedTask?.id,customsPaymentMultiplier},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    if (!selectedStageForReminder || !selectedTask) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:851',message:'updateStageToReady early return',data:{hasStage:!!selectedStageForReminder,hasTask:!!selectedTask},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      return;
+    }
     
     try {
       setUpdatingStage(selectedStageForReminder.id);
       // Small delay for animation
       await new Promise(resolve => setTimeout(resolve, 300));
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:856',message:'Before API call',data:{taskId:selectedTask.id,stageId:selectedStageForReminder.id,status:'TAYYOR',customsPaymentMultiplier},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       await apiClient.patch(`/tasks/${selectedTask.id}/stages/${selectedStageForReminder.id}`, {
         status: 'TAYYOR',
         ...(customsPaymentMultiplier && { customsPaymentMultiplier }),
+      }).then((response) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:860',message:'API call success',data:{taskId:selectedTask.id,stageId:selectedStageForReminder.id,responseStatus:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        return response;
+      }).catch((error: any) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:863',message:'API call error in catch',data:{errorMessage:error?.message,errorStatus:error?.response?.status,errorData:error?.response?.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        // Xatolik bo'lsa, foydalanuvchiga ko'rsatamiz
+        const errorMessage = error.response?.data?.error || 'Xatolik yuz berdi';
+        alert(errorMessage);
+        throw error;
       });
       await loadTaskDetail(selectedTask.id);
       await loadTasks();
       setShowBXMModal(false);
       setSelectedStageForReminder(null);
     } catch (error: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:869',message:'Error updating stage',data:{errorMessage:error?.message,errorStatus:error?.response?.status,errorData:error?.response?.data,stageName:selectedStageForReminder?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       console.error('Error updating stage:', error);
       
       // Agar Invoys stage'i bo'lsa va Invoice PDF talab qilinsa, modal ochamiz

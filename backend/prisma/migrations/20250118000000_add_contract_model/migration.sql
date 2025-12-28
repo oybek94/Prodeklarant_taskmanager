@@ -65,3 +65,4 @@ ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_contractId_fkey" FOREIGN KEY ("con
 
 
 
+

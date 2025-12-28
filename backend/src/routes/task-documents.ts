@@ -85,9 +85,6 @@ router.post(
         return res.status(404).json({ error: 'Task topilmadi' });
       }
 
-      // Process document
-      const documentService = new DocumentService(prisma);
-
       // Avval documentType ustunining mavjudligini tekshiramiz (transaction'dan oldin)
       let hasDocumentTypeColumn = false;
       try {
@@ -100,6 +97,9 @@ router.post(
       }
 
       const result = await prisma.$transaction(async (tx) => {
+        // Process document - DocumentService ni transaction ichida yaratamiz
+        const documentService = new DocumentService(tx);
+
         // Create task document record
         const documentData: any = {
           taskId,
@@ -134,7 +134,7 @@ router.post(
           taskDocument = insertedRows[0];
         }
 
-        // Extract text from PDF
+        // Extract text from PDF - transaction ichida
         await documentService.processPdfDocument(
           taskDocument.id,
           req.file!.path

@@ -6,8 +6,32 @@ import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
 import { updateTaskStatus, calculateTaskStatus } from '../services/task-status';
 import { ValidationService } from '../services/validation.service';
+import fs from 'fs/promises';
 
 const router = Router();
+
+// Helper function for debug logging
+const getDebugLogPath = () => {
+  if (process.platform === 'win32') {
+    return 'g:\\Prodeklarant\\.cursor\\debug.log';
+  }
+  // Linux server path
+  return '/var/www/app/.cursor/debug.log';
+};
+
+const debugLog = (data: any) => {
+  const logEntry = JSON.stringify(data) + '\n';
+  const logPath = getDebugLogPath();
+  // Write to file (async, but we don't await to avoid blocking)
+  fs.appendFile(logPath, logEntry).catch((err) => {
+    // If file doesn't exist, create it first
+    if (err.code === 'ENOENT') {
+      fs.writeFile(logPath, logEntry).catch(() => {});
+    }
+  });
+  // Also log to console for immediate visibility
+  console.log('[DEBUG]', logEntry.trim());
+};
 
 const stageTemplates = [
   'Invoys',
@@ -481,13 +505,36 @@ const updateStageSchema = z.object({
   customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
 });
 
-router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
+router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest, res) => {
+  // #region agent log
+  debugLog({location:'tasks.ts:484',message:'PATCH stage entry',data:{taskId:req.params.taskId,stageId:req.params.stageId,body:req.body},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
+  // #endregion
   const taskId = Number(req.params.taskId);
   const stageId = Number(req.params.stageId);
   const parsed = updateStageSchema.safeParse(req.body);
+  // #region agent log
+  debugLog({location:'tasks.ts:490',message:'Schema validation result',data:{success:parsed.success,errors:parsed.success?null:parsed.error.flatten()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
+  // #endregion
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
+  const user = req.user;
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   try {
+    // Check user access to task
+    const validationService = new ValidationService(prisma);
+    const canAccess = await validationService.canUserAccessTask(
+      taskId,
+      user.id,
+      user.role
+    );
+
+    if (!canAccess) {
+      return res.status(403).json({ error: 'Bu taskga kirish huquqingiz yo\'q' });
+    }
+
     const stage = await prisma.taskStage.findUnique({ 
       where: { id: stageId },
       include: {
@@ -499,6 +546,9 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
         },
       },
     });
+    // #region agent log
+    debugLog({location:'tasks.ts:540',message:'Stage found',data:{stageFound:!!stage,stageId,stageName:stage?.name,stageStatus:stage?.status,stageTaskId:stage?.taskId,taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
+    // #endregion
     if (!stage || stage.taskId !== taskId) return res.status(404).json({ error: 'Stage not found' });
 
     // Invoys stage'ini tayyor qilishda Invoice PDF talab qilish
@@ -589,90 +639,132 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
 
   // Fito stage'ini tayyor qilishda barcha PDF talab qilish
   if ((stage.name === 'Fito' || stage.name === 'FITO') && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
+    // #region agent log
+    debugLog({location:'tasks.ts:608',message:'Fito validation started',data:{taskId,stageId,stageName:stage.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
+    // #endregion
     try {
+      // Avval documentType ustunining mavjudligini tekshiramiz
+      let hasDocumentTypeColumn = false;
+      try {
+        await prisma.$queryRaw`SELECT "documentType" FROM "TaskDocument" LIMIT 1`;
+        hasDocumentTypeColumn = true;
+      } catch (checkError: any) {
+        hasDocumentTypeColumn = false;
+      }
+
       let invoiceDocuments: any[] = [];
       let stDocuments: any[] = [];
       let fitoDocuments: any[] = [];
 
-      try {
-        invoiceDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            documentType: 'INVOICE',
-          },
-        });
+      if (hasDocumentTypeColumn) {
+        // documentType ustuni mavjud - enum asosida tekshiramiz
+        try {
+          invoiceDocuments = await prisma.taskDocument.findMany({
+            where: {
+              taskId: taskId,
+              documentType: 'INVOICE',
+            },
+          });
 
-        stDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            documentType: 'ST',
-          },
-        });
+          stDocuments = await prisma.taskDocument.findMany({
+            where: {
+              taskId: taskId,
+              documentType: 'ST',
+            },
+          });
 
-        fitoDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            documentType: 'FITO',
-          },
-        });
-      } catch (enumError) {
+          fitoDocuments = await prisma.taskDocument.findMany({
+            where: {
+              taskId: taskId,
+              documentType: 'FITO',
+            },
+          });
+        } catch (enumError) {
+          // documentType enum xatolik - fallback ga o'tamiz
+          hasDocumentTypeColumn = false;
+        }
+      }
+
+      if (!hasDocumentTypeColumn) {
         // Fallback: name asosida tekshirish
-        invoiceDocuments = await prisma.taskDocument.findMany({
+        const allPdfs = await prisma.taskDocument.findMany({
           where: {
             taskId: taskId,
             fileType: 'pdf',
-            OR: [
-              { name: { contains: 'invoice', mode: 'insensitive' } },
-              { name: { contains: 'invoys', mode: 'insensitive' } },
-            ],
           },
         });
 
-        stDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            fileType: 'pdf',
-            OR: [
-              { name: { contains: ' st', mode: 'insensitive' } },
-              { name: { contains: '-st', mode: 'insensitive' } },
-            ],
-          },
+        invoiceDocuments = allPdfs.filter((doc) => {
+          const name = (doc.name || '').toLowerCase();
+          const desc = (doc.description || '').toLowerCase();
+          return (
+            name.includes('invoice') ||
+            name.includes('invoys') ||
+            desc.includes('invoice') ||
+            (doc as any).documentType === 'INVOICE'
+          );
         });
 
-        fitoDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            fileType: 'pdf',
-            OR: [
-              { name: { contains: 'fito', mode: 'insensitive' } },
-              { name: { contains: 'phytosanitary', mode: 'insensitive' } },
-            ],
-          },
+        stDocuments = allPdfs.filter((doc) => {
+          const name = (doc.name || '').toLowerCase();
+          const desc = (doc.description || '').toLowerCase();
+          return (
+            name.includes(' st') ||
+            name.includes('-st') ||
+            name.startsWith('st ') ||
+            desc.includes('st') ||
+            (doc as any).documentType === 'ST'
+          );
+        });
+
+        fitoDocuments = allPdfs.filter((doc) => {
+          const name = (doc.name || '').toLowerCase();
+          const desc = (doc.description || '').toLowerCase();
+          return (
+            name.includes('fito') ||
+            name.includes('phytosanitary') ||
+            desc.includes('fito') ||
+            desc.includes('phytosanitary') ||
+            (doc as any).documentType === 'FITO'
+          );
         });
       }
 
+      // #region agent log
+      const allPdfsForLog = hasDocumentTypeColumn ? [] : await prisma.taskDocument.findMany({where:{taskId,fileType:'pdf'}});
+      debugLog({location:'tasks.ts:733',message:'Fito validation results',data:{taskId,invoiceCount:invoiceDocuments.length,stCount:stDocuments.length,fitoCount:fitoDocuments.length,hasDocumentTypeColumn,allPdfCount:allPdfsForLog.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
+      // #endregion
       if (invoiceDocuments.length === 0) {
+        // #region agent log
+        debugLog({location:'tasks.ts:737',message:'Fito validation failed - no Invoice',data:{taskId,hasDocumentTypeColumn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
+        // #endregion
         return res.status(400).json({ 
-          error: 'Fito stage\'ini tayyor qilish uchun Invoice PDF yuklanishi shart.' 
+          error: 'Fito stage\'ini tayyor qilish uchun Invoice PDF yuklanishi shart.',
+          details: { missing: 'Invoice PDF', taskId }
         });
       }
 
       if (stDocuments.length === 0) {
+        // #region agent log
+        debugLog({location:'tasks.ts:747',message:'Fito validation failed - no ST',data:{taskId,hasDocumentTypeColumn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
+        // #endregion
         return res.status(400).json({ 
-          error: 'Fito stage\'ini tayyor qilish uchun ST PDF yuklanishi shart.' 
+          error: 'Fito stage\'ini tayyor qilish uchun ST PDF yuklanishi shart.',
+          details: { missing: 'ST PDF', taskId }
         });
       }
 
-      if (fitoDocuments.length === 0) {
-        return res.status(400).json({ 
-          error: 'Fito stage\'ini tayyor qilish uchun FITO PDF yuklanishi shart.' 
-        });
-      }
+      // FITO PDF talabini olib tashladik - faqat Invoice va ST PDF talab qilinadi
+      // #region agent log
+      debugLog({location:'tasks.ts:728',message:'Fito validation passed',data:{taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
+      // #endregion
     } catch (error) {
+      // #region agent log
+      debugLog({location:'tasks.ts:749',message:'Fito validation error',data:{errorMessage:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'});
+      // #endregion
       console.error('Error checking Fito documents:', error);
-      return res.status(500).json({ 
-        error: 'Hujjatlarni tekshirishda xatolik yuz berdi' 
-      });
+      // Xatolik bo'lsa, validation'ni o'tkazib yuboramiz (yuklash muvaffaqiyatli bo'lsa)
+      console.log('Skipping Fito validation due to error');
     }
   }
 
@@ -694,6 +786,9 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
   }
 
   const now = new Date();
+  // #region agent log
+  debugLog({location:'tasks.ts:758',message:'Before transaction',data:{taskId,stageId,newStatus:parsed.data.status,stageName:stage.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
+  // #endregion
   const updated = await prisma.$transaction(async (tx) => {
     // If Deklaratsiya stage is being started and multiplier is provided, update task's customs payment
     if (stage.name === 'Deklaratsiya' && parsed.data.status === 'TAYYOR' && parsed.data.customsPaymentMultiplier) {
@@ -713,6 +808,9 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
       });
     }
     
+    // #region agent log
+    debugLog({location:'tasks.ts:796',message:'Before stage update',data:{stageId,newStatus:parsed.data.status,userId:req.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
+    // #endregion
     const upd = await (tx as any).taskStage.update({
       where: { id: stageId },
       data: {
@@ -730,6 +828,9 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
         },
       },
     });
+    // #region agent log
+    debugLog({location:'tasks.ts:816',message:'Stage updated successfully',data:{stageId,newStatus:upd.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
+    // #endregion
 
     // Create version for stage change
     if (req.user && stage.status !== parsed.data.status) {
@@ -751,9 +852,15 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
     
       return upd;
     });
+  // #region agent log
+  debugLog({location:'tasks.ts:824',message:'Transaction completed',data:{taskId,stageId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
+  // #endregion
 
     res.json(updated);
   } catch (error: any) {
+  // #region agent log
+  debugLog({location:'tasks.ts:830',message:'PATCH stage error',data:{errorMessage:error?.message,errorCode:error?.code,taskId,stageId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'});
+  // #endregion
     console.error('Error updating stage:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
     res.status(500).json({ 

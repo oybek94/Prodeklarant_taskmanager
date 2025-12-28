@@ -91,7 +91,7 @@ export class DocumentService {
     taskDocumentId: number,
     filePath: string
   ): Promise<void> {
-    // Extract text from PDF
+    // Extract text from PDF first (this doesn't require database)
     const { text, pageCount } = await this.extractTextFromPdf(filePath);
 
     // Store metadata - check if table exists first
@@ -110,6 +110,45 @@ export class DocumentService {
         },
       });
     } catch (error: any) {
+      // Check for foreign key constraint error
+      if (error?.code === 'P2003' || error?.code === '23503') {
+        // Foreign key constraint failed - TaskDocument might not exist
+        // This can happen if the TaskDocument was created in a transaction that hasn't committed yet
+        // In this case, we should verify the TaskDocument exists in the current transaction context
+        try {
+          const taskDocument = await this.prisma.taskDocument.findUnique({
+            where: { id: taskDocumentId },
+            select: { id: true },
+          });
+
+          if (!taskDocument) {
+            // TaskDocument doesn't exist - this is a real error
+            throw new Error(`TaskDocument with id ${taskDocumentId} does not exist`);
+          }
+
+          // TaskDocument exists in transaction, but foreign key constraint failed
+          // This might be a timing issue - retry once
+          console.warn(`Foreign key constraint failed for taskDocumentId ${taskDocumentId}, retrying...`);
+          await this.prisma.documentMetadata.upsert({
+            where: { taskDocumentId },
+            create: {
+              taskDocumentId,
+              extractedText: text,
+              pageCount,
+            },
+            update: {
+              extractedText: text,
+              pageCount,
+            },
+          });
+        } catch (retryError: any) {
+          // If retry also fails, log and continue (text extraction was successful)
+          console.error(`Failed to save metadata for taskDocumentId ${taskDocumentId}:`, retryError.message);
+          // Don't throw - text extraction was successful, metadata can be saved later
+        }
+        return;
+      }
+      
       // Table doesn't exist or other error - log and continue
       // Check for various error codes and messages indicating table doesn't exist
       const isTableMissing = 

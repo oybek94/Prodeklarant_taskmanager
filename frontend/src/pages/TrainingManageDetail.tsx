@@ -315,24 +315,10 @@ export default function TrainingManageDetail() {
     setShowStageModal(true);
   };
 
-  const handleEditStage = (stage: Stage) => {
-    setSelectedStage(stage);
-    setStageForm({
-      title: stage.title,
-      description: stage.description || '',
-      orderIndex: stage.orderIndex,
-    });
-    setShowStageModal(true);
-  };
-
   const handleSubmitStage = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (selectedStage) {
-        await apiClient.put(`/training/${id}/stages/${selectedStage.id}`, stageForm);
-      } else {
-        await apiClient.post(`/training/${id}/stages`, stageForm);
-      }
+      await apiClient.post(`/training/${id}/stages`, stageForm);
       setShowStageModal(false);
       setSelectedStage(null);
       fetchTraining();
@@ -402,6 +388,7 @@ export default function TrainingManageDetail() {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
   };
+
 
   // Material handlers for steps
   const [materialContext, setMaterialContext] = useState<{ stageId?: number; stepId?: number } | null>(null);
@@ -579,7 +566,7 @@ export default function TrainingManageDetail() {
       {activeTab === 'stages' && (
         <div>
           <div className="mb-4 flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Bosqichlar va Qadamlar</h2>
+            <h2 className="text-lg font-semibold">Bosqichlar</h2>
             <button
               onClick={handleAddStage}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -594,121 +581,57 @@ export default function TrainingManageDetail() {
                 <p className="text-gray-500">Hozircha bosqichlar mavjud emas</p>
               </div>
             ) : (
-              training.stages.map((stage) => (
-                <div key={stage.id} className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold">{stage.title}</h3>
-                      {stage.description && (
-                        <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{stage.description}</p>
-                      )}
-                      <p className="text-xs text-gray-400 mt-1">
-                        #{stage.orderIndex} | {stage.steps.length} ta qadam
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEditStage(stage)}
-                        className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm"
-                      >
-                        Tahrirlash
-                      </button>
-                      <button
-                        onClick={() => handleDeleteStage(stage.id)}
-                        className="px-3 py-1 bg-red-50 text-red-700 rounded hover:bg-red-100 text-sm"
-                      >
-                        O'chirish
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Steps */}
-                  <div className="ml-4 border-l-2 border-gray-200 pl-4 space-y-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium text-gray-700">Qadamlar</h4>
-                      <button
-                        onClick={() => handleAddStep(stage.id)}
-                        className="px-3 py-1 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 text-sm"
-                      >
-                        + Qadam qo'shish
-                      </button>
-                    </div>
-                    {stage.steps.length === 0 ? (
-                      <p className="text-sm text-gray-500">Qadamlar mavjud emas</p>
-                    ) : (
-                      stage.steps.map((step) => (
-                        <div key={step.id} className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex-1">
-                              <h5 className="font-medium text-gray-900">{step.title}</h5>
-                              {step.description && (
-                                <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{step.description}</p>
-                              )}
-                              <p className="text-xs text-gray-400 mt-1">
-                                #{step.orderIndex} | {step.materials.length} ta material
-                              </p>
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleEditStep(stage.id, step)}
-                                className="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs"
-                              >
-                                Tahrirlash
-                              </button>
-                              <button
-                                onClick={() => handleDeleteStep(stage.id, step.id)}
-                                className="px-2 py-1 bg-red-50 text-red-700 rounded hover:bg-red-100 text-xs"
-                              >
-                                O'chirish
-                              </button>
-                            </div>
+              training.stages.map((stage) => {
+                // Barcha materiallarni to'plash (steps va stage materiallari)
+                const allMaterials: Material[] = [];
+                stage.steps.forEach(step => {
+                  allMaterials.push(...step.materials);
+                });
+                
+                return (
+                  <div key={stage.id} className="bg-white rounded-lg shadow overflow-hidden">
+                    <div 
+                      className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => navigate(`/training/${id}/stage/${stage.id}`)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">📖</span>
+                            <h3 className="text-lg font-semibold">{stage.title}</h3>
                           </div>
-
-                          {/* Materials */}
-                          <div className="ml-4 mt-3">
-                            <div className="flex justify-between items-center mb-2">
-                              <span className="text-sm text-gray-600">Materiallar</span>
-                              <button
-                                onClick={() => handleAddMaterialToStep(stage.id, step.id)}
-                                className="px-2 py-1 bg-green-50 text-green-700 rounded hover:bg-green-100 text-xs"
-                              >
-                                + Material qo'shish
-                              </button>
-                            </div>
-                            {step.materials.length === 0 ? (
-                              <p className="text-xs text-gray-400">Materiallar mavjud emas</p>
-                            ) : (
-                              <div className="space-y-2">
-                                {step.materials.map((material) => (
-                                  <div
-                                    key={material.id}
-                                    className="flex items-center justify-between bg-white p-2 rounded text-sm"
-                                  >
-                                    <span>
-                                      {material.type === 'TEXT' && '📄'}
-                                      {material.type === 'AUDIO' && '🎵'}
-                                      {material.type === 'VIDEO' && '🎥'}
-                                      {material.type === 'IMAGE' && '🖼️'}
-                                      {' '}
-                                      {material.title}
-                                    </span>
-                                    <button
-                                      onClick={() => handleDeleteMaterial(material.id)}
-                                      className="text-red-600 hover:text-red-800 text-xs"
-                                    >
-                                      O'chirish
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                          {stage.description && (
+                            <p className="text-sm text-gray-500 mt-1 line-clamp-2">{stage.description}</p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-1">
+                            #{stage.orderIndex} | {allMaterials.length} ta material
+                          </p>
                         </div>
-                      ))
-                    )}
+                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/training/${id}/stage/${stage.id}/edit`);
+                            }}
+                            className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm"
+                          >
+                            Tahrirlash
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteStage(stage.id);
+                            }}
+                            className="px-3 py-1 bg-red-50 text-red-700 rounded hover:bg-red-100 text-sm"
+                          >
+                            O'chirish
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -857,17 +780,32 @@ export default function TrainingManageDetail() {
         </div>
       )}
 
-      {/* Stage Modal */}
+      {/* Stage Modal - Full Screen Editor */}
       {showStageModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">
-              {selectedStage ? 'Bosqichni Tahrirlash' : 'Yangi Bosqich'}
-            </h2>
-            <form onSubmit={handleSubmitStage}>
-              <div className="space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg w-full max-w-7xl mx-4 my-8 min-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="border-b p-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold">
+                {selectedStage ? 'Bosqichni Tahrirlash' : 'Yangi Bosqich - Maqola Tahrirlash'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowStageModal(false);
+                  setSelectedStage(null);
+                }}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Editor Content */}
+            <form onSubmit={handleSubmitStage} className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Sarlavha */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Sarlavha * (masalan: "1. KOMPANIYA BILAN TANISHUV")
                   </label>
                   <input
@@ -877,25 +815,277 @@ export default function TrainingManageDetail() {
                     onChange={(e) =>
                       setStageForm({ ...stageForm, title: e.target.value })
                     }
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg"
                     placeholder="1. KOMPANIYA BILAN TANISHUV"
                   />
                 </div>
+
+                {/* Tavsif - Rich Text Editor */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tavsif
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Maqola Kontenti
                   </label>
+                  
+                  {/* Formatlash Tugmalari */}
+                  <div className="border border-gray-300 rounded-t-lg bg-gray-50 p-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
+                        if (textarea) {
+                          const start = textarea.selectionStart;
+                          const end = textarea.selectionEnd;
+                          const selectedText = textarea.value.substring(start, end);
+                          const newText = textarea.value.substring(0, start) + 
+                            `**${selectedText || 'qalin matn'}**` + 
+                            textarea.value.substring(end);
+                          setStageForm({ ...stageForm, description: newText });
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(start + 2, start + 2 + (selectedText || 'qalin matn').length);
+                          }, 0);
+                        }
+                      }}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm font-bold"
+                      title="Qalin matn"
+                    >
+                      <strong>B</strong>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
+                        if (textarea) {
+                          const start = textarea.selectionStart;
+                          const end = textarea.selectionEnd;
+                          const selectedText = textarea.value.substring(start, end);
+                          const newText = textarea.value.substring(0, start) + 
+                            `*${selectedText || 'kursiv matn'}*` + 
+                            textarea.value.substring(end);
+                          setStageForm({ ...stageForm, description: newText });
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(start + 1, start + 1 + (selectedText || 'kursiv matn').length);
+                          }, 0);
+                        }
+                      }}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm italic"
+                      title="Kursiv"
+                    >
+                      <em>I</em>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
+                        if (textarea) {
+                          const start = textarea.selectionStart;
+                          const newText = textarea.value.substring(0, start) + 
+                            '\n## ' + 
+                            textarea.value.substring(start);
+                          setStageForm({ ...stageForm, description: newText });
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(start + 4, start + 4);
+                          }, 0);
+                        }
+                      }}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
+                      title="Sarlavha"
+                    >
+                      H2
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
+                        if (textarea) {
+                          const start = textarea.selectionStart;
+                          const end = textarea.selectionEnd;
+                          const selectedText = textarea.value.substring(start, end);
+                          const newText = textarea.value.substring(0, start) + 
+                            `[${selectedText || 'link matni'}](url)` + 
+                            textarea.value.substring(end);
+                          setStageForm({ ...stageForm, description: newText });
+                          setTimeout(() => {
+                            textarea.focus();
+                            const linkStart = start + 1;
+                            const linkEnd = linkStart + (selectedText || 'link matni').length;
+                            textarea.setSelectionRange(linkStart, linkEnd);
+                          }, 0);
+                        }
+                      }}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
+                      title="Link"
+                    >
+                      🔗
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
+                        if (textarea) {
+                          const start = textarea.selectionStart;
+                          const newText = textarea.value.substring(0, start) + 
+                            '\n- ' + 
+                            textarea.value.substring(start);
+                          setStageForm({ ...stageForm, description: newText });
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(start + 3, start + 3);
+                          }, 0);
+                        }
+                      }}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
+                      title="Ro'yxat"
+                    >
+                      •
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
+                        if (textarea) {
+                          const start = textarea.selectionStart;
+                          const newText = textarea.value.substring(0, start) + 
+                            '\n```\nKod bloki\n```\n' + 
+                            textarea.value.substring(start);
+                          setStageForm({ ...stageForm, description: newText });
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(start + 6, start + 13);
+                          }, 0);
+                        }
+                      }}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
+                      title="Kod bloki"
+                    >
+                      {'</>'}
+                    </button>
+                    <div className="border-l border-gray-300 mx-2"></div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = prompt('Rasm URL manzilini kiriting:');
+                        if (url) {
+                          const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
+                          if (textarea) {
+                            const start = textarea.selectionStart;
+                            const newText = textarea.value.substring(0, start) + 
+                              `\n![Rasm tavsifi](${url})\n` + 
+                              textarea.value.substring(start);
+                            setStageForm({ ...stageForm, description: newText });
+                            setTimeout(() => {
+                              textarea.focus();
+                              textarea.setSelectionRange(start + 2, start + 15);
+                            }, 0);
+                          }
+                        }
+                      }}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
+                      title="Rasm qo'shish"
+                    >
+                      🖼️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = prompt('Video URL manzilini kiriting:');
+                        if (url) {
+                          const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
+                          if (textarea) {
+                            const start = textarea.selectionStart;
+                            const newText = textarea.value.substring(0, start) + 
+                              `\n[Video: ${url}]\n` + 
+                              textarea.value.substring(start);
+                            setStageForm({ ...stageForm, description: newText });
+                            setTimeout(() => {
+                              textarea.focus();
+                              textarea.setSelectionRange(start + 2, start + 7);
+                            }, 0);
+                          }
+                        }
+                      }}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
+                      title="Video qo'shish"
+                    >
+                      🎥
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = prompt('Audio URL manzilini kiriting:');
+                        if (url) {
+                          const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
+                          if (textarea) {
+                            const start = textarea.selectionStart;
+                            const newText = textarea.value.substring(0, start) + 
+                              `\n[Audio: ${url}]\n` + 
+                              textarea.value.substring(start);
+                            setStageForm({ ...stageForm, description: newText });
+                            setTimeout(() => {
+                              textarea.focus();
+                              textarea.setSelectionRange(start + 2, start + 7);
+                            }, 0);
+                          }
+                        }
+                      }}
+                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
+                      title="Audio qo'shish"
+                    >
+                      🎵
+                    </button>
+                  </div>
+
+                  {/* Textarea */}
                   <textarea
+                    id="description-textarea"
                     value={stageForm.description}
                     onChange={(e) =>
                       setStageForm({ ...stageForm, description: e.target.value })
                     }
-                    className="w-full px-3 py-2 border rounded-lg"
-                    rows={3}
+                    className="w-full px-4 py-3 border-x border-b border-gray-300 rounded-b-lg min-h-[400px] font-mono text-sm"
+                    placeholder="Maqola kontentini kiriting...&#10;&#10;Formatlash uchun yuqoridagi tugmalardan foydalaning.&#10;Markdown formatida yozishingiz mumkin."
                   />
+                  
+                  {/* Preview (optional) */}
+                  {stageForm.description && (
+                    <div className="mt-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Ko'rinish:</h4>
+                      <div className="prose max-w-none text-sm whitespace-pre-wrap">
+                        {stageForm.description.split('\n').map((line, i) => {
+                          // Oddiy markdown parsing
+                          if (line.startsWith('## ')) {
+                            return <h2 key={i} className="text-xl font-bold mt-4 mb-2">{line.substring(3)}</h2>;
+                          }
+                          if (line.startsWith('**') && line.endsWith('**')) {
+                            return <p key={i}><strong>{line.substring(2, line.length - 2)}</strong></p>;
+                          }
+                          if (line.startsWith('*') && line.endsWith('*') && !line.startsWith('**')) {
+                            return <p key={i}><em>{line.substring(1, line.length - 1)}</em></p>;
+                          }
+                          if (line.startsWith('- ')) {
+                            return <li key={i} className="ml-4">{line.substring(2)}</li>;
+                          }
+                          if (line.startsWith('![')) {
+                            const match = line.match(/!\[([^\]]+)\]\(([^)]+)\)/);
+                            if (match) {
+                              return <img key={i} src={match[2]} alt={match[1]} className="max-w-full rounded my-2" />;
+                            }
+                          }
+                          if (line.trim()) {
+                            return <p key={i} className="mb-2">{line}</p>;
+                          }
+                          return <br key={i} />;
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Tartib raqami */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Tartib raqami
                   </label>
                   <input
@@ -907,26 +1097,28 @@ export default function TrainingManageDetail() {
                         orderIndex: parseInt(e.target.value) || 0,
                       })
                     }
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg"
                   />
                 </div>
               </div>
-              <div className="flex gap-2 mt-6">
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Saqlash
-                </button>
+
+              {/* Footer */}
+              <div className="border-t p-6 flex gap-3 justify-end">
                 <button
                   type="button"
                   onClick={() => {
                     setShowStageModal(false);
                     setSelectedStage(null);
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                 >
                   Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Saqlash
                 </button>
               </div>
             </form>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import { getReadArticles } from '../utils/articleStorage';
 
 // Google Drive linkini rasm URL'iga o'tkazish
 const convertGoogleDriveUrl = (url: string): string => {
@@ -104,11 +105,35 @@ export default function TrainingDetail() {
   const [expandedStages, setExpandedStages] = useState<Set<number>>(new Set());
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
   const [expandedMaterials, setExpandedMaterials] = useState<Set<number>>(new Set());
+  const [readStages, setReadStages] = useState<number[]>([]);
 
   useEffect(() => {
     if (id) {
       fetchTraining();
+      
+      // Load read articles from localStorage on mount
+      const trainingIdNum = parseInt(id);
+      if (!isNaN(trainingIdNum)) {
+        const read = getReadArticles(trainingIdNum);
+        setReadStages(read);
+      }
     }
+  }, [id]);
+  
+  // Sync read state when window regains focus (user returns from article page)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (id) {
+        const trainingIdNum = parseInt(id);
+        if (!isNaN(trainingIdNum)) {
+          const read = getReadArticles(trainingIdNum);
+          setReadStages(read);
+        }
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [id]);
 
   const fetchTraining = async () => {
@@ -239,223 +264,199 @@ export default function TrainingDetail() {
         </div>
       </div>
 
-      {/* Jadval ko'rinishi - Bosqichlar, Qadamlar va Materiallar (tepadan pastga) */}
+      {/* Progress Line ko'rinishi - Bosqichlar progress line bilan */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="p-4 border-b bg-gray-50">
-          <h2 className="text-lg font-semibold text-gray-900">Bosqichlar va Qadamlar</h2>
-        </div>
-        
         {hasStages ? (
-          <div className="space-y-4 p-4">
-            {training.stages
-              .sort((a, b) => a.orderIndex - b.orderIndex)
-              .map((stage) => (
-              <div key={stage.id} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                {/* Bosqich sarlavhasi */}
-                <button
-                  onClick={() => toggleStage(stage.id)}
-                  className="w-full px-6 py-4 text-left hover:bg-gray-50 transition-colors flex items-center justify-between bg-gray-50"
-                >
-                      <div className="flex flex-col gap-1">
-                        <span className="text-lg font-semibold text-gray-900">
-                          {stage.title}
-                        </span>
-                        {stage.description && (
-                          <span className="text-sm text-gray-500 whitespace-pre-wrap">
-                            {stage.description}
-                          </span>
-                        )}
-                      </div>
-                  <svg
-                    className={`w-5 h-5 text-gray-500 transition-transform ${
-                      expandedStages.has(stage.id) ? 'rotate-180' : ''
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-
-                {/* Qadamlar ro'yxati */}
-                {expandedStages.has(stage.id) && (
-                  <div className="bg-gray-50">
-                    {stage.steps
-                      .sort((a, b) => a.orderIndex - b.orderIndex)
-                      .map((step) => (
-                      <div key={step.id} className="border-t border-gray-200">
-                        {/* Qadam sarlavhasi */}
-                        <button
-                          onClick={() => toggleStep(step.id)}
-                          className="w-full px-10 py-3 text-left hover:bg-gray-100 transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="font-medium text-blue-700 mb-1 bg-blue-50 px-3 py-1.5 rounded-lg inline-block">
-                                {step.title}
-                              </div>
-                              {step.description && (
-                                <div className="text-sm text-gray-500 whitespace-pre-wrap mt-2">
-                                  {step.description}
-                                </div>
+          <div className="p-6">
+            {/* Progress Line */}
+            <div className="relative mb-8">
+              <div className="flex items-center justify-between">
+                {training.stages
+                  .sort((a, b) => a.orderIndex - b.orderIndex)
+                  .map((stage, index, array) => {
+                    const isLast = index === array.length - 1;
+                    const totalMaterials = (stage.steps || []).reduce((sum, step) => sum + (step.materials?.length || 0), 0);
+                    const completedMaterials = 0; // TODO: Calculate from progress
+                    const stageProgress = totalMaterials > 0 ? (completedMaterials / totalMaterials) * 100 : 0;
+                    const isCompleted = stageProgress === 100;
+                    const isActive = index === 0 || (training.progress?.stageId === stage.id);
+                    
+                    return (
+                      <div key={stage.id} className="flex items-center flex-1">
+                        <div className="flex flex-col items-center flex-1">
+                          {/* Progress Circle */}
+                          <div className="relative">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 transition-all ${
+                              isCompleted 
+                                ? 'bg-green-500 border-green-500 text-white' 
+                                : isActive
+                                ? 'bg-blue-500 border-blue-500 text-white'
+                                : 'bg-gray-200 border-gray-300 text-gray-500'
+                            }`}>
+                              {isCompleted ? (
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <span className="text-sm font-bold">{index + 1}</span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
-                              {step.materials.length > 0 && (
-                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded whitespace-nowrap">
-                                  {step.materials.length} material
-                                </span>
-                              )}
-                              <svg
-                                className={`w-4 h-4 text-gray-500 transition-transform flex-shrink-0 ${
-                                  expandedSteps.has(step.id) ? 'rotate-180' : ''
-                                }`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                        </button>
-
-                        {/* Materiallar ro'yxati */}
-                        {expandedSteps.has(step.id) && (
-                          <div className="bg-white">
-                            {step.materials.length === 0 ? (
-                              <div className="pl-16 pr-6 py-3">
-                                <p className="text-sm text-gray-500">
-                                  Materiallar mavjud emas
-                                </p>
-                              </div>
-                            ) : (
-                              <div className="divide-y">
-                                {step.materials
-                                  .sort((a, b) => a.orderIndex - b.orderIndex)
-                                  .map((material) => (
-                                  <div key={material.id} className="pl-16 pr-6">
-                                    {/* Material sarlavhasi */}
-                                    <button
-                                      onClick={() => toggleMaterial(material.id)}
-                                      className="w-full text-left py-3 hover:bg-gray-50 transition-colors flex items-center justify-between"
-                                    >
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-sm font-medium text-gray-900">
-                                          {material.title}
-                                        </span>
-                                        <span className="text-xs text-gray-500">
-                                          ({material.type})
-                                        </span>
-                                        {material.durationMin && (
-                                          <span className="text-xs text-gray-400">
-                                            • {material.durationMin} min
-                                          </span>
-                                        )}
-                                      </div>
-                                      <svg
-                                        className={`w-4 h-4 text-gray-400 transition-transform ${
-                                          expandedMaterials.has(material.id) ? 'rotate-180' : ''
-                                        }`}
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M19 9l-7 7-7-7"
-                                        />
-                                      </svg>
-                                    </button>
-
-                                    {/* Material kontenti */}
-                                    {expandedMaterials.has(material.id) && (
-                                      <div className="pb-4 pl-4 border-l-2 border-blue-200 ml-2">
-                                        <div className="space-y-4">
-                                          {material.type === 'TEXT' && (
-                                            <div className="prose max-w-none">
-                                              <div className="text-gray-700 whitespace-pre-wrap text-sm">
-                                                {material.content || 'Kontent mavjud emas'}
-                                              </div>
-                                            </div>
-                                          )}
-
-                                          {material.type === 'VIDEO' && material.fileUrl && (
-                                            <div>
-                                              <video
-                                                src={material.fileUrl}
-                                                controls
-                                                className="w-full rounded-lg"
-                                              >
-                                                Video'ni qo'llab-quvvatlamaydi
-                                              </video>
-                                            </div>
-                                          )}
-
-                                          {material.type === 'AUDIO' && material.fileUrl && (
-                                            <div>
-                                              <audio
-                                                src={material.fileUrl}
-                                                controls
-                                                className="w-full"
-                                              >
-                                                Audio'ni qo'llab-quvvatlamaydi
-                                              </audio>
-                                            </div>
-                                          )}
-
-                                          {material.type === 'IMAGE' && material.fileUrl && (
-                                            <div>
-                                              <img
-                                                src={convertGoogleDriveUrl(material.fileUrl)}
-                                                alt={material.title}
-                                                className="w-full rounded-lg"
-                                                onError={(e) => {
-                                                  // Agar rasm yuklanmasa, asl URL'ni sinab ko'rish
-                                                  const target = e.target as HTMLImageElement;
-                                                  if (target.src !== material.fileUrl) {
-                                                    target.src = material.fileUrl || '';
-                                                  }
-                                                }}
-                                              />
-                                            </div>
-                                          )}
-
-                                          <button
-                                            onClick={() => handleMaterialComplete(material.id)}
-                                            className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                                          >
-                                            Materialni yakunlash ✓
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
+                            {/* Progress percentage */}
+                            {stageProgress > 0 && stageProgress < 100 && (
+                              <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                {Math.round(stageProgress)}%
                               </div>
                             )}
                           </div>
+                          
+                          {/* Stage Title */}
+                          <div className="mt-3 text-center max-w-[150px]">
+                            <p className={`text-xs font-medium ${
+                              isCompleted ? 'text-green-600' : isActive ? 'text-blue-600' : 'text-gray-500'
+                            }`}>
+                              {stage.title.length > 30 ? stage.title.substring(0, 30) + '...' : stage.title}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {totalMaterials} material
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Connecting Line */}
+                        {!isLast && (
+                          <div className="flex-1 mx-2 h-1 relative">
+                            <div className={`h-1 w-full ${
+                              isCompleted ? 'bg-green-500' : isActive ? 'bg-blue-500' : 'bg-gray-300'
+                            }`} />
+                          </div>
                         )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  })}
               </div>
-            ))}
-          </div>
+            </div>
+            
+            {/* Stages List - Grid Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {training.stages
+                .sort((a, b) => a.orderIndex - b.orderIndex)
+                .map((stage, stageIndex) => {
+                  const totalMaterials = (stage.steps || []).reduce((sum, step) => sum + (step.materials?.length || 0), 0);
+                  const completedMaterials = 0; // TODO: Calculate from progress
+                  const stageProgress = totalMaterials > 0 ? (completedMaterials / totalMaterials) * 100 : 0;
+                  const isCompleted = stageProgress === 100;
+                  const isActive = stageIndex === 0 || (training.progress?.stageId === stage.id);
+                  const isRead = readStages.includes(stage.id);
+                  
+                  return (
+                    <div 
+                      key={stage.id} 
+                      onClick={() => navigate(`/training/${id}/stage/${stage.id}`)}
+                      className={`border rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all cursor-pointer bg-white h-full flex flex-col ${
+                        isRead
+                          ? 'border-blue-300 hover:border-blue-400 bg-blue-50'
+                          : isCompleted 
+                          ? 'border-green-300 hover:border-green-400' 
+                          : isActive
+                          ? 'border-blue-300 hover:border-blue-400'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="p-5 flex flex-col h-full">
+                        {/* Progress Circle va Sarlavha */}
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="flex-shrink-0">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 shadow-sm ${
+                              isRead
+                                ? 'bg-blue-500 border-blue-600 text-white'
+                                : isCompleted 
+                                ? 'bg-green-500 border-green-600 text-white' 
+                                : isActive
+                                ? 'bg-blue-500 border-blue-600 text-white'
+                                : 'bg-gray-100 border-gray-300 text-gray-600'
+                            }`}>
+                              {isRead ? (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : isCompleted ? (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <span className="text-sm font-bold">{stageIndex + 1}</span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <h3 className={`text-lg font-bold mb-2 line-clamp-2 ${
+                              isRead ? 'text-blue-900' : isCompleted ? 'text-green-900' : isActive ? 'text-blue-900' : 'text-gray-900'
+                            }`}>
+                              {stage.title}
+                            </h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {isRead && (
+                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  O'qildi
+                                </span>
+                              )}
+                              {stageProgress > 0 && stageProgress < 100 && !isRead && (
+                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">
+                                  {Math.round(stageProgress)}%
+                                </span>
+                              )}
+                              {isCompleted && !isRead && (
+                                <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium">
+                                  ✓ Yakunlangan
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Qisqa tavsif */}
+                        {stage.description && (
+                          <p className="text-sm text-gray-600 line-clamp-3 mb-4 leading-relaxed flex-grow">
+                            {stage.description.length > 150 
+                              ? stage.description.substring(0, 150) + '...' 
+                              : stage.description}
+                          </p>
+                        )}
+                        
+                        {/* Progress bar */}
+                        {totalMaterials > 0 && (
+                          <div className="mb-4">
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div
+                                className={`h-1.5 rounded-full transition-all ${
+                                  isCompleted ? 'bg-green-500' : 'bg-blue-500'
+                                }`}
+                                style={{ width: `${stageProgress}%` }}
+                              />
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {completedMaterials} / {totalMaterials} material
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Maqolani o'qish linki */}
+                        <div className="flex items-center gap-2 text-blue-600 font-medium text-sm mt-auto pt-2 border-t border-gray-100">
+                          <span>Maqolani o'qish</span>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
         ) : (
           <div className="p-8 text-center text-gray-500">
             Hozircha bosqichlar mavjud emas

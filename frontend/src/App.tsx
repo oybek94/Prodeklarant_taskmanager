@@ -16,6 +16,8 @@ import Training from './pages/Training';
 import TrainingDetail from './pages/TrainingDetail';
 import TrainingManagement from './pages/TrainingManagement';
 import TrainingManageDetail from './pages/TrainingManageDetail';
+import TrainingStageDetail from './pages/TrainingStageDetail';
+import TrainingStageEdit from './pages/TrainingStageEdit';
 import Exam from './pages/Exam';
 import ExamResult from './pages/ExamResult';
 import ClientLogin from './pages/ClientLogin';
@@ -134,6 +136,18 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <TrainingManageDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/training/:trainingId/stage/:stageId"
+          element={<TrainingStageDetail />}
+        />
+        <Route
+          path="/training/:trainingId/stage/:stageId/edit"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <TrainingStageEdit />
             </ProtectedRoute>
           }
         />

@@ -58,13 +58,13 @@ const Profile = () => {
   const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [_stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [stageStats, setStageStats] = useState<StageStats | null>(null);
   const [errorStats, setErrorStats] = useState<any>(null);
-  const [_loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [stageStatsLoading, setStageStatsLoading] = useState(true);
   const [errorStatsLoading, setErrorStatsLoading] = useState(true);
-  const [period, setPeriod] = useState('month');
+  const [period, setPeriod] = useState('all');
   const [workerDetail, setWorkerDetail] = useState<WorkerDetail | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -133,12 +133,14 @@ const Profile = () => {
   const loadStats = async () => {
     try {
       setLoading(true);
+      setStats(null); // Clear old stats when period changes
       const response = await apiClient.get(`/workers/${workerId}/stats`, {
         params: { period },
       });
       setStats(response.data);
     } catch (error) {
       console.error('Error loading stats:', error);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -297,33 +299,60 @@ const Profile = () => {
                 </div>
               </div>
               <div className="bg-green-50 rounded-lg p-3">
-                <div className="text-xs text-green-600 mb-1">Ishlab topilgan</div>
+                <div className="text-xs text-green-600 mb-1">Ishlab topilgan (KPI)</div>
                 <div className="text-xl font-bold text-green-800">
-                  ${Number(stageStats.totals.totalEarned).toFixed(2)}
+                  {loading ? (
+                    <span className="text-gray-400">Yuklanmoqda...</span>
+                  ) : stats ? (
+                    `$${Number(stats.totalKPI).toFixed(2)}`
+                  ) : (
+                    `$${Number(stageStats.totals.totalEarned).toFixed(2)}`
+                  )}
                 </div>
               </div>
               <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
                 <div className="text-xs text-purple-600 mb-1">Jami olingan</div>
                 <div className="text-xl font-bold text-purple-800">
-                  ${Number(stageStats.totals.totalReceived).toFixed(2)}
+                  {loading ? (
+                    <span className="text-gray-400">Yuklanmoqda...</span>
+                  ) : stats ? (
+                    `$${Number(stats.totalSalary).toFixed(2)}`
+                  ) : (
+                    `$${Number(stageStats.totals.totalReceived).toFixed(2)}`
+                  )}
                 </div>
               </div>
-              <div className={`rounded-lg p-3 border-2 ${
-                stageStats.totals.totalPending > 0 
-                  ? 'bg-orange-50 border-orange-200' 
-                  : 'bg-gray-50 border-gray-200'
-              }`}>
-                <div className={`text-xs mb-1 ${
-                  stageStats.totals.totalPending > 0 ? 'text-orange-600' : 'text-gray-600'
-                }`}>
-                  Haqdorlik
-                </div>
-                <div className={`text-xl font-bold ${
-                  stageStats.totals.totalPending > 0 ? 'text-orange-800' : 'text-gray-800'
-                }`}>
-                  ${Number(stageStats.totals.totalPending).toFixed(2)}
-                </div>
-              </div>
+              {(() => {
+                const pending = loading 
+                  ? 0 
+                  : stats 
+                    ? (Number(stats.totalKPI) - Number(stats.totalSalary))
+                    : stageStats.totals.totalPending;
+                const hasPending = pending > 0;
+                
+                return (
+                  <div className={`rounded-lg p-3 border-2 ${
+                    hasPending
+                      ? 'bg-orange-50 border-orange-200' 
+                      : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <div className={`text-xs mb-1 ${
+                      hasPending ? 'text-orange-600' : 'text-gray-600'
+                    }`}>
+                      Haqdorlik
+                    </div>
+                    <div className={`text-xl font-bold ${
+                      hasPending ? 'text-orange-800' : 'text-gray-800'
+                    }`}>
+                      {loading ? (
+                        <span className="text-gray-400">Yuklanmoqda...</span>
+                      ) : (
+                        `$${pending.toFixed(2)}`
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Stage Details Table and Pie Chart */}

@@ -18,12 +18,17 @@ router.post('/login', async (req, res) => {
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     const { password } = parsed.data;
     
-    // Find user by password - check all users using raw SQL to avoid enum issues
-    const users = await prisma.$queryRaw<Array<{ id: number; name: string; passwordHash: string; role: string; branchId: number }>>`
-      SELECT id, name, "passwordHash", role::text as role, "branchId"
-      FROM "User"
-      WHERE active = true
-    `;
+    // Find user by password - use Prisma ORM instead of raw SQL
+    const users = await prisma.user.findMany({
+      where: { active: true },
+      select: {
+        id: true,
+        name: true,
+        passwordHash: true,
+        role: true,
+        branchId: true,
+      },
+    });
     
     let matchedUser: Pick<User, 'id' | 'name' | 'passwordHash' | 'role' | 'branchId'> | null = null;
     for (const user of users) {
@@ -35,7 +40,7 @@ router.post('/login', async (req, res) => {
             error: 'Xatolik: Bir nechta foydalanuvchi bir xil parolga ega. Iltimos, parollarni o\'zgartiring.' 
           });
         }
-        matchedUser = user as Pick<User, 'id' | 'name' | 'passwordHash' | 'role' | 'branchId'>;
+        matchedUser = user;
       }
     }
     
@@ -198,26 +203,27 @@ router.get('/me', requireAuth(), async (req: AuthRequest, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     
-    // Use raw SQL to avoid enum issues
-    const users = await prisma.$queryRaw<Array<{
-      id: number;
-      name: string;
-      email: string;
-      role: string;
-      branchId: number | null;
-      position: string | null;
-      salary: number | null;
-    }>>`
-      SELECT id, name, email, role::text as role, "branchId", position, salary
-      FROM "User"
-      WHERE id = ${req.user.id} AND active = true
-    `;
+    // Use Prisma ORM instead of raw SQL
+    const user = await prisma.user.findFirst({
+      where: { 
+        id: req.user.id,
+        active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        branchId: true,
+        position: true,
+        salary: true,
+      },
+    });
     
-    if (users.length === 0) {
+    if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    const user = users[0];
     res.json({
       id: user.id,
       name: user.name,

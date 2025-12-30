@@ -86,13 +86,17 @@ router.post(
       }
 
       // Avval documentType ustunining mavjudligini tekshiramiz (transaction'dan oldin)
+      // Prisma query orqali tekshiramiz - agar documentType mavjud bo'lsa, u ishlaydi
       let hasDocumentTypeColumn = false;
       try {
-        // Test query to check if documentType column exists
-        await prisma.$queryRaw`SELECT "documentType" FROM "TaskDocument" LIMIT 1`;
+        // documentType ni tekshirish uchun oddiy query ishlatamiz
+        const testDoc = await prisma.taskDocument.findFirst({
+          select: { documentType: true },
+        });
+        // Agar query muvaffaqiyatli bo'lsa, ustun mavjud
         hasDocumentTypeColumn = true;
       } catch (checkError: any) {
-        // Column doesn't exist
+        // Agar xatolik bo'lsa (masalan, ustun mavjud emas), fallback ga o'tamiz
         hasDocumentTypeColumn = false;
       }
 

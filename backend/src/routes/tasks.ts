@@ -589,35 +589,72 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     // ST stage'ini tayyor qilishda Invoice va ST PDF talab qilish
     if (stage.name === 'ST' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
       try {
-        const allPdfs = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            fileType: 'pdf',
-          },
-        });
+        // Avval documentType ustunining mavjudligini tekshiramiz
+        // documentType bilan query qilishga harakat qilamiz
+        let hasDocumentTypeColumn = false;
+        let invoiceDocuments: any[] = [];
+        let stDocuments: any[] = [];
 
-        const invoiceDocuments = allPdfs.filter((doc) => {
-          const name = (doc.name || '').toLowerCase();
-          const desc = (doc.description || '').toLowerCase();
-          return (
-            name.includes('invoice') ||
-            name.includes('invoys') ||
-            desc.includes('invoice') ||
-            doc.documentType === 'INVOICE'
-          );
-        });
+        try {
+          // documentType ustuni mavjud bo'lsa, enum asosida tekshiramiz
+          invoiceDocuments = await prisma.taskDocument.findMany({
+            where: {
+              taskId: taskId,
+              documentType: 'INVOICE',
+            },
+          });
 
-        const stDocuments = allPdfs.filter((doc) => {
-          const name = (doc.name || '').toLowerCase();
-          const desc = (doc.description || '').toLowerCase();
-          return (
-            name.includes(' st') ||
-            name.includes('-st') ||
-            name.startsWith('st ') ||
-            desc.includes('st') ||
-            doc.documentType === 'ST'
-          );
-        });
+          stDocuments = await prisma.taskDocument.findMany({
+            where: {
+              taskId: taskId,
+              documentType: 'ST',
+            },
+          });
+          
+          // Agar query muvaffaqiyatli bo'lsa, documentType ustuni mavjud
+          hasDocumentTypeColumn = true;
+        } catch (enumError: any) {
+          // documentType enum xatolik yoki ustun mavjud emas - fallback ga o'tamiz
+          hasDocumentTypeColumn = false;
+        }
+
+        if (!hasDocumentTypeColumn) {
+          // Fallback: name asosida tekshirish
+          const allPdfs = await prisma.taskDocument.findMany({
+            where: {
+              taskId: taskId,
+              fileType: 'pdf',
+            },
+          });
+
+          invoiceDocuments = allPdfs.filter((doc) => {
+            const name = (doc.name || '').toLowerCase();
+            const desc = (doc.description || '').toLowerCase();
+            return (
+              name.includes('invoice') ||
+              name.includes('invoys') ||
+              desc.includes('invoice') ||
+              (doc as any).documentType === 'INVOICE'
+            );
+          });
+
+          stDocuments = allPdfs.filter((doc) => {
+            const name = (doc.name || '').toLowerCase();
+            const desc = (doc.description || '').toLowerCase();
+            // Remove file extension for better matching
+            const nameWithoutExt = name.replace(/\.pdf$/, '').trim();
+            return (
+              (doc as any).documentType === 'ST' ||
+              nameWithoutExt === 'st' ||
+              name.startsWith('st') ||
+              name.includes(' st') ||
+              name.includes('-st') ||
+              name.includes('_st') ||
+              desc.includes('st') ||
+              desc.toLowerCase().includes('st document')
+            );
+          });
+        }
 
         if (invoiceDocuments.length === 0) {
           return res.status(400).json({ 
@@ -644,45 +681,40 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     // #endregion
     try {
       // Avval documentType ustunining mavjudligini tekshiramiz
+      // documentType bilan query qilishga harakat qilamiz
       let hasDocumentTypeColumn = false;
-      try {
-        await prisma.$queryRaw`SELECT "documentType" FROM "TaskDocument" LIMIT 1`;
-        hasDocumentTypeColumn = true;
-      } catch (checkError: any) {
-        hasDocumentTypeColumn = false;
-      }
-
       let invoiceDocuments: any[] = [];
       let stDocuments: any[] = [];
       let fitoDocuments: any[] = [];
 
-      if (hasDocumentTypeColumn) {
-        // documentType ustuni mavjud - enum asosida tekshiramiz
-        try {
-          invoiceDocuments = await prisma.taskDocument.findMany({
-            where: {
-              taskId: taskId,
-              documentType: 'INVOICE',
-            },
-          });
+      try {
+        // documentType ustuni mavjud bo'lsa, enum asosida tekshiramiz
+        invoiceDocuments = await prisma.taskDocument.findMany({
+          where: {
+            taskId: taskId,
+            documentType: 'INVOICE',
+          },
+        });
 
-          stDocuments = await prisma.taskDocument.findMany({
-            where: {
-              taskId: taskId,
-              documentType: 'ST',
-            },
-          });
+        stDocuments = await prisma.taskDocument.findMany({
+          where: {
+            taskId: taskId,
+            documentType: 'ST',
+          },
+        });
 
-          fitoDocuments = await prisma.taskDocument.findMany({
-            where: {
-              taskId: taskId,
-              documentType: 'FITO',
-            },
-          });
-        } catch (enumError) {
-          // documentType enum xatolik - fallback ga o'tamiz
-          hasDocumentTypeColumn = false;
-        }
+        fitoDocuments = await prisma.taskDocument.findMany({
+          where: {
+            taskId: taskId,
+            documentType: 'FITO',
+          },
+        });
+        
+        // Agar query muvaffaqiyatli bo'lsa, documentType ustuni mavjud
+        hasDocumentTypeColumn = true;
+      } catch (enumError: any) {
+        // documentType enum xatolik yoki ustun mavjud emas - fallback ga o'tamiz
+        hasDocumentTypeColumn = false;
       }
 
       if (!hasDocumentTypeColumn) {
@@ -708,12 +740,17 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         stDocuments = allPdfs.filter((doc) => {
           const name = (doc.name || '').toLowerCase();
           const desc = (doc.description || '').toLowerCase();
+          // Remove file extension for better matching
+          const nameWithoutExt = name.replace(/\.pdf$/, '').trim();
           return (
+            (doc as any).documentType === 'ST' ||
+            nameWithoutExt === 'st' ||
+            name.startsWith('st') ||
             name.includes(' st') ||
             name.includes('-st') ||
-            name.startsWith('st ') ||
+            name.includes('_st') ||
             desc.includes('st') ||
-            (doc as any).documentType === 'ST'
+            desc.toLowerCase().includes('st document')
           );
         });
 

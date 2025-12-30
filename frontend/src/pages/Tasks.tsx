@@ -905,6 +905,36 @@ const Tasks = () => {
         return;
       }
       
+      // Agar ST stage'i bo'lsa va ST PDF talab qilinsa, modal ochamiz
+      if (
+        selectedStageForReminder.name === 'ST' &&
+        error.response?.status === 400 &&
+        (error.response?.data?.error?.includes('ST PDF') || error.response?.data?.error?.includes('Invoice PDF'))
+      ) {
+        if (error.response?.data?.error?.includes('ST PDF')) {
+          setShowSTUploadModal(true);
+        } else if (error.response?.data?.error?.includes('Invoice PDF')) {
+          setShowInvoiceUploadModal(true);
+        }
+        setUpdatingStage(null);
+        return;
+      }
+      
+      // Agar Fito stage'i bo'lsa va PDF talab qilinsa, modal ochamiz
+      if (
+        (selectedStageForReminder.name === 'Fito' || selectedStageForReminder.name === 'FITO') &&
+        error.response?.status === 400 &&
+        (error.response?.data?.error?.includes('ST PDF') || error.response?.data?.error?.includes('Invoice PDF'))
+      ) {
+        if (error.response?.data?.error?.includes('ST PDF')) {
+          setShowSTUploadModal(true);
+        } else if (error.response?.data?.error?.includes('Invoice PDF')) {
+          setShowInvoiceUploadModal(true);
+        }
+        setUpdatingStage(null);
+        return;
+      }
+      
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     } finally {
       setUpdatingStage(null);

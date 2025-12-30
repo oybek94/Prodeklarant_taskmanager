@@ -5,6 +5,7 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 import { ValidationService } from '../services/validation.service';
 import { DocumentService } from '../services/document.service';
 import { AiService } from '../services/ai.service';
+import { compareInvoiceST1 } from '../ai/document.analyzer';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -100,152 +101,203 @@ router.post(
         hasDocumentTypeColumn = false;
       }
 
-      const result = await prisma.$transaction(async (tx) => {
-        // Process document - DocumentService ni transaction ichida yaratamiz
-        const documentService = new DocumentService(tx);
+      // Transaction: Faqat document yaratish va text extraction
+      // AI processing transaction'dan tashqarida bajariladi (timeout muammosini oldini olish uchun)
+      const result = await prisma.$transaction(
+        async (tx) => {
+          // Process document - DocumentService ni transaction ichida yaratamiz
+          const documentService = new DocumentService(tx);
 
-        // Create task document record
-        const documentData: any = {
-          taskId,
-          name: parsed.data.name,
-          fileUrl: `/uploads/tasks/${req.file!.filename}`,
-          fileType: 'pdf',
-          fileSize: req.file!.size,
-          description: parsed.data.description,
-          uploadedById: user.id,
-        };
-        
-        // documentType'ni faqat ustun mavjud bo'lsa qo'shamiz
-        // Prisma Client schema'da documentType bor, lekin DB'da yo'q bo'lishi mumkin
-        // Agar ustun yo'q bo'lsa, raw SQL ishlatamiz
-        let taskDocument: any;
-        
-        if (hasDocumentTypeColumn) {
-          // Ustun mavjud - oddiy Prisma create ishlatamiz
-          documentData.documentType = parsed.data.documentType || 'OTHER';
-          taskDocument = await tx.taskDocument.create({
-            data: documentData,
-          });
-        } else {
-          // Ustun yo'q - raw SQL ishlatamiz
-          // Raw SQL bilan insert qilamiz va natijani qaytaramiz
-          const insertedRows = await (tx as any).$queryRaw`
-            INSERT INTO "TaskDocument" ("taskId", "name", "fileUrl", "fileType", "fileSize", "description", "uploadedById", "createdAt")
-            VALUES (${documentData.taskId}, ${documentData.name}, ${documentData.fileUrl}, ${documentData.fileType}, ${documentData.fileSize}, ${documentData.description || null}, ${documentData.uploadedById}, NOW())
-            RETURNING id, "taskId", "name", "fileUrl", "fileType", "fileSize", "description", "uploadedById", "createdAt"
-          `;
+          // Create task document record
+          const documentData: any = {
+            taskId,
+            name: parsed.data.name,
+            fileUrl: `/uploads/tasks/${req.file!.filename}`,
+            fileType: 'pdf',
+            fileSize: req.file!.size,
+            description: parsed.data.description,
+            uploadedById: user.id,
+          };
           
-          taskDocument = insertedRows[0];
-        }
+          // documentType'ni faqat ustun mavjud bo'lsa qo'shamiz
+          // Prisma Client schema'da documentType bor, lekin DB'da yo'q bo'lishi mumkin
+          // Agar ustun yo'q bo'lsa, raw SQL ishlatamiz
+          let taskDocument: any;
+          
+          if (hasDocumentTypeColumn) {
+            // Ustun mavjud - oddiy Prisma create ishlatamiz
+            documentData.documentType = parsed.data.documentType || 'OTHER';
+            taskDocument = await tx.taskDocument.create({
+              data: documentData,
+            });
+          } else {
+            // Ustun yo'q - raw SQL ishlatamiz
+            // Raw SQL bilan insert qilamiz va natijani qaytaramiz
+            const insertedRows = await (tx as any).$queryRaw`
+              INSERT INTO "TaskDocument" ("taskId", "name", "fileUrl", "fileType", "fileSize", "description", "uploadedById", "createdAt")
+              VALUES (${documentData.taskId}, ${documentData.name}, ${documentData.fileUrl}, ${documentData.fileType}, ${documentData.fileSize}, ${documentData.description || null}, ${documentData.uploadedById}, NOW())
+              RETURNING id, "taskId", "name", "fileUrl", "fileType", "fileSize", "description", "uploadedById", "createdAt"
+            `;
+            
+            taskDocument = insertedRows[0];
+          }
 
-        // Extract text from PDF - transaction ichida
-        await documentService.processPdfDocument(
-          taskDocument.id,
-          req.file!.path
-        );
-
-        // If document type is INVOICE or ST, structure with AI
-        const aiService = new AiService(tx);
-        if (
-          parsed.data.documentType === 'INVOICE' ||
-          parsed.data.documentType === 'ST'
-        ) {
-          const extractedText = await documentService.getExtractedText(
-            taskDocument.id
+          // Extract text from PDF - transaction ichida (tez operatsiya)
+          await documentService.processPdfDocument(
+            taskDocument.id,
+            req.file!.path
           );
 
-          if (extractedText) {
-            await aiService.processDocument(
-              taskDocument.id,
-              taskId,
-              parsed.data.documentType,
-              extractedText
-            );
-          }
+          return { taskDocument };
+        },
+        {
+          // Transaction timeout'ni oshiramiz (30 soniya)
+          // Lekin AI processing transaction'dan tashqarida bo'ladi
+          timeout: 30000,
         }
+      );
 
-        // If ST is uploaded and Invoice exists, run AI comparison
-        let aiCheckResult = null;
-        if (parsed.data.documentType === 'ST') {
-          try {
-            // Check if Invoice exists
-            const invoiceDoc = await tx.taskDocument.findFirst({
-              where: {
-                taskId,
-                documentType: 'INVOICE',
-              },
-              include: {
-                metadata: true,
-                structuredData: true,
-              },
-            });
+      // AI processing transaction'dan keyin bajariladi (background'da)
+      // Bu timeout muammosini oldini oladi
+      let aiCheckResult = null;
+      if (parsed.data.documentType === 'INVOICE' || parsed.data.documentType === 'ST') {
+        try {
+          // AI processing'ni async bajarish (response'ni kutmasdan)
+          // Bu foydalanuvchiga tezroq javob qaytarish imkonini beradi
+          (async () => {
+            try {
+              const documentService = new DocumentService(prisma);
+              const aiService = new AiService(prisma);
 
-            if (invoiceDoc && invoiceDoc.metadata && invoiceDoc.structuredData) {
-              // Get ST metadata and structured data
-              const stDoc = await tx.taskDocument.findUnique({
-                where: { id: taskDocument.id },
-                include: {
-                  metadata: true,
-                  structuredData: true,
-                },
-              });
+              const extractedText = await documentService.getExtractedText(
+                result.taskDocument.id
+              );
 
-              if (stDoc && stDoc.metadata && stDoc.structuredData) {
-                // Run AI comparison
-                const comparisonResult = await aiService.compareDocuments(
-                  invoiceDoc.metadata.extractedText,
-                  invoiceDoc.structuredData.structuredData as any,
-                  stDoc.metadata.extractedText,
-                  stDoc.structuredData.structuredData as any
+              if (extractedText) {
+                await aiService.processDocument(
+                  result.taskDocument.id,
+                  taskId,
+                  parsed.data.documentType!,
+                  extractedText
                 );
 
-                // Determine result: FAIL if any critical errors, otherwise PASS
-                const hasCriticalErrors = comparisonResult.some(
-                  (f) => f.severity === 'critical'
-                );
-                const result: 'PASS' | 'FAIL' = hasCriticalErrors ? 'FAIL' : 'PASS';
+                // If ST is uploaded and Invoice exists, run AI comparison
+                if (parsed.data.documentType === 'ST') {
+                  try {
+                    // Check if Invoice exists
+                    const invoiceDoc = await prisma.taskDocument.findFirst({
+                      where: {
+                        taskId,
+                        documentType: 'INVOICE',
+                      },
+                      include: {
+                        metadata: true,
+                        structuredData: true,
+                      },
+                    });
 
-                // Save AI check result - handle case when table doesn't exist
-                try {
-                  await tx.aiCheck.create({
-                    data: {
-                      taskId,
-                      checkType: 'INVOICE_ST',
-                      result,
-                      details: { findings: comparisonResult },
-                    },
-                  });
-                } catch (aiCheckError: any) {
-                  // If table doesn't exist, log warning but don't fail
-                  const isTableMissing = 
-                    aiCheckError?.code === 'P2021' || 
-                    aiCheckError?.code === 'P2010' ||
-                    aiCheckError?.prismaError?.code === '42P01' ||
-                    aiCheckError?.message?.includes('does not exist') ||
-                    aiCheckError?.message?.includes('не существует');
-                  
-                  if (isTableMissing) {
-                    console.warn('AiCheck table does not exist, skipping save');
-                  } else {
-                    // Other error - log but don't fail the upload
-                    console.error('Error saving AI check:', aiCheckError);
+                    if (invoiceDoc && invoiceDoc.metadata && invoiceDoc.structuredData) {
+                      // Get ST metadata and structured data
+                      const stDoc = await prisma.taskDocument.findUnique({
+                        where: { id: result.taskDocument.id },
+                        include: {
+                          metadata: true,
+                          structuredData: true,
+                        },
+                      });
+
+                      if (stDoc && stDoc.metadata && stDoc.structuredData) {
+                        // Parse structured data if it's a JSON string
+                        let invoiceStructured = invoiceDoc.structuredData.structuredData;
+                        if (typeof invoiceStructured === 'string') {
+                          try {
+                            invoiceStructured = JSON.parse(invoiceStructured);
+                          } catch (e) {
+                            console.error('Error parsing invoice structured data:', e);
+                            invoiceStructured = null;
+                          }
+                        }
+
+                        let stStructured = stDoc.structuredData.structuredData;
+                        if (typeof stStructured === 'string') {
+                          try {
+                            stStructured = JSON.parse(stStructured);
+                          } catch (e) {
+                            console.error('Error parsing ST structured data:', e);
+                            stStructured = null;
+                          }
+                        }
+
+                        // Run AI comparison (two-stage architecture: extraction + rule engine)
+                        console.log('[AI Check] Starting comparison for task:', taskId);
+                        const comparisonResult = await compareInvoiceST1(
+                          invoiceDoc.metadata.extractedText,
+                          invoiceStructured as any,
+                          stDoc.metadata.extractedText,
+                          stStructured as any
+                        );
+
+                        console.log('[AI Check] Comparison result:', {
+                          status: comparisonResult.status,
+                          errorsCount: comparisonResult.errors.length,
+                          errors: comparisonResult.errors,
+                        });
+
+                        // Determine result: FAIL if status is ERROR or XATO, otherwise PASS
+                        const result: 'PASS' | 'FAIL' = (comparisonResult.status === 'ERROR' || comparisonResult.status === 'XATO') ? 'FAIL' : 'PASS';
+
+                        console.log('[AI Check] Saving to database:', {
+                          taskId,
+                          checkType: 'INVOICE_ST',
+                          result,
+                          details: comparisonResult,
+                        });
+
+                        // Save AI check result - handle case when table doesn't exist
+                        try {
+                          const savedCheck = await prisma.aiCheck.create({
+                            data: {
+                              taskId,
+                              checkType: 'INVOICE_ST',
+                              result,
+                              details: comparisonResult, // Save new format: {status, errors}
+                            },
+                          });
+                          console.log('[AI Check] Successfully saved:', savedCheck.id);
+                        } catch (aiCheckError: any) {
+                          // If table doesn't exist, log warning but don't fail
+                          const isTableMissing = 
+                            aiCheckError?.code === 'P2021' || 
+                            aiCheckError?.code === 'P2010' ||
+                            aiCheckError?.prismaError?.code === '42P01' ||
+                            aiCheckError?.message?.includes('does not exist') ||
+                            aiCheckError?.message?.includes('не существует');
+                          
+                          if (isTableMissing) {
+                            console.warn('AiCheck table does not exist, skipping save');
+                          } else {
+                            // Other error - log but don't fail the upload
+                            console.error('Error saving AI check:', aiCheckError);
+                          }
+                        }
+                      }
+                    }
+                  } catch (aiError) {
+                    console.error('AI comparison error:', aiError);
+                    // Don't fail the upload if AI check fails
                   }
                 }
-
-                aiCheckResult = {
-                  result,
-                  findings: comparisonResult,
-                };
               }
+            } catch (aiProcessingError) {
+              console.error('AI processing error (background):', aiProcessingError);
+              // Don't fail the upload if AI processing fails
             }
-          } catch (aiError) {
-            console.error('AI comparison error:', aiError);
-            // Don't fail the upload if AI check fails
-          }
+          })();
+        } catch (aiError) {
+          console.error('Error starting AI processing:', aiError);
+          // Don't fail the upload if AI processing fails to start
         }
-
-        return { taskDocument, aiCheckResult };
-      });
+      }
 
       res.json({
         success: true,
@@ -255,7 +307,12 @@ router.post(
           fileUrl: result.taskDocument.fileUrl,
           documentType: (result.taskDocument as any).documentType || null,
         },
-        aiCheck: result.aiCheckResult || null,
+        // AI processing background'da bajarilmoqda
+        // Natijalarni ko'rish uchun /tasks/:id/ai-checks endpoint'ini chaqiring
+        aiCheck: null,
+        message: parsed.data.documentType === 'INVOICE' || parsed.data.documentType === 'ST'
+          ? 'Hujjat yuklandi. AI analizi background\'da bajarilmoqda. Natijalarni bir necha soniyadan keyin yangilash tugmasini bosing.'
+          : undefined,
       });
     } catch (error) {
       // Clean up uploaded file on error

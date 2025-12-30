@@ -24,8 +24,10 @@ import contractsRouter from './routes/contracts';
 import taskStatusRouter from './routes/task-status';
 import taskDocumentsRouter from './routes/task-documents';
 import taskAiChecksRouter from './routes/task-ai-checks';
+import aiRouter from './routes/ai';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
+import OpenAIClient from './ai/openai.client';
 import path from 'path';
 // import { fixDatabaseRoles } from './utils/fixDatabaseRoles'; // Vaqtinchalik o'chirilgan
 
@@ -84,6 +86,7 @@ app.get('/', (_req, res) => {
       dashboard: '/api/dashboard',
       workers: '/api/workers',
       bxm: '/api/bxm',
+      ai: '/api/ai',
     },
   });
 });
@@ -98,6 +101,8 @@ app.get('/health', async (_req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+// AI endpoints (protected, requires authentication)
+app.use('/api/ai', requireAuth(), aiRouter);
 // Client endpoints (public for client login, but protected for other operations)
 app.use('/api/clients', clientsRouter);
 app.use('/api/tasks', requireAuth(), auditLog('ACCESS', 'TASK'), tasksRouter);
@@ -129,6 +134,39 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
   });
 });
+
+// Validate environment variables on startup
+function validateEnvironment() {
+  const requiredVars: string[] = [];
+  const warnings: string[] = [];
+
+  // Check OpenAI API key (required for AI features)
+  if (!OpenAIClient.isConfigured()) {
+    warnings.push('⚠️  OPENAI_API_KEY is not set. AI features will not work.');
+  } else {
+    console.log('✅ OPENAI_API_KEY is configured');
+  }
+
+  // Check database URL
+  if (!process.env.DATABASE_URL) {
+    requiredVars.push('DATABASE_URL');
+  }
+
+  // Display warnings
+  if (warnings.length > 0) {
+    warnings.forEach((warning) => console.warn(warning));
+  }
+
+  // Fail fast if critical vars are missing
+  if (requiredVars.length > 0) {
+    console.error(`❌ Missing required environment variables: ${requiredVars.join(', ')}`);
+    console.error('Please set them in your .env file');
+    process.exit(1);
+  }
+}
+
+// Validate environment before starting server
+validateEnvironment();
 
 // Server'ni darhol ishga tushirish - database ulanishini kutmasdan
 app.listen(PORT, '0.0.0.0', () => {

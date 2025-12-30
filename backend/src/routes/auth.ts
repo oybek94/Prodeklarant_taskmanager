@@ -4,52 +4,51 @@ import { comparePassword, hashPassword } from '../utils/hash';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
-import { User } from '@prisma/client';
 
 const router = Router();
 
 const loginSchema = z.object({
-  password: z.string().min(4),
+  email: z.string().email('Email manzil noto\'g\'ri'),
+  password: z.string().min(1, 'Parol kiritilishi shart'),
 });
 
 router.post('/login', async (req, res) => {
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    const { password } = parsed.data;
+    const { email, password } = parsed.data;
     
-    // Find user by password - use Prisma ORM instead of raw SQL
-    const users = await prisma.user.findMany({
-      where: { active: true },
+    // Security: Find user by email (unique identifier) instead of password
+    // This is more secure and efficient than iterating through all users
+    // Using findUnique ensures we get at most one user, preventing timing attacks
+    const user = await prisma.user.findUnique({
+      where: { email },
       select: {
         id: true,
         name: true,
         passwordHash: true,
         role: true,
         branchId: true,
+        active: true,
       },
     });
     
-    let matchedUser: Pick<User, 'id' | 'name' | 'passwordHash' | 'role' | 'branchId'> | null = null;
-    for (const user of users) {
-      const ok = await comparePassword(password, user.passwordHash);
-      if (ok) {
-        if (matchedUser) {
-          // Multiple users with same password - security issue
-          return res.status(400).json({ 
-            error: 'Xatolik: Bir nechta foydalanuvchi bir xil parolga ega. Iltimos, parollarni o\'zgartiring.' 
-          });
-        }
-        matchedUser = user;
-      }
+    // Security: Always perform password comparison, even if user not found
+    // This prevents user enumeration attacks (timing differences)
+    if (!user || !user.active) {
+      // Perform dummy comparison to prevent timing attacks
+      await comparePassword(password, '$2a$10$dummyhash');
+      return res.status(401).json({ error: 'Email yoki parol noto\'g\'ri' });
     }
     
-    if (!matchedUser) {
-      return res.status(401).json({ error: 'Noto\'g\'ri parol' });
+    // Security: Verify password using bcrypt.compare
+    // This uses constant-time comparison to prevent timing attacks
+    const isValidPassword = await comparePassword(password, user.passwordHash);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Email yoki parol noto\'g\'ri' });
     }
     
     // Convert role to valid enum value
-    const user = matchedUser as any;
     let validRole = user.role;
     if (user.role === 'WORKER' || user.role === 'ACCOUNTANT') {
       validRole = 'DEKLARANT';
@@ -63,7 +62,12 @@ router.post('/login', async (req, res) => {
     return res.json({
       accessToken: signAccessToken(payload),
       refreshToken: signRefreshToken(payload),
-      user: { id: user.id, name: user.name, role: validRole, branchId: user.branchId || null },
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        role: validRole, 
+        branchId: user.branchId || null 
+      },
     });
   } catch (error: any) {
     console.error('Login error:', error);

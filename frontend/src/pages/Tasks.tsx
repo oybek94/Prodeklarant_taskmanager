@@ -441,9 +441,12 @@ const Tasks = () => {
     try {
       setLoadingAiChecks(true);
       const response = await apiClient.get(`/tasks/${taskId}/ai-checks`);
+      console.log('[AI Checks] Response:', response.data);
       if (response.data.success && Array.isArray(response.data.checks)) {
+        console.log('[AI Checks] Found checks:', response.data.checks.length);
         setAiChecks(response.data.checks);
       } else {
+        console.warn('[AI Checks] No checks found or invalid response format');
         setAiChecks([]);
       }
     } catch (error) {
@@ -2523,12 +2526,58 @@ const Tasks = () => {
               {loadingAiChecks ? (
                 <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
               ) : !Array.isArray(aiChecks) || aiChecks.length === 0 ? (
-                <div className="text-center py-4 text-gray-400">AI tekshiruv natijalari yo'q</div>
+                <div className="text-center py-4 text-gray-400">
+                  <p className="mb-2">AI tekshiruv natijalari yo'q</p>
+                  <p className="text-xs text-gray-500">
+                    Invoice va ST hujjatlarini yuklaganingizdan keyin AI tekshiruvi avtomatik bajariladi
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-4">
                   {aiChecks.map((check: any) => {
-                    const findings = check.details?.findings || [];
-                    const isPass = check.result === 'PASS';
+                    // Parse details if it's a JSON string
+                    let details = check.details;
+                    if (typeof details === 'string') {
+                      try {
+                        details = JSON.parse(details);
+                      } catch (e) {
+                        console.error('Error parsing AI check details:', e, 'Raw details:', details);
+                        details = {};
+                      }
+                    }
+                    
+                    // Debug log
+                    console.log('[AI Check] Processing check:', {
+                      id: check.id,
+                      checkType: check.checkType,
+                      result: check.result,
+                      details: details,
+                      detailsType: typeof details,
+                    });
+                    
+                    // Handle new format: {status: "OK"|"ERROR"|"XATO", errors: []}
+                    // or legacy format: {findings: []}
+                    const errors = details?.errors || [];
+                    const status = details?.status || (check.result === 'PASS' ? 'OK' : 'ERROR');
+                    const isPass = status === 'OK' || check.result === 'PASS';
+                    
+                    // For backward compatibility with old format
+                    const legacyFindings = details?.findings || [];
+                    
+                    // Determine if there are errors (handle both new and legacy formats)
+                    const hasErrors = 
+                      status === 'ERROR' || 
+                      status === 'XATO' || 
+                      errors.length > 0 || 
+                      (legacyFindings.length > 0 && !isPass);
+                    
+                    console.log('[AI Check] Parsed result:', {
+                      status,
+                      isPass,
+                      hasErrors,
+                      errorsCount: errors.length,
+                      legacyFindingsCount: legacyFindings.length,
+                    });
                     
                     return (
                       <div
@@ -2568,13 +2617,51 @@ const Tasks = () => {
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
                           }`}>
-                            {isPass ? 'TO\'G\'RI' : 'XATO'}
+                            {isPass ? 'TO\'G\'RI' : (status === 'XATO' ? 'XATO' : 'XATO')}
                           </span>
                         </div>
                         
-                        {findings.length > 0 ? (
+                        {hasErrors ? (
                           <div className="mt-3 space-y-2">
-                            {findings.map((finding: any, idx: number) => (
+                            <div className="text-sm font-medium text-gray-700 mb-2">
+                              Topilgan muammolar ({errors.length || legacyFindings.length}):
+                            </div>
+                            {/* New format: errors array */}
+                            {errors.map((error: any, idx: number) => (
+                              <div
+                                key={idx}
+                                className="p-3 rounded bg-red-100 border border-red-300"
+                              >
+                                <div className="font-medium text-sm mb-2 text-red-700">
+                                  🔴 {error.field || 'Noma\'lum maydon'}
+                                </div>
+                                {error.description && (
+                                  <div className="text-sm text-gray-700 mb-2">
+                                    {error.description}
+                                  </div>
+                                )}
+                                <div className="text-xs text-gray-600 space-y-1 mt-2 pt-2 border-t border-gray-300">
+                                  {error.invoice && (
+                                    <div>
+                                      <span className="font-medium">Invoice:</span>{' '}
+                                      <span className="font-mono bg-gray-100 px-1 rounded">
+                                        {error.invoice}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {(error.st1 || error.st) && (
+                                    <div>
+                                      <span className="font-medium">ST:</span>{' '}
+                                      <span className="font-mono bg-gray-100 px-1 rounded">
+                                        {error.st1 || error.st}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            {/* Legacy format: findings array (for backward compatibility) */}
+                            {legacyFindings.length > 0 && errors.length === 0 && legacyFindings.map((finding: any, idx: number) => (
                               <div
                                 key={idx}
                                 className={`p-3 rounded ${
@@ -2583,27 +2670,64 @@ const Tasks = () => {
                                     : 'bg-yellow-100 border border-yellow-300'
                                 }`}
                               >
-                                <div className="font-medium text-sm mb-1">
-                                  {finding.severity === 'critical' ? '🔴 Kritik:' : '⚠️ Ogohlantirish:'} {finding.field}
+                                <div className="font-medium text-sm mb-2">
+                                  <span className={finding.severity === 'critical' ? 'text-red-700' : 'text-yellow-700'}>
+                                    {finding.severity === 'critical' ? '🔴 Kritik:' : '⚠️ Ogohlantirish:'}
+                                  </span>
+                                  <span className="ml-1 font-semibold">{finding.field || 'Noma\'lum maydon'}</span>
                                 </div>
-                                <div className="text-xs text-gray-700 mb-1">
-                                  {finding.explanation}
-                                </div>
-                                <div className="text-xs text-gray-600 mt-1">
-                                  <div>Invoice: <span className="font-medium">{JSON.stringify(finding.invoice_value)}</span></div>
-                                  <div>ST: <span className="font-medium">{JSON.stringify(finding.st_value)}</span></div>
+                                {finding.explanation && (
+                                  <div className="text-sm text-gray-700 mb-2">
+                                    {finding.explanation}
+                                  </div>
+                                )}
+                                <div className="text-xs text-gray-600 space-y-1 mt-2 pt-2 border-t border-gray-300">
+                                  {finding.invoice_value !== undefined && finding.invoice_value !== null && (
+                                    <div>
+                                      <span className="font-medium">Invoice:</span>{' '}
+                                      <span className="font-mono bg-gray-100 px-1 rounded">
+                                        {typeof finding.invoice_value === 'object' 
+                                          ? JSON.stringify(finding.invoice_value, null, 2)
+                                          : String(finding.invoice_value)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {finding.st_value !== undefined && finding.st_value !== null && (
+                                    <div>
+                                      <span className="font-medium">ST:</span>{' '}
+                                      <span className="font-mono bg-gray-100 px-1 rounded">
+                                        {typeof finding.st_value === 'object'
+                                          ? JSON.stringify(finding.st_value, null, 2)
+                                          : String(finding.st_value)}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className={`text-sm mt-2 ${
-                            isPass ? 'text-green-700' : 'text-red-700'
+                          <div className={`text-sm mt-2 p-3 rounded ${
+                            isPass 
+                              ? 'bg-green-100 text-green-800 border border-green-200' 
+                              : 'bg-gray-100 text-gray-700 border border-gray-200'
                           }`}>
                             {isPass 
-                              ? 'Barcha ma\'lumotlar to\'g\'ri keladi. Xatolik topilmadi.'
-                              : 'Xatoliklar aniqlangan. Yuqoridagi ma\'lumotlarni tekshiring.'}
-                          </p>
+                              ? '✅ Barcha ma\'lumotlar to\'g\'ri keladi. Xatolik topilmadi.'
+                              : 'ℹ️ AI tekshiruvi bajarildi, lekin batafsil natijalar mavjud emas.'}
+                          </div>
+                        )}
+                        
+                        {/* Show raw details if available for debugging */}
+                        {process.env.NODE_ENV === 'development' && details && Object.keys(details).length > 0 && (
+                          <details className="mt-3 text-xs">
+                            <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+                              Batafsil ma'lumot (debug)
+                            </summary>
+                            <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto max-h-40">
+                              {JSON.stringify(details, null, 2)}
+                            </pre>
+                          </details>
                         )}
                       </div>
                     );

@@ -123,12 +123,16 @@ If no issues found, return empty array [].`;
   }
 
   /**
-   * Compare Invoice and ST documents using AI
+   * Compare Invoice and ST documents using TWO-STAGE ARCHITECTURE
+   * 
+   * DEPRECATED: Use compareInvoiceST1 from document.analyzer instead
+   * This method is kept for backward compatibility
+   * 
    * @param invoiceText Invoice extracted text
    * @param invoiceStructured Invoice structured data
    * @param stText ST extracted text
    * @param stStructured ST structured data
-   * @returns Array of comparison findings
+   * @returns Array of comparison findings (legacy format)
    */
   async compareDocuments(
     invoiceText: string,
@@ -144,61 +148,23 @@ If no issues found, return empty array [].`;
       explanation: string;
     }>
   > {
-    try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a document comparison assistant. Return ONLY valid JSON array, no markdown, no explanations.',
-          },
-          {
-            role: 'user',
-            content: `${this.COMPARISON_PROMPT}\n\nInvoice structured data:\n${JSON.stringify(invoiceStructured, null, 2)}\n\nST structured data:\n${JSON.stringify(stStructured, null, 2)}`,
-          },
-        ],
-        temperature: 0.1,
-      });
+    // Use new two-stage architecture
+    const { compareInvoiceST1 } = await import('../ai/document.analyzer');
+    const result = await compareInvoiceST1(
+      invoiceText,
+      invoiceStructured,
+      stText,
+      stStructured
+    );
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('AI response is empty');
-      }
-
-      // Remove markdown code blocks if present
-      let cleanedContent = content.trim();
-      if (cleanedContent.startsWith('```json')) {
-        cleanedContent = cleanedContent.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-      } else if (cleanedContent.startsWith('```')) {
-        cleanedContent = cleanedContent.replace(/^```\n?/, '').replace(/\n?```$/, '');
-      }
-
-      const parsed = JSON.parse(cleanedContent);
-      // Handle different response formats
-      let findings: any[] = [];
-      
-      if (Array.isArray(parsed)) {
-        findings = parsed;
-      } else if (parsed.findings && Array.isArray(parsed.findings)) {
-        findings = parsed.findings;
-      } else if (parsed.results && Array.isArray(parsed.results)) {
-        findings = parsed.results;
-      } else if (typeof parsed === 'object') {
-        // Try to find array values
-        const values = Object.values(parsed);
-        const arrayValue = values.find((v) => Array.isArray(v));
-        if (arrayValue) {
-          findings = arrayValue as any[];
-        }
-      }
-
-      return findings;
-    } catch (error) {
-      throw new Error(
-        `AI comparison failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
+    // Convert new format to legacy format for backward compatibility
+    return result.errors.map((error) => ({
+      field: error.field,
+      invoice_value: error.invoice,
+      st_value: error.st,
+      severity: 'critical' as const,
+      explanation: error.description,
+    }));
   }
 
   /**
@@ -280,25 +246,34 @@ If no issues found, return empty array [].`;
       throw new Error('ST document or structured data not found');
     }
 
-    // Run AI comparison
-    const findings = await this.compareDocuments(
+    // Use new two-stage architecture
+    const { compareInvoiceST1 } = await import('../ai/document.analyzer');
+    const comparisonResult = await compareInvoiceST1(
       invoiceDocs.metadata.extractedText,
-      invoiceDocs.structuredData.structuredData,
+      invoiceDocs.structuredData.structuredData as any,
       stDocs.metadata.extractedText,
-      stDocs.structuredData.structuredData
+      stDocs.structuredData.structuredData as any
     );
 
-    // Determine result: FAIL if any critical errors, otherwise PASS
-    const hasCriticalErrors = findings.some((f) => f.severity === 'critical');
-    const result: 'PASS' | 'FAIL' = hasCriticalErrors ? 'FAIL' : 'PASS';
+    // Determine result: FAIL if status is ERROR or XATO, otherwise PASS
+    const result: 'PASS' | 'FAIL' = (comparisonResult.status === 'ERROR' || comparisonResult.status === 'XATO') ? 'FAIL' : 'PASS';
+
+    // Convert to legacy findings format for backward compatibility
+    const findings = comparisonResult.errors.map((error) => ({
+      field: error.field,
+      invoice_value: error.invoice,
+      st_value: error.st,
+      severity: 'critical' as const,
+      explanation: error.description,
+    }));
 
     // Save AI check result
     await this.prisma.aiCheck.create({
       data: {
         taskId,
         checkType: 'INVOICE_ST',
-        result: hasCriticalErrors ? 'FAIL' : 'PASS',
-        details: { findings },
+        result,
+        details: comparisonResult, // Save new format: {status, errors}
       },
     });
 

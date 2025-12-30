@@ -242,6 +242,19 @@ NGINX_EOF
 ln -sf /etc/nginx/sites-available/prodeklarant /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
 
+# Fix file permissions for frontend/dist
+echo "Fixing file permissions..."
+if [ -d "/var/www/app/frontend/dist" ]; then
+    chown -R www-data:www-data /var/www/app/frontend/dist
+    chmod -R 755 /var/www/app/frontend/dist
+    if [ -f "/var/www/app/frontend/dist/index.html" ]; then
+        chmod 644 /var/www/app/frontend/dist/index.html
+    fi
+    echo "[OK] Frontend dist permissions fixed"
+else
+    echo "[WARN] Frontend dist directory does not exist, permissions will be set after build"
+fi
+
 # Test Nginx config
 if nginx -t; then
     systemctl reload nginx

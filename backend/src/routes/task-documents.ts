@@ -103,11 +103,10 @@ router.post(
 
       // Transaction: Faqat document yaratish va text extraction
       // AI processing transaction'dan tashqarida bajariladi (timeout muammosini oldini olish uchun)
+      // PDF processing'ni transaction'dan tashqariga chiqaramiz
+      // chunki bu uzoq davom etadigan operatsiya va timeout muammosiga olib keladi
       const result = await prisma.$transaction(
         async (tx) => {
-          // Process document - DocumentService ni transaction ichida yaratamiz
-          const documentService = new DocumentService(tx);
-
           // Create task document record
           const documentData: any = {
             taskId,
@@ -142,19 +141,21 @@ router.post(
             taskDocument = insertedRows[0];
           }
 
-          // Extract text from PDF - transaction ichida (tez operatsiya)
-          await documentService.processPdfDocument(
-            taskDocument.id,
-            req.file!.path
-          );
-
           return { taskDocument };
         },
         {
-          // Transaction timeout'ni oshiramiz (30 soniya)
-          // Lekin AI processing transaction'dan tashqarida bo'ladi
-          timeout: 30000,
+          // Transaction timeout'ni oshiramiz (60 soniya)
+          // PDF processing transaction'dan tashqarida bo'ladi
+          timeout: 60000,
         }
+      );
+
+      // PDF processing'ni transaction'dan keyin bajaramiz
+      // Bu timeout muammosini hal qiladi
+      const documentService = new DocumentService(prisma);
+      await documentService.processPdfDocument(
+        result.taskDocument.id,
+        req.file!.path
       );
 
       // AI processing transaction'dan keyin bajariladi (background'da)

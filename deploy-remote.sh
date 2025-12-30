@@ -178,6 +178,16 @@ npx vite build || {
     fi
 }
 
+# Fix permissions after build
+if [ -d "dist" ]; then
+    chown -R www-data:www-data dist
+    chmod -R 755 dist
+    if [ -f "dist/index.html" ]; then
+        chmod 644 dist/index.html
+    fi
+    echo "[OK] Frontend dist permissions set"
+fi
+
 echo "[OK] Frontend configured"
 
 # Step 8: Start Backend with PM2

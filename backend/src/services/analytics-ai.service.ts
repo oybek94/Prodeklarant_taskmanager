@@ -83,9 +83,6 @@ export class AnalyticsAIService {
       const examAttempts = await prisma.examAttempt.findMany({
         where: { 
           userId,
-          aiFeedback: {
-            not: null,
-          },
         },
         include: {
           exam: {
@@ -119,14 +116,16 @@ export class AnalyticsAIService {
       const inputs: EmployeeAnalyticsInputs = {
         userId,
         userName: user.name,
-        examAttempts: examAttempts.map(a => ({
-          examId: a.examId,
-          lessonTitle: a.exam.lesson?.title || 'Unknown',
-          score: a.score,
-          passed: a.passed,
-          completedAt: a.completedAt || a.startedAt,
-          aiFeedback: a.aiFeedback,
-        })),
+        examAttempts: examAttempts
+          .filter(a => a.aiFeedback !== null)
+          .map(a => ({
+            examId: a.examId,
+            lessonTitle: a.exam.lesson?.title || 'Unknown',
+            score: a.score,
+            passed: a.passed,
+            completedAt: a.completedAt || a.startedAt,
+            aiFeedback: a.aiFeedback as any,
+          })),
         lessonProgress: lessonProgress.map(p => ({
           lessonId: p.lessonId,
           lessonTitle: p.lesson.title,

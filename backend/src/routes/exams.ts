@@ -31,7 +31,7 @@ router.post('/:id/start', requireAuth(), async (req: AuthRequest, res) => {
 
     // O'qitishni tugallanganligini tekshirish (faqat trainingId bo'lsa)
     if (exam.trainingId) {
-      const progress = await prisma.trainingProgress.findUnique({
+      const trainingProgress = await prisma.trainingProgress.findUnique({
         where: {
           userId_trainingId: {
             userId: req.user!.id,
@@ -40,17 +40,11 @@ router.post('/:id/start', requireAuth(), async (req: AuthRequest, res) => {
         },
       });
 
-      if (!progress || !progress.completed) {
+      if (!trainingProgress || !trainingProgress.completed) {
         return res.status(400).json({ 
           error: 'Avval o\'qitishni tugallashingiz kerak' 
         });
       }
-    }
-
-    if (!progress || !progress.completed) {
-      return res.status(400).json({ 
-        error: 'Avval o\'qitishni tugallashingiz kerak' 
-      });
     }
 
     // Savollarni tayyorlash (to'g'ri javoblarni olib tashlash)
@@ -482,7 +476,7 @@ router.post('/:id/attempt', requireAuth(), async (req: AuthRequest, res) => {
     const userId = req.user!.id;
 
     const schema = z.object({
-      answers: z.record(z.any()), // { questionId: answer }
+      answers: z.record(z.string(), z.any()), // { questionId: answer }
     });
 
     const { answers } = schema.parse(req.body);

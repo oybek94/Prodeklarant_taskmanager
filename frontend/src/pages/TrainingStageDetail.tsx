@@ -211,82 +211,84 @@ export default function TrainingStageDetail() {
                         {step.materials
                           .sort((a, b) => a.orderIndex - b.orderIndex)
                           .map((material) => (
-                            <div key={material.id} className="border border-gray-200 rounded-lg p-6 bg-gray-50">
-                              <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <span className="text-2xl">
-                                  {material.type === 'TEXT' && '📄'}
-                                  {material.type === 'AUDIO' && '🎵'}
-                                  {material.type === 'VIDEO' && '🎥'}
-                                  {material.type === 'IMAGE' && '🖼️'}
-                                </span>
-                                {material.title}
-                              </h3>
-                              
-                              {/* Material kontenti */}
-                              <div className="space-y-4">
-                                {material.type === 'TEXT' && material.content && (
-                                  <div 
-                                    className="lesson-content text-gray-700 leading-relaxed bg-white p-6 rounded-lg border border-gray-200"
-                                    dangerouslySetInnerHTML={{ __html: material.content }}
-                                    style={{
-                                      fontFamily: 'system-ui, -apple-system, sans-serif',
-                                    }}
-                                  />
-                                )}
+                            <div key={material.id}>
+                              {material.type === 'TEXT' && material.content ? (
+                                <div 
+                                  className="lesson-content text-gray-700 leading-relaxed"
+                                  dangerouslySetInnerHTML={{ __html: material.content }}
+                                  style={{
+                                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                                  }}
+                                />
+                              ) : (
+                                <div className="border border-gray-200 rounded-lg p-6 bg-gray-50">
+                                  <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="text-2xl">
+                                      {material.type === 'TEXT' && '📄'}
+                                      {material.type === 'AUDIO' && '🎵'}
+                                      {material.type === 'VIDEO' && '🎥'}
+                                      {material.type === 'IMAGE' && '🖼️'}
+                                    </span>
+                                    {material.title}
+                                  </h3>
+                                  
+                                  {/* Material kontenti */}
+                                  <div className="space-y-4">
+                                    {material.type === 'VIDEO' && material.fileUrl && (
+                                      <div className="rounded-lg overflow-hidden">
+                                        <video
+                                          src={material.fileUrl}
+                                          controls
+                                          className="w-full rounded-lg"
+                                        >
+                                          Video'ni qo'llab-quvvatlamaydi
+                                        </video>
+                                      </div>
+                                    )}
 
-                                {material.type === 'VIDEO' && material.fileUrl && (
-                                  <div className="rounded-lg overflow-hidden">
-                                    <video
-                                      src={material.fileUrl}
-                                      controls
-                                      className="w-full rounded-lg"
+                                    {material.type === 'AUDIO' && material.fileUrl && (
+                                      <div className="bg-white p-4 rounded border">
+                                        <audio
+                                          src={material.fileUrl}
+                                          controls
+                                          className="w-full"
+                                        >
+                                          Audio'ni qo'llab-quvvatlamaydi
+                                        </audio>
+                                      </div>
+                                    )}
+
+                                    {material.type === 'IMAGE' && material.fileUrl && (
+                                      <div className="rounded-lg overflow-hidden">
+                                        <img
+                                          src={convertGoogleDriveUrl(material.fileUrl)}
+                                          alt={material.title}
+                                          className="w-full rounded-lg border border-gray-200"
+                                          onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            if (target.src !== material.fileUrl) {
+                                              target.src = material.fileUrl || '';
+                                            }
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+
+                                    {material.durationMin && (
+                                      <p className="text-sm text-gray-500">
+                                        Davomiyligi: {material.durationMin} daqiqa
+                                      </p>
+                                    )}
+
+                                    <button
+                                      onClick={() => handleMaterialComplete(material.id)}
+                                      className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                                     >
-                                      Video'ni qo'llab-quvvatlamaydi
-                                    </video>
+                                      ✓ Materialni yakunlash
+                                    </button>
                                   </div>
-                                )}
-
-                                {material.type === 'AUDIO' && material.fileUrl && (
-                                  <div className="bg-white p-4 rounded border">
-                                    <audio
-                                      src={material.fileUrl}
-                                      controls
-                                      className="w-full"
-                                    >
-                                      Audio'ni qo'llab-quvvatlamaydi
-                                    </audio>
-                                  </div>
-                                )}
-
-                                {material.type === 'IMAGE' && material.fileUrl && (
-                                  <div className="rounded-lg overflow-hidden">
-                                    <img
-                                      src={convertGoogleDriveUrl(material.fileUrl)}
-                                      alt={material.title}
-                                      className="w-full rounded-lg border border-gray-200"
-                                      onError={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        if (target.src !== material.fileUrl) {
-                                          target.src = material.fileUrl || '';
-                                        }
-                                      }}
-                                    />
-                                  </div>
-                                )}
-
-                                {material.durationMin && (
-                                  <p className="text-sm text-gray-500">
-                                    Davomiyligi: {material.durationMin} daqiqa
-                                  </p>
-                                )}
-
-                                <button
-                                  onClick={() => handleMaterialComplete(material.id)}
-                                  className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                >
-                                  ✓ Materialni yakunlash
-                                </button>
-                              </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                       </div>

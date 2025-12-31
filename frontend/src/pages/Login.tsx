@@ -34,7 +34,7 @@ const Login = () => {
           Prodeklarant
         </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+          <div className="hidden">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Email <span className="text-gray-400 text-xs">(ixtiyoriy)</span>
             </label>

@@ -168,6 +168,8 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
     const yearAgo = new Date(now);
     yearAgo.setFullYear(yearAgo.getFullYear() - 1);
     dateFilter = { gte: yearAgo };
+  } else if (period === 'all') {
+    dateFilter = {}; // No date filtering, include all history
   }
 
   if (startDate) dateFilter.gte = new Date(startDate as string);

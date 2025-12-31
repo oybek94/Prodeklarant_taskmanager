@@ -637,7 +637,8 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     if (!stage || stage.taskId !== taskId) return res.status(404).json({ error: 'Stage not found' });
 
     // Invoys stage'ini tayyor qilishda Invoice PDF talab qilish
-    if (stage.name === 'Invoys' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
+    // Agar skipValidation true bo'lsa, validation'ni o'tkazib yuboramiz
+    if (stage.name === 'Invoys' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR' && !parsed.data.skipValidation) {
       try {
         // Barcha PDF fayllarni olamiz va JavaScript filter qilamiz
         const allPdfs = await prisma.taskDocument.findMany({

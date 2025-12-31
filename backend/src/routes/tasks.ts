@@ -5,6 +5,7 @@ import { AuthRequest, requireAuth } from '../middleware/auth';
 import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
 import { updateTaskStatus, calculateTaskStatus } from '../services/task-status';
+import { TaskStatus } from '@prisma/client';
 import { ValidationService } from '../services/validation.service';
 import fs from 'fs/promises';
 
@@ -32,6 +33,64 @@ const debugLog = (data: any) => {
   // Also log to console for immediate visibility
   console.log('[DEBUG]', logEntry.trim());
 };
+
+// Helper function to calculate task status from stages array (optimized version)
+function calculateTaskStatusFromStages(stages: Array<{name: string, status: string}>): TaskStatus {
+  if (stages.length === 0) {
+    return TaskStatus.BOSHLANMAGAN;
+  }
+
+  // Create a map of stage names to status
+  const stageMap = new Map(stages.map(s => [s.name, s.status]));
+  
+  // Helper function to check if stage is TAYYOR
+  const isReady = (name: string): boolean => {
+    return stageMap.get(name) === 'TAYYOR';
+  };
+
+  // 1. Check if all stages are blank (BOSHLANMAGAN)
+  const allBlank = stages.every(s => s.status === 'BOSHLANMAGAN');
+  if (allBlank) {
+    return TaskStatus.BOSHLANMAGAN;
+  }
+
+  // Priority order based on formula (check from highest to lowest priority):
+  // 5. Pochta = TAYYOR → YAKUNLANDI
+  if (isReady('Pochta')) {
+    return TaskStatus.YAKUNLANDI;
+  }
+
+  // 4. Topshirish = TAYYOR → TOPSHIRILDI
+  if (isReady('Topshirish')) {
+    return TaskStatus.TOPSHIRILDI;
+  }
+
+  // 3. Tekshirish = TAYYOR → TEKSHIRILGAN
+  if (isReady('Tekshirish')) {
+    return TaskStatus.TEKSHIRILGAN;
+  }
+
+  // 2. Deklaratsiya = TAYYOR → TAYYOR
+  if (isReady('Deklaratsiya')) {
+    return TaskStatus.TAYYOR;
+  }
+
+  // 6. Invoys, Zayavka, TIR-SMR, ST, FITO TAYYOR → JARAYONDA
+  const earlyStages = ['Invoys', 'Zayavka', 'TIR-SMR', 'ST', 'Fito', 'FITO'];
+  const hasEarlyStageReady = earlyStages.some(name => isReady(name));
+  if (hasEarlyStageReady) {
+    return TaskStatus.JARAYONDA;
+  }
+
+  // If any other stage is TAYYOR, also return JARAYONDA
+  const hasAnyReady = stages.some(s => s.status === 'TAYYOR');
+  if (hasAnyReady) {
+    return TaskStatus.JARAYONDA;
+  }
+
+  // Otherwise -> BOSHLANMAGAN
+  return TaskStatus.BOSHLANMAGAN;
+}
 
 const stageTemplates = [
   'Invoys',
@@ -125,22 +184,47 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     // Calculate and update status for each task using the new formula
     // NOTE: We only recalculate if status filter is not set, to avoid overriding user's filter
     // If status filter is set, we trust the database value
-    if (!status) {
+    if (!status && tasks.length > 0) {
       // Only recalculate if no status filter is applied
-      for (const task of tasks) {
-        const calculatedStatus = await calculateTaskStatus(prisma, task.id);
-        
-        // Update task status if different
-        if (task.status !== calculatedStatus) {
-          await prisma.task.update({
-            where: { id: task.id },
-            data: { status: calculatedStatus },
-          });
-          (task as any).status = calculatedStatus;
-        } else {
-          // Update the task object with calculated status for response
-          (task as any).status = calculatedStatus;
+      // Optimize: Get all stages for all tasks in one query
+      const taskIds = tasks.map(t => t.id);
+      const allStages = await prisma.taskStage.findMany({
+        where: { taskId: { in: taskIds } },
+        select: { taskId: true, name: true, status: true },
+      });
+      
+      // Group stages by taskId
+      const stagesByTask = new Map<number, Array<{name: string, status: string}>>();
+      for (const stage of allStages) {
+        if (!stagesByTask.has(stage.taskId)) {
+          stagesByTask.set(stage.taskId, []);
         }
+        stagesByTask.get(stage.taskId)!.push({ name: stage.name, status: stage.status });
+      }
+      
+      // Calculate status for each task
+      const updates: Array<{id: number, status: TaskStatus}> = [];
+      for (const task of tasks) {
+        const stages = stagesByTask.get(task.id) || [];
+        const calculatedStatus = await calculateTaskStatusFromStages(stages);
+        
+        // Update task object for response
+        (task as any).status = calculatedStatus;
+        
+        // Collect updates to batch them
+        if (task.status !== calculatedStatus) {
+          updates.push({ id: task.id, status: calculatedStatus });
+        }
+      }
+      
+      // Batch update all tasks with new status
+      if (updates.length > 0) {
+        await Promise.all(updates.map(update => 
+          prisma.task.update({
+            where: { id: update.id },
+            data: { status: update.status },
+          })
+        ));
       }
     } else {
       // If status filter is set, use database status directly

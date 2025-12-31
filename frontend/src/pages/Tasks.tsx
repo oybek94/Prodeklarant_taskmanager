@@ -3002,25 +3002,40 @@ const Tasks = () => {
                     )}
                   </div>
 
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleInvoiceUpload}
-                      disabled={!invoiceUploadFile || uploadingInvoice}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {uploadingInvoice ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowInvoiceUploadModal(false);
-                        setInvoiceUploadFile(null);
-                        setInvoiceUploadName('Invoice');
-                        setSelectedStageForReminder(null);
-                      }}
-                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                    >
-                      Bekor qilish
-                    </button>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleInvoiceUpload}
+                        disabled={!invoiceUploadFile || uploadingInvoice}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {uploadingInvoice ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowInvoiceUploadModal(false);
+                          setInvoiceUploadFile(null);
+                          setInvoiceUploadName('Invoice');
+                          setSelectedStageForReminder(null);
+                        }}
+                        className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                      >
+                        Bekor qilish
+                      </button>
+                    </div>
+                    {selectedStageForReminder && (
+                      <button
+                        onClick={async () => {
+                          setShowInvoiceUploadModal(false);
+                          setInvoiceUploadFile(null);
+                          setInvoiceUploadName('Invoice');
+                          await updateStageToReady(undefined, true);
+                        }}
+                        className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                      >
+                        O'tkazib yuborish va tayyor qilish
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

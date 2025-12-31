@@ -17,6 +17,7 @@ router.post('/login', async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     const { email, password } = parsed.data;
+    const emailValue = email && email.trim() !== '' ? email : undefined;
     
     let user;
     

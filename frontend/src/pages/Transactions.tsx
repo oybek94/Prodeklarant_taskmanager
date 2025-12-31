@@ -109,12 +109,18 @@ const Transactions = () => {
 
   const loadWorkerStatsForUser = async (workerId: number) => {
     try {
-      const response = await apiClient.get(`/workers/${workerId}/stage-stats?period=all`);
-      const totals = response.data.totals;
+      // KPI loglar yig'indisini olish (ishlab topgan jami ish xaqi)
+      const statsResponse = await apiClient.get(`/workers/${workerId}/stats?period=all`);
+      const totalKPI = statsResponse.data.totalKPI || 0;
+      
+      // To'langan ish xaqi va to'lanmagan ish xaqi uchun stage-stats dan foydalanamiz
+      const stageStatsResponse = await apiClient.get(`/workers/${workerId}/stage-stats?period=all`);
+      const totals = stageStatsResponse.data.totals;
+      
       setWorkerStats({
-        totalEarned: totals.totalEarned,
-        totalPaid: totals.totalReceived,
-        totalPending: totals.totalPending,
+        totalEarned: totalKPI, // KPI loglar yig'indisi (ishlab topgan jami ish xaqi)
+        totalPaid: totals.totalReceived, // To'langan ish xaqi
+        totalPending: totalKPI - totals.totalReceived, // To'lanmagan ish xaqi
       });
     } catch (error) {
       console.error('Error loading worker stats for user:', error);

@@ -288,6 +288,27 @@ const Transactions = () => {
     return `${sign}${change.toFixed(1)}%`;
   };
 
+  // Calculate totals from transactions
+  const calculateTotals = () => {
+    const totalIncome = transactions
+      .filter(t => t.type === 'INCOME')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    const totalExpense = transactions
+      .filter(t => t.type === 'EXPENSE')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    const totalSalary = transactions
+      .filter(t => t.type === 'SALARY')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    const netBalance = totalIncome - totalExpense - totalSalary;
+    
+    return { totalIncome, totalExpense, totalSalary, netBalance };
+  };
+
+  const totals = calculateTotals();
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -300,6 +321,34 @@ const Transactions = () => {
             + Add Transaction
           </button>
         )}
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="bg-green-50 rounded-lg p-3 border-2 border-green-200">
+          <div className="text-xs text-green-600 mb-1">Jami kirim</div>
+          <div className="text-xl font-bold text-green-800">
+            ${totals.totalIncome.toFixed(2)}
+          </div>
+        </div>
+        <div className="bg-red-50 rounded-lg p-3 border-2 border-red-200">
+          <div className="text-xs text-red-600 mb-1">Jami chiqim</div>
+          <div className="text-xl font-bold text-red-800">
+            ${totals.totalExpense.toFixed(2)}
+          </div>
+        </div>
+        <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
+          <div className="text-xs text-purple-600 mb-1">Jami maosh</div>
+          <div className="text-xl font-bold text-purple-800">
+            ${totals.totalSalary.toFixed(2)}
+          </div>
+        </div>
+        <div className="bg-orange-50 rounded-lg p-3 border-2 border-orange-200">
+          <div className="text-xs text-orange-600 mb-1">Sof balans</div>
+          <div className={`text-xl font-bold ${totals.netBalance >= 0 ? 'text-orange-800' : 'text-red-800'}`}>
+            ${totals.netBalance.toFixed(2)}
+          </div>
+        </div>
       </div>
 
       {/* Monthly Stats Cards */}

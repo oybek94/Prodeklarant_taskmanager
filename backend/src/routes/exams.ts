@@ -7,6 +7,58 @@ import { LessonProgressionService } from '../services/lesson-progression.service
 
 const router = Router();
 
+// GET /exams - Get exams (with optional filters) - MUST BE BEFORE /:id routes
+router.get('/', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const lessonId = req.query.lessonId ? parseInt(req.query.lessonId as string) : undefined;
+    const trainingId = req.query.trainingId ? parseInt(req.query.trainingId as string) : undefined;
+
+    const where: any = {
+      active: true,
+    };
+
+    if (lessonId) {
+      where.lessonId = lessonId;
+    }
+
+    if (trainingId) {
+      where.trainingId = trainingId;
+    }
+
+    const exams = await prisma.exam.findMany({
+      where,
+      include: {
+        lesson: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        training: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        _count: {
+          select: {
+            questions: true,
+            attempts: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    res.json(exams);
+  } catch (error) {
+    console.error('Error fetching exams:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
+  }
+});
+
 // Imtihonni boshlash
 router.post('/:id/start', requireAuth(), async (req: AuthRequest, res) => {
   try {
@@ -241,58 +293,6 @@ router.get('/:id/results', requireAuth(), async (req: AuthRequest, res) => {
     });
   } catch (error) {
     console.error('Error fetching exam results:', error);
-    res.status(500).json({ error: 'Xatolik yuz berdi' });
-  }
-});
-
-// GET /exams - Get exams (with optional filters)
-router.get('/', requireAuth(), async (req: AuthRequest, res) => {
-  try {
-    const lessonId = req.query.lessonId ? parseInt(req.query.lessonId as string) : undefined;
-    const trainingId = req.query.trainingId ? parseInt(req.query.trainingId as string) : undefined;
-
-    const where: any = {
-      active: true,
-    };
-
-    if (lessonId) {
-      where.lessonId = lessonId;
-    }
-
-    if (trainingId) {
-      where.trainingId = trainingId;
-    }
-
-    const exams = await prisma.exam.findMany({
-      where,
-      include: {
-        lesson: {
-          select: {
-            id: true,
-            title: true,
-          },
-        },
-        training: {
-          select: {
-            id: true,
-            title: true,
-          },
-        },
-        _count: {
-          select: {
-            questions: true,
-            attempts: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    res.json(exams);
-  } catch (error) {
-    console.error('Error fetching exams:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
   }
 });

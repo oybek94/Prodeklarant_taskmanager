@@ -814,7 +814,13 @@ const Tasks = () => {
         // #endregion
         // Fito stage'i uchun to'g'ridan-to'g'ri skip validation bilan tayyor qilamiz
         // PDF'lar bo'lmasa ham tayyor qilish mumkin
+        if (!selectedTask) {
+          alert('Task topilmadi');
+          return;
+        }
         setSelectedStageForReminder(stage);
+        // React state asinxron yangilanadi, shuning uchun kichik delay qo'shamiz
+        await new Promise(resolve => setTimeout(resolve, 50));
         await updateStageToReady(undefined, true);
       } else {
         // Boshqa stage'lar uchun eslatma modal

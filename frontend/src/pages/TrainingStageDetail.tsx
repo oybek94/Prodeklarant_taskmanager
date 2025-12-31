@@ -406,43 +406,6 @@ export default function TrainingStageDetail() {
                       </div>
                     )}
 
-                    {/* Lesson exam'lari */}
-                    {step.exams && step.exams.length > 0 && (() => {
-                      const lessonStatus = getLessonStatus(step.id);
-                      const canTakeExam = lessonStatus && (lessonStatus.status === 'IN_PROGRESS' || lessonStatus.status === 'COMPLETED' || lessonStatus.status === 'FAILED');
-                      
-                      return (
-                        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-3">Imtihonlar</h3>
-                          <div className="space-y-2">
-                            {step.exams.map((exam) => (
-                              <div
-                                key={exam.id}
-                                className="flex items-center justify-between p-3 bg-white rounded border"
-                              >
-                                <div>
-                                  <h4 className="font-medium text-gray-900">{exam.title}</h4>
-                                  {exam.description && (
-                                    <p className="text-sm text-gray-600 mt-1">{exam.description}</p>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={() => handleStartExam(exam.id)}
-                                  disabled={!canTakeExam}
-                                  className={`px-4 py-2 rounded-lg transition-colors text-sm ${
-                                    canTakeExam
-                                      ? 'bg-green-600 text-white hover:bg-green-700'
-                                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                  }`}
-                                >
-                                  {canTakeExam ? 'Imtihonni boshlash' : 'Avval darsni boshlang'}
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
                 ))}
             </div>
@@ -453,6 +416,53 @@ export default function TrainingStageDetail() {
           )}
         </article>
       </div>
+
+      {/* Barcha imtihonlar - sahifaning eng pastida */}
+      {stage.steps && stage.steps.some(step => step.exams && step.exams.length > 0) && (
+        <div className="mt-8 bg-white rounded-lg shadow p-6">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Imtihonlar</h2>
+          <div className="space-y-4">
+            {stage.steps
+              .filter(step => step.exams && step.exams.length > 0)
+              .map((step) => {
+                const lessonStatus = getLessonStatus(step.id);
+                const canTakeExam = lessonStatus && (lessonStatus.status === 'IN_PROGRESS' || lessonStatus.status === 'COMPLETED' || lessonStatus.status === 'FAILED');
+                
+                return (
+                  <div key={step.id} className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="text-lg font-medium text-gray-900 mb-3">{step.title}</h3>
+                    <div className="space-y-3">
+                      {step.exams?.map((exam) => (
+                        <div
+                          key={exam.id}
+                          className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
+                        >
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">{exam.title}</h4>
+                            {exam.description && (
+                              <p className="text-sm text-gray-600 mt-1">{exam.description}</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleStartExam(exam.id)}
+                            disabled={!canTakeExam}
+                            className={`px-6 py-3 rounded-lg transition-colors font-medium ${
+                              canTakeExam
+                                ? 'bg-green-600 text-white hover:bg-green-700 shadow-md hover:shadow-lg'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            }`}
+                          >
+                            {canTakeExam ? 'Imtihonni boshlash' : 'Avval darsni boshlang'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

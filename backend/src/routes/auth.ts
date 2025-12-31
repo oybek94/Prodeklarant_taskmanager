@@ -8,7 +8,7 @@ import { z } from 'zod';
 const router = Router();
 
 const loginSchema = z.object({
-  email: z.string().email('Email manzil noto\'g\'ri'),
+  email: z.string().email('Email manzil noto\'g\'ri').optional().or(z.literal('')).or(z.undefined()),
   password: z.string().min(1, 'Parol kiritilishi shart'),
 });
 
@@ -18,20 +18,50 @@ router.post('/login', async (req, res) => {
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     const { email, password } = parsed.data;
     
-    // Security: Find user by email (unique identifier) instead of password
-    // This is more secure and efficient than iterating through all users
-    // Using findUnique ensures we get at most one user, preventing timing attacks
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        name: true,
-        passwordHash: true,
-        role: true,
-        branchId: true,
-        active: true,
-      },
-    });
+    let user;
+    
+    if (emailValue) {
+      // Email bo'lsa, email orqali user topamiz
+      user = await prisma.user.findUnique({
+        where: { email: emailValue },
+        select: {
+          id: true,
+          name: true,
+          passwordHash: true,
+          role: true,
+          branchId: true,
+          active: true,
+        },
+      });
+    } else {
+      // Email bo'lmasa, faqat parol bilan user topamiz
+      // Barcha active userlarni olamiz va parolni tekshiramiz
+      const allUsers = await prisma.user.findMany({
+        where: { active: true },
+        select: {
+          id: true,
+          name: true,
+          passwordHash: true,
+          role: true,
+          branchId: true,
+          active: true,
+        },
+      });
+      
+      // Parol bilan mos kelgan birinchi userni topamiz
+      for (const u of allUsers) {
+        const isValidPassword = await comparePassword(password, u.passwordHash);
+        if (isValidPassword) {
+          user = u;
+          break;
+        }
+      }
+      
+      // Agar user topilmasa, dummy comparison qilamiz (timing attack oldini olish uchun)
+      if (!user) {
+        await comparePassword(password, '$2a$10$dummyhash');
+      }
+    }
     
     // Security: Always perform password comparison, even if user not found
     // This prevents user enumeration attacks (timing differences)
@@ -43,7 +73,11 @@ router.post('/login', async (req, res) => {
     
     // Security: Verify password using bcrypt.compare
     // This uses constant-time comparison to prevent timing attacks
-    const isValidPassword = await comparePassword(password, user.passwordHash);
+    // Note: Agar email bo'lmasa, parol allaqachon tekshirilgan
+    const isValidPassword = emailValue 
+      ? await comparePassword(password, user.passwordHash)
+      : true; // Email bo'lmasa, parol allaqachon tekshirilgan
+      
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Email yoki parol noto\'g\'ri' });
     }

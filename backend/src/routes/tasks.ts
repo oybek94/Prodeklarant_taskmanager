@@ -761,7 +761,8 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     }
 
   // Fito stage'ini tayyor qilishda barcha PDF talab qilish
-  if ((stage.name === 'Fito' || stage.name === 'FITO') && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
+  // Agar skipValidation true bo'lsa, validation'ni o'tkazib yuboramiz
+  if ((stage.name === 'Fito' || stage.name === 'FITO') && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR' && !parsed.data.skipValidation) {
     // #region agent log
     debugLog({location:'tasks.ts:608',message:'Fito validation started',data:{taskId,stageId,stageName:stage.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
     // #endregion

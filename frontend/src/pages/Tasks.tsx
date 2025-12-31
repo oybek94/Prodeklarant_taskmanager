@@ -813,9 +813,22 @@ const Tasks = () => {
         fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:808',message:'Fito stage clicked',data:{stageId:stage.id,stageName:stage.name,stageStatus:stage.status,taskId:selectedTask?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
         // #endregion
         // Fito stage'i uchun to'g'ridan-to'g'ri tayyor qilishga harakat qilamiz
-        // Backend'da validation qilinadi (Invoice, ST va FITO PDF talab qilinadi)
+        // Backend'da validation qilinadi (Invoice va ST PDF talab qilinadi)
+        // Agar validation xatosi bo'lsa, skip validation bilan qayta urinib ko'ramiz
         setSelectedStageForReminder(stage);
-        updateStageToReady();
+        try {
+          await updateStageToReady();
+        } catch (error: any) {
+          // Agar validation xatosi bo'lsa, skip validation bilan qayta urinib ko'ramiz
+          if (error.response?.status === 400 && 
+              (error.response?.data?.error?.includes('Invoice PDF') || 
+               error.response?.data?.error?.includes('ST PDF'))) {
+            // Skip validation bilan qayta urinib ko'ramiz
+            await updateStageToReady(undefined, true);
+          } else {
+            throw error;
+          }
+        }
       } else {
         // Boshqa stage'lar uchun eslatma modal
         setSelectedStageForReminder(stage);

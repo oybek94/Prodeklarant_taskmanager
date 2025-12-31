@@ -42,6 +42,7 @@ model User {
   examAttempts     ExamAttempt[]
   taskDocuments    TaskDocument[]     @relation("DocumentUploadedBy")
   archiveDocuments ArchiveDocument[]  @relation("ArchiveDocumentUploadedBy")
+  lessonProgress   LessonProgress[] // AI exam system uchun
   branch           Branch?            @relation(fields: [branchId], references: [id])
 }
 
@@ -77,29 +78,29 @@ model Client {
 }
 
 model Task {
-  id                         Int            @id @default(autoincrement())
+  id                         Int                  @id @default(autoincrement())
   clientId                   Int
   branchId                   Int
   title                      String
-  status                     TaskStatus     @default(BOSHLANMAGAN)
+  status                     TaskStatus           @default(BOSHLANMAGAN)
   createdById                Int
   updatedById                Int?
   comments                   String?
-  hasPsr                     Boolean        @default(false)
+  hasPsr                     Boolean              @default(false)
   driverPhone                String?
-  snapshotDealAmount         Decimal?       @db.Decimal(12, 2) // Task yaratilgan vaqtdagi kelishuv summasi (snapshot)
-  snapshotCertificatePayment Decimal?       @db.Decimal(12, 2) // Task yaratilgan vaqtdagi sertifikat to'lovi (snapshot)
-  snapshotPsrPrice           Decimal?       @db.Decimal(12, 2) // Task yaratilgan vaqtdagi PSR narxi (snapshot)
-  snapshotWorkerPrice        Decimal?       @db.Decimal(12, 2) // Task yaratilgan vaqtdagi ishchi narxi (snapshot)
-  snapshotCustomsPayment     Decimal?       @db.Decimal(12, 2) // Task yaratilgan vaqtdagi bojxona to'lovi (snapshot)
-  customsPaymentMultiplier   Decimal?       @db.Decimal(5, 2) // Deklaratsiya jarayonida tanlangan BXM multiplier (0.5 dan 4 gacha)
-  createdAt                  DateTime       @default(now())
-  updatedAt                  DateTime       @updatedAt
+  snapshotDealAmount         Decimal?             @db.Decimal(12, 2) // Task yaratilgan vaqtdagi kelishuv summasi (snapshot)
+  snapshotCertificatePayment Decimal?             @db.Decimal(12, 2) // Task yaratilgan vaqtdagi sertifikat to'lovi (snapshot)
+  snapshotPsrPrice           Decimal?             @db.Decimal(12, 2) // Task yaratilgan vaqtdagi PSR narxi (snapshot)
+  snapshotWorkerPrice        Decimal?             @db.Decimal(12, 2) // Task yaratilgan vaqtdagi ishchi narxi (snapshot)
+  snapshotCustomsPayment     Decimal?             @db.Decimal(12, 2) // Task yaratilgan vaqtdagi bojxona to'lovi (snapshot)
+  customsPaymentMultiplier   Decimal?             @db.Decimal(5, 2) // Deklaratsiya jarayonida tanlangan BXM multiplier (0.5 dan 4 gacha)
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
   kpiLogs                    KpiLog[]
-  branch                     Branch         @relation(fields: [branchId], references: [id])
-  client                     Client         @relation(fields: [clientId], references: [id])
-  createdBy                  User           @relation("TaskCreatedBy", fields: [createdById], references: [id])
-  updatedBy                  User?          @relation("TaskUpdatedBy", fields: [updatedById], references: [id])
+  branch                     Branch               @relation(fields: [branchId], references: [id])
+  client                     Client               @relation(fields: [clientId], references: [id])
+  createdBy                  User                 @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  updatedBy                  User?                @relation("TaskUpdatedBy", fields: [updatedById], references: [id])
   errors                     TaskError[]
   stages                     TaskStage[]
   transactions               Transaction[]
@@ -308,16 +309,20 @@ model TrainingStage {
 }
 
 // Qadamlar (masalan: "1. KOMPANIYA HAQIDA QISQACHA", "2. BIZ UCHUN ENG MUHIM TAMOYILLAR")
+// Bu model Lesson sifatida ham ishlatiladi (AI exam system uchun)
 model TrainingStep {
   id          Int                @id @default(autoincrement())
   stageId     Int
   title       String // "1. KOMPANIYA HAQIDA QISQACHA"
   description String?
   orderIndex  Int                @default(0) // Tartib raqami
+  isActive    Boolean            @default(true) // Lesson faol yoki yo'q
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   stage       TrainingStage      @relation(fields: [stageId], references: [id], onDelete: Cascade)
   materials   TrainingMaterial[]
+  exams       Exam[] // AI exam system uchun
+  progress    LessonProgress[] // AI exam system uchun
 
   @@index([stageId])
   @@index([stageId, orderIndex])
@@ -348,7 +353,7 @@ model TrainingProgress {
   userId          Int
   trainingId      Int
   stageId         Int? // Qaysi bosqichni o'qigan
-  stepId          Int? // Qaysi qadamni o'qigan
+  stepId          Int? // Qaysi qadamni o'qigan (lesson)
   materialId      Int? // Qaysi materialni o'qigan (backward compatibility)
   completed       Boolean   @default(false)
   progressPercent Int       @default(0) // 0-100%
@@ -366,21 +371,44 @@ model TrainingProgress {
   @@index([stepId])
 }
 
+// Lesson progress model (AI exam system uchun)
+model LessonProgress {
+  id               Int          @id @default(autoincrement())
+  userId           Int
+  lessonId         Int // TrainingStep ID
+  status           LessonStatus @default(LOCKED)
+  lastAttemptScore Int? // Oxirgi exam urinishidagi ball (0-100)
+  completedAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson           TrainingStep @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
+  @@index([userId, status])
+}
+
 model Exam {
-  id           Int            @id @default(autoincrement())
-  trainingId   Int
-  title        String
-  description  String?
-  passingScore Int            @default(70) // O'tish balli (foiz)
-  timeLimitMin Int? // Vaqt cheklovi (daqiqa)
-  active       Boolean        @default(true)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  training     Training       @relation(fields: [trainingId], references: [id], onDelete: Cascade)
-  questions    ExamQuestion[]
-  attempts     ExamAttempt[]
+  id            Int            @id @default(autoincrement())
+  trainingId    Int? // Eski: backward compatibility
+  lessonId      Int? // Yangi: lesson (TrainingStep) ga bog'langan
+  title         String
+  description   String?
+  passingScore  Int            @default(80) // O'tish balli (foiz) - default 80
+  timeLimitMin  Int? // Vaqt cheklovi (daqiqa)
+  questionCount Int? // Savollar soni (AI tomonidan generatsiya qilinganda)
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  training      Training?      @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  lesson        TrainingStep?  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions     ExamQuestion[]
+  attempts      ExamAttempt[]
 
   @@index([trainingId])
+  @@index([lessonId])
 }
 
 model ExamQuestion {
@@ -401,20 +429,24 @@ model ExamQuestion {
 }
 
 model ExamAttempt {
-  id          Int          @id @default(autoincrement())
-  userId      Int
-  examId      Int
-  score       Int          @default(0) // Olingan ball
-  maxScore    Int // Maksimal ball
-  passed      Boolean      @default(false)
-  startedAt   DateTime     @default(now())
-  completedAt DateTime?
-  answers     ExamAnswer[]
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  exam        Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  examId        Int
+  attemptNumber Int          @default(1) // Urinish raqami
+  score         Int          @default(0) // Olingan ball (0-100)
+  maxScore      Int          @default(100) // Maksimal ball
+  passed        Boolean      @default(false)
+  aiFeedback    Json? // AI tomonidan generatsiya qilingan feedback (strengths, weaknesses, recommendation)
+  startedAt     DateTime     @default(now())
+  completedAt   DateTime?
+  answers       ExamAnswer[]
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam          Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([examId])
+  @@index([userId, examId])
+  @@index([userId, completedAt])
 }
 
 model ExamAnswer {
@@ -445,6 +477,15 @@ enum QuestionType {
   TEXT // Matnli javob
 }
 
+enum LessonStatus {
+  NOT_STARTED
+  LOCKED
+  AVAILABLE
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
 enum Currency {
   USD
   UZS
@@ -467,20 +508,20 @@ model CurrencyExchangeRate {
 
 // Hujjatlar aylanmasi
 model TaskDocument {
-  id                Int                  @id @default(autoincrement())
-  taskId            Int
-  name              String // Hujjat nomi
-  fileUrl           String // Fayl URL
-  fileType          String // Fayl turi (image, video, audio, document, pdf, etc.)
-  fileSize          Int? // Fayl hajmi (bytes)
-  description       String? // Hujjat tavsifi
-  documentType      DocumentType? // AI validation uchun: INVOICE, ST, FITO, OTHER
-  uploadedById      Int // Kim yuklagan
-  createdAt         DateTime             @default(now())
-  task              Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  uploadedBy        User                 @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
-  metadata          DocumentMetadata?
-  structuredData   StructuredDocument?
+  id             Int                 @id @default(autoincrement())
+  taskId         Int
+  name           String // Hujjat nomi
+  fileUrl        String // Fayl URL
+  fileType       String // Fayl turi (image, video, audio, document, pdf, etc.)
+  fileSize       Int? // Fayl hajmi (bytes)
+  description    String? // Hujjat tavsifi
+  documentType   DocumentType? // AI validation uchun: INVOICE, ST, FITO, OTHER
+  uploadedById   Int // Kim yuklagan
+  createdAt      DateTime            @default(now())
+  task           Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy     User                @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  metadata       DocumentMetadata?
+  structuredData StructuredDocument?
 
   @@index([taskId])
   @@index([uploadedById])
@@ -489,26 +530,26 @@ model TaskDocument {
 
 // PDF metadata va extracted text
 model DocumentMetadata {
-  id                Int       @id @default(autoincrement())
-  taskDocumentId    Int       @unique
-  extractedText     String    @db.Text // PDF'dan extract qilingan to'liq text
-  pageCount         Int?
-  extractedAt       DateTime  @default(now())
-  taskDocument      TaskDocument @relation(fields: [taskDocumentId], references: [id], onDelete: Cascade)
+  id             Int          @id @default(autoincrement())
+  taskDocumentId Int          @unique
+  extractedText  String       @db.Text // PDF'dan extract qilingan to'liq text
+  pageCount      Int?
+  extractedAt    DateTime     @default(now())
+  taskDocument   TaskDocument @relation(fields: [taskDocumentId], references: [id], onDelete: Cascade)
 
   @@index([taskDocumentId])
 }
 
 // AI tomonidan strukturizatsiya qilingan ma'lumotlar
 model StructuredDocument {
-  id                Int       @id @default(autoincrement())
-  taskDocumentId    Int       @unique
-  taskId            Int
-  documentType      DocumentType
-  structuredData    Json      // AI tomonidan strukturizatsiya qilingan JSON
-  extractedAt       DateTime  @default(now())
-  task              Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskDocument      TaskDocument @relation(fields: [taskDocumentId], references: [id], onDelete: Cascade)
+  id             Int          @id @default(autoincrement())
+  taskDocumentId Int          @unique
+  taskId         Int
+  documentType   DocumentType
+  structuredData Json // AI tomonidan strukturizatsiya qilingan JSON
+  extractedAt    DateTime     @default(now())
+  task           Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskDocument   TaskDocument @relation(fields: [taskDocumentId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
   @@index([taskDocumentId])
@@ -517,13 +558,13 @@ model StructuredDocument {
 
 // AI tekshiruv natijalari
 model AiCheck {
-  id                Int       @id @default(autoincrement())
-  taskId            Int
-  checkType         AiCheckType
-  result            AiCheckResult
-  details           Json      // AI findings va comparison results
-  createdAt         DateTime  @default(now())
-  task              Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id        Int           @id @default(autoincrement())
+  taskId    Int
+  checkType AiCheckType
+  result    AiCheckResult
+  details   Json // AI findings va comparison results
+  createdAt DateTime      @default(now())
+  task      Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
   @@index([checkType])
@@ -706,11 +747,11 @@ model Contract {
   consigneeBankSwift   String?
 
   // Qo'shimcha ma'lumotlar
-  deliveryTerms String? // Yetkazib berish sharti
-  paymentMethod String? // To'lov usuli
-  gln          String? // Глобальный идентификационный номер GS1 (GLN)
+  deliveryTerms    String? // Yetkazib berish sharti
+  paymentMethod    String? // To'lov usuli
+  gln              String? // Глобальный идентификационный номер GS1 (GLN)
   supplierDirector String? // Руководитель Поставщика
-  goodsReleasedBy String? // Товар отпустил
+  goodsReleasedBy  String? // Товар отпустил
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

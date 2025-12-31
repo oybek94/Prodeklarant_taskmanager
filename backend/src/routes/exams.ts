@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
+import { ExamAIService } from '../services/exam-ai.service';
+import { LessonProgressionService } from '../services/lesson-progression.service';
 
 const router = Router();
 
@@ -27,15 +29,23 @@ router.post('/:id/start', requireAuth(), async (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'Imtihon faol emas' });
     }
 
-    // O'qitishni tugallanganligini tekshirish
-    const progress = await prisma.trainingProgress.findUnique({
-      where: {
-        userId_trainingId: {
-          userId: req.user!.id,
-          trainingId: exam.trainingId,
+    // O'qitishni tugallanganligini tekshirish (faqat trainingId bo'lsa)
+    if (exam.trainingId) {
+      const progress = await prisma.trainingProgress.findUnique({
+        where: {
+          userId_trainingId: {
+            userId: req.user!.id,
+            trainingId: exam.trainingId,
+          },
         },
-      },
-    });
+      });
+
+      if (!progress || !progress.completed) {
+        return res.status(400).json({ 
+          error: 'Avval o\'qitishni tugallashingiz kerak' 
+        });
+      }
+    }
 
     if (!progress || !progress.completed) {
       return res.status(400).json({ 
@@ -367,6 +377,259 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     }
     console.error('Error updating exam:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
+  }
+});
+
+// ============================================================================
+// AI EXAM SYSTEM ENDPOINTS
+// ============================================================================
+
+/**
+ * POST /api/exams/ai/generate/:lessonId
+ * Generate AI-powered exam for a lesson
+ */
+router.post('/ai/generate/:lessonId', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const lessonId = parseInt(req.params.lessonId);
+    
+    // Get lesson details
+    const lesson = await prisma.trainingStep.findUnique({
+      where: { id: lessonId },
+      include: {
+        materials: {
+          where: {
+            type: 'TEXT',
+          },
+          orderBy: {
+            orderIndex: 'asc',
+          },
+        },
+      },
+    });
+
+    if (!lesson) {
+      return res.status(404).json({ error: 'Lesson topilmadi' });
+    }
+
+    // Combine all text materials into lesson content
+    const lessonContent = lesson.materials
+      .map(m => m.content || '')
+      .filter(c => c.trim().length > 0)
+      .join('\n\n');
+
+    if (!lessonContent || lessonContent.trim().length === 0) {
+      return res.status(400).json({ error: 'Lesson content topilmadi' });
+    }
+
+    // Generate exam using AI
+    const examResult = await ExamAIService.generateExam(
+      lessonId,
+      lesson.title,
+      lessonContent
+    );
+
+    // Create exam in database
+    const exam = await prisma.exam.create({
+      data: {
+        lessonId: lessonId,
+        title: `${lesson.title} - AI Generated Exam`,
+        description: `AI tomonidan avtomatik generatsiya qilingan imtihon`,
+        passingScore: examResult.passing_score,
+        questionCount: examResult.questions.length,
+        active: true,
+      },
+    });
+
+    // Create exam questions
+    const questions = await Promise.all(
+      examResult.questions.map((q, index) =>
+        prisma.examQuestion.create({
+          data: {
+            examId: exam.id,
+            question: q.question,
+            type: q.type,
+            options: q.options || [],
+            correctAnswer: q.correct_answer,
+            points: q.points,
+            orderIndex: index,
+          },
+        })
+      )
+    );
+
+    res.json({
+      exam: {
+        ...exam,
+        questions,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error generating AI exam:', error);
+    res.status(500).json({
+      error: 'AI exam generatsiya qilishda xatolik',
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/exams/:id/attempt
+ * Submit exam attempt with AI evaluation
+ */
+router.post('/:id/attempt', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const examId = parseInt(req.params.id);
+    const userId = req.user!.id;
+
+    const schema = z.object({
+      answers: z.record(z.any()), // { questionId: answer }
+    });
+
+    const { answers } = schema.parse(req.body);
+
+    // Get exam with questions
+    const exam = await prisma.exam.findUnique({
+      where: { id: examId },
+      include: {
+        questions: {
+          orderBy: {
+            orderIndex: 'asc',
+          },
+        },
+        lesson: {
+          include: {
+            materials: {
+              where: {
+                type: 'TEXT',
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!exam) {
+      return res.status(404).json({ error: 'Exam topilmadi' });
+    }
+
+    if (!exam.lessonId || !exam.lesson) {
+      return res.status(400).json({ error: 'Exam lesson ga bog\'lanmagan' });
+    }
+
+    // Get lesson content
+    const lessonContent = exam.lesson.materials
+      .map(m => m.content || '')
+      .filter(c => c.trim().length > 0)
+      .join('\n\n');
+
+    // Evaluate answers using AI
+    const evaluationResult = await ExamAIService.evaluateAnswers(
+      exam.lesson.id,
+      exam.lesson.title,
+      lessonContent,
+      answers
+    );
+
+    // Get attempt number
+    const previousAttempts = await prisma.examAttempt.count({
+      where: {
+        userId,
+        examId,
+      },
+    });
+
+    const attemptNumber = previousAttempts + 1;
+
+    // Create exam attempt
+    const attempt = await prisma.examAttempt.create({
+      data: {
+        userId,
+        examId,
+        attemptNumber,
+        score: evaluationResult.score,
+        maxScore: 100,
+        passed: evaluationResult.passed,
+        aiFeedback: evaluationResult as any,
+      },
+    });
+
+    // Create exam answers
+    await Promise.all(
+      Object.entries(answers).map(async ([questionId, answer]) => {
+        const question = exam.questions.find(q => q.id === parseInt(questionId));
+        if (!question) return;
+
+        const questionScore = evaluationResult.question_scores[questionId] || {
+          correct: false,
+          score: 0,
+          feedback: '',
+        };
+
+        await prisma.examAnswer.create({
+          data: {
+            attemptId: attempt.id,
+            questionId: question.id,
+            answer: answer as any,
+            isCorrect: questionScore.correct,
+            points: questionScore.score,
+          },
+        });
+      })
+    );
+
+    // Update lesson status
+    if (exam.lessonId && exam.lesson) {
+      await LessonProgressionService.updateLessonStatusAfterExam(
+        userId,
+        exam.lessonId,
+        evaluationResult.score,
+        evaluationResult.passed
+      );
+    }
+
+    // Get evaluator feedback
+    const evaluatorResult = await ExamAIService.evaluateAttempt({
+      attemptId: attempt.id,
+      examId: exam.id,
+      lessonTitle: exam.lesson.title,
+      lessonContent,
+      questions: exam.questions.map(q => ({
+        id: q.id.toString(),
+        question: q.question,
+        type: q.type,
+        correctAnswer: q.correctAnswer,
+      })),
+      learnerAnswers: answers,
+      questionScores: evaluationResult.question_scores,
+      overallScore: evaluationResult.score,
+      passed: evaluationResult.passed,
+    });
+
+    // Update attempt with evaluator feedback
+    const updatedAttempt = await prisma.examAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        aiFeedback: evaluatorResult as any,
+      },
+      include: {
+        answers: {
+          include: {
+            question: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      attempt: updatedAttempt,
+      evaluation: evaluatorResult,
+    });
+  } catch (error: any) {
+    console.error('Error submitting exam attempt:', error);
+    res.status(500).json({
+      error: 'Exam attempt yuborishda xatolik',
+      details: error.message,
+    });
   }
 });
 

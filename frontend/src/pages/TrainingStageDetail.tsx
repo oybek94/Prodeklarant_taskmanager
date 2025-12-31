@@ -116,12 +116,15 @@ export default function TrainingStageDetail() {
               try {
                 // Try to get exams for this lesson (step)
                 const examsResponse = await apiClient.get(`/exams?lessonId=${step.id}`);
+                const exams = Array.isArray(examsResponse.data) ? examsResponse.data : [];
+                console.log(`Exams for lesson ${step.id}:`, exams);
                 return {
                   ...step,
-                  exams: examsResponse.data || [],
+                  exams: exams,
                 };
-              } catch (error) {
+              } catch (error: any) {
                 // If no exams endpoint or error, return step without exams
+                console.warn(`Error fetching exams for lesson ${step.id}:`, error?.response?.data || error?.message);
                 return {
                   ...step,
                   exams: [],
@@ -418,7 +421,12 @@ export default function TrainingStageDetail() {
       </div>
 
       {/* Barcha imtihonlar - sahifaning eng pastida */}
-      {stage.steps && stage.steps.some(step => step.exams && step.exams.length > 0) && (
+      {(() => {
+        const allExams = stage.steps?.flatMap(step => step.exams || []) || [];
+        const hasExams = allExams.length > 0;
+        console.log('All exams:', allExams, 'Has exams:', hasExams);
+        return hasExams;
+      })() && (
         <div className="mt-8 bg-white rounded-lg shadow p-6">
           <h2 className="text-2xl font-semibold text-gray-900 mb-6">Imtihonlar</h2>
           <div className="space-y-4">

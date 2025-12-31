@@ -897,6 +897,8 @@ const Tasks = () => {
       await loadTaskDetail(selectedTask.id);
       await loadTasks();
       setShowBXMModal(false);
+      setShowInvoiceUploadModal(false);
+      setShowSTUploadModal(false);
       setSelectedStageForReminder(null);
     } catch (error: any) {
       // #region agent log
@@ -3026,10 +3028,19 @@ const Tasks = () => {
                     {selectedStageForReminder && (
                       <button
                         onClick={async () => {
-                          setShowInvoiceUploadModal(false);
-                          setInvoiceUploadFile(null);
-                          setInvoiceUploadName('Invoice');
-                          await updateStageToReady(undefined, true);
+                          // Avval stage'ni tayyor qilamiz, keyin modalni yopamiz
+                          const stageToUpdate = selectedStageForReminder;
+                          const taskToUpdate = selectedTask;
+                          try {
+                            await updateStageToReady(undefined, true);
+                            // Muvaffaqiyatli bo'lsa, modalni yopamiz
+                            setShowInvoiceUploadModal(false);
+                            setInvoiceUploadFile(null);
+                            setInvoiceUploadName('Invoice');
+                          } catch (error) {
+                            // Xatolik bo'lsa, modalni ochiq qoldiramiz
+                            console.error('Error skipping validation:', error);
+                          }
                         }}
                         className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
                       >

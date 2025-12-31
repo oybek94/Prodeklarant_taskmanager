@@ -794,7 +794,7 @@ const Tasks = () => {
     return reminders[stageName] || 'ESLATMA!!!\n\nJarayonni bajarishdan oldin barcha ma\'lumotlarni tekshiring.';
   };
 
-  const handleStageClick = (stage: TaskStage) => {
+  const handleStageClick = async (stage: TaskStage) => {
     if (!user) {
       alert('Login qiling');
       return;

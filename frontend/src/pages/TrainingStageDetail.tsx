@@ -45,6 +45,19 @@ interface Step {
   description?: string;
   orderIndex: number;
   materials: Material[];
+  exams?: Array<{
+    id: number;
+    title: string;
+    description?: string;
+  }>;
+}
+
+interface LessonStatus {
+  id: number;
+  title: string;
+  orderIndex: number;
+  status: 'NOT_STARTED' | 'LOCKED' | 'AVAILABLE' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+  lastAttemptScore: number | null;
 }
 
 interface Stage {
@@ -67,10 +80,12 @@ export default function TrainingStageDetail() {
   const [stage, setStage] = useState<Stage | null>(null);
   const [training, setTraining] = useState<Training | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lessonsStatus, setLessonsStatus] = useState<LessonStatus[]>([]);
 
   useEffect(() => {
     if (trainingId && stageId) {
       fetchData();
+      fetchLessonsStatus();
       
       // Mark article as read when user opens the article detail page
       // This uses the centralized localStorage utility for consistency
@@ -104,6 +119,49 @@ export default function TrainingStageDetail() {
       navigate(`/training/${trainingId}/manage`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLessonsStatus = async () => {
+    try {
+      const response = await apiClient.get(`/lessons/stage/${stageId}`);
+      setLessonsStatus(response.data);
+    } catch (error) {
+      console.error('Error fetching lessons status:', error);
+    }
+  };
+
+  const handleStartLesson = async (lessonId: number) => {
+    try {
+      await apiClient.post(`/lessons/${lessonId}/start`);
+      fetchLessonsStatus();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleStartExam = async (examId: number) => {
+    navigate(`/exam/${examId}`);
+  };
+
+  const getLessonStatus = (lessonId: number): LessonStatus | null => {
+    return lessonsStatus.find(l => l.id === lessonId) || null;
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'COMPLETED':
+        return <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">✓ Tugallangan</span>;
+      case 'IN_PROGRESS':
+        return <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">Jarayonda</span>;
+      case 'AVAILABLE':
+        return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">Mavjud</span>;
+      case 'LOCKED':
+        return <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">🔒 Qulflangan</span>;
+      case 'FAILED':
+        return <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">❌ Muvaffaqiyatsiz</span>;
+      default:
+        return <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">Boshlanmagan</span>;
     }
   };
 
@@ -194,11 +252,43 @@ export default function TrainingStageDetail() {
                 .sort((a, b) => a.orderIndex - b.orderIndex)
                 .map((step, stepIndex) => (
                   <div key={step.id} className="border-b border-gray-200 pb-8 last:border-b-0">
-                    {step.title && (
-                      <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-                        {step.title}
-                      </h2>
-                    )}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex-1">
+                        {step.title && (
+                          <h2 className="text-2xl font-semibold text-gray-900">
+                            {step.title}
+                          </h2>
+                        )}
+                        {(() => {
+                          const lessonStatus = getLessonStatus(step.id);
+                          return lessonStatus && (
+                            <div className="mt-2 flex items-center gap-2">
+                              {getStatusBadge(lessonStatus.status)}
+                              {lessonStatus.lastAttemptScore !== null && (
+                                <span className="text-sm text-gray-600">
+                                  Oxirgi ball: {lessonStatus.lastAttemptScore}%
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      {(() => {
+                        const lessonStatus = getLessonStatus(step.id);
+                        const canStart = lessonStatus && (lessonStatus.status === 'AVAILABLE' || lessonStatus.status === 'IN_PROGRESS');
+                        if (canStart) {
+                          return (
+                            <button
+                              onClick={() => handleStartLesson(step.id)}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                            >
+                              Darsni boshlash
+                            </button>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
                     {step.description && (
                       <div className="text-gray-700 whitespace-pre-wrap mb-6 leading-relaxed">
                         {step.description}
@@ -293,6 +383,44 @@ export default function TrainingStageDetail() {
                           ))}
                       </div>
                     )}
+
+                    {/* Lesson exam'lari */}
+                    {step.exams && step.exams.length > 0 && (() => {
+                      const lessonStatus = getLessonStatus(step.id);
+                      const canTakeExam = lessonStatus && (lessonStatus.status === 'IN_PROGRESS' || lessonStatus.status === 'COMPLETED' || lessonStatus.status === 'FAILED');
+                      
+                      return (
+                        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-3">Imtihonlar</h3>
+                          <div className="space-y-2">
+                            {step.exams.map((exam) => (
+                              <div
+                                key={exam.id}
+                                className="flex items-center justify-between p-3 bg-white rounded border"
+                              >
+                                <div>
+                                  <h4 className="font-medium text-gray-900">{exam.title}</h4>
+                                  {exam.description && (
+                                    <p className="text-sm text-gray-600 mt-1">{exam.description}</p>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleStartExam(exam.id)}
+                                  disabled={!canTakeExam}
+                                  className={`px-4 py-2 rounded-lg transition-colors text-sm ${
+                                    canTakeExam
+                                      ? 'bg-green-600 text-white hover:bg-green-700'
+                                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                  }`}
+                                >
+                                  {canTakeExam ? 'Imtihonni boshlash' : 'Avval darsni boshlang'}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
             </div>

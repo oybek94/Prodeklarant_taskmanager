@@ -109,11 +109,50 @@ export default function Exam() {
     setSubmitting(true);
 
     try {
-      const response = await apiClient.post(`/exams/${id}/submit`, {
-        answers: answersArray,
-      });
+      // Try new AI exam endpoint first, fallback to old endpoint
+      let response;
+      try {
+        // New AI exam endpoint (uses /attempt)
+        const answersObject: Record<string, any> = {};
+        answersArray.forEach(({ questionId, answer }) => {
+          answersObject[questionId.toString()] = answer;
+        });
+        
+        response = await apiClient.post(`/exams/${id}/attempt`, {
+          answers: answersObject,
+        });
 
-      // Natijani ko'rsatish
+        // AI exam returns different structure
+        if (response.data.attempt && response.data.evaluation) {
+          // Navigate to result with AI evaluation data
+          navigate(`/exam/${id}/result`, {
+            state: {
+              result: {
+                attempt: response.data.attempt,
+                score: response.data.attempt.score,
+                maxScore: response.data.attempt.maxScore,
+                scorePercent: response.data.attempt.score,
+                passed: response.data.attempt.passed,
+                passingScore: 80, // Default for AI exams
+                evaluation: response.data.evaluation,
+              },
+            },
+          });
+          return;
+        }
+      } catch (aiError: any) {
+        // If AI endpoint fails (404 or other), try old endpoint
+        if (aiError.response?.status === 404 || aiError.response?.status === 400) {
+          // Old exam endpoint (uses /submit)
+          response = await apiClient.post(`/exams/${id}/submit`, {
+            answers: answersArray,
+          });
+        } else {
+          throw aiError;
+        }
+      }
+
+      // Natijani ko'rsatish (old endpoint response)
       navigate(`/exam/${id}/result`, {
         state: {
           result: response.data,

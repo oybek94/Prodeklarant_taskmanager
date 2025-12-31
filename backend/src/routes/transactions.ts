@@ -155,6 +155,38 @@ router.get('/stats/monthly', async (req, res) => {
   });
 });
 
+// Get worker salary statistics (for ADMIN only)
+router.get('/worker-stats', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    // Get all KPI logs (total earned)
+    const allKpiLogs = await prisma.kpiLog.findMany({});
+    const totalEarned = allKpiLogs.reduce((sum: number, log: any) => sum + Number(log.amount), 0);
+
+    // Get all SALARY transactions (total paid)
+    const allSalaryTransactions = await prisma.transaction.findMany({
+      where: {
+        type: 'SALARY',
+      },
+    });
+    const totalPaid = allSalaryTransactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+
+    // Calculate total pending
+    const totalPending = totalEarned - totalPaid;
+
+    res.json({
+      totalEarned,
+      totalPaid,
+      totalPending,
+    });
+  } catch (error: any) {
+    console.error('Error fetching worker stats:', error);
+    res.status(500).json({ 
+      error: 'Ish xaqi statistikasini yuklashda xatolik yuz berdi',
+      details: error.message 
+    });
+  }
+});
+
 router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   const parsed = baseSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });

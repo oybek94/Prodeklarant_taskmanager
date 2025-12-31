@@ -59,6 +59,11 @@ const Transactions = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [workers, setWorkers] = useState<User[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
+  const [workerStats, setWorkerStats] = useState<{
+    totalEarned: number;
+    totalPaid: number;
+    totalPending: number;
+  } | null>(null);
   const [form, setForm] = useState({
     type: 'INCOME' as 'INCOME' | 'EXPENSE' | 'SALARY',
     amount: '',
@@ -77,6 +82,7 @@ const Transactions = () => {
     loadWorkers();
     if (user?.role === 'ADMIN') {
       loadMonthlyStats();
+      loadWorkerStats();
     }
   }, [user]);
 
@@ -86,6 +92,15 @@ const Transactions = () => {
       setMonthlyStats(response.data);
     } catch (error) {
       console.error('Error loading monthly stats:', error);
+    }
+  };
+
+  const loadWorkerStats = async () => {
+    try {
+      const response = await apiClient.get('/transactions/worker-stats');
+      setWorkerStats(response.data);
+    } catch (error) {
+      console.error('Error loading worker stats:', error);
     }
   };
 
@@ -324,32 +339,57 @@ const Transactions = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="bg-green-50 rounded-lg p-3 border-2 border-green-200">
-          <div className="text-xs text-green-600 mb-1">Jami kirim</div>
-          <div className="text-xl font-bold text-green-800">
-            ${totals.totalIncome.toFixed(2)}
+      {user?.role === 'ADMIN' ? (
+        // Admin uchun ish xaqi statistikasi
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+          <div className="bg-green-50 rounded-lg p-3 border-2 border-green-200">
+            <div className="text-xs text-green-600 mb-1">Jami ish xaqi</div>
+            <div className="text-xl font-bold text-green-800">
+              {workerStats ? `$${Number(workerStats.totalEarned).toFixed(2)}` : 'Yuklanmoqda...'}
+            </div>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
+            <div className="text-xs text-purple-600 mb-1">Jami to'langan ish xaqi</div>
+            <div className="text-xl font-bold text-purple-800">
+              {workerStats ? `$${Number(workerStats.totalPaid).toFixed(2)}` : 'Yuklanmoqda...'}
+            </div>
+          </div>
+          <div className="bg-orange-50 rounded-lg p-3 border-2 border-orange-200">
+            <div className="text-xs text-orange-600 mb-1">Jami to'lanmagan ish xaqi</div>
+            <div className={`text-xl font-bold ${workerStats && workerStats.totalPending >= 0 ? 'text-orange-800' : 'text-red-800'}`}>
+              {workerStats ? `$${Number(workerStats.totalPending).toFixed(2)}` : 'Yuklanmoqda...'}
+            </div>
           </div>
         </div>
-        <div className="bg-red-50 rounded-lg p-3 border-2 border-red-200">
-          <div className="text-xs text-red-600 mb-1">Jami chiqim</div>
-          <div className="text-xl font-bold text-red-800">
-            ${totals.totalExpense.toFixed(2)}
+      ) : (
+        // Ishchilar uchun transaction statistikasi
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div className="bg-green-50 rounded-lg p-3 border-2 border-green-200">
+            <div className="text-xs text-green-600 mb-1">Jami kirim</div>
+            <div className="text-xl font-bold text-green-800">
+              ${totals.totalIncome.toFixed(2)}
+            </div>
+          </div>
+          <div className="bg-red-50 rounded-lg p-3 border-2 border-red-200">
+            <div className="text-xs text-red-600 mb-1">Jami chiqim</div>
+            <div className="text-xl font-bold text-red-800">
+              ${totals.totalExpense.toFixed(2)}
+            </div>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
+            <div className="text-xs text-purple-600 mb-1">Jami maosh</div>
+            <div className="text-xl font-bold text-purple-800">
+              ${totals.totalSalary.toFixed(2)}
+            </div>
+          </div>
+          <div className="bg-orange-50 rounded-lg p-3 border-2 border-orange-200">
+            <div className="text-xs text-orange-600 mb-1">Sof balans</div>
+            <div className={`text-xl font-bold ${totals.netBalance >= 0 ? 'text-orange-800' : 'text-red-800'}`}>
+              ${totals.netBalance.toFixed(2)}
+            </div>
           </div>
         </div>
-        <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
-          <div className="text-xs text-purple-600 mb-1">Jami maosh</div>
-          <div className="text-xl font-bold text-purple-800">
-            ${totals.totalSalary.toFixed(2)}
-          </div>
-        </div>
-        <div className="bg-orange-50 rounded-lg p-3 border-2 border-orange-200">
-          <div className="text-xs text-orange-600 mb-1">Sof balans</div>
-          <div className={`text-xl font-bold ${totals.netBalance >= 0 ? 'text-orange-800' : 'text-red-800'}`}>
-            ${totals.netBalance.toFixed(2)}
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Monthly Stats Cards */}
       {user?.role === 'ADMIN' && monthlyStats && (

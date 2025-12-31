@@ -225,9 +225,13 @@ export default function TrainingStageDetail() {
                               {/* Material kontenti */}
                               <div className="space-y-4">
                                 {material.type === 'TEXT' && material.content && (
-                                  <div className="text-gray-700 whitespace-pre-wrap leading-relaxed bg-white p-4 rounded border">
-                                    {material.content}
-                                  </div>
+                                  <div 
+                                    className="lesson-content text-gray-700 leading-relaxed bg-white p-6 rounded-lg border border-gray-200"
+                                    dangerouslySetInnerHTML={{ __html: material.content }}
+                                    style={{
+                                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                                    }}
+                                  />
                                 )}
 
                                 {material.type === 'VIDEO' && material.fileUrl && (

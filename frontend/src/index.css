@@ -88,3 +88,87 @@ body {
 .animate-slideIn {
   animation: slideIn 0.3s ease-out;
 }
+
+/* Lesson content styles */
+.lesson-content {
+  line-height: 1.8;
+  color: #374151;
+}
+
+.lesson-content section {
+  margin-bottom: 3rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.lesson-content section:last-child {
+  border-bottom: none;
+}
+
+.lesson-content h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 1.5rem;
+  line-height: 1.3;
+}
+
+.lesson-content h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-top: 2rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.4;
+}
+
+.lesson-content h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #374151;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.lesson-content p {
+  margin-bottom: 1.25rem;
+  line-height: 1.8;
+  color: #374151;
+}
+
+.lesson-content ul {
+  margin-bottom: 1.5rem;
+  padding-left: 1.75rem;
+  list-style-type: disc;
+}
+
+.lesson-content li {
+  margin-bottom: 0.75rem;
+  line-height: 1.7;
+  color: #374151;
+}
+
+.lesson-content strong {
+  font-weight: 600;
+  color: #111827;
+}
+
+.lesson-content #hero {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  padding: 2rem;
+  border-radius: 0.75rem;
+  margin-bottom: 3rem;
+  border: none;
+}
+
+.lesson-content #hero h1 {
+  color: #0c4a6e;
+  margin-bottom: 1rem;
+}
+
+.lesson-content #hero p {
+  color: #075985;
+  font-size: 1.125rem;
+  margin-bottom: 0;
+}

@@ -503,6 +503,7 @@ router.get('/:id/versions', async (req, res) => {
 const updateStageSchema = z.object({
   status: z.enum(['BOSHLANMAGAN', 'TAYYOR']),
   customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
+  skipValidation: z.boolean().optional(), // Skip document validation for ST stage
 });
 
 router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest, res) => {
@@ -587,7 +588,8 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     }
 
     // ST stage'ini tayyor qilishda Invoice va ST PDF talab qilish
-    if (stage.name === 'ST' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
+    // Agar skipValidation true bo'lsa, validation'ni o'tkazib yuboramiz
+    if (stage.name === 'ST' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR' && !parsed.data.skipValidation) {
       try {
         // Avval documentType ustunining mavjudligini tekshiramiz
         // documentType bilan query qilishga harakat qilamiz

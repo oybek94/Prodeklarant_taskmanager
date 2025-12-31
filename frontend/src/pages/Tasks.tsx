@@ -852,9 +852,9 @@ const Tasks = () => {
     }
   };
 
-  const updateStageToReady = async (customsPaymentMultiplier?: number) => {
+  const updateStageToReady = async (customsPaymentMultiplier?: number, skipValidation?: boolean) => {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:849',message:'updateStageToReady entry',data:{hasStage:!!selectedStageForReminder,hasTask:!!selectedTask,stageId:selectedStageForReminder?.id,stageName:selectedStageForReminder?.name,taskId:selectedTask?.id,customsPaymentMultiplier},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:849',message:'updateStageToReady entry',data:{hasStage:!!selectedStageForReminder,hasTask:!!selectedTask,stageId:selectedStageForReminder?.id,stageName:selectedStageForReminder?.name,taskId:selectedTask?.id,customsPaymentMultiplier,skipValidation},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
     if (!selectedStageForReminder || !selectedTask) {
       // #region agent log
@@ -868,11 +868,12 @@ const Tasks = () => {
       // Small delay for animation
       await new Promise(resolve => setTimeout(resolve, 300));
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:856',message:'Before API call',data:{taskId:selectedTask.id,stageId:selectedStageForReminder.id,status:'TAYYOR',customsPaymentMultiplier},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:856',message:'Before API call',data:{taskId:selectedTask.id,stageId:selectedStageForReminder.id,status:'TAYYOR',customsPaymentMultiplier,skipValidation},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
       // #endregion
       await apiClient.patch(`/tasks/${selectedTask.id}/stages/${selectedStageForReminder.id}`, {
         status: 'TAYYOR',
         ...(customsPaymentMultiplier && { customsPaymentMultiplier }),
+        ...(skipValidation && { skipValidation: true }),
       }).then((response) => {
         // #region agent log
         fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:860',message:'API call success',data:{taskId:selectedTask.id,stageId:selectedStageForReminder.id,responseStatus:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
@@ -3092,26 +3093,43 @@ const Tasks = () => {
                         )}
                       </div>
 
-                      <div className="flex gap-3">
-                        <button
-                          onClick={handleSTUpload}
-                          disabled={!stUploadFile || uploadingST}
-                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {uploadingST ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowSTUploadModal(false);
-                            setStUploadFile(null);
-                            setStUploadName('ST');
-                            setSelectedStageForReminder(null);
-                            setAiCheckResult(null);
-                          }}
-                          className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                        >
-                          Bekor qilish
-                        </button>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex gap-3">
+                          <button
+                            onClick={handleSTUpload}
+                            disabled={!stUploadFile || uploadingST}
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {uploadingST ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowSTUploadModal(false);
+                              setStUploadFile(null);
+                              setStUploadName('ST');
+                              setSelectedStageForReminder(null);
+                              setAiCheckResult(null);
+                            }}
+                            className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                          >
+                            Bekor qilish
+                          </button>
+                        </div>
+                        {selectedStageForReminder && (
+                          <button
+                            onClick={async () => {
+                              setShowSTUploadModal(false);
+                              setStUploadFile(null);
+                              setStUploadName('ST');
+                              setAiCheckResult(null);
+                              // ST stage'ni validation'siz tayyor qilish
+                              await updateStageToReady(undefined, true);
+                            }}
+                            className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                          >
+                            O'tkazib yuborish va tayyor qilish
+                          </button>
+                        )}
                       </div>
                     </>
                   ) : (

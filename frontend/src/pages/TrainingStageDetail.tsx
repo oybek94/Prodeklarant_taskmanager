@@ -106,9 +106,31 @@ export default function TrainingStageDetail() {
       setTraining(trainingResponse.data);
       
       // Stage ma'lumotlarini topish
-      const stage = trainingResponse.data.stages?.find((s: Stage) => s.id === parseInt(stageId));
-      if (stage) {
-        setStage(stage);
+      const stageData = trainingResponse.data.stages?.find((s: Stage) => s.id === parseInt(stageId));
+      if (stageData) {
+        // Fetch exams for each step (lesson)
+        const stageWithExams = {
+          ...stageData,
+          steps: await Promise.all(
+            stageData.steps.map(async (step: Step) => {
+              try {
+                // Try to get exams for this lesson (step)
+                const examsResponse = await apiClient.get(`/exams?lessonId=${step.id}`);
+                return {
+                  ...step,
+                  exams: examsResponse.data || [],
+                };
+              } catch (error) {
+                // If no exams endpoint or error, return step without exams
+                return {
+                  ...step,
+                  exams: [],
+                };
+              }
+            })
+          ),
+        };
+        setStage(stageWithExams);
       } else {
         alert('Bosqich topilmadi');
         navigate(`/training/${trainingId}/manage`);

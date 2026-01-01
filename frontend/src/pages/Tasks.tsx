@@ -118,18 +118,20 @@ const Tasks = () => {
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [aiChecks, setAiChecks] = useState<any[]>([]);
   const [loadingAiChecks, setLoadingAiChecks] = useState(false);
+  // OCR extracted text state
+  const [expandedDocuments, setExpandedDocuments] = useState<Set<number>>(new Set());
+  const [documentExtractedTexts, setDocumentExtractedTexts] = useState<Map<number, string>>(new Map());
+  const [loadingExtractedTexts, setLoadingExtractedTexts] = useState<Set<number>>(new Set());
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [documentNames, setDocumentNames] = useState<string[]>([]);
   const [documentDescriptions, setDocumentDescriptions] = useState<string[]>([]);
-  const [showInvoiceUploadModal, setShowInvoiceUploadModal] = useState(false);
-  const [invoiceUploadFile, setInvoiceUploadFile] = useState<File | null>(null);
-  const [invoiceUploadName, setInvoiceUploadName] = useState<string>('Invoice');
-  const [uploadingInvoice, setUploadingInvoice] = useState(false);
-  const [showSTUploadModal, setShowSTUploadModal] = useState(false);
-  const [stUploadFile, setStUploadFile] = useState<File | null>(null);
-  const [stUploadName, setStUploadName] = useState<string>('ST');
-  const [uploadingST, setUploadingST] = useState(false);
+  // Umumiy file upload modal state'lari (Invoice, ST, Fito uchun)
+  const [showFileUploadModal, setShowFileUploadModal] = useState(false);
+  const [fileUploadFile, setFileUploadFile] = useState<File | null>(null);
+  const [fileUploadName, setFileUploadName] = useState<string>('');
+  const [fileUploadStageName, setFileUploadStageName] = useState<string>('');
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [aiCheckResult, setAiCheckResult] = useState<{
     result: 'PASS' | 'FAIL';
     findings: Array<{
@@ -153,13 +155,30 @@ const Tasks = () => {
     return phone.replace(/\s+/g, '');
   };
 
-  // Helper function to generate Telegram message with all branches
-  // This matches the Excel formula exactly
+  // Helper function to generate Telegram message with task's branch info only
   const generateTelegramMessage = (task: TaskDetail): string => {
     const taskName = task.title;
+    const branchName = task.branch.name;
     
-    // Exact message format from Excel formula
-    return `📄 Sizning hujjatingiz tayyor!\nHujjat raqami: ${taskName}\n\n🏢 Filiallarimiz:\n\n📍 Oltiariq filial:\n👤 Operator: Abdukamol\n📌 Manzil: https://yandex.ru/maps/-/CLWAuE5H\n📞 Tel: +998339077778\n\n📍 Toshkent filial:\n👤 Operator: Sardorbek\n📌 Manzil: https://yandex.ru/maps/-/CLWAy4Y9\n📞 Tel: +998976626221\n\n🤝 Har qanday savol bo'lsa — bemalol murojaat qiling.`;
+    // Branch information mapping
+    const branchInfo: Record<string, { operator: string; address: string; phone: string }> = {
+      'Oltiariq': {
+        operator: 'Abdukamol',
+        address: 'https://yandex.ru/maps/-/CLWAuE5H',
+        phone: '+998339077778'
+      },
+      'Toshkent': {
+        operator: 'Sardorbek',
+        address: 'https://yandex.ru/maps/-/CLWAy4Y9',
+        phone: '+998976626221'
+      }
+    };
+    
+    // Get branch info (default to Oltiariq if branch not found)
+    const branch = branchInfo[branchName] || branchInfo['Oltiariq'];
+    
+    // Generate message with only the task's branch information
+    return `📄 Sizning hujjatingiz tayyor!\nHujjat raqami: ${taskName}\n\n🏢 Filial:\n\n📍 ${branchName} filial:\n👤 Operator: ${branch.operator}\n📌 Manzil: ${branch.address}\n📞 Tel: ${branch.phone}\n\n🤝 Har qanday savol bo'lsa — bemalol murojaat qiling.`;
   };
 
   // Handler function to open Telegram with formatted message
@@ -528,60 +547,95 @@ const Tasks = () => {
     }
   };
 
-  const handleInvoiceUpload = async () => {
-    if (!selectedTask || !invoiceUploadFile) {
-      alert('Invoice PDF faylni tanlang');
+  // Load extracted text for a document
+  const loadExtractedText = async (documentId: number) => {
+    if (!selectedTask) return;
+    
+    // Check if already loaded
+    if (documentExtractedTexts.has(documentId)) {
       return;
     }
 
     try {
-      setUploadingInvoice(true);
-      const formData = new FormData();
-      formData.append('file', invoiceUploadFile);
-      formData.append('name', invoiceUploadName);
-      formData.append('documentType', 'INVOICE');
-
-      await apiClient.post(`/tasks/${selectedTask.id}/documents`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      setLoadingExtractedTexts((prev) => new Set(prev).add(documentId));
+      
+      const response = await apiClient.get(
+        `/tasks/${selectedTask.id}/documents/${documentId}/extracted-text`
+      );
+      
+      const extractedText = response.data.extractedText || '';
+      setDocumentExtractedTexts((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(documentId, extractedText);
+        return newMap;
       });
-
-      // Invoice yuklangandan keyin stage'ni tayyor qilishga harakat qilamiz
-      if (selectedStageForReminder) {
-        setShowInvoiceUploadModal(false);
-        setInvoiceUploadFile(null);
-        setInvoiceUploadName('Invoice');
-        // Invoice yuklangandan keyin stage'ni tayyor qilish
-        await updateStageToReady();
-      } else {
-        setShowInvoiceUploadModal(false);
-        setInvoiceUploadFile(null);
-        setInvoiceUploadName('Invoice');
-        await loadTaskDetail(selectedTask.id);
-        await loadTaskDocuments(selectedTask.id);
-      }
-    } catch (error: any) {
-      console.error('Error uploading invoice:', error);
-      alert(error.response?.data?.error || 'Invoice yuklashda xatolik yuz berdi');
+    } catch (error) {
+      console.error('Error loading extracted text:', error);
+      // Set empty text on error
+      setDocumentExtractedTexts((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(documentId, '');
+        return newMap;
+      });
     } finally {
-      setUploadingInvoice(false);
+      setLoadingExtractedTexts((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(documentId);
+        return newSet;
+      });
     }
   };
 
-  const handleSTUpload = async () => {
-    if (!selectedTask || !stUploadFile) {
-      alert('ST PDF faylni tanlang');
+  // Toggle document expansion
+  const toggleDocumentExpansion = async (documentId: number) => {
+    const isExpanded = expandedDocuments.has(documentId);
+    
+    if (isExpanded) {
+      // Collapse
+      setExpandedDocuments((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(documentId);
+        return newSet;
+      });
+    } else {
+      // Expand - load text if not already loaded
+      setExpandedDocuments((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(documentId);
+        return newSet;
+      });
+      
+      if (!documentExtractedTexts.has(documentId)) {
+        await loadExtractedText(documentId);
+      }
+    }
+  };
+
+  // Umumiy file upload handler (Invoice, ST, Fito uchun)
+  const handleFileUpload = async () => {
+    if (!selectedTask || !fileUploadFile || !fileUploadStageName) {
+      alert('Faylni tanlang');
       return;
     }
 
     try {
-      setUploadingST(true);
+      setUploadingFile(true);
       setAiCheckResult(null);
+      
       const formData = new FormData();
-      formData.append('file', stUploadFile);
-      formData.append('name', stUploadName);
-      formData.append('documentType', 'ST');
+      formData.append('file', fileUploadFile);
+      formData.append('name', fileUploadName);
+      
+      // Document type'ni stage nomiga qarab aniqlaymiz
+      let documentType = 'OTHER';
+      if (fileUploadStageName === 'Invoys') {
+        documentType = 'INVOICE';
+      } else if (fileUploadStageName === 'ST') {
+        documentType = 'ST';
+      } else if (fileUploadStageName === 'Fito' || fileUploadStageName === 'FITO') {
+        documentType = 'FITO';
+      }
+      formData.append('documentType', documentType);
 
       const response = await apiClient.post(`/tasks/${selectedTask.id}/documents`, formData, {
         headers: {
@@ -589,30 +643,33 @@ const Tasks = () => {
         },
       });
 
-      // AI tekshiruv natijasini ko'rsatish
-      if (response.data.aiCheck) {
+      // AI tekshiruv natijasini ko'rsatish (faqat ST uchun)
+      if (fileUploadStageName === 'ST' && response.data.aiCheck) {
         setAiCheckResult(response.data.aiCheck);
       }
 
-      // ST yuklangandan keyin stage'ni tayyor qilishga harakat qilamiz
+      // Fayl yuklangandan keyin stage'ni tayyor qilishga harakat qilamiz
       if (selectedStageForReminder) {
-        setShowSTUploadModal(false);
-        setStUploadFile(null);
-        setStUploadName('ST');
-        // ST yuklangandan keyin stage'ni tayyor qilish
+        setShowFileUploadModal(false);
+        setFileUploadFile(null);
+        setFileUploadName('');
+        setFileUploadStageName('');
+        // Fayl yuklangandan keyin stage'ni tayyor qilish
         await updateStageToReady();
       } else {
-        setShowSTUploadModal(false);
-        setStUploadFile(null);
-        setStUploadName('ST');
+        setShowFileUploadModal(false);
+        setFileUploadFile(null);
+        setFileUploadName('');
+        setFileUploadStageName('');
         await loadTaskDetail(selectedTask.id);
         await loadTaskDocuments(selectedTask.id);
       }
     } catch (error: any) {
-      console.error('Error uploading ST:', error);
-      alert(error.response?.data?.error || 'ST yuklashda xatolik yuz berdi');
+      console.error('Error uploading file:', error);
+      const stageDisplayName = fileUploadStageName || 'Fayl';
+      alert(error.response?.data?.error || `${stageDisplayName} yuklashda xatolik yuz berdi`);
     } finally {
-      setUploadingST(false);
+      setUploadingFile(false);
     }
   };
 
@@ -722,6 +779,187 @@ const Tasks = () => {
            fileType?.includes('pdf') || 
            fileType?.includes('video') ||
            fileType?.includes('audio');
+  };
+
+  // Check if document supports OCR (PDF or JPG)
+  const canShowOCR = (fileType: string, fileName: string) => {
+    const lowerType = (fileType || '').toLowerCase();
+    const lowerName = (fileName || '').toLowerCase();
+    return (
+      lowerType.includes('pdf') ||
+      lowerType.includes('jpeg') ||
+      lowerType.includes('jpg') ||
+      lowerName.endsWith('.pdf') ||
+      lowerName.endsWith('.jpg') ||
+      lowerName.endsWith('.jpeg')
+    );
+  };
+
+  // Format invoice extracted text - convert product table to formatted view
+  const formatInvoiceExtractedText = (text: string, documentType?: string): string => {
+    if (!text || !documentType || documentType !== 'INVOICE') {
+      return text;
+    }
+
+    const lines = text.split('\n');
+    const formattedLines: string[] = [];
+    let inProductTable = false;
+    let headerLineIndex = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      const lowerLine = line.toLowerCase();
+
+      // Detect table header
+      if (lowerLine.includes('№') && 
+          (lowerLine.includes('код тн вэд') || lowerLine.includes('наименование товара'))) {
+        inProductTable = true;
+        headerLineIndex = i;
+        // Skip header line
+        continue;
+      }
+
+      // If we're in product table and see a row starting with number
+      if (inProductTable && /^\d+\s/.test(line)) {
+        // Try different splitting methods
+        // First, try splitting by pipe (|) if it's a table format
+        let parts: string[] = [];
+        if (line.includes('|')) {
+          parts = line.split('|').map(p => p.trim()).filter(p => p.length > 0);
+          // Remove first and last if they're empty (from |...| format)
+          if (parts.length > 0 && parts[0] === '') parts.shift();
+          if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
+        } else {
+          // Split by multiple spaces or tabs
+          parts = line.split(/\s{2,}|\t/).filter(p => p.trim().length > 0);
+        }
+        
+        // Expected columns:
+        // 0: № (tartib raqami)
+        // 1: Код ТН ВЭД
+        // 2: Наименование товара
+        // 3: Вид упаковки
+        // 4: Мест
+        // 5: Брутто
+        // 6: Нетто
+        // 7: Цена за кг (skip this)
+        // 8: Общая сумма
+        
+        if (parts.length >= 6) {
+          const formattedProduct: string[] = [];
+          
+          // 1-ustun: № (index 0)
+          if (parts[0] && /^\d+$/.test(parts[0].trim())) {
+            formattedProduct.push(`№: ${parts[0].trim()}`);
+          }
+          
+          // 2-ustun: Код ТН ВЭД (index 1)
+          if (parts[1] && /^\d{10}$/.test(parts[1].trim())) {
+            formattedProduct.push(`Код ТН ВЭД: ${parts[1].trim()}`);
+          }
+          
+          // 3-ustun: Наименование товара (index 2)
+          // May span multiple parts if product name is long
+          let nameIndex = 2;
+          let nameParts: string[] = [];
+          while (nameIndex < parts.length) {
+            const part = parts[nameIndex]?.trim() || '';
+            // Stop if it looks like packaging (short text with dot) or a number
+            if (part.match(/^[а-яё]+\.[а-яё]+$/) || /^\d+$/.test(part)) {
+              break;
+            }
+            nameParts.push(parts[nameIndex]);
+            nameIndex++;
+          }
+          if (nameParts.length > 0) {
+            formattedProduct.push(`Наименование товара: ${nameParts.join(' ').trim()}`);
+          }
+          
+          // 4-ustun: Вид упаковки (after product name)
+          let packagingIndex = nameIndex;
+          if (packagingIndex < parts.length) {
+            const packaging = parts[packagingIndex].trim();
+            if (packaging.match(/^[а-яё]+\.[а-яё]+$|^[а-яё]+$|^[a-z]+$/i) && 
+                !/^\d+[,.]?\d*$/.test(packaging) && packaging.length < 20) {
+              formattedProduct.push(`Вид упаковки: ${packaging}`);
+              packagingIndex++;
+            }
+          }
+          
+          // Now find numbers starting from packagingIndex
+          // 5-ustun: Мест (first number after packaging)
+          // 6-ustun: Брутто (second number)
+          // 7-ustun: Нетто (third number)
+          // 8-ustun: Цена за кг (skip this - fourth number)
+          // 9-ustun: Общая сумма (fifth number, may have spaces)
+          
+          const numbers: string[] = [];
+          for (let j = packagingIndex; j < parts.length; j++) {
+            const part = parts[j].trim();
+            // Match numbers with optional spaces/commas
+            const cleanedPart = part.replace(/\s/g, '');
+            if (/^\d+$/.test(cleanedPart) || 
+                /^\d+,\d+$/.test(cleanedPart) ||
+                /^\d+\.\d+$/.test(cleanedPart) ||
+                /^\d+\s+\d+,\d+$/.test(part)) {
+              numbers.push(part);
+            }
+          }
+          
+          // 5-ustun: Мест (1st number)
+          if (numbers.length >= 1) {
+            formattedProduct.push(`Мест: ${numbers[0]}`);
+          }
+          
+          // 6-ustun: Брутто (2nd number)
+          if (numbers.length >= 2) {
+            formattedProduct.push(`Брутто: ${numbers[1]}`);
+          }
+          
+          // 7-ustun: Нетто (3rd number)
+          if (numbers.length >= 3) {
+            formattedProduct.push(`Нетто: ${numbers[2]}`);
+          }
+          
+          // 8-ustun: Цена за кг - SKIP (4th number, index 3)
+          
+          // 9-ustun: Общая сумма (5th number, index 4, may have spaces like "13 232,80")
+          if (numbers.length >= 5) {
+            formattedProduct.push(`Общая сумма: ${numbers[4]}`);
+          } else if (numbers.length === 4) {
+            // If only 4 numbers, the last one might be Общая сумма (if it has spaces/commas)
+            if (numbers[3].includes(' ') || numbers[3].includes(',')) {
+              formattedProduct.push(`Общая сумма: ${numbers[3]}`);
+            }
+          }
+          
+          formattedLines.push(...formattedProduct);
+          formattedLines.push(''); // Empty line between products
+          continue;
+        }
+      }
+
+      // Check if we should exit product table
+      if (inProductTable) {
+        if (lowerLine.includes('итого:') || lowerLine.includes('всего:')) {
+          inProductTable = false;
+          formattedLines.push(line);
+          continue;
+        }
+        // Exit if empty line after table or new section
+        if ((line.trim().length === 0 && i > headerLineIndex + 5) ||
+            (/^[А-ЯЁ]/.test(line) && !lowerLine.includes('№'))) {
+          inProductTable = false;
+        }
+      }
+
+      // Keep non-table lines as is
+      if (!inProductTable) {
+        formattedLines.push(lines[i]);
+      }
+    }
+
+    return formattedLines.join('\n');
   };
 
   const getFileIcon = (fileType: string, fileName?: string) => {
@@ -848,28 +1086,12 @@ const Tasks = () => {
       return;
     }
     if (stage.status === 'BOSHLANMAGAN') {
-      // Invoys stage'i uchun Invoice yuklash modalini ochamiz
-      if (stage.name === 'Invoys') {
+      // Invoice, ST va Fito stage'lar uchun umumiy file upload modalini ochamiz
+      if (stage.name === 'Invoys' || stage.name === 'ST' || stage.name === 'Fito' || stage.name === 'FITO') {
         setSelectedStageForReminder(stage);
-        setShowInvoiceUploadModal(true);
-      } else if (stage.name === 'ST') {
-        // ST stage'i uchun ST yuklash modalini ochamiz
-        setSelectedStageForReminder(stage);
-        setShowSTUploadModal(true);
-      } else if (stage.name === 'Fito' || stage.name === 'FITO') {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:808',message:'Fito stage clicked',data:{stageId:stage.id,stageName:stage.name,stageStatus:stage.status,taskId:selectedTask?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
-        // Fito stage'i uchun to'g'ridan-to'g'ri skip validation bilan tayyor qilamiz
-        // PDF'lar bo'lmasa ham tayyor qilish mumkin
-        if (!selectedTask) {
-          alert('Task topilmadi');
-          return;
-        }
-        setSelectedStageForReminder(stage);
-        // React state asinxron yangilanadi, shuning uchun kichik delay qo'shamiz
-        await new Promise(resolve => setTimeout(resolve, 50));
-        await updateStageToReady(undefined, true);
+        setFileUploadStageName(stage.name);
+        setFileUploadName(stage.name === 'Invoys' ? 'Invoice' : stage.name === 'Fito' || stage.name === 'FITO' ? 'Fito' : 'ST');
+        setShowFileUploadModal(true);
       } else {
         // Boshqa stage'lar uchun eslatma modal
         setSelectedStageForReminder(stage);
@@ -907,13 +1129,9 @@ const Tasks = () => {
   };
 
   const updateStageToReady = async (customsPaymentMultiplier?: number, skipValidation?: boolean) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:849',message:'updateStageToReady entry',data:{hasStage:!!selectedStageForReminder,hasTask:!!selectedTask,stageId:selectedStageForReminder?.id,stageName:selectedStageForReminder?.name,taskId:selectedTask?.id,customsPaymentMultiplier,skipValidation},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
+      // Debug logging removed (CSP violation)
     if (!selectedStageForReminder || !selectedTask) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:851',message:'updateStageToReady early return',data:{hasStage:!!selectedStageForReminder,hasTask:!!selectedTask},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
+        // Debug logging removed (CSP violation)
       return;
     }
     
@@ -921,22 +1139,16 @@ const Tasks = () => {
       setUpdatingStage(selectedStageForReminder.id);
       // Small delay for animation
       await new Promise(resolve => setTimeout(resolve, 300));
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:856',message:'Before API call',data:{taskId:selectedTask.id,stageId:selectedStageForReminder.id,status:'TAYYOR',customsPaymentMultiplier,skipValidation},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
+      // Debug logging removed (CSP violation)
       await apiClient.patch(`/tasks/${selectedTask.id}/stages/${selectedStageForReminder.id}`, {
         status: 'TAYYOR',
         ...(customsPaymentMultiplier && { customsPaymentMultiplier }),
         ...(skipValidation && { skipValidation: true }),
       }).then((response) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:860',message:'API call success',data:{taskId:selectedTask.id,stageId:selectedStageForReminder.id,responseStatus:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
+        // Debug logging removed (CSP violation)
         return response;
       }).catch((error: any) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:863',message:'API call error in catch',data:{errorMessage:error?.message,errorStatus:error?.response?.status,errorData:error?.response?.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
+        // Debug logging removed (CSP violation)
         // Xatolik bo'lsa, foydalanuvchiga ko'rsatamiz
         const errorMessage = error.response?.data?.error || 'Xatolik yuz berdi';
         alert(errorMessage);
@@ -945,52 +1157,27 @@ const Tasks = () => {
       await loadTaskDetail(selectedTask.id);
       await loadTasks();
       setShowBXMModal(false);
-      setShowInvoiceUploadModal(false);
-      setShowSTUploadModal(false);
+      setShowFileUploadModal(false);
+      setFileUploadFile(null);
+      setFileUploadName('');
+      setFileUploadStageName('');
       setSelectedStageForReminder(null);
     } catch (error: any) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:869',message:'Error updating stage',data:{errorMessage:error?.message,errorStatus:error?.response?.status,errorData:error?.response?.data,stageName:selectedStageForReminder?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
+      // Debug logging removed (CSP violation)
       console.error('Error updating stage:', error);
       
-      // Agar Invoys stage'i bo'lsa va Invoice PDF talab qilinsa, modal ochamiz
+      // Agar Invoys, ST yoki Fito stage'i bo'lsa va PDF/JPG talab qilinsa, modal ochamiz
       if (
-        selectedStageForReminder.name === 'Invoys' &&
+        (selectedStageForReminder.name === 'Invoys' || 
+         selectedStageForReminder.name === 'ST' || 
+         selectedStageForReminder.name === 'Fito' || 
+         selectedStageForReminder.name === 'FITO') &&
         error.response?.status === 400 &&
-        error.response?.data?.error?.includes('Invoice PDF')
+        (error.response?.data?.error?.includes('PDF') || error.response?.data?.error?.includes('JPG'))
       ) {
-        setShowInvoiceUploadModal(true);
-        setUpdatingStage(null);
-        return;
-      }
-      
-      // Agar ST stage'i bo'lsa va ST PDF talab qilinsa, modal ochamiz
-      if (
-        selectedStageForReminder.name === 'ST' &&
-        error.response?.status === 400 &&
-        (error.response?.data?.error?.includes('ST PDF') || error.response?.data?.error?.includes('Invoice PDF'))
-      ) {
-        if (error.response?.data?.error?.includes('ST PDF')) {
-          setShowSTUploadModal(true);
-        } else if (error.response?.data?.error?.includes('Invoice PDF')) {
-          setShowInvoiceUploadModal(true);
-        }
-        setUpdatingStage(null);
-        return;
-      }
-      
-      // Agar Fito stage'i bo'lsa va PDF talab qilinsa, modal ochamiz
-      if (
-        (selectedStageForReminder.name === 'Fito' || selectedStageForReminder.name === 'FITO') &&
-        error.response?.status === 400 &&
-        (error.response?.data?.error?.includes('ST PDF') || error.response?.data?.error?.includes('Invoice PDF'))
-      ) {
-        if (error.response?.data?.error?.includes('ST PDF')) {
-          setShowSTUploadModal(true);
-        } else if (error.response?.data?.error?.includes('Invoice PDF')) {
-          setShowInvoiceUploadModal(true);
-        }
+        setFileUploadStageName(selectedStageForReminder.name);
+        setFileUploadName(selectedStageForReminder.name === 'Invoys' ? 'Invoice' : selectedStageForReminder.name === 'Fito' || selectedStageForReminder.name === 'FITO' ? 'Fito' : 'ST');
+        setShowFileUploadModal(true);
         setUpdatingStage(null);
         return;
       }
@@ -2489,83 +2676,142 @@ const Tasks = () => {
                 <div className="text-center py-4 text-gray-400">Hujjatlar yo'q</div>
               ) : (
                 <div className="space-y-2">
-                  {taskDocuments.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="flex-shrink-0">
-                          {getFileIcon(doc.fileType, doc.name)}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900">{doc.name}</div>
-                          {doc.description && (
-                            <div className="text-sm text-gray-500">{doc.description}</div>
-                          )}
-                          <div className="text-xs text-gray-400 mt-1">
-                            {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt).toLocaleDateString('uz-UZ')}
+                  {taskDocuments.map((doc) => {
+                    const isExpanded = expandedDocuments.has(doc.id);
+                    const hasOCR = canShowOCR(doc.fileType, doc.name);
+                    const extractedText = documentExtractedTexts.get(doc.id) || '';
+                    const isLoadingText = loadingExtractedTexts.has(doc.id);
+                    
+                    return (
+                      <div key={doc.id} className="space-y-2">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="flex-shrink-0">
+                              {getFileIcon(doc.fileType, doc.name)}
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{doc.name}</div>
+                              {doc.description && (
+                                <div className="text-sm text-gray-500">{doc.description}</div>
+                              )}
+                              <div className="text-xs text-gray-400 mt-1">
+                                {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt).toLocaleDateString('uz-UZ')}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {canPreview(doc.fileType) && (
-                          <button
-                            onClick={() => openPreview(doc.fileUrl, doc.fileType, doc.name)}
-                            className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                            title="Ko'rish"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => downloadDocument(doc.fileUrl)}
-                          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                          title="Yuklab olish"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                        </button>
-                        {(() => {
-                          const canDelete = () => {
-                            // Admin har doim o'chira oladi
-                            if (user?.role === 'ADMIN') return true;
-                            
-                            // Faqat yuklagan foydalanuvchi o'chira oladi
-                            if (doc.uploadedById !== user?.id) return false;
-                            
-                            // 2 kundan keyin o'chira oladi
-                            const uploadTime = new Date(doc.createdAt || doc.archivedAt);
-                            const now = new Date();
-                            const diffInMs = now.getTime() - uploadTime.getTime();
-                            const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
-                            
-                            return diffInDays >= 2;
-                          };
-                          
-                          return canDelete() ? (
+                          <div className="flex items-center gap-2">
+                            {hasOCR && (
+                              <button
+                                onClick={() => toggleDocumentExpansion(doc.id)}
+                                className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                title={isExpanded ? "Matnni yashirish" : "OCR matnini ko'rish"}
+                              >
+                                <svg 
+                                  className="w-5 h-5" 
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                  style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                            )}
+                            {canPreview(doc.fileType) && (
+                              <button
+                                onClick={() => openPreview(doc.fileUrl, doc.fileType, doc.name)}
+                                className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                                title="Ko'rish"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              </button>
+                            )}
                             <button
-                              onClick={() => handleDeleteDocument(doc.id)}
-                              className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                              title="O'chirish"
+                              onClick={() => downloadDocument(doc.fileUrl)}
+                              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                              title="Yuklab olish"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                               </svg>
                             </button>
-                          ) : doc.uploadedById === user?.id ? (
-                            <span className="text-xs text-gray-400" title="2 kundan keyin o'chirish mumkin">
-                              2 kun
-                            </span>
-                          ) : null;
-                        })()}
+                            {(() => {
+                              const canDelete = () => {
+                                // Admin har doim o'chira oladi
+                                if (user?.role === 'ADMIN') return true;
+                                
+                                // Faqat yuklagan foydalanuvchi o'chira oladi
+                                if (doc.uploadedById !== user?.id) return false;
+                                
+                                // 2 kundan keyin o'chira oladi
+                                const uploadTime = new Date(doc.createdAt || doc.archivedAt);
+                                const now = new Date();
+                                const diffInMs = now.getTime() - uploadTime.getTime();
+                                const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
+                                
+                                return diffInDays >= 2;
+                              };
+                              
+                              return canDelete() ? (
+                                <button
+                                  onClick={() => handleDeleteDocument(doc.id)}
+                                  className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                  title="O'chirish"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              ) : doc.uploadedById === user?.id ? (
+                                <span className="text-xs text-gray-400" title="2 kundan keyin o'chirish mumkin">
+                                  2 kun
+                                </span>
+                              ) : null;
+                            })()}
+                          </div>
+                        </div>
+                        {isExpanded && hasOCR && (
+                          <div className="ml-4 mr-4 mb-2 p-4 bg-white rounded-lg border border-gray-300 shadow-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-sm font-semibold text-gray-700">OCR Natijasi (O'qilgan matn)</h4>
+                              <button
+                                onClick={() => {
+                                  if (extractedText) {
+                                    navigator.clipboard.writeText(extractedText);
+                                    alert('Matn nusxalandi!');
+                                  }
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                title="Nusxalash"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                Nusxalash
+                              </button>
+                            </div>
+                            {isLoadingText ? (
+                              <div className="text-center py-8 text-gray-500">
+                                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                <p className="mt-2 text-sm">Matn yuklanmoqda...</p>
+                              </div>
+                            ) : extractedText ? (
+                              <pre className="text-xs text-gray-800 bg-gray-50 p-3 rounded border border-gray-200 max-h-96 overflow-y-auto whitespace-pre-wrap break-words font-mono">
+                                {formatInvoiceExtractedText(extractedText, doc.documentType)}
+                              </pre>
+                            ) : (
+                              <div className="text-center py-4 text-gray-400 text-sm">
+                                OCR natijasi topilmadi. Hujjat hali qayta ishlanmagan yoki matn o'qilmagan.
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2991,126 +3237,8 @@ const Tasks = () => {
               </div>
             )}
 
-            {/* Invoice PDF yuklash modali */}
-            {showInvoiceUploadModal && selectedTask && (
-              <div 
-                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] backdrop-blur-sm"
-                style={{
-                  animation: 'fadeIn 0.2s ease-out'
-                }}
-                onClick={(e) => {
-                  if (e.target === e.currentTarget) {
-                    setShowInvoiceUploadModal(false);
-                    setInvoiceUploadFile(null);
-                    setInvoiceUploadName('Invoice');
-                  }
-                }}
-              >
-                <div
-                  className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
-                  style={{
-                    animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                  }}
-                >
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                    Invoice PDF yuklash
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Invoys stage'ini tayyor qilish uchun Invoice PDF yuklanishi shart.
-                  </p>
-                  
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Hujjat nomi
-                    </label>
-                    <input
-                      type="text"
-                      value={invoiceUploadName}
-                      onChange={(e) => setInvoiceUploadName(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                      placeholder="Invoice"
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      PDF fayl
-                    </label>
-                    <input
-                      type="file"
-                      accept=".pdf,application/pdf"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.type !== 'application/pdf') {
-                            alert('Faqat PDF fayllar qabul qilinadi');
-                            return;
-                          }
-                          setInvoiceUploadFile(file);
-                          if (!invoiceUploadName || invoiceUploadName === 'Invoice') {
-                            setInvoiceUploadName(file.name.replace('.pdf', ''));
-                          }
-                        }
-                      }}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                    {invoiceUploadFile && (
-                      <p className="mt-2 text-sm text-gray-600">
-                        Tanlangan: {invoiceUploadFile.name}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-3">
-                    <div className="flex gap-3">
-                      <button
-                        onClick={handleInvoiceUpload}
-                        disabled={!invoiceUploadFile || uploadingInvoice}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {uploadingInvoice ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowInvoiceUploadModal(false);
-                          setInvoiceUploadFile(null);
-                          setInvoiceUploadName('Invoice');
-                          setSelectedStageForReminder(null);
-                        }}
-                        className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                      >
-                        Bekor qilish
-                      </button>
-                    </div>
-                    {selectedStageForReminder && (
-                      <button
-                        onClick={async () => {
-                          // Avval stage'ni tayyor qilamiz, keyin modalni yopamiz
-                          const stageToUpdate = selectedStageForReminder;
-                          const taskToUpdate = selectedTask;
-                          try {
-                            await updateStageToReady(undefined, true);
-                            // Muvaffaqiyatli bo'lsa, modalni yopamiz
-                            setShowInvoiceUploadModal(false);
-                            setInvoiceUploadFile(null);
-                            setInvoiceUploadName('Invoice');
-                          } catch (error) {
-                            // Xatolik bo'lsa, modalni ochiq qoldiramiz
-                            console.error('Error skipping validation:', error);
-                          }
-                        }}
-                        className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
-                      >
-                        O'tkazib yuborish va tayyor qilish
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ST PDF yuklash modali */}
-            {showSTUploadModal && selectedTask && (
+            {/* Umumiy file upload modali (Invoice, ST, Fito uchun) */}
+            {showFileUploadModal && selectedTask && fileUploadStageName && (
               <div 
                 className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] backdrop-blur-sm"
                 style={{
@@ -3118,24 +3246,30 @@ const Tasks = () => {
                 }}
                 onClick={(e) => {
                   if (e.target === e.currentTarget && !aiCheckResult) {
-                    setShowSTUploadModal(false);
-                    setStUploadFile(null);
-                    setStUploadName('ST');
+                    setShowFileUploadModal(false);
+                    setFileUploadFile(null);
+                    setFileUploadName('');
+                    setFileUploadStageName('');
                     setAiCheckResult(null);
                   }
                 }}
               >
                 <div
-                  className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+                  className={`bg-white rounded-lg shadow-2xl p-6 w-full mx-4 ${
+                    fileUploadStageName === 'ST' && aiCheckResult 
+                      ? 'max-w-2xl max-h-[90vh] overflow-y-auto' 
+                      : 'max-w-md'
+                  }`}
                   style={{
                     animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
                   }}
                 >
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                    ST PDF yuklash
+                    {fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName} PDF/JPG yuklash
                   </h3>
                   <p className="text-sm text-gray-600 mb-4">
-                    ST stage'ini tayyor qilish uchun ST PDF yuklanishi shart. Yuklangandan keyin AI tekshiruvdan o'tkaziladi.
+                    {fileUploadStageName} stage'ini tayyor qilish uchun hujjat yuklanishi shart.
+                    {fileUploadStageName === 'ST' && <span> Yuklangandan keyin AI tekshiruvdan o'tkaziladi.</span>}
                   </p>
                   
                   {!aiCheckResult ? (
@@ -3146,38 +3280,50 @@ const Tasks = () => {
                         </label>
                         <input
                           type="text"
-                          value={stUploadName}
-                          onChange={(e) => setStUploadName(e.target.value)}
+                          value={fileUploadName}
+                          onChange={(e) => setFileUploadName(e.target.value)}
                           className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                          placeholder="ST"
+                          placeholder={fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName}
                         />
                       </div>
 
                       <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          PDF fayl
+                          PDF yoki JPG fayl
                         </label>
                         <input
                           type="file"
-                          accept=".pdf,application/pdf"
+                          accept=".pdf,application/pdf,.jpg,.jpeg,image/jpeg,image/jpg"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              if (file.type !== 'application/pdf') {
-                                alert('Faqat PDF fayllar qabul qilinadi');
+                              // Fayl nomi va MIME type'ni tekshiramiz
+                              const fileName = file.name.toLowerCase();
+                              const fileType = file.type.toLowerCase();
+                              const validExtensions = ['.pdf', '.jpg', '.jpeg'];
+                              const validMimeTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/pjpeg'];
+                              
+                              const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+                              const hasValidMimeType = validMimeTypes.includes(fileType) || fileType === '';
+                              
+                              if (!hasValidExtension && !hasValidMimeType) {
+                                alert('Faqat PDF va JPG fayllar qabul qilinadi');
+                                e.target.value = ''; // Input'ni tozalaymiz
                                 return;
                               }
-                              setStUploadFile(file);
-                              if (!stUploadName || stUploadName === 'ST') {
-                                setStUploadName(file.name.replace('.pdf', ''));
+                              
+                              setFileUploadFile(file);
+                              if (!fileUploadName || fileUploadName === fileUploadStageName || fileUploadName === (fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName)) {
+                                const nameWithoutExt = file.name.replace(/\.(pdf|jpg|jpeg)$/i, '');
+                                setFileUploadName(nameWithoutExt);
                               }
                             }
                           }}
                           className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                         />
-                        {stUploadFile && (
+                        {fileUploadFile && (
                           <p className="mt-2 text-sm text-gray-600">
-                            Tanlangan: {stUploadFile.name}
+                            Tanlangan: {fileUploadFile.name}
                           </p>
                         )}
                       </div>
@@ -3185,17 +3331,18 @@ const Tasks = () => {
                       <div className="flex flex-col gap-3">
                         <div className="flex gap-3">
                           <button
-                            onClick={handleSTUpload}
-                            disabled={!stUploadFile || uploadingST}
+                            onClick={handleFileUpload}
+                            disabled={!fileUploadFile || uploadingFile}
                             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            {uploadingST ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
+                            {uploadingFile ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
                           </button>
                           <button
                             onClick={() => {
-                              setShowSTUploadModal(false);
-                              setStUploadFile(null);
-                              setStUploadName('ST');
+                              setShowFileUploadModal(false);
+                              setFileUploadFile(null);
+                              setFileUploadName('');
+                              setFileUploadStageName('');
                               setSelectedStageForReminder(null);
                               setAiCheckResult(null);
                             }}
@@ -3207,12 +3354,15 @@ const Tasks = () => {
                         {selectedStageForReminder && (
                           <button
                             onClick={async () => {
-                              setShowSTUploadModal(false);
-                              setStUploadFile(null);
-                              setStUploadName('ST');
-                              setAiCheckResult(null);
-                              // ST stage'ni validation'siz tayyor qilish
-                              await updateStageToReady(undefined, true);
+                              try {
+                                await updateStageToReady(undefined, true);
+                                setShowFileUploadModal(false);
+                                setFileUploadFile(null);
+                                setFileUploadName('');
+                                setFileUploadStageName('');
+                              } catch (error) {
+                                console.error('Error skipping validation:', error);
+                              }
                             }}
                             className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
                           >
@@ -3273,9 +3423,10 @@ const Tasks = () => {
                       <div className="flex gap-3">
                         <button
                           onClick={async () => {
-                            setShowSTUploadModal(false);
-                            setStUploadFile(null);
-                            setStUploadName('ST');
+                            setShowFileUploadModal(false);
+                            setFileUploadFile(null);
+                            setFileUploadName('');
+                            setFileUploadStageName('');
                             setAiCheckResult(null);
                             if (selectedStageForReminder) {
                               await updateStageToReady();
@@ -3294,6 +3445,7 @@ const Tasks = () => {
                 </div>
               </div>
             )}
+
 
             {/* Reminder Modal */}
             {showReminderModal && selectedStageForReminder && (

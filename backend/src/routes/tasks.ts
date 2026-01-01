@@ -636,20 +636,24 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     // #endregion
     if (!stage || stage.taskId !== taskId) return res.status(404).json({ error: 'Stage not found' });
 
-    // Invoys stage'ini tayyor qilishda Invoice PDF talab qilish
+    // Invoys stage'ini tayyor qilishda Invoice PDF yoki JPG talab qilish
     // Agar skipValidation true bo'lsa, validation'ni o'tkazib yuboramiz
     if (stage.name === 'Invoys' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR' && !parsed.data.skipValidation) {
       try {
-        // Barcha PDF fayllarni olamiz va JavaScript filter qilamiz
-        const allPdfs = await prisma.taskDocument.findMany({
+        // Barcha PDF va JPG fayllarni olamiz va JavaScript filter qilamiz
+        const allDocuments = await prisma.taskDocument.findMany({
           where: {
             taskId: taskId,
-            fileType: 'pdf',
+            OR: [
+              { fileType: 'pdf' },
+              { fileType: 'jpg' },
+              { fileType: 'jpeg' },
+            ],
           },
         });
 
         // Nom va tavsif asosida Invoice'ni topamiz
-        const invoiceDocuments = allPdfs.filter((doc) => {
+        const invoiceDocuments = allDocuments.filter((doc) => {
           const name = (doc.name || '').toLowerCase();
           const desc = (doc.description || '').toLowerCase();
           return (
@@ -662,7 +666,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
 
         if (invoiceDocuments.length === 0) {
           return res.status(400).json({ 
-            error: 'Invoys stage\'ini tayyor qilish uchun Invoice PDF yuklanishi shart. Iltimos, avval Invoice PDF yuklang.' 
+            error: 'Invoys stage\'ini tayyor qilish uchun Invoice PDF yoki JPG yuklanishi shart. Iltimos, avval Invoice fayl yuklang.' 
           });
         }
       } catch (error: any) {
@@ -706,52 +710,56 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         }
 
         if (!hasDocumentTypeColumn) {
-          // Fallback: name asosida tekshirish
-        const allPdfs = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            fileType: 'pdf',
-          },
-        });
+          // Fallback: name asosida tekshirish (PDF va JPG fayllar)
+          const allDocuments = await prisma.taskDocument.findMany({
+            where: {
+              taskId: taskId,
+              OR: [
+                { fileType: 'pdf' },
+                { fileType: 'jpg' },
+                { fileType: 'jpeg' },
+              ],
+            },
+          });
 
-          invoiceDocuments = allPdfs.filter((doc) => {
-          const name = (doc.name || '').toLowerCase();
-          const desc = (doc.description || '').toLowerCase();
-          return (
-            name.includes('invoice') ||
-            name.includes('invoys') ||
-            desc.includes('invoice') ||
+          invoiceDocuments = allDocuments.filter((doc) => {
+            const name = (doc.name || '').toLowerCase();
+            const desc = (doc.description || '').toLowerCase();
+            return (
+              name.includes('invoice') ||
+              name.includes('invoys') ||
+              desc.includes('invoice') ||
               (doc as any).documentType === 'INVOICE'
-          );
-        });
+            );
+          });
 
-          stDocuments = allPdfs.filter((doc) => {
-          const name = (doc.name || '').toLowerCase();
-          const desc = (doc.description || '').toLowerCase();
+          stDocuments = allDocuments.filter((doc) => {
+            const name = (doc.name || '').toLowerCase();
+            const desc = (doc.description || '').toLowerCase();
             // Remove file extension for better matching
-            const nameWithoutExt = name.replace(/\.pdf$/, '').trim();
-          return (
+            const nameWithoutExt = name.replace(/\.(pdf|jpg|jpeg)$/, '').trim();
+            return (
               (doc as any).documentType === 'ST' ||
               nameWithoutExt === 'st' ||
               name.startsWith('st') ||
-            name.includes(' st') ||
-            name.includes('-st') ||
+              name.includes(' st') ||
+              name.includes('-st') ||
               name.includes('_st') ||
-            desc.includes('st') ||
+              desc.includes('st') ||
               desc.toLowerCase().includes('st document')
-          );
-        });
+            );
+          });
         }
 
         if (invoiceDocuments.length === 0) {
           return res.status(400).json({ 
-            error: 'ST stage\'ini tayyor qilish uchun Invoice PDF yuklanishi shart.' 
+            error: 'ST stage\'ini tayyor qilish uchun Invoice PDF yoki JPG yuklanishi shart.' 
           });
         }
 
         if (stDocuments.length === 0) {
           return res.status(400).json({ 
-            error: 'ST stage\'ini tayyor qilish uchun ST PDF yuklanishi shart.' 
+            error: 'ST stage\'ini tayyor qilish uchun ST PDF yoki JPG yuklanishi shart.' 
           });
         }
       } catch (error) {
@@ -806,15 +814,19 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
       }
 
       if (!hasDocumentTypeColumn) {
-        // Fallback: name asosida tekshirish
-        const allPdfs = await prisma.taskDocument.findMany({
+        // Fallback: name asosida tekshirish (PDF va JPG fayllar)
+        const allDocuments = await prisma.taskDocument.findMany({
           where: {
             taskId: taskId,
-            fileType: 'pdf',
+            OR: [
+              { fileType: 'pdf' },
+              { fileType: 'jpg' },
+              { fileType: 'jpeg' },
+            ],
           },
         });
 
-        invoiceDocuments = allPdfs.filter((doc) => {
+        invoiceDocuments = allDocuments.filter((doc) => {
           const name = (doc.name || '').toLowerCase();
           const desc = (doc.description || '').toLowerCase();
           return (
@@ -825,11 +837,11 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
           );
         });
 
-        stDocuments = allPdfs.filter((doc) => {
+        stDocuments = allDocuments.filter((doc) => {
           const name = (doc.name || '').toLowerCase();
           const desc = (doc.description || '').toLowerCase();
           // Remove file extension for better matching
-          const nameWithoutExt = name.replace(/\.pdf$/, '').trim();
+          const nameWithoutExt = name.replace(/\.(pdf|jpg|jpeg)$/, '').trim();
           return (
             (doc as any).documentType === 'ST' ||
             nameWithoutExt === 'st' ||
@@ -842,7 +854,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
           );
         });
 
-        fitoDocuments = allPdfs.filter((doc) => {
+        fitoDocuments = allDocuments.filter((doc) => {
           const name = (doc.name || '').toLowerCase();
           const desc = (doc.description || '').toLowerCase();
           return (
@@ -856,16 +868,25 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
       }
 
       // #region agent log
-      const allPdfsForLog = hasDocumentTypeColumn ? [] : await prisma.taskDocument.findMany({where:{taskId,fileType:'pdf'}});
-      debugLog({location:'tasks.ts:733',message:'Fito validation results',data:{taskId,invoiceCount:invoiceDocuments.length,stCount:stDocuments.length,fitoCount:fitoDocuments.length,hasDocumentTypeColumn,allPdfCount:allPdfsForLog.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
+      const allDocsForLog = hasDocumentTypeColumn ? [] : await prisma.taskDocument.findMany({
+        where: {
+          taskId,
+          OR: [
+            { fileType: 'pdf' },
+            { fileType: 'jpg' },
+            { fileType: 'jpeg' },
+          ],
+        },
+      });
+      debugLog({location:'tasks.ts:733',message:'Fito validation results',data:{taskId,invoiceCount:invoiceDocuments.length,stCount:stDocuments.length,fitoCount:fitoDocuments.length,hasDocumentTypeColumn,allDocCount:allDocsForLog.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
       // #endregion
       if (invoiceDocuments.length === 0) {
         // #region agent log
         debugLog({location:'tasks.ts:737',message:'Fito validation failed - no Invoice',data:{taskId,hasDocumentTypeColumn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
         // #endregion
         return res.status(400).json({ 
-          error: 'Fito stage\'ini tayyor qilish uchun Invoice PDF yuklanishi shart.',
-          details: { missing: 'Invoice PDF', taskId }
+          error: 'Fito stage\'ini tayyor qilish uchun Invoice PDF yoki JPG yuklanishi shart.',
+          details: { missing: 'Invoice PDF/JPG', taskId }
         });
       }
 
@@ -874,8 +895,8 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         debugLog({location:'tasks.ts:747',message:'Fito validation failed - no ST',data:{taskId,hasDocumentTypeColumn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
         // #endregion
         return res.status(400).json({ 
-          error: 'Fito stage\'ini tayyor qilish uchun ST PDF yuklanishi shart.',
-          details: { missing: 'ST PDF', taskId }
+          error: 'Fito stage\'ini tayyor qilish uchun ST PDF yoki JPG yuklanishi shart.',
+          details: { missing: 'ST PDF/JPG', taskId }
         });
       }
 

@@ -19,11 +19,15 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024, // 50MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Only allow PDF files
-    if (file.mimetype === 'application/pdf') {
+    // Allow PDF and JPG files
+    const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/pjpeg'];
+    const allowedExtensions = ['.pdf', '.jpg', '.jpeg'];
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    
+    if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
       cb(null, true);
     } else {
-      cb(new Error('Faqat PDF fayllar qabul qilinadi'));
+      cb(new Error('Faqat PDF va JPG fayllar qabul qilinadi'));
     }
   },
 });
@@ -108,11 +112,17 @@ router.post(
       const result = await prisma.$transaction(
         async (tx) => {
           // Create task document record
+          // Fayl turini aniqlash
+          const fileExtension = path.extname(req.file!.originalname).toLowerCase();
+          const fileType = fileExtension === '.pdf' ? 'pdf' : 
+                          (fileExtension === '.jpg' || fileExtension === '.jpeg') ? 'jpg' : 
+                          'other';
+          
           const documentData: any = {
             taskId,
             name: parsed.data.name,
             fileUrl: `/uploads/tasks/${req.file!.filename}`,
-            fileType: 'pdf',
+            fileType: fileType,
             fileSize: req.file!.size,
             description: parsed.data.description,
             uploadedById: user.id,
@@ -150,18 +160,29 @@ router.post(
         }
       );
 
-      // PDF processing'ni transaction'dan keyin bajaramiz
+      // PDF va JPG processing'ni transaction'dan keyin bajaramiz
       // Bu timeout muammosini hal qiladi
+      const fileExtension = path.extname(req.file!.originalname).toLowerCase();
       const documentService = new DocumentService(prisma);
-      await documentService.processPdfDocument(
-        result.taskDocument.id,
-        req.file!.path
-      );
+      
+      if (fileExtension === '.pdf') {
+        await documentService.processPdfDocument(
+          result.taskDocument.id,
+          req.file!.path
+        );
+      } else if (fileExtension === '.jpg' || fileExtension === '.jpeg') {
+        await documentService.processImageDocument(
+          result.taskDocument.id,
+          req.file!.path
+        );
+      }
 
       // AI processing transaction'dan keyin bajariladi (background'da)
       // Bu timeout muammosini oldini oladi
+      // AI tekshiruv PDF va JPG fayllar uchun ishlaydi
       let aiCheckResult = null;
-      if (parsed.data.documentType === 'INVOICE' || parsed.data.documentType === 'ST') {
+      if ((parsed.data.documentType === 'INVOICE' || parsed.data.documentType === 'ST') && 
+          (fileExtension === '.pdf' || fileExtension === '.jpg' || fileExtension === '.jpeg')) {
         try {
           // AI processing'ni async bajarish (response'ni kutmasdan)
           // Bu foydalanuvchiga tezroq javob qaytarish imkonini beradi
@@ -325,6 +346,47 @@ router.post(
       res.status(500).json({
         error: error instanceof Error ? error.message : 'Internal server error',
       });
+    }
+  }
+);
+
+/**
+ * GET /tasks/:taskId/documents/:documentId/extracted-text
+ * Get extracted text (OCR result) for a document
+ */
+router.get(
+  '/:taskId/documents/:documentId/extracted-text',
+  requireAuth(),
+  async (req: AuthRequest, res) => {
+    try {
+      const documentId = parseInt(req.params.documentId);
+      const taskId = parseInt(req.params.taskId);
+
+      // Verify document belongs to task
+      const document = await prisma.taskDocument.findFirst({
+        where: { id: documentId, taskId },
+      });
+
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      // Get metadata
+      const metadata = await prisma.documentMetadata.findUnique({
+        where: { taskDocumentId: documentId },
+      });
+
+      if (!metadata || !metadata.extractedText) {
+        return res.json({ extractedText: '', pageCount: 0 });
+      }
+
+      res.json({
+        extractedText: metadata.extractedText,
+        pageCount: metadata.pageCount || 0,
+      });
+    } catch (error) {
+      console.error('Error fetching extracted text:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 );

@@ -55,6 +55,7 @@ export class ExamAIService {
   private static readonly MODEL = 'gpt-4-turbo-preview';
   private static readonly TEMPERATURE = 0.3; // Lower temperature for more deterministic output
   private static readonly MAX_TOKENS = 4000;
+  private static readonly TIMEOUT = 120000; // 120 seconds timeout
 
   /**
    * Generate exam questions for a lesson
@@ -82,6 +83,9 @@ export class ExamAIService {
         temperature: this.TEMPERATURE,
         max_tokens: this.MAX_TOKENS,
         response_format: { type: 'json_object' }, // Force JSON output
+        timeout: this.TIMEOUT,
+      }, {
+        timeout: this.TIMEOUT,
       });
 
       const content = response.choices[0]?.message?.content;
@@ -138,6 +142,9 @@ export class ExamAIService {
         temperature: this.TEMPERATURE,
         max_tokens: this.MAX_TOKENS,
         response_format: { type: 'json_object' },
+        timeout: this.TIMEOUT,
+      }, {
+        timeout: this.TIMEOUT,
       });
 
       const content = response.choices[0]?.message?.content;
@@ -181,6 +188,9 @@ export class ExamAIService {
         temperature: this.TEMPERATURE,
         max_tokens: this.MAX_TOKENS,
         response_format: { type: 'json_object' },
+        timeout: this.TIMEOUT,
+      }, {
+        timeout: this.TIMEOUT,
       });
 
       const content = response.choices[0]?.message?.content;

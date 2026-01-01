@@ -35,8 +35,8 @@ class OpenAIClient {
       OpenAIClient.apiKey = apiKey;
       OpenAIClient.instance = new OpenAI({
         apiKey: apiKey,
-        // Timeout for API calls (30 seconds)
-        timeout: 30000,
+        // Timeout for API calls (120 seconds for exam generation)
+        timeout: 120000,
       });
 
       // Log successful initialization (without exposing key)

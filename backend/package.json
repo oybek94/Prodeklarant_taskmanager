@@ -13,7 +13,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
-    "seed:lesson": "tsx src/scripts/seed-lesson-prodeklarant-intro.ts"
+    "seed:lesson": "tsx src/scripts/seed-lesson-prodeklarant-intro.ts",
+    "create:exam": "tsx src/scripts/create-exam-for-lesson.ts",
+    "list:lessons": "tsx src/scripts/list-lessons.ts"
   },
   "keywords": [],
   "author": "",

@@ -146,6 +146,54 @@ const Tasks = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [stats, setStats] = useState<TaskStats | null>(null);
   const { user } = useAuth();
+
+  // Helper function to clean phone number (remove spaces, keep + sign)
+  const cleanPhoneNumber = (phone: string): string => {
+    // Remove all spaces, keep + sign if present
+    return phone.replace(/\s+/g, '');
+  };
+
+  // Helper function to generate Telegram message with all branches
+  // This matches the Excel formula exactly
+  const generateTelegramMessage = (task: TaskDetail): string => {
+    const taskName = task.title;
+    
+    // Exact message format from Excel formula
+    return `📄 Sizning hujjatingiz tayyor!\nHujjat raqami: ${taskName}\n\n🏢 Filiallarimiz:\n\n📍 Oltiariq filial:\n👤 Operator: Abdukamol\n📌 Manzil: https://yandex.ru/maps/-/CLWAuE5H\n📞 Tel: +998339077778\n\n📍 Toshkent filial:\n👤 Operator: Sardorbek\n📌 Manzil: https://yandex.ru/maps/-/CLWAy4Y9\n📞 Tel: +998976626221\n\n🤝 Har qanday savol bo'lsa — bemalol murojaat qiling.`;
+  };
+
+  // Handler function to open Telegram with formatted message
+  // URL format: https://t.me/+PHONE?text=ENCODED_MESSAGE
+  const handleTelegramClick = () => {
+    if (!selectedTask?.driverPhone) return;
+    
+    // Clean phone number: remove spaces only (keep + sign)
+    const cleanedPhone = cleanPhoneNumber(selectedTask.driverPhone);
+    
+    // Generate message
+    const message = generateTelegramMessage(selectedTask);
+    
+    // Encode message for URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // URL format: https://t.me/+PHONE?text=MESSAGE
+    // Phone number should include + sign in the URL
+    // Ensure phone starts with + sign
+    const phoneWithPlus = cleanedPhone.startsWith('+') ? cleanedPhone : `+${cleanedPhone}`;
+    const telegramUrl = `https://t.me/${phoneWithPlus}?text=${encodedMessage}`;
+    
+    console.log('Opening Telegram:', {
+      original: selectedTask.driverPhone,
+      cleaned: cleanedPhone,
+      phoneWithPlus,
+      telegramUrl: telegramUrl.substring(0, 200) + '...',
+      messagePreview: message.substring(0, 100) + '...'
+    });
+    
+    // Open Telegram web version (works better and opens desktop app if installed)
+    window.open(telegramUrl, '_blank');
+  };
+
   const [form, setForm] = useState({
     title: '',
     clientId: '',
@@ -2169,6 +2217,15 @@ const Tasks = () => {
                     <span className="text-sm text-gray-600">Sho'pir tel raqami:</span>
                     <span className="text-sm font-medium text-gray-800">{selectedTask.driverPhone}</span>
                   </div>
+                )}
+                {selectedTask.driverPhone && (
+                  <button
+                    onClick={handleTelegramClick}
+                    className="mt-3 w-full bg-[#0088cc] hover:bg-[#0077b5] text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium text-sm shadow-sm hover:shadow-md"
+                  >
+                    <span className="text-lg">📨</span>
+                    <span>Telegram orqali xabar yuborish</span>
+                  </button>
                 )}
               </div>
             </div>

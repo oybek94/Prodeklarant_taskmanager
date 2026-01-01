@@ -2785,7 +2785,7 @@ const Tasks = () => {
                         )}
                         
                         {/* Show raw details if available for debugging */}
-                        {process.env.NODE_ENV === 'development' && details && Object.keys(details).length > 0 && (
+                        {import.meta.env.MODE === 'development' && details && Object.keys(details).length > 0 && (
                           <details className="mt-3 text-xs">
                             <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
                               Batafsil ma'lumot (debug)

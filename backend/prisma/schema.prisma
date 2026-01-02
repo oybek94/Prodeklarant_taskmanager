@@ -109,6 +109,14 @@ model Task {
   invoice                    Invoice?
   structuredDocuments        StructuredDocument[]
   aiChecks                   AiCheck[]
+
+  @@index([status])
+  @@index([branchId])
+  @@index([clientId])
+  @@index([createdAt])
+  @@index([branchId, status])
+  @@index([clientId, status])
+  @@index([status, createdAt])
 }
 
 model TaskStage {

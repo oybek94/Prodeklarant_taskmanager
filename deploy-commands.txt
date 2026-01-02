@@ -33,7 +33,7 @@ NODE_ENV=production
 JWT_SECRET=CHANGE_THIS_TO_STRONG_SECRET
 JWT_REFRESH_SECRET=CHANGE_THIS_TO_STRONG_REFRESH_SECRET
 OPENAI_API_KEY=
-ALLOWED_ORIGINS=http://138.249.7.15,http://138.249.7.15:80
+ALLOWED_ORIGINS=https://app.prodeklarant.uz,http://138.249.7.15,http://138.249.7.15:80
 EOF
 
 npm install
@@ -44,7 +44,7 @@ npm run build
 # Step 7: Frontend Configuration
 cd /var/www/app/frontend
 cat > .env.production << 'EOF'
-VITE_API_BASE_URL=http://138.249.7.15/api
+VITE_API_BASE_URL=https://app.prodeklarant.uz/api
 EOF
 
 npm install
@@ -58,13 +58,43 @@ pm2 startup systemd
 
 # Step 9: Configure Nginx
 cat > /etc/nginx/sites-available/prodeklarant << 'NGINX_EOF'
+# HTTP server - redirect to HTTPS
 server {
     listen 80;
-    server_name 138.249.7.15;
+    server_name app.prodeklarant.uz 138.249.7.15;
 
+    # Let's Encrypt challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Redirect all other traffic to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# HTTPS server
+server {
+    listen 443 ssl http2;
+    server_name app.prodeklarant.uz;
+
+    # SSL certificate paths (will be set by certbot)
+    ssl_certificate /etc/letsencrypt/live/app.prodeklarant.uz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/app.prodeklarant.uz/privkey.pem;
+
+    # SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Frontend static files
     root /var/www/app/frontend/dist;
     index index.html;
 
+    # API proxy
     location /api {
         proxy_pass http://localhost:3001;
         proxy_http_version 1.1;
@@ -77,10 +107,12 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
+    # Uploads static files
     location /uploads {
         alias /var/www/app/backend/uploads;
     }
 
+    # Frontend SPA routing
     location / {
         try_files $uri $uri/ /index.html;
     }
@@ -90,6 +122,12 @@ NGINX_EOF
 ln -sf /etc/nginx/sites-available/prodeklarant /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
+systemctl reload nginx
+
+# Step 9.1: Install Certbot and SSL Certificate
+apt install -y certbot python3-certbot-nginx
+mkdir -p /var/www/certbot
+certbot --nginx -d app.prodeklarant.uz --non-interactive --agree-tos --email admin@prodeklarant.uz --redirect
 systemctl reload nginx
 
 # Step 10: Firewall

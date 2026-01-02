@@ -96,6 +96,11 @@ const Tasks = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
   const [loadingTask, setLoadingTask] = useState(false);
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalTasks, setTotalTasks] = useState(0);
+  const limit = 50; // Har bir sahifada 50 ta task
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [updatingStage, setUpdatingStage] = useState<number | null>(null);
   const [taskVersions, setTaskVersions] = useState<TaskVersion[]>([]);
@@ -243,12 +248,21 @@ const Tasks = () => {
   });
   const [showArchiveFilters, setShowArchiveFilters] = useState(false);
 
+  // Page'ni 1 ga qaytarish, filterlar o'zgarganda
+  useEffect(() => {
+    if (page !== 1) {
+      setPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.status, filters.clientId, filters.branchId, showArchive]);
+
   useEffect(() => {
     loadTasks();
     loadClients();
     loadBranches();
     loadWorkers();
-  }, [showArchive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showArchive, page, filters.status, filters.clientId, filters.branchId]);
 
   // Clear archive filters when switching tabs
   useEffect(() => {
@@ -351,7 +365,10 @@ const Tasks = () => {
   const loadTasks = async () => {
     try {
       setLoading(true);
-      const params: any = {};
+      const params: any = {
+        page: page.toString(),
+        limit: limit.toString(),
+      };
       if (showArchive) {
         // Arxiv bo'limida faqat YAKUNLANDI statusidagi tasklar
         params.status = 'YAKUNLANDI';
@@ -360,24 +377,50 @@ const Tasks = () => {
         if (filters.status) params.status = filters.status;
       }
       if (filters.clientId) params.clientId = filters.clientId;
+      if (filters.branchId) params.branchId = filters.branchId;
 
       const response = await apiClient.get('/tasks', { params });
-      if (Array.isArray(response.data)) {
-        let filteredTasks = response.data;
+      
+      // Backward compatibility: agar pagination bor bo'lsa
+      if (response.data.pagination) {
+        const { tasks: tasksData, pagination } = response.data;
+        let filteredTasks = tasksData;
+        
         // Agar arxiv bo'lsa, faqat YAKUNLANDI statusidagilarni ko'rsatish
         // Agar barcha ishlar bo'lsa, YAKUNLANDI dan tashqarilarini ko'rsatish
+        if (showArchive) {
+          filteredTasks = tasksData.filter((task: Task) => task.status === 'YAKUNLANDI');
+        } else {
+          filteredTasks = tasksData.filter((task: Task) => task.status !== 'YAKUNLANDI');
+        }
+        
+        setTasks(filteredTasks);
+        setTotalPages(pagination.totalPages);
+        setTotalTasks(pagination.total);
+        
+        // Stats faqat barcha ishlar bo'limida hisoblanadi
+        if (!showArchive) {
+          calculateStats(tasksData);
+        }
+      } else if (Array.isArray(response.data)) {
+        // Eski format - backward compatibility
+        let filteredTasks = response.data;
         if (showArchive) {
           filteredTasks = response.data.filter((task: Task) => task.status === 'YAKUNLANDI');
         } else {
           filteredTasks = response.data.filter((task: Task) => task.status !== 'YAKUNLANDI');
         }
         setTasks(filteredTasks);
-        // Stats faqat barcha ishlar bo'limida hisoblanadi
+        setTotalPages(1);
+        setTotalTasks(filteredTasks.length);
+        
         if (!showArchive) {
           calculateStats(response.data);
         }
       } else {
         setTasks([]);
+        setTotalPages(1);
+        setTotalTasks(0);
         if (!showArchive) {
           calculateStats([]);
         }
@@ -385,6 +428,8 @@ const Tasks = () => {
     } catch (error) {
       console.error('Error loading tasks:', error);
       setTasks([]);
+      setTotalPages(1);
+      setTotalTasks(0);
       if (!showArchive) {
         calculateStats([]);
       }
@@ -484,12 +529,41 @@ const Tasks = () => {
     }
   };
 
+  const loadTaskStages = async (taskId: number) => {
+    try {
+      const response = await apiClient.get(`/tasks/${taskId}/stages`);
+      if (selectedTask) {
+        setSelectedTask({
+          ...selectedTask,
+          stages: response.data,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading task stages:', error);
+      // Stages yuklanmasa ham, task ma'lumotlari ko'rsatiladi
+      if (selectedTask) {
+        setSelectedTask({
+          ...selectedTask,
+          stages: [],
+        });
+      }
+    }
+  };
+
   const loadTaskDetail = async (taskId: number) => {
     try {
       setLoadingTask(true);
       const response = await apiClient.get(`/tasks/${taskId}`);
-      setSelectedTask(response.data);
+      // Stages'ni lazy load qilish uchun, avval stages'ni olib tashlaymiz
+      const taskData = { ...response.data };
+      if (taskData.stages) {
+        // Stages'ni bo'sh qilamiz, keyin lazy load qilamiz
+        taskData.stages = [];
+      }
+      setSelectedTask(taskData);
       setShowTaskModal(true);
+      // Load stages lazily
+      await loadTaskStages(taskId);
       // Load versions
       await loadTaskVersions(taskId);
       // Load documents
@@ -4101,6 +4175,40 @@ const Tasks = () => {
             <div>{renderTaskTable(toshkentTasks, 'Toshkent')}</div>
           </div>
         )
+      )}
+
+      {/* Pagination UI */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="text-sm text-gray-600">
+            Jami <span className="font-semibold">{totalTasks}</span> ta task,{' '}
+            <span className="font-semibold">{page}</span>/{totalPages} sahifa
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+                page === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-500 text-white hover:bg-blue-600'
+              }`}
+            >
+              Oldingi
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+                page === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-500 text-white hover:bg-blue-600'
+              }`}
+            >
+              Keyingi
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -116,8 +116,14 @@ const createTaskSchema = z.object({
 
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const { branchId, status, clientId } = req.query;
+    const { branchId, status, clientId, page, limit } = req.query;
     const where: any = {};
+    
+    // Pagination parametrlari
+    const pageNum = page ? parseInt(page as string, 10) : undefined;
+    const limitNum = limit ? parseInt(limit as string, 10) : undefined;
+    const skip = pageNum && limitNum ? (pageNum - 1) * limitNum : undefined;
+    const take = limitNum || undefined;
     
     // Role'ga qarab filial filter qo'shish
     const user = req.user;
@@ -150,36 +156,36 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       }
     }
     
-    const tasks = await prisma.task.findMany({
-      where,
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        comments: true,
-        hasPsr: true,
-        driverPhone: true,
-        createdAt: true,
-        client: true, 
-        branch: true,
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    // Pagination bilan tasklarni olish
+    const [tasks, total] = await Promise.all([
+      prisma.task.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          comments: true,
+          hasPsr: true,
+          driverPhone: true,
+          createdAt: true,
+          client: true, 
+          branch: true,
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
+          // Stages include o'chirildi - lazy load uchun
         },
-        stages: {
-          select: {
-            name: true,
-            status: true,
-            durationMin: true,
-            completedAt: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      // Backward compatibility: agar pagination yo'q bo'lsa, count qilmaymiz
+      pageNum && limitNum ? prisma.task.count({ where }) : Promise.resolve(0),
+    ]);
     
     // Calculate and update status for each task using the new formula
     // NOTE: We only recalculate if status filter is not set, to avoid overriding user's filter
@@ -234,7 +240,21 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       }
     }
     
-    res.json(tasks);
+    // Backward compatibility: agar pagination parametrlari yo'q bo'lsa, eski format qaytariladi
+    if (pageNum && limitNum && total > 0) {
+      res.json({
+        tasks,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      });
+    } else {
+      // Eski format - barcha tasklar
+      res.json(tasks);
+    }
   } catch (error) {
     console.error('Error fetching tasks:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -390,6 +410,50 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       error: 'Xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
     });
+  }
+});
+
+// Get task stages (lazy loading)
+router.get('/:id/stages', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const taskId = parseInt(req.params.id);
+    
+    // Task mavjudligini tekshirish
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: { id: true },
+    });
+    
+    if (!task) {
+      return res.status(404).json({ error: 'Task topilmadi' });
+    }
+    
+    // Stages'ni olish
+    const stages = await prisma.taskStage.findMany({
+      where: { taskId },
+      orderBy: { stageOrder: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        stageOrder: true,
+        durationMin: true,
+        startedAt: true,
+        completedAt: true,
+        assignedTo: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+    
+    res.json(stages);
+  } catch (error: any) {
+    console.error('Error fetching task stages:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

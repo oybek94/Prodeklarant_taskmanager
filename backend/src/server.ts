@@ -55,6 +55,13 @@ app.use(cors({
       return callback(null, true);
     }
     
+    // Development'da barcha localhost originlarga ruxsat berish
+    if (process.env.NODE_ENV !== 'production') {
+      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+        return callback(null, true);
+      }
+    }
+    
     // Agar origin allowedOrigins ro'yxatida bo'lmasa, lekin production'da bo'lsa, 
     // ham ruxsat berish (chunki Nginx orqali kelgan so'rovlar origin header bilan kelishi mumkin)
     if (process.env.NODE_ENV === 'production') {
@@ -62,7 +69,9 @@ app.use(cors({
     }
     
     // Development'da faqat allowedOrigins ro'yxatidagi originlarga ruxsat berish
-    callback(new Error('CORS policy violation'));
+    // Lekin xatolikni throw qilmasdan, faqat console'ga log qilamiz
+    console.warn(`⚠️  CORS: ${origin} ruxsat berilmagan, lekin ruxsat berildi (development)`);
+    callback(null, true);
   },
   credentials: true
 }));

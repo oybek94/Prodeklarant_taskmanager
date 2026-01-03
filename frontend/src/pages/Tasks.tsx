@@ -3123,23 +3123,6 @@ const Tasks = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            {hasOCR && (
-                              <button
-                                onClick={() => toggleDocumentExpansion(doc.id)}
-                                className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                title={isExpanded ? "Matnni yashirish" : "OCR matnini ko'rish"}
-                              >
-                                <svg 
-                                  className="w-5 h-5" 
-                                  fill="none" 
-                                  stroke="currentColor" 
-                                  viewBox="0 0 24 24"
-                                  style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                              </button>
-                            )}
                             {canPreview(doc.fileType) && (
                               <button
                                 onClick={() => openPreview(doc.fileUrl, doc.fileType, doc.name)}
@@ -3162,37 +3145,68 @@ const Tasks = () => {
                               </svg>
                             </button>
                             {(() => {
-                              const canDelete = () => {
-                                // Admin har doim o'chira oladi
-                                if (user?.role === 'ADMIN') return true;
-                                
-                                // Faqat yuklagan foydalanuvchi o'chira oladi
-                                if (doc.uploadedById !== user?.id) return false;
-                                
-                                // 2 kundan keyin o'chira oladi
-                                const uploadTime = new Date(doc.createdAt || doc.archivedAt);
-                                const now = new Date();
-                                const diffInMs = now.getTime() - uploadTime.getTime();
-                                const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
-                                
-                                return diffInDays >= 2;
-                              };
+                              // Admin har doim o'chira oladi
+                              const isAdmin = user?.role === 'ADMIN';
                               
-                              return canDelete() ? (
-                                <button
-                                  onClick={() => handleDeleteDocument(doc.id)}
-                                  className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                                  title="O'chirish"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              ) : doc.uploadedById === user?.id ? (
-                                <span className="text-xs text-gray-400" title="2 kundan keyin o'chirish mumkin">
-                                  2 kun
-                                </span>
-                              ) : null;
+                              // Faqat yuklagan foydalanuvchi o'chira oladi
+                              const isOwner = doc.uploadedById === user?.id;
+                              
+                              // Agar admin yoki yuklagan foydalanuvchi bo'lmasa, hech narsa ko'rsatilmaydi
+                              if (!isAdmin && !isOwner) {
+                                return null;
+                              }
+                              
+                              // Vaqtni hisoblash (2 kungacha o'chirish mumkin)
+                              const uploadTime = new Date(doc.createdAt || doc.archivedAt);
+                              const now = new Date();
+                              const diffInMs = now.getTime() - uploadTime.getTime();
+                              const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
+                              
+                              // Admin har doim o'chira oladi
+                              if (isAdmin) {
+                                return (
+                                  <button
+                                    onClick={() => handleDeleteDocument(doc.id)}
+                                    className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                    title="O'chirish (Admin)"
+                                  >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </button>
+                                );
+                              }
+                              
+                              // Yuklagan foydalanuvchi uchun: 2 kungacha o'chira oladi
+                              if (isOwner) {
+                                if (diffInDays <= 2) {
+                                  // 2 kungacha o'chirish mumkin
+                                  return (
+                                    <button
+                                      onClick={() => handleDeleteDocument(doc.id)}
+                                      className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                      title="O'chirish"
+                                    >
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                    </button>
+                                  );
+                                } else {
+                                  // 2 kundan ko'p vaqt o'tgan, o'chirish mumkin emas
+                                  const daysPassed = Math.floor(diffInDays);
+                                  return (
+                                    <span 
+                                      className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"
+                                      title="2 kundan keyin o'chirish mumkin emas"
+                                    >
+                                      O'chirish mumkin emas ({daysPassed} kun o'tdi)
+                                    </span>
+                                  );
+                                }
+                              }
+                              
+                              return null;
                             })()}
                           </div>
                         </div>

@@ -16,7 +16,7 @@ const router = Router();
 const upload = multer({
   dest: 'uploads/tasks/',
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit
   },
   fileFilter: (req, file, cb) => {
     // Allow PDF and JPG files

@@ -75,8 +75,9 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increase body size limits for file uploads
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Static file serving - uploads papkasini serve qilish
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

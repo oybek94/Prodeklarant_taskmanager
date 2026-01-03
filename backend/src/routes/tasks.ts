@@ -674,7 +674,7 @@ router.get('/:id/versions', async (req, res) => {
 
 const updateStageSchema = z.object({
   status: z.enum(['BOSHLANMAGAN', 'TAYYOR']),
-  customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
+  customsPaymentMultiplier: z.coerce.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
   skipValidation: z.boolean().optional(), // Skip document validation for ST stage
 });
 

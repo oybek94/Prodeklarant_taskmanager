@@ -119,7 +119,7 @@ const Tasks = () => {
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [selectedStageForReminder, setSelectedStageForReminder] = useState<TaskStage | null>(null);
   const [showBXMModal, setShowBXMModal] = useState(false);
-  const [bxmMultiplier, setBxmMultiplier] = useState<string>('0.5');
+  const [bxmMultiplier, setBxmMultiplier] = useState<string>('1.5');
   const [currentBXM, setCurrentBXM] = useState<number>(34.4);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorForm, setErrorForm] = useState({
@@ -1226,10 +1226,11 @@ const Tasks = () => {
         try {
           const bxmResponse = await apiClient.get('/bxm/current');
           setCurrentBXM(Number(bxmResponse.data.amount));
-          setBxmMultiplier('0.5');
+          setBxmMultiplier('1.5');
           setShowBXMModal(true);
         } catch (error) {
           console.error('Error loading BXM:', error);
+          setBxmMultiplier('1.5');
           setShowBXMModal(true);
         }
       } else {
@@ -3574,32 +3575,16 @@ const Tasks = () => {
                 >
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Deklaratsiya To'lovi</h3>
                   <div className="mb-4">
-                    <div className="text-sm text-gray-600 mb-2">
-                      Joriy BXM: <span className="font-semibold text-blue-600">${currentBXM.toFixed(2)}</span>
-                    </div>
-                    <div className="text-sm text-gray-600 mb-4">
-                      BXMning 0.5 dan 4 barobarigacha tanlash mumkin
-                    </div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      BXM Multiplier (0.5 - 4)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.5"
-                      max="4"
+                    <select
                       value={bxmMultiplier}
                       onChange={(e) => setBxmMultiplier(e.target.value)}
                       className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                      placeholder="1.0"
-                    />
-                    {bxmMultiplier && !isNaN(parseFloat(bxmMultiplier)) && (
-                      <div className="mt-2 text-sm text-gray-600">
-                        Deklaratsiya to'lovi: <span className="font-semibold text-green-600">
-                          ${(currentBXM * parseFloat(bxmMultiplier)).toFixed(2)}
-                        </span>
-                      </div>
-                    )}
+                    >
+                      <option value="1">BXM 1 barobari (412 000 so'm)</option>
+                      <option value="1.5">BXM 1.5 barobari (618 000 so'm)</option>
+                      <option value="2.5">BXM 2.5 barobari (1 030 000 so'm)</option>
+                      <option value="4">BXM 4 barobari (1 648 000 so'm)</option>
+                    </select>
                   </div>
                   <div className="flex gap-3">
                     <button

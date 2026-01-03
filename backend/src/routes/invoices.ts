@@ -370,20 +370,25 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         }
       }
 
+      const invoiceData: any = {
+        invoiceNumber: finalInvoiceNumber,
+        contractNumber: contractNumber || client?.contractNumber || undefined,
+        contractId: contractId || undefined,
+        taskId: task?.id || undefined,
+        clientId: task?.clientId || clientId!,
+        date: date ? new Date(date) : new Date(),
+        currency: currency || client?.dealAmountCurrency || 'USD',
+        totalAmount: totalAmount || (task ? task.snapshotDealAmount : 0) || 0,
+        notes: notes || undefined,
+        additionalInfo: additionalInfo || undefined,
+      };
+      
+      if (branchId) {
+        invoiceData.branchId = branchId;
+      }
+
       invoice = await prisma.invoice.create({
-        data: {
-          invoiceNumber: finalInvoiceNumber,
-          contractNumber: contractNumber || client?.contractNumber || undefined,
-          contractId: contractId || undefined,
-          taskId: task?.id || undefined,
-          clientId: task?.clientId || clientId!,
-          ...(branchId ? { branchId } : {}),
-          date: date ? new Date(date) : new Date(),
-          currency: currency || client?.dealAmountCurrency || 'USD',
-          totalAmount: totalAmount || (task ? task.snapshotDealAmount : 0) || 0,
-          notes: notes || undefined,
-          additionalInfo: additionalInfo || undefined,
-        },
+        data: invoiceData,
         include: {
           items: true,
           client: true,

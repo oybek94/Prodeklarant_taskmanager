@@ -26,7 +26,8 @@ export class ST1Service {
       const structuredData = await analyzeDocument(text, 'ST');
 
       // Validate and normalize business rules
-      return this.validateAndNormalize(structuredData);
+      // Type assertion: analyzeDocument with 'ST' always returns ST1Extraction
+      return this.validateAndNormalize(structuredData as ST1Extraction);
     } catch (error) {
       const aiError = handleAIError(error);
       throw new Error(`ST-1 analysis failed: ${aiError.message}`);

@@ -86,7 +86,6 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', adminOnly: true },
     { path: '/tasks', label: 'Tasks' },
     { path: '/transactions', label: 'Transactions' },
-    { path: '/finance', label: 'Pul nazorati', adminOnly: true },
     { path: '/invoices', label: 'Invoice\'lar', adminOnly: true },
     { path: '/clients', label: 'Clients', adminOnly: true },
     { path: '/training', label: 'O\'qitish' },

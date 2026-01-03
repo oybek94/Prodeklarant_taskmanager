@@ -784,13 +784,50 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
       const bxmAmount = bxmConfig ? Number(bxmConfig.amount) : 34.4; // Default BXM
       const calculatedCustomsPayment = bxmAmount * parsed.data.customsPaymentMultiplier;
       
-      await (tx as any).task.update({
+      // Get task with client to update dealAmount
+      const task = await (tx as any).task.findUnique({
         where: { id: taskId },
-        data: {
-          customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
-          snapshotCustomsPayment: calculatedCustomsPayment,
-        },
+        include: { client: true },
       });
+      
+      // If multiplier > 1, calculate additional payment and add to client's dealAmount
+      const multiplier = Number(parsed.data.customsPaymentMultiplier);
+      if (multiplier > 1 && task?.client) {
+        // 1 BXM = 412 000 so'm (constant)
+        const ONE_BXM_IN_SOM = 412000;
+        const additionalPayment = (multiplier - 1) * ONE_BXM_IN_SOM;
+        
+        // Get current dealAmount (in UZS so'm)
+        const currentDealAmount = task.client.dealAmount ? Number(task.client.dealAmount) : 0;
+        const newDealAmount = currentDealAmount + additionalPayment;
+        
+        // Update client's dealAmount
+        await (tx as any).client.update({
+          where: { id: task.clientId },
+          data: {
+            dealAmount: newDealAmount,
+          },
+        });
+        
+        // Update task's snapshotDealAmount to reflect the new dealAmount
+        await (tx as any).task.update({
+          where: { id: taskId },
+          data: {
+            customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
+            snapshotCustomsPayment: calculatedCustomsPayment,
+            snapshotDealAmount: newDealAmount,
+          },
+        });
+      } else {
+        // If multiplier <= 1, just update customs payment without changing dealAmount
+        await (tx as any).task.update({
+          where: { id: taskId },
+          data: {
+            customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
+            snapshotCustomsPayment: calculatedCustomsPayment,
+          },
+        });
+      }
     }
     
     // #region agent log

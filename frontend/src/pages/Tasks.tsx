@@ -1289,6 +1289,23 @@ const Tasks = () => {
       alert('Multiplier 0.5 dan 4 gacha bo\'lishi kerak');
       return;
     }
+    
+    // If multiplier > 1, show warning about additional payment
+    if (multiplier > 1) {
+      const ONE_BXM_IN_SOM = 412000;
+      const additionalPayment = (multiplier - 1) * ONE_BXM_IN_SOM;
+      const formattedAdditional = additionalPayment.toLocaleString('uz-UZ');
+      
+      const confirmMessage = `Deklaratsiya to'lovi BXMning 1 barobaridan (412 000 so'm) oshib ketdi.\n\n` +
+        `Qo'shimcha to'lov: ${formattedAdditional} so'm\n\n` +
+        `Bu summa mijozning shartnoma summasiga qo'shiladi.\n\n` +
+        `Davom etasizmi?`;
+      
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+    }
+    
     await updateStageToReady(multiplier);
   };
 
@@ -3586,6 +3603,16 @@ const Tasks = () => {
                       <option value="4">BXM 4 barobari (1 648 000 so'm)</option>
                     </select>
                   </div>
+                  {parseFloat(bxmMultiplier) > 1 && (
+                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="text-sm text-yellow-800">
+                        <div className="font-medium mb-1">⚠️ Qo'shimcha to'lov:</div>
+                        <div>
+                          {((parseFloat(bxmMultiplier) - 1) * 412000).toLocaleString('uz-UZ')} so'm mijozning shartnoma summasiga qo'shiladi.
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex gap-3">
                     <button
                       onClick={handleBXMConfirm}

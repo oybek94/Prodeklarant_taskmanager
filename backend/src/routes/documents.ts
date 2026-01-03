@@ -134,25 +134,25 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
 
       // Hujjatlar doim TaskDocument'ga qo'shiladi, arxivga faqat /archive-task/:taskId endpoint orqali
       const document = await prisma.taskDocument.create({
-        data: {
-          taskId,
-          name,
-          fileUrl,
-          fileType,
-          fileSize: file.size,
-          description,
-          uploadedById: req.user!.id,
-        },
-        include: {
-          uploadedBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+          data: {
+            taskId,
+            name,
+            fileUrl,
+            fileType,
+            fileSize: file.size,
+            description,
+            uploadedById: req.user!.id,
+          },
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
           },
-        },
-      });
+        });
 
       documents.push(document);
     }

@@ -158,27 +158,27 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     // Pagination bilan tasklarni olish
     const [tasks, total] = await Promise.all([
       prisma.task.findMany({
-        where,
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          comments: true,
-          hasPsr: true,
-          driverPhone: true,
-          createdAt: true,
-          client: true, 
-          branch: true,
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
+      where,
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        comments: true,
+        hasPsr: true,
+        driverPhone: true,
+        createdAt: true,
+        client: true, 
+        branch: true,
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
           },
-          // Stages include o'chirildi - lazy load uchun
         },
-        orderBy: { createdAt: 'desc' },
+          // Stages include o'chirildi - lazy load uchun
+      },
+      orderBy: { createdAt: 'desc' },
         skip,
         take,
       }),
@@ -252,7 +252,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       });
     } else {
       // Eski format - barcha tasklar
-      res.json(tasks);
+    res.json(tasks);
     }
   } catch (error) {
     console.error('Error fetching tasks:', error);
@@ -733,7 +733,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
       });
 
       if (documentCount === 0) {
-        return res.status(400).json({ 
+          return res.status(400).json({ 
           error: 'Pochta jarayonini tayyor qilish uchun kamida bitta hujjat yuklanishi kerak' 
         });
       }
@@ -751,8 +751,8 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         return res.status(403).json({ 
           error: 'Faqat jarayonni tayyor qilgan odam jarayon statusini o\'zgartirishi mumkin' 
         });
-      }
     }
+  }
 
   // Agar jarayonni tugallanmagan (BOSHLANMAGAN) qilishga harakat qilinayotgan bo'lsa,
   // faqat jarayonni tayyor qilgan odam buni qila oladi (ADMIN ham emas)

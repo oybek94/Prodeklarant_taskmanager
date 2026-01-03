@@ -2630,9 +2630,25 @@ const Tasks = () => {
             </div>
             {selectedTask.updatedBy && (
               <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">Oxirgi o'zgartirilgan:</span> {selectedTask.updatedAt ? formatDate(selectedTask.updatedAt) : ''} 
-                  {selectedTask.updatedBy && <span className="ml-2">by {selectedTask.updatedBy.name}</span>}
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <div>
+                    <span className="font-medium">Oxirgi o'zgartirilgan:</span> {selectedTask.updatedAt ? formatDate(selectedTask.updatedAt) : ''} 
+                    {selectedTask.updatedBy && <span className="ml-2">by {selectedTask.updatedBy.name}</span>}
+                  </div>
+                  {selectedTask.stages && selectedTask.stages.length > 0 && (() => {
+                    const totalMinutes = selectedTask.stages
+                      .filter(stage => stage.status === 'TAYYOR')
+                      .reduce((total, stage) => {
+                        const duration = calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt);
+                        return total + (duration || 0);
+                      }, 0);
+                    const totalDuration = formatDuration(totalMinutes);
+                    return totalDuration ? (
+                      <div className="text-sm font-medium text-gray-700">
+                        Umumiy vaqt: {totalDuration}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               </div>
             )}
@@ -2960,7 +2976,8 @@ const Tasks = () => {
                         );
                       })()}
                     </div>
-                  ))
+                  );
+                  })
                 ) : (
                   <div className="text-center py-4 text-gray-400">
                     {loadingTask ? 'Jarayonlar yuklanmoqda...' : 'Jarayonlar topilmadi'}

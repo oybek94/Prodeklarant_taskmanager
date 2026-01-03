@@ -55,7 +55,16 @@ const Transactions = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showPreviousYearDebtForm, setShowPreviousYearDebtForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [previousYearDebts, setPreviousYearDebts] = useState<any[]>([]);
+  const [previousYearDebtForm, setPreviousYearDebtForm] = useState({
+    workerId: '',
+    totalEarned: '',
+    totalPaid: '',
+    year: (new Date().getFullYear() - 1).toString(),
+    comment: '',
+  });
   const [clients, setClients] = useState<Client[]>([]);
   const [workers, setWorkers] = useState<User[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
@@ -63,6 +72,11 @@ const Transactions = () => {
     totalEarned: number;
     totalPaid: number;
     totalPending: number;
+  } | null>(null);
+  const [previousYearDebt, setPreviousYearDebt] = useState<{
+    totalEarned: number;
+    totalPaid: number;
+    balance: number;
   } | null>(null);
   const [form, setForm] = useState({
     type: 'INCOME' as 'INCOME' | 'EXPENSE' | 'SALARY',
@@ -83,11 +97,41 @@ const Transactions = () => {
     if (user?.role === 'ADMIN') {
       loadMonthlyStats();
       loadWorkerStats();
+      loadPreviousYearDebts();
     } else if (user?.id) {
       // Ishchi uchun o'zining ish xaqi statistikasini yuklash
       loadWorkerStatsForUser(user.id);
     }
   }, [user]);
+
+  const loadPreviousYearDebts = async () => {
+    try {
+      const previousYear = new Date().getFullYear() - 1;
+      const response = await apiClient.get(`/workers/previous-year-debts?year=${previousYear}`);
+      setPreviousYearDebts(response.data || []);
+    } catch (error) {
+      console.error('Error loading previous year debts:', error);
+    }
+  };
+
+  const handleSavePreviousYearDebt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiClient.post('/workers/previous-year-debts', previousYearDebtForm);
+      setShowPreviousYearDebtForm(false);
+      setPreviousYearDebtForm({
+        workerId: '',
+        totalEarned: '',
+        totalPaid: '',
+        year: (new Date().getFullYear() - 1).toString(),
+        comment: '',
+      });
+      await loadPreviousYearDebts();
+      await loadWorkerStats(); // Yangilash
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
 
   const loadMonthlyStats = async () => {
     try {
@@ -102,6 +146,16 @@ const Transactions = () => {
     try {
       const response = await apiClient.get('/transactions/worker-stats');
       setWorkerStats(response.data);
+      
+      // O'tgan yil qarzlarini yuklash (admin uchun)
+      const previousYear = new Date().getFullYear() - 1;
+      try {
+        const debtsResponse = await apiClient.get(`/workers/previous-year-debts?year=${previousYear}`);
+        // O'tgan yil qarzlarini saqlash (keyinchalik ko'rsatish uchun)
+        // Bu yerda faqat yuklaymiz, hisob-kitoblar backend'da bo'lishi kerak
+      } catch (debtError) {
+        // Xato bo'lsa, e'tiborsiz qoldiramiz
+      }
     } catch (error) {
       console.error('Error loading worker stats:', error);
     }
@@ -117,10 +171,33 @@ const Transactions = () => {
       const stageStatsResponse = await apiClient.get(`/workers/${workerId}/stage-stats?period=all`);
       const totals = stageStatsResponse.data.totals;
       
+      // O'tgan yil qarzini yuklash
+      const previousYear = new Date().getFullYear() - 1;
+      let previousYearDebtData = null;
+      try {
+        const debtResponse = await apiClient.get(`/workers/${workerId}/previous-year-debt?year=${previousYear}`);
+        if (debtResponse.data) {
+          previousYearDebtData = {
+            totalEarned: Number(debtResponse.data.totalEarned || 0),
+            totalPaid: Number(debtResponse.data.totalPaid || 0),
+            balance: Number(debtResponse.data.balance || 0),
+          };
+          setPreviousYearDebt(previousYearDebtData);
+        } else {
+          setPreviousYearDebt(null);
+        }
+      } catch (debtError) {
+        // O'tgan yil qarzi yo'q bo'lishi mumkin
+        setPreviousYearDebt(null);
+      }
+      
+      // O'tgan yil qarzini hisob-kitoblarga qo'shish
+      const previousYearBalance = previousYearDebtData?.balance || 0;
+      
       setWorkerStats({
-        totalEarned: totalKPI, // KPI loglar yig'indisi (ishlab topgan jami ish xaqi)
-        totalPaid: totals.totalReceived, // To'langan ish xaqi
-        totalPending: totalKPI - totals.totalReceived, // To'lanmagan ish xaqi
+        totalEarned: totalKPI + (previousYearDebtData?.totalEarned || 0), // Joriy + o'tgan yil ish haqi
+        totalPaid: totals.totalReceived + (previousYearDebtData?.totalPaid || 0), // Joriy + o'tgan yil to'langan
+        totalPending: (totalKPI - totals.totalReceived) + (previousYearBalance), // Joriy + o'tgan yil qarz
       });
     } catch (error) {
       console.error('Error loading worker stats for user:', error);
@@ -352,12 +429,20 @@ const Transactions = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Transactions</h1>
         {user?.role === 'ADMIN' && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-          >
-            + Add Transaction
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowPreviousYearDebtForm(true)}
+              className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700"
+            >
+              O'tgan yil qarzlarini yozish
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              + Add Transaction
+            </button>
+          </div>
         )}
       </div>
 
@@ -1078,6 +1163,134 @@ const Transactions = () => {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Previous Year Debt Form Modal */}
+      {showPreviousYearDebtForm && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowPreviousYearDebtForm(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">O'tgan yil qarzlarini yozish</h2>
+              <button
+                onClick={() => setShowPreviousYearDebtForm(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleSavePreviousYearDebt} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ishchi</label>
+                <select
+                  value={previousYearDebtForm.workerId}
+                  onChange={(e) => setPreviousYearDebtForm({ ...previousYearDebtForm, workerId: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="">Tanlang...</option>
+                  {workers.map((w) => (
+                    <option key={w.id} value={w.id.toString()}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Yil</label>
+                <input
+                  type="number"
+                  value={previousYearDebtForm.year}
+                  onChange={(e) => setPreviousYearDebtForm({ ...previousYearDebtForm, year: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Jami ish haqi ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={previousYearDebtForm.totalEarned}
+                    onChange={(e) => setPreviousYearDebtForm({ ...previousYearDebtForm, totalEarned: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Jami to'langan ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={previousYearDebtForm.totalPaid}
+                    onChange={(e) => setPreviousYearDebtForm({ ...previousYearDebtForm, totalPaid: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Izoh</label>
+                <textarea
+                  value={previousYearDebtForm.comment}
+                  onChange={(e) => setPreviousYearDebtForm({ ...previousYearDebtForm, comment: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                >
+                  Saqlash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPreviousYearDebtForm(false)}
+                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
+                >
+                  Bekor
+                </button>
+              </div>
+            </form>
+
+            {/* Existing Previous Year Debts List */}
+            {previousYearDebts.length > 0 && (
+              <div className="mt-6 border-t pt-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">Yozilgan qarzlar</h3>
+                <div className="space-y-2">
+                  {previousYearDebts.map((debt) => (
+                    <div key={debt.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="font-medium text-gray-900">{debt.worker.name}</div>
+                          <div className="text-sm text-gray-600">
+                            Ish haqi: ${Number(debt.totalEarned).toFixed(2)} | 
+                            To'langan: ${Number(debt.totalPaid).toFixed(2)} | 
+                            Qarz: ${Number(debt.balance).toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500">{debt.year} yil</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -43,6 +43,7 @@ model User {
   taskDocuments    TaskDocument[]     @relation("DocumentUploadedBy")
   archiveDocuments ArchiveDocument[]  @relation("ArchiveDocumentUploadedBy")
   lessonProgress   LessonProgress[] // AI exam system uchun
+  previousYearDebts PreviousYearWorkerDebt[] @relation("PreviousYearWorkerDebt")
   branch           Branch?            @relation(fields: [branchId], references: [id])
 }
 
@@ -644,6 +645,25 @@ model Debt {
 
   @@index([debtorType, debtorId])
   @@index([date])
+}
+
+// O'tgan yil ishchilarga to'lanmagan qarzlar
+model PreviousYearWorkerDebt {
+  id            Int      @id @default(autoincrement())
+  workerId      Int      // Ishchi ID
+  totalEarned   Decimal  @db.Decimal(12, 2) // Jami ish haqi
+  totalPaid     Decimal  @db.Decimal(12, 2) // Jami to'langan
+  balance       Decimal  @db.Decimal(12, 2) // Qarz/Haqdorlik (totalEarned - totalPaid)
+  currency      Currency @default(USD)
+  year          Int      // Qaysi yil uchun (masalan: 2024)
+  comment       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  worker        User     @relation("PreviousYearWorkerDebt", fields: [workerId], references: [id])
+
+  @@unique([workerId, year])
+  @@index([workerId])
+  @@index([year])
 }
 
 // Invoice modellari

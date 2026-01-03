@@ -65,6 +65,11 @@ const Profile = () => {
   const [stageStatsLoading, setStageStatsLoading] = useState(true);
   const [errorStatsLoading, setErrorStatsLoading] = useState(true);
   const [period, setPeriod] = useState('all');
+  const [previousYearDebt, setPreviousYearDebt] = useState<{
+    totalEarned: number;
+    totalPaid: number;
+    balance: number;
+  } | null>(null);
   const [workerDetail, setWorkerDetail] = useState<WorkerDetail | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -84,12 +89,53 @@ const Profile = () => {
       loadStats();
       loadStageStats();
       loadErrorStats();
+      loadPreviousYearDebt();
       if (id) {
         loadWorkerDetail();
       }
     }
     loadBranches();
   }, [workerId, period, id]);
+
+  const loadPreviousYearDebt = async () => {
+    if (!workerId) return;
+    try {
+      // Avval o'tgan yil (2024) uchun qidirib ko'ramiz
+      const previousYear = 2024;
+      console.log('Loading previous year debt for workerId:', workerId, 'year:', previousYear);
+      let response = await apiClient.get(`/workers/${workerId}/previous-year-debt?year=${previousYear}`);
+      console.log('Previous year debt API response (2024):', response.data);
+      
+      // Agar 2024 uchun topilmasa, 2025 uchun qidirib ko'ramiz
+      if (!response.data) {
+        const currentYear = new Date().getFullYear();
+        const lastYear = currentYear - 1;
+        if (lastYear !== previousYear) {
+          console.log('Trying year:', lastYear);
+          response = await apiClient.get(`/workers/${workerId}/previous-year-debt?year=${lastYear}`);
+          console.log('Previous year debt API response (' + lastYear + '):', response.data);
+        }
+      }
+      
+      if (response.data) {
+        const debtData = {
+          totalEarned: Number(response.data.totalEarned || 0),
+          totalPaid: Number(response.data.totalPaid || 0),
+          balance: Number(response.data.balance || 0),
+        };
+        console.log('Setting previous year debt:', debtData);
+        setPreviousYearDebt(debtData);
+      } else {
+        console.log('No previous year debt data found');
+        setPreviousYearDebt(null);
+      }
+    } catch (error: any) {
+      console.error('Error loading previous year debt:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      // O'tgan yil qarzi yo'q bo'lishi mumkin
+      setPreviousYearDebt(null);
+    }
+  };
 
   const loadBranches = async () => {
     try {
@@ -288,14 +334,14 @@ const Profile = () => {
 
         {stageStatsLoading ? (
           <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
-        ) : stageStats && stageStats.stageStats.length > 0 ? (
+        ) : (
           <>
-            {/* Summary Cards */}
+            {/* Summary Cards - Always show, even if no stage stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
               <div className="bg-blue-50 rounded-lg p-3">
                 <div className="text-xs text-blue-600 mb-1">Jami ishtirok</div>
                 <div className="text-xl font-bold text-blue-800">
-                  {stageStats.totals.totalParticipation}
+                  {stageStats?.totals?.totalParticipation || 0}
                 </div>
               </div>
               <div className="bg-green-50 rounded-lg p-3">
@@ -303,11 +349,14 @@ const Profile = () => {
                 <div className="text-xl font-bold text-green-800">
                   {loading ? (
                     <span className="text-gray-400">Yuklanmoqda...</span>
-                  ) : stats ? (
-                    `$${Number(stats.totalKPI).toFixed(2)}`
-                  ) : (
-                    `$${Number(stageStats.totals.totalEarned).toFixed(2)}`
-                  )}
+                  ) : (() => {
+                    const currentEarned = stats 
+                      ? Number(stats.totalKPI)
+                      : (stageStats?.totals?.totalEarned || 0);
+                    const previousYearEarned = previousYearDebt?.totalEarned || 0;
+                    const totalEarned = currentEarned + previousYearEarned;
+                    return `$${totalEarned.toFixed(2)}`;
+                  })()}
                 </div>
               </div>
               <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
@@ -315,20 +364,30 @@ const Profile = () => {
                 <div className="text-xl font-bold text-purple-800">
                   {loading ? (
                     <span className="text-gray-400">Yuklanmoqda...</span>
-                  ) : stats ? (
-                    `$${Number(stats.totalSalary).toFixed(2)}`
-                  ) : (
-                    `$${Number(stageStats.totals.totalReceived).toFixed(2)}`
-                  )}
+                  ) : (() => {
+                    const currentReceived = stats 
+                      ? Number(stats.totalSalary)
+                      : (stageStats?.totals?.totalReceived || 0);
+                    const previousYearPaid = previousYearDebt?.totalPaid || 0;
+                    const totalReceived = currentReceived + previousYearPaid;
+                    return `$${totalReceived.toFixed(2)}`;
+                  })()}
                 </div>
               </div>
               {(() => {
-                const pending = loading 
+                // Joriy davrdagi qolgan haq
+                const currentPending = loading 
                   ? 0 
                   : stats 
                     ? (Number(stats.totalKPI) - Number(stats.totalSalary))
-                    : stageStats.totals.totalPending;
-                const hasPending = pending > 0;
+                    : (stageStats?.totals?.totalPending || 0);
+                
+                // O'tgan yil qarzini qo'shish
+                const previousYearBalance = previousYearDebt?.balance || 0;
+                
+                // Umumiy qolgan haq (joriy + o'tgan yil)
+                const totalPending = currentPending + previousYearBalance;
+                const hasPending = totalPending > 0;
                 
                 return (
                   <div className={`rounded-lg p-3 border-2 ${
@@ -339,7 +398,7 @@ const Profile = () => {
                     <div className={`text-xs mb-1 ${
                       hasPending ? 'text-orange-600' : 'text-gray-600'
                     }`}>
-                      Haqdorlik
+                      Qolgan haq
                     </div>
                     <div className={`text-xl font-bold ${
                       hasPending ? 'text-orange-800' : 'text-gray-800'
@@ -347,7 +406,7 @@ const Profile = () => {
                       {loading ? (
                         <span className="text-gray-400">Yuklanmoqda...</span>
                       ) : (
-                        `$${pending.toFixed(2)}`
+                        `$${totalPending.toFixed(2)}`
                       )}
                     </div>
                   </div>
@@ -355,7 +414,8 @@ const Profile = () => {
               })()}
             </div>
 
-            {/* Stage Details Table and Pie Chart */}
+            {/* Stage Details Table and Pie Chart - Only show if there are stage stats */}
+            {stageStats && stageStats.stageStats.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Table - 50% */}
               <div className="overflow-x-auto">
@@ -476,8 +536,10 @@ const Profile = () => {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Charts */}
+            {stageStats && stageStats.stageStats.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               {/* Participation Chart */}
               <div className="bg-gray-50 rounded-lg p-4">
@@ -571,9 +633,15 @@ const Profile = () => {
                 </div>
               </div>
             </div>
+            )}
+            
+            {/* Show message if no stage stats but summary cards are shown */}
+            {(!stageStats || stageStats.stageStats.length === 0) && (
+              <div className="text-center py-8 text-gray-400 mt-6">
+                Hozircha jarayonlar bo'yicha ma'lumotlar yo'q
+              </div>
+            )}
           </>
-        ) : (
-          <div className="text-center py-8 text-gray-400">Jarayonlar bo'yicha ma'lumotlar yo'q</div>
         )}
       </div>
 

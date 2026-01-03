@@ -73,7 +73,7 @@ NGINX_EOF
 
 # Test Nginx configuration
 nginx -t && systemctl reload nginx
-echo "[OK] Nginx configuration updated"
+    echo "[OK] Nginx configuration updated"
 
 # Step 2: Update Backend .env
 echo "[Step 2] Updating backend .env..."

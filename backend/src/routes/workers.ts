@@ -50,6 +50,62 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+// O'tgan yil qarzlarini boshqarish - IMPORTANT: Bu endpoint'lar /:id/stats dan OLDIN bo'lishi kerak
+// GET /api/workers/:id/previous-year-debt - Bitta ishchining o'tgan yil qarzini olish
+router.get('/:id/previous-year-debt', requireAuth(), async (req, res) => {
+  try {
+    const workerId = parseInt(req.params.id);
+    const { year } = req.query;
+    const targetYear = year ? parseInt(year as string) : new Date().getFullYear() - 1;
+
+    console.log('Previous year debt request:', { workerId, year: targetYear });
+
+    const debt = await prisma.previousYearWorkerDebt.findUnique({
+      where: {
+        workerId_year: {
+          workerId: workerId,
+          year: targetYear,
+        },
+      },
+      include: {
+        worker: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    console.log('Previous year debt found:', debt);
+
+    // Agar ma'lumotlar topilmasa, barcha yillar uchun qidirib ko'ramiz
+    if (!debt) {
+      const allDebts = await prisma.previousYearWorkerDebt.findMany({
+        where: {
+          workerId: workerId,
+        },
+        include: {
+          worker: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+      console.log('All previous year debts for worker:', allDebts);
+    }
+
+    res.json(debt || null);
+  } catch (error: any) {
+    console.error('Error loading previous year debt:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
 router.get('/:id/stats', requireAuth(), async (req, res) => {
   const workerId = parseInt(req.params.id);
   const { period = 'month', startDate, endDate } = req.query;
@@ -419,6 +475,96 @@ router.get('/:id/error-stats', requireAuth(), async (req, res) => {
       date: error.date,
     })),
   });
+});
+
+// GET /api/workers/previous-year-debts - Barcha ishchilarning o'tgan yil qarzlarini olish
+router.get('/previous-year-debts', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const { year } = req.query;
+    const targetYear = year ? parseInt(year as string) : new Date().getFullYear() - 1;
+
+    const debts = await prisma.previousYearWorkerDebt.findMany({
+      where: {
+        year: targetYear,
+      },
+      include: {
+        worker: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        worker: {
+          name: 'asc',
+        },
+      },
+    });
+
+    res.json(debts);
+  } catch (error: any) {
+    console.error('Error loading previous year debts:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// POST /api/workers/previous-year-debts - O'tgan yil qarzini yaratish/yangilash
+router.post('/previous-year-debts', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const { workerId, totalEarned, totalPaid, year, comment } = req.body;
+
+    if (!workerId || totalEarned === undefined || totalPaid === undefined) {
+      return res.status(400).json({ error: 'workerId, totalEarned va totalPaid majburiy' });
+    }
+
+    // Yilni integer'ga o'zgartirish
+    const targetYear = year ? parseInt(year.toString(), 10) : new Date().getFullYear() - 1;
+    if (isNaN(targetYear)) {
+      return res.status(400).json({ error: 'Yil noto\'g\'ri formatda' });
+    }
+    const balance = Number(totalEarned) - Number(totalPaid);
+
+    const debt = await prisma.previousYearWorkerDebt.upsert({
+      where: {
+        workerId_year: {
+          workerId: parseInt(workerId),
+          year: targetYear,
+        },
+      },
+      update: {
+        totalEarned: Number(totalEarned),
+        totalPaid: Number(totalPaid),
+        balance: balance,
+        comment: comment || null,
+        updatedAt: new Date(),
+      },
+      create: {
+        workerId: parseInt(workerId),
+        totalEarned: Number(totalEarned),
+        totalPaid: Number(totalPaid),
+        balance: balance,
+        year: targetYear,
+        currency: 'USD',
+        comment: comment || null,
+      },
+      include: {
+        worker: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    res.json(debt);
+  } catch (error: any) {
+    console.error('Error saving previous year debt:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
 });
 
 export default router;

@@ -329,7 +329,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       branchId: parsed.data.branchId,
       title: parsed.data.title,
       hasPsr: parsed.data.hasPsr,
-      createdById: req.user.id,
+      createdById: req.user?.id,
     };
 
     // Optional field'larni qo'shamiz - faqat mavjud va null bo'lmagan qiymatlarni
@@ -790,36 +790,67 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         include: { client: true },
       });
       
-      // If multiplier > 1, calculate additional payment and add to client's dealAmount
-      const multiplier = Number(parsed.data.customsPaymentMultiplier);
-      if (multiplier > 1 && task?.client) {
-        // 1 BXM = 412 000 so'm (constant)
-        const ONE_BXM_IN_SOM = 412000;
-        const additionalPayment = (multiplier - 1) * ONE_BXM_IN_SOM;
+      // Calculate additional payment based on multiplier changes
+      // Note: client.dealAmount should NOT be changed - it's the base contract amount
+      // Only task.snapshotDealAmount should be updated for this specific task
+      if (task?.client) {
+        // Get client's currency
+        const clientCurrency = (task.client as any).dealAmountCurrency || 'USD';
         
-        // Get current dealAmount (in UZS so'm)
-        const currentDealAmount = task.client.dealAmount ? Number(task.client.dealAmount) : 0;
-        const newDealAmount = currentDealAmount + additionalPayment;
+        // Get previous multiplier (if exists)
+        const previousMultiplier = task.customsPaymentMultiplier ? Number(task.customsPaymentMultiplier) : 1;
+        const newMultiplier = Number(parsed.data.customsPaymentMultiplier);
         
-        // Update client's dealAmount
-        await (tx as any).client.update({
-          where: { id: task.clientId },
-          data: {
-            dealAmount: newDealAmount,
-          },
-        });
+        // Calculate previous additional payment (if previous multiplier > 1)
+        // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
+        let previousAdditionalPayment = 0;
+        if (previousMultiplier > 1) {
+          if (clientCurrency === 'USD') {
+            previousAdditionalPayment = (previousMultiplier - 1) * bxmAmount;
+          } else {
+            const ONE_BXM_IN_SOM = 412000;
+            previousAdditionalPayment = (previousMultiplier - 1) * ONE_BXM_IN_SOM;
+          }
+        }
         
-        // Update task's snapshotDealAmount to reflect the new dealAmount
+        // Calculate new additional payment (if new multiplier > 1)
+        // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
+        let newAdditionalPayment = 0;
+        if (newMultiplier > 1) {
+          if (clientCurrency === 'USD') {
+            newAdditionalPayment = (newMultiplier - 1) * bxmAmount;
+          } else {
+            const ONE_BXM_IN_SOM = 412000;
+            newAdditionalPayment = (newMultiplier - 1) * ONE_BXM_IN_SOM;
+          }
+        }
+        
+        // Calculate the difference (can be positive or negative)
+        const paymentDifference = newAdditionalPayment - previousAdditionalPayment;
+        
+        // Get base deal amount (from client or current snapshot)
+        const baseDealAmount = task.client.dealAmount ? Number(task.client.dealAmount) : 0;
+        
+        // Get current snapshotDealAmount (or use base dealAmount if snapshot is null)
+        const currentSnapshotDealAmount = task.snapshotDealAmount 
+          ? Number(task.snapshotDealAmount) 
+          : baseDealAmount;
+        
+        // Calculate new snapshotDealAmount by removing previous additional payment and adding new one
+        // Or simply: baseDealAmount + newAdditionalPayment
+        const newSnapshotDealAmount = baseDealAmount + newAdditionalPayment;
+        
+        // Update task's snapshotDealAmount
         await (tx as any).task.update({
           where: { id: taskId },
           data: {
             customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
             snapshotCustomsPayment: calculatedCustomsPayment,
-            snapshotDealAmount: newDealAmount,
+            snapshotDealAmount: newSnapshotDealAmount,
           },
         });
       } else {
-        // If multiplier <= 1, just update customs payment without changing dealAmount
+        // If no client, just update customs payment
         await (tx as any).task.update({
           where: { id: taskId },
           data: {

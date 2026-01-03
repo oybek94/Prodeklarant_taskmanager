@@ -53,7 +53,7 @@ interface TaskDetail {
   driverPhone?: string;
   createdAt: string;
   updatedAt?: string;
-  client: { id: number; name: string; dealAmount?: number };
+  client: { id: number; name: string; dealAmount?: number; dealAmountCurrency?: 'USD' | 'UZS' };
   branch: { id: number; name: string };
   createdBy?: { id: number; name: string; email: string };
   updatedBy?: { id: number; name: string; email: string };
@@ -1291,13 +1291,35 @@ const Tasks = () => {
     }
     
     // If multiplier > 1, show warning about additional payment
-    if (multiplier > 1) {
-      const ONE_BXM_IN_SOM = 412000;
-      const additionalPayment = (multiplier - 1) * ONE_BXM_IN_SOM;
-      const formattedAdditional = additionalPayment.toLocaleString('uz-UZ');
+    if (multiplier > 1 && selectedTask) {
+      const clientCurrency = selectedTask.client.dealAmountCurrency || 'USD';
+      let additionalPayment: number;
+      let formattedAdditional: string;
       
-      const confirmMessage = `Deklaratsiya to'lovi BXMning 1 barobaridan (412 000 so'm) oshib ketdi.\n\n` +
-        `Qo'shimcha to'lov: ${formattedAdditional} so'm\n\n` +
+      if (clientCurrency === 'USD') {
+        // If client's contract is in USD, calculate in USD
+        // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
+        additionalPayment = (multiplier - 1) * currentBXM;
+        formattedAdditional = new Intl.NumberFormat('uz-UZ', {
+          style: 'currency',
+          currency: 'USD',
+          minimumFractionDigits: 2,
+        }).format(additionalPayment);
+      } else {
+        // If client's contract is in UZS, calculate in UZS
+        // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
+        const ONE_BXM_IN_SOM = 412000;
+        additionalPayment = (multiplier - 1) * ONE_BXM_IN_SOM;
+        formattedAdditional = new Intl.NumberFormat('uz-UZ', {
+          style: 'currency',
+          currency: 'UZS',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(additionalPayment);
+      }
+      
+      const confirmMessage = `Deklaratsiya to'lovi BXMning 1 barobaridan oshib ketdi.\n\n` +
+        `Qo'shimcha to'lov: ${formattedAdditional}\n\n` +
         `Bu summa mijozning shartnoma summasiga qo'shiladi.\n\n` +
         `Davom etasizmi?`;
       
@@ -3603,12 +3625,34 @@ const Tasks = () => {
                       <option value="4">BXM 4 barobari (1 648 000 so'm)</option>
                     </select>
                   </div>
-                  {parseFloat(bxmMultiplier) > 1 && (
+                  {parseFloat(bxmMultiplier) > 1 && selectedTask && (
                     <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                       <div className="text-sm text-yellow-800">
                         <div className="font-medium mb-1">⚠️ Qo'shimcha to'lov:</div>
                         <div>
-                          {((parseFloat(bxmMultiplier) - 1) * 412000).toLocaleString('uz-UZ')} so'm mijozning shartnoma summasiga qo'shiladi.
+                          {(() => {
+                            const clientCurrency = selectedTask.client.dealAmountCurrency || 'USD';
+                            let additionalPayment: number;
+                            
+                            if (clientCurrency === 'USD') {
+                              // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
+                              additionalPayment = (parseFloat(bxmMultiplier) - 1) * currentBXM;
+                              return new Intl.NumberFormat('uz-UZ', {
+                                style: 'currency',
+                                currency: 'USD',
+                                minimumFractionDigits: 2,
+                              }).format(additionalPayment);
+                            } else {
+                              // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
+                              additionalPayment = (parseFloat(bxmMultiplier) - 1) * 412000;
+                              return new Intl.NumberFormat('uz-UZ', {
+                                style: 'currency',
+                                currency: 'UZS',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }).format(additionalPayment);
+                            }
+                          })()} mijozning shartnoma summasiga qo'shiladi.
                         </div>
                       </div>
                     </div>

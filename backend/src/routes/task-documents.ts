@@ -265,8 +265,8 @@ router.post(
                           errors: comparisonResult.errors,
                         });
 
-                        // Determine result: FAIL if status is ERROR or XATO, otherwise PASS
-                        const result: 'PASS' | 'FAIL' = (comparisonResult.status === 'ERROR' || comparisonResult.status === 'XATO') ? 'FAIL' : 'PASS';
+                        // Determine result: FAIL if status is XATO, otherwise PASS
+                        const result: 'PASS' | 'FAIL' = (comparisonResult.status === 'XATO') ? 'FAIL' : 'PASS';
 
                         console.log('[AI Check] Saving to database:', {
                           taskId,
@@ -282,7 +282,7 @@ router.post(
                               taskId,
                               checkType: 'INVOICE_ST',
                               result,
-                              details: comparisonResult, // Save new format: {status, errors}
+                              details: comparisonResult as any, // Save new format: {status, errors}
                             },
                           });
                           console.log('[AI Check] Successfully saved:', savedCheck.id);

@@ -38,30 +38,39 @@ export class ST1Service {
    * Applies business rules like date format validation, number parsing, etc.
    */
   private validateAndNormalize(data: ST1Extraction): ST1Extraction {
-    const normalized: ST1Extraction = { ...data };
+    const normalized: any = { ...data };
 
-    // Validate date format (YYYY-MM-DD)
-    if (normalized.st_date) {
+    // Validate date format (YYYY-MM-DD) - if certification_date exists
+    if (normalized.certification_date) {
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(normalized.st_date)) {
-        console.warn(`⚠️  Invalid ST-1 date format: ${normalized.st_date}`);
+      if (!dateRegex.test(normalized.certification_date)) {
+        console.warn(`⚠️  Invalid ST-1 date format: ${normalized.certification_date}`);
         // Try to parse and reformat if possible
-        const parsed = new Date(normalized.st_date);
+        const parsed = new Date(normalized.certification_date);
         if (!isNaN(parsed.getTime())) {
-          normalized.st_date = parsed.toISOString().split('T')[0];
+          normalized.certification_date = parsed.toISOString().split('T')[0];
         } else {
-          normalized.st_date = null;
+          normalized.certification_date = null;
         }
       }
     }
 
-    // Ensure quantity is numeric
-    if (normalized.quantity_kg !== null && typeof normalized.quantity_kg !== 'number') {
-      const parsed = parseFloat(String(normalized.quantity_kg));
-      normalized.quantity_kg = isNaN(parsed) ? null : parsed;
+    // Normalize products weights if needed
+    if (normalized.products && Array.isArray(normalized.products)) {
+      normalized.products = normalized.products.map((product: any) => {
+        if (product.gross_weight !== null && typeof product.gross_weight !== 'number') {
+          const parsed = parseFloat(String(product.gross_weight));
+          product.gross_weight = isNaN(parsed) ? null : parsed;
+        }
+        if (product.net_weight !== null && typeof product.net_weight !== 'number') {
+          const parsed = parseFloat(String(product.net_weight));
+          product.net_weight = isNaN(parsed) ? null : parsed;
+        }
+        return product;
+      });
     }
 
-    return normalized;
+    return normalized as ST1Extraction;
   }
 }
 

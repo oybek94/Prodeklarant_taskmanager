@@ -26,7 +26,7 @@ export class FitoService {
       const structuredData = await analyzeDocument(text, 'FITO');
 
       // Validate and normalize business rules
-      return this.validateAndNormalize(structuredData);
+      return this.validateAndNormalize(structuredData as any);
     } catch (error) {
       const aiError = handleAIError(error);
       throw new Error(`Fito certificate analysis failed: ${aiError.message}`);

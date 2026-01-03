@@ -19,7 +19,6 @@ const Layout = () => {
     ...(user?.role === 'ADMIN' ? [{ path: '/dashboard', label: 'Dashboard', icon: '📊' }] : []),
     { path: '/tasks', label: 'Vazifalar', icon: '📋' },
     { path: '/transactions', label: 'Tranzaksiyalar', icon: '💰' },
-    ...(user?.role === 'ADMIN' ? [{ path: '/finance', label: 'Moliya', icon: '💵' }] : []),
     ...(user?.role === 'ADMIN' ? [{ path: '/invoices', label: 'Hisob-fakturalar', icon: '🧾' }] : []),
     ...(user?.role === 'ADMIN' ? [{ path: '/clients', label: 'Mijozlar', icon: '👥' }] : []),
     { path: '/training', label: 'O\'qitish', icon: '📚' },

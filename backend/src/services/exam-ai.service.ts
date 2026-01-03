@@ -83,9 +83,6 @@ export class ExamAIService {
         temperature: this.TEMPERATURE,
         max_tokens: this.MAX_TOKENS,
         response_format: { type: 'json_object' }, // Force JSON output
-        timeout: this.TIMEOUT,
-      }, {
-        timeout: this.TIMEOUT,
       });
 
       const content = response.choices[0]?.message?.content;
@@ -142,9 +139,6 @@ export class ExamAIService {
         temperature: this.TEMPERATURE,
         max_tokens: this.MAX_TOKENS,
         response_format: { type: 'json_object' },
-        timeout: this.TIMEOUT,
-      }, {
-        timeout: this.TIMEOUT,
       });
 
       const content = response.choices[0]?.message?.content;
@@ -188,9 +182,6 @@ export class ExamAIService {
         temperature: this.TEMPERATURE,
         max_tokens: this.MAX_TOKENS,
         response_format: { type: 'json_object' },
-        timeout: this.TIMEOUT,
-      }, {
-        timeout: this.TIMEOUT,
       });
 
       const content = response.choices[0]?.message?.content;

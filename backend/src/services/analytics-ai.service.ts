@@ -15,6 +15,7 @@ import {
   type TopicAnalyticsInputs,
 } from '../prompts/analytics-prompts';
 import { prisma } from '../prisma';
+import { Prisma } from '@prisma/client';
 
 export interface EmployeeAnalyticsResult {
   employee_risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
@@ -274,7 +275,7 @@ export class AnalyticsAIService {
       const allAttempts = await prisma.examAttempt.findMany({
         where: {
           aiFeedback: {
-            not: null,
+            not: Prisma.JsonNull,
           },
         },
         include: {

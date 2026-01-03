@@ -3,6 +3,7 @@ import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { generateInvoicePDF } from '../services/invoice-pdf';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -241,8 +242,8 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     const { taskId, clientId, invoiceNumber, contractNumber, contractId, date, currency, totalAmount, notes, additionalInfo, items } = parsed.data;
 
     // Task va Client ma'lumotlarini olish
-    let task = null;
-    let client = null;
+    let task: any = null;
+    let client: any = null;
     let branchId: number | undefined = undefined;
 
     if (taskId) {
@@ -376,7 +377,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
           contractId: contractId || undefined,
           taskId: task?.id || undefined,
           clientId: task?.clientId || clientId!,
-          branchId: branchId || undefined,
+          ...(branchId ? { branchId } : {}),
           date: date ? new Date(date) : new Date(),
           currency: currency || client?.dealAmountCurrency || 'USD',
           totalAmount: totalAmount || (task ? task.snapshotDealAmount : 0) || 0,
@@ -488,7 +489,7 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
     console.log('Company settings found');
 
     // Contract ma'lumotlarini olish
-    let contract = null;
+    let contract: any = null;
     if (invoice.contractId) {
       try {
         contract = await prisma.contract.findUnique({
@@ -511,14 +512,14 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
         doc = generateInvoicePDF({
         invoice: {
           ...invoice,
-          totalAmount: Number(invoice.totalAmount),
+          totalAmount: new Prisma.Decimal(Number(invoice.totalAmount)),
           items: invoice.items.map(item => ({
             ...item,
-            quantity: Number(item.quantity) || 0,
-            grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
-            netWeight: item.netWeight ? Number(item.netWeight) : null,
-            unitPrice: Number(item.unitPrice) || 0,
-            totalPrice: Number(item.totalPrice) || 0,
+            quantity: new Prisma.Decimal(Number(item.quantity) || 0),
+            grossWeight: item.grossWeight ? new Prisma.Decimal(Number(item.grossWeight)) : null,
+            netWeight: item.netWeight ? new Prisma.Decimal(Number(item.netWeight)) : null,
+          unitPrice: new Prisma.Decimal(Number(item.unitPrice) || 0),
+          totalPrice: new Prisma.Decimal(Number(item.totalPrice) || 0),
           }))
         },
         client: invoice.client,

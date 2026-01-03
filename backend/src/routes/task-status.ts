@@ -96,8 +96,8 @@ router.post('/:id/status', requireAuth(), async (req: AuthRequest, res) => {
             finalStatus = 'PASSED_AI_CHECK';
           }
 
-          // Update status if changed
-          if (finalStatus !== newStatus) {
+          // Update status if changed (comparing as strings)
+          if (String(finalStatus) !== String(newStatus)) {
             return await tx.task.update({
               where: { id: taskId },
               data: {

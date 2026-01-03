@@ -26,7 +26,7 @@ export class InvoiceService {
       const structuredData = await analyzeDocument(text, 'INVOICE');
 
       // Validate and normalize business rules
-      return this.validateAndNormalize(structuredData);
+      return this.validateAndNormalize(structuredData as any);
     } catch (error) {
       const aiError = handleAIError(error);
       throw new Error(`Invoice analysis failed: ${aiError.message}`);

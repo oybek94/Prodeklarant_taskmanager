@@ -69,7 +69,7 @@ const createUserSchema = z.object({
   salary: z.number().optional(),
 });
 
-router.post('/', requireAuth('ADMIN'), async (req, res) => {
+router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   // #region agent log
   const logEntry = {location:'users.ts:72',message:'POST /users entry',data:{hasUser:!!req.user,userId:req.user?.id,body:req.body},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
   console.log('[DEBUG]', JSON.stringify(logEntry));

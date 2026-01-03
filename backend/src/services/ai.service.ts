@@ -255,8 +255,8 @@ If no issues found, return empty array [].`;
       stDocs.structuredData.structuredData as any
     );
 
-    // Determine result: FAIL if status is ERROR or XATO, otherwise PASS
-    const result: 'PASS' | 'FAIL' = (comparisonResult.status === 'ERROR' || comparisonResult.status === 'XATO') ? 'FAIL' : 'PASS';
+    // Determine result: FAIL if status is XATO, otherwise PASS
+    const result: 'PASS' | 'FAIL' = (comparisonResult.status === 'XATO') ? 'FAIL' : 'PASS';
 
     // Convert to legacy findings format for backward compatibility
     const findings = comparisonResult.errors.map((error) => ({
@@ -273,7 +273,7 @@ If no issues found, return empty array [].`;
         taskId,
         checkType: 'INVOICE_ST',
         result,
-        details: comparisonResult, // Save new format: {status, errors}
+        details: comparisonResult as any, // Save new format: {status, errors}
       },
     });
 

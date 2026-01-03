@@ -40,7 +40,7 @@ function ensureUTF8(text: any): string {
   return result;
 }
 
-export function generateInvoicePDF(data: InvoiceData): PDFDocument {
+export function generateInvoicePDF(data: InvoiceData): any {
   // Reduce margins to fit more content on one page
   // PDFKit automatically handles UTF-8 encoding, but we ensure proper text handling
   const doc = new PDFDocument({ 
@@ -465,8 +465,8 @@ export function generateInvoicePDF(data: InvoiceData): PDFDocument {
   const hasTnvedCode = data.invoice.items?.some(item => item.tnvedCode && item.tnvedCode.trim() !== '');
   const hasPluCode = data.invoice.items?.some(item => item.pluCode && item.pluCode.trim() !== '');
   const hasPackageType = data.invoice.items?.some(item => item.packageType && item.packageType.trim() !== '');
-  const hasGrossWeight = data.invoice.items?.some(item => item.grossWeight && item.grossWeight > 0);
-  const hasNetWeight = data.invoice.items?.some(item => item.netWeight && item.netWeight > 0);
+  const hasGrossWeight = data.invoice.items?.some(item => item.grossWeight && Number(item.grossWeight) > 0);
+  const hasNetWeight = data.invoice.items?.some(item => item.netWeight && Number(item.netWeight) > 0);
   
   // Ustunlar pozitsiyasini hisoblash
   let currentX = startX;

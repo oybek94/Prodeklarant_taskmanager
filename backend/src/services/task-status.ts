@@ -1,5 +1,4 @@
 import { PrismaClient, Prisma, TaskStatus } from '@prisma/client';
-import { archiveTaskDocuments } from './archive-documents';
 
 /**
  * Calculate task status based on stages using the formula:
@@ -94,14 +93,7 @@ export async function updateTaskStatus(
     data: { status: newStatus },
   });
 
-  // Agar task YAKUNLANDI bo'lsa va oldin YAKUNLANDI bo'lmagan bo'lsa, hujjatlarni arxivga ko'chirish
-  if (newStatus === TaskStatus.YAKUNLANDI && oldTask?.status !== TaskStatus.YAKUNLANDI) {
-    try {
-      await archiveTaskDocuments(tx, taskId);
-    } catch (error) {
-      console.error('Error archiving task documents:', error);
-      // Xatolik bo'lsa ham task status o'zgarishi kerak, shuning uchun error'ni log qilamiz lekin throw qilmaymiz
-    }
-  }
+  // Automatic archiving removed - archiving now requires explicit call with document validation
+  // Archiving will be handled via /archive-task/:taskId endpoint after documents are uploaded
 }
 

@@ -75,8 +75,8 @@ function calculateTaskStatusFromStages(stages: Array<{name: string, status: stri
     return TaskStatus.TAYYOR;
   }
 
-  // 6. Invoys, Zayavka, TIR-SMR, ST, FITO TAYYOR → JARAYONDA
-  const earlyStages = ['Invoys', 'Zayavka', 'TIR-SMR', 'ST', 'Fito', 'FITO'];
+  // 6. Invoys, Zayavka, TIR-SMR, Sertifikat olib chiqish TAYYOR → JARAYONDA
+  const earlyStages = ['Invoys', 'Zayavka', 'TIR-SMR', 'Sertifikat olib chiqish', 'ST', 'Fito', 'FITO']; // ST va Fito backward compatibility uchun
   const hasEarlyStageReady = earlyStages.some(name => isReady(name));
   if (hasEarlyStageReady) {
     return TaskStatus.JARAYONDA;
@@ -96,8 +96,7 @@ const stageTemplates = [
   'Invoys',
   'Zayavka',
   'TIR-SMR',
-  'ST',
-  'Fito',
+  'Sertifikat olib chiqish',
   'Deklaratsiya',
   'Tekshirish',
   'Topshirish',
@@ -622,10 +621,35 @@ router.get('/:id', async (req, res) => {
     console.error('Error calculating admin earned amount:', error);
   }
   
+  // Get KPI logs for this task (for worker earnings display)
+  const kpiLogs = await prisma.kpiLog.findMany({
+    where: { taskId: id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+  });
+  
   res.json({
     ...task,
     netProfit, // Sof foyda (faqat ADMIN uchun ko'rsatiladi)
     adminEarnedAmount, // Admin ishlab topgan pul
+    kpiLogs: kpiLogs.map((log: any) => ({
+      id: log.id,
+      stageName: log.stageName,
+      amount: log.amount,
+      userId: log.userId,
+      user: log.user,
+      createdAt: log.createdAt,
+    })),
   });
 });
 
@@ -700,297 +724,48 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     // #endregion
     if (!stage || stage.taskId !== taskId) return res.status(404).json({ error: 'Stage not found' });
 
-    // Invoys stage'ini tayyor qilishda Invoice PDF yoki JPG talab qilish
-    // Agar skipValidation true bo'lsa, validation'ni o'tkazib yuboramiz
-    if (stage.name === 'Invoys' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR' && !parsed.data.skipValidation) {
-      try {
-        // Barcha PDF va JPG fayllarni olamiz va JavaScript filter qilamiz
-        const allDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            OR: [
-              { fileType: 'pdf' },
-              { fileType: 'jpg' },
-              { fileType: 'jpeg' },
-            ],
-          },
-        });
+    // Barcha stage'lar oddiy jarayon sifatida ishlaydi - PDF/JPG validation olib tashlandi
 
-        // Nom va tavsif asosida Invoice'ni topamiz
-        const invoiceDocuments = allDocuments.filter((doc) => {
-          const name = (doc.name || '').toLowerCase();
-          const desc = (doc.description || '').toLowerCase();
-          return (
-            name.includes('invoice') ||
-            name.includes('invoys') ||
-            desc.includes('invoice') ||
-            (doc as any).documentType === 'INVOICE'
-          );
-        });
-
-        if (invoiceDocuments.length === 0) {
-          return res.status(400).json({ 
-            error: 'Invoys stage\'ini tayyor qilish uchun Invoice PDF yoki JPG yuklanishi shart. Iltimos, avval Invoice fayl yuklang.' 
-          });
-        }
-      } catch (error: any) {
-        console.error('Error checking Invoice documents:', error);
-        // Xatolik bo'lsa, validation'ni o'tkazib yuboramiz
-        console.log('Skipping Invoice validation due to error');
-      }
-    }
-
-    // ST stage'ini tayyor qilishda Invoice va ST PDF talab qilish
-    // Agar skipValidation true bo'lsa, validation'ni o'tkazib yuboramiz
-    if (stage.name === 'ST' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR' && !parsed.data.skipValidation) {
-      try {
-        // Avval documentType ustunining mavjudligini tekshiramiz
-        // documentType bilan query qilishga harakat qilamiz
-        let hasDocumentTypeColumn = false;
-        let invoiceDocuments: any[] = [];
-        let stDocuments: any[] = [];
-
-        try {
-          // documentType ustuni mavjud bo'lsa, enum asosida tekshiramiz
-          invoiceDocuments = await prisma.taskDocument.findMany({
-            where: {
-              taskId: taskId,
-              documentType: 'INVOICE',
-            },
-          });
-
-          stDocuments = await prisma.taskDocument.findMany({
-            where: {
-              taskId: taskId,
-              documentType: 'ST',
-            },
-          });
-          
-          // Agar query muvaffaqiyatli bo'lsa, documentType ustuni mavjud
-          hasDocumentTypeColumn = true;
-        } catch (enumError: any) {
-          // documentType enum xatolik yoki ustun mavjud emas - fallback ga o'tamiz
-          hasDocumentTypeColumn = false;
-        }
-
-        if (!hasDocumentTypeColumn) {
-          // Fallback: name asosida tekshirish (PDF va JPG fayllar)
-          const allDocuments = await prisma.taskDocument.findMany({
-            where: {
-              taskId: taskId,
-              OR: [
-                { fileType: 'pdf' },
-                { fileType: 'jpg' },
-                { fileType: 'jpeg' },
-              ],
-            },
-          });
-
-          invoiceDocuments = allDocuments.filter((doc) => {
-            const name = (doc.name || '').toLowerCase();
-            const desc = (doc.description || '').toLowerCase();
-            return (
-              name.includes('invoice') ||
-              name.includes('invoys') ||
-              desc.includes('invoice') ||
-              (doc as any).documentType === 'INVOICE'
-            );
-          });
-
-          stDocuments = allDocuments.filter((doc) => {
-            const name = (doc.name || '').toLowerCase();
-            const desc = (doc.description || '').toLowerCase();
-            // Remove file extension for better matching
-            const nameWithoutExt = name.replace(/\.(pdf|jpg|jpeg)$/, '').trim();
-            return (
-              (doc as any).documentType === 'ST' ||
-              nameWithoutExt === 'st' ||
-              name.startsWith('st') ||
-              name.includes(' st') ||
-              name.includes('-st') ||
-              name.includes('_st') ||
-              desc.includes('st') ||
-              desc.toLowerCase().includes('st document')
-            );
-          });
-        }
-
-        if (invoiceDocuments.length === 0) {
-          return res.status(400).json({ 
-            error: 'ST stage\'ini tayyor qilish uchun Invoice PDF yoki JPG yuklanishi shart.' 
-          });
-        }
-
-        if (stDocuments.length === 0) {
-          return res.status(400).json({ 
-            error: 'ST stage\'ini tayyor qilish uchun ST PDF yoki JPG yuklanishi shart.' 
-          });
-        }
-      } catch (error) {
-        console.error('Error checking ST documents:', error);
-        // Xatolik bo'lsa, validation'ni o'tkazib yuboramiz
-        console.log('Skipping ST validation due to error');
-      }
-    }
-
-  // Fito stage'ini tayyor qilishda barcha PDF talab qilish
-  // Agar skipValidation true bo'lsa, validation'ni o'tkazib yuboramiz
-  if ((stage.name === 'Fito' || stage.name === 'FITO') && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR' && !parsed.data.skipValidation) {
-    // #region agent log
-    debugLog({location:'tasks.ts:608',message:'Fito validation started',data:{taskId,stageId,stageName:stage.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
-    // #endregion
-    try {
-      // Avval documentType ustunining mavjudligini tekshiramiz
-      // documentType bilan query qilishga harakat qilamiz
-      let hasDocumentTypeColumn = false;
-      let invoiceDocuments: any[] = [];
-      let stDocuments: any[] = [];
-      let fitoDocuments: any[] = [];
-
-        try {
-        // documentType ustuni mavjud bo'lsa, enum asosida tekshiramiz
-          invoiceDocuments = await prisma.taskDocument.findMany({
-            where: {
-              taskId: taskId,
-              documentType: 'INVOICE',
-            },
-          });
-
-          stDocuments = await prisma.taskDocument.findMany({
-            where: {
-              taskId: taskId,
-              documentType: 'ST',
-            },
-          });
-
-          fitoDocuments = await prisma.taskDocument.findMany({
-            where: {
-              taskId: taskId,
-              documentType: 'FITO',
-            },
-          });
-        
-        // Agar query muvaffaqiyatli bo'lsa, documentType ustuni mavjud
-        hasDocumentTypeColumn = true;
-      } catch (enumError: any) {
-        // documentType enum xatolik yoki ustun mavjud emas - fallback ga o'tamiz
-          hasDocumentTypeColumn = false;
-      }
-
-      if (!hasDocumentTypeColumn) {
-        // Fallback: name asosida tekshirish (PDF va JPG fayllar)
-        const allDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            OR: [
-              { fileType: 'pdf' },
-              { fileType: 'jpg' },
-              { fileType: 'jpeg' },
-            ],
-          },
-        });
-
-        invoiceDocuments = allDocuments.filter((doc) => {
-          const name = (doc.name || '').toLowerCase();
-          const desc = (doc.description || '').toLowerCase();
-          return (
-            name.includes('invoice') ||
-            name.includes('invoys') ||
-            desc.includes('invoice') ||
-            (doc as any).documentType === 'INVOICE'
-          );
-        });
-
-        stDocuments = allDocuments.filter((doc) => {
-          const name = (doc.name || '').toLowerCase();
-          const desc = (doc.description || '').toLowerCase();
-          // Remove file extension for better matching
-          const nameWithoutExt = name.replace(/\.(pdf|jpg|jpeg)$/, '').trim();
-          return (
-            (doc as any).documentType === 'ST' ||
-            nameWithoutExt === 'st' ||
-            name.startsWith('st') ||
-            name.includes(' st') ||
-            name.includes('-st') ||
-            name.includes('_st') ||
-            desc.includes('st') ||
-            desc.toLowerCase().includes('st document')
-          );
-        });
-
-        fitoDocuments = allDocuments.filter((doc) => {
-          const name = (doc.name || '').toLowerCase();
-          const desc = (doc.description || '').toLowerCase();
-          return (
-            name.includes('fito') ||
-            name.includes('phytosanitary') ||
-            desc.includes('fito') ||
-            desc.includes('phytosanitary') ||
-            (doc as any).documentType === 'FITO'
-          );
-        });
-      }
-
-      // #region agent log
-      const allDocsForLog = hasDocumentTypeColumn ? [] : await prisma.taskDocument.findMany({
-        where: {
-          taskId,
-          OR: [
-            { fileType: 'pdf' },
-            { fileType: 'jpg' },
-            { fileType: 'jpeg' },
-          ],
-        },
+    // Pochta jarayoni tayyor qilishda hujjatlar tekshiruvi
+    if (stage.name === 'Pochta' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
+      const documentCount = await prisma.taskDocument.count({
+        where: { taskId }
       });
-      debugLog({location:'tasks.ts:733',message:'Fito validation results',data:{taskId,invoiceCount:invoiceDocuments.length,stCount:stDocuments.length,fitoCount:fitoDocuments.length,hasDocumentTypeColumn,allDocCount:allDocsForLog.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
-      // #endregion
-      if (invoiceDocuments.length === 0) {
-        // #region agent log
-        debugLog({location:'tasks.ts:737',message:'Fito validation failed - no Invoice',data:{taskId,hasDocumentTypeColumn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
-        // #endregion
+
+      if (documentCount === 0) {
         return res.status(400).json({ 
-          error: 'Fito stage\'ini tayyor qilish uchun Invoice PDF yoki JPG yuklanishi shart.',
-          details: { missing: 'Invoice PDF/JPG', taskId }
+          error: 'Pochta jarayonini tayyor qilish uchun kamida bitta hujjat yuklanishi kerak' 
         });
       }
-
-      if (stDocuments.length === 0) {
-        // #region agent log
-        debugLog({location:'tasks.ts:747',message:'Fito validation failed - no ST',data:{taskId,hasDocumentTypeColumn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
-        // #endregion
-        return res.status(400).json({ 
-          error: 'Fito stage\'ini tayyor qilish uchun ST PDF yoki JPG yuklanishi shart.',
-          details: { missing: 'ST PDF/JPG', taskId }
-        });
-      }
-
-      // FITO PDF talabini olib tashladik - faqat Invoice va ST PDF talab qilinadi
-      // #region agent log
-      debugLog({location:'tasks.ts:728',message:'Fito validation passed',data:{taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
-      // #endregion
-    } catch (error) {
-      // #region agent log
-      debugLog({location:'tasks.ts:749',message:'Fito validation error',data:{errorMessage:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'});
-      // #endregion
-      console.error('Error checking Fito documents:', error);
-      // Xatolik bo'lsa, validation'ni o'tkazib yuboramiz (yuklash muvaffaqiyatli bo'lsa)
-      console.log('Skipping Fito validation due to error');
     }
-  }
+
+    // Only the person who completed the stage can change its status (ADMIN ham o'zgartira olmaydi)
+    if (stage.status === 'TAYYOR' && parsed.data.status !== 'TAYYOR') {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const isStageOwner = stage.assignedToId === req.user.id;
+
+      if (!isStageOwner) {
+        return res.status(403).json({ 
+          error: 'Faqat jarayonni tayyor qilgan odam jarayon statusini o\'zgartirishi mumkin' 
+        });
+      }
+    }
 
   // Agar jarayonni tugallanmagan (BOSHLANMAGAN) qilishga harakat qilinayotgan bo'lsa,
-  // faqat jarayonni boshlagan odam yoki admin buni qila oladi
+  // faqat jarayonni tayyor qilgan odam buni qila oladi (ADMIN ham emas)
   if (parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const isAdmin = req.user.role === 'ADMIN';
     const isStageOwner = stage.assignedToId === req.user.id;
 
-    if (!isAdmin && !isStageOwner) {
+    if (!isStageOwner) {
       return res.status(403).json({ 
-        error: 'Faqat jarayonni boshlagan odam yoki admin jarayonni tugallanmagan qilishi mumkin' 
+        error: 'Faqat jarayonni tayyor qilgan odam jarayonni tugallanmagan qilishi mumkin' 
       });
     }
   }
@@ -1055,6 +830,26 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     if (parsed.data.status === 'TAYYOR') {
       await computeDurations(tx, taskId);
       await logKpiForStage(tx, taskId, upd.name, req.user?.id);
+    } else if (parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
+      // Agar jarayonni TAYYORdan BOSHLANMAGANga o'zgartirsa, KPI log'ni o'chirish
+      // Stage nomini normalize qilish (logKpiForStage bilan bir xil)
+      let normalizedStageName = stage.name;
+      if (stage.name === 'ST' || stage.name === 'Fito' || stage.name === 'FITO') {
+        normalizedStageName = 'Sertifikat olib chiqish';
+      } else if (stage.name === 'Xujjat_topshirish' || stage.name === 'Xujjat topshirish') {
+        normalizedStageName = 'Topshirish';
+      }
+      
+      // Faqat o'sha jarayonni tayyor qilgan foydalanuvchining KPI log'ini o'chirish
+      if (stage.assignedToId) {
+        await (tx as any).kpiLog.deleteMany({
+          where: {
+            taskId: taskId,
+            stageName: normalizedStageName,
+            userId: stage.assignedToId, // Faqat o'sha foydalanuvchining log'ini o'chirish
+          },
+        });
+      }
     }
     
     // Update task status based on all stages
@@ -1241,13 +1036,37 @@ async function createTaskVersion(tx: any, taskId: number, changedBy: number, cha
   });
 }
 
-router.patch('/:id', async (req: AuthRequest, res) => {
+router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
   const parsed = updateTaskSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const task = await prisma.task.findUnique({ where: { id } });
+  const user = req.user;
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const task = await prisma.task.findUnique({ 
+    where: { id },
+    select: { 
+      id: true,
+      title: true,
+      clientId: true,
+      branchId: true,
+      comments: true,
+      hasPsr: true,
+      driverPhone: true,
+      createdById: true,
+    }
+  });
   if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  // Faqat task yaratgan ishchi taskni o'zgartira oladi
+  if (task.createdById !== user.id) {
+    return res.status(403).json({ 
+      error: 'Faqat task yaratgan ishchi taskni o\'zgartirishi mumkin' 
+    });
+  }
 
   // Check if there are actual changes
   const hasChanges = 
@@ -1283,16 +1102,46 @@ router.patch('/:id', async (req: AuthRequest, res) => {
   res.json(updated);
 });
 
-router.delete('/:id', async (req: AuthRequest, res) => {
+router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
-  const task = await prisma.task.findUnique({ where: { id } });
+  const user = req.user;
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const task = await prisma.task.findUnique({ 
+    where: { id },
+    include: {
+      stages: {
+        select: {
+          status: true,
+        },
+      },
+    },
+  });
   if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  // Agar task Jarayonda bo'lsa, o'chirish mumkin emas
+  if (task.status === 'JARAYONDA') {
+    return res.status(400).json({ 
+      error: 'Jarayonda bo\'lgan taskni o\'chirish mumkin emas' 
+    });
+  }
+
+  // Faqat barcha jarayonlar BOSHLANMAGAN bo'lsa, o'chirish mumkin
+  const hasStartedStages = task.stages.some(stage => stage.status !== 'BOSHLANMAGAN');
+  if (hasStartedStages) {
+    return res.status(400).json({ 
+      error: 'Taskni o\'chirish uchun barcha jarayonlar boshlanmagan (BOSHLANMAGAN) bo\'lishi kerak' 
+    });
+  }
 
   await prisma.$transaction(async (tx) => {
     await (tx as any).taskError.deleteMany({ where: { taskId: id } });
     await (tx as any).taskStage.deleteMany({ where: { taskId: id } });
     await (tx as any).kpiLog.deleteMany({ where: { taskId: id } });
     await (tx as any).transaction.deleteMany({ where: { taskId: id } });
+    await (tx as any).taskDocument.deleteMany({ where: { taskId: id } });
     await (tx as any).task.delete({ where: { id } });
   });
 

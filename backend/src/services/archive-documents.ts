@@ -37,6 +37,15 @@ export async function archiveTaskDocuments(
     return; // Task yakunlanmagan
   }
 
+  // Check if documents exist before archiving
+  const documentCount = await (tx as any).taskDocument.count({
+    where: { taskId }
+  });
+
+  if (documentCount === 0) {
+    throw new Error('Arxivga o\'tishdan oldin kamida bitta hujjat yuklanishi kerak');
+  }
+
   // Hujjatlarni raw SQL yordamida olish (documentType column'ni o'tkazib yuborish)
   const documents = await (tx as any).$queryRaw<Array<{
     id: number;
@@ -60,7 +69,7 @@ export async function archiveTaskDocuments(
   `;
 
   if (!documents || documents.length === 0) {
-    return; // Hujjatlar yo'q
+    throw new Error('Hujjatlar topilmadi');
   }
 
   // Hujjatlarni arxivga ko'chirish

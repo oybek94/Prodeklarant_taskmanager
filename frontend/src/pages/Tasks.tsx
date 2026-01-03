@@ -35,6 +35,15 @@ interface TaskStage {
   assignedTo?: { id: number; name: string };
 }
 
+interface KpiLog {
+  id: number;
+  stageName: string;
+  amount: number;
+  userId: number;
+  user: { id: number; name: string; email: string };
+  createdAt: string;
+}
+
 interface TaskDetail {
   id: number;
   title: string;
@@ -56,6 +65,7 @@ interface TaskDetail {
   snapshotPsrPrice?: number | null; // Task yaratilgan vaqtdagi PSR narxi
   snapshotWorkerPrice?: number | null; // Task yaratilgan vaqtdagi ishchi narxi
   snapshotCustomsPayment?: number | null; // Task yaratilgan vaqtdagi bojxona to'lovi
+  kpiLogs?: KpiLog[]; // KPI log'lar (jarayonlar bo'yicha pul ma'lumotlari)
 }
 
 interface TaskVersion {
@@ -532,21 +542,28 @@ const Tasks = () => {
   const loadTaskStages = async (taskId: number) => {
     try {
       const response = await apiClient.get(`/tasks/${taskId}/stages`);
-      if (selectedTask) {
-        setSelectedTask({
-          ...selectedTask,
+      // selectedTask state'ni yangilash - functional update ishlatamiz
+      setSelectedTask((prevTask) => {
+        if (!prevTask || prevTask.id !== taskId) {
+          return prevTask;
+        }
+        return {
+          ...prevTask,
           stages: response.data,
-        });
-      }
+        };
+      });
     } catch (error) {
       console.error('Error loading task stages:', error);
       // Stages yuklanmasa ham, task ma'lumotlari ko'rsatiladi
-      if (selectedTask) {
-        setSelectedTask({
-          ...selectedTask,
+      setSelectedTask((prevTask) => {
+        if (!prevTask || prevTask.id !== taskId) {
+          return prevTask;
+        }
+        return {
+          ...prevTask,
           stages: [],
-        });
-      }
+        };
+      });
     }
   };
 
@@ -554,22 +571,30 @@ const Tasks = () => {
     try {
       setLoadingTask(true);
       const response = await apiClient.get(`/tasks/${taskId}`);
-      // Stages'ni lazy load qilish uchun, avval stages'ni olib tashlaymiz
       const taskData = { ...response.data };
-      if (taskData.stages) {
-        // Stages'ni bo'sh qilamiz, keyin lazy load qilamiz
+      
+      // Stages'ni lazy load qilish uchun, avval stages'ni bo'sh qilamiz
+      // Lekin agar backend'dan stages kelgan bo'lsa, ularni saqlab qolamiz
+      // (backward compatibility uchun)
+      if (!taskData.stages || taskData.stages.length === 0) {
         taskData.stages = [];
+      } else {
+        // Agar stages bor bo'lsa, ularni saqlab qolamiz (eski format)
+        // Lekin lazy load ham qilamiz (yangilanish uchun)
       }
+      
       setSelectedTask(taskData);
       setShowTaskModal(true);
-      // Load stages lazily
-      await loadTaskStages(taskId);
-      // Load versions
-      await loadTaskVersions(taskId);
-      // Load documents
-      await loadTaskDocuments(taskId);
-      // Load AI checks
-      await loadAiChecks(taskId);
+      
+      // Load stages lazily (parallel)
+      Promise.all([
+        loadTaskStages(taskId),
+        loadTaskVersions(taskId),
+        loadTaskDocuments(taskId),
+        // loadAiChecks(taskId), // Temporarily disabled - AI results section hidden
+      ]).catch((error) => {
+        console.error('Error loading task details:', error);
+      });
     } catch (error) {
       console.error('Error loading task detail:', error);
       alert('Task ma\'lumotlarini yuklashda xatolik');
@@ -606,13 +631,9 @@ const Tasks = () => {
       const task = taskResponse.data;
       
       // Agar task yakunlangan bo'lsa, arxiv hujjatlarini yuklaymiz
-      if (task.status === 'YAKUNLANDI') {
-        const response = await apiClient.get(`/documents/archive/task/${taskId}`);
-        setTaskDocuments(Array.isArray(response.data) ? response.data : []);
-      } else {
-        const response = await apiClient.get(`/documents/task/${taskId}`);
-        setTaskDocuments(Array.isArray(response.data) ? response.data : []);
-      }
+      // Hujjatlar doim TaskDocument'dan olinadi, arxivga o'tgunga qadar
+      const response = await apiClient.get(`/documents/task/${taskId}`);
+      setTaskDocuments(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error loading task documents:', error);
       setTaskDocuments([]);
@@ -701,12 +722,25 @@ const Tasks = () => {
       formData.append('name', fileUploadName);
       
       // Document type'ni stage nomiga qarab aniqlaymiz
+      // "Sertifikat olib chiqish" stage'i uchun fileUploadName'dan document type'ni aniqlaymiz
       let documentType = 'OTHER';
       if (fileUploadStageName === 'Invoys') {
         documentType = 'INVOICE';
+      } else if (fileUploadStageName === 'Sertifikat olib chiqish') {
+        // fileUploadName'dan aniqlaymiz: 'ST' yoki 'Fito'
+        if (fileUploadName === 'ST') {
+          documentType = 'ST';
+        } else if (fileUploadName === 'Fito') {
+          documentType = 'FITO';
+        } else {
+          // Default: ST
+          documentType = 'ST';
+        }
       } else if (fileUploadStageName === 'ST') {
+        // Backward compatibility
         documentType = 'ST';
       } else if (fileUploadStageName === 'Fito' || fileUploadStageName === 'FITO') {
+        // Backward compatibility
         documentType = 'FITO';
       }
       formData.append('documentType', documentType);
@@ -718,7 +752,7 @@ const Tasks = () => {
       });
 
       // AI tekshiruv natijasini ko'rsatish (faqat ST uchun)
-      if (fileUploadStageName === 'ST' && response.data.aiCheck) {
+      if ((fileUploadStageName === 'ST' || (fileUploadStageName === 'Sertifikat olib chiqish' && fileUploadName === 'ST')) && response.data.aiCheck) {
         setAiCheckResult(response.data.aiCheck);
       }
 
@@ -765,19 +799,16 @@ const Tasks = () => {
       formData.append('names', JSON.stringify(documentNames));
       formData.append('descriptions', JSON.stringify(documentDescriptions));
 
-      // Agar task yakunlangan bo'lsa, arxiv endpoint'iga yuboramiz
-      if (selectedTask.status === 'YAKUNLANDI') {
-        await apiClient.post(`/documents/archive/task/${selectedTask.id}`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-      } else {
-        await apiClient.post(`/documents/task/${selectedTask.id}`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
+      // Hujjatlar doim TaskDocument'ga qo'shiladi, arxivga faqat /archive-task/:taskId endpoint orqali
+      await apiClient.post(`/documents/task/${selectedTask.id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Agar Pochta jarayoni uchun hujjatlar yuklanganda, jarayonni tayyor qilamiz
+      if (selectedStageForReminder && selectedStageForReminder.name === 'Pochta' && selectedStageForReminder.status === 'BOSHLANMAGAN') {
+        await updateStageToReady();
       }
 
       setUploadFiles([]);
@@ -792,12 +823,17 @@ const Tasks = () => {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+    const newFiles = Array.from(e.target.files || []);
+    if (newFiles.length === 0) return;
 
-    setUploadFiles(files);
-    setDocumentNames(files.map(f => f.name));
-    setDocumentDescriptions(files.map(() => ''));
+    // Yangi fayllarni mavjud fayllarga qo'shamiz (o'chirmaymiz)
+    setUploadFiles(prevFiles => [...prevFiles, ...newFiles]);
+    // Hujjat nomi avtomatik fayl nomidan olinadi
+    setDocumentNames(prevNames => [...prevNames, ...newFiles.map(f => f.name)]);
+    setDocumentDescriptions(prevDescriptions => [...prevDescriptions, ...newFiles.map(() => '')]);
+    
+    // Input'ni tozalash, qayta bir xil faylni tanlash imkoniyati uchun
+    e.target.value = '';
   };
 
   const openPreview = (fileUrl: string, fileType: string, fileName: string) => {
@@ -1145,6 +1181,7 @@ const Tasks = () => {
     const reminders: { [key: string]: string } = {
       'Invoys': 'ESLATMA!!!\n\nInvoys raqam va sana\nRastamojka joyi\nUsloviya postavi\nAvtomobil raqami\nMaxsulotlar mijoz bergan malumotlar bilan bir xilmi?',
       'Deklaratsiya': 'ESLATMA!!!\n\nAvtoraqam\nUsloviya postavki\nva boshqalarni tekshirdingizmi',
+      'Sertifikat olib chiqish': 'ESLATMA!!!\n\nSertifikat (ST yoki Fito) hujjatlarini tekshiring.\n\nKorxona ma\'lumotlari\nSotib oluvchi mamlakat\nMaxsulotlar\nPechat va imzolar to\'g\'riligini tekshirdingizmi?',
       'Fito': 'ESLATMA!!!\n\nJonatuvchi va sotib oluvchi\nAvtoraqam\nPechat va imzolarni TEKSHIRDINGIZMI?',
       'ST': 'ESLATMA!!!\n\nKorxona malumotlari\nSotib oluvchi mamlakat\nMaxsulotlar\nPechat va imzolar TO\'G\'RILIGINI TEKSHIRDINGIZMI?',
       'TIR-SMR': 'ESLATMA!!!\n\nAvtomobil raqami\nMaxsulotlar mijoz bergan malumotlar bir xilligi\nTIR-SMR raqamlari togri yozilganini TEKSHIRDINGIZMI?',
@@ -1160,14 +1197,15 @@ const Tasks = () => {
       return;
     }
     if (stage.status === 'BOSHLANMAGAN') {
-      // Invoice, ST va Fito stage'lar uchun umumiy file upload modalini ochamiz
-      if (stage.name === 'Invoys' || stage.name === 'ST' || stage.name === 'Fito' || stage.name === 'FITO') {
+      // Pochta jarayoni uchun hujjat yuklash modalini ochamiz
+      if (stage.name === 'Pochta') {
         setSelectedStageForReminder(stage);
-        setFileUploadStageName(stage.name);
-        setFileUploadName(stage.name === 'Invoys' ? 'Invoice' : stage.name === 'Fito' || stage.name === 'FITO' ? 'Fito' : 'ST');
-        setShowFileUploadModal(true);
+        setShowDocumentUpload(true);
+        setUploadFiles([]);
+        setDocumentNames([]);
+        setDocumentDescriptions([]);
       } else {
-        // Boshqa stage'lar uchun eslatma modal
+        // Boshqa stage'lar uchun oddiy reminder modal
         setSelectedStageForReminder(stage);
         setShowReminderModal(true);
       }
@@ -1237,25 +1275,7 @@ const Tasks = () => {
       setFileUploadStageName('');
       setSelectedStageForReminder(null);
     } catch (error: any) {
-      // Debug logging removed (CSP violation)
       console.error('Error updating stage:', error);
-      
-      // Agar Invoys, ST yoki Fito stage'i bo'lsa va PDF/JPG talab qilinsa, modal ochamiz
-      if (
-        (selectedStageForReminder.name === 'Invoys' || 
-         selectedStageForReminder.name === 'ST' || 
-         selectedStageForReminder.name === 'Fito' || 
-         selectedStageForReminder.name === 'FITO') &&
-        error.response?.status === 400 &&
-        (error.response?.data?.error?.includes('PDF') || error.response?.data?.error?.includes('JPG'))
-      ) {
-        setFileUploadStageName(selectedStageForReminder.name);
-        setFileUploadName(selectedStageForReminder.name === 'Invoys' ? 'Invoice' : selectedStageForReminder.name === 'Fito' || selectedStageForReminder.name === 'FITO' ? 'Fito' : 'ST');
-        setShowFileUploadModal(true);
-        setUpdatingStage(null);
-        return;
-      }
-      
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     } finally {
       setUpdatingStage(null);
@@ -1364,8 +1384,170 @@ const Tasks = () => {
     return `${day} ${month} ${year}; ${hours}:${minutes}`;
   };
 
+  // Jarayon uchun vaqtni hisoblash
+  const calculateStageDuration = (stage: TaskStage, allStages: TaskStage[], taskCreatedAt: string): number | null => {
+    if (!stage.completedAt) return null;
+
+    const completedAt = new Date(stage.completedAt);
+    let startTime: Date | null = null;
+
+    switch (stage.name) {
+      case 'Invoys':
+        startTime = new Date(taskCreatedAt);
+        break;
+      case 'Zayavka':
+        const invoysStage = allStages.find(s => s.name === 'Invoys' && s.status === 'TAYYOR');
+        if (invoysStage?.completedAt) {
+          startTime = new Date(invoysStage.completedAt);
+        } else {
+          startTime = new Date(taskCreatedAt);
+        }
+        break;
+      case 'TIR-SMR':
+        const invoysStage2 = allStages.find(s => s.name === 'Invoys' && s.status === 'TAYYOR');
+        if (invoysStage2?.completedAt) {
+          startTime = new Date(invoysStage2.completedAt);
+        } else {
+          startTime = new Date(taskCreatedAt);
+        }
+        break;
+      case 'Sertifikat olib chiqish':
+      case 'ST':
+      case 'Fito':
+      case 'FITO':
+        const zayavkaStage = allStages.find(s => s.name === 'Zayavka' && s.status === 'TAYYOR');
+        if (zayavkaStage?.completedAt) {
+          startTime = new Date(zayavkaStage.completedAt);
+        } else {
+          startTime = new Date(taskCreatedAt);
+        }
+        break;
+      case 'Deklaratsiya':
+        const sertifikatStage = allStages.find(s => 
+          (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO') 
+          && s.status === 'TAYYOR'
+        );
+        if (sertifikatStage?.completedAt) {
+          startTime = new Date(sertifikatStage.completedAt);
+        } else {
+          startTime = new Date(taskCreatedAt);
+        }
+        break;
+      case 'Tekshirish':
+        const deklaratsiyaStage = allStages.find(s => s.name === 'Deklaratsiya' && s.status === 'TAYYOR');
+        if (deklaratsiyaStage?.completedAt) {
+          startTime = new Date(deklaratsiyaStage.completedAt);
+        } else {
+          const sertifikatStage2 = allStages.find(s => 
+            (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO') 
+            && s.status === 'TAYYOR'
+          );
+          if (sertifikatStage2?.completedAt) {
+            startTime = new Date(sertifikatStage2.completedAt);
+          } else {
+            startTime = new Date(taskCreatedAt);
+          }
+        }
+        break;
+      case 'Topshirish':
+      case 'Xujjat_topshirish':
+      case 'Xujjat topshirish':
+        const deklaratsiyaStage2 = allStages.find(s => s.name === 'Deklaratsiya' && s.status === 'TAYYOR');
+        if (deklaratsiyaStage2?.completedAt) {
+          startTime = new Date(deklaratsiyaStage2.completedAt);
+        } else {
+          const sertifikatStage3 = allStages.find(s => 
+            (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO') 
+            && s.status === 'TAYYOR'
+          );
+          if (sertifikatStage3?.completedAt) {
+            startTime = new Date(sertifikatStage3.completedAt);
+          } else {
+            startTime = new Date(taskCreatedAt);
+          }
+        }
+        break;
+      case 'Pochta':
+        const deklaratsiyaStage3 = allStages.find(s => s.name === 'Deklaratsiya' && s.status === 'TAYYOR');
+        if (deklaratsiyaStage3?.completedAt) {
+          startTime = new Date(deklaratsiyaStage3.completedAt);
+        } else {
+          startTime = new Date(taskCreatedAt);
+        }
+        break;
+      default:
+        startTime = new Date(taskCreatedAt);
+    }
+
+    if (!startTime) return null;
+    const diffMs = completedAt.getTime() - startTime.getTime();
+    return Math.floor(diffMs / 60000); // daqiqalarda
+  };
+
+  // Vaqtni formatlash (soat, daqiqa)
+  const formatDuration = (minutes: number | null): string => {
+    if (minutes === null || minutes < 0) return '';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0 && mins > 0) {
+      return `${hours} soat, ${mins} daqiqa`;
+    } else if (hours > 0) {
+      return `${hours} soat`;
+    } else {
+      return `${mins} daqiqa`;
+    }
+  };
+
+  // Jarayon vaqtini baholash
+  const evaluateStageTime = (stageName: string, minutes: number | null): { rating: 'alo' | 'ortacha' | 'yomon', color: string, icon: string } => {
+    if (minutes === null || minutes < 0) {
+      return { rating: 'yomon', color: 'text-red-500', icon: 'fa-hourglass-half' };
+    }
+
+    let threshold: { alo: number; ortacha: number };
+    switch (stageName) {
+      case 'Invoys':
+        threshold = { alo: 10, ortacha: 20 };
+        break;
+      case 'Zayavka':
+      case 'TIR-SMR':
+        threshold = { alo: 15, ortacha: 20 };
+        break;
+      case 'Sertifikat olib chiqish':
+      case 'ST':
+      case 'Fito':
+      case 'FITO':
+        threshold = { alo: 30, ortacha: 60 };
+        break;
+      case 'Deklaratsiya':
+        threshold = { alo: 20, ortacha: 30 };
+        break;
+      case 'Tekshirish':
+        threshold = { alo: 5, ortacha: 10 };
+        break;
+      case 'Topshirish':
+      case 'Xujjat_topshirish':
+      case 'Xujjat topshirish':
+        threshold = { alo: 30, ortacha: 60 };
+        break;
+      case 'Pochta':
+        threshold = { alo: 60, ortacha: 120 };
+        break;
+      default:
+        threshold = { alo: 30, ortacha: 60 };
+    }
+
+    if (minutes < threshold.alo) {
+      return { rating: 'alo', color: 'text-green-500', icon: 'fa-fire' };
+    } else if (minutes < threshold.ortacha) {
+      return { rating: 'ortacha', color: 'text-yellow-500', icon: 'fa-circle-half-stroke' };
+    } else {
+      return { rating: 'yomon', color: 'text-red-500', icon: 'fa-clock' };
+    }
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const formatDuration = (minutes?: number) => {
+  const formatDurationMinutes = (minutes?: number) => {
     if (!minutes) return '-';
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -2359,7 +2541,8 @@ const Tasks = () => {
                   </svg>
                   Xato
                 </button>
-                {(selectedTask.status !== 'YAKUNLANDI' || user?.role === 'ADMIN') && (
+                {/* Faqat task yaratgan ishchi o'zgartira oladi */}
+                {selectedTask.createdBy && user && selectedTask.createdBy.id === user.id && (
                   <button
                     onClick={() => {
                       if (selectedTask) {
@@ -2382,7 +2565,10 @@ const Tasks = () => {
                     O'zgartirish
                   </button>
                 )}
-                {(selectedTask.status !== 'YAKUNLANDI' || user?.role === 'ADMIN') && (
+                {/* Task o'chirish: faqat barcha jarayonlar BOSHLANMAGAN bo'lsa va task Jarayonda bo'lmasa */}
+                {selectedTask.stages && 
+                 selectedTask.status !== 'JARAYONDA' &&
+                 selectedTask.stages.every((stage: any) => stage.status === 'BOSHLANMAGAN') && (
                   <button
                     onClick={async () => {
                       if (confirm('Bu taskni o\'chirishni xohlaysizmi?')) {
@@ -2491,8 +2677,8 @@ const Tasks = () => {
               </div>
             </div>
 
-            {/* Sof Foyda va Admin ishlab topgan pul (faqat ADMIN uchun) */}
-            {user?.role === 'ADMIN' && selectedTask.netProfit !== null && selectedTask.netProfit !== undefined && (
+            {/* Foyda hisoboti - barcha foydalanuvchilar uchun */}
+            {selectedTask.netProfit !== null && selectedTask.netProfit !== undefined && (
               <div className={`mb-6 p-4 border rounded-lg ${
                 selectedTask.netProfit >= 0 
                   ? 'bg-green-50 border-green-200' 
@@ -2507,77 +2693,139 @@ const Tasks = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Kelishuv summasi:</span>
-                    <span className="text-sm font-medium text-gray-800">
-                      {new Intl.NumberFormat('uz-UZ', {
-                        style: 'currency',
-                        currency: 'USD',
-                        minimumFractionDigits: 2,
-                      }).format(
-                        (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)) + (selectedTask.hasPsr ? 10 : 0)
-                      )}
-                      {selectedTask.hasPsr && (
-                        <span className="text-xs text-gray-500 ml-1">
-                          (asosiy: {new Intl.NumberFormat('uz-UZ', {
+                  {/* Admin uchun to'liq ma'lumot */}
+                  {user?.role === 'ADMIN' && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Kelishuv summasi:</span>
+                        <span className="text-sm font-medium text-gray-800">
+                          {new Intl.NumberFormat('uz-UZ', {
                             style: 'currency',
                             currency: 'USD',
                             minimumFractionDigits: 2,
-                          }).format(selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))} + 10)
+                          }).format(
+                            (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)) + (selectedTask.hasPsr ? 10 : 0)
+                          )}
+                          {selectedTask.hasPsr && (
+                            <span className="text-xs text-gray-500 ml-1">
+                              (asosiy: {new Intl.NumberFormat('uz-UZ', {
+                                style: 'currency',
+                                currency: 'USD',
+                                minimumFractionDigits: 2,
+                              }).format(selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))} + 10)
+                            </span>
+                          )}
                         </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Filial bo'yicha to'lovlar:</span>
+                        <span className="text-sm font-medium text-red-600">
+                          {new Intl.NumberFormat('uz-UZ', {
+                            style: 'currency',
+                            currency: 'USD',
+                            minimumFractionDigits: 2,
+                          }).format(
+                            ((selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)) + (selectedTask.hasPsr ? 10 : 0)) - (selectedTask.netProfit || 0)
+                          )}
+                        </span>
+                      </div>
+                      <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                        <span className={`text-sm font-semibold ${selectedTask.netProfit >= 0 ? 'text-green-800' : 'text-orange-800'}`}>
+                          Sof foyda:
+                        </span>
+                        <span className={`text-sm font-bold ${selectedTask.netProfit >= 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                          {new Intl.NumberFormat('uz-UZ', {
+                            style: 'currency',
+                            currency: 'USD',
+                            minimumFractionDigits: 2,
+                          }).format(selectedTask.netProfit)}
+                        </span>
+                      </div>
+                      {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
+                        <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-blue-800">
+                            Admin ishlab topgan pul:
+                          </span>
+                          <span className="text-sm font-bold text-blue-600">
+                            {new Intl.NumberFormat('uz-UZ', {
+                              style: 'currency',
+                              currency: 'USD',
+                              minimumFractionDigits: 2,
+                            }).format(selectedTask.adminEarnedAmount)}
+                          </span>
+                        </div>
                       )}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Filial bo'yicha to'lovlar:</span>
-                    <span className="text-sm font-medium text-red-600">
-                      {new Intl.NumberFormat('uz-UZ', {
-                        style: 'currency',
-                        currency: 'USD',
-                        minimumFractionDigits: 2,
-                      }).format(
-                        ((selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)) + (selectedTask.hasPsr ? 10 : 0)) - (selectedTask.netProfit || 0)
+                      {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
+                        <div className="pt-2 border-t-2 border-gray-300 flex items-center justify-between">
+                          <span className="text-sm font-bold text-gray-800">
+                            Jami foyda:
+                          </span>
+                          <span className="text-lg font-bold text-purple-600">
+                            {new Intl.NumberFormat('uz-UZ', {
+                              style: 'currency',
+                              currency: 'USD',
+                              minimumFractionDigits: 2,
+                            }).format((selectedTask.netProfit || 0) + (selectedTask.adminEarnedAmount || 0))}
+                          </span>
+                        </div>
                       )}
-                    </span>
-                  </div>
-                  <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
-                    <span className={`text-sm font-semibold ${selectedTask.netProfit >= 0 ? 'text-green-800' : 'text-orange-800'}`}>
-                      Sof foyda:
-                    </span>
-                    <span className={`text-sm font-bold ${selectedTask.netProfit >= 0 ? 'text-green-600' : 'text-orange-600'}`}>
-                      {new Intl.NumberFormat('uz-UZ', {
-                        style: 'currency',
-                        currency: 'USD',
-                        minimumFractionDigits: 2,
-                      }).format(selectedTask.netProfit)}
-                    </span>
-                  </div>
-                  {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
-                    <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-blue-800">
-                        Admin ishlab topgan pul:
-                      </span>
-                      <span className="text-sm font-bold text-blue-600">
-                        {new Intl.NumberFormat('uz-UZ', {
-                          style: 'currency',
-                          currency: 'USD',
-                          minimumFractionDigits: 2,
-                        }).format(selectedTask.adminEarnedAmount)}
-                      </span>
-                    </div>
+                    </>
                   )}
-                  {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
-                    <div className="pt-2 border-t-2 border-gray-300 flex items-center justify-between">
-                      <span className="text-sm font-bold text-gray-800">
-                        Jami foyda:
-                      </span>
-                      <span className="text-lg font-bold text-purple-600">
-                        {new Intl.NumberFormat('uz-UZ', {
-                          style: 'currency',
-                          currency: 'USD',
-                          minimumFractionDigits: 2,
-                        }).format((selectedTask.netProfit || 0) + (selectedTask.adminEarnedAmount || 0))}
-                      </span>
+                  
+                  {/* Admin'dan boshqa foydalanuvchilar uchun jarayonlar bo'yicha pul ma'lumotlari */}
+                  {user?.role !== 'ADMIN' && selectedTask.kpiLogs && selectedTask.kpiLogs.length > 0 && (() => {
+                    // Faqat joriy foydalanuvchining shu taskdan ishlab topgan pullarini filter qilamiz
+                    const userKpiLogs = selectedTask.kpiLogs.filter(log => log.userId === user?.id);
+                    
+                    if (userKpiLogs.length === 0) {
+                      return (
+                        <div className="text-sm text-gray-500 italic">
+                          Siz bu taskdan hozircha pul ishlab topmadingiz
+                        </div>
+                      );
+                    }
+                    
+                    const totalAmount = userKpiLogs.reduce((sum, log) => sum + Number(log.amount), 0);
+                    
+                    return (
+                      <div className="pt-2 border-t border-gray-200">
+                        <div className="text-xs font-semibold text-gray-700 mb-2">Bu taskdan ishlab topilgan pul:</div>
+                        <div className="space-y-1.5">
+                          {userKpiLogs.map((log) => (
+                            <div key={log.id} className="flex items-center justify-between text-sm">
+                              <span className="text-gray-600">
+                                {log.stageName}:
+                              </span>
+                              <span className="font-medium text-gray-800">
+                                {new Intl.NumberFormat('uz-UZ', {
+                                  style: 'currency',
+                                  currency: 'USD',
+                                  minimumFractionDigits: 2,
+                                }).format(log.amount)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="pt-2 mt-2 border-t border-gray-200 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-800">
+                            Jami pul:
+                          </span>
+                          <span className="text-sm font-bold text-green-600">
+                            {new Intl.NumberFormat('uz-UZ', {
+                              style: 'currency',
+                              currency: 'USD',
+                              minimumFractionDigits: 2,
+                            }).format(totalAmount)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  
+                  {/* Agar KPI log'lar bo'lmasa */}
+                  {user?.role !== 'ADMIN' && (!selectedTask.kpiLogs || selectedTask.kpiLogs.length === 0) && (
+                    <div className="text-sm text-gray-500 italic">
+                      Hozircha jarayonlar bo'yicha pul ma'lumotlari yo'q
                     </div>
                   )}
                 </div>
@@ -2602,78 +2850,122 @@ const Tasks = () => {
             <div>
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Jarayonlar</h3>
               <div className="space-y-2">
-                {selectedTask.stages.map((stage) => (
-                  <div
-                    key={stage.id}
-                    className={`flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition ${
-                      stage.status === 'TAYYOR' ? 'bg-gray-50' : ''
-                    }`}
-                  >
-                    <div className="flex items-center flex-1">
-                      <div
-                        onClick={() => !updatingStage && handleStageClick(stage)}
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer ${
-                          stage.status === 'TAYYOR'
-                            ? 'bg-green-500 border-green-500'
-                            : 'border-gray-300 bg-white hover:border-green-400'
-                        } ${updatingStage === stage.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        style={{
-                          transition: stage.status === 'TAYYOR' 
-                            ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' 
-                            : 'all 0.3s ease-in-out',
-                          transform: stage.status === 'TAYYOR' ? 'scale(1.1)' : 'scale(1)',
-                          boxShadow: stage.status === 'TAYYOR' 
-                            ? '0 4px 12px rgba(34, 197, 94, 0.4)' 
-                            : 'none',
-                          animation: stage.status === 'TAYYOR' && updatingStage !== stage.id
-                            ? 'checkboxPulse 0.6s ease-out'
-                            : 'none'
-                        }}
-                      >
-                        {stage.status === 'TAYYOR' && (
-                          <svg 
-                            className="w-4 h-4 text-white" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            viewBox="0 0 24 24"
-                          >
-                            <path 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              strokeWidth={3} 
-                              d="M5 13l4 4L19 7"
-                              style={{
-                                strokeDasharray: 20,
-                                strokeDashoffset: 0,
-                                animation: 'checkmarkDraw 0.5s ease-in-out forwards'
-                              }}
-                            />
-                          </svg>
-                        )}
+                {selectedTask.stages && selectedTask.stages.length > 0 ? (
+                  selectedTask.stages.map((stage) => {
+                    // Vaqtni hisoblash va baholash
+                    const durationMinutes = stage.status === 'TAYYOR' 
+                      ? calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt)
+                      : null;
+                    const evaluation = stage.status === 'TAYYOR' 
+                      ? evaluateStageTime(stage.name, durationMinutes)
+                      : null;
+                    
+                    // Rangni aniqlash
+                    let borderColor = 'border-gray-200';
+                    let bgColor = '';
+                    if (stage.status === 'TAYYOR' && evaluation) {
+                      if (evaluation.rating === 'alo') {
+                        borderColor = 'border-green-300';
+                        bgColor = 'bg-green-50';
+                      } else if (evaluation.rating === 'ortacha') {
+                        borderColor = 'border-yellow-300';
+                        bgColor = 'bg-yellow-50';
+                      } else {
+                        borderColor = 'border-red-300';
+                        bgColor = 'bg-red-50';
+                      }
+                    } else if (stage.status === 'TAYYOR') {
+                      bgColor = 'bg-gray-50';
+                    }
+                    
+                    return (
+                    <div
+                      key={stage.id}
+                      className={`flex items-center justify-between p-3 border ${borderColor} rounded-lg hover:bg-gray-50 transition ${bgColor}`}
+                    >
+                      <div className="flex items-center flex-1">
+                        <div
+                          onClick={() => !updatingStage && handleStageClick(stage)}
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer ${
+                            stage.status === 'TAYYOR'
+                              ? 'bg-green-500 border-green-500'
+                              : 'border-gray-300 bg-white hover:border-green-400'
+                          } ${updatingStage === stage.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          style={{
+                            transition: stage.status === 'TAYYOR' 
+                              ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' 
+                              : 'all 0.3s ease-in-out',
+                            transform: stage.status === 'TAYYOR' ? 'scale(1.1)' : 'scale(1)',
+                            boxShadow: stage.status === 'TAYYOR' 
+                              ? '0 4px 12px rgba(34, 197, 94, 0.4)' 
+                              : 'none',
+                            animation: stage.status === 'TAYYOR' && updatingStage !== stage.id
+                              ? 'checkboxPulse 0.6s ease-out'
+                              : 'none'
+                          }}
+                        >
+                          {stage.status === 'TAYYOR' && (
+                            <svg 
+                              className="w-4 h-4 text-white" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              viewBox="0 0 24 24"
+                            >
+                              <path 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round" 
+                                strokeWidth={3} 
+                                d="M5 13l4 4L19 7"
+                                style={{
+                                  strokeDasharray: 20,
+                                  strokeDashoffset: 0,
+                                  animation: 'checkmarkDraw 0.5s ease-in-out forwards'
+                                }}
+                              />
+                            </svg>
+                          )}
+                        </div>
+                        <label
+                          className={`ml-3 text-sm font-medium cursor-pointer flex-1 transition-all duration-300 ${
+                            stage.status === 'TAYYOR'
+                              ? 'line-through text-gray-400 opacity-60'
+                              : 'text-gray-900'
+                          }`}
+                          onClick={() => !updatingStage && handleStageClick(stage)}
+                        >
+                          {stage.name}
+                        </label>
                       </div>
-                      <label
-                        className={`ml-3 text-sm font-medium cursor-pointer flex-1 transition-all duration-300 ${
-                          stage.status === 'TAYYOR'
-                            ? 'line-through text-gray-400 opacity-60'
-                            : 'text-gray-900'
-                        }`}
-                        onClick={() => !updatingStage && handleStageClick(stage)}
-                      >
-                        {stage.name}
-                      </label>
+                      {stage.status === 'TAYYOR' && (() => {
+                        const durationText = formatDuration(durationMinutes);
+                        
+                        return (
+                          <div className="text-xs text-gray-500 ml-4 flex items-center gap-2 flex-wrap">
+                            {stage.assignedTo && (
+                              <span className="font-medium text-gray-700">
+                                ({stage.assignedTo.name})
+                              </span>
+                            )}
+                            {durationText && evaluation && (
+                              <>
+                                <span>{durationText}</span>
+                                <i className={`fas ${evaluation.icon} ${evaluation.color}`} title={
+                                  evaluation.rating === 'alo' ? 'A\'lo' : 
+                                  evaluation.rating === 'ortacha' ? 'Ortacha' : 
+                                  'Yomon'
+                                }></i>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
-                    {stage.status === 'TAYYOR' && (
-                      <div className="text-xs text-gray-500 ml-4 whitespace-nowrap">
-                        {stage.assignedTo && (
-                          <span className="font-medium text-gray-700">
-                            ({stage.assignedTo.name})
-                          </span>
-                        )}{' '}
-                        {stage.completedAt ? formatDate(stage.completedAt) : ''}
-                      </div>
-                    )}
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-gray-400">
+                    {loadingTask ? 'Jarayonlar yuklanmoqda...' : 'Jarayonlar topilmadi'}
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
@@ -2890,237 +3182,239 @@ const Tasks = () => {
               )}
             </div>
 
-            {/* AI Tekshiruv Natijalari Section */}
-            <div className="mt-6 border-t border-gray-200 pt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">AI Tekshiruv Natijalari</h3>
-                <button
-                  onClick={() => {
-                    if (selectedTask) {
-                      loadAiChecks(selectedTask.id);
-                    }
-                  }}
-                  className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                  title="Yangilash"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Yangilash
-                </button>
-              </div>
-              {loadingAiChecks ? (
-                <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-              ) : !Array.isArray(aiChecks) || aiChecks.length === 0 ? (
-                <div className="text-center py-4 text-gray-400">
-                  <p className="mb-2">AI tekshiruv natijalari yo'q</p>
-                  <p className="text-xs text-gray-500">
-                    Invoice va ST hujjatlarini yuklaganingizdan keyin AI tekshiruvi avtomatik bajariladi
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {aiChecks.map((check: any) => {
-                    // Parse details if it's a JSON string
-                    let details = check.details;
-                    if (typeof details === 'string') {
-                      try {
-                        details = JSON.parse(details);
-                      } catch (e) {
-                        console.error('Error parsing AI check details:', e, 'Raw details:', details);
-                        details = {};
+            {/* AI Tekshiruv Natijalari Section - Temporarily hidden */}
+            {false && (
+              <div className="mt-6 border-t border-gray-200 pt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">AI Tekshiruv Natijalari</h3>
+                  <button
+                    onClick={() => {
+                      if (selectedTask) {
+                        loadAiChecks(selectedTask.id);
                       }
-                    }
-                    
-                    // Debug log
-                    console.log('[AI Check] Processing check:', {
-                      id: check.id,
-                      checkType: check.checkType,
-                      result: check.result,
-                      details: details,
-                      detailsType: typeof details,
-                    });
-                    
-                    // Handle new format: {status: "OK"|"ERROR"|"XATO", errors: []}
-                    // or legacy format: {findings: []}
-                    const errors = details?.errors || [];
-                    const status = details?.status || (check.result === 'PASS' ? 'OK' : 'ERROR');
-                    const isPass = status === 'OK' || check.result === 'PASS';
-                    
-                    // For backward compatibility with old format
-                    const legacyFindings = details?.findings || [];
-                    
-                    // Determine if there are errors (handle both new and legacy formats)
-                    const hasErrors = 
-                      status === 'ERROR' || 
-                      status === 'XATO' || 
-                      errors.length > 0 || 
-                      (legacyFindings.length > 0 && !isPass);
-                    
-                    console.log('[AI Check] Parsed result:', {
-                      status,
-                      isPass,
-                      hasErrors,
-                      errorsCount: errors.length,
-                      legacyFindingsCount: legacyFindings.length,
-                    });
-                    
-                    return (
-                      <div
-                        key={check.id}
-                        className={`p-4 rounded-lg border-2 ${
-                          isPass
-                            ? 'bg-green-50 border-green-200'
-                            : 'bg-red-50 border-red-200'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-lg font-semibold ${
-                              isPass ? 'text-green-700' : 'text-red-700'
-                            }`}>
-                              {isPass ? '✓' : '✗'}
-                            </span>
-                            <div>
-                              <div className={`font-semibold ${
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                    title="Yangilash"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Yangilash
+                  </button>
+                </div>
+                {loadingAiChecks ? (
+                  <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+                ) : !Array.isArray(aiChecks) || aiChecks.length === 0 ? (
+                  <div className="text-center py-4 text-gray-400">
+                    <p className="mb-2">AI tekshiruv natijalari yo'q</p>
+                    <p className="text-xs text-gray-500">
+                      Invoice va ST hujjatlarini yuklaganingizdan keyin AI tekshiruvi avtomatik bajariladi
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {aiChecks.map((check: any) => {
+                      // Parse details if it's a JSON string
+                      let details = check.details;
+                      if (typeof details === 'string') {
+                        try {
+                          details = JSON.parse(details);
+                        } catch (e) {
+                          console.error('Error parsing AI check details:', e, 'Raw details:', details);
+                          details = {};
+                        }
+                      }
+                      
+                      // Debug log
+                      console.log('[AI Check] Processing check:', {
+                        id: check.id,
+                        checkType: check.checkType,
+                        result: check.result,
+                        details: details,
+                        detailsType: typeof details,
+                      });
+                      
+                      // Handle new format: {status: "OK"|"ERROR"|"XATO", errors: []}
+                      // or legacy format: {findings: []}
+                      const errors = details?.errors || [];
+                      const status = details?.status || (check.result === 'PASS' ? 'OK' : 'ERROR');
+                      const isPass = status === 'OK' || check.result === 'PASS';
+                      
+                      // For backward compatibility with old format
+                      const legacyFindings = details?.findings || [];
+                      
+                      // Determine if there are errors (handle both new and legacy formats)
+                      const hasErrors = 
+                        status === 'ERROR' || 
+                        status === 'XATO' || 
+                        errors.length > 0 || 
+                        (legacyFindings.length > 0 && !isPass);
+                      
+                      console.log('[AI Check] Parsed result:', {
+                        status,
+                        isPass,
+                        hasErrors,
+                        errorsCount: errors.length,
+                        legacyFindingsCount: legacyFindings.length,
+                      });
+                      
+                      return (
+                        <div
+                          key={check.id}
+                          className={`p-4 rounded-lg border-2 ${
+                            isPass
+                              ? 'bg-green-50 border-green-200'
+                              : 'bg-red-50 border-red-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-lg font-semibold ${
                                 isPass ? 'text-green-700' : 'text-red-700'
                               }`}>
-                                {check.checkType === 'INVOICE_ST' ? 'Invoice-ST Tekshiruvi' : check.checkType}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(check.createdAt).toLocaleString('uz-UZ', {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
+                                {isPass ? '✓' : '✗'}
+                              </span>
+                              <div>
+                                <div className={`font-semibold ${
+                                  isPass ? 'text-green-700' : 'text-red-700'
+                                }`}>
+                                  {check.checkType === 'INVOICE_ST' ? 'Invoice-ST Tekshiruvi' : check.checkType}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(check.createdAt).toLocaleString('uz-UZ', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </div>
                               </div>
                             </div>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                              isPass
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {isPass ? 'TO\'G\'RI' : (status === 'XATO' ? 'XATO' : 'XATO')}
+                            </span>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            isPass
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {isPass ? 'TO\'G\'RI' : (status === 'XATO' ? 'XATO' : 'XATO')}
-                          </span>
+                          
+                          {hasErrors ? (
+                            <div className="mt-3 space-y-2">
+                              <div className="text-sm font-medium text-gray-700 mb-2">
+                                Topilgan muammolar ({errors.length || legacyFindings.length}):
+                              </div>
+                              {/* New format: errors array */}
+                              {errors.map((error: any, idx: number) => (
+                                <div
+                                  key={idx}
+                                  className="p-3 rounded bg-red-100 border border-red-300"
+                                >
+                                  <div className="font-medium text-sm mb-2 text-red-700">
+                                    🔴 {error.field || 'Noma\'lum maydon'}
+                                  </div>
+                                  {error.description && (
+                                    <div className="text-sm text-gray-700 mb-2">
+                                      {error.description}
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-gray-600 space-y-1 mt-2 pt-2 border-t border-gray-300">
+                                    {error.invoice && (
+                                      <div>
+                                        <span className="font-medium">Invoice:</span>{' '}
+                                        <span className="font-mono bg-gray-100 px-1 rounded">
+                                          {error.invoice}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {(error.st1 || error.st) && (
+                                      <div>
+                                        <span className="font-medium">ST:</span>{' '}
+                                        <span className="font-mono bg-gray-100 px-1 rounded">
+                                          {error.st1 || error.st}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                              {/* Legacy format: findings array (for backward compatibility) */}
+                              {legacyFindings.length > 0 && errors.length === 0 && legacyFindings.map((finding: any, idx: number) => (
+                                <div
+                                  key={idx}
+                                  className={`p-3 rounded ${
+                                    finding.severity === 'critical'
+                                      ? 'bg-red-100 border border-red-300'
+                                      : 'bg-yellow-100 border border-yellow-300'
+                                  }`}
+                                >
+                                  <div className="font-medium text-sm mb-2">
+                                    <span className={finding.severity === 'critical' ? 'text-red-700' : 'text-yellow-700'}>
+                                      {finding.severity === 'critical' ? '🔴 Kritik:' : '⚠️ Ogohlantirish:'}
+                                    </span>
+                                    <span className="ml-1 font-semibold">{finding.field || 'Noma\'lum maydon'}</span>
+                                  </div>
+                                  {finding.explanation && (
+                                    <div className="text-sm text-gray-700 mb-2">
+                                      {finding.explanation}
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-gray-600 space-y-1 mt-2 pt-2 border-t border-gray-300">
+                                    {finding.invoice_value !== undefined && finding.invoice_value !== null && (
+                                      <div>
+                                        <span className="font-medium">Invoice:</span>{' '}
+                                        <span className="font-mono bg-gray-100 px-1 rounded">
+                                          {typeof finding.invoice_value === 'object' 
+                                            ? JSON.stringify(finding.invoice_value, null, 2)
+                                            : String(finding.invoice_value)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {finding.st_value !== undefined && finding.st_value !== null && (
+                                      <div>
+                                        <span className="font-medium">ST:</span>{' '}
+                                        <span className="font-mono bg-gray-100 px-1 rounded">
+                                          {typeof finding.st_value === 'object'
+                                            ? JSON.stringify(finding.st_value, null, 2)
+                                            : String(finding.st_value)}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className={`text-sm mt-2 p-3 rounded ${
+                              isPass 
+                                ? 'bg-green-100 text-green-800 border border-green-200' 
+                                : 'bg-gray-100 text-gray-700 border border-gray-200'
+                            }`}>
+                              {isPass 
+                                ? '✅ Barcha ma\'lumotlar to\'g\'ri keladi. Xatolik topilmadi.'
+                                : 'ℹ️ AI tekshiruvi bajarildi, lekin batafsil natijalar mavjud emas.'}
+                            </div>
+                          )}
+                          
+                          {/* Show raw details if available for debugging */}
+                          {import.meta.env.MODE === 'development' && details && Object.keys(details).length > 0 && (
+                            <details className="mt-3 text-xs">
+                              <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+                                Batafsil ma'lumot (debug)
+                              </summary>
+                              <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto max-h-40">
+                                {JSON.stringify(details, null, 2)}
+                              </pre>
+                            </details>
+                          )}
                         </div>
-                        
-                        {hasErrors ? (
-                          <div className="mt-3 space-y-2">
-                            <div className="text-sm font-medium text-gray-700 mb-2">
-                              Topilgan muammolar ({errors.length || legacyFindings.length}):
-                            </div>
-                            {/* New format: errors array */}
-                            {errors.map((error: any, idx: number) => (
-                              <div
-                                key={idx}
-                                className="p-3 rounded bg-red-100 border border-red-300"
-                              >
-                                <div className="font-medium text-sm mb-2 text-red-700">
-                                  🔴 {error.field || 'Noma\'lum maydon'}
-                                </div>
-                                {error.description && (
-                                  <div className="text-sm text-gray-700 mb-2">
-                                    {error.description}
-                                  </div>
-                                )}
-                                <div className="text-xs text-gray-600 space-y-1 mt-2 pt-2 border-t border-gray-300">
-                                  {error.invoice && (
-                                    <div>
-                                      <span className="font-medium">Invoice:</span>{' '}
-                                      <span className="font-mono bg-gray-100 px-1 rounded">
-                                        {error.invoice}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {(error.st1 || error.st) && (
-                                    <div>
-                                      <span className="font-medium">ST:</span>{' '}
-                                      <span className="font-mono bg-gray-100 px-1 rounded">
-                                        {error.st1 || error.st}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                            {/* Legacy format: findings array (for backward compatibility) */}
-                            {legacyFindings.length > 0 && errors.length === 0 && legacyFindings.map((finding: any, idx: number) => (
-                              <div
-                                key={idx}
-                                className={`p-3 rounded ${
-                                  finding.severity === 'critical'
-                                    ? 'bg-red-100 border border-red-300'
-                                    : 'bg-yellow-100 border border-yellow-300'
-                                }`}
-                              >
-                                <div className="font-medium text-sm mb-2">
-                                  <span className={finding.severity === 'critical' ? 'text-red-700' : 'text-yellow-700'}>
-                                    {finding.severity === 'critical' ? '🔴 Kritik:' : '⚠️ Ogohlantirish:'}
-                                  </span>
-                                  <span className="ml-1 font-semibold">{finding.field || 'Noma\'lum maydon'}</span>
-                                </div>
-                                {finding.explanation && (
-                                  <div className="text-sm text-gray-700 mb-2">
-                                    {finding.explanation}
-                                  </div>
-                                )}
-                                <div className="text-xs text-gray-600 space-y-1 mt-2 pt-2 border-t border-gray-300">
-                                  {finding.invoice_value !== undefined && finding.invoice_value !== null && (
-                                    <div>
-                                      <span className="font-medium">Invoice:</span>{' '}
-                                      <span className="font-mono bg-gray-100 px-1 rounded">
-                                        {typeof finding.invoice_value === 'object' 
-                                          ? JSON.stringify(finding.invoice_value, null, 2)
-                                          : String(finding.invoice_value)}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {finding.st_value !== undefined && finding.st_value !== null && (
-                                    <div>
-                                      <span className="font-medium">ST:</span>{' '}
-                                      <span className="font-mono bg-gray-100 px-1 rounded">
-                                        {typeof finding.st_value === 'object'
-                                          ? JSON.stringify(finding.st_value, null, 2)
-                                          : String(finding.st_value)}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className={`text-sm mt-2 p-3 rounded ${
-                            isPass 
-                              ? 'bg-green-100 text-green-800 border border-green-200' 
-                              : 'bg-gray-100 text-gray-700 border border-gray-200'
-                          }`}>
-                            {isPass 
-                              ? '✅ Barcha ma\'lumotlar to\'g\'ri keladi. Xatolik topilmadi.'
-                              : 'ℹ️ AI tekshiruvi bajarildi, lekin batafsil natijalar mavjud emas.'}
-                          </div>
-                        )}
-                        
-                        {/* Show raw details if available for debugging */}
-                        {import.meta.env.MODE === 'development' && details && Object.keys(details).length > 0 && (
-                          <details className="mt-3 text-xs">
-                            <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
-                              Batafsil ma'lumot (debug)
-                            </summary>
-                            <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto max-h-40">
-                              {JSON.stringify(details, null, 2)}
-                            </pre>
-                          </details>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Versions Section */}
             <div className="mt-6 border-t border-gray-200 pt-6">
@@ -3339,26 +3633,37 @@ const Tasks = () => {
                   }}
                 >
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                    {fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName} PDF/JPG yuklash
+                    {fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName === 'Sertifikat olib chiqish' ? fileUploadName : fileUploadStageName} PDF/JPG yuklash
                   </h3>
                   <p className="text-sm text-gray-600 mb-4">
-                    {fileUploadStageName} stage'ini tayyor qilish uchun hujjat yuklanishi shart.
-                    {fileUploadStageName === 'ST' && <span> Yuklangandan keyin AI tekshiruvdan o'tkaziladi.</span>}
+                    {fileUploadStageName === 'Sertifikat olib chiqish' ? 'Sertifikat olib chiqish' : fileUploadStageName} stage'ini tayyor qilish uchun hujjat yuklanishi shart.
+                    {(fileUploadStageName === 'ST' || (fileUploadStageName === 'Sertifikat olib chiqish' && fileUploadName === 'ST')) && <span> Yuklangandan keyin AI tekshiruvdan o'tkaziladi.</span>}
                   </p>
                   
                   {!aiCheckResult ? (
                     <>
                       <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Hujjat nomi
+                          {fileUploadStageName === 'Sertifikat olib chiqish' ? 'Sertifikat turi' : 'Hujjat nomi'}
                         </label>
-                        <input
-                          type="text"
-                          value={fileUploadName}
-                          onChange={(e) => setFileUploadName(e.target.value)}
-                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                          placeholder={fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName}
-                        />
+                        {fileUploadStageName === 'Sertifikat olib chiqish' ? (
+                          <select
+                            value={fileUploadName}
+                            onChange={(e) => setFileUploadName(e.target.value)}
+                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                          >
+                            <option value="ST">ST</option>
+                            <option value="Fito">Fito</option>
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={fileUploadName}
+                            onChange={(e) => setFileUploadName(e.target.value)}
+                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                            placeholder={fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName}
+                          />
+                        )}
                       </div>
 
                       <div className="mb-4">
@@ -3387,7 +3692,13 @@ const Tasks = () => {
                               }
                               
                               setFileUploadFile(file);
-                              if (!fileUploadName || fileUploadName === fileUploadStageName || fileUploadName === (fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName)) {
+                              // Auto-fill file name if empty or default
+                              const defaultName = fileUploadStageName === 'Invoys' 
+                                ? 'Invoice' 
+                                : fileUploadStageName === 'Sertifikat olib chiqish'
+                                  ? fileUploadName || 'ST'
+                                  : fileUploadStageName;
+                              if (!fileUploadName || fileUploadName === fileUploadStageName || fileUploadName === defaultName) {
                                 const nameWithoutExt = file.name.replace(/\.(pdf|jpg|jpeg)$/i, '');
                                 setFileUploadName(nameWithoutExt);
                               }
@@ -3812,26 +4123,47 @@ const Tasks = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Hujjat yuklash (bir nechta fayl)</h2>
+              <h2 className="text-xl font-semibold text-gray-800">
+                {selectedStageForReminder && selectedStageForReminder.name === 'Pochta' 
+                  ? 'Pochta jarayoni uchun hujjatlar yuklash' 
+                  : 'Hujjat yuklash (bir nechta fayl)'}
+              </h2>
               <button
                 onClick={() => {
                   setShowDocumentUpload(false);
                   setUploadFiles([]);
                   setDocumentNames([]);
                   setDocumentDescriptions([]);
+                  if (selectedStageForReminder && selectedStageForReminder.name === 'Pochta') {
+                    setSelectedStageForReminder(null);
+                  }
                 }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
               >
                 ×
               </button>
             </div>
+            {selectedStageForReminder && selectedStageForReminder.name === 'Pochta' && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Eslatma:</strong> Pochta jarayonini tayyor qilish uchun hujjatlarni yuklang. 
+                  Hujjatlar yuklangandan keyin Pochta jarayoni avtomatik tayyor bo'ladi.
+                </p>
+              </div>
+            )}
 
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                // Validation - fayllar mavjudligini tekshiramiz
+                if (uploadFiles.length === 0) {
+                  alert('Kamida bitta faylni tanlang');
+                  return;
+                }
                 handleDocumentUpload();
               }}
               className="space-y-4"
+              noValidate
             >
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -3842,41 +4174,40 @@ const Tasks = () => {
                   multiple
                   onChange={handleFileSelect}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
                 />
                 {uploadFiles.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {uploadFiles.map((file, index) => (
-                      <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-700">{file.name}</span>
-                          <span className="text-xs text-gray-500">{formatFileSize(file.size)}</span>
+                  <div className="mt-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {uploadFiles.map((file, index) => (
+                        <div key={index} className="relative flex flex-col items-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                          <button
+                            onClick={() => {
+                              const newFiles = uploadFiles.filter((_, i) => i !== index);
+                              const newNames = documentNames.filter((_, i) => i !== index);
+                              const newDescriptions = documentDescriptions.filter((_, i) => i !== index);
+                              setUploadFiles(newFiles);
+                              setDocumentNames(newNames);
+                              setDocumentDescriptions(newDescriptions);
+                            }}
+                            className="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 z-10"
+                            title="O'chirish"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                          <div className="flex-shrink-0 mb-2">
+                            {getFileIcon(file.type || '', file.name)}
+                          </div>
+                          <div className="text-center w-full">
+                            <p className="text-xs font-medium text-gray-700 truncate px-1" title={file.name}>
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">{formatFileSize(file.size)}</p>
+                          </div>
                         </div>
-                        <input
-                          type="text"
-                          placeholder="Hujjat nomi"
-                          value={documentNames[index] || ''}
-                          onChange={(e) => {
-                            const newNames = [...documentNames];
-                            newNames[index] = e.target.value;
-                            setDocumentNames(newNames);
-                          }}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent mb-2"
-                          required
-                        />
-                        <textarea
-                          placeholder="Tavsif (ixtiyoriy)"
-                          value={documentDescriptions[index] || ''}
-                          onChange={(e) => {
-                            const newDescriptions = [...documentDescriptions];
-                            newDescriptions[index] = e.target.value;
-                            setDocumentDescriptions(newDescriptions);
-                          }}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                          rows={2}
-                        />
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

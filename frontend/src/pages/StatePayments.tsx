@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
+import MonetaryInput from '../components/MonetaryInput';
+import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
+import CurrencyDisplay from '../components/CurrencyDisplay';
 
 interface StatePayment {
   id: number;
@@ -33,6 +36,7 @@ const StatePayments = () => {
     customsPayment: '',
     currency: 'UZS' as 'USD' | 'UZS',
   });
+  const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
 
   useEffect(() => {
     loadStatePayments();
@@ -98,11 +102,8 @@ const StatePayments = () => {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('uz-UZ', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(amount);
+    // State payments are always in UZS
+    return <CurrencyDisplay amount={amount} originalCurrency="UZS" />;
   };
 
   const formatDate = (dateString: string) => {
@@ -316,20 +317,6 @@ const StatePayments = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valyuta <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={form.currency}
-                    onChange={(e) => setForm({ ...form, currency: e.target.value as 'USD' | 'UZS' })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="UZS">UZS</option>
-                    <option value="USD">USD</option>
-                  </select>
-                </div>
               </div>
 
               <div className="flex gap-3 mt-6">

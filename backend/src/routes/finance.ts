@@ -2,14 +2,20 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
-import { Prisma, Currency } from '@prisma/client';
-import { fetchLatestRate, setManualRate, getExchangeRate } from '../services/currency';
+import { Prisma, Currency, ExchangeSource } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
+import { upsertExchangeRate, getLatestExchangeRate, fetchAndSaveDailyRate } from '../services/exchange-rate';
+import { validateExchangeRateImmutability } from '../services/monetary-validation';
 
 const router = Router();
 
 // Balanslar - har bir valyuta uchun alohida
-router.get('/balance', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
+router.get('/balance', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
+    const { startDate, endDate, currency, view } = req.query;
+    const useAccountingView = view !== 'operational';
+
+    // Get account balances
     const balances = await prisma.accountBalance.findMany({
       orderBy: [{ currency: 'asc' }, { type: 'asc' }],
     });
@@ -39,6 +45,67 @@ router.get('/balance', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
     // CARD-USD balanslarini filtrlash (ko'rsatmaslik)
     const filteredBalances = balances.filter(b => !(b.type === 'CARD' && b.currency === 'USD'));
 
+    // Get transaction history if filters provided
+    let transactionHistory: any[] = [];
+    let exchangeRatesUsed: any[] = [];
+    
+    if (startDate || endDate || currency) {
+      const txWhere: any = {};
+      if (startDate) txWhere.date = { ...txWhere.date, gte: new Date(startDate as string) };
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        txWhere.date = { ...txWhere.date, lte: end };
+      }
+      if (currency) txWhere.currency_universal = currency;
+
+      transactionHistory = await prisma.transaction.findMany({
+        where: txWhere,
+        select: {
+          id: true,
+          type: true,
+          amount_original: true,
+          currency_universal: true,
+          exchange_rate: true,
+          exchange_source: true,
+          amount_uzs: true,
+          date: true,
+          paymentMethod: true,
+        },
+        orderBy: { date: 'desc' },
+        take: 100, // Limit to recent 100 transactions
+      });
+
+      // Aggregate exchange rates
+      const rateMap = new Map<string, { rate: number; source: string; count: number; dates: Date[] }>();
+      transactionHistory.forEach((tx: any) => {
+        if (tx.exchange_rate) {
+          const key = `${tx.exchange_rate}-${tx.exchange_source || 'CBU'}`;
+          if (!rateMap.has(key)) {
+            rateMap.set(key, {
+              rate: Number(tx.exchange_rate),
+              source: tx.exchange_source || 'CBU',
+              count: 0,
+              dates: [],
+            });
+          }
+          const entry = rateMap.get(key)!;
+          entry.count++;
+          entry.dates.push(tx.date);
+        }
+      });
+
+      exchangeRatesUsed = Array.from(rateMap.values()).map(entry => ({
+        rate: entry.rate,
+        source: entry.source,
+        transactionCount: entry.count,
+        dateRange: {
+          start: new Date(Math.min(...entry.dates.map(d => new Date(d).getTime()))),
+          end: new Date(Math.max(...entry.dates.map(d => new Date(d).getTime()))),
+        },
+      }));
+    }
+
     // Valyuta bo'yicha guruhlash (CARD-USD ni olib tashlash)
     const balancesByCurrency: Record<string, any[]> = {};
     filteredBalances.forEach(balance => {
@@ -49,10 +116,26 @@ router.get('/balance', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
       balancesByCurrency[currency].push(balance);
     });
 
-    res.json({
+    const response: any = {
+      view: useAccountingView ? 'accounting' : 'operational',
       byCurrency: balancesByCurrency,
       all: filteredBalances,
-    });
+    };
+
+    if (transactionHistory.length > 0) {
+      response.transactionHistory = transactionHistory;
+      response.exchangeRatesUsed = exchangeRatesUsed;
+      response.metadata = {
+        filters: {
+          startDate: startDate || null,
+          endDate: endDate || null,
+          currency: currency || null,
+        },
+        transactionCount: transactionHistory.length,
+      };
+    }
+
+    res.json(response);
   } catch (error: any) {
     console.error('Error fetching balances:', error);
     res.status(500).json({ 
@@ -343,7 +426,7 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
 // Valyuta kurslari
 router.get('/exchange-rates', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
   try {
-    const rates = await prisma.currencyExchangeRate.findMany({
+    const rates = await prisma.exchangeRate.findMany({
       orderBy: { date: 'desc' },
       take: 30, // Oxirgi 30 ta kurs
     });
@@ -358,11 +441,16 @@ router.get('/exchange-rates', requireAuth('ADMIN'), async (_req: AuthRequest, re
   }
 });
 
-// Kurs yangilash (API'dan)
+// Kurs yangilash (API'dan) - fetches from CBU and saves
 router.post('/exchange-rates/fetch', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
   try {
-    await fetchLatestRate();
-    res.json({ message: 'Kurs muvaffaqiyatli yangilandi' });
+    const rate = await fetchAndSaveDailyRate();
+    
+    res.json({ 
+      message: 'Kurs muvaffaqiyatli yangilandi',
+      rate: rate.toString(),
+      date: new Date().toISOString().split('T')[0],
+    });
   } catch (error: any) {
     console.error('Error fetching latest rate:', error);
     res.status(500).json({ 
@@ -372,12 +460,11 @@ router.post('/exchange-rates/fetch', requireAuth('ADMIN'), async (_req: AuthRequ
   }
 });
 
-// Qo'lda kurs kiritish
+// Qo'lda kurs kiritish (manual rate entry)
 const setRateSchema = z.object({
-  fromCurrency: z.enum(['USD', 'UZS']),
-  toCurrency: z.enum(['USD', 'UZS']),
   rate: z.number().positive(),
   date: z.coerce.date().optional(),
+  source: z.enum(['CBU', 'MANUAL']).optional(),
 });
 
 router.post('/exchange-rates', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
@@ -387,18 +474,85 @@ router.post('/exchange-rates', requireAuth('ADMIN'), async (req: AuthRequest, re
       return res.status(400).json({ error: parsed.error.flatten() });
     }
 
-    await setManualRate(
-      parsed.data.fromCurrency,
-      parsed.data.toCurrency,
-      parsed.data.rate,
-      parsed.data.date
-    );
+    const date = parsed.data.date || new Date();
+    const rate = new Decimal(parsed.data.rate);
+    const source = (parsed.data.source as ExchangeSource) || 'MANUAL';
+
+    // Check immutability - cannot update rates for past dates
+    const existingRate = await prisma.exchangeRate.findUnique({
+      where: {
+        currency_date: {
+          currency: 'USD',
+          date: date,
+        },
+      },
+    });
+
+    if (existingRate) {
+      const immutabilityCheck = validateExchangeRateImmutability(existingRate.date, date);
+      if (!immutabilityCheck.isValid) {
+        return res.status(400).json({
+          error: 'Exchange rate immutability violation',
+          details: immutabilityCheck.errors,
+        });
+      }
+    }
+
+    await upsertExchangeRate(date, rate, source);
 
     res.json({ message: 'Kurs muvaffaqiyatli saqlandi' });
   } catch (error: any) {
     console.error('Error setting rate:', error);
     res.status(500).json({ 
       error: 'Kursni saqlashda xatolik yuz berdi',
+      details: error.message 
+    });
+  }
+});
+
+// Update exchange rate (with immutability check)
+router.put('/exchange-rates/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const parsed = setRateSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+
+    const existingRate = await prisma.exchangeRate.findUnique({
+      where: { id },
+    });
+
+    if (!existingRate) {
+      return res.status(404).json({ error: 'Exchange rate not found' });
+    }
+
+    // Check immutability - cannot update rates for past dates
+    const immutabilityCheck = validateExchangeRateImmutability(existingRate.date);
+    if (!immutabilityCheck.isValid) {
+      return res.status(400).json({
+        error: 'Cannot update historical exchange rate',
+        details: immutabilityCheck.errors,
+      });
+    }
+
+    const rate = new Decimal(parsed.data.rate);
+    const source = (parsed.data.source as ExchangeSource) || existingRate.source;
+
+    await prisma.exchangeRate.update({
+      where: { id },
+      data: {
+        rate,
+        source,
+      },
+    });
+
+    res.json({ message: 'Kurs muvaffaqiyatli yangilandi' });
+  } catch (error: any) {
+    console.error('Error updating rate:', error);
+    res.status(500).json({ 
+      error: 'Kursni yangilashda xatolik yuz berdi',
       details: error.message 
     });
   }

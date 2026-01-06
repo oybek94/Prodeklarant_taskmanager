@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import CurrencyDisplay from '../components/CurrencyDisplay';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -355,7 +356,12 @@ const Profile = () => {
                       : (stageStats?.totals?.totalEarned || 0);
                     const previousYearEarned = previousYearDebt?.totalEarned || 0;
                     const totalEarned = currentEarned + previousYearEarned;
-                    return `$${totalEarned.toFixed(2)}`;
+                    return (
+                      <CurrencyDisplay
+                        amount={totalEarned}
+                        originalCurrency="USD"
+                      />
+                    );
                   })()}
                 </div>
               </div>
@@ -370,7 +376,12 @@ const Profile = () => {
                       : (stageStats?.totals?.totalReceived || 0);
                     const previousYearPaid = previousYearDebt?.totalPaid || 0;
                     const totalReceived = currentReceived + previousYearPaid;
-                    return `$${totalReceived.toFixed(2)}`;
+                    return (
+                      <CurrencyDisplay
+                        amount={totalReceived}
+                        originalCurrency="USD"
+                      />
+                    );
                   })()}
                 </div>
               </div>
@@ -406,7 +417,10 @@ const Profile = () => {
                       {loading ? (
                         <span className="text-gray-400">Yuklanmoqda...</span>
                       ) : (
-                        `$${totalPending.toFixed(2)}`
+                        <CurrencyDisplay
+                          amount={totalPending}
+                          originalCurrency="USD"
+                        />
                       )}
                     </div>
                   </div>
@@ -438,14 +452,22 @@ const Profile = () => {
                       return (
                       <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 font-medium text-gray-800">{stat.stageName}</td>
-                      <td className="py-3 px-4 text-center text-gray-800 font-semibold">
-                        {stagePayment > 0 ? `$${stagePayment.toFixed(2)}` : '-'}
+                        <td className="py-3 px-4 text-center text-gray-800 font-semibold">
+                        {stagePayment > 0 ? (
+                          <CurrencyDisplay
+                            amount={stagePayment}
+                            originalCurrency="USD"
+                          />
+                        ) : '-'}
                       </td>
                         <td className="py-3 px-4 text-center text-gray-800 font-semibold">
                           {stat.participationCount}
                         </td>
                         <td className="py-3 px-4 text-right text-green-600 font-semibold">
-                          ${Number(stat.earnedAmount).toFixed(2)}
+                          <CurrencyDisplay
+                            amount={Number(stat.earnedAmount)}
+                            originalCurrency="USD"
+                          />
                         </td>
                       </tr>
                     );
@@ -666,13 +688,19 @@ const Profile = () => {
               <div className="bg-orange-50 rounded-lg p-3">
                 <div className="text-xs text-orange-600 mb-1">Jami undirilgan summa</div>
                 <div className="text-xl font-bold text-orange-800">
-                  ${Number(errorStats.totalErrorAmount).toFixed(2)}
+                  <CurrencyDisplay
+                    amount={Number(errorStats.totalErrorAmount)}
+                    originalCurrency="USD"
+                  />
                 </div>
               </div>
               <div className="bg-yellow-50 rounded-lg p-3">
                 <div className="text-xs text-yellow-600 mb-1">O'rtacha xato summasi</div>
                 <div className="text-xl font-bold text-yellow-800">
-                  ${errorStats.totalErrors > 0 ? (Number(errorStats.totalErrorAmount) / errorStats.totalErrors).toFixed(2) : '0.00'}
+                  <CurrencyDisplay
+                    amount={errorStats.totalErrors > 0 ? (Number(errorStats.totalErrorAmount) / errorStats.totalErrors) : 0}
+                    originalCurrency="USD"
+                  />
                 </div>
               </div>
             </div>
@@ -698,7 +726,10 @@ const Profile = () => {
                             {stage.count}
                           </td>
                           <td className="py-3 px-4 text-right text-red-600 font-semibold">
-                            ${Number(stage.totalAmount).toFixed(2)}
+                            <CurrencyDisplay
+                              amount={Number(stage.totalAmount)}
+                              originalCurrency="USD"
+                            />
                           </td>
                         </tr>
                       ))}
@@ -719,7 +750,7 @@ const Profile = () => {
                         <div className="flex-1">
                           <div className="font-medium text-gray-800">{error.taskTitle}</div>
                           <div className="text-sm text-gray-600 mt-1">
-                            Bosqich: {error.stageName} | Summa: ${Number(error.amount).toFixed(2)} | Sana: {new Date(error.date).toLocaleDateString()}
+                            Bosqich: {error.stageName} | Summa: <CurrencyDisplay amount={Number(error.amount)} originalCurrency="USD" /> | Sana: {new Date(error.date).toLocaleDateString()}
                           </div>
                           {error.comment && (
                             <div className="text-sm text-gray-600 mt-2">{error.comment}</div>

@@ -1,4 +1,7 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient, Currency, ExchangeSource } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
+import { getExchangeRate } from './exchange-rate';
+import { calculateAmountUzs } from './monetary-validation';
 
 // Stage narxlari (USD)
 const STAGE_PRICES: Record<string, number> = {
@@ -21,7 +24,8 @@ export async function logKpiForStage(
   tx: PrismaClient | Prisma.TransactionClient,
   taskId: number,
   stageName: string,
-  userId?: number | null
+  userId?: number | null,
+  completedAt?: Date
 ) {
   if (!userId) return;
   
@@ -45,13 +49,49 @@ export async function logKpiForStage(
   
   const amount = cfg.price ?? price;
   
+  // KPI amounts are in USD by default
+  const currency: Currency = 'USD';
+  const amountDecimal = new Decimal(amount);
+  
+  // Get exchange rate at stage completion time
+  const completionDate = completedAt || new Date();
+  let exchangeRate: Decimal;
+  const exchangeSource: ExchangeSource = 'CBU';
+  
+  try {
+    exchangeRate = await getExchangeRate(completionDate, currency, 'UZS', tx, exchangeSource);
+  } catch (error) {
+    console.error(`Failed to get exchange rate for KPI log at ${completionDate.toISOString()}:`, error);
+    // Fallback to latest rate
+    try {
+      exchangeRate = await getExchangeRate(new Date(), currency, 'UZS', tx, exchangeSource);
+    } catch (fallbackError) {
+      console.error('Failed to get latest exchange rate as fallback:', fallbackError);
+      // Last resort: use rate of 1 (invalid but prevents crash)
+      exchangeRate = new Decimal(1);
+    }
+  }
+  
+  // Calculate converted UZS amount
+  const amountUzs = calculateAmountUzs(amountDecimal, currency, exchangeRate);
+  
   // KpiLog yaratish
   await (tx as any).kpiLog.create({
     data: {
       userId,
       taskId,
       stageName: normalizedStageName, // Normalized nom bilan saqlash
-      amount,
+      // Keep old fields for backward compatibility
+      amount: amountDecimal,
+      currency,
+      exchangeRate,
+      convertedUzsAmount: amountUzs,
+      // Universal monetary fields
+      amount_original: amountDecimal,
+      currency_universal: currency,
+      exchange_rate: exchangeRate,
+      amount_uzs: amountUzs,
+      exchange_source: exchangeSource,
     },
   });
 }

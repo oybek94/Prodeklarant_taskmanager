@@ -2,14 +2,19 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
-import { Prisma } from '@prisma/client';
+import { Prisma, Currency, ExchangeSource } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
+import { getLatestExchangeRate, getExchangeRate } from '../services/exchange-rate';
+import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
 
 const router = Router();
 
 const baseSchema = z.object({
   type: z.enum(['INCOME', 'EXPENSE', 'SALARY']),
   amount: z.number().positive(),
-  currency: z.enum(['USD', 'UZS']), // Majburiy
+  currency: z.enum(['USD', 'UZS']), // Original currency
+  exchangeRate: z.number().positive().optional(), // Optional - will auto-fetch if not provided
+  exchangeSource: z.enum(['CBU', 'MANUAL']).optional(), // Optional - defaults to CBU
   paymentMethod: z.enum(['CASH', 'CARD']).optional(),
   comment: z.string().optional(),
   date: z.coerce.date(),
@@ -58,6 +63,9 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
 });
 
 router.get('/stats/monthly', async (req, res) => {
+  const { view, currency } = req.query; // 'accounting' or 'operational' (default: accounting)
+  const useAccountingView = view !== 'operational';
+
   const now = new Date();
   // Current month: from first day of current month to end of current month
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -71,86 +79,149 @@ router.get('/stats/monthly', async (req, res) => {
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
   lastMonthEnd.setHours(23, 59, 59, 999);
 
-  // Current month stats
-  const currentMonthIncome = await prisma.transaction.aggregate({
-    where: {
-      type: 'INCOME',
-      date: { gte: currentMonthStart, lte: currentMonthEnd },
+  // Build where clause with currency filter
+  const currentMonthWhere: any = {
+    date: { gte: currentMonthStart, lte: currentMonthEnd },
+  };
+  const lastMonthWhere: any = {
+    date: { gte: lastMonthStart, lte: lastMonthEnd },
+  };
+
+  if (currency) {
+    currentMonthWhere.currency_universal = currency;
+    lastMonthWhere.currency_universal = currency;
+  }
+
+  // Get transactions for current month
+  const currentMonthTransactions = await prisma.transaction.findMany({
+    where: currentMonthWhere,
+    select: {
+      id: true,
+      type: true,
+      amount_original: true,
+      currency_universal: true,
+      exchange_rate: true,
+      exchange_source: true,
+      amount_uzs: true,
+      date: true,
     },
-    _sum: { amount: true },
   });
 
-  const currentMonthExpense = await prisma.transaction.aggregate({
-    where: {
-      type: 'EXPENSE',
-      date: { gte: currentMonthStart, lte: currentMonthEnd },
+  // Get transactions for last month
+  const lastMonthTransactions = await prisma.transaction.findMany({
+    where: lastMonthWhere,
+    select: {
+      id: true,
+      type: true,
+      amount_original: true,
+      currency_universal: true,
+      exchange_rate: true,
+      exchange_source: true,
+      amount_uzs: true,
+      date: true,
     },
-    _sum: { amount: true },
   });
 
-  const currentMonthSalary = await prisma.transaction.aggregate({
-    where: {
-      type: 'SALARY',
-      date: { gte: currentMonthStart, lte: currentMonthEnd },
-    },
-    _sum: { amount: true },
-  });
+  // Calculate stats using amount_uzs (accounting base currency)
+  const calculateStats = (transactions: any[]) => {
+    let income = 0;
+    let expense = 0;
+    let salary = 0;
+    const exchangeRates = new Set<string>();
 
-  // Last month stats for comparison
-  const lastMonthIncome = await prisma.transaction.aggregate({
-    where: {
-      type: 'INCOME',
-      date: { gte: lastMonthStart, lte: lastMonthEnd },
-    },
-    _sum: { amount: true },
-  });
+    for (const tx of transactions) {
+      // Always use amount_uzs for accounting calculations
+      const amount = Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0);
+      
+      // Track exchange rates used
+      if (tx.exchange_rate) {
+        exchangeRates.add(`${tx.exchange_rate}-${tx.exchange_source || 'CBU'}`);
+      }
 
-  const lastMonthExpense = await prisma.transaction.aggregate({
-    where: {
-      type: 'EXPENSE',
-      date: { gte: lastMonthStart, lte: lastMonthEnd },
-    },
-    _sum: { amount: true },
-  });
+      if (tx.type === 'INCOME') {
+        income += amount;
+      } else if (tx.type === 'EXPENSE') {
+        expense += amount;
+      } else if (tx.type === 'SALARY') {
+        salary += amount;
+      }
+    }
 
-  const lastMonthSalary = await prisma.transaction.aggregate({
-    where: {
-      type: 'SALARY',
-      date: { gte: lastMonthStart, lte: lastMonthEnd },
-    },
-    _sum: { amount: true },
-  });
+    return { income, expense, salary, exchangeRates: Array.from(exchangeRates) };
+  };
 
-  // Convert Decimal to Number
-  const income = Number(currentMonthIncome._sum.amount || 0);
-  const expense = Number(currentMonthExpense._sum.amount || 0);
-  const salary = Number(currentMonthSalary._sum.amount || 0);
-  const totalExpense = expense + salary;
-  const net = income - totalExpense;
+  const current = calculateStats(currentMonthTransactions);
+  const last = calculateStats(lastMonthTransactions);
 
-  const lastIncome = Number(lastMonthIncome._sum.amount || 0);
-  const lastExpense = Number(lastMonthExpense._sum.amount || 0);
-  const lastSalary = Number(lastMonthSalary._sum.amount || 0);
-  const lastTotalExpense = lastExpense + lastSalary;
-  const lastNet = lastIncome - lastTotalExpense;
+  const totalExpense = current.expense + current.salary;
+  const net = current.income - totalExpense;
+
+  const lastTotalExpense = last.expense + last.salary;
+  const lastNet = last.income - lastTotalExpense;
 
   // Calculate percentage changes
-  const incomeChange = lastIncome > 0 ? ((income - lastIncome) / lastIncome) * 100 : (income > 0 ? 100 : 0);
+  const incomeChange = last.income > 0 ? ((current.income - last.income) / last.income) * 100 : (current.income > 0 ? 100 : 0);
   const expenseChange = lastTotalExpense > 0 ? ((totalExpense - lastTotalExpense) / lastTotalExpense) * 100 : (totalExpense > 0 ? 100 : 0);
   const netChange = lastNet !== 0 ? ((net - lastNet) / Math.abs(lastNet)) * 100 : (net !== 0 ? (net > 0 ? 100 : -100) : 0);
 
+  // Calculate operational view (USD) if requested
+  let operational: any = null;
+  if (!useAccountingView) {
+    // For operational view, convert UZS amounts to USD using current rate
+    try {
+      const currentUsdToUzsRate = await getLatestExchangeRate('USD', 'UZS');
+      const usdRate = Number(currentUsdToUzsRate);
+      
+      operational = {
+        income: {
+          current: current.income / usdRate,
+          change: incomeChange, // Percentage change is same
+        },
+        expense: {
+          current: totalExpense / usdRate,
+          change: expenseChange,
+        },
+        net: {
+          current: net / usdRate,
+          change: netChange,
+        },
+        currency: 'USD',
+      };
+    } catch (error) {
+      console.error('Error calculating operational view:', error);
+    }
+  }
+
   res.json({
-    income: {
-      current: income,
-      change: incomeChange,
+    view: useAccountingView ? 'accounting' : 'operational',
+    accounting: {
+      currency: 'UZS',
+      income: {
+        current: current.income,
+        change: incomeChange,
+      },
+      expense: {
+        current: totalExpense,
+        change: expenseChange,
+      },
+      net: {
+        current: net,
+        change: netChange,
+      },
     },
-    expense: {
-      current: totalExpense,
-      change: expenseChange,
-    },
-    net: {
-      current: net,
-      change: netChange,
+    ...(operational && { operational }),
+    metadata: {
+      exchangeRatesUsed: current.exchangeRates.map(rate => {
+        const [value, source] = rate.split('-');
+        return { rate: parseFloat(value), source };
+      }),
+      transactionCount: {
+        current: currentMonthTransactions.length,
+        last: lastMonthTransactions.length,
+      },
+      filters: {
+        currency: currency || null,
+      },
     },
   });
 });
@@ -158,17 +229,17 @@ router.get('/stats/monthly', async (req, res) => {
 // Get worker salary statistics (for ADMIN only)
 router.get('/worker-stats', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
-    // Get all KPI logs (total earned)
+    // Get all KPI logs (total earned) - use amount_uzs for accounting
     const allKpiLogs = await prisma.kpiLog.findMany({});
-    const totalEarned = allKpiLogs.reduce((sum: number, log: any) => sum + Number(log.amount), 0);
+    const totalEarned = allKpiLogs.reduce((sum: number, log: any) => sum + Number(log.amount_uzs || log.convertedUzsAmount || log.amount || 0), 0);
 
-    // Get all SALARY transactions (total paid)
+    // Get all SALARY transactions (total paid) - use amount_uzs for accounting
     const allSalaryTransactions = await prisma.transaction.findMany({
       where: {
         type: 'SALARY',
       },
     });
-    const totalPaid = allSalaryTransactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+    const totalPaid = allSalaryTransactions.reduce((sum: number, t: any) => sum + Number(t.amount_uzs || t.convertedUzsAmount || t.amount || 0), 0);
 
     // Calculate total pending
     const totalPending = totalEarned - totalPaid;
@@ -208,14 +279,89 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     return res.status(400).json({ error: 'Karta faqat UZS valyutasida bo\'lishi mumkin' });
   }
 
+  // Determine currency: if workerId is provided and it's a certifier, check defaultCurrency
+  let originalCurrency: Currency = (data.currency as Currency) || 'USD';
+
+  // Check if transaction involves a certifier (CERTIFICATE_WORKER)
+  if (data.workerId && !data.currency) {
+    // Check if worker is a certifier and has defaultCurrency
+    const worker = await prisma.user.findUnique({
+      where: { id: data.workerId },
+      select: { role: true, defaultCurrency: true },
+    });
+
+    if (worker && worker.role === 'CERTIFICATE_WORKER' && worker.defaultCurrency) {
+      originalCurrency = worker.defaultCurrency;
+    }
+  }
+
+  // Allow currency override in request body (overrides defaultCurrency)
+  if (data.currency) {
+    originalCurrency = data.currency as Currency;
+  }
+
+  const originalAmount = new Decimal(data.amount);
+  const exchangeSource: ExchangeSource = (data.exchangeSource as ExchangeSource) || 'CBU';
+
+  // Get or calculate exchange rate
+  let exchangeRate: Decimal;
+  if (data.exchangeRate) {
+    exchangeRate = new Decimal(data.exchangeRate);
+  } else {
+    // Auto-fetch exchange rate for transaction date if not provided
+    // Use transaction date instead of current date
+    const transactionDate = data.date || new Date();
+    try {
+      exchangeRate = await getExchangeRate(transactionDate, originalCurrency, 'UZS', undefined, exchangeSource);
+    } catch (error) {
+      return res.status(400).json({
+        error: `Exchange rate is required for currency ${originalCurrency}. Failed to fetch rate for date ${transactionDate.toISOString()}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    }
+  }
+
+  // If UZS, exchange rate must be 1
+  if (originalCurrency === 'UZS' && !exchangeRate.eq(1)) {
+    exchangeRate = new Decimal(1);
+  }
+
+  // Calculate converted UZS amount
+  const amountUzs = calculateAmountUzs(originalAmount, originalCurrency, exchangeRate);
+
+  // Validate universal monetary fields
+  const validation = validateMonetaryFields({
+    amount_original: originalAmount,
+    currency: originalCurrency,
+    exchange_rate: exchangeRate,
+    amount_uzs: amountUzs,
+  });
+
+  if (!validation.isValid) {
+    return res.status(400).json({
+      error: 'Monetary validation failed',
+      details: validation.errors,
+    });
+  }
+
   // Transaction yaratish va balansni yangilash
   const result = await prisma.$transaction(async (tx) => {
     // Transaction yaratish
     const created = await tx.transaction.create({
       data: {
         type: data.type,
-        amount: data.amount,
-        currency: data.currency || 'USD',
+        // Keep old fields for backward compatibility
+        amount: originalAmount,
+        currency: originalCurrency,
+        originalAmount,
+        originalCurrency,
+        exchangeRate,
+        convertedUzsAmount: amountUzs,
+        // Universal monetary fields
+        amount_original: originalAmount,
+        currency_universal: originalCurrency,
+        exchange_rate: exchangeRate,
+        amount_uzs: amountUzs,
+        exchange_source: exchangeSource,
         paymentMethod: data.paymentMethod ?? null,
         comment: data.comment,
         date: data.date,
@@ -227,9 +373,10 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       },
     });
 
-    // Balansni yangilash (faqat paymentMethod bo'lsa)
+    // Balansni yangilash (faqat paymentMethod bo'lsa) - use amount_uzs for accounting balance
+    // Internal accounting always uses UZS as base currency
     if (data.paymentMethod) {
-      const amount = new Prisma.Decimal(data.amount);
+      const amount = amountUzs; // Use UZS amount for balance updates
       const balanceChange = data.type === 'INCOME' ? amount : amount.negated();
 
       // Balansni topish yoki yaratish
@@ -237,7 +384,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
           where: {
             type_currency: {
               type: data.paymentMethod,
-              currency: data.currency,
+              currency: originalCurrency,
             },
           },
       });
@@ -254,7 +401,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         await tx.accountBalance.create({
           data: {
             type: data.paymentMethod,
-            currency: data.currency,
+            currency: 'UZS', // Always use UZS for accounting balances
             balance: balanceChange,
           },
         });
@@ -263,6 +410,26 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 
     return created;
   });
+
+  // If this is a SALARY transaction, also create a WorkerPayment record
+  if (data.type === 'SALARY' && data.workerId) {
+    try {
+      const { createWorkerPayment } = await import('../services/worker-payment');
+      await createWorkerPayment(
+        data.workerId,
+        originalCurrency,
+        originalAmount,
+        {
+          exchangeRate: exchangeRate,
+          paymentDate: data.date,
+          comment: data.comment || undefined,
+        }
+      );
+    } catch (error) {
+      console.error('Failed to create WorkerPayment record for SALARY transaction:', error);
+      // Don't fail the transaction creation, just log the error
+    }
+  }
 
   res.status(201).json(result);
 });
@@ -289,6 +456,13 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     return res.status(404).json({ error: 'Transaction topilmadi' });
   }
 
+  // Prevent exchange_rate updates on existing transactions (immutability)
+  if (req.body.exchangeRate !== undefined) {
+    return res.status(400).json({ 
+      error: 'Cannot update exchange_rate on existing transaction. Exchange rates are immutable after save.' 
+    });
+  }
+
   const parsed = baseSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -307,11 +481,76 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     return res.status(400).json({ error: 'Karta faqat UZS valyutasida bo\'lishi mumkin' });
   }
 
+  // Determine currency: if workerId is provided and it's a certifier, check defaultCurrency
+  let originalCurrency: Currency = (data.currency as Currency) || 'USD';
+
+  // Check if transaction involves a certifier (CERTIFICATE_WORKER)
+  if (data.workerId && !data.currency) {
+    // Check if worker is a certifier and has defaultCurrency
+    const worker = await prisma.user.findUnique({
+      where: { id: data.workerId },
+      select: { role: true, defaultCurrency: true },
+    });
+
+    if (worker && worker.role === 'CERTIFICATE_WORKER' && worker.defaultCurrency) {
+      originalCurrency = worker.defaultCurrency;
+    }
+  }
+
+  // Allow currency override in request body (overrides defaultCurrency)
+  if (data.currency) {
+    originalCurrency = data.currency as Currency;
+  }
+
+  const originalAmount = new Decimal(data.amount);
+  const exchangeSource: ExchangeSource = (data.exchangeSource as ExchangeSource) || 'CBU';
+
+  // Get or calculate exchange rate
+  // For updates, use existing transaction's exchange rate (immutable)
+  let exchangeRate: Decimal;
+  if (oldTransaction.exchange_rate) {
+    exchangeRate = oldTransaction.exchange_rate;
+  } else if (oldTransaction.exchangeRate) {
+    exchangeRate = new Decimal(oldTransaction.exchangeRate);
+  } else {
+    // Fallback: use transaction date for rate lookup
+    const transactionDate = data.date || oldTransaction.date;
+    try {
+      exchangeRate = await getExchangeRate(transactionDate, originalCurrency, 'UZS', undefined, exchangeSource);
+    } catch (error) {
+      return res.status(400).json({
+        error: `Exchange rate is required for currency ${originalCurrency}. Failed to fetch rate for date ${transactionDate.toISOString()}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    }
+  }
+
+  // If UZS, exchange rate must be 1
+  if (originalCurrency === 'UZS' && !exchangeRate.eq(1)) {
+    exchangeRate = new Decimal(1);
+  }
+
+  const amountUzs = calculateAmountUzs(originalAmount, originalCurrency, exchangeRate);
+
+  const validation = validateMonetaryFields({
+    amount_original: originalAmount,
+    currency: originalCurrency,
+    exchange_rate: exchangeRate,
+    amount_uzs: amountUzs,
+  });
+
+  if (!validation.isValid) {
+    return res.status(400).json({
+      error: 'Monetary validation failed',
+      details: validation.errors,
+    });
+  }
+
   // Transaction yangilash va balansni to'g'rilash
   const result = await prisma.$transaction(async (tx) => {
     // Eski balansni qaytarish (agar paymentMethod bo'lsa)
     if (oldTransaction.paymentMethod) {
-      const oldAmount = new Prisma.Decimal(oldTransaction.amount);
+      const oldAmount = new Prisma.Decimal(oldTransaction.originalAmount || oldTransaction.amount);
+      const oldCurrency = oldTransaction.originalCurrency || oldTransaction.currency;
       const oldBalanceChange = oldTransaction.type === 'INCOME' 
         ? oldAmount.negated() 
         : oldAmount;
@@ -320,7 +559,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         where: {
           type_currency: {
             type: oldTransaction.paymentMethod,
-            currency: oldTransaction.currency,
+            currency: oldCurrency,
           },
         },
       });
@@ -339,8 +578,19 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       where: { id },
       data: {
         type: data.type,
-        amount: data.amount,
-        currency: data.currency || 'USD',
+        // Keep old fields for backward compatibility
+        amount: originalAmount,
+        currency: originalCurrency,
+        originalAmount,
+        originalCurrency,
+        exchangeRate,
+        convertedUzsAmount: amountUzs,
+        // Universal monetary fields
+        amount_original: originalAmount,
+        currency_universal: originalCurrency,
+        exchange_rate: exchangeRate,
+        amount_uzs: amountUzs,
+        exchange_source: exchangeSource,
         paymentMethod: data.paymentMethod ?? null,
         comment: data.comment,
         date: data.date,
@@ -354,14 +604,14 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 
     // Yangi balansni yangilash (agar paymentMethod bo'lsa)
     if (data.paymentMethod) {
-      const newAmount = new Prisma.Decimal(data.amount);
+      const newAmount = originalAmount;
       const newBalanceChange = data.type === 'INCOME' ? newAmount : newAmount.negated();
 
       const existingBalance = await tx.accountBalance.findUnique({
           where: {
             type_currency: {
               type: data.paymentMethod,
-              currency: data.currency,
+              currency: originalCurrency,
             },
           },
       });
@@ -376,7 +626,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         await tx.accountBalance.create({
           data: {
             type: data.paymentMethod,
-            currency: data.currency || 'USD',
+            currency: originalCurrency,
             balance: newBalanceChange,
           },
         });
@@ -405,7 +655,8 @@ router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   await prisma.$transaction(async (tx) => {
     // Balansni qaytarish (agar paymentMethod bo'lsa)
     if (transaction.paymentMethod) {
-      const amount = new Prisma.Decimal(transaction.amount);
+      const amount = new Prisma.Decimal(transaction.originalAmount || transaction.amount);
+      const currency = transaction.originalCurrency || transaction.currency;
       const balanceChange = transaction.type === 'INCOME' 
         ? amount.negated() 
         : amount;
@@ -414,7 +665,7 @@ router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         where: {
           type_currency: {
             type: transaction.paymentMethod,
-            currency: transaction.currency,
+            currency: currency,
           },
         },
       });

@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import CurrencyDisplay from '../components/CurrencyDisplay';
+import { formatCurrencyForRole, getCurrencyVisibility, type Role } from '../utils/currencyFormatting';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -113,13 +115,9 @@ const Dashboard = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('uz-UZ', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+  const formatCurrency = (amount: number, originalCurrency: 'USD' | 'UZS' = 'USD', amountUzs?: number, exchangeRate?: number) => {
+    const role = (user?.role || 'DEKLARANT') as Role;
+    return formatCurrencyForRole(amount, originalCurrency, role, amountUzs, exchangeRate);
   };
 
   // Prepare chart data with all dates included (even days with no tasks)
@@ -556,9 +554,11 @@ const Dashboard = () => {
                         <p className="text-xs">
                           <span className="text-gray-600">Joriy qardorlik: </span>
                           <span className="text-red-600 font-bold">
-                            ${reminder.currentDebt?.toFixed(2) || 
-                              reminder.dueReason.match(/\$[\d,]+\.?\d*/)?.[0]?.replace('$', '') || 
-                              '0.00'}
+                            <CurrencyDisplay
+                              amount={reminder.currentDebt || 0}
+                              originalCurrency="USD"
+                              className="inline"
+                            />
                           </span>
                         </p>
                       </div>

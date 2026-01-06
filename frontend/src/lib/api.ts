@@ -9,13 +9,16 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: false, // For now, we'll use localStorage for refresh token
-  timeout: 30000, // 30 seconds timeout
+  timeout: 10000, // 10 seconds timeout (qisqartirildi, tezroq xatolik ko'rsatish uchun)
   validateStatus: (status) => status < 500, // Don't throw on 4xx errors
 });
 
 // Request interceptor: Add access token to headers
 apiClient.interceptors.request.use(
   (config) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:18',message:'Request interceptor',data:{url:config.url,method:config.method,hasToken:!!localStorage.getItem('accessToken'),requestStartTime:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     const accessToken = localStorage.getItem('accessToken');
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`;
@@ -44,11 +47,40 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
 };
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:47',message:'Response success',data:{url:response.config.url,status:response.status,elapsed:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    return response;
+  },
   async (error: AxiosError) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:48',message:'Response error',data:{errorCode:error.code,errorMessage:error.message,status:error.response?.status,url:error.config?.url,isTimeout:error.code==='ECONNABORTED',isNetworkError:error.code==='ERR_NETWORK'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    // Timeout error handling
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      const errorMsg = 'Backend serverga javob bermayapti. Iltimos, backend server ishlayotganini tekshiring (http://localhost:3001).';
+      console.error('Timeout Error:', errorMsg);
+      // Timeout bo'lsa, darhol login sahifasiga yo'naltiramiz (agar login sahifasida bo'lmasak)
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/client/login') {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        // Kichik kechikish bilan login sahifasiga yo'naltiramiz (xatolik xabari ko'rsatish uchun)
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 100);
+      }
+      return Promise.reject(new Error(errorMsg));
+    }
     // Network error handling
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
       console.error('Network Error: Backend serverga ulanib bo\'lmayapti. Iltimos, backend server ishlayotganini tekshiring.');
+      // Network xatolik bo'lsa ham, login sahifasiga yo'naltiramiz
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/client/login') {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+      }
       return Promise.reject(new Error('Backend serverga ulanib bo\'lmayapti. Iltimos, server ishlayotganini tekshiring.'));
     }
     
@@ -56,6 +88,19 @@ apiClient.interceptors.response.use(
 
     // If 401 and not already retrying
     if (error.response?.status === 401 && !originalRequest._retry) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      
+      // Agar refresh token ham yo'q bo'lsa, darhol login sahifasiga yo'naltiramiz
+      if (!refreshToken) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        // Faqat login sahifasida bo'lmasak, login sahifasiga yo'naltiramiz
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/client/login') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // Queue the request
         return new Promise((resolve, reject) => {
@@ -73,18 +118,16 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        // No refresh token, redirect to login
-        localStorage.removeItem('accessToken');
-        window.location.href = '/login';
-        return Promise.reject(error);
-      }
-
       try {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:90',message:'Refresh token request',data:{refreshStartTime:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refreshToken,
         });
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:93',message:'Refresh token success',data:{status:response.status,elapsed:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         const { accessToken, refreshToken: newRefreshToken } = response.data;
 
         localStorage.setItem('accessToken', accessToken);

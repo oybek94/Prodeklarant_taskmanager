@@ -94,10 +94,12 @@ const Clients = () => {
     correspondentBankAccount: '',
     correspondentBankSwift: '',
   });
+  const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
   const [editForm, setEditForm] = useState({
     name: '',
     dealAmount: '',
     dealAmountCurrency: 'USD' as 'USD' | 'UZS',
+    dealAmountExchangeRate: '',
     phone: '',
     creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
     creditLimit: '',
@@ -207,6 +209,7 @@ const Clients = () => {
         name: form.name,
         dealAmount: form.dealAmount ? parseFloat(form.dealAmount) : undefined,
         dealAmountCurrency: form.dealAmountCurrency,
+        dealAmountExchangeRate: form.dealAmount && form.dealAmountExchangeRate ? parseFloat(form.dealAmountExchangeRate) : undefined,
         phone: form.phone || undefined,
         // Shartnoma maydonlari
         contractNumber: form.contractNumber || undefined,
@@ -276,6 +279,7 @@ const Clients = () => {
       name: client.name,
       dealAmount: client.dealAmount ? client.dealAmount.toString() : '',
       dealAmountCurrency: (client.dealAmountCurrency || 'USD') as 'USD' | 'UZS',
+      dealAmountExchangeRate: (client as any).dealAmountExchangeRate ? (client as any).dealAmountExchangeRate.toString() : '',
       phone: client.phone || '',
       creditType: client.creditType || '',
       creditLimit: client.creditLimit ? client.creditLimit.toString() : '',
@@ -301,11 +305,42 @@ const Clients = () => {
     e.preventDefault();
     if (!editingClient) return;
 
+    // Validate monetary fields if deal amount is provided
+    if (editForm.dealAmount) {
+      const errors = validateMonetaryFields(
+        {
+          amount: editForm.dealAmount,
+          currency: editForm.dealAmountCurrency || 'USD',
+          exchangeRate: editForm.dealAmountExchangeRate,
+          date: new Date().toISOString().split('T')[0],
+        },
+        {
+          exchangeRateRequired: true,
+        }
+      );
+
+      if (!isValidMonetaryFields(
+        {
+          amount: editForm.dealAmount,
+          currency: editForm.dealAmountCurrency || 'USD',
+          exchangeRate: editForm.dealAmountExchangeRate,
+          date: new Date().toISOString().split('T')[0],
+        },
+        {
+          exchangeRateRequired: true,
+        }
+      )) {
+        alert('Iltimos, deal amount uchun barcha maydonlarni to\'g\'ri to\'ldiring');
+        return;
+      }
+    }
+
     try {
       const updateData: any = {
         name: editForm.name,
         dealAmount: editForm.dealAmount ? parseFloat(editForm.dealAmount) : undefined,
         dealAmountCurrency: editForm.dealAmountCurrency,
+        dealAmountExchangeRate: editForm.dealAmount && editForm.dealAmountExchangeRate ? parseFloat(editForm.dealAmountExchangeRate) : undefined,
         phone: editForm.phone || undefined,
         // Shartnoma maydonlari
         contractNumber: editForm.contractNumber || undefined,
@@ -637,33 +672,31 @@ const Clients = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Deal Amount
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={form.dealAmount}
-                    onChange={(e) => setForm({ ...form, dealAmount: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valyuta
-                  </label>
-                  <select
-                    value={form.dealAmountCurrency}
-                    onChange={(e) => setForm({ ...form, dealAmountCurrency: e.target.value as 'USD' | 'UZS' })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="USD">USD</option>
-                    <option value="UZS">UZS</option>
-                  </select>
-                </div>
-              </div>
+              <MonetaryInput
+                amount={form.dealAmount || ''}
+                currency={form.dealAmountCurrency || 'USD'}
+                exchangeRate={form.dealAmountExchangeRate || ''}
+                date={new Date().toISOString().split('T')[0]} // Use current date for deal amount
+                onAmountChange={(value) => {
+                  setForm({ ...form, dealAmount: value });
+                  setMonetaryErrors({ ...monetaryErrors, amount: undefined });
+                }}
+                onCurrencyChange={(value) => {
+                  setForm({ ...form, dealAmountCurrency: value });
+                  setMonetaryErrors({ ...monetaryErrors, currency: undefined });
+                }}
+                onExchangeRateChange={(value) => {
+                  setForm({ ...form, dealAmountExchangeRate: value });
+                  setMonetaryErrors({ ...monetaryErrors, exchangeRate: undefined });
+                }}
+                label="Deal Amount"
+                required={false}
+                showLabels={true}
+                currencyRules={{
+                  exchangeRateRequired: true,
+                }}
+                errors={monetaryErrors}
+              />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                 <input
@@ -801,9 +834,12 @@ const Clients = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {client.dealAmount
-                        ? `$${Number(client.dealAmount).toFixed(2)}`
-                        : '-'}
+                      {client.dealAmount ? (
+                        <CurrencyDisplay
+                          amount={Number(client.dealAmount)}
+                          originalCurrency={(client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                        />
+                      ) : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {client.phone || '-'}
@@ -945,14 +981,14 @@ const Clients = () => {
                   </div>
                   {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
                     <div className="text-xs text-gray-500 mt-1">
-                      ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +${(selectedClient.stats.tasksWithPsr * 10).toFixed(2)})
+                      ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +<CurrencyDisplay amount={selectedClient.stats.tasksWithPsr * 10} originalCurrency="USD" />)
                     </div>
                   )}
                 </div>
                 <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
                   <div className="text-sm text-gray-600 mb-1">Jami to'lovlar</div>
                   <div className="text-2xl font-bold text-green-600">
-                    ${Number(selectedClient.stats.totalIncome).toFixed(2)}
+                    <CurrencyDisplay amount={Number(selectedClient.stats.totalIncome)} originalCurrency="USD" />
                   </div>
                 </div>
                 <div className={`p-4 rounded-lg border ${
@@ -970,7 +1006,7 @@ const Clients = () => {
                       ? 'text-yellow-600'
                       : 'text-green-600'
                   }`}>
-                    {selectedClient.stats.balance < 0 ? '-' : ''}${Math.abs(Number(selectedClient.stats.balance)).toFixed(2)}
+                    <CurrencyDisplay amount={Number(selectedClient.stats.balance)} originalCurrency={selectedClient.stats.currency || 'USD'} />
                   </div>
                 </div>
               </div>
@@ -985,19 +1021,19 @@ const Clients = () => {
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="text-sm text-gray-500 mb-1">Shartnoma summasi (bitta task)</div>
                 <div className="font-medium text-gray-900">
-                  {selectedClient.dealAmount
-                    ? `$${Number(selectedClient.dealAmount).toFixed(2)}`
-                    : '-'}
+                  {selectedClient.dealAmount ? (
+                    <CurrencyDisplay amount={Number(selectedClient.dealAmount)} originalCurrency={(selectedClient.dealAmountCurrency || 'USD') as 'USD' | 'UZS'} />
+                  ) : '-'}
                 </div>
                 {selectedClient.stats?.totalDealAmount !== undefined && (
                   <>
                     <div className="text-sm text-gray-500 mb-1 mt-2">Jami shartnoma summasi (PSR hisobga olingan)</div>
                     <div className="font-medium text-blue-600">
-                      ${Number(selectedClient.stats.totalDealAmount).toFixed(2)}
+                      <CurrencyDisplay amount={Number(selectedClient.stats.totalDealAmount)} originalCurrency="USD" />
                     </div>
                     {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
                       <div className="text-xs text-gray-500 mt-1">
-                        ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +${(selectedClient.stats.tasksWithPsr * 10).toFixed(2)})
+                        ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +<CurrencyDisplay amount={selectedClient.stats.tasksWithPsr * 10} originalCurrency="USD" />)
                       </div>
                     )}
                   </>
@@ -1033,7 +1069,7 @@ const Clients = () => {
                       <div className="font-semibold text-gray-900">
                         {selectedClient.creditType === 'TASK_COUNT'
                           ? `${Number(selectedClient.creditLimit)} ta ish`
-                          : `$${Number(selectedClient.creditLimit).toFixed(2)}`}
+                          : <CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />}
                       </div>
                     </div>
                   )}
@@ -1201,33 +1237,27 @@ const Clients = () => {
                 />
               </div>
               <div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Deal Amount
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editForm.dealAmount}
-                      onChange={(e) => setEditForm({ ...editForm, dealAmount: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Valyuta
-                    </label>
-                    <select
-                      value={editForm.dealAmountCurrency}
-                      onChange={(e) => setEditForm({ ...editForm, dealAmountCurrency: e.target.value as 'USD' | 'UZS' })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="UZS">UZS</option>
-                    </select>
-                  </div>
-                </div>
+              <MonetaryInput
+                amount={editForm.dealAmount || ''}
+                currency={editForm.dealAmountCurrency || 'USD'}
+                exchangeRate={editForm.dealAmountExchangeRate || ''}
+                date={new Date().toISOString().split('T')[0]} // Use current date for deal amount
+                onAmountChange={(value) => {
+                  setEditForm({ ...editForm, dealAmount: value });
+                }}
+                onCurrencyChange={(value) => {
+                  setEditForm({ ...editForm, dealAmountCurrency: value });
+                }}
+                onExchangeRateChange={(value) => {
+                  setEditForm({ ...editForm, dealAmountExchangeRate: value });
+                }}
+                label="Deal Amount"
+                required={false}
+                showLabels={true}
+                currencyRules={{
+                  exchangeRateRequired: true,
+                }}
+              />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>

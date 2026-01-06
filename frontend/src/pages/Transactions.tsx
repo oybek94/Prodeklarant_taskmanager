@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import MonetaryInput from '../components/MonetaryInput';
+import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
+import CurrencyDisplay from '../components/CurrencyDisplay';
+import { formatCurrencyForRole, shouldShowExchangeRate, type Role } from '../utils/currencyFormatting';
 
 // Handle ESC key to close modal
 const useEscKey = (isOpen: boolean, onClose: () => void) => {
@@ -82,6 +86,7 @@ const Transactions = () => {
     type: 'INCOME' as 'INCOME' | 'EXPENSE' | 'SALARY',
     amount: '',
     currency: 'USD' as 'USD' | 'UZS',
+    exchangeRate: '',
     paymentMethod: '' as '' | 'CASH' | 'CARD',
     comment: '',
     date: new Date().toISOString().split('T')[0],
@@ -89,6 +94,8 @@ const Transactions = () => {
     workerId: '',
     expenseCategory: '',
   });
+  const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
+  const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
 
   useEffect(() => {
     loadTransactions();
@@ -260,6 +267,11 @@ const Transactions = () => {
         date: new Date(form.date),
       };
 
+      // Include exchangeRate if provided and currency is USD
+      if (form.exchangeRate && form.currency === 'USD') {
+        payload.exchangeRate = parseFloat(form.exchangeRate);
+      }
+
       if (form.type === 'INCOME') {
         if (!form.clientId) {
           alert('Mijozni tanlang');
@@ -286,6 +298,7 @@ const Transactions = () => {
         type: 'INCOME',
         amount: '',
         currency: 'USD',
+        exchangeRate: '',
         paymentMethod: '',
         comment: '',
         date: new Date().toISOString().split('T')[0],
@@ -307,6 +320,7 @@ const Transactions = () => {
       type: transaction.type,
       amount: transaction.amount.toString(),
       currency: (transaction.currency || 'USD') as 'USD' | 'UZS',
+      exchangeRate: '', // Don't show exchange rate in edit form (immutable)
       paymentMethod: (transaction.paymentMethod || '') as '' | 'CASH' | 'CARD',
       comment: transaction.comment || '',
       date: new Date(transaction.date).toISOString().split('T')[0],
@@ -359,6 +373,7 @@ const Transactions = () => {
         type: 'INCOME',
         amount: '',
         currency: 'USD',
+        exchangeRate: '',
         paymentMethod: '',
         comment: '',
         date: new Date().toISOString().split('T')[0],
@@ -366,6 +381,7 @@ const Transactions = () => {
         workerId: '',
         expenseCategory: '',
       });
+      setMonetaryErrors({});
       await loadTransactions();
       await loadMonthlyStats();
     } catch (error: any) {
@@ -452,19 +468,25 @@ const Transactions = () => {
         <div className="bg-green-50 rounded-lg p-3 border-2 border-green-200">
           <div className="text-xs text-green-600 mb-1">Jami ish xaqi</div>
           <div className="text-xl font-bold text-green-800">
-            {workerStats ? `$${Number(workerStats.totalEarned).toFixed(2)}` : 'Yuklanmoqda...'}
+            {workerStats ? (
+              <CurrencyDisplay amount={Number(workerStats.totalEarned)} originalCurrency="USD" />
+            ) : 'Yuklanmoqda...'}
           </div>
         </div>
         <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
           <div className="text-xs text-purple-600 mb-1">Jami to'langan ish xaqi</div>
           <div className="text-xl font-bold text-purple-800">
-            {workerStats ? `$${Number(workerStats.totalPaid).toFixed(2)}` : 'Yuklanmoqda...'}
+            {workerStats ? (
+              <CurrencyDisplay amount={Number(workerStats.totalPaid)} originalCurrency="USD" />
+            ) : 'Yuklanmoqda...'}
           </div>
         </div>
         <div className="bg-orange-50 rounded-lg p-3 border-2 border-orange-200">
           <div className="text-xs text-orange-600 mb-1">Jami to'lanmagan ish xaqi</div>
           <div className={`text-xl font-bold ${workerStats && workerStats.totalPending >= 0 ? 'text-orange-800' : 'text-red-800'}`}>
-            {workerStats ? `$${Number(workerStats.totalPending).toFixed(2)}` : 'Yuklanmoqda...'}
+            {workerStats ? (
+              <CurrencyDisplay amount={Number(workerStats.totalPending)} originalCurrency="USD" />
+            ) : 'Yuklanmoqda...'}
           </div>
         </div>
       </div>
@@ -693,46 +715,8 @@ const Transactions = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Summa</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
-              </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Valyuta <span className="text-red-500">*</span></label>
-                  <select
-                    value={form.currency}
-                    onChange={(e) => {
-                      const newCurrency = e.target.value as 'USD' | 'UZS';
-                      // Agar CARD tanlangan va USD tanlansa, ruxsat bermaslik
-                      if (form.paymentMethod === 'CARD' && newCurrency === 'USD') {
-                        alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
-                        return;
-                      }
-                      setForm({ ...form, currency: newCurrency });
-                    }}
-                    required
-                    disabled={form.paymentMethod === 'CARD'} // Karta tanlanganida faqat UZS
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="USD" disabled={form.paymentMethod === 'CARD'}>USD</option>
-                    <option value="UZS">UZS</option>
-                  </select>
-                  {form.paymentMethod === 'CARD' && (
-                    <p className="text-xs text-gray-500 mt-1">Karta faqat UZS valyutasida</p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
               <input
                 type="date"
                 value={form.date}
@@ -741,6 +725,33 @@ const Transactions = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
+
+            <MonetaryInput
+              amount={form.amount}
+              currency={form.currency}
+              exchangeRate={form.exchangeRate}
+              date={form.date}
+              onAmountChange={(value) => {
+                setForm({ ...form, amount: value });
+                setMonetaryErrors({ ...monetaryErrors, amount: undefined });
+              }}
+              onCurrencyChange={(value) => {
+                setForm({ ...form, currency: value });
+                setMonetaryErrors({ ...monetaryErrors, currency: undefined });
+              }}
+              onExchangeRateChange={(value) => {
+                setForm({ ...form, exchangeRate: value });
+                setMonetaryErrors({ ...monetaryErrors, exchangeRate: undefined });
+              }}
+              label="Summa"
+              required
+              showLabels={true}
+              currencyRules={{
+                allowed: form.paymentMethod === 'CARD' ? ['UZS'] : undefined,
+                exchangeRateRequired: true,
+              }}
+              errors={monetaryErrors}
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -931,44 +942,6 @@ const Transactions = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Summa</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={form.amount}
-                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Valyuta <span className="text-red-500">*</span></label>
-                  <select
-                    value={form.currency}
-                    onChange={(e) => {
-                      const newCurrency = e.target.value as 'USD' | 'UZS';
-                      // Agar CARD tanlangan va USD tanlansa, ruxsat bermaslik
-                      if (form.paymentMethod === 'CARD' && newCurrency === 'USD') {
-                        alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
-                        return;
-                      }
-                      setForm({ ...form, currency: newCurrency });
-                    }}
-                    required
-                    disabled={form.paymentMethod === 'CARD'} // Karta tanlanganida faqat UZS
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="USD" disabled={form.paymentMethod === 'CARD'}>USD</option>
-                    <option value="UZS">UZS</option>
-                  </select>
-                  {form.paymentMethod === 'CARD' && (
-                    <p className="text-xs text-gray-500 mt-1">Karta faqat UZS valyutasida</p>
-                  )}
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
                 <input
@@ -979,6 +952,33 @@ const Transactions = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
+
+              <MonetaryInput
+                amount={form.amount}
+                currency={form.currency}
+                exchangeRate={form.exchangeRate}
+                date={form.date}
+                onAmountChange={(value) => {
+                  setForm({ ...form, amount: value });
+                  setMonetaryErrors({ ...monetaryErrors, amount: undefined });
+                }}
+                onCurrencyChange={(value) => {
+                  setForm({ ...form, currency: value });
+                  setMonetaryErrors({ ...monetaryErrors, currency: undefined });
+                }}
+                onExchangeRateChange={(value) => {
+                  setForm({ ...form, exchangeRate: value });
+                  setMonetaryErrors({ ...monetaryErrors, exchangeRate: undefined });
+                }}
+                label="Summa"
+                required
+                showLabels={true}
+                currencyRules={{
+                  allowed: form.paymentMethod === 'CARD' ? ['UZS'] : undefined,
+                  exchangeRateRequired: true,
+                }}
+                errors={monetaryErrors}
+              />
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1278,9 +1278,9 @@ const Transactions = () => {
                         <div>
                           <div className="font-medium text-gray-900">{debt.worker.name}</div>
                           <div className="text-sm text-gray-600">
-                            Ish haqi: ${Number(debt.totalEarned).toFixed(2)} | 
-                            To'langan: ${Number(debt.totalPaid).toFixed(2)} | 
-                            Qarz: ${Number(debt.balance).toFixed(2)}
+                            Ish haqi: <CurrencyDisplay amount={Number(debt.totalEarned)} originalCurrency="USD" /> | 
+                            To'langan: <CurrencyDisplay amount={Number(debt.totalPaid)} originalCurrency="USD" /> | 
+                            Qarz: <CurrencyDisplay amount={Number(debt.balance)} originalCurrency="USD" />
                           </div>
                         </div>
                         <div className="text-xs text-gray-500">{debt.year} yil</div>

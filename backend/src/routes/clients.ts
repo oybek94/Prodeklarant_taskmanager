@@ -1,9 +1,12 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, Currency, ExchangeSource } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { hashPassword } from '../utils/hash';
+import { getLatestExchangeRate } from '../services/exchange-rate';
+import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
 
 const router = Router();
 
@@ -11,6 +14,8 @@ const clientSchema = z.object({
   name: z.string().min(1),
   dealAmount: z.number().optional(),
   dealAmountCurrency: z.enum(['USD', 'UZS']).optional(),
+  dealAmountExchangeRate: z.number().positive().optional(), // Optional - will auto-fetch if not provided
+  dealAmountExchangeSource: z.enum(['CBU', 'MANUAL']).optional(), // Optional - defaults to CBU
   phone: z.string().optional(),
   creditType: z.enum(['TASK_COUNT', 'AMOUNT']).optional().nullable(),
   creditLimit: z.union([z.number(), z.string()]).optional().nullable().transform((val) => {
@@ -59,31 +64,54 @@ router.get('/', async (_req, res) => {
     orderBy: { createdAt: 'desc' } 
   });
   
-  // Calculate balance for each client
-  const clientsWithBalance = clients.map(client => {
-    const dealAmount = Number(client.dealAmount || 0);
-    const dealCurrency = (client as any).dealAmountCurrency || 'USD';
+  // Calculate balance for each client - use amount_uzs for all calculations
+  const clientsWithBalance = await Promise.all(clients.map(async (client: any) => {
+    // Use universal fields if available, fallback to old fields
+    const dealAmountUzs = client.dealAmount_amount_uzs 
+      ? Number(client.dealAmount_amount_uzs)
+      : (client.dealAmountInUzs ? Number(client.dealAmountInUzs) : 0);
+    
     const totalTasks = client.tasks.length;
-    const tasksWithPsr = client.tasks.filter(t => t.hasPsr).length;
+    const tasksWithPsr = client.tasks.filter((t: any) => t.hasPsr).length;
     
-    // Calculate total deal amount (with PSR)
-    const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+    // Calculate total deal amount in UZS (with PSR - PSR amount is 10 UZS per requirement)
+    const totalDealAmountUzs = (dealAmountUzs * totalTasks) + (10 * tasksWithPsr);
     
-    // Calculate total income - faqat shu valyutadagi transaction'larni hisoblash
-    const totalIncome = client.transactions
-      .filter(t => t.currency === dealCurrency)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    // Get all INCOME transactions for this client - use amount_uzs
+    const clientTransactions = await prisma.transaction.findMany({
+      where: { clientId: client.id, type: 'INCOME' },
+      select: {
+        amount_uzs: true,
+        convertedUzsAmount: true,
+        amount: true,
+      },
+    });
     
-    // Calculate balance (debt)
-    const balance = totalDealAmount - totalIncome;
+    const totalIncome = clientTransactions.reduce((sum, tx: any) => {
+      return sum + Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0);
+    }, 0);
+    
+    const balance = totalDealAmountUzs - totalIncome;
+    
+    // Include exchange rate information if available
+    const exchangeRates = new Set<string>();
+    clientTransactions.forEach((tx: any) => {
+      if (tx.exchange_rate) {
+        exchangeRates.add(`${tx.exchange_rate}-${tx.exchange_source || 'CBU'}`);
+      }
+    });
     
     return {
       ...client,
       balance,
-      totalDealAmount,
+      totalDealAmount: totalDealAmountUzs, // Return in UZS for accounting view
       totalIncome,
+      exchangeRatesUsed: Array.from(exchangeRates).map(rate => {
+        const [value, source] = rate.split('-');
+        return { rate: parseFloat(value), source };
+      }),
     };
-  });
+  }));
   
   res.json(clientsWithBalance);
 });
@@ -243,10 +271,64 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     const parsed = clientSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     
+    const dealAmountCurrency: Currency | null = parsed.data.dealAmountCurrency ? (parsed.data.dealAmountCurrency as Currency) : null;
+    const dealAmount = parsed.data.dealAmount ? new Decimal(parsed.data.dealAmount) : null;
+    const exchangeSource: ExchangeSource = (parsed.data.dealAmountExchangeSource as ExchangeSource) || 'CBU';
+
+    // Handle exchange rate for deal amount if provided
+    let dealAmountExchangeRate: Decimal | null = null;
+    let dealAmountInUzs: Decimal | null = null;
+
+    if (dealAmount && dealAmountCurrency) {
+      // Get or calculate exchange rate
+      if (parsed.data.dealAmountExchangeRate) {
+        dealAmountExchangeRate = new Decimal(parsed.data.dealAmountExchangeRate);
+      } else if (dealAmountCurrency !== 'UZS') {
+        // Auto-fetch latest exchange rate if not provided and currency is not UZS
+        try {
+          dealAmountExchangeRate = await getLatestExchangeRate(dealAmountCurrency, 'UZS', undefined, exchangeSource);
+        } catch (error) {
+          return res.status(400).json({
+            error: `Exchange rate is required for currency ${dealAmountCurrency}. Failed to fetch latest rate: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          });
+        }
+      } else {
+        // UZS currency - rate is always 1
+        dealAmountExchangeRate = new Decimal(1);
+      }
+
+      // Calculate converted UZS amount
+      dealAmountInUzs = calculateAmountUzs(dealAmount, dealAmountCurrency, dealAmountExchangeRate);
+
+      // Validate universal monetary fields
+      const validation = validateMonetaryFields({
+        amount_original: dealAmount,
+        currency: dealAmountCurrency,
+        exchange_rate: dealAmountExchangeRate,
+        amount_uzs: dealAmountInUzs,
+      });
+
+      if (!validation.isValid) {
+        return res.status(400).json({
+          error: 'Monetary validation failed',
+          details: validation.errors,
+        });
+      }
+    }
+    
     const createData: any = {
       name: parsed.data.name,
-      dealAmount: parsed.data.dealAmount ?? null,
-      dealAmountCurrency: parsed.data.dealAmountCurrency ?? 'USD',
+      // Keep old fields for backward compatibility
+      dealAmount: dealAmount,
+      dealAmountCurrency: dealAmountCurrency,
+      dealAmountExchangeRate,
+      dealAmountInUzs,
+      // Universal monetary fields
+      dealAmount_amount_original: dealAmount,
+      dealAmount_currency: dealAmountCurrency,
+      dealAmount_exchange_rate: dealAmountExchangeRate,
+      dealAmount_amount_uzs: dealAmountInUzs,
+      dealAmount_exchange_source: dealAmount ? exchangeSource : null,
       phone: parsed.data.phone ?? null,
       // Shartnoma maydonlari
       contractNumber: parsed.data.contractNumber || undefined,
@@ -435,13 +517,91 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     if (req.body.name !== undefined) {
       updateData.name = req.body.name;
     }
-    if (req.body.dealAmount !== undefined) {
-      updateData.dealAmount = req.body.dealAmount === null || req.body.dealAmount === '' 
-        ? null 
-        : parseFloat(req.body.dealAmount);
-    }
-    if (req.body.dealAmountCurrency !== undefined) {
-      updateData.dealAmountCurrency = req.body.dealAmountCurrency || 'USD';
+
+    // Handle deal amount with exchange rate
+    const dealAmountChanged = req.body.dealAmount !== undefined;
+    const currencyChanged = req.body.dealAmountCurrency !== undefined;
+    const exchangeRateChanged = req.body.dealAmountExchangeRate !== undefined;
+
+      if (dealAmountChanged || currencyChanged || exchangeRateChanged) {
+      // Get current client to check existing values
+      const currentClient = await prisma.client.findUnique({
+        where: { id },
+        select: { dealAmount: true, dealAmountCurrency: true, dealAmountExchangeRate: true, dealAmount_exchange_source: true },
+      });
+
+      const newDealAmount = dealAmountChanged 
+        ? (req.body.dealAmount === null || req.body.dealAmount === '' ? null : new Decimal(req.body.dealAmount))
+        : (currentClient?.dealAmount ? new Decimal(currentClient.dealAmount) : null);
+      
+      const newCurrency: Currency | null = currencyChanged
+        ? (req.body.dealAmountCurrency || null)
+        : (currentClient?.dealAmountCurrency as Currency | null);
+
+      const exchangeSource: ExchangeSource = (req.body.dealAmountExchangeSource as ExchangeSource) || currentClient?.dealAmount_exchange_source || 'CBU';
+
+      if (newDealAmount && newCurrency) {
+        // Get or calculate exchange rate
+        let exchangeRate: Decimal;
+        if (exchangeRateChanged && req.body.dealAmountExchangeRate) {
+          exchangeRate = new Decimal(req.body.dealAmountExchangeRate);
+        } else if (currentClient?.dealAmountExchangeRate && !currencyChanged) {
+          // Keep existing exchange rate if currency hasn't changed
+          exchangeRate = new Decimal(currentClient.dealAmountExchangeRate);
+        } else if (newCurrency !== 'UZS') {
+          // Auto-fetch latest exchange rate
+          try {
+            exchangeRate = await getLatestExchangeRate(newCurrency, 'UZS', undefined, exchangeSource);
+          } catch (error) {
+            return res.status(400).json({
+              error: `Exchange rate is required for currency ${newCurrency}. Failed to fetch latest rate: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            });
+          }
+        } else {
+          // UZS currency - rate is always 1
+          exchangeRate = new Decimal(1);
+        }
+
+        const amountUzs = calculateAmountUzs(newDealAmount, newCurrency, exchangeRate);
+
+        // Validate universal monetary fields
+        const validation = validateMonetaryFields({
+          amount_original: newDealAmount,
+          currency: newCurrency,
+          exchange_rate: exchangeRate,
+          amount_uzs: amountUzs,
+        });
+
+        if (!validation.isValid) {
+          return res.status(400).json({
+            error: 'Monetary validation failed',
+            details: validation.errors,
+          });
+        }
+
+        // Keep old fields for backward compatibility
+        updateData.dealAmount = newDealAmount;
+        updateData.dealAmountCurrency = newCurrency;
+        updateData.dealAmountExchangeRate = exchangeRate;
+        updateData.dealAmountInUzs = amountUzs;
+        // Universal monetary fields
+        updateData.dealAmount_amount_original = newDealAmount;
+        updateData.dealAmount_currency = newCurrency;
+        updateData.dealAmount_exchange_rate = exchangeRate;
+        updateData.dealAmount_amount_uzs = amountUzs;
+        updateData.dealAmount_exchange_source = exchangeSource;
+      } else {
+        // Clearing deal amount
+        updateData.dealAmount = null;
+        updateData.dealAmountCurrency = null;
+        updateData.dealAmountExchangeRate = null;
+        updateData.dealAmountInUzs = null;
+        updateData.dealAmount_amount_original = null;
+        updateData.dealAmount_currency = null;
+        updateData.dealAmount_exchange_rate = null;
+        updateData.dealAmount_amount_uzs = null;
+        updateData.dealAmount_exchange_source = null;
+      }
     }
     if (req.body.phone !== undefined) {
       updateData.phone = req.body.phone === null || req.body.phone === '' ? null : req.body.phone;

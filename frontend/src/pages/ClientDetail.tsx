@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import CurrencyDisplay from '../components/CurrencyDisplay';
 
 interface Task {
   id: number;
@@ -561,14 +562,22 @@ const ClientDetail = () => {
           </div>
           <div>
             <div className="text-sm text-gray-500">Kelishuv summasi (bitta task)</div>
-            <div className="font-medium">${Number(client.stats.dealAmount).toFixed(2)}</div>
+            <CurrencyDisplay
+              amount={Number(client.stats.dealAmount)}
+              originalCurrency="USD"
+              className="font-medium"
+            />
             {client.stats.totalDealAmount !== undefined && (
               <>
                 <div className="text-xs text-gray-400 mt-1">Jami (PSR hisobga olingan)</div>
-                <div className="font-medium text-blue-600">${Number(client.stats.totalDealAmount).toFixed(2)}</div>
+                <CurrencyDisplay
+                  amount={Number(client.stats.totalDealAmount)}
+                  originalCurrency="USD"
+                  className="font-medium text-blue-600"
+                />
                 {client.stats.tasksWithPsr !== undefined && client.stats.tasksWithPsr > 0 && (
                   <div className="text-xs text-gray-400 mt-1">
-                    (+${(client.stats.tasksWithPsr * 10).toFixed(2)} PSR uchun)
+                    (+<CurrencyDisplay amount={client.stats.tasksWithPsr * 10} originalCurrency="USD" /> PSR uchun)
                   </div>
                 )}
               </>
@@ -576,17 +585,21 @@ const ClientDetail = () => {
           </div>
           <div>
             <div className="text-sm text-gray-500">Jami tushgan</div>
-            <div className="font-medium">${Number(client.stats.totalIncome).toFixed(2)}</div>
+            <CurrencyDisplay
+              amount={Number(client.stats.totalIncome)}
+              originalCurrency="USD"
+              className="font-medium"
+            />
           </div>
           <div>
             <div className="text-sm text-gray-500">Balans</div>
-            <div
+            <CurrencyDisplay
+              amount={Number(client.stats.balance)}
+              originalCurrency={client.stats.currency}
               className={`font-medium ${
                 Number(client.stats.balance) >= 0 ? 'text-green-600' : 'text-red-600'
               }`}
-            >
-              ${Number(client.stats.balance).toFixed(2)}
-            </div>
+            />
           </div>
         </div>
       </div>
@@ -820,7 +833,7 @@ const ClientDetail = () => {
                 {client.transactions.map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ${Number(t.amount).toFixed(2)} {t.currency}
+                      <CurrencyDisplay amount={Number(t.amount)} originalCurrency={t.currency as 'USD' | 'UZS'} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(t.date)}

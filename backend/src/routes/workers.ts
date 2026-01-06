@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { getWorkerPaymentReport } from '../services/worker-payment';
 
 const router = Router();
 
@@ -136,27 +137,31 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
   if (startDate) dateFilter.gte = new Date(startDate as string);
   if (endDate) dateFilter.lte = new Date(endDate as string);
 
-  // KPI stats
+  // KPI stats - use USD amounts only
   const kpiLogs = await prisma.kpiLog.findMany({
     where: {
       userId: workerId,
       createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+      currency_universal: 'USD', // Only count USD earnings
+    },
+    select: {
+      id: true,
+      amount_original: true, // USD amount
+      stageName: true,
+      createdAt: true,
     },
   });
 
-  const totalKPI = kpiLogs.reduce((sum: number, log: any) => sum + Number(log.amount), 0);
+  const totalKPI = kpiLogs.reduce((sum: number, log: any) => sum + Number(log.amount_original || 0), 0);
   const completedStages = kpiLogs.length;
 
-  // Salary transactions
-  const salaryTransactions = await prisma.transaction.findMany({
-    where: {
-      type: 'SALARY',
-      workerId: workerId,
-      date: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
-    },
+  // Get worker payment report - USD values only
+  const paymentReport = await getWorkerPaymentReport(workerId, {
+    startDate: Object.keys(dateFilter).length > 0 ? dateFilter.gte : undefined,
+    endDate: Object.keys(dateFilter).length > 0 ? dateFilter.lte : undefined,
   });
 
-  const totalSalary = salaryTransactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+  const totalSalary = Number(paymentReport.totalPaidUsd); // USD equivalent
 
   // Tasks assigned
   const tasksAssigned = await prisma.taskStage.count({
@@ -169,21 +174,26 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
 
   res.json({
     period,
-    totalKPI,
+    totalKPI, // USD
     completedStages,
-    totalSalary,
+    totalSalary, // USD equivalent
+    totalPaid: totalSalary, // USD equivalent (alias for backward compatibility)
+    totalEarned: Number(paymentReport.totalEarnedUsd), // USD
+    pending: Number(paymentReport.difference), // USD
     tasksAssigned,
     kpiLogs: kpiLogs.map((log: any) => ({
       id: log.id,
-      amount: log.amount,
+      amount: Number(log.amount_original), // USD only
       stageName: log.stageName,
       createdAt: log.createdAt,
     })),
-    salaryTransactions: salaryTransactions.map((t: any) => ({
-      id: t.id,
-      amount: t.amount,
-      date: t.date,
-      comment: t.comment,
+    payments: paymentReport.payments.map((p: any) => ({
+      id: p.id,
+      earnedAmountUsd: p.earnedAmountUsd, // USD
+      paidAmountUsd: p.paidAmountUsd, // USD equivalent
+      paidCurrency: p.paidCurrency,
+      paymentDate: p.paymentDate,
+      comment: p.comment,
     })),
   });
 });
@@ -322,7 +332,42 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
     return price;
   };
 
-  // Calculate participation count and earned amount
+  // Get KPI logs for this worker in date range (already in USD)
+  const kpiLogs = await prisma.kpiLog.findMany({
+    where: {
+      userId: workerId,
+      createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+      currency_universal: 'USD', // Only USD earnings
+    },
+    select: {
+      id: true,
+      taskId: true,
+      stageName: true,
+      amount_original: true, // USD amount
+      createdAt: true,
+    },
+  });
+
+  // Create a map of stage earnings from KpiLog (already in USD)
+  const stageEarningsMap = new Map<string, number>();
+  for (const log of kpiLogs) {
+    let normalizedStageName = log.stageName;
+    
+    // Handle different naming conventions
+    if (normalizedStageName === 'Xujjat_tekshirish' || normalizedStageName === 'Xujjat tekshirish' || normalizedStageName === 'Tekshirish') {
+      normalizedStageName = 'Tekshirish';
+    } else if (normalizedStageName === 'Xujjat_topshirish' || normalizedStageName === 'Xujjat topshirish' || normalizedStageName === 'Topshirish') {
+      normalizedStageName = 'Topshirish';
+    } else if (normalizedStageName === 'Fito' || normalizedStageName === 'FITO') {
+      normalizedStageName = 'FITO';
+    }
+    
+    const key = normalizedStageName;
+    const current = stageEarningsMap.get(key) || 0;
+    stageEarningsMap.set(key, current + Number(log.amount_original));
+  }
+
+  // Calculate participation count and earned amount from completed stages
   for (const stage of completedStages) {
     let stageName = stage.name;
     let normalizedStageName = stageName;
@@ -352,16 +397,18 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
 
     stageStats[targetStageName].participationCount += 1;
 
-    // Calculate earned amount: workerPrice * percentage / 100
-    const workerPrice = await getWorkerPrice(stage.task);
-    const percentage = STAGE_PERCENTAGES[targetStageName] || 0;
-    const earnedForThisStage = (workerPrice * percentage) / 100;
-    stageStats[targetStageName].earnedAmount += earnedForThisStage;
+    // Use earned amount from KpiLog (already in USD)
+    const earnedAmount = stageEarningsMap.get(targetStageName) || 0;
+    stageStats[targetStageName].earnedAmount = earnedAmount;
   }
 
-  // Calculate total received amount from SALARY transactions
-  // Note: SALARY transactions are not tied to specific stages, so we add them to totalReceived only
-  const totalReceivedFromSalary = salaryTransactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+  // Get worker payment report for paid amounts (USD equivalent)
+  const paymentReport = await getWorkerPaymentReport(workerId, {
+    startDate: Object.keys(dateFilter).length > 0 ? dateFilter.gte : undefined,
+    endDate: Object.keys(dateFilter).length > 0 ? dateFilter.lte : undefined,
+  });
+  
+  const totalReceivedFromSalary = Number(paymentReport.totalPaidUsd); // USD equivalent
 
   // Calculate pending amount and ensure percentage is correct
   Object.keys(stageStats).forEach(stageName => {
@@ -378,13 +425,13 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
     .filter(stats => stats.participationCount > 0)
     .sort((a, b) => b.participationCount - a.participationCount);
 
-  // Calculate totals
-  // totalReceived should be from SALARY transactions only
+  // Calculate totals - all amounts in USD
+  const totalEarned = stageStatsArray.reduce((sum, s) => sum + s.earnedAmount, 0);
   const totals = {
     totalParticipation: stageStatsArray.reduce((sum, s) => sum + s.participationCount, 0),
-    totalEarned: stageStatsArray.reduce((sum, s) => sum + s.earnedAmount, 0),
-    totalReceived: totalReceivedFromSalary, // From SALARY transactions
-    totalPending: stageStatsArray.reduce((sum, s) => sum + s.earnedAmount, 0) - totalReceivedFromSalary,
+    totalEarned, // USD
+    totalReceived: totalReceivedFromSalary, // USD equivalent from WorkerPayment
+    totalPending: totalEarned - totalReceivedFromSalary, // USD
   };
 
   res.json({

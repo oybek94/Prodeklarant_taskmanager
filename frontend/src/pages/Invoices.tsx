@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import CurrencyDisplay from '../components/CurrencyDisplay';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Invoice {
   id: number;
@@ -45,6 +47,7 @@ interface Branch {
 }
 
 const Invoices = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -421,7 +424,10 @@ const Invoices = () => {
                     {formatDate(invoice.date)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {invoice.totalAmount.toFixed(2)} {invoice.currency}
+                    <CurrencyDisplay
+                      amount={invoice.totalAmount}
+                      originalCurrency={invoice.currency}
+                    />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex gap-2">

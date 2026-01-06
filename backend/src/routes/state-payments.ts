@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
+import { Currency, ExchangeSource } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
+import { validateStatePayment } from '../services/monetary-validation';
 
 const router = Router();
 
@@ -11,7 +14,7 @@ const createStatePaymentSchema = z.object({
   psrPrice: z.number().min(0),
   workerPrice: z.number().min(0),
   customsPayment: z.number().min(0),
-  currency: z.enum(['USD', 'UZS']).optional().default('UZS'),
+  currency: z.enum(['USD', 'UZS']).optional().default('UZS'), // Schema allows both, but validation will reject USD
 });
 
 
@@ -133,6 +136,34 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 
     const { branchId, certificatePayment, psrPrice, workerPrice, customsPayment, currency } = parsed.data;
 
+    // Validate StatePayment: Currency MUST be UZS
+    const validationResult = validateStatePayment({
+      currency: currency || 'UZS',
+      exchangeRate: 1, // Always 1 for UZS
+      certificatePayment,
+      psrPrice,
+      workerPrice,
+      customsPayment,
+    });
+
+    if (!validationResult.isValid) {
+      return res.status(400).json({
+        error: 'StatePayment validation failed',
+        details: validationResult.errors,
+      });
+    }
+
+    // Force currency to UZS and exchange_rate to 1
+    const finalCurrency: Currency = 'UZS';
+    const exchangeRate = new Decimal(1);
+    const exchangeSource: ExchangeSource = 'CBU';
+
+    // Convert amounts to Decimal
+    const certPaymentDec = new Decimal(certificatePayment);
+    const psrPriceDec = new Decimal(psrPrice);
+    const workerPriceDec = new Decimal(workerPrice);
+    const customsPaymentDec = new Decimal(customsPayment);
+
     // Branch mavjudligini tekshirish
     const branch = await prisma.branch.findUnique({ where: { id: branchId } });
     if (!branch) {
@@ -140,14 +171,27 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     }
 
     // Yangi davlat to'lovini yaratish (har doim yangi yozuv)
+    // Universal monetary fields: amount_uzs = amount_original (since rate = 1)
     const statePayment = await prisma.statePayment.create({
       data: {
         branchId,
-        certificatePayment,
-        psrPrice,
-        workerPrice,
-        customsPayment,
-        currency: currency || 'UZS',
+        // Keep old fields for backward compatibility
+        certificatePayment: certPaymentDec,
+        psrPrice: psrPriceDec,
+        workerPrice: workerPriceDec,
+        customsPayment: customsPaymentDec,
+        currency: finalCurrency,
+        // Universal monetary fields (all in UZS, rate = 1)
+        certificatePayment_amount_original: certPaymentDec,
+        certificatePayment_amount_uzs: certPaymentDec,
+        psrPrice_amount_original: psrPriceDec,
+        psrPrice_amount_uzs: psrPriceDec,
+        workerPrice_amount_original: workerPriceDec,
+        workerPrice_amount_uzs: workerPriceDec,
+        customsPayment_amount_original: customsPaymentDec,
+        customsPayment_amount_uzs: customsPaymentDec,
+        exchange_rate: exchangeRate,
+        exchange_source: exchangeSource,
       },
       include: {
         branch: {

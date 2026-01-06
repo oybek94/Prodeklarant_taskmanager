@@ -25,6 +25,7 @@ import ClientDashboard from './pages/ClientDashboard';
 import Finance from './pages/Finance';
 import Invoice from './pages/Invoice';
 import Invoices from './pages/Invoices';
+import Reports from './pages/Reports';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -78,6 +79,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <Finance />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Reports />
             </ProtectedRoute>
           }
         />
@@ -191,11 +200,11 @@ const AppRoutes = () => {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
+    <AuthProvider>
+      <BrowserRouter>
         <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

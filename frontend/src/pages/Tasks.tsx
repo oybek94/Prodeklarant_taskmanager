@@ -247,6 +247,7 @@ const Tasks = () => {
   const [filters] = useState({
     status: '',
     clientId: '',
+    branchId: '', // Added to fix TypeScript error
   });
   const [showArchive, setShowArchive] = useState(false);
   const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
@@ -264,7 +265,8 @@ const Tasks = () => {
       setPage(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.status, filters.clientId, filters.branchId, showArchive]);
+  // Remove filters.branchId because it does not exist on filters; fix lint error
+  }, [filters.status, filters.clientId, showArchive]);
 
   useEffect(() => {
     loadTasks();
@@ -375,6 +377,9 @@ const Tasks = () => {
   const loadTasks = async () => {
     try {
       setLoading(true);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:376',message:'loadTasks called',data:{filters,showArchive,page},timestamp:Date.now(),sessionId:'debug-session',runId:'fix-verification',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       const params: any = {
         page: page.toString(),
         limit: limit.toString(),
@@ -388,6 +393,9 @@ const Tasks = () => {
       }
       if (filters.clientId) params.clientId = filters.clientId;
       if (filters.branchId) params.branchId = filters.branchId;
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:391',message:'params before API call',data:{params,filtersBranchId:filters.branchId},timestamp:Date.now(),sessionId:'debug-session',runId:'fix-verification',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
 
       const response = await apiClient.get('/tasks', { params });
       

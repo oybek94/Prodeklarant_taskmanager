@@ -45,37 +45,82 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     _count: true,
   });
 
-  // Worker activity (KPI logs)
-  const workerActivity = await prisma.kpiLog.groupBy({
-    by: ['userId'],
+  // Worker activity (KPI logs) - use amount_original (USD) for worker earnings display
+  const kpiLogs = await prisma.kpiLog.findMany({
     where: {
       createdAt: where.createdAt,
     },
-    _sum: { amount: true },
-    _count: true,
+    select: {
+      userId: true,
+      amount_original: true,
+      amount_uzs: true,
+    },
   });
+
+  // Group by userId
+  const workerActivity = kpiLogs.reduce((acc: any, log: any) => {
+    const userId = log.userId;
+    if (!acc[userId]) {
+      acc[userId] = { userId, totalKPI: 0, totalKPIUzs: 0, count: 0 };
+    }
+    acc[userId].totalKPI += Number(log.amount_original || log.amount || 0); // USD for worker display
+    acc[userId].totalKPIUzs += Number(log.amount_uzs || 0); // UZS for accounting
+    acc[userId].count++;
+    return acc;
+  }, {});
 
   const workerDetails = await prisma.user.findMany({
     where: { id: { in: workerActivity.map((w: any) => w.userId) } },
     select: { id: true, name: true },
   });
 
-  const workerActivityWithNames = workerActivity.map((w: any) => ({
+  const workerActivityWithNames = Object.values(workerActivity).map((w: any) => ({
     userId: w.userId,
     name: workerDetails.find((d: any) => d.id === w.userId)?.name || 'Unknown',
-    totalKPI: w._sum.amount || 0,
-    completedStages: w._count,
+    totalKPI: w.totalKPI || 0, // USD for worker display
+    totalKPIUzs: w.totalKPIUzs || 0, // UZS for accounting
+    completedStages: w.count || 0,
   }));
 
-  // Financial statistics
-  const financialStats = await prisma.transaction.groupBy({
-    by: ['type'],
+  // Financial statistics - use amount_uzs for accounting calculations
+  const financialTransactions = await prisma.transaction.findMany({
     where: {
       date: where.createdAt ? { gte: where.createdAt.gte, lte: where.createdAt.lte } : undefined,
       branchId: branchId ? parseInt(branchId as string) : undefined,
     },
-    _sum: { amount: true },
+    select: {
+      type: true,
+      amount_uzs: true,
+      amount_original: true,
+      currency_universal: true,
+      exchange_rate: true,
+      exchange_source: true,
+    },
   });
+
+  // Group by type and sum amount_uzs (accounting base currency)
+  const financialStats = financialTransactions.reduce((acc: any, tx: any) => {
+    const type = tx.type;
+    if (!acc[type]) {
+      acc[type] = { total: 0, exchangeRates: new Set<string>() };
+    }
+    acc[type].total += Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount_original || 0);
+    if (tx.exchange_rate) {
+      acc[type].exchangeRates.add(`${tx.exchange_rate}-${tx.exchange_source || 'CBU'}`);
+    }
+    return acc;
+  }, {});
+
+  // Convert to array format with exchange rate info
+  const financialStatsArray = Object.entries(financialStats).map(([type, data]: [string, any]) => ({
+    type,
+    total: data.total,
+    currency: 'UZS',
+    exchangeRatesUsed: Array.from(data.exchangeRates).map((rate: string) => {
+      const [value, source] = rate.split('-');
+      return { rate: parseFloat(value), source };
+    }),
+  }));
 
   // Payment reminders - clients with due payments
   // Get all clients with their tasks and transactions

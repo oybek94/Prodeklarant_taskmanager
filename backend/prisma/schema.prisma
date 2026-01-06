@@ -25,6 +25,7 @@ model User {
   role             Role
   position         String?
   salary           Decimal?           @db.Decimal(12, 2)
+  defaultCurrency  Currency?          // Default currency for certifiers (CERTIFICATE_WORKER role)
   branchId         Int?
   passwordHash     String
   photoUrl         String?
@@ -44,14 +45,23 @@ model User {
   archiveDocuments ArchiveDocument[]  @relation("ArchiveDocumentUploadedBy")
   lessonProgress   LessonProgress[] // AI exam system uchun
   previousYearDebts PreviousYearWorkerDebt[] @relation("PreviousYearWorkerDebt")
+  workerPayments    WorkerPayment[]          @relation("WorkerPayment")
   branch           Branch?            @relation(fields: [branchId], references: [id])
 }
 
 model Client {
   id                       Int           @id @default(autoincrement())
   name                     String
-  dealAmount               Decimal?      @db.Decimal(12, 2)
-  dealAmountCurrency       Currency?     @default(USD) // Shartnoma valyutasi
+  dealAmount               Decimal?      @db.Decimal(12, 2) // @deprecated: Use dealAmount_amount_original
+  dealAmountCurrency       Currency?     @default(USD) // @deprecated: Use dealAmount_currency
+  dealAmountExchangeRate   Decimal?      @db.Decimal(18, 6) // @deprecated: Use dealAmount_exchange_rate
+  dealAmountInUzs          Decimal?      @db.Decimal(12, 2) // @deprecated: Use dealAmount_amount_uzs
+  // Universal monetary fields
+  dealAmount_amount_original Decimal?    @db.Decimal(14, 2)
+  dealAmount_currency       Currency?    @default(USD)
+  dealAmount_exchange_rate  Decimal?     @db.Decimal(10, 4)
+  dealAmount_amount_uzs     Decimal?     @db.Decimal(16, 2)
+  dealAmount_exchange_source ExchangeSource? @default(CBU)
   phone                    String?
   passwordHash             String?
   creditType               String? // 'TASK_COUNT' yoki 'AMOUNT' - nasiya turi
@@ -89,11 +99,42 @@ model Task {
   comments                   String?
   hasPsr                     Boolean              @default(false)
   driverPhone                String?
-  snapshotDealAmount         Decimal?             @db.Decimal(12, 2) // Task yaratilgan vaqtdagi kelishuv summasi (snapshot)
-  snapshotCertificatePayment Decimal?             @db.Decimal(12, 2) // Task yaratilgan vaqtdagi sertifikat to'lovi (snapshot)
-  snapshotPsrPrice           Decimal?             @db.Decimal(12, 2) // Task yaratilgan vaqtdagi PSR narxi (snapshot)
-  snapshotWorkerPrice        Decimal?             @db.Decimal(12, 2) // Task yaratilgan vaqtdagi ishchi narxi (snapshot)
-  snapshotCustomsPayment     Decimal?             @db.Decimal(12, 2) // Task yaratilgan vaqtdagi bojxona to'lovi (snapshot)
+  snapshotDealAmount         Decimal?             @db.Decimal(12, 2) // @deprecated: Use snapshotDealAmount_amount_original
+  snapshotDealAmountExchangeRate Decimal?         @db.Decimal(18, 6) // @deprecated: Use snapshotDealAmount_exchange_rate
+  snapshotCertificatePayment Decimal?             @db.Decimal(12, 2) // @deprecated: Use snapshotCertificatePayment_amount_original
+  snapshotCertificatePaymentExchangeRate Decimal? @db.Decimal(18, 6) // @deprecated: Use snapshotCertificatePayment_exchange_rate
+  snapshotPsrPrice           Decimal?             @db.Decimal(12, 2) // @deprecated: Use snapshotPsrPrice_amount_original
+  snapshotPsrPriceExchangeRate Decimal?           @db.Decimal(18, 6) // @deprecated: Use snapshotPsrPrice_exchange_rate
+  snapshotWorkerPrice        Decimal?             @db.Decimal(12, 2) // @deprecated: Use snapshotWorkerPrice_amount_original
+  snapshotWorkerPriceExchangeRate Decimal?        @db.Decimal(18, 6) // @deprecated: Use snapshotWorkerPrice_exchange_rate
+  snapshotCustomsPayment     Decimal?             @db.Decimal(12, 2) // @deprecated: Use snapshotCustomsPayment_amount_original
+  snapshotCustomsPaymentExchangeRate Decimal?     @db.Decimal(18, 6) // @deprecated: Use snapshotCustomsPayment_exchange_rate
+  // Universal monetary fields for snapshots
+  snapshotDealAmount_amount_original Decimal?     @db.Decimal(14, 2)
+  snapshotDealAmount_currency        Currency?    @default(USD)
+  snapshotDealAmount_exchange_rate   Decimal?     @db.Decimal(10, 4)
+  snapshotDealAmount_amount_uzs      Decimal?     @db.Decimal(16, 2)
+  snapshotDealAmount_exchange_source ExchangeSource? @default(CBU)
+  snapshotCertificatePayment_amount_original Decimal? @db.Decimal(14, 2)
+  snapshotCertificatePayment_currency        Currency? @default(UZS)
+  snapshotCertificatePayment_exchange_rate   Decimal? @db.Decimal(10, 4)
+  snapshotCertificatePayment_amount_uzs      Decimal? @db.Decimal(16, 2)
+  snapshotCertificatePayment_exchange_source ExchangeSource? @default(CBU)
+  snapshotPsrPrice_amount_original Decimal?     @db.Decimal(14, 2)
+  snapshotPsrPrice_currency        Currency?    @default(UZS)
+  snapshotPsrPrice_exchange_rate   Decimal?     @db.Decimal(10, 4)
+  snapshotPsrPrice_amount_uzs      Decimal?     @db.Decimal(16, 2)
+  snapshotPsrPrice_exchange_source ExchangeSource? @default(CBU)
+  snapshotWorkerPrice_amount_original Decimal?     @db.Decimal(14, 2)
+  snapshotWorkerPrice_currency        Currency?    @default(UZS)
+  snapshotWorkerPrice_exchange_rate   Decimal?     @db.Decimal(10, 4)
+  snapshotWorkerPrice_amount_uzs      Decimal?     @db.Decimal(16, 2)
+  snapshotWorkerPrice_exchange_source ExchangeSource? @default(CBU)
+  snapshotCustomsPayment_amount_original Decimal?     @db.Decimal(14, 2)
+  snapshotCustomsPayment_currency        Currency?    @default(UZS)
+  snapshotCustomsPayment_exchange_rate   Decimal?     @db.Decimal(10, 4)
+  snapshotCustomsPayment_amount_uzs      Decimal?     @db.Decimal(16, 2)
+  snapshotCustomsPayment_exchange_source ExchangeSource? @default(CBU)
   customsPaymentMultiplier   Decimal?             @db.Decimal(5, 2) // Deklaratsiya jarayonida tanlangan BXM multiplier (0.5 dan 4 gacha)
   createdAt                  DateTime             @default(now())
   updatedAt                  DateTime             @updatedAt
@@ -137,36 +178,55 @@ model TaskStage {
 }
 
 model TaskError {
-  id        Int      @id @default(autoincrement())
-  taskId    Int
-  stageName String
-  workerId  Int
-  amount    Decimal  @db.Decimal(12, 2)
-  comment   String?
-  date      DateTime
-  createdAt DateTime @default(now())
-  task      Task     @relation(fields: [taskId], references: [id])
-  worker    User     @relation(fields: [workerId], references: [id])
+  id                Int      @id @default(autoincrement())
+  taskId            Int
+  stageName         String
+  workerId          Int
+  amount            Decimal  @db.Decimal(12, 2) // @deprecated: Use amount_original
+  currency          Currency @default(USD) // @deprecated: Use currency_universal
+  exchangeRate      Decimal? @db.Decimal(18, 6) // @deprecated: Use exchange_rate
+  convertedUzsAmount Decimal? @db.Decimal(12, 2) // @deprecated: Use amount_uzs
+  // Universal monetary fields
+  amount_original   Decimal? @db.Decimal(14, 2)
+  currency_universal Currency? @default(USD)
+  exchange_rate     Decimal? @db.Decimal(10, 4)
+  amount_uzs        Decimal? @db.Decimal(16, 2)
+  exchange_source   ExchangeSource? @default(CBU)
+  comment           String?
+  date              DateTime
+  createdAt         DateTime @default(now())
+  task              Task     @relation(fields: [taskId], references: [id])
+  worker            User     @relation(fields: [workerId], references: [id])
 }
 
 model Transaction {
-  id              Int             @id @default(autoincrement())
-  type            TransactionType
-  amount          Decimal         @db.Decimal(12, 2)
-  currency        Currency        @default(USD) // Majburiy valyuta
-  paymentMethod   PaymentMethod? // Naqt yoki karta
-  comment         String?
-  date            DateTime
-  taskId          Int?
-  clientId        Int?
-  workerId        Int?
-  expenseCategory String?
-  branchId        Int?
-  createdAt       DateTime        @default(now())
-  branch          Branch?         @relation(fields: [branchId], references: [id])
-  client          Client?         @relation("TransactionClient", fields: [clientId], references: [id])
-  task            Task?           @relation(fields: [taskId], references: [id])
-  worker          User?           @relation("TransactionWorker", fields: [workerId], references: [id])
+  id                Int             @id @default(autoincrement())
+  type              TransactionType
+  amount            Decimal         @db.Decimal(12, 2) // @deprecated: Use amount_original
+  currency          Currency        @default(USD) // @deprecated: Use currency_universal
+  originalAmount    Decimal?        @db.Decimal(12, 2) // @deprecated: Use amount_original
+  originalCurrency  Currency?       @default(USD) // @deprecated: Use currency_universal
+  exchangeRate      Decimal?        @db.Decimal(18, 6) // @deprecated: Use exchange_rate
+  convertedUzsAmount Decimal?       @db.Decimal(12, 2) // @deprecated: Use amount_uzs
+  // Universal monetary fields
+  amount_original   Decimal?        @db.Decimal(14, 2)
+  currency_universal Currency?      @default(USD)
+  exchange_rate     Decimal?        @db.Decimal(10, 4)
+  amount_uzs        Decimal?        @db.Decimal(16, 2)
+  exchange_source   ExchangeSource? @default(CBU)
+  paymentMethod     PaymentMethod? // Naqt yoki karta
+  comment           String?
+  date              DateTime
+  taskId            Int?
+  clientId          Int?
+  workerId          Int?
+  expenseCategory   String?
+  branchId          Int?
+  createdAt         DateTime        @default(now())
+  branch            Branch?         @relation(fields: [branchId], references: [id])
+  client            Client?         @relation("TransactionClient", fields: [clientId], references: [id])
+  task              Task?           @relation(fields: [taskId], references: [id])
+  worker            User?           @relation("TransactionWorker", fields: [workerId], references: [id])
 }
 
 model KpiConfig {
@@ -177,14 +237,23 @@ model KpiConfig {
 }
 
 model KpiLog {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  taskId    Int
-  stageName String
-  amount    Decimal  @db.Decimal(12, 2)
-  createdAt DateTime @default(now())
-  task      Task     @relation(fields: [taskId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  taskId            Int
+  stageName         String
+  amount            Decimal  @db.Decimal(12, 2) // @deprecated: Use amount_original
+  currency          Currency @default(USD) // @deprecated: Use currency_universal
+  exchangeRate      Decimal? @db.Decimal(18, 6) // @deprecated: Use exchange_rate
+  convertedUzsAmount Decimal? @db.Decimal(12, 2) // @deprecated: Use amount_uzs
+  // Universal monetary fields
+  amount_original   Decimal? @db.Decimal(14, 2)
+  currency_universal Currency? @default(USD)
+  exchange_rate     Decimal? @db.Decimal(10, 4)
+  amount_uzs        Decimal? @db.Decimal(16, 2)
+  exchange_source   ExchangeSource? @default(CBU)
+  createdAt         DateTime @default(now())
+  task              Task     @relation(fields: [taskId], references: [id])
+  user              User     @relation(fields: [userId], references: [id])
 }
 
 model AuditLog {
@@ -226,7 +295,18 @@ model StatePayment {
   psrPrice           Decimal  @default(0) @db.Decimal(12, 2) // PSR narxi
   workerPrice        Decimal  @default(0) @db.Decimal(12, 2) // Ishchi narxi
   customsPayment     Decimal  @default(0) @db.Decimal(12, 2) // Bojxona to'lovi
-  currency           Currency @default(UZS) // Davlat to'lovlari UZSda
+  currency           Currency @default(UZS) // Davlat to'lovlari UZSda (MUST be UZS)
+  // Universal monetary fields (currency always UZS, exchange_rate always 1)
+  certificatePayment_amount_original Decimal? @db.Decimal(14, 2)
+  certificatePayment_amount_uzs      Decimal? @db.Decimal(16, 2)
+  psrPrice_amount_original           Decimal? @db.Decimal(14, 2)
+  psrPrice_amount_uzs                Decimal? @db.Decimal(16, 2)
+  workerPrice_amount_original        Decimal? @db.Decimal(14, 2)
+  workerPrice_amount_uzs             Decimal? @db.Decimal(16, 2)
+  customsPayment_amount_original     Decimal? @db.Decimal(14, 2)
+  customsPayment_amount_uzs          Decimal? @db.Decimal(16, 2)
+  exchange_rate                      Decimal? @db.Decimal(10, 4) // Always 1 for UZS
+  exchange_source                    ExchangeSource? @default(CBU)
   createdAt          DateTime @default(now()) // Bu davlat to'lovi qachon yaratilgan (shu vaqtdan boshlab amal qiladi)
   branch             Branch   @relation(fields: [branchId], references: [id])
 
@@ -246,6 +326,10 @@ enum Role {
   MANAGER
   DEKLARANT
   CERTIFICATE_WORKER
+  WORKER
+  OPERATOR
+  ACCOUNTANT
+  OWNER
 }
 
 enum TaskStatus {
@@ -500,18 +584,22 @@ enum Currency {
   UZS
 }
 
-// Valyuta kurslari
-model CurrencyExchangeRate {
-  id           Int      @id @default(autoincrement())
-  fromCurrency Currency
-  toCurrency   Currency
-  rate         Decimal  @db.Decimal(18, 6) // Kurs (masalan, 1 USD = 12500 UZS)
-  date         DateTime @default(now()) // Kurs sanasi
-  source       String   @default("API") // MANUAL yoki API
-  createdAt    DateTime @default(now())
+enum ExchangeSource {
+  CBU
+  MANUAL
+}
 
-  @@unique([fromCurrency, toCurrency, date])
-  @@index([fromCurrency, toCurrency])
+// Valyuta kurslari
+model ExchangeRate {
+  id        Int           @id @default(autoincrement())
+  currency  Currency      @default(USD) // Always USD (converting to UZS)
+  rate      Decimal       @db.Decimal(10, 4) // Kurs (masalan, 1 USD = 12500.0000 UZS)
+  date      DateTime      @default(now()) // Kurs sanasi
+  source    ExchangeSource @default(CBU) // CBU yoki MANUAL
+  createdAt DateTime      @default(now())
+
+  @@unique([currency, date])
+  @@index([currency])
   @@index([date])
 }
 
@@ -633,15 +721,25 @@ model AccountBalance {
 }
 
 model Debt {
-  id         Int        @id @default(autoincrement())
-  debtorType DebtorType // CLIENT, WORKER, CERTIFICATE_WORKER, OTHER
-  debtorId   Int // Qarzdorning ID (clientId, userId yoki boshqa)
-  amount     Decimal    @db.Decimal(12, 2)
-  currency   Currency   @default(USD) // Majburiy valyuta
-  comment    String?
-  date       DateTime
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id                Int        @id @default(autoincrement())
+  debtorType        DebtorType // CLIENT, WORKER, CERTIFICATE_WORKER, OTHER
+  debtorId          Int // Qarzdorning ID (clientId, userId yoki boshqa)
+  amount            Decimal    @db.Decimal(12, 2) // @deprecated: Use amount_original
+  currency          Currency   @default(USD) // @deprecated: Use currency_universal
+  originalAmount    Decimal?   @db.Decimal(12, 2) // @deprecated: Use amount_original
+  originalCurrency  Currency?  @default(USD) // @deprecated: Use currency_universal
+  exchangeRate      Decimal?   @db.Decimal(18, 6) // @deprecated: Use exchange_rate
+  convertedUzsAmount Decimal?  @db.Decimal(12, 2) // @deprecated: Use amount_uzs
+  // Universal monetary fields
+  amount_original   Decimal?   @db.Decimal(14, 2)
+  currency_universal Currency? @default(USD)
+  exchange_rate     Decimal?   @db.Decimal(10, 4)
+  amount_uzs        Decimal?   @db.Decimal(16, 2)
+  exchange_source   ExchangeSource? @default(CBU)
+  comment           String?
+  date              DateTime
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   @@index([debtorType, debtorId])
   @@index([date])
@@ -649,38 +747,79 @@ model Debt {
 
 // O'tgan yil ishchilarga to'lanmagan qarzlar
 model PreviousYearWorkerDebt {
-  id            Int      @id @default(autoincrement())
-  workerId      Int      // Ishchi ID
-  totalEarned   Decimal  @db.Decimal(12, 2) // Jami ish haqi
-  totalPaid     Decimal  @db.Decimal(12, 2) // Jami to'langan
-  balance       Decimal  @db.Decimal(12, 2) // Qarz/Haqdorlik (totalEarned - totalPaid)
-  currency      Currency @default(USD)
-  year          Int      // Qaysi yil uchun (masalan: 2024)
-  comment       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  worker        User     @relation("PreviousYearWorkerDebt", fields: [workerId], references: [id])
+  id                   Int      @id @default(autoincrement())
+  workerId             Int      // Ishchi ID
+  totalEarned          Decimal  @db.Decimal(12, 2) // @deprecated: Use totalEarned_amount_original
+  totalPaid            Decimal  @db.Decimal(12, 2) // @deprecated: Use totalPaid_amount_original
+  balance              Decimal  @db.Decimal(12, 2) // @deprecated: Use balance_amount_original
+  currency             Currency @default(USD) // @deprecated: Use currency_universal
+  exchangeRate         Decimal? @db.Decimal(18, 6) // @deprecated: Use exchange_rate
+  totalEarnedInUzs     Decimal? @db.Decimal(12, 2) // @deprecated: Use totalEarned_amount_uzs
+  totalPaidInUzs       Decimal? @db.Decimal(12, 2) // @deprecated: Use totalPaid_amount_uzs
+  balanceInUzs         Decimal? @db.Decimal(12, 2) // @deprecated: Use balance_amount_uzs
+  // Universal monetary fields
+  totalEarned_amount_original Decimal? @db.Decimal(14, 2)
+  totalPaid_amount_original   Decimal? @db.Decimal(14, 2)
+  balance_amount_original     Decimal? @db.Decimal(14, 2)
+  currency_universal          Currency? @default(USD)
+  exchange_rate               Decimal? @db.Decimal(10, 4)
+  totalEarned_amount_uzs      Decimal? @db.Decimal(16, 2)
+  totalPaid_amount_uzs        Decimal? @db.Decimal(16, 2)
+  balance_amount_uzs          Decimal? @db.Decimal(16, 2)
+  exchange_source             ExchangeSource? @default(CBU)
+  year                 Int      // Qaysi yil uchun (masalan: 2024)
+  comment              String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  worker               User     @relation("PreviousYearWorkerDebt", fields: [workerId], references: [id])
 
   @@unique([workerId, year])
   @@index([workerId])
   @@index([year])
 }
 
+// Worker Payment - USD-based earnings tracking
+model WorkerPayment {
+  id                Int      @id @default(autoincrement())
+  workerId          Int
+  earnedAmountUsd   Decimal  @db.Decimal(14, 2) // Total earned in USD (from KpiLog)
+  paidCurrency      Currency @default(USD) // USD or UZS
+  exchangeRate      Decimal? @db.Decimal(10, 4) // Exchange rate at payment time (if paid in UZS)
+  paidAmountUzs     Decimal? @db.Decimal(16, 2) // Amount paid in UZS (if paid in UZS)
+  paidAmountUsd     Decimal  @db.Decimal(14, 2) // Amount paid in USD (or USD equivalent if paid in UZS)
+  paymentDate       DateTime @default(now())
+  comment           String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  worker            User     @relation("WorkerPayment", fields: [workerId], references: [id])
+
+  @@index([workerId])
+  @@index([paymentDate])
+}
+
 // Invoice modellari
 model Invoice {
-  id             Int      @id @default(autoincrement())
-  invoiceNumber  String   @unique // "49" yoki avtomatik generatsiya
-  contractNumber String? // Shartnoma raqami (masalan: "RVI-FER-291019")
-  taskId         Int      @unique // Qaysi task uchun
-  clientId       Int
-  branchId       Int
-  date           DateTime @default(now()) // Invoice sanasi
-  currency       Currency @default(USD)
-  totalAmount    Decimal  @db.Decimal(12, 2)
-  notes          String? // "Особые примечания"
-  additionalInfo Json? // Дополнительная информация (JSON formatida)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                 Int      @id @default(autoincrement())
+  invoiceNumber      String   @unique // "49" yoki avtomatik generatsiya
+  contractNumber     String? // Shartnoma raqami (masalan: "RVI-FER-291019")
+  taskId             Int      @unique // Qaysi task uchun
+  clientId           Int
+  branchId           Int
+  date               DateTime @default(now()) // Invoice sanasi
+  currency           Currency @default(USD) // @deprecated: Use currency_universal
+  totalAmount        Decimal  @db.Decimal(12, 2) // @deprecated: Use amount_original
+  exchangeRate       Decimal? @db.Decimal(18, 6) // @deprecated: Use exchange_rate
+  convertedUzsAmount Decimal? @db.Decimal(12, 2) // @deprecated: Use amount_uzs
+  // Universal monetary fields
+  amount_original    Decimal? @db.Decimal(14, 2)
+  currency_universal Currency? @default(USD)
+  exchange_rate      Decimal? @db.Decimal(10, 4)
+  amount_uzs         Decimal? @db.Decimal(16, 2)
+  exchange_source    ExchangeSource? @default(CBU)
+  notes              String? // "Особые примечания"
+  additionalInfo     Json? // Дополнительная информация (JSON formatida)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   task       Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
   client     Client    @relation(fields: [clientId], references: [id])

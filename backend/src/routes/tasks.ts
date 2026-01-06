@@ -5,8 +5,11 @@ import { AuthRequest, requireAuth } from '../middleware/auth';
 import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
 import { updateTaskStatus, calculateTaskStatus } from '../services/task-status';
-import { TaskStatus } from '@prisma/client';
+import { TaskStatus, Currency, ExchangeSource } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { ValidationService } from '../services/validation.service';
+import { getExchangeRate } from '../services/exchange-rate';
+import { calculateAmountUzs } from '../services/monetary-validation';
 import fs from 'fs/promises';
 
 const router = Router();
@@ -309,18 +312,82 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       },
     });
 
-    let snapshotDealAmount = client?.dealAmount ? Number(client.dealAmount) : null;
+    // Get full client data for currency information
+    const fullClient = await tx.client.findUnique({
+      where: { id: parsed.data.clientId },
+      select: {
+        dealAmount: true,
+        dealAmountCurrency: true,
+        dealAmountExchangeRate: true,
+        dealAmount_amount_original: true,
+        dealAmount_currency: true,
+        dealAmount_exchange_rate: true,
+        dealAmount_amount_uzs: true,
+        dealAmount_exchange_source: true,
+      },
+    });
+
+    let snapshotDealAmount = fullClient?.dealAmount ? Number(fullClient.dealAmount) : null;
+    let snapshotDealAmountExchangeRate = null;
     let snapshotCertificatePayment = null;
+    let snapshotCertificatePaymentExchangeRate = null;
     let snapshotPsrPrice = null;
+    let snapshotPsrPriceExchangeRate = null;
     let snapshotWorkerPrice = null;
+    let snapshotWorkerPriceExchangeRate = null;
     let snapshotCustomsPayment = null;
+    let snapshotCustomsPaymentExchangeRate = null;
+
+    // Capture exchange rates for deal amount and populate universal fields
+    let snapshotDealAmountAmountUzs: number | null = null;
+    let snapshotDealAmountCurrency: Currency | null = null;
+    let snapshotDealAmountExchangeRateValue: Decimal | null = null;
+    let snapshotDealAmountExchangeSource: ExchangeSource = 'CBU';
+
+    if (snapshotDealAmount && fullClient) {
+      // Use universal fields if available, fallback to old fields
+      const currency: Currency = fullClient.dealAmount_currency || fullClient.dealAmountCurrency || 'USD';
+      snapshotDealAmountCurrency = currency;
+      
+      if (currency === 'USD') {
+        if (fullClient.dealAmount_exchange_rate) {
+          snapshotDealAmountExchangeRateValue = new Decimal(fullClient.dealAmount_exchange_rate);
+          snapshotDealAmountExchangeRate = Number(snapshotDealAmountExchangeRateValue);
+        } else if (fullClient.dealAmountExchangeRate) {
+          snapshotDealAmountExchangeRateValue = new Decimal(fullClient.dealAmountExchangeRate);
+          snapshotDealAmountExchangeRate = Number(snapshotDealAmountExchangeRateValue);
+        } else {
+          try {
+            const rate = await getExchangeRate(taskCreatedAt, 'USD', 'UZS', tx);
+            snapshotDealAmountExchangeRateValue = rate;
+            snapshotDealAmountExchangeRate = Number(rate);
+          } catch (error) {
+            console.error('Failed to get exchange rate for deal amount snapshot:', error);
+            snapshotDealAmountExchangeRateValue = new Decimal(1);
+            snapshotDealAmountExchangeRate = 1;
+          }
+        }
+        snapshotDealAmountAmountUzs = Number(calculateAmountUzs(snapshotDealAmount, currency, snapshotDealAmountExchangeRateValue));
+      } else {
+        // UZS currency - exchange rate is always 1
+        snapshotDealAmountExchangeRateValue = new Decimal(1);
+        snapshotDealAmountExchangeRate = 1;
+        snapshotDealAmountAmountUzs = snapshotDealAmount;
+      }
+      snapshotDealAmountExchangeSource = fullClient.dealAmount_exchange_source || 'CBU';
+    }
 
     if (statePayment) {
       // Task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovidan foydalanamiz
+      // State payments are always in UZS (rule 5), so exchange rate is always 1
       snapshotCertificatePayment = Number(statePayment.certificatePayment) as any;
+      snapshotCertificatePaymentExchangeRate = 1;
       snapshotPsrPrice = Number(statePayment.psrPrice) as any;
+      snapshotPsrPriceExchangeRate = 1;
       snapshotWorkerPrice = Number(statePayment.workerPrice) as any;
+      snapshotWorkerPriceExchangeRate = 1;
       snapshotCustomsPayment = Number(statePayment.customsPayment) as any;
+      snapshotCustomsPaymentExchangeRate = 1;
     }
 
     // Prisma data object - faqat mavjud field'larni qo'shamiz
@@ -340,22 +407,71 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       taskData.driverPhone = parsed.data.driverPhone;
     }
     // Decimal field'lar uchun - faqat mavjud va null bo'lmagan qiymatlarni (Prisma number qabul qiladi)
-    // state-payments.ts dagi kabi to'g'ridan-to'g'ri number sifatida yuboramiz
+    // Keep old fields for backward compatibility
     if (snapshotDealAmount != null) {
       taskData.snapshotDealAmount = snapshotDealAmount;
     }
+    if (snapshotDealAmountExchangeRate != null) {
+      taskData.snapshotDealAmountExchangeRate = snapshotDealAmountExchangeRate;
+    }
     if (snapshotCertificatePayment != null) {
       taskData.snapshotCertificatePayment = snapshotCertificatePayment;
+      taskData.snapshotCertificatePaymentExchangeRate = snapshotCertificatePaymentExchangeRate;
     }
     if (snapshotPsrPrice != null) {
       taskData.snapshotPsrPrice = snapshotPsrPrice;
+      taskData.snapshotPsrPriceExchangeRate = snapshotPsrPriceExchangeRate;
     }
     if (snapshotWorkerPrice != null) {
       taskData.snapshotWorkerPrice = snapshotWorkerPrice;
+      taskData.snapshotWorkerPriceExchangeRate = snapshotWorkerPriceExchangeRate;
     }
     if (snapshotCustomsPayment != null) {
       taskData.snapshotCustomsPayment = snapshotCustomsPayment;
+      taskData.snapshotCustomsPaymentExchangeRate = snapshotCustomsPaymentExchangeRate;
     }
+    
+    // Universal monetary fields for snapshots
+    if (snapshotDealAmount != null && snapshotDealAmountCurrency && snapshotDealAmountExchangeRateValue) {
+      taskData.snapshotDealAmount_amount_original = snapshotDealAmount;
+      taskData.snapshotDealAmount_currency = snapshotDealAmountCurrency;
+      taskData.snapshotDealAmount_exchange_rate = Number(snapshotDealAmountExchangeRateValue);
+      taskData.snapshotDealAmount_amount_uzs = snapshotDealAmountAmountUzs;
+      taskData.snapshotDealAmount_exchange_source = snapshotDealAmountExchangeSource;
+    }
+    
+    if (snapshotCertificatePayment != null) {
+      taskData.snapshotCertificatePayment_amount_original = snapshotCertificatePayment;
+      taskData.snapshotCertificatePayment_currency = 'UZS';
+      taskData.snapshotCertificatePayment_exchange_rate = 1;
+      taskData.snapshotCertificatePayment_amount_uzs = snapshotCertificatePayment;
+      taskData.snapshotCertificatePayment_exchange_source = 'CBU';
+    }
+    
+    if (snapshotPsrPrice != null) {
+      taskData.snapshotPsrPrice_amount_original = snapshotPsrPrice;
+      taskData.snapshotPsrPrice_currency = 'UZS';
+      taskData.snapshotPsrPrice_exchange_rate = 1;
+      taskData.snapshotPsrPrice_amount_uzs = snapshotPsrPrice;
+      taskData.snapshotPsrPrice_exchange_source = 'CBU';
+    }
+    
+    if (snapshotWorkerPrice != null) {
+      taskData.snapshotWorkerPrice_amount_original = snapshotWorkerPrice;
+      taskData.snapshotWorkerPrice_currency = 'UZS';
+      taskData.snapshotWorkerPrice_exchange_rate = 1;
+      taskData.snapshotWorkerPrice_amount_uzs = snapshotWorkerPrice;
+      taskData.snapshotWorkerPrice_exchange_source = 'CBU';
+    }
+    
+    if (snapshotCustomsPayment != null) {
+      taskData.snapshotCustomsPayment_amount_original = snapshotCustomsPayment;
+      taskData.snapshotCustomsPayment_currency = 'UZS';
+      taskData.snapshotCustomsPayment_exchange_rate = 1;
+      taskData.snapshotCustomsPayment_amount_uzs = snapshotCustomsPayment;
+      taskData.snapshotCustomsPayment_exchange_source = 'CBU';
+    }
+    
     if (parsed.data.customsPaymentMultiplier != null) {
       taskData.customsPaymentMultiplier = parsed.data.customsPaymentMultiplier;
     }
@@ -497,21 +613,67 @@ router.get('/:id', async (req, res) => {
   if (!task) return res.status(404).json({ error: 'Not found' });
   
   // Calculate net profit: Kelishuv summasi - Filial bo'yicha davlat to'lovlari
+  // ALL CALCULATIONS MUST BE IN UZS (accounting base currency)
   // Task yaratilgan vaqtdagi snapshot'lardan foydalanamiz
   // Agar snapshot bo'sh bo'lsa, task yaratilgan vaqtdagi davlat to'lovlarini history'dan topamiz
   // Agar PSR bor bo'lsa kelishuv summasiga 10 qo'shamiz va PSR narxini hisobga olamiz
   let netProfit = null;
   try {
-    // Kelishuv summasini olish (snapshot yoki joriy qiymat)
-    const dealAmount = task.snapshotDealAmount ? Number(task.snapshotDealAmount) : Number(task.client.dealAmount || 0);
+    // Get deal amount - use amount_uzs from universal fields
+    let dealAmountInUzs: number = 0;
+    if (task.snapshotDealAmount_amount_uzs) {
+      // Use universal field if available
+      dealAmountInUzs = Number(task.snapshotDealAmount_amount_uzs);
+    } else if (task.snapshotDealAmount) {
+      // Fallback to old field - convert if needed
+      const clientDealCurrency = task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
+      if (clientDealCurrency === 'USD' && task.snapshotDealAmount_exchange_rate) {
+        // Convert USD to UZS using snapshot exchange rate
+        dealAmountInUzs = Number(task.snapshotDealAmount) * Number(task.snapshotDealAmount_exchange_rate);
+      } else if (clientDealCurrency === 'USD' && task.snapshotDealAmountExchangeRate) {
+        // Fallback to old exchange rate field
+        dealAmountInUzs = Number(task.snapshotDealAmount) * Number(task.snapshotDealAmountExchangeRate);
+      } else {
+        // Already in UZS or no exchange rate (assume UZS)
+        dealAmountInUzs = Number(task.snapshotDealAmount);
+      }
+    } else if (task.client.dealAmount_amount_uzs) {
+      // Use client's universal field
+      dealAmountInUzs = Number(task.client.dealAmount_amount_uzs);
+    } else if (task.client.dealAmount) {
+      // Fallback to old client fields
+      const clientDealCurrency = task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
+      const clientDealAmount = Number(task.client.dealAmount);
+      
+      if (clientDealCurrency === 'USD' && task.client.dealAmount_exchange_rate) {
+        // Use universal exchange rate
+        dealAmountInUzs = clientDealAmount * Number(task.client.dealAmount_exchange_rate);
+      } else if (clientDealCurrency === 'USD' && task.client.dealAmountExchangeRate) {
+        // Fallback to old exchange rate
+        dealAmountInUzs = clientDealAmount * Number(task.client.dealAmountExchangeRate);
+      } else if (clientDealCurrency === 'USD') {
+        // Need to fetch historical rate for task creation date
+        const taskCreatedAt = new Date(task.createdAt);
+        try {
+          const exchangeRate = await getExchangeRate(taskCreatedAt, 'USD', 'UZS');
+          dealAmountInUzs = clientDealAmount * Number(exchangeRate);
+        } catch (error) {
+          console.error('Failed to get historical exchange rate for deal amount:', error);
+          dealAmountInUzs = clientDealAmount; // Fallback: assume already in UZS
+        }
+      } else {
+        // Already in UZS
+        dealAmountInUzs = clientDealAmount;
+      }
+    }
     
-    // Davlat to'lovlarini olish
+    // Davlat to'lovlarini olish (always in UZS per rule 5)
     let certificatePayment: number;
     let psrPrice: number;
     let workerPrice: number;
     let customsPayment: number;
 
-    // Agar snapshot'lar mavjud bo'lsa, ulardan foydalanamiz
+    // Agar snapshot'lar mavjud bo'lsa, ulardan foydalanamiz (all in UZS)
     if (task.snapshotCertificatePayment !== null && task.snapshotCertificatePayment !== undefined) {
       certificatePayment = Number(task.snapshotCertificatePayment);
       psrPrice = Number(task.snapshotPsrPrice || 0);
@@ -531,6 +693,7 @@ router.get('/:id', async (req, res) => {
       });
 
       if (statePayment) {
+        // State payments are always in UZS (rule 5)
         certificatePayment = Number(statePayment.certificatePayment);
         psrPrice = Number(statePayment.psrPrice);
         workerPrice = Number(statePayment.workerPrice);
@@ -544,27 +707,57 @@ router.get('/:id', async (req, res) => {
       }
     }
 
-    let finalDealAmount = dealAmount;
-    
-    // Agar PSR bor bo'lsa, kelishuv summasiga 10 qo'shamiz
+    // Add PSR amount (10 USD converted to UZS if deal was in USD)
+    // Use exchange rate from snapshot universal fields
+    let psrAmountInUzs = 0;
     if (task.hasPsr) {
-      finalDealAmount += 10;
+      const clientDealCurrency = task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
+      if (clientDealCurrency === 'USD') {
+        // 10 USD - need to convert using snapshot exchange rate
+        let psrExchangeRate: Decimal = new Decimal(1);
+        if (task.snapshotDealAmount_exchange_rate) {
+          psrExchangeRate = new Decimal(task.snapshotDealAmount_exchange_rate);
+        } else if (task.snapshotDealAmountExchangeRate) {
+          psrExchangeRate = new Decimal(task.snapshotDealAmountExchangeRate);
+        } else if (task.client.dealAmount_exchange_rate) {
+          psrExchangeRate = new Decimal(task.client.dealAmount_exchange_rate);
+        } else if (task.client.dealAmountExchangeRate) {
+          psrExchangeRate = new Decimal(task.client.dealAmountExchangeRate);
+        } else {
+          // Fetch historical rate
+          const taskCreatedAt = new Date(task.createdAt);
+          try {
+            psrExchangeRate = await getExchangeRate(taskCreatedAt, 'USD', 'UZS');
+          } catch (error) {
+            console.error('Failed to get exchange rate for PSR amount:', error);
+            psrExchangeRate = new Decimal(1); // Fallback
+          }
+        }
+        psrAmountInUzs = Number(calculateAmountUzs(10, 'USD', psrExchangeRate));
+      } else {
+        // Already in UZS
+        psrAmountInUzs = 10;
+      }
     }
     
-    // Asosiy to'lovlar: Sertifikat + Ishchi + Bojxona
-    let totalPayments = certificatePayment + workerPrice + customsPayment;
+    const finalDealAmountInUzs = dealAmountInUzs + psrAmountInUzs;
     
-    // Agar PSR bor bo'lsa, PSR narxini qo'shamiz
+    // Asosiy to'lovlar: Sertifikat + Ishchi + Bojxona (all in UZS)
+    let totalPaymentsInUzs = certificatePayment + workerPrice + customsPayment;
+    
+    // Agar PSR bor bo'lsa, PSR narxini qo'shamiz (in UZS)
     if (task.hasPsr) {
-      totalPayments += psrPrice;
+      totalPaymentsInUzs += psrPrice;
     }
     
-    netProfit = (finalDealAmount - totalPayments) as any;
+    // Calculate net profit in UZS
+    netProfit = (finalDealAmountInUzs - totalPaymentsInUzs) as any;
   } catch (error) {
     console.error('Error calculating net profit:', error);
   }
   
   // Calculate admin earned amount from stages
+  // Amount must be in UZS (accounting base currency)
   let adminEarnedAmount = 0;
   try {
     const STAGE_PERCENTAGES: Record<string, number> = {
@@ -579,10 +772,15 @@ router.get('/:id', async (req, res) => {
       'Pochta': 10,
     };
     
-    // Get workerPrice from snapshot or state payment
-    let workerPrice = 0;
-    if (task.snapshotWorkerPrice !== null && task.snapshotWorkerPrice !== undefined) {
-      workerPrice = Number(task.snapshotWorkerPrice);
+    // Get workerPrice from snapshot or state payment (always in UZS per rule 5)
+    // Use amount_uzs from universal fields
+    let workerPriceInUzs = 0;
+    if (task.snapshotWorkerPrice_amount_uzs !== null && task.snapshotWorkerPrice_amount_uzs !== undefined) {
+      // Use universal field
+      workerPriceInUzs = Number(task.snapshotWorkerPrice_amount_uzs);
+    } else if (task.snapshotWorkerPrice !== null && task.snapshotWorkerPrice !== undefined) {
+      // Fallback to old field
+      workerPriceInUzs = Number(task.snapshotWorkerPrice);
     } else {
       const taskCreatedAt = new Date(task.createdAt);
       const statePayment = await prisma.statePayment.findFirst({
@@ -595,11 +793,12 @@ router.get('/:id', async (req, res) => {
         },
       });
       if (statePayment) {
-        workerPrice = Number(statePayment.workerPrice);
+        // State payments are always in UZS
+        workerPriceInUzs = Number(statePayment.workerPrice);
       }
     }
     
-    // Calculate admin earned amount from completed stages assigned to ADMIN
+    // Calculate admin earned amount from completed stages assigned to ADMIN (in UZS)
     for (const stage of task.stages) {
       if (stage.status === 'TAYYOR' && stage.assignedTo?.role === 'ADMIN') {
         let stageName = stage.name;
@@ -613,7 +812,7 @@ router.get('/:id', async (req, res) => {
         }
         
         const percentage = STAGE_PERCENTAGES[stageName] || 0;
-        const earnedForThisStage = (workerPrice * percentage) / 100;
+        const earnedForThisStage = (workerPriceInUzs * percentage) / 100;
         adminEarnedAmount += earnedForThisStage;
       }
     }
@@ -638,10 +837,35 @@ router.get('/:id', async (req, res) => {
     },
   });
   
+  // Calculate exchange rate information for profit calculation
+  let exchangeRateInfo = null;
+  if (task.snapshotDealAmount_exchange_rate) {
+    exchangeRateInfo = {
+      rate: Number(task.snapshotDealAmount_exchange_rate),
+      source: task.snapshotDealAmount_exchange_source || 'CBU',
+      date: task.createdAt,
+    };
+  }
+
+  // Generate operational view (USD equivalent)
+  let operationalProfit = null;
+  if (netProfit !== null) {
+    // For operational view, convert UZS profit to USD using current rate
+    try {
+      const currentUsdToUzsRate = await getExchangeRate(new Date(), 'USD', 'UZS');
+      operationalProfit = Number(netProfit) / Number(currentUsdToUzsRate);
+    } catch (error) {
+      console.error('Error calculating operational profit:', error);
+      operationalProfit = null;
+    }
+  }
+
   res.json({
     ...task,
-    netProfit, // Sof foyda (faqat ADMIN uchun ko'rsatiladi)
-    adminEarnedAmount, // Admin ishlab topgan pul
+    netProfit, // Sof foyda (UZS - accounting view)
+    operationalProfit, // Sof foyda (USD equivalent - operational view)
+    adminEarnedAmount, // Admin ishlab topgan pul (UZS)
+    exchangeRateInfo, // Exchange rate used for deal amount conversion
     kpiLogs: kpiLogs.map((log: any) => ({
       id: log.id,
       stageName: log.stageName,
@@ -897,7 +1121,9 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
 
     if (parsed.data.status === 'TAYYOR') {
       await computeDurations(tx, taskId);
-      await logKpiForStage(tx, taskId, upd.name, req.user?.id);
+      // Pass completedAt date for exchange rate lookup
+      const completedAtDate = now; // Stage completion time
+      await logKpiForStage(tx, taskId, upd.name, req.user?.id, completedAtDate);
     } else if (parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
       // Agar jarayonni TAYYORdan BOSHLANMAGANga o'zgartirsa, KPI log'ni o'chirish
       // Stage nomini normalize qilish (logKpiForStage bilan bir xil)

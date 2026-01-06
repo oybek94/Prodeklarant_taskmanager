@@ -10,6 +10,7 @@ import kpiRouter from './routes/kpi';
 import usersRouter from './routes/users';
 import dashboardRouter from './routes/dashboard';
 import workersRouter from './routes/workers';
+import workerPaymentsRouter from './routes/worker-payments';
 import branchesRouter from './routes/branches';
 import statePaymentsRouter from './routes/state-payments';
 import bxmRouter from './routes/bxm';
@@ -27,10 +28,12 @@ import taskStatusRouter from './routes/task-status';
 import taskDocumentsRouter from './routes/task-documents';
 import taskAiChecksRouter from './routes/task-ai-checks';
 import aiRouter from './routes/ai';
+import reportsRouter from './routes/reports';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 import OpenAIClient from './ai/openai.client';
 import path from 'path';
+import { initializeExchangeRateScheduler } from './services/exchange-rate-scheduler';
 // import { fixDatabaseRoles } from './utils/fixDatabaseRoles'; // Vaqtinchalik o'chirilgan
 
 const app = express();
@@ -97,6 +100,7 @@ app.get('/', (_req, res) => {
       users: '/api/users',
       dashboard: '/api/dashboard',
       workers: '/api/workers',
+      workerPayments: '/api/worker-payments',
       bxm: '/api/bxm',
       ai: '/api/ai',
     },
@@ -126,6 +130,7 @@ app.use('/api/kpi', requireAuth(), kpiRouter);
 app.use('/api/users', requireAuth('ADMIN'), auditLog('ACCESS', 'USER'), usersRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/workers', workersRouter);
+app.use('/api/worker-payments', workerPaymentsRouter);
 app.use('/api/branches', requireAuth(), branchesRouter);
 app.use('/api/state-payments', requireAuth('ADMIN'), statePaymentsRouter);
 app.use('/api/bxm', bxmRouter);
@@ -136,6 +141,7 @@ app.use('/api/analytics', requireAuth('ADMIN'), analyticsRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/finance', financeRouter);
+app.use('/api/reports', reportsRouter);
 app.use('/api/invoices', requireAuth(), invoicesRouter);
 app.use('/api/company-settings', companySettingsRouter);
 app.use('/api/contracts', requireAuth(), contractsRouter);
@@ -181,6 +187,9 @@ function validateEnvironment() {
 
 // Validate environment before starting server
 validateEnvironment();
+
+// Initialize exchange rate scheduler
+initializeExchangeRateScheduler();
 
 // Server'ni darhol ishga tushirish - database ulanishini kutmasdan
 app.listen(PORT, '0.0.0.0', () => {

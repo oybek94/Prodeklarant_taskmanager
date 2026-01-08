@@ -2,9 +2,11 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
-import { Prisma, Currency, ExchangeSource } from '@prisma/client';
+import { Prisma, Currency } from '@prisma/client';
+// ExchangeSource enum from Prisma schema
+type ExchangeSource = 'CBU' | 'MANUAL';
 import { Decimal } from '@prisma/client/runtime/library';
-import { upsertExchangeRate, getLatestExchangeRate, fetchAndSaveDailyRate } from '../services/exchange-rate';
+import { upsertExchangeRate, getLatestExchangeRate, fetchAndSaveDailyRate, getExchangeRate } from '../services/exchange-rate';
 import { validateExchangeRateImmutability } from '../services/monetary-validation';
 
 const router = Router();
@@ -71,7 +73,7 @@ router.get('/balance', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
           amount_uzs: true,
           date: true,
           paymentMethod: true,
-        },
+        } as any,
         orderBy: { date: 'desc' },
         take: 100, // Limit to recent 100 transactions
       });
@@ -426,7 +428,7 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
 // Valyuta kurslari
 router.get('/exchange-rates', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
   try {
-    const rates = await prisma.exchangeRate.findMany({
+    const rates = await (prisma as any).exchangeRate.findMany({
       orderBy: { date: 'desc' },
       take: 30, // Oxirgi 30 ta kurs
     });
@@ -441,18 +443,131 @@ router.get('/exchange-rates', requireAuth('ADMIN'), async (_req: AuthRequest, re
   }
 });
 
-// Kurs yangilash (API'dan) - fetches from CBU and saves
-router.post('/exchange-rates/fetch', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
+// Get exchange rate for a specific date
+router.get('/exchange-rates/for-date', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const rate = await fetchAndSaveDailyRate();
+    const { date } = req.query;
+    
+    console.log('[ExchangeRate] Request received:', { date, query: req.query });
+    
+    if (!date) {
+      console.log('[ExchangeRate] Missing date parameter');
+      return res.status(400).json({ error: 'Date parameter is required' });
+    }
+
+    let targetDate: Date;
+    try {
+      // Parse date string and normalize to UTC midnight to avoid timezone issues
+      const dateStr = date as string;
+      targetDate = new Date(dateStr + 'T00:00:00.000Z'); // Parse as UTC
+      if (isNaN(targetDate.getTime())) {
+        console.log('[ExchangeRate] Invalid date format:', date);
+        return res.status(400).json({ error: 'Invalid date format' });
+      }
+      // Ensure it's at UTC midnight
+      targetDate.setUTCHours(0, 0, 0, 0);
+      console.log('[ExchangeRate] Parsed date (UTC):', targetDate.toISOString(), 'Original:', dateStr);
+    } catch (error) {
+      console.log('[ExchangeRate] Date parsing error:', error);
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    // Get exchange rate for the specified date (or most recent before that date)
+    let rate: Decimal;
+    try {
+      console.log('[ExchangeRate] Fetching rate for date:', targetDate.toISOString());
+      rate = await getExchangeRate(targetDate, 'USD', 'UZS');
+      console.log('[ExchangeRate] Rate found:', rate.toString());
+    } catch (error: any) {
+      console.error('[ExchangeRate] Error getting exchange rate from database:', error);
+      console.error('[ExchangeRate] Error stack:', error?.stack);
+      
+      // If no rate found in database, try to fetch from CBU API directly
+      try {
+        console.log('[ExchangeRate] Trying to fetch from CBU API directly');
+        const { fetchRateFromCBU } = await import('../services/exchange-rate');
+        const cbuRate = await fetchRateFromCBU(targetDate);
+        
+        if (cbuRate) {
+          console.log('[ExchangeRate] CBU API rate found:', cbuRate.toString());
+          // Save to database for future use
+          try {
+            await upsertExchangeRate(targetDate, cbuRate, 'CBU');
+            console.log('[ExchangeRate] Rate saved to database');
+          } catch (saveError) {
+            console.error('[ExchangeRate] Error saving rate to database:', saveError);
+          }
+          
+          return res.status(200).json({
+            rate: Number(cbuRate),
+            date: targetDate.toISOString().split('T')[0],
+            currency: 'USD',
+            toCurrency: 'UZS',
+            source: 'CBU',
+            fallback: false,
+          });
+        }
+      } catch (cbuError: any) {
+        console.error('[ExchangeRate] CBU API fetch failed:', cbuError);
+      }
+      
+      // If CBU API also failed, try to get the latest rate from database as fallback
+      try {
+        console.log('[ExchangeRate] Trying to get latest rate from database as fallback');
+        const latestRate = await getLatestExchangeRate('USD', 'UZS');
+        console.log('[ExchangeRate] Latest rate found:', latestRate.toString());
+        // Return 200 with fallback flag - don't return 404 if we have a fallback rate
+        return res.status(200).json({
+          rate: Number(latestRate),
+          date: targetDate.toISOString().split('T')[0],
+          currency: 'USD',
+          toCurrency: 'UZS',
+          fallback: true,
+          message: 'Berilgan sana uchun kurs topilmadi, eng so\'nggi kurs ishlatildi',
+        });
+      } catch (fallbackError: any) {
+        console.error('[ExchangeRate] Fallback also failed:', fallbackError);
+        return res.status(404).json({ 
+          error: 'Kurs topilmadi',
+          details: error.message || 'Berilgan sana uchun valyuta kursi topilmadi va eng so\'nggi kurs ham topilmadi'
+        });
+      }
+    }
+
+    res.json({
+      rate: Number(rate),
+      date: targetDate.toISOString().split('T')[0],
+      currency: 'USD',
+      toCurrency: 'UZS',
+    });
+  } catch (error: any) {
+    console.error('[ExchangeRate] Unexpected error:', error);
+    console.error('[ExchangeRate] Error stack:', error?.stack);
+    res.status(500).json({ 
+      error: 'Kursni yuklashda xatolik yuz berdi',
+      details: error.message 
+    });
+  }
+});
+
+// Kurs yangilash (API'dan) - fetches from CBU and saves
+// Changed to requireAuth() instead of requireAuth('ADMIN') so Dashboard can fetch today's rate
+router.post('/exchange-rates/fetch', requireAuth(), async (_req: AuthRequest, res) => {
+  try {
+    // Always fetch today's rate
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    console.log('[ExchangeRate] Fetching today\'s rate from CBU API, date:', today.toISOString().split('T')[0]);
+    const rate = await fetchAndSaveDailyRate(today);
     
     res.json({ 
       message: 'Kurs muvaffaqiyatli yangilandi',
-      rate: rate.toString(),
-      date: new Date().toISOString().split('T')[0],
+      rate: Number(rate),
+      date: today.toISOString().split('T')[0],
     });
   } catch (error: any) {
-    console.error('Error fetching latest rate:', error);
+    console.error('[ExchangeRate] Error fetching latest rate:', error);
     res.status(500).json({ 
       error: 'Kursni yangilashda xatolik yuz berdi',
       details: error.message 
@@ -479,7 +594,7 @@ router.post('/exchange-rates', requireAuth('ADMIN'), async (req: AuthRequest, re
     const source = (parsed.data.source as ExchangeSource) || 'MANUAL';
 
     // Check immutability - cannot update rates for past dates
-    const existingRate = await prisma.exchangeRate.findUnique({
+    const existingRate = await (prisma as any).exchangeRate.findUnique({
       where: {
         currency_date: {
           currency: 'USD',
@@ -520,7 +635,7 @@ router.put('/exchange-rates/:id', requireAuth('ADMIN'), async (req: AuthRequest,
       return res.status(400).json({ error: parsed.error.flatten() });
     }
 
-    const existingRate = await prisma.exchangeRate.findUnique({
+    const existingRate = await (prisma as any).exchangeRate.findUnique({
       where: { id },
     });
 
@@ -540,7 +655,7 @@ router.put('/exchange-rates/:id', requireAuth('ADMIN'), async (req: AuthRequest,
     const rate = new Decimal(parsed.data.rate);
     const source = (parsed.data.source as ExchangeSource) || existingRate.source;
 
-    await prisma.exchangeRate.update({
+    await (prisma as any).exchangeRate.update({
       where: { id },
       data: {
         rate,
@@ -597,8 +712,12 @@ router.post('/convert-currency', requireAuth('ADMIN'), async (req: AuthRequest, 
       // Kursni saqlash (agar kerak bo'lsa)
       const targetDate = date || new Date();
       targetDate.setHours(0, 0, 0, 0);
-      
-      await setManualRate(fromCurrency, toCurrency, rate, targetDate);
+
+      // Kursni saqlash (correct way: use upsertExchangeRate service)
+      // Note: upsertExchangeRate only handles USD to UZS rates
+      if (fromCurrency === 'USD' && toCurrency === 'UZS') {
+        await upsertExchangeRate(targetDate, rate, 'MANUAL');
+      }
 
       // From balansni topish
       const fromBalance = await tx.accountBalance.findUnique({

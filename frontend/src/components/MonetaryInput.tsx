@@ -44,6 +44,7 @@ const MonetaryInput = ({
 }: MonetaryInputProps) => {
   const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
   const [calculatedUzs, setCalculatedUzs] = useState<string>('');
+  const [exchangeRateError, setExchangeRateError] = useState<string>('');
 
   // Calculate UZS amount preview
   useEffect(() => {
@@ -78,11 +79,14 @@ const MonetaryInput = ({
 
   // Auto-fetch exchange rate when date or currency changes
   useEffect(() => {
-    if (disabled || !date) return;
+    if (disabled || !date) {
+      console.log('[MonetaryInput] Skipping exchange rate fetch:', { disabled, date });
+      return;
+    }
 
     // If currency is fixed to UZS, set exchange rate to 1
     if (currencyRules?.fixed === 'UZS') {
-      if (onExchangeRateChange) {
+      if (onExchangeRateChange && exchangeRate !== '1') {
         onExchangeRateChange('1');
       }
       return;
@@ -93,13 +97,61 @@ const MonetaryInput = ({
       const fetchExchangeRate = async () => {
         setLoadingExchangeRate(true);
         try {
-          const response = await apiClient.get(`/finance/exchange-rates/for-date?date=${date}`);
-          if (response.data?.rate && onExchangeRateChange) {
-            onExchangeRateChange(response.data.rate);
+          console.log('[MonetaryInput] Fetching exchange rate for date:', date);
+          const response = await apiClient.get(`/finance/exchange-rates/for-date?date=${date}`).catch((error) => {
+            // Handle 404 and other errors
+            if (error.response?.status === 404) {
+              // 404 means no rate found, but might have fallback in response
+              return error.response;
+            }
+            throw error;
+          });
+          
+          console.log('[MonetaryInput] Exchange rate response:', response?.data);
+          
+          // Check if response has rate (even if status is 404, fallback might have rate)
+          if (response?.data?.rate !== undefined && response?.data?.rate !== null) {
+            const newRate = String(response.data.rate);
+            if (onExchangeRateChange) {
+              // Only update if rate has changed to prevent infinite loop
+              if (exchangeRate !== newRate) {
+                console.log('[MonetaryInput] Updating exchange rate:', { old: exchangeRate, new: newRate });
+                onExchangeRateChange(newRate);
+                setExchangeRateError(''); // Clear error on success
+              } else {
+                console.log('[MonetaryInput] Exchange rate unchanged, skipping update');
+              }
+            } else {
+              console.warn('[MonetaryInput] No callback provided');
+            }
+          } else {
+            console.warn('[MonetaryInput] No rate in response:', { 
+              hasRate: response?.data?.rate !== undefined,
+              rateValue: response?.data?.rate,
+              hasCallback: !!onExchangeRateChange,
+              responseData: response?.data
+            });
+            if (response?.status === 404) {
+              setExchangeRateError('Berilgan sana uchun valyuta kursi topilmadi. Iltimos, kursni qo\'lda kiriting.');
+            }
           }
-        } catch (error) {
-          console.error('Error fetching exchange rate:', error);
-          // Don't show error to user, just log it
+        } catch (error: any) {
+          console.error('[MonetaryInput] Error fetching exchange rate:', error);
+          console.error('[MonetaryInput] Error details:', {
+            message: error?.message,
+            response: error?.response?.data,
+            status: error?.response?.status,
+          });
+          
+          // Set error message for user
+          const errorMessage = error?.response?.data?.error || error?.response?.data?.details || error?.message || 'Kursni yuklashda xatolik yuz berdi';
+          setExchangeRateError(errorMessage);
+          
+          // If error, try to use a default rate or show error to user
+          if (error?.response?.status === 404) {
+            console.warn('[MonetaryInput] Exchange rate not found for date:', date);
+            // Don't clear the error immediately, let user see it
+          }
         } finally {
           setLoadingExchangeRate(false);
         }
@@ -107,11 +159,12 @@ const MonetaryInput = ({
       fetchExchangeRate();
     } else if (currency === 'UZS') {
       // UZS always has exchange rate of 1
-      if (onExchangeRateChange) {
+      if (onExchangeRateChange && exchangeRate !== '1') {
         onExchangeRateChange('1');
       }
     }
-  }, [date, currency, currencyRules, disabled, onExchangeRateChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, currency, currencyRules?.fixed, disabled]);
 
   // Determine if currency selector should be disabled
   const isCurrencyFixed = currencyRules?.fixed !== undefined;
@@ -206,10 +259,13 @@ const MonetaryInput = ({
             step="0.0001"
             min="0"
             value={exchangeRate}
-            onChange={(e) => onExchangeRateChange?.(e.target.value)}
+            onChange={(e) => {
+              onExchangeRateChange?.(e.target.value);
+              setExchangeRateError(''); // Clear error when user manually enters rate
+            }}
             disabled={disabled || (currencyRules?.fixed === 'UZS')}
             className={`w-full px-3 py-2 border rounded-lg ${
-              errors.exchangeRate
+              errors.exchangeRate || exchangeRateError
                 ? 'border-red-500 focus:ring-red-500'
                 : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
             } disabled:bg-gray-100 disabled:cursor-not-allowed`}
@@ -220,6 +276,11 @@ const MonetaryInput = ({
           </p>
           {errors.exchangeRate && (
             <p className="text-xs text-red-600 mt-1">{errors.exchangeRate}</p>
+          )}
+          {exchangeRateError && !errors.exchangeRate && (
+            <p className="text-xs text-yellow-600 mt-1 bg-yellow-50 p-2 rounded">
+              ⚠️ {exchangeRateError}
+            </p>
           )}
         </div>
       )}

@@ -60,10 +60,22 @@ const Workers = () => {
   const loadWorkers = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/users');
-      setWorkers(response.data.filter((w: any) => w.role === 'DEKLARANT' || w.role === 'MANAGER'));
-    } catch (error) {
+      // Use /api/workers endpoint instead of /api/users
+      const response = await apiClient.get('/workers');
+      if (Array.isArray(response.data)) {
+        // Filter to show only DEKLARANT and MANAGER roles (exclude ADMIN)
+        setWorkers(response.data.filter((w: any) => w.role === 'DEKLARANT' || w.role === 'MANAGER'));
+      } else {
+        console.error('Invalid response format:', response.data);
+        setWorkers([]);
+      }
+    } catch (error: any) {
       console.error('Error loading workers:', error);
+      setWorkers([]);
+      // Show error message to user if it's not a 403 (forbidden)
+      if (error.response?.status !== 403) {
+        console.warn('Failed to load workers:', error.response?.data || error.message);
+      }
     } finally {
       setLoading(false);
     }

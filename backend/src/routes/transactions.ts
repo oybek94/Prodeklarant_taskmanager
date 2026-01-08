@@ -62,9 +62,10 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   res.json(items);
 });
 
-router.get('/stats/monthly', async (req, res) => {
-  const { view, currency } = req.query; // 'accounting' or 'operational' (default: accounting)
-  const useAccountingView = view !== 'operational';
+router.get('/stats/monthly', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const { view, currency } = req.query; // 'accounting' or 'operational' (default: accounting)
+    const useAccountingView = view !== 'operational';
 
   const now = new Date();
   // Current month: from first day of current month to end of current month
@@ -224,6 +225,13 @@ router.get('/stats/monthly', async (req, res) => {
       },
     },
   });
+  } catch (error: any) {
+    console.error('Error fetching monthly stats:', error);
+    res.status(500).json({ 
+      error: 'Oylik statistikani yuklashda xatolik yuz berdi',
+      details: error.message 
+    });
+  }
 });
 
 // Get worker salary statistics (for ADMIN only)

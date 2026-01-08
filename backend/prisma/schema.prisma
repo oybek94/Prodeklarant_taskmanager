@@ -10,147 +10,143 @@ datasource db {
 model Branch {
   id            Int            @id @default(autoincrement())
   name          String         @unique
+  invoices      Invoice[]
+  statePayments StatePayment[]
   tasks         Task[]
   transactions  Transaction[]
   users         User[]
-  statePayments StatePayment[]
-  invoices      Invoice[]
 }
 
 model User {
-  id               Int                @id @default(autoincrement())
-  name             String
-  email            String             @unique
-  phone            String?
-  role             Role
-  position         String?
-  salary           Decimal?           @db.Decimal(12, 2)
-  defaultCurrency  Currency?          // Default currency for certifiers (CERTIFICATE_WORKER role)
-  branchId         Int?
-  passwordHash     String
-  photoUrl         String?
-  active           Boolean            @default(true)
-  createdAt        DateTime           @default(now())
-  auditLogs        AuditLog[]
-  kpiLogs          KpiLog[]
-  tasks            Task[]             @relation("TaskCreatedBy")
-  updatedTasks     Task[]             @relation("TaskUpdatedBy")
-  taskErrors       TaskError[]
-  stages           TaskStage[]        @relation("StageAssignedTo")
-  transactions     Transaction[]      @relation("TransactionWorker")
-  taskVersions     TaskVersion[]
-  trainingProgress TrainingProgress[]
-  examAttempts     ExamAttempt[]
-  taskDocuments    TaskDocument[]     @relation("DocumentUploadedBy")
-  archiveDocuments ArchiveDocument[]  @relation("ArchiveDocumentUploadedBy")
-  lessonProgress   LessonProgress[] // AI exam system uchun
+  id                Int                      @id @default(autoincrement())
+  name              String
+  email             String                   @unique
+  phone             String?
+  role              Role
+  position          String?
+  salary            Decimal?                 @db.Decimal(12, 2)
+  branchId          Int?
+  passwordHash      String
+  photoUrl          String?
+  active            Boolean                  @default(true)
+  createdAt         DateTime                 @default(now())
+  archiveDocuments  ArchiveDocument[]        @relation("ArchiveDocumentUploadedBy")
+  auditLogs         AuditLog[]
+  examAttempts      ExamAttempt[]
+  kpiLogs           KpiLog[]
+  lessonProgress    LessonProgress[]
   previousYearDebts PreviousYearWorkerDebt[] @relation("PreviousYearWorkerDebt")
+  tasks             Task[]                   @relation("TaskCreatedBy")
+  updatedTasks      Task[]                   @relation("TaskUpdatedBy")
+  taskDocuments     TaskDocument[]           @relation("DocumentUploadedBy")
+  taskErrors        TaskError[]
+  stages            TaskStage[]              @relation("StageAssignedTo")
+  taskVersions      TaskVersion[]
+  trainingProgress  TrainingProgress[]
+  transactions      Transaction[]            @relation("TransactionWorker")
+  branch            Branch?                  @relation(fields: [branchId], references: [id])
   workerPayments    WorkerPayment[]          @relation("WorkerPayment")
-  branch           Branch?            @relation(fields: [branchId], references: [id])
 }
 
 model Client {
-  id                       Int           @id @default(autoincrement())
-  name                     String
-  dealAmount               Decimal?      @db.Decimal(12, 2) // @deprecated: Use dealAmount_amount_original
-  dealAmountCurrency       Currency?     @default(USD) // @deprecated: Use dealAmount_currency
-  dealAmountExchangeRate   Decimal?      @db.Decimal(18, 6) // @deprecated: Use dealAmount_exchange_rate
-  dealAmountInUzs          Decimal?      @db.Decimal(12, 2) // @deprecated: Use dealAmount_amount_uzs
-  // Universal monetary fields
-  dealAmount_amount_original Decimal?    @db.Decimal(14, 2)
-  dealAmount_currency       Currency?    @default(USD)
-  dealAmount_exchange_rate  Decimal?     @db.Decimal(10, 4)
-  dealAmount_amount_uzs     Decimal?     @db.Decimal(16, 2)
-  dealAmount_exchange_source ExchangeSource? @default(CBU)
-  phone                    String?
-  passwordHash             String?
-  creditType               String? // 'TASK_COUNT' yoki 'AMOUNT' - nasiya turi
-  creditLimit              Decimal?      @db.Decimal(12, 2) // Nasiya limiti (ish soni yoki summa)
-  creditStartDate          DateTime? // Nasiya boshlangan sana
-  // Shartnoma ma'lumotlari (Invoice uchun)
-  contractNumber           String? // Shartnoma raqami (masalan: "RVI-FER-291019")
-  address                  String? // Адрес (Покупатель)
-  inn                      String? // ИНН
-  email                    String? // E-mail
-  bankName                 String? // Банк получателя
-  bankAddress              String? // Адрес банка
-  bankAccount              String? // Текущий счет
-  transitAccount           String? // Транзитный счет
-  bankSwift                String? // SWIFT
-  correspondentBank        String? // Наименование банка корреспондента
-  correspondentBankAccount String? // Кор счет
-  correspondentBankSwift   String? // SWIFT банка-корреспондента
-  createdAt                DateTime      @default(now())
-  updatedAt                DateTime      @updatedAt
-  tasks                    Task[]
-  transactions             Transaction[] @relation("TransactionClient")
-  invoices                 Invoice[]
-  contracts                Contract[]
+  id                         Int             @id @default(autoincrement())
+  name                       String
+  dealAmount                 Decimal?        @db.Decimal(12, 2)
+  dealAmountCurrency         Currency?       @default(USD)
+  phone                      String?
+  passwordHash               String?
+  creditType                 String?
+  creditLimit                Decimal?        @db.Decimal(12, 2)
+  creditStartDate            DateTime?
+  contractNumber             String?
+  address                    String?
+  inn                        String?
+  email                      String?
+  bankName                   String?
+  bankAddress                String?
+  bankAccount                String?
+  transitAccount             String?
+  bankSwift                  String?
+  correspondentBank          String?
+  correspondentBankAccount   String?
+  correspondentBankSwift     String?
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+  dealAmountExchangeRate     Decimal?        @db.Decimal(18, 6)
+  dealAmountInUzs            Decimal?        @db.Decimal(12, 2)
+  dealAmount_amount_original Decimal?        @db.Decimal(14, 2)
+  dealAmount_currency        Currency?
+  dealAmount_exchange_rate   Decimal?        @db.Decimal(10, 4)
+  dealAmount_amount_uzs      Decimal?        @db.Decimal(16, 2)
+  dealAmount_exchange_source ExchangeSource?
+  contracts                  Contract[]
+  invoices                   Invoice[]
+  tasks                      Task[]
+  transactions               Transaction[]   @relation("TransactionClient")
 }
 
 model Task {
-  id                         Int                  @id @default(autoincrement())
-  clientId                   Int
-  branchId                   Int
-  title                      String
-  status                     TaskStatus           @default(BOSHLANMAGAN)
-  createdById                Int
-  updatedById                Int?
-  comments                   String?
-  hasPsr                     Boolean              @default(false)
-  driverPhone                String?
-  snapshotDealAmount         Decimal?             @db.Decimal(12, 2) // @deprecated: Use snapshotDealAmount_amount_original
-  snapshotDealAmountExchangeRate Decimal?         @db.Decimal(18, 6) // @deprecated: Use snapshotDealAmount_exchange_rate
-  snapshotCertificatePayment Decimal?             @db.Decimal(12, 2) // @deprecated: Use snapshotCertificatePayment_amount_original
-  snapshotCertificatePaymentExchangeRate Decimal? @db.Decimal(18, 6) // @deprecated: Use snapshotCertificatePayment_exchange_rate
-  snapshotPsrPrice           Decimal?             @db.Decimal(12, 2) // @deprecated: Use snapshotPsrPrice_amount_original
-  snapshotPsrPriceExchangeRate Decimal?           @db.Decimal(18, 6) // @deprecated: Use snapshotPsrPrice_exchange_rate
-  snapshotWorkerPrice        Decimal?             @db.Decimal(12, 2) // @deprecated: Use snapshotWorkerPrice_amount_original
-  snapshotWorkerPriceExchangeRate Decimal?        @db.Decimal(18, 6) // @deprecated: Use snapshotWorkerPrice_exchange_rate
-  snapshotCustomsPayment     Decimal?             @db.Decimal(12, 2) // @deprecated: Use snapshotCustomsPayment_amount_original
-  snapshotCustomsPaymentExchangeRate Decimal?     @db.Decimal(18, 6) // @deprecated: Use snapshotCustomsPayment_exchange_rate
-  // Universal monetary fields for snapshots
-  snapshotDealAmount_amount_original Decimal?     @db.Decimal(14, 2)
-  snapshotDealAmount_currency        Currency?    @default(USD)
-  snapshotDealAmount_exchange_rate   Decimal?     @db.Decimal(10, 4)
-  snapshotDealAmount_amount_uzs      Decimal?     @db.Decimal(16, 2)
-  snapshotDealAmount_exchange_source ExchangeSource? @default(CBU)
-  snapshotCertificatePayment_amount_original Decimal? @db.Decimal(14, 2)
-  snapshotCertificatePayment_currency        Currency? @default(UZS)
-  snapshotCertificatePayment_exchange_rate   Decimal? @db.Decimal(10, 4)
-  snapshotCertificatePayment_amount_uzs      Decimal? @db.Decimal(16, 2)
-  snapshotCertificatePayment_exchange_source ExchangeSource? @default(CBU)
-  snapshotPsrPrice_amount_original Decimal?     @db.Decimal(14, 2)
-  snapshotPsrPrice_currency        Currency?    @default(UZS)
-  snapshotPsrPrice_exchange_rate   Decimal?     @db.Decimal(10, 4)
-  snapshotPsrPrice_amount_uzs      Decimal?     @db.Decimal(16, 2)
-  snapshotPsrPrice_exchange_source ExchangeSource? @default(CBU)
-  snapshotWorkerPrice_amount_original Decimal?     @db.Decimal(14, 2)
-  snapshotWorkerPrice_currency        Currency?    @default(UZS)
-  snapshotWorkerPrice_exchange_rate   Decimal?     @db.Decimal(10, 4)
-  snapshotWorkerPrice_amount_uzs      Decimal?     @db.Decimal(16, 2)
-  snapshotWorkerPrice_exchange_source ExchangeSource? @default(CBU)
-  snapshotCustomsPayment_amount_original Decimal?     @db.Decimal(14, 2)
-  snapshotCustomsPayment_currency        Currency?    @default(UZS)
-  snapshotCustomsPayment_exchange_rate   Decimal?     @db.Decimal(10, 4)
-  snapshotCustomsPayment_amount_uzs      Decimal?     @db.Decimal(16, 2)
-  snapshotCustomsPayment_exchange_source ExchangeSource? @default(CBU)
-  customsPaymentMultiplier   Decimal?             @db.Decimal(5, 2) // Deklaratsiya jarayonida tanlangan BXM multiplier (0.5 dan 4 gacha)
-  createdAt                  DateTime             @default(now())
-  updatedAt                  DateTime             @updatedAt
-  kpiLogs                    KpiLog[]
-  branch                     Branch               @relation(fields: [branchId], references: [id])
-  client                     Client               @relation(fields: [clientId], references: [id])
-  createdBy                  User                 @relation("TaskCreatedBy", fields: [createdById], references: [id])
-  updatedBy                  User?                @relation("TaskUpdatedBy", fields: [updatedById], references: [id])
-  errors                     TaskError[]
-  stages                     TaskStage[]
-  transactions               Transaction[]
-  versions                   TaskVersion[]
-  documents                  TaskDocument[]
-  invoice                    Invoice?
-  structuredDocuments        StructuredDocument[]
-  aiChecks                   AiCheck[]
+  id                                         Int                  @id @default(autoincrement())
+  clientId                                   Int
+  branchId                                   Int
+  title                                      String
+  status                                     TaskStatus           @default(BOSHLANMAGAN)
+  createdById                                Int
+  updatedById                                Int?
+  comments                                   String?
+  hasPsr                                     Boolean              @default(false)
+  driverPhone                                String?
+  snapshotDealAmount                         Decimal?             @db.Decimal(12, 2)
+  snapshotCertificatePayment                 Decimal?             @db.Decimal(12, 2)
+  snapshotPsrPrice                           Decimal?             @db.Decimal(12, 2)
+  snapshotWorkerPrice                        Decimal?             @db.Decimal(12, 2)
+  snapshotCustomsPayment                     Decimal?             @db.Decimal(12, 2)
+  customsPaymentMultiplier                   Decimal?             @db.Decimal(5, 2)
+  createdAt                                  DateTime             @default(now())
+  updatedAt                                  DateTime             @updatedAt
+  snapshotDealAmountExchangeRate             Decimal?             @db.Decimal(18, 6)
+  snapshotCertificatePaymentExchangeRate     Decimal?             @db.Decimal(18, 6)
+  snapshotPsrPriceExchangeRate               Decimal?             @db.Decimal(18, 6)
+  snapshotWorkerPriceExchangeRate            Decimal?             @db.Decimal(18, 6)
+  snapshotCustomsPaymentExchangeRate         Decimal?             @db.Decimal(18, 6)
+  snapshotDealAmount_amount_original         Decimal?             @db.Decimal(14, 2)
+  snapshotDealAmount_currency                Currency?
+  snapshotDealAmount_exchange_rate           Decimal?             @db.Decimal(10, 4)
+  snapshotDealAmount_amount_uzs              Decimal?             @db.Decimal(16, 2)
+  snapshotDealAmount_exchange_source         ExchangeSource?
+  snapshotCertificatePayment_amount_original Decimal?             @db.Decimal(14, 2)
+  snapshotCertificatePayment_currency        Currency?
+  snapshotCertificatePayment_exchange_rate   Decimal?             @db.Decimal(10, 4)
+  snapshotCertificatePayment_amount_uzs      Decimal?             @db.Decimal(16, 2)
+  snapshotCertificatePayment_exchange_source ExchangeSource?
+  snapshotPsrPrice_amount_original           Decimal?             @db.Decimal(14, 2)
+  snapshotPsrPrice_currency                  Currency?
+  snapshotPsrPrice_exchange_rate             Decimal?             @db.Decimal(10, 4)
+  snapshotPsrPrice_amount_uzs                Decimal?             @db.Decimal(16, 2)
+  snapshotPsrPrice_exchange_source           ExchangeSource?
+  snapshotWorkerPrice_amount_original        Decimal?             @db.Decimal(14, 2)
+  snapshotWorkerPrice_currency               Currency?
+  snapshotWorkerPrice_exchange_rate          Decimal?             @db.Decimal(10, 4)
+  snapshotWorkerPrice_amount_uzs             Decimal?             @db.Decimal(16, 2)
+  snapshotWorkerPrice_exchange_source        ExchangeSource?
+  snapshotCustomsPayment_amount_original     Decimal?             @db.Decimal(14, 2)
+  snapshotCustomsPayment_currency            Currency?
+  snapshotCustomsPayment_exchange_rate       Decimal?             @db.Decimal(10, 4)
+  snapshotCustomsPayment_amount_uzs          Decimal?             @db.Decimal(16, 2)
+  snapshotCustomsPayment_exchange_source     ExchangeSource?
+  aiChecks                                   AiCheck[]
+  invoice                                    Invoice?
+  kpiLogs                                    KpiLog[]
+  structuredDocuments                        StructuredDocument[]
+  branch                                     Branch               @relation(fields: [branchId], references: [id])
+  client                                     Client               @relation(fields: [clientId], references: [id])
+  createdBy                                  User                 @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  updatedBy                                  User?                @relation("TaskUpdatedBy", fields: [updatedById], references: [id])
+  documents                                  TaskDocument[]
+  errors                                     TaskError[]
+  stages                                     TaskStage[]
+  versions                                   TaskVersion[]
+  transactions                               Transaction[]
 
   @@index([status])
   @@index([branchId])
@@ -178,55 +174,53 @@ model TaskStage {
 }
 
 model TaskError {
-  id                Int      @id @default(autoincrement())
-  taskId            Int
-  stageName         String
-  workerId          Int
-  amount            Decimal  @db.Decimal(12, 2) // @deprecated: Use amount_original
-  currency          Currency @default(USD) // @deprecated: Use currency_universal
-  exchangeRate      Decimal? @db.Decimal(18, 6) // @deprecated: Use exchange_rate
-  convertedUzsAmount Decimal? @db.Decimal(12, 2) // @deprecated: Use amount_uzs
-  // Universal monetary fields
-  amount_original   Decimal? @db.Decimal(14, 2)
-  currency_universal Currency? @default(USD)
-  exchange_rate     Decimal? @db.Decimal(10, 4)
-  amount_uzs        Decimal? @db.Decimal(16, 2)
-  exchange_source   ExchangeSource? @default(CBU)
-  comment           String?
-  date              DateTime
-  createdAt         DateTime @default(now())
-  task              Task     @relation(fields: [taskId], references: [id])
-  worker            User     @relation(fields: [workerId], references: [id])
+  id                 Int             @id @default(autoincrement())
+  taskId             Int
+  stageName          String
+  workerId           Int
+  amount             Decimal         @db.Decimal(12, 2)
+  comment            String?
+  date               DateTime
+  createdAt          DateTime        @default(now())
+  currency           Currency?       @default(USD)
+  exchangeRate       Decimal?        @db.Decimal(18, 6)
+  convertedUzsAmount Decimal?        @db.Decimal(12, 2)
+  amount_original    Decimal?        @db.Decimal(14, 2)
+  currency_universal Currency?
+  exchange_rate      Decimal?        @db.Decimal(10, 4)
+  amount_uzs         Decimal?        @db.Decimal(16, 2)
+  exchange_source    ExchangeSource?
+  task               Task            @relation(fields: [taskId], references: [id])
+  worker             User            @relation(fields: [workerId], references: [id])
 }
 
 model Transaction {
-  id                Int             @id @default(autoincrement())
-  type              TransactionType
-  amount            Decimal         @db.Decimal(12, 2) // @deprecated: Use amount_original
-  currency          Currency        @default(USD) // @deprecated: Use currency_universal
-  originalAmount    Decimal?        @db.Decimal(12, 2) // @deprecated: Use amount_original
-  originalCurrency  Currency?       @default(USD) // @deprecated: Use currency_universal
-  exchangeRate      Decimal?        @db.Decimal(18, 6) // @deprecated: Use exchange_rate
-  convertedUzsAmount Decimal?       @db.Decimal(12, 2) // @deprecated: Use amount_uzs
-  // Universal monetary fields
-  amount_original   Decimal?        @db.Decimal(14, 2)
-  currency_universal Currency?      @default(USD)
-  exchange_rate     Decimal?        @db.Decimal(10, 4)
-  amount_uzs        Decimal?        @db.Decimal(16, 2)
-  exchange_source   ExchangeSource? @default(CBU)
-  paymentMethod     PaymentMethod? // Naqt yoki karta
-  comment           String?
-  date              DateTime
-  taskId            Int?
-  clientId          Int?
-  workerId          Int?
-  expenseCategory   String?
-  branchId          Int?
-  createdAt         DateTime        @default(now())
-  branch            Branch?         @relation(fields: [branchId], references: [id])
-  client            Client?         @relation("TransactionClient", fields: [clientId], references: [id])
-  task              Task?           @relation(fields: [taskId], references: [id])
-  worker            User?           @relation("TransactionWorker", fields: [workerId], references: [id])
+  id                 Int             @id @default(autoincrement())
+  type               TransactionType
+  amount             Decimal         @db.Decimal(12, 2)
+  currency           Currency        @default(USD)
+  paymentMethod      PaymentMethod?
+  comment            String?
+  date               DateTime
+  taskId             Int?
+  clientId           Int?
+  workerId           Int?
+  expenseCategory    String?
+  branchId           Int?
+  createdAt          DateTime        @default(now())
+  originalAmount     Decimal?        @db.Decimal(12, 2)
+  originalCurrency   Currency?
+  exchangeRate       Decimal?        @db.Decimal(18, 6)
+  convertedUzsAmount Decimal?        @db.Decimal(12, 2)
+  amount_original    Decimal?        @db.Decimal(14, 2)
+  currency_universal Currency?
+  exchange_rate      Decimal?        @db.Decimal(10, 4)
+  amount_uzs         Decimal?        @db.Decimal(16, 2)
+  exchange_source    ExchangeSource?
+  branch             Branch?         @relation(fields: [branchId], references: [id])
+  client             Client?         @relation("TransactionClient", fields: [clientId], references: [id])
+  task               Task?           @relation(fields: [taskId], references: [id])
+  worker             User?           @relation("TransactionWorker", fields: [workerId], references: [id])
 }
 
 model KpiConfig {
@@ -237,23 +231,22 @@ model KpiConfig {
 }
 
 model KpiLog {
-  id                Int      @id @default(autoincrement())
-  userId            Int
-  taskId            Int
-  stageName         String
-  amount            Decimal  @db.Decimal(12, 2) // @deprecated: Use amount_original
-  currency          Currency @default(USD) // @deprecated: Use currency_universal
-  exchangeRate      Decimal? @db.Decimal(18, 6) // @deprecated: Use exchange_rate
-  convertedUzsAmount Decimal? @db.Decimal(12, 2) // @deprecated: Use amount_uzs
-  // Universal monetary fields
-  amount_original   Decimal? @db.Decimal(14, 2)
-  currency_universal Currency? @default(USD)
-  exchange_rate     Decimal? @db.Decimal(10, 4)
-  amount_uzs        Decimal? @db.Decimal(16, 2)
-  exchange_source   ExchangeSource? @default(CBU)
-  createdAt         DateTime @default(now())
-  task              Task     @relation(fields: [taskId], references: [id])
-  user              User     @relation(fields: [userId], references: [id])
+  id                 Int             @id @default(autoincrement())
+  userId             Int
+  taskId             Int
+  stageName          String
+  amount             Decimal         @db.Decimal(12, 2)
+  createdAt          DateTime        @default(now())
+  currency           Currency?       @default(USD)
+  exchangeRate       Decimal?        @db.Decimal(18, 6)
+  convertedUzsAmount Decimal?        @db.Decimal(12, 2)
+  amount_original    Decimal?        @db.Decimal(14, 2)
+  currency_universal Currency?
+  exchange_rate      Decimal?        @db.Decimal(10, 4)
+  amount_uzs         Decimal?        @db.Decimal(16, 2)
+  exchange_source    ExchangeSource?
+  task               Task            @relation(fields: [taskId], references: [id])
+  user               User            @relation(fields: [userId], references: [id])
 }
 
 model AuditLog {
@@ -279,10 +272,10 @@ model TaskVersion {
   clientId      Int
   branchId      Int
   changedBy     Int
-  changes       Json? // O'zgarishlar haqida ma'lumot
+  changes       Json?
   createdAt     DateTime   @default(now())
-  task          Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
   changedByUser User       @relation(fields: [changedBy], references: [id])
+  task          Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, version])
   @@index([taskId])
@@ -290,24 +283,13 @@ model TaskVersion {
 
 model StatePayment {
   id                 Int      @id @default(autoincrement())
-  branchId           Int // Har bir filial uchun bir nechta davlat to'lovi bo'lishi mumkin
-  certificatePayment Decimal  @default(0) @db.Decimal(12, 2) // Sertifikat to'lovi
-  psrPrice           Decimal  @default(0) @db.Decimal(12, 2) // PSR narxi
-  workerPrice        Decimal  @default(0) @db.Decimal(12, 2) // Ishchi narxi
-  customsPayment     Decimal  @default(0) @db.Decimal(12, 2) // Bojxona to'lovi
-  currency           Currency @default(UZS) // Davlat to'lovlari UZSda (MUST be UZS)
-  // Universal monetary fields (currency always UZS, exchange_rate always 1)
-  certificatePayment_amount_original Decimal? @db.Decimal(14, 2)
-  certificatePayment_amount_uzs      Decimal? @db.Decimal(16, 2)
-  psrPrice_amount_original           Decimal? @db.Decimal(14, 2)
-  psrPrice_amount_uzs                Decimal? @db.Decimal(16, 2)
-  workerPrice_amount_original        Decimal? @db.Decimal(14, 2)
-  workerPrice_amount_uzs             Decimal? @db.Decimal(16, 2)
-  customsPayment_amount_original     Decimal? @db.Decimal(14, 2)
-  customsPayment_amount_uzs          Decimal? @db.Decimal(16, 2)
-  exchange_rate                      Decimal? @db.Decimal(10, 4) // Always 1 for UZS
-  exchange_source                    ExchangeSource? @default(CBU)
-  createdAt          DateTime @default(now()) // Bu davlat to'lovi qachon yaratilgan (shu vaqtdan boshlab amal qiladi)
+  branchId           Int
+  certificatePayment Decimal  @default(0) @db.Decimal(12, 2)
+  psrPrice           Decimal  @default(0) @db.Decimal(12, 2)
+  workerPrice        Decimal  @default(0) @db.Decimal(12, 2)
+  customsPayment     Decimal  @default(0) @db.Decimal(12, 2)
+  currency           Currency @default(UZS)
+  createdAt          DateTime @default(now())
   branch             Branch   @relation(fields: [branchId], references: [id])
 
   @@index([branchId, createdAt])
@@ -315,10 +297,521 @@ model StatePayment {
 
 model BXMConfig {
   id        Int      @id @default(autoincrement())
-  amount    Decimal  @default(34.4) @db.Decimal(12, 2) // Bazaviy Xisoblash Miqdori (BXM)
-  year      Int      @unique // Yil (har yil uchun alohida BXM)
+  amount    Decimal  @default(34.4) @db.Decimal(12, 2)
+  year      Int      @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Training {
+  id          Int                @id @default(autoincrement())
+  title       String
+  description String?
+  orderIndex  Int                @default(0)
+  active      Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  exams       Exam[]
+  materials   TrainingMaterial[]
+  progress    TrainingProgress[]
+  stages      TrainingStage[]
+}
+
+model TrainingStage {
+  id          Int            @id @default(autoincrement())
+  trainingId  Int
+  title       String
+  description String?
+  orderIndex  Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  training    Training       @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  steps       TrainingStep[]
+
+  @@index([trainingId])
+  @@index([trainingId, orderIndex])
+}
+
+model TrainingStep {
+  id          Int                @id @default(autoincrement())
+  stageId     Int
+  title       String
+  description String?
+  orderIndex  Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  isActive    Boolean            @default(true)
+  exams       Exam[]
+  progress    LessonProgress[]
+  materials   TrainingMaterial[]
+  stage       TrainingStage      @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@index([stageId])
+  @@index([stageId, orderIndex])
+}
+
+model TrainingMaterial {
+  id          Int           @id @default(autoincrement())
+  stepId      Int?
+  trainingId  Int?
+  title       String
+  content     String?
+  type        MaterialType
+  fileUrl     String?
+  orderIndex  Int           @default(0)
+  durationMin Int?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  step        TrainingStep? @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  training    Training?     @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+
+  @@index([stepId])
+  @@index([trainingId])
+}
+
+model TrainingProgress {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  trainingId      Int
+  stageId         Int?
+  stepId          Int?
+  materialId      Int?
+  completed       Boolean   @default(false)
+  progressPercent Int       @default(0)
+  lastAccessedAt  DateTime  @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  training        Training  @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trainingId])
+  @@index([userId])
+  @@index([trainingId])
+  @@index([stageId])
+  @@index([stepId])
+}
+
+model LessonProgress {
+  id               Int          @id @default(autoincrement())
+  userId           Int
+  lessonId         Int
+  status           LessonStatus @default(LOCKED)
+  lastAttemptScore Int?
+  completedAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  lesson           TrainingStep @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
+  @@index([userId, status])
+}
+
+model Exam {
+  id            Int            @id @default(autoincrement())
+  trainingId    Int?
+  title         String
+  description   String?
+  passingScore  Int            @default(80)
+  timeLimitMin  Int?
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  lessonId      Int?
+  questionCount Int?
+  lesson        TrainingStep?  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  training      Training?      @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  attempts      ExamAttempt[]
+  questions     ExamQuestion[]
+
+  @@index([trainingId])
+  @@index([lessonId])
+}
+
+model ExamQuestion {
+  id            Int          @id @default(autoincrement())
+  examId        Int
+  question      String
+  type          QuestionType @default(SINGLE_CHOICE)
+  options       Json
+  correctAnswer Json
+  points        Int          @default(1)
+  orderIndex    Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  answers       ExamAnswer[]
+  exam          Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([examId])
+}
+
+model ExamAttempt {
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  examId        Int
+  score         Int          @default(0)
+  maxScore      Int          @default(100)
+  passed        Boolean      @default(false)
+  startedAt     DateTime     @default(now())
+  completedAt   DateTime?
+  aiFeedback    Json?
+  attemptNumber Int          @default(1)
+  answers       ExamAnswer[]
+  exam          Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([examId])
+  @@index([userId, examId])
+  @@index([userId, completedAt])
+}
+
+model ExamAnswer {
+  id         Int          @id @default(autoincrement())
+  attemptId  Int
+  questionId Int
+  answer     Json
+  isCorrect  Boolean      @default(false)
+  points     Int          @default(0)
+  createdAt  DateTime     @default(now())
+  attempt    ExamAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question   ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@index([questionId])
+}
+
+model ExchangeRate {
+  id        Int            @id @default(autoincrement())
+  currency  Currency       @default(USD)
+  rate      Decimal        @db.Decimal(10, 4)
+  date      DateTime
+  source    ExchangeSource @default(CBU)
+  createdAt DateTime       @default(now())
+
+  @@unique([currency, date])
+  @@index([currency])
+  @@index([date])
+}
+
+model TaskDocument {
+  id             Int                 @id @default(autoincrement())
+  taskId         Int
+  name           String
+  fileUrl        String
+  fileType       String
+  fileSize       Int?
+  description    String?
+  documentType   DocumentType?
+  uploadedById   Int
+  createdAt      DateTime            @default(now())
+  metadata       DocumentMetadata?
+  structuredData StructuredDocument?
+  task           Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy     User                @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([taskId])
+  @@index([uploadedById])
+  @@index([documentType])
+}
+
+model DocumentMetadata {
+  id             Int          @id @default(autoincrement())
+  taskDocumentId Int          @unique
+  extractedText  String
+  pageCount      Int?
+  extractedAt    DateTime     @default(now())
+  taskDocument   TaskDocument @relation(fields: [taskDocumentId], references: [id], onDelete: Cascade)
+
+  @@index([taskDocumentId])
+}
+
+model StructuredDocument {
+  id             Int          @id @default(autoincrement())
+  taskDocumentId Int          @unique
+  taskId         Int
+  documentType   DocumentType
+  structuredData Json
+  extractedAt    DateTime     @default(now())
+  taskDocument   TaskDocument @relation(fields: [taskDocumentId], references: [id], onDelete: Cascade)
+  task           Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([taskDocumentId])
+  @@index([documentType])
+}
+
+model AiCheck {
+  id        Int           @id @default(autoincrement())
+  taskId    Int
+  checkType AiCheckType
+  result    AiCheckResult
+  details   Json
+  createdAt DateTime      @default(now())
+  task      Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([checkType])
+  @@index([result])
+  @@index([createdAt])
+}
+
+model ArchiveDocument {
+  id                     Int      @id @default(autoincrement())
+  taskId                 Int
+  taskTitle              String
+  clientName             String
+  branchName             String
+  name                   String
+  fileUrl                String
+  fileType               String
+  fileSize               Int?
+  description            String?
+  uploadedById           Int
+  archivedAt             DateTime @default(now())
+  originalTaskDocumentId Int?
+  uploadedBy             User     @relation("ArchiveDocumentUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([taskId])
+  @@index([uploadedById])
+  @@index([archivedAt])
+  @@index([clientName])
+}
+
+model AccountBalance {
+  id        Int           @id @default(autoincrement())
+  type      PaymentMethod
+  balance   Decimal       @default(0) @db.Decimal(12, 2)
+  currency  Currency      @default(USD)
+  updatedAt DateTime      @updatedAt
+  createdAt DateTime      @default(now())
+
+  @@unique([type, currency])
+  @@index([type])
+}
+
+model Debt {
+  id                 Int             @id @default(autoincrement())
+  debtorType         DebtorType
+  debtorId           Int
+  amount             Decimal         @db.Decimal(12, 2)
+  currency           Currency        @default(USD)
+  comment            String?
+  date               DateTime
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  originalAmount     Decimal?        @db.Decimal(12, 2)
+  originalCurrency   Currency?
+  exchangeRate       Decimal?        @db.Decimal(18, 6)
+  convertedUzsAmount Decimal?        @db.Decimal(12, 2)
+  amount_original    Decimal?        @db.Decimal(14, 2)
+  currency_universal Currency?
+  exchange_rate      Decimal?        @db.Decimal(10, 4)
+  amount_uzs         Decimal?        @db.Decimal(16, 2)
+  exchange_source    ExchangeSource?
+
+  @@index([debtorType, debtorId])
+  @@index([date])
+}
+
+model PreviousYearWorkerDebt {
+  id                          Int             @id @default(autoincrement())
+  workerId                    Int
+  totalEarned                 Decimal         @db.Decimal(12, 2)
+  totalPaid                   Decimal         @db.Decimal(12, 2)
+  balance                     Decimal         @db.Decimal(12, 2)
+  currency                    Currency        @default(USD)
+  year                        Int
+  comment                     String?
+  createdAt                   DateTime        @default(now())
+  updatedAt                   DateTime        @updatedAt
+  exchangeRate                Decimal?        @db.Decimal(18, 6)
+  totalEarnedInUzs            Decimal?        @db.Decimal(12, 2)
+  totalPaidInUzs              Decimal?        @db.Decimal(12, 2)
+  balanceInUzs                Decimal?        @db.Decimal(12, 2)
+  totalEarned_amount_original Decimal?        @db.Decimal(14, 2)
+  totalPaid_amount_original   Decimal?        @db.Decimal(14, 2)
+  balance_amount_original     Decimal?        @db.Decimal(14, 2)
+  currency_universal          Currency?
+  exchange_rate               Decimal?        @db.Decimal(10, 4)
+  totalEarned_amount_uzs      Decimal?        @db.Decimal(16, 2)
+  totalPaid_amount_uzs        Decimal?        @db.Decimal(16, 2)
+  balance_amount_uzs          Decimal?        @db.Decimal(16, 2)
+  exchange_source             ExchangeSource?
+  worker                      User            @relation("PreviousYearWorkerDebt", fields: [workerId], references: [id])
+
+  @@unique([workerId, year])
+  @@index([workerId])
+  @@index([year])
+}
+
+model WorkerPayment {
+  id              Int      @id @default(autoincrement())
+  workerId        Int
+  earnedAmountUsd Decimal  @db.Decimal(14, 2)
+  paidCurrency    Currency @default(USD)
+  exchangeRate    Decimal? @db.Decimal(10, 4)
+  paidAmountUzs   Decimal? @db.Decimal(16, 2)
+  paidAmountUsd   Decimal  @db.Decimal(14, 2)
+  paymentDate     DateTime @default(now())
+  comment         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  worker          User     @relation("WorkerPayment", fields: [workerId], references: [id])
+
+  @@index([workerId])
+  @@index([paymentDate])
+}
+
+model Invoice {
+  id                 Int             @id @default(autoincrement())
+  invoiceNumber      String          @unique
+  contractNumber     String?
+  taskId             Int             @unique
+  clientId           Int
+  branchId           Int
+  date               DateTime        @default(now())
+  currency           Currency        @default(USD)
+  totalAmount        Decimal         @db.Decimal(12, 2)
+  notes              String?
+  additionalInfo     Json?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  contractId         Int?
+  exchangeRate       Decimal?        @db.Decimal(18, 6)
+  convertedUzsAmount Decimal?        @db.Decimal(12, 2)
+  amount_original    Decimal?        @db.Decimal(14, 2)
+  currency_universal Currency?
+  exchange_rate      Decimal?        @db.Decimal(10, 4)
+  amount_uzs         Decimal?        @db.Decimal(16, 2)
+  exchange_source    ExchangeSource?
+  branch             Branch          @relation(fields: [branchId], references: [id])
+  client             Client          @relation(fields: [clientId], references: [id])
+  contract           Contract?       @relation(fields: [contractId], references: [id])
+  task               Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  items              InvoiceItem[]
+
+  @@index([clientId])
+  @@index([taskId])
+  @@index([invoiceNumber])
+  @@index([contractId])
+}
+
+model InvoiceItem {
+  id          Int      @id @default(autoincrement())
+  invoiceId   Int
+  tnvedCode   String?
+  pluCode     String?
+  name        String
+  packageType String?
+  unit        String
+  quantity    Decimal  @db.Decimal(12, 2)
+  grossWeight Decimal? @db.Decimal(12, 2)
+  netWeight   Decimal? @db.Decimal(12, 2)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  totalPrice  Decimal  @db.Decimal(12, 2)
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, orderIndex])
+}
+
+model Contract {
+  id                             Int       @id @default(autoincrement())
+  clientId                       Int
+  contractNumber                 String
+  contractDate                   DateTime
+  sellerName                     String
+  sellerLegalAddress             String
+  sellerDetails                  String?
+  sellerInn                      String?
+  sellerOgrn                     String?
+  sellerBankName                 String?
+  sellerBankAddress              String?
+  sellerBankAccount              String?
+  sellerBankSwift                String?
+  sellerCorrespondentBank        String?
+  sellerCorrespondentBankAccount String?
+  sellerCorrespondentBankSwift   String?
+  buyerName                      String
+  buyerAddress                   String
+  buyerDetails                   String?
+  buyerInn                       String?
+  buyerOgrn                      String?
+  buyerBankName                  String?
+  buyerBankAddress               String?
+  buyerBankAccount               String?
+  buyerBankSwift                 String?
+  buyerCorrespondentBank         String?
+  buyerCorrespondentBankAccount  String?
+  buyerCorrespondentBankSwift    String?
+  shipperName                    String?
+  shipperAddress                 String?
+  shipperDetails                 String?
+  shipperInn                     String?
+  shipperOgrn                    String?
+  shipperBankName                String?
+  shipperBankAddress             String?
+  shipperBankAccount             String?
+  shipperBankSwift               String?
+  consigneeName                  String?
+  consigneeAddress               String?
+  consigneeDetails               String?
+  consigneeInn                   String?
+  consigneeOgrn                  String?
+  consigneeBankName              String?
+  consigneeBankAddress           String?
+  consigneeBankAccount           String?
+  consigneeBankSwift             String?
+  deliveryTerms                  String?
+  paymentMethod                  String?
+  gln                            String?
+  supplierDirector               String?
+  goodsReleasedBy                String?
+  createdAt                      DateTime  @default(now())
+  updatedAt                      DateTime  @updatedAt
+  client                         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  invoices                       Invoice[]
+
+  @@index([clientId])
+  @@index([contractNumber])
+}
+
+model CompanySettings {
+  id                       Int      @id @unique @default(autoincrement())
+  name                     String
+  legalAddress             String
+  actualAddress            String
+  inn                      String?
+  phone                    String?
+  email                    String?
+  bankName                 String?
+  bankAddress              String?
+  bankAccount              String?
+  swiftCode                String?
+  correspondentBank        String?
+  correspondentBankAddress String?
+  correspondentBankSwift   String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model CurrencyExchangeRate {
+  id           Int      @id @default(autoincrement())
+  fromCurrency Currency
+  toCurrency   Currency
+  rate         Decimal  @db.Decimal(18, 6)
+  date         DateTime @default(now())
+  source       String   @default("API")
+  createdAt    DateTime @default(now())
+
+  @@unique([fromCurrency, toCurrency, date])
+  @@index([date])
+  @@index([fromCurrency, toCurrency])
 }
 
 enum Role {
@@ -326,10 +819,6 @@ enum Role {
   MANAGER
   DEKLARANT
   CERTIFICATE_WORKER
-  WORKER
-  OPERATOR
-  ACCOUNTANT
-  OWNER
 }
 
 enum TaskStatus {
@@ -369,194 +858,6 @@ enum DebtorType {
   OTHER
 }
 
-// O'qitish tizimi modellari
-model Training {
-  id          Int                @id @default(autoincrement())
-  title       String
-  description String?
-  orderIndex  Int                @default(0) // Tartib raqami
-  active      Boolean            @default(true)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  stages      TrainingStage[]
-  progress    TrainingProgress[]
-  exams       Exam[]
-  // Eski materiallar (backward compatibility)
-  materials   TrainingMaterial[]
-}
-
-// Bosqichlar (masalan: "1. KOMPANIYA BILAN TANISHUV")
-model TrainingStage {
-  id          Int            @id @default(autoincrement())
-  trainingId  Int
-  title       String // "1. KOMPANIYA BILAN TANISHUV"
-  description String?
-  orderIndex  Int            @default(0) // Tartib raqami
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  training    Training       @relation(fields: [trainingId], references: [id], onDelete: Cascade)
-  steps       TrainingStep[]
-
-  @@index([trainingId])
-  @@index([trainingId, orderIndex])
-}
-
-// Qadamlar (masalan: "1. KOMPANIYA HAQIDA QISQACHA", "2. BIZ UCHUN ENG MUHIM TAMOYILLAR")
-// Bu model Lesson sifatida ham ishlatiladi (AI exam system uchun)
-model TrainingStep {
-  id          Int                @id @default(autoincrement())
-  stageId     Int
-  title       String // "1. KOMPANIYA HAQIDA QISQACHA"
-  description String?
-  orderIndex  Int                @default(0) // Tartib raqami
-  isActive    Boolean            @default(true) // Lesson faol yoki yo'q
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  stage       TrainingStage      @relation(fields: [stageId], references: [id], onDelete: Cascade)
-  materials   TrainingMaterial[]
-  exams       Exam[] // AI exam system uchun
-  progress    LessonProgress[] // AI exam system uchun
-
-  @@index([stageId])
-  @@index([stageId, orderIndex])
-}
-
-// Materiallar (har bir qadam ichida)
-model TrainingMaterial {
-  id          Int           @id @default(autoincrement())
-  stepId      Int? // Yangi: qadamga bog'langan
-  trainingId  Int? // Eski: backward compatibility
-  title       String
-  content     String? // Matn kontenti
-  type        MaterialType
-  fileUrl     String? // Audio yoki Video fayl URL
-  orderIndex  Int           @default(0) // Tartib raqami
-  durationMin Int? // Video/Audio davomiyligi (daqiqa)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  step        TrainingStep? @relation(fields: [stepId], references: [id], onDelete: Cascade)
-  training    Training?     @relation(fields: [trainingId], references: [id], onDelete: Cascade)
-
-  @@index([stepId])
-  @@index([trainingId])
-}
-
-model TrainingProgress {
-  id              Int       @id @default(autoincrement())
-  userId          Int
-  trainingId      Int
-  stageId         Int? // Qaysi bosqichni o'qigan
-  stepId          Int? // Qaysi qadamni o'qigan (lesson)
-  materialId      Int? // Qaysi materialni o'qigan (backward compatibility)
-  completed       Boolean   @default(false)
-  progressPercent Int       @default(0) // 0-100%
-  lastAccessedAt  DateTime  @default(now())
-  completedAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  training        Training  @relation(fields: [trainingId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, trainingId])
-  @@index([userId])
-  @@index([trainingId])
-  @@index([stageId])
-  @@index([stepId])
-}
-
-// Lesson progress model (AI exam system uchun)
-model LessonProgress {
-  id               Int          @id @default(autoincrement())
-  userId           Int
-  lessonId         Int // TrainingStep ID
-  status           LessonStatus @default(LOCKED)
-  lastAttemptScore Int? // Oxirgi exam urinishidagi ball (0-100)
-  completedAt      DateTime?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lesson           TrainingStep @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, lessonId])
-  @@index([userId])
-  @@index([lessonId])
-  @@index([userId, status])
-}
-
-model Exam {
-  id            Int            @id @default(autoincrement())
-  trainingId    Int? // Eski: backward compatibility
-  lessonId      Int? // Yangi: lesson (TrainingStep) ga bog'langan
-  title         String
-  description   String?
-  passingScore  Int            @default(80) // O'tish balli (foiz) - default 80
-  timeLimitMin  Int? // Vaqt cheklovi (daqiqa)
-  questionCount Int? // Savollar soni (AI tomonidan generatsiya qilinganda)
-  active        Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  training      Training?      @relation(fields: [trainingId], references: [id], onDelete: Cascade)
-  lesson        TrainingStep?  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  questions     ExamQuestion[]
-  attempts      ExamAttempt[]
-
-  @@index([trainingId])
-  @@index([lessonId])
-}
-
-model ExamQuestion {
-  id            Int          @id @default(autoincrement())
-  examId        Int
-  question      String
-  type          QuestionType @default(SINGLE_CHOICE)
-  options       Json // Variantlar: ["A", "B", "C", "D"]
-  correctAnswer Json // To'g'ri javob
-  points        Int          @default(1) // Ball
-  orderIndex    Int          @default(0)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  exam          Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
-  answers       ExamAnswer[]
-
-  @@index([examId])
-}
-
-model ExamAttempt {
-  id            Int          @id @default(autoincrement())
-  userId        Int
-  examId        Int
-  attemptNumber Int          @default(1) // Urinish raqami
-  score         Int          @default(0) // Olingan ball (0-100)
-  maxScore      Int          @default(100) // Maksimal ball
-  passed        Boolean      @default(false)
-  aiFeedback    Json? // AI tomonidan generatsiya qilingan feedback (strengths, weaknesses, recommendation)
-  startedAt     DateTime     @default(now())
-  completedAt   DateTime?
-  answers       ExamAnswer[]
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  exam          Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([examId])
-  @@index([userId, examId])
-  @@index([userId, completedAt])
-}
-
-model ExamAnswer {
-  id         Int          @id @default(autoincrement())
-  attemptId  Int
-  questionId Int
-  answer     Json // Foydalanuvchi javobi
-  isCorrect  Boolean      @default(false)
-  points     Int          @default(0)
-  createdAt  DateTime     @default(now())
-  attempt    ExamAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  question   ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
-
-  @@index([attemptId])
-  @@index([questionId])
-}
-
 enum MaterialType {
   TEXT
   AUDIO
@@ -565,9 +866,9 @@ enum MaterialType {
 }
 
 enum QuestionType {
-  SINGLE_CHOICE // Bitta javob tanlash
-  MULTIPLE_CHOICE // Bir nechta javob tanlash
-  TEXT // Matnli javob
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TEXT
 }
 
 enum LessonStatus {
@@ -589,86 +890,6 @@ enum ExchangeSource {
   MANUAL
 }
 
-// Valyuta kurslari
-model ExchangeRate {
-  id        Int           @id @default(autoincrement())
-  currency  Currency      @default(USD) // Always USD (converting to UZS)
-  rate      Decimal       @db.Decimal(10, 4) // Kurs (masalan, 1 USD = 12500.0000 UZS)
-  date      DateTime      @default(now()) // Kurs sanasi
-  source    ExchangeSource @default(CBU) // CBU yoki MANUAL
-  createdAt DateTime      @default(now())
-
-  @@unique([currency, date])
-  @@index([currency])
-  @@index([date])
-}
-
-// Hujjatlar aylanmasi
-model TaskDocument {
-  id             Int                 @id @default(autoincrement())
-  taskId         Int
-  name           String // Hujjat nomi
-  fileUrl        String // Fayl URL
-  fileType       String // Fayl turi (image, video, audio, document, pdf, etc.)
-  fileSize       Int? // Fayl hajmi (bytes)
-  description    String? // Hujjat tavsifi
-  documentType   DocumentType? // AI validation uchun: INVOICE, ST, FITO, OTHER
-  uploadedById   Int // Kim yuklagan
-  createdAt      DateTime            @default(now())
-  task           Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  uploadedBy     User                @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
-  metadata       DocumentMetadata?
-  structuredData StructuredDocument?
-
-  @@index([taskId])
-  @@index([uploadedById])
-  @@index([documentType])
-}
-
-// PDF metadata va extracted text
-model DocumentMetadata {
-  id             Int          @id @default(autoincrement())
-  taskDocumentId Int          @unique
-  extractedText  String       @db.Text // PDF'dan extract qilingan to'liq text
-  pageCount      Int?
-  extractedAt    DateTime     @default(now())
-  taskDocument   TaskDocument @relation(fields: [taskDocumentId], references: [id], onDelete: Cascade)
-
-  @@index([taskDocumentId])
-}
-
-// AI tomonidan strukturizatsiya qilingan ma'lumotlar
-model StructuredDocument {
-  id             Int          @id @default(autoincrement())
-  taskDocumentId Int          @unique
-  taskId         Int
-  documentType   DocumentType
-  structuredData Json // AI tomonidan strukturizatsiya qilingan JSON
-  extractedAt    DateTime     @default(now())
-  task           Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskDocument   TaskDocument @relation(fields: [taskDocumentId], references: [id], onDelete: Cascade)
-
-  @@index([taskId])
-  @@index([taskDocumentId])
-  @@index([documentType])
-}
-
-// AI tekshiruv natijalari
-model AiCheck {
-  id        Int           @id @default(autoincrement())
-  taskId    Int
-  checkType AiCheckType
-  result    AiCheckResult
-  details   Json // AI findings va comparison results
-  createdAt DateTime      @default(now())
-  task      Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@index([taskId])
-  @@index([checkType])
-  @@index([result])
-  @@index([createdAt])
-}
-
 enum DocumentType {
   INVOICE
   ST
@@ -683,271 +904,4 @@ enum AiCheckType {
 enum AiCheckResult {
   PASS
   FAIL
-}
-
-model ArchiveDocument {
-  id                     Int      @id @default(autoincrement())
-  taskId                 Int // Yakunlangan task ID
-  taskTitle              String // Task nomi (snapshot)
-  clientName             String // Client nomi (snapshot)
-  branchName             String // Filial nomi (snapshot)
-  name                   String // Hujjat nomi
-  fileUrl                String // Fayl URL
-  fileType               String // Fayl turi
-  fileSize               Int? // Fayl hajmi (bytes)
-  description            String? // Hujjat tavsifi
-  uploadedById           Int // Kim yuklagan
-  archivedAt             DateTime @default(now()) // Qachon arxivga ko'chirilgan
-  originalTaskDocumentId Int? // Original TaskDocument ID (reference)
-  uploadedBy             User     @relation("ArchiveDocumentUploadedBy", fields: [uploadedById], references: [id])
-
-  @@index([taskId])
-  @@index([uploadedById])
-  @@index([archivedAt])
-  @@index([clientName])
-}
-
-// Pul nazorati modellari
-model AccountBalance {
-  id        Int           @id @default(autoincrement())
-  type      PaymentMethod // CASH yoki CARD
-  balance   Decimal       @default(0) @db.Decimal(12, 2)
-  currency  Currency      @default(USD)
-  updatedAt DateTime      @updatedAt
-  createdAt DateTime      @default(now())
-
-  @@unique([type, currency])
-  @@index([type])
-}
-
-model Debt {
-  id                Int        @id @default(autoincrement())
-  debtorType        DebtorType // CLIENT, WORKER, CERTIFICATE_WORKER, OTHER
-  debtorId          Int // Qarzdorning ID (clientId, userId yoki boshqa)
-  amount            Decimal    @db.Decimal(12, 2) // @deprecated: Use amount_original
-  currency          Currency   @default(USD) // @deprecated: Use currency_universal
-  originalAmount    Decimal?   @db.Decimal(12, 2) // @deprecated: Use amount_original
-  originalCurrency  Currency?  @default(USD) // @deprecated: Use currency_universal
-  exchangeRate      Decimal?   @db.Decimal(18, 6) // @deprecated: Use exchange_rate
-  convertedUzsAmount Decimal?  @db.Decimal(12, 2) // @deprecated: Use amount_uzs
-  // Universal monetary fields
-  amount_original   Decimal?   @db.Decimal(14, 2)
-  currency_universal Currency? @default(USD)
-  exchange_rate     Decimal?   @db.Decimal(10, 4)
-  amount_uzs        Decimal?   @db.Decimal(16, 2)
-  exchange_source   ExchangeSource? @default(CBU)
-  comment           String?
-  date              DateTime
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-
-  @@index([debtorType, debtorId])
-  @@index([date])
-}
-
-// O'tgan yil ishchilarga to'lanmagan qarzlar
-model PreviousYearWorkerDebt {
-  id                   Int      @id @default(autoincrement())
-  workerId             Int      // Ishchi ID
-  totalEarned          Decimal  @db.Decimal(12, 2) // @deprecated: Use totalEarned_amount_original
-  totalPaid            Decimal  @db.Decimal(12, 2) // @deprecated: Use totalPaid_amount_original
-  balance              Decimal  @db.Decimal(12, 2) // @deprecated: Use balance_amount_original
-  currency             Currency @default(USD) // @deprecated: Use currency_universal
-  exchangeRate         Decimal? @db.Decimal(18, 6) // @deprecated: Use exchange_rate
-  totalEarnedInUzs     Decimal? @db.Decimal(12, 2) // @deprecated: Use totalEarned_amount_uzs
-  totalPaidInUzs       Decimal? @db.Decimal(12, 2) // @deprecated: Use totalPaid_amount_uzs
-  balanceInUzs         Decimal? @db.Decimal(12, 2) // @deprecated: Use balance_amount_uzs
-  // Universal monetary fields
-  totalEarned_amount_original Decimal? @db.Decimal(14, 2)
-  totalPaid_amount_original   Decimal? @db.Decimal(14, 2)
-  balance_amount_original     Decimal? @db.Decimal(14, 2)
-  currency_universal          Currency? @default(USD)
-  exchange_rate               Decimal? @db.Decimal(10, 4)
-  totalEarned_amount_uzs      Decimal? @db.Decimal(16, 2)
-  totalPaid_amount_uzs        Decimal? @db.Decimal(16, 2)
-  balance_amount_uzs          Decimal? @db.Decimal(16, 2)
-  exchange_source             ExchangeSource? @default(CBU)
-  year                 Int      // Qaysi yil uchun (masalan: 2024)
-  comment              String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  worker               User     @relation("PreviousYearWorkerDebt", fields: [workerId], references: [id])
-
-  @@unique([workerId, year])
-  @@index([workerId])
-  @@index([year])
-}
-
-// Worker Payment - USD-based earnings tracking
-model WorkerPayment {
-  id                Int      @id @default(autoincrement())
-  workerId          Int
-  earnedAmountUsd   Decimal  @db.Decimal(14, 2) // Total earned in USD (from KpiLog)
-  paidCurrency      Currency @default(USD) // USD or UZS
-  exchangeRate      Decimal? @db.Decimal(10, 4) // Exchange rate at payment time (if paid in UZS)
-  paidAmountUzs     Decimal? @db.Decimal(16, 2) // Amount paid in UZS (if paid in UZS)
-  paidAmountUsd     Decimal  @db.Decimal(14, 2) // Amount paid in USD (or USD equivalent if paid in UZS)
-  paymentDate       DateTime @default(now())
-  comment           String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  worker            User     @relation("WorkerPayment", fields: [workerId], references: [id])
-
-  @@index([workerId])
-  @@index([paymentDate])
-}
-
-// Invoice modellari
-model Invoice {
-  id                 Int      @id @default(autoincrement())
-  invoiceNumber      String   @unique // "49" yoki avtomatik generatsiya
-  contractNumber     String? // Shartnoma raqami (masalan: "RVI-FER-291019")
-  taskId             Int      @unique // Qaysi task uchun
-  clientId           Int
-  branchId           Int
-  date               DateTime @default(now()) // Invoice sanasi
-  currency           Currency @default(USD) // @deprecated: Use currency_universal
-  totalAmount        Decimal  @db.Decimal(12, 2) // @deprecated: Use amount_original
-  exchangeRate       Decimal? @db.Decimal(18, 6) // @deprecated: Use exchange_rate
-  convertedUzsAmount Decimal? @db.Decimal(12, 2) // @deprecated: Use amount_uzs
-  // Universal monetary fields
-  amount_original    Decimal? @db.Decimal(14, 2)
-  currency_universal Currency? @default(USD)
-  exchange_rate      Decimal? @db.Decimal(10, 4)
-  amount_uzs         Decimal? @db.Decimal(16, 2)
-  exchange_source    ExchangeSource? @default(CBU)
-  notes              String? // "Особые примечания"
-  additionalInfo     Json? // Дополнительная информация (JSON formatida)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  task       Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  client     Client    @relation(fields: [clientId], references: [id])
-  branch     Branch    @relation(fields: [branchId], references: [id])
-  contractId Int?
-  contract   Contract? @relation(fields: [contractId], references: [id])
-
-  items InvoiceItem[]
-
-  @@index([clientId])
-  @@index([taskId])
-  @@index([invoiceNumber])
-  @@index([contractId])
-}
-
-model InvoiceItem {
-  id          Int      @id @default(autoincrement())
-  invoiceId   Int
-  tnvedCode   String? // Код ТН ВЭД
-  pluCode     String? // Код PLU
-  name        String // Наименование товара
-  packageType String? // Вид упаковки
-  unit        String // Ед. изм. (кг, шт, etc.)
-  quantity    Decimal  @db.Decimal(12, 2) // Мест
-  grossWeight Decimal? @db.Decimal(12, 2) // Брутто (кг)
-  netWeight   Decimal? @db.Decimal(12, 2) // Нетто (кг)
-  unitPrice   Decimal  @db.Decimal(12, 2) // Цена за ед.изм.
-  totalPrice  Decimal  @db.Decimal(12, 2) // Сумма с НДС
-  orderIndex  Int      @default(0) // Tartib raqami
-  createdAt   DateTime @default(now())
-
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  @@index([invoiceId, orderIndex])
-}
-
-// Shartnoma modellari
-model Contract {
-  id             Int      @id @default(autoincrement())
-  clientId       Int
-  contractNumber String
-  contractDate   DateTime
-
-  // Sotuvchi ma'lumotlari
-  sellerName                     String
-  sellerLegalAddress             String
-  sellerDetails                  String? // To'g'ridan-to'g'ri textarea ma'lumotlari (INN, OGRN, bank va boshqa rekvizitlar)
-  sellerInn                      String?
-  sellerOgrn                     String?
-  sellerBankName                 String?
-  sellerBankAddress              String?
-  sellerBankAccount              String?
-  sellerBankSwift                String?
-  sellerCorrespondentBank        String?
-  sellerCorrespondentBankAccount String?
-  sellerCorrespondentBankSwift   String?
-
-  // Sotib oluvchi ma'lumotlari
-  buyerName                     String
-  buyerAddress                  String
-  buyerDetails                  String? // To'g'ridan-to'g'ri textarea ma'lumotlari (INN, OGRN, bank va boshqa rekvizitlar)
-  buyerInn                      String?
-  buyerOgrn                     String?
-  buyerBankName                 String?
-  buyerBankAddress              String?
-  buyerBankAccount              String?
-  buyerBankSwift                String?
-  buyerCorrespondentBank        String?
-  buyerCorrespondentBankAccount String?
-  buyerCorrespondentBankSwift   String?
-
-  // Yuk jo'natuvchi (ixtiyoriy)
-  shipperName        String?
-  shipperAddress     String?
-  shipperDetails     String? // To'g'ridan-to'g'ri textarea ma'lumotlari (INN, OGRN, bank va boshqa rekvizitlar)
-  shipperInn         String?
-  shipperOgrn        String?
-  shipperBankName    String?
-  shipperBankAddress String?
-  shipperBankAccount String?
-  shipperBankSwift   String?
-
-  // Yuk qabul qiluvchi (ixtiyoriy)
-  consigneeName        String?
-  consigneeAddress     String?
-  consigneeDetails     String? // To'g'ridan-to'g'ri textarea ma'lumotlari (INN, OGRN, bank va boshqa rekvizitlar)
-  consigneeInn         String?
-  consigneeOgrn        String?
-  consigneeBankName    String?
-  consigneeBankAddress String?
-  consigneeBankAccount String?
-  consigneeBankSwift   String?
-
-  // Qo'shimcha ma'lumotlar
-  deliveryTerms    String? // Yetkazib berish sharti
-  paymentMethod    String? // To'lov usuli
-  gln              String? // Глобальный идентификационный номер GS1 (GLN)
-  supplierDirector String? // Руководитель Поставщика
-  goodsReleasedBy  String? // Товар отпустил
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  invoices Invoice[]
-
-  @@index([clientId])
-  @@index([contractNumber])
-}
-
-// Kompaniya sozlamalari (Invoice uchun)
-model CompanySettings {
-  id                       Int      @id @default(autoincrement())
-  name                     String // "ООО "FERGANA EXIM AGRO""
-  legalAddress             String // Юридический адрес
-  actualAddress            String // Фактический адрес
-  inn                      String? // ИНН
-  phone                    String?
-  email                    String?
-  bankName                 String? // Банк nomi
-  bankAddress              String? // Адрес банка
-  bankAccount              String? // Номер счета
-  swiftCode                String? // SWIFT
-  correspondentBank        String? // Банк-корреспондент
-  correspondentBankAddress String? // Адрес банка-корреспондента
-  correspondentBankSwift   String? // SWIFT банка-корреспондента
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-
-  @@unique([id]) // Faqat bitta sozlama bo'lishi kerak
 }

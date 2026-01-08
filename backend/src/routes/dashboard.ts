@@ -5,8 +5,9 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 const router = Router();
 
 router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
-  const { startDate, endDate, branchId, workerId } = req.query;
-  const where: any = {};
+  try {
+    const { startDate, endDate, branchId, workerId } = req.query;
+    const where: any = {};
   if (startDate || endDate) {
     where.createdAt = {};
     if (startDate) where.createdAt.gte = new Date(startDate as string);
@@ -212,15 +213,22 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     })
     .filter((reminder) => reminder !== null);
 
-  res.json({
-    newTasks,
-    completedTasks,
-    tasksByStatus: tasksByStatus.map((t: any) => ({ status: t.status, count: t._count })),
-    processStats: processStats.map((p: any) => ({ status: p.status, count: p._count })),
-    workerActivity: workerActivityWithNames,
-    financialStats: financialStats.map((f: any) => ({ type: f.type, total: f._sum.amount || 0 })),
-    paymentReminders,
-  });
+    res.json({
+      newTasks,
+      completedTasks,
+      tasksByStatus: tasksByStatus.map((t: any) => ({ status: t.status, count: t._count })),
+      processStats: processStats.map((p: any) => ({ status: p.status, count: p._count })),
+      workerActivity: workerActivityWithNames,
+      financialStats: financialStatsArray,
+      paymentReminders,
+    });
+  } catch (error: any) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ 
+      error: 'Dashboard statistikalarini yuklashda xatolik yuz berdi',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
 });
 
 // Charts data

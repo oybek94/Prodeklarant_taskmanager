@@ -150,7 +150,7 @@ const Finance = () => {
       currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(amount).replace(/,/g, ' ');
   };
 
   const handleUpdateBalance = async () => {
@@ -536,7 +536,7 @@ const Finance = () => {
                     <p className="text-lg font-bold text-gray-900">
                       {balance.currency === 'USD' 
                         ? formatCurrency(balance.balance)
-                        : new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'UZS', minimumFractionDigits: 0 }).format(balance.balance)
+                        : new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'UZS', minimumFractionDigits: 0 }).format(balance.balance).replace(/,/g, ' ')
                       }
                     </p>
                     <button

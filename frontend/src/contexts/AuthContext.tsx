@@ -37,9 +37,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Check if user is already logged in on mount
   useEffect(() => {
     const checkAuth = async () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:39',message:'checkAuth started',data:{hasAccessToken:!!localStorage.getItem('accessToken'),hasRefreshToken:!!localStorage.getItem('refreshToken')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       const accessToken = localStorage.getItem('accessToken');
       const refreshToken = localStorage.getItem('refreshToken');
       
@@ -49,14 +46,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const role = accessToken ? getRoleFromToken(accessToken) : null;
           const endpoint = role === 'CLIENT' ? '/auth/client/me' : '/auth/me';
           
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:50',message:'Before API call',data:{endpoint,role,startTime:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-          // #endregion
           // Avval access token bilan urinib ko'ramiz
           const response = await apiClient.get(endpoint);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:52',message:'API call succeeded',data:{endpoint,status:response.status,elapsed:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-          // #endregion
           const userData = response.data;
           
           // For CLIENT, add role from token since backend doesn't return it
@@ -66,9 +57,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           setUser(userData);
         } catch (error: any) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:59',message:'API call failed',data:{errorCode:error.code,errorMessage:error.message,status:error.response?.status,isTimeout:error.code==='ECONNABORTED'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-          // #endregion
           // Timeout yoki network xatolik bo'lsa, darhol user null qilamiz
           if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
             console.error('Timeout/Network error in checkAuth:', error.message);
@@ -81,9 +69,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Agar access token eskirgan bo'lsa, refresh token bilan yangilashga harakat qilamiz
           if (refreshToken && error.response?.status === 401) {
             try {
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:63',message:'Attempting refresh',data:{refreshStartTime:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-              // #endregion
               const refreshResponse = await axios.post(
                 `${import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')}/auth/refresh`,
                 { refreshToken }
@@ -129,18 +114,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:107',message:'Login started',data:{hasEmail:!!email,loginStartTime:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     try {
       // Email bo'sh bo'lsa, undefined yuboramiz
       const response = await apiClient.post('/auth/login', { 
         ...(email && email.trim() !== '' ? { email } : {}),
         password 
       });
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:114',message:'Login succeeded',data:{status:response.status,elapsed:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       const { accessToken, refreshToken, user: userData } = response.data;
 
       localStorage.setItem('accessToken', accessToken);

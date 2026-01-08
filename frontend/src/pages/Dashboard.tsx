@@ -77,12 +77,90 @@ const Dashboard = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
 
   useEffect(() => {
     loadStats();
     loadChartData();
     loadRecentTasks();
+    loadExchangeRate();
   }, [period]);
+
+  const loadExchangeRate = async () => {
+    try {
+      setLoadingExchangeRate(true);
+      // Always use today's date - get current date in local timezone
+      // Use UTC to avoid timezone issues
+      const now = new Date();
+      const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const todayStr = todayUTC.toISOString().split('T')[0];
+      
+      console.log('[Dashboard] Fetching exchange rate for today:', todayStr, 'Current time:', now.toISOString(), 'UTC date:', todayUTC.toISOString());
+      
+      // First, try to fetch from CBU API directly for today (this will get the latest rate)
+      try {
+        console.log('[Dashboard] Fetching latest rate from CBU API...');
+        const fetchResponse = await apiClient.post('/finance/exchange-rates/fetch');
+        if (fetchResponse.data?.rate) {
+          const rate = parseFloat(fetchResponse.data.rate);
+          console.log('[Dashboard] Fetched latest rate from CBU:', rate);
+          setExchangeRate(rate);
+          return;
+        }
+      } catch (fetchError: any) {
+        console.log('[Dashboard] Could not fetch from CBU API:', fetchError?.response?.data || fetchError?.message);
+      }
+      
+      // If CBU fetch failed, try to get from database with today's date
+      console.log('[Dashboard] Trying to get rate from database for date:', todayStr);
+      const response = await apiClient.get(`/finance/exchange-rates/for-date?date=${todayStr}`).catch((error) => {
+        // Handle 404 and other errors
+        if (error.response?.status === 404) {
+          // 404 means no rate found, but might have fallback in response
+          return error.response;
+        }
+        throw error;
+      });
+      
+      console.log('[Dashboard] Exchange rate response:', response?.data);
+      
+      if (response?.data?.rate !== undefined && response?.data?.rate !== null) {
+        const rate = parseFloat(response.data.rate);
+        
+        // If it's a fallback (yesterday's rate), try to fetch today's rate from CBU again
+        if (response.data.fallback) {
+          console.log('[Dashboard] Rate is fallback, trying to fetch today\'s rate from CBU again...');
+          // Try to fetch from CBU API endpoint
+          try {
+            const fetchResponse = await apiClient.post('/finance/exchange-rates/fetch');
+            if (fetchResponse.data?.rate) {
+              const newRate = parseFloat(fetchResponse.data.rate);
+              console.log('[Dashboard] Fetched today\'s rate from CBU:', newRate);
+              setExchangeRate(newRate);
+              return;
+            }
+          } catch (fetchError) {
+            console.log('[Dashboard] Could not fetch from CBU API, using fallback rate');
+          }
+        }
+        
+        setExchangeRate(rate);
+        console.log('[Dashboard] Exchange rate loaded:', rate, 'fallback:', response.data.fallback, 'date:', response.data.date);
+      } else {
+        console.warn('[Dashboard] No rate in response:', response?.data);
+      }
+    } catch (error: any) {
+      console.error('[Dashboard] Error loading exchange rate:', error);
+      console.error('[Dashboard] Error details:', {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+      });
+    } finally {
+      setLoadingExchangeRate(false);
+    }
+  };
 
   const loadStats = async () => {
     try {
@@ -243,7 +321,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-7xl mx-auto px-0 py-0">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {/* Task Completed */}
@@ -567,6 +645,71 @@ const Dashboard = () => {
                 </div>
               </div>
             )}
+
+            {/* Exchange Rate Card */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-sm border-2 border-green-200 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Valyuta kursi</h2>
+                  <p className="text-xs text-gray-500">Bugungi kurs</p>
+                </div>
+              </div>
+              {loadingExchangeRate ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                </div>
+              ) : exchangeRate ? (
+                <div className="space-y-3">
+                  <div className="bg-white rounded-lg p-4 border border-green-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold text-gray-900">USD</span>
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+                        <span className="text-2xl font-bold text-gray-900">UZS</span>
+                      </div>
+                    </div>
+                    <div className="text-3xl font-bold text-green-600">
+                      {new Intl.NumberFormat('uz-UZ', {
+                        style: 'decimal',
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }).format(exchangeRate).replace(/,/g, ' ')}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {new Date().toLocaleDateString('uz-UZ', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-600 bg-white rounded-lg p-2 border border-green-100">
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Markaziy Bank kursi</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 text-sm mb-2">Kurs yuklanmadi</div>
+                  <button
+                    onClick={loadExchangeRate}
+                    className="text-xs text-green-600 hover:text-green-700 underline"
+                  >
+                    Qayta yuklash
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Messages */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">

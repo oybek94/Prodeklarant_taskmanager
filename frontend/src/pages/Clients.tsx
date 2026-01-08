@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import MonetaryInput from '../components/MonetaryInput';
+import CurrencyDisplay from '../components/CurrencyDisplay';
 
 interface Client {
   id: number;

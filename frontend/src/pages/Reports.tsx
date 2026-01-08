@@ -130,7 +130,7 @@ const Reports = () => {
       currency: currency === 'USD' ? 'USD' : 'UZS',
       minimumFractionDigits: 0,
       maximumFractionDigits: currency === 'USD' ? 2 : 0,
-    }).format(amount);
+    }).format(amount).replace(/,/g, ' ');
   };
 
   const formatDate = (dateString: string) => {

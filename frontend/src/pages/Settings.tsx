@@ -216,7 +216,7 @@ const Settings = () => {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
-    }).format(amount);
+    }).format(amount).replace(/,/g, ' ');
   };
 
   const formatDate = (dateString: string) => {

@@ -1,3 +1,10 @@
+-- Create ExchangeSource enum if it doesn't exist
+DO $$ BEGIN
+    CREATE TYPE "ExchangeSource" AS ENUM ('CBU', 'MANUAL');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 -- AlterTable
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "defaultCurrency" "Currency";
 

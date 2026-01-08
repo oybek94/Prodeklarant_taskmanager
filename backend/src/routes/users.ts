@@ -9,6 +9,7 @@ const router = Router();
 // Only admin can access
 router.get('/', requireAuth('ADMIN'), async (req, res) => {
   try {
+    console.log('[Users] Fetching users...');
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -22,14 +23,54 @@ router.get('/', requireAuth('ADMIN'), async (req, res) => {
         defaultCurrency: true,
         active: true,
         createdAt: true,
-        branch: { select: { id: true, name: true } },
+        branch: { 
+          select: { 
+            id: true, 
+            name: true 
+          } 
+        },
+      },
+      orderBy: {
+        name: 'asc',
       },
     });
-    res.json(users);
+    
+    console.log(`[Users] Found ${users.length} users`);
+    
+    // Format users to ensure branch is null if branchId is null
+    const formattedUsers = users.map((user: any) => {
+      try {
+        return {
+          ...user,
+          branch: user.branchId ? user.branch : null,
+          salary: user.salary ? Number(user.salary) : null,
+          defaultCurrency: user.defaultCurrency || null,
+        };
+      } catch (err) {
+        console.error('Error formatting user:', user.id, err);
+        return {
+          ...user,
+          branch: null,
+          salary: user.salary ? Number(user.salary) : null,
+          defaultCurrency: user.defaultCurrency || null,
+        };
+      }
+    });
+    
+    console.log(`[Users] Returning ${formattedUsers.length} formatted users`);
+    res.json(formattedUsers);
   } catch (error: any) {
-    console.error('Error fetching users:', error);
+    console.error('[Users] Error fetching users:', error);
+    console.error('[Users] Error details:', {
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack,
+    });
     res.status(500).json({ 
-      error: error.message || 'Xatolik yuz berdi. Iltimos, database migration bajarilganligini tekshiring.' 
+      error: error.message || 'Xatolik yuz berdi. Iltimos, database migration bajarilganligini tekshiring.',
+      details: error instanceof Error ? error.stack : String(error),
+      code: error.code || 'UNKNOWN_ERROR',
     });
   }
 });

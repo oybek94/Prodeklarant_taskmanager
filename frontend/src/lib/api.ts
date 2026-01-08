@@ -16,9 +16,6 @@ const apiClient = axios.create({
 // Request interceptor: Add access token to headers
 apiClient.interceptors.request.use(
   (config) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:18',message:'Request interceptor',data:{url:config.url,method:config.method,hasToken:!!localStorage.getItem('accessToken'),requestStartTime:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     const accessToken = localStorage.getItem('accessToken');
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`;
@@ -48,15 +45,9 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
 
 apiClient.interceptors.response.use(
   (response) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:47',message:'Response success',data:{url:response.config.url,status:response.status,elapsed:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     return response;
   },
   async (error: AxiosError) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:48',message:'Response error',data:{errorCode:error.code,errorMessage:error.message,status:error.response?.status,url:error.config?.url,isTimeout:error.code==='ECONNABORTED',isNetworkError:error.code==='ERR_NETWORK'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     // Timeout error handling
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       const errorMsg = 'Backend serverga javob bermayapti. Iltimos, backend server ishlayotganini tekshiring (http://localhost:3001).';
@@ -119,15 +110,9 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:90',message:'Refresh token request',data:{refreshStartTime:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refreshToken,
         });
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:93',message:'Refresh token success',data:{status:response.status,elapsed:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         const { accessToken, refreshToken: newRefreshToken } = response.data;
 
         localStorage.setItem('accessToken', accessToken);

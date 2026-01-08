@@ -48,6 +48,7 @@ interface User {
 }
 
 interface MonthlyStats {
+  currency?: string;
   income: { current: number; change: number };
   expense: { current: number; change: number };
   net: { current: number; change: number };
@@ -143,9 +144,16 @@ const Transactions = () => {
   const loadMonthlyStats = async () => {
     try {
       const response = await apiClient.get('/transactions/stats/monthly');
-      setMonthlyStats(response.data);
+      // Backend returns { accounting: { income, expense, net }, ... }
+      // Frontend expects { income, expense, net }
+      if (response.data?.accounting) {
+        setMonthlyStats(response.data.accounting);
+      } else {
+        setMonthlyStats(response.data);
+      }
     } catch (error) {
       console.error('Error loading monthly stats:', error);
+      setMonthlyStats(null);
     }
   };
 
@@ -241,18 +249,23 @@ const Transactions = () => {
 
   const loadWorkers = async () => {
     try {
-      if (user?.role === 'ADMIN') {
-        const response = await apiClient.get('/users');
-        setWorkers(Array.isArray(response.data) 
-          ? response.data.filter((u: any) => u.role === 'DEKLARANT' || u.role === 'ADMIN' || u.role === 'MANAGER')
-          : []);
+      // Use /api/workers endpoint instead of /api/users
+      const response = await apiClient.get('/workers');
+      if (Array.isArray(response.data)) {
+        // Filter to show only DEKLARANT, ADMIN, and MANAGER roles
+        setWorkers(response.data.filter((u: any) => u.role === 'DEKLARANT' || u.role === 'ADMIN' || u.role === 'MANAGER'));
       } else {
-        // Admin bo'lmagan foydalanuvchilar uchun bo'sh array
+        console.error('Invalid response format:', response.data);
         setWorkers([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading workers:', error);
+      // If error, set empty array to prevent crashes
       setWorkers([]);
+      // Only show error if it's not a 403 (forbidden) - user might not have permission
+      if (error.response?.status !== 403) {
+        console.warn('Failed to load workers, continuing with empty list');
+      }
     }
   };
 
@@ -405,13 +418,28 @@ const Transactions = () => {
     return new Date(dateString).toLocaleDateString('uz-UZ');
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('uz-UZ', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+  const formatCurrency = (amount: number, currency: string = 'UZS') => {
+    if (currency === 'UZS') {
+      // UZS (sum) uchun: 6 016 640 sum formatida (sum kichik shriftda)
+      const formatted = new Intl.NumberFormat('uz-UZ', {
+        style: 'decimal',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount).replace(/,/g, ' ');
+      return (
+        <>
+          {formatted} <small className="text-sm opacity-75">sum</small>
+        </>
+      );
+    } else {
+      // USD uchun
+      return new Intl.NumberFormat('uz-UZ', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount).replace(/,/g, ' ');
+    }
   };
 
   const formatChange = (change: number) => {
@@ -492,104 +520,87 @@ const Transactions = () => {
       </div>
 
       {/* Monthly Stats Cards */}
-      {user?.role === 'ADMIN' && monthlyStats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      {user?.role === 'ADMIN' && monthlyStats && monthlyStats.income && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {/* Income Card */}
-          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
-            {/* Decorative pattern */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-            
-            <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
-                monthlyStats.income.change >= 0
+          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-lg p-4 relative border border-blue-400 overflow-hidden">
+            <div className="absolute top-2 right-2">
+              <div className={`px-2 py-0.5 rounded text-xs font-medium ${
+                monthlyStats.income?.change >= 0
                   ? 'bg-green-100 text-green-800'
                   : 'bg-red-100 text-red-800'
               }`}>
                 <span className="inline-flex items-center">
-                  <span className="mr-1">{monthlyStats.income.change >= 0 ? '↑' : '↓'}</span>
-                  {formatChange(monthlyStats.income.change)}
+                  <span className="mr-1">{monthlyStats.income?.change >= 0 ? '↑' : '↓'}</span>
+                  {formatChange(monthlyStats.income?.change || 0)}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-3 mb-3 relative z-10">
-              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
+              <div className="text-sm text-blue-100 font-medium">Oylik Kirim</div>
             </div>
-            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">
-              {formatCurrency(monthlyStats.income.current)}
+            <div className="text-2xl font-bold text-white drop-shadow-lg">
+              {formatCurrency(monthlyStats.income?.current || 0, monthlyStats.currency || 'UZS')}
             </div>
-            <div className="text-sm text-blue-100 relative z-10 font-medium mb-2">Oylik Kirim</div>
-            <div className="text-xs text-blue-200 relative z-10">Oxirgi oy bilan solishtirganda</div>
           </div>
 
           {/* Expense Card */}
-          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
-            {/* Decorative pattern */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-            
-            <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
-                monthlyStats.expense.change >= 0
+          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-lg p-4 relative border border-blue-400 overflow-hidden">
+            <div className="absolute top-2 right-2">
+              <div className={`px-2 py-0.5 rounded text-xs font-medium ${
+                monthlyStats.expense?.change >= 0
                   ? 'bg-red-100 text-red-800'
                   : 'bg-green-100 text-green-800'
               }`}>
                 <span className="inline-flex items-center">
-                  <span className="mr-1">{monthlyStats.expense.change >= 0 ? '↑' : '↓'}</span>
-                  {formatChange(monthlyStats.expense.change)}
+                  <span className="mr-1">{monthlyStats.expense?.change >= 0 ? '↑' : '↓'}</span>
+                  {formatChange(monthlyStats.expense?.change || 0)}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-3 mb-3 relative z-10">
-              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
+              <div className="text-sm text-blue-100 font-medium">Oylik Chiqim</div>
             </div>
-            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">
-              {formatCurrency(monthlyStats.expense.current)}
+            <div className="text-2xl font-bold text-white drop-shadow-lg">
+              {formatCurrency(monthlyStats.expense?.current || 0, monthlyStats.currency || 'UZS')}
             </div>
-            <div className="text-sm text-blue-100 relative z-10 font-medium mb-2">Oylik Chiqim</div>
-            <div className="text-xs text-blue-200 relative z-10">Oxirgi oy bilan solishtirganda</div>
           </div>
 
           {/* Net Card */}
-          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
-            {/* Decorative pattern */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-            
-            <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
-                monthlyStats.net.change >= 0
+          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-lg p-4 relative border border-blue-400 overflow-hidden">
+            <div className="absolute top-2 right-2">
+              <div className={`px-2 py-0.5 rounded text-xs font-medium ${
+                monthlyStats.net?.change >= 0
                   ? 'bg-green-100 text-green-800'
                   : 'bg-red-100 text-red-800'
               }`}>
                 <span className="inline-flex items-center">
-                  <span className="mr-1">{monthlyStats.net.change >= 0 ? '↑' : '↓'}</span>
-                  {formatChange(monthlyStats.net.change)}
+                  <span className="mr-1">{monthlyStats.net?.change >= 0 ? '↑' : '↓'}</span>
+                  {formatChange(monthlyStats.net?.change || 0)}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-3 mb-3 relative z-10">
-              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
+              <div className="text-sm text-blue-100 font-medium">Foyda</div>
             </div>
-            <div className={`text-3xl font-bold mb-1 relative z-10 drop-shadow-lg ${
-              monthlyStats.net.current >= 0 ? 'text-white' : 'text-white'
-            }`}>
-              {formatCurrency(monthlyStats.net.current)}
+            <div className="text-2xl font-bold text-white drop-shadow-lg">
+              {formatCurrency(monthlyStats.net?.current || 0, monthlyStats.currency || 'UZS')}
             </div>
-            <div className="text-sm text-blue-100 relative z-10 font-medium mb-2">Foyda</div>
-            <div className="text-xs text-blue-200 relative z-10">Oxirgi oy bilan solishtirganda</div>
           </div>
         </div>
       )}

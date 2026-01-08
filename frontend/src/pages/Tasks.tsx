@@ -377,9 +377,6 @@ const Tasks = () => {
   const loadTasks = async () => {
     try {
       setLoading(true);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:376',message:'loadTasks called',data:{filters,showArchive,page},timestamp:Date.now(),sessionId:'debug-session',runId:'fix-verification',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       const params: any = {
         page: page.toString(),
         limit: limit.toString(),
@@ -393,9 +390,6 @@ const Tasks = () => {
       }
       if (filters.clientId) params.clientId = filters.clientId;
       if (filters.branchId) params.branchId = filters.branchId;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Tasks.tsx:391',message:'params before API call',data:{params,filtersBranchId:filters.branchId},timestamp:Date.now(),sessionId:'debug-session',runId:'fix-verification',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
 
       const response = await apiClient.get('/tasks', { params });
       
@@ -1312,7 +1306,7 @@ const Tasks = () => {
           style: 'currency',
           currency: 'USD',
           minimumFractionDigits: 2,
-        }).format(additionalPayment);
+        }).format(additionalPayment).replace(/,/g, ' ');
       } else {
         // If client's contract is in UZS, calculate in UZS
         // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
@@ -1323,7 +1317,7 @@ const Tasks = () => {
           currency: 'UZS',
           minimumFractionDigits: 0,
           maximumFractionDigits: 0,
-        }).format(additionalPayment);
+        }).format(additionalPayment).replace(/,/g, ' ');
       }
       
       const confirmMessage = `Deklaratsiya to'lovi BXMning 1 barobaridan oshib ketdi.\n\n` +
@@ -2188,9 +2182,11 @@ const Tasks = () => {
         </div>
       </div>
 
-      {/* Statistics Cards - faqat barcha ishlar bo'limida */}
+      {/* Flex container for stats and tasks to enable ordering */}
+      <div className="flex flex-col">
+      {/* Statistics Cards - faqat barcha ishlar bo'limida - Mobil versiyada pastda */}
       {!showArchive && stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 order-2 md:order-1">
           {/* Bugungi ishlar soni */}
           <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
             {/* Decorative pattern */}
@@ -2769,14 +2765,14 @@ const Tasks = () => {
                             minimumFractionDigits: 2,
                           }).format(
                             (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)) + (selectedTask.hasPsr ? 10 : 0)
-                          )}
+                          ).replace(/,/g, ' ')}
                           {selectedTask.hasPsr && (
                             <span className="text-xs text-gray-500 ml-1">
                               (asosiy: {new Intl.NumberFormat('uz-UZ', {
                                 style: 'currency',
                                 currency: 'USD',
                                 minimumFractionDigits: 2,
-                              }).format(selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))} + 10)
+                              }).format(selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)).replace(/,/g, ' ')} + 10)
                             </span>
                           )}
                         </span>
@@ -2790,7 +2786,7 @@ const Tasks = () => {
                             minimumFractionDigits: 2,
                           }).format(
                             ((selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)) + (selectedTask.hasPsr ? 10 : 0)) - (selectedTask.netProfit || 0)
-                          )}
+                          ).replace(/,/g, ' ')}
                         </span>
                       </div>
                       <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
@@ -2802,7 +2798,7 @@ const Tasks = () => {
                             style: 'currency',
                             currency: 'USD',
                             minimumFractionDigits: 2,
-                          }).format(selectedTask.netProfit)}
+                          }).format(selectedTask.netProfit).replace(/,/g, ' ')}
                         </span>
                       </div>
                       {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
@@ -2815,7 +2811,7 @@ const Tasks = () => {
                               style: 'currency',
                               currency: 'USD',
                               minimumFractionDigits: 2,
-                            }).format(selectedTask.adminEarnedAmount)}
+                            }).format(selectedTask.adminEarnedAmount).replace(/,/g, ' ')}
                           </span>
                         </div>
                       )}
@@ -2829,7 +2825,7 @@ const Tasks = () => {
                               style: 'currency',
                               currency: 'USD',
                               minimumFractionDigits: 2,
-                            }).format((selectedTask.netProfit || 0) + (selectedTask.adminEarnedAmount || 0))}
+                            }).format((selectedTask.netProfit || 0) + (selectedTask.adminEarnedAmount || 0)).replace(/,/g, ' ')}
                           </span>
                         </div>
                       )}
@@ -2865,7 +2861,7 @@ const Tasks = () => {
                                   style: 'currency',
                                   currency: 'USD',
                                   minimumFractionDigits: 2,
-                                }).format(log.amount)}
+                                }).format(log.amount).replace(/,/g, ' ')}
                               </span>
                             </div>
                           ))}
@@ -2879,7 +2875,7 @@ const Tasks = () => {
                               style: 'currency',
                               currency: 'USD',
                               minimumFractionDigits: 2,
-                            }).format(totalAmount)}
+                            }).format(totalAmount).replace(/,/g, ' ')}
                           </span>
                         </div>
                       </div>
@@ -3663,7 +3659,7 @@ const Tasks = () => {
                                 style: 'currency',
                                 currency: 'USD',
                                 minimumFractionDigits: 2,
-                              }).format(additionalPayment);
+                              }).format(additionalPayment).replace(/,/g, ' ');
                             } else {
                               // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
                               additionalPayment = (parseFloat(bxmMultiplier) - 1) * 412000;
@@ -3672,7 +3668,7 @@ const Tasks = () => {
                                 currency: 'UZS',
                                 minimumFractionDigits: 0,
                                 maximumFractionDigits: 0,
-                              }).format(additionalPayment);
+                              }).format(additionalPayment).replace(/,/g, ' ');
                             }
                           })()} mijozning shartnoma summasiga qo'shiladi.
                         </div>
@@ -4576,32 +4572,35 @@ const Tasks = () => {
         </div>
       )}
 
-
-      {loading ? (
-        <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
-      ) : showArchive ? (
-        // Arxiv bo'limida barcha tasklar bitta jadvalda
-        <div>
-          {renderTaskTable(filteredArchiveTasks, 'Arxiv')}
-        </div>
-      ) : (
-        // Barcha ishlar bo'limida filiallarga bo'lingan
-        isDeklarantWithBranch && userBranch ? (
-          // DEKLARANT uchun faqat o'zining filiali to'liq kenglikda
-          <div className="w-full">
-            {renderTaskTable(userBranchTasks, userBranch.name)}
+      {/* Tasklar jadvali - Mobil versiyada tepada */}
+      <div className="order-1 md:order-2">
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
+        ) : showArchive ? (
+          // Arxiv bo'limida barcha tasklar bitta jadvalda
+          <div>
+            {renderTaskTable(filteredArchiveTasks, 'Arxiv')}
           </div>
         ) : (
-          // ADMIN/MANAGER uchun barcha filiallar
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Oltiariq filiali */}
-            <div>{renderTaskTable(oltiariqTasks, 'Oltiariq')}</div>
+          // Barcha ishlar bo'limida filiallarga bo'lingan
+          isDeklarantWithBranch && userBranch ? (
+            // DEKLARANT uchun faqat o'zining filiali to'liq kenglikda
+            <div className="w-full">
+              {renderTaskTable(userBranchTasks, userBranch.name)}
+            </div>
+          ) : (
+            // ADMIN/MANAGER uchun barcha filiallar
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-[30px]">
+              {/* Oltiariq filiali */}
+              <div>{renderTaskTable(oltiariqTasks, 'Oltiariq')}</div>
 
-            {/* Toshkent filiali */}
-            <div>{renderTaskTable(toshkentTasks, 'Toshkent')}</div>
-          </div>
-        )
-      )}
+              {/* Toshkent filiali */}
+              <div>{renderTaskTable(toshkentTasks, 'Toshkent')}</div>
+            </div>
+          )
+        )}
+      </div>
+      </div>
 
       {/* Pagination UI */}
       {!loading && totalPages > 1 && (

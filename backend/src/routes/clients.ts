@@ -39,13 +39,8 @@ const clientSchema = z.object({
 });
 
 router.get('/', async (_req, res) => {
-  // #region agent log
-  const logEntry = {location:'clients.ts:17',message:'GET /clients entry - checking active field',data:{hypothesis:'A'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
-  console.log('[DEBUG]', JSON.stringify(logEntry));
-  fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntry)}).catch(()=>{});
-  // #endregion
-  
-  const clients = await prisma.client.findMany({ 
+  try {
+    const clients = await prisma.client.findMany({ 
     include: {
       tasks: {
         select: {
@@ -66,54 +61,82 @@ router.get('/', async (_req, res) => {
   
   // Calculate balance for each client - use amount_uzs for all calculations
   const clientsWithBalance = await Promise.all(clients.map(async (client: any) => {
-    // Use universal fields if available, fallback to old fields
-    const dealAmountUzs = client.dealAmount_amount_uzs 
-      ? Number(client.dealAmount_amount_uzs)
-      : (client.dealAmountInUzs ? Number(client.dealAmountInUzs) : 0);
-    
-    const totalTasks = client.tasks.length;
-    const tasksWithPsr = client.tasks.filter((t: any) => t.hasPsr).length;
-    
-    // Calculate total deal amount in UZS (with PSR - PSR amount is 10 UZS per requirement)
-    const totalDealAmountUzs = (dealAmountUzs * totalTasks) + (10 * tasksWithPsr);
-    
-    // Get all INCOME transactions for this client - use amount_uzs
-    const clientTransactions = await prisma.transaction.findMany({
-      where: { clientId: client.id, type: 'INCOME' },
-      select: {
-        amount_uzs: true,
-        convertedUzsAmount: true,
-        amount: true,
-      },
-    });
-    
-    const totalIncome = clientTransactions.reduce((sum, tx: any) => {
-      return sum + Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0);
-    }, 0);
-    
-    const balance = totalDealAmountUzs - totalIncome;
-    
-    // Include exchange rate information if available
-    const exchangeRates = new Set<string>();
-    clientTransactions.forEach((tx: any) => {
-      if (tx.exchange_rate) {
-        exchangeRates.add(`${tx.exchange_rate}-${tx.exchange_source || 'CBU'}`);
+    try {
+      // Use universal fields if available, fallback to old fields
+      const dealAmountUzs = client.dealAmount_amount_uzs 
+        ? Number(client.dealAmount_amount_uzs)
+        : (client.dealAmountInUzs ? Number(client.dealAmountInUzs) : 0);
+      
+      const totalTasks = client.tasks?.length || 0;
+      const tasksWithPsr = (client.tasks || []).filter((t: any) => t.hasPsr).length;
+      
+      // Calculate total deal amount in UZS (with PSR - PSR amount is 10 UZS per requirement)
+      const totalDealAmountUzs = (dealAmountUzs * totalTasks) + (10 * tasksWithPsr);
+      
+      // Get all INCOME transactions for this client - use amount_uzs
+      let clientTransactions = [];
+      try {
+        clientTransactions = await prisma.transaction.findMany({
+          where: { clientId: client.id, type: 'INCOME' },
+          select: {
+            amount_uzs: true,
+            convertedUzsAmount: true,
+            amount: true,
+            exchange_rate: true,
+            exchange_source: true,
+          },
+        });
+      } catch (txError) {
+        console.error(`Error fetching transactions for client ${client.id}:`, txError);
+        clientTransactions = [];
       }
-    });
-    
-    return {
-      ...client,
-      balance,
-      totalDealAmount: totalDealAmountUzs, // Return in UZS for accounting view
-      totalIncome,
-      exchangeRatesUsed: Array.from(exchangeRates).map(rate => {
-        const [value, source] = rate.split('-');
-        return { rate: parseFloat(value), source };
-      }),
-    };
+      
+      const totalIncome = clientTransactions.reduce((sum, tx: any) => {
+        const txAmount = tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0;
+        return sum + Number(txAmount);
+      }, 0);
+      
+      const balance = totalDealAmountUzs - totalIncome;
+      
+      // Include exchange rate information if available
+      const exchangeRates = new Set<string>();
+      clientTransactions.forEach((tx: any) => {
+        if (tx.exchange_rate) {
+          exchangeRates.add(`${tx.exchange_rate}-${tx.exchange_source || 'CBU'}`);
+        }
+      });
+      
+      return {
+        ...client,
+        balance,
+        totalDealAmount: totalDealAmountUzs, // Return in UZS for accounting view
+        totalIncome,
+        exchangeRatesUsed: Array.from(exchangeRates).map(rate => {
+          const [value, source] = rate.split('-');
+          return { rate: parseFloat(value), source };
+        }),
+      };
+    } catch (clientError) {
+      console.error(`Error processing client ${client.id}:`, clientError);
+      // Return client with default values if processing fails
+      return {
+        ...client,
+        balance: 0,
+        totalDealAmount: 0,
+        totalIncome: 0,
+        exchangeRatesUsed: [],
+      };
+    }
   }));
   
-  res.json(clientsWithBalance);
+    res.json(clientsWithBalance);
+  } catch (error: any) {
+    console.error('Error fetching clients:', error);
+    res.status(500).json({ 
+      error: 'Mijozlarni yuklashda xatolik yuz berdi',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
 });
 
 // Get task detail with stages and duration - CLIENT can access their own tasks, ADMIN can access any
@@ -388,11 +411,6 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
-    // #region agent log
-    const logEntry = {location:'clients.ts:84',message:'GET /clients/:id entry',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
-    console.log('[DEBUG]', JSON.stringify(logEntry));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntry)}).catch(()=>{});
-    // #endregion
     
     const client = await prisma.client.findUnique({
       where: { id },

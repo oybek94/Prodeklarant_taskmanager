@@ -74,7 +74,13 @@ router.get('/', async (_req, res) => {
       const totalDealAmountUzs = (dealAmountUzs * totalTasks) + (10 * tasksWithPsr);
       
       // Get all INCOME transactions for this client - use amount_uzs
-      let clientTransactions = [];
+      let clientTransactions: {
+        amount: any;
+        convertedUzsAmount: any;
+        amount_uzs: any;
+        exchange_rate: any;
+        exchange_source: any;
+      }[] = [];
       try {
         clientTransactions = await prisma.transaction.findMany({
           where: { clientId: client.id, type: 'INCOME' },

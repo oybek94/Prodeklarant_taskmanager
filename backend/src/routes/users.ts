@@ -20,7 +20,6 @@ router.get('/', requireAuth('ADMIN'), async (req, res) => {
         branchId: true,
         position: true,
         salary: true,
-        defaultCurrency: true,
         active: true,
         createdAt: true,
         branch: { 
@@ -44,7 +43,6 @@ router.get('/', requireAuth('ADMIN'), async (req, res) => {
           ...user,
           branch: user.branchId ? user.branch : null,
           salary: user.salary ? Number(user.salary) : null,
-          defaultCurrency: user.defaultCurrency || null,
         };
       } catch (err) {
         console.error('Error formatting user:', user.id, err);
@@ -52,7 +50,6 @@ router.get('/', requireAuth('ADMIN'), async (req, res) => {
           ...user,
           branch: null,
           salary: user.salary ? Number(user.salary) : null,
-          defaultCurrency: user.defaultCurrency || null,
         };
       }
     });
@@ -87,7 +84,6 @@ router.get('/:id', requireAuth('ADMIN'), async (req, res) => {
         branchId: true,
         position: true,
         salary: true,
-        defaultCurrency: true,
         active: true,
         branch: { select: { id: true, name: true } },
       },
@@ -250,7 +246,6 @@ const updateUserSchema = z.object({
   position: z.string().optional(),
   salary: z.number().optional(),
   active: z.boolean().optional(),
-  defaultCurrency: z.enum(['USD', 'UZS']).nullable().optional(), // For certifiers only
 });
 
 router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
@@ -260,28 +255,6 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
   const data: any = { ...parsed.data };
-  
-  // Validate defaultCurrency: only for CERTIFICATE_WORKER role
-  if (data.defaultCurrency !== undefined) {
-    // Get current user to check role
-    const currentUser = await prisma.user.findUnique({
-      where: { id: parseInt(req.params.id) },
-      select: { role: true },
-    });
-    
-    // If setting defaultCurrency, user must be CERTIFICATE_WORKER
-    const targetRole = data.role || currentUser?.role;
-    if (targetRole !== 'CERTIFICATE_WORKER' && data.defaultCurrency !== null) {
-      return res.status(400).json({ 
-        error: 'defaultCurrency can only be set for CERTIFICATE_WORKER role' 
-      });
-    }
-    
-    // If role is being changed away from CERTIFICATE_WORKER, clear defaultCurrency
-    if (data.role && data.role !== 'CERTIFICATE_WORKER' && data.defaultCurrency === undefined) {
-      data.defaultCurrency = null;
-    }
-  }
   
   if (data.password) {
     // Check if password is unique (excluding current user)

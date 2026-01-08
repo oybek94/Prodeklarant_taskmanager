@@ -328,15 +328,15 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     });
 
     let snapshotDealAmount = fullClient?.dealAmount ? Number(fullClient.dealAmount) : null;
-    let snapshotDealAmountExchangeRate = null;
+    let snapshotDealAmountExchangeRate: Decimal | null = null;
     let snapshotCertificatePayment = null;
-    let snapshotCertificatePaymentExchangeRate = null;
+    let snapshotCertificatePaymentExchangeRate: Decimal | null = null;
     let snapshotPsrPrice = null;
-    let snapshotPsrPriceExchangeRate = null;
+    let snapshotPsrPriceExchangeRate: Decimal | null = null;
     let snapshotWorkerPrice = null;
-    let snapshotWorkerPriceExchangeRate = null;
+    let snapshotWorkerPriceExchangeRate: Decimal | null = null;
     let snapshotCustomsPayment = null;
-    let snapshotCustomsPaymentExchangeRate = null;
+    let snapshotCustomsPaymentExchangeRate: Decimal | null = null;
 
     // Capture exchange rates for deal amount and populate universal fields
     let snapshotDealAmountAmountUzs: number | null = null;
@@ -352,26 +352,26 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       if (currency === 'USD') {
         if (fullClient.dealAmount_exchange_rate) {
           snapshotDealAmountExchangeRateValue = new Decimal(fullClient.dealAmount_exchange_rate);
-          snapshotDealAmountExchangeRate = Number(snapshotDealAmountExchangeRateValue);
+          snapshotDealAmountExchangeRate = snapshotDealAmountExchangeRateValue;
         } else if (fullClient.dealAmountExchangeRate) {
           snapshotDealAmountExchangeRateValue = new Decimal(fullClient.dealAmountExchangeRate);
-          snapshotDealAmountExchangeRate = Number(snapshotDealAmountExchangeRateValue);
+          snapshotDealAmountExchangeRate = snapshotDealAmountExchangeRateValue;
         } else {
           try {
             const rate = await getExchangeRate(taskCreatedAt, 'USD', 'UZS', tx);
             snapshotDealAmountExchangeRateValue = rate;
-            snapshotDealAmountExchangeRate = Number(rate);
+            snapshotDealAmountExchangeRate = rate;
           } catch (error) {
             console.error('Failed to get exchange rate for deal amount snapshot:', error);
             snapshotDealAmountExchangeRateValue = new Decimal(1);
-            snapshotDealAmountExchangeRate = 1;
+            snapshotDealAmountExchangeRate = new Decimal(1);
           }
         }
         snapshotDealAmountAmountUzs = Number(calculateAmountUzs(snapshotDealAmount, currency, snapshotDealAmountExchangeRateValue));
       } else {
         // UZS currency - exchange rate is always 1
         snapshotDealAmountExchangeRateValue = new Decimal(1);
-        snapshotDealAmountExchangeRate = 1;
+        snapshotDealAmountExchangeRate = new Decimal(1);
         snapshotDealAmountAmountUzs = snapshotDealAmount;
       }
       snapshotDealAmountExchangeSource = fullClient.dealAmount_exchange_source || 'CBU';
@@ -381,13 +381,13 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       // Task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovidan foydalanamiz
       // State payments are always in UZS (rule 5), so exchange rate is always 1
       snapshotCertificatePayment = Number(statePayment.certificatePayment) as any;
-      snapshotCertificatePaymentExchangeRate = 1;
+      snapshotCertificatePaymentExchangeRate = new Decimal(1);
       snapshotPsrPrice = Number(statePayment.psrPrice) as any;
-      snapshotPsrPriceExchangeRate = 1;
+      snapshotPsrPriceExchangeRate = new Decimal(1);
       snapshotWorkerPrice = Number(statePayment.workerPrice) as any;
-      snapshotWorkerPriceExchangeRate = 1;
+      snapshotWorkerPriceExchangeRate = new Decimal(1);
       snapshotCustomsPayment = Number(statePayment.customsPayment) as any;
-      snapshotCustomsPaymentExchangeRate = 1;
+      snapshotCustomsPaymentExchangeRate = new Decimal(1);
     }
 
     // Prisma data object - faqat mavjud field'larni qo'shamiz
@@ -838,7 +838,7 @@ router.get('/:id', async (req, res) => {
   });
   
   // Calculate exchange rate information for profit calculation
-  let exchangeRateInfo = null;
+  let exchangeRateInfo: { rate: number; source: string; date: Date } | null = null;
   if (task.snapshotDealAmount_exchange_rate) {
     exchangeRateInfo = {
       rate: Number(task.snapshotDealAmount_exchange_rate),
@@ -848,7 +848,7 @@ router.get('/:id', async (req, res) => {
   }
 
   // Generate operational view (USD equivalent)
-  let operationalProfit = null;
+  let operationalProfit: number | null = null;
   if (netProfit !== null) {
     // For operational view, convert UZS profit to USD using current rate
     try {

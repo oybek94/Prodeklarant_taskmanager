@@ -181,17 +181,6 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         workerPrice: workerPriceDec,
         customsPayment: customsPaymentDec,
         currency: finalCurrency,
-        // Universal monetary fields (all in UZS, rate = 1)
-        certificatePayment_amount_original: certPaymentDec,
-        certificatePayment_amount_uzs: certPaymentDec,
-        psrPrice_amount_original: psrPriceDec,
-        psrPrice_amount_uzs: psrPriceDec,
-        workerPrice_amount_original: workerPriceDec,
-        workerPrice_amount_uzs: workerPriceDec,
-        customsPayment_amount_original: customsPaymentDec,
-        customsPayment_amount_uzs: customsPaymentDec,
-        exchange_rate: exchangeRate,
-        exchange_source: exchangeSource,
       },
       include: {
         branch: {

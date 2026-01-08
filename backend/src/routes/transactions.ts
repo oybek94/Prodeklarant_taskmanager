@@ -287,26 +287,8 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     return res.status(400).json({ error: 'Karta faqat UZS valyutasida bo\'lishi mumkin' });
   }
 
-  // Determine currency: if workerId is provided and it's a certifier, check defaultCurrency
+  // Determine currency from request body, default to USD
   let originalCurrency: Currency = (data.currency as Currency) || 'USD';
-
-  // Check if transaction involves a certifier (CERTIFICATE_WORKER)
-  if (data.workerId && !data.currency) {
-    // Check if worker is a certifier and has defaultCurrency
-    const worker = await prisma.user.findUnique({
-      where: { id: data.workerId },
-      select: { role: true, defaultCurrency: true },
-    });
-
-    if (worker && worker.role === 'CERTIFICATE_WORKER' && worker.defaultCurrency) {
-      originalCurrency = worker.defaultCurrency;
-    }
-  }
-
-  // Allow currency override in request body (overrides defaultCurrency)
-  if (data.currency) {
-    originalCurrency = data.currency as Currency;
-  }
 
   const originalAmount = new Decimal(data.amount);
   const exchangeSource: ExchangeSource = (data.exchangeSource as ExchangeSource) || 'CBU';
@@ -489,26 +471,8 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     return res.status(400).json({ error: 'Karta faqat UZS valyutasida bo\'lishi mumkin' });
   }
 
-  // Determine currency: if workerId is provided and it's a certifier, check defaultCurrency
+  // Determine currency from request body, default to USD
   let originalCurrency: Currency = (data.currency as Currency) || 'USD';
-
-  // Check if transaction involves a certifier (CERTIFICATE_WORKER)
-  if (data.workerId && !data.currency) {
-    // Check if worker is a certifier and has defaultCurrency
-    const worker = await prisma.user.findUnique({
-      where: { id: data.workerId },
-      select: { role: true, defaultCurrency: true },
-    });
-
-    if (worker && worker.role === 'CERTIFICATE_WORKER' && worker.defaultCurrency) {
-      originalCurrency = worker.defaultCurrency;
-    }
-  }
-
-  // Allow currency override in request body (overrides defaultCurrency)
-  if (data.currency) {
-    originalCurrency = data.currency as Currency;
-  }
 
   const originalAmount = new Decimal(data.amount);
   const exchangeSource: ExchangeSource = (data.exchangeSource as ExchangeSource) || 'CBU';

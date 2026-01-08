@@ -113,15 +113,18 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
   }, {});
 
   // Convert to array format with exchange rate info
-  const financialStatsArray = Object.entries(financialStats).map(([type, data]: [string, any]) => ({
-    type,
-    total: data.total,
-    currency: 'UZS',
-    exchangeRatesUsed: Array.from(data.exchangeRates).map((rate: string) => {
-      const [value, source] = rate.split('-');
-      return { rate: parseFloat(value), source };
-    }),
-  }));
+  const financialStatsArray = Object.entries(financialStats).map(([type, data]: [string, any]) => {
+    const exchangeRatesSet = data.exchangeRates as Set<string>;
+    return {
+      type,
+      total: data.total,
+      currency: 'UZS',
+      exchangeRatesUsed: Array.from(exchangeRatesSet).map((rate: string) => {
+        const [value, source] = rate.split('-');
+        return { rate: parseFloat(value), source };
+      }),
+    };
+  });
 
   // Payment reminders - clients with due payments
   // Get all clients with their tasks and transactions

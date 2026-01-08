@@ -1,4 +1,5 @@
-import { Decimal, Currency, ExchangeSource } from '@prisma/client';
+import { Currency, ExchangeSource } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import { getLatestExchangeRate, getExchangeRate } from './exchange-rate';

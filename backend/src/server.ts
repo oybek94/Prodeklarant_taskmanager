@@ -109,8 +109,21 @@ app.get('/', (_req, res) => {
 
 app.get('/health', async (_req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok' });
+    // Quick health check without database query to avoid timeout
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: String(err) });
+  }
+});
+
+// Separate endpoint for database health check
+app.get('/health/db', async (_req, res) => {
+  try {
+    await Promise.race([
+      prisma.$queryRaw`SELECT 1`,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Database query timeout')), 5000))
+    ]);
+    res.json({ status: 'ok', database: 'connected' });
   } catch (err) {
     res.status(500).json({ status: 'error', error: String(err) });
   }

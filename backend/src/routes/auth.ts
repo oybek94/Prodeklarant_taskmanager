@@ -21,47 +21,66 @@ router.post('/login', async (req, res) => {
     
     let user;
     
-    if (emailValue) {
-      // Email bo'lsa, email orqali user topamiz
-      user = await prisma.user.findUnique({
-        where: { email: emailValue },
-        select: {
-          id: true,
-          name: true,
-          passwordHash: true,
-          role: true,
-          branchId: true,
-          active: true,
-        },
-      });
-    } else {
-      // Email bo'lmasa, faqat parol bilan user topamiz
-      // Barcha active userlarni olamiz va parolni tekshiramiz
-      const allUsers = await prisma.user.findMany({
-        where: { active: true },
-        select: {
-          id: true,
-          name: true,
-          passwordHash: true,
-          role: true,
-          branchId: true,
-          active: true,
-        },
-      });
-      
-      // Parol bilan mos kelgan birinchi userni topamiz
-      for (const u of allUsers) {
-        const isValidPassword = await comparePassword(password, u.passwordHash);
-        if (isValidPassword) {
-          user = u;
-          break;
+    try {
+      if (emailValue) {
+        // Email bo'lsa, email orqali user topamiz
+        // Add timeout to database query
+        user = await Promise.race([
+          prisma.user.findUnique({
+            where: { email: emailValue },
+            select: {
+              id: true,
+              name: true,
+              passwordHash: true,
+              role: true,
+              branchId: true,
+              active: true,
+            },
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Database query timeout')), 10000)
+          )
+        ]) as any;
+      } else {
+        // Email bo'lmasa, faqat parol bilan user topamiz
+        // Barcha active userlarni olamiz va parolni tekshiramiz
+        const allUsers = await Promise.race([
+          prisma.user.findMany({
+            where: { active: true },
+            select: {
+              id: true,
+              name: true,
+              passwordHash: true,
+              role: true,
+              branchId: true,
+              active: true,
+            },
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Database query timeout')), 10000)
+          )
+        ]) as any[];
+        
+        // Parol bilan mos kelgan birinchi userni topamiz
+        for (const u of allUsers) {
+          const isValidPassword = await comparePassword(password, u.passwordHash);
+          if (isValidPassword) {
+            user = u;
+            break;
+          }
+        }
+        
+        // Agar user topilmasa, dummy comparison qilamiz (timing attack oldini olish uchun)
+        if (!user) {
+          await comparePassword(password, '$2a$10$dummyhash');
         }
       }
-      
-      // Agar user topilmasa, dummy comparison qilamiz (timing attack oldini olish uchun)
-      if (!user) {
-        await comparePassword(password, '$2a$10$dummyhash');
+    } catch (dbError: any) {
+      console.error('Database error during login:', dbError);
+      if (dbError.message && dbError.message.includes('timeout')) {
+        return res.status(503).json({ error: 'Database serverga ulanib bo\'lmayapti. Iltimos, keyinroq urinib ko\'ring.' });
       }
+      throw dbError;
     }
     
     // Security: Always perform password comparison, even if user not found

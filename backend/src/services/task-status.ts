@@ -1,4 +1,6 @@
 import { PrismaClient, Prisma, TaskStatus } from '@prisma/client';
+import crypto from 'crypto';
+import { prisma } from '../prisma';
 
 /**
  * Calculate task status based on stages using the formula:
@@ -75,12 +77,21 @@ export async function calculateTaskStatus(
 }
 
 /**
+ * Check if a task is ready for sticker generation
+ * A task is sticker-ready when its status is TEKSHIRILGAN
+ */
+export function isStickerReady(status: TaskStatus): boolean {
+  return status === TaskStatus.TEKSHIRILGAN;
+}
+
+/**
  * Update task status based on its stages
+ * Returns true if task entered TEKSHIRILGAN status (QR token generation needed)
  */
 export async function updateTaskStatus(
   tx: PrismaClient | Prisma.TransactionClient,
   taskId: number
-): Promise<void> {
+): Promise<boolean> {
   // Eski statusni olish
   const oldTask = await (tx as any).task.findUnique({
     where: { id: taskId },
@@ -88,12 +99,78 @@ export async function updateTaskStatus(
   });
 
   const newStatus = await calculateTaskStatus(tx, taskId);
+  const oldStatus = oldTask?.status;
+  
   await (tx as any).task.update({
     where: { id: taskId },
     data: { status: newStatus },
   });
 
-  // Automatic archiving removed - archiving now requires explicit call with document validation
-  // Archiving will be handled via /archive-task/:taskId endpoint after documents are uploaded
+  // Return true if task entered TEKSHIRILGAN status (QR token generation needed)
+  return oldStatus !== TaskStatus.TEKSHIRILGAN && newStatus === TaskStatus.TEKSHIRILGAN;
+}
+
+/**
+ * Generate QR token for a task if it doesn't already have one.
+ * This function is idempotent and safe against concurrent calls.
+ * Should be called AFTER the transaction commits.
+ */
+export async function generateQrTokenIfNeeded(taskId: number): Promise<void> {
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        // Check if task exists and doesn't have a QR token
+        const task = await (tx as any).task.findUnique({
+          where: { id: taskId },
+          select: { id: true, qrToken: true },
+        });
+
+        if (!task) {
+          // Task not found - skip silently (task may have been deleted)
+          return;
+        }
+
+        if (task.qrToken) {
+          // Task already has a QR token - idempotent, skip
+          return;
+        }
+
+        // Generate unique, secure token (16 bytes = 128 bits, base64url encoded = 22 chars)
+        const tokenBytes = crypto.randomBytes(16);
+        const qrToken = tokenBytes.toString('base64url');
+
+        // Update with retry logic for unique constraint violations (race condition handling)
+        try {
+          await (tx as any).task.update({
+            where: { id: taskId },
+            data: { qrToken },
+          });
+        } catch (updateError: any) {
+          // If unique constraint violation (P2002), another concurrent call succeeded
+          // Check if token was set by another process (idempotency check)
+          const updatedTask = await (tx as any).task.findUnique({
+            where: { id: taskId },
+            select: { qrToken: true },
+          });
+
+          if (updatedTask?.qrToken) {
+            // Token was set by concurrent process - success (idempotent)
+            return;
+          }
+
+          // Re-throw if it's not a unique constraint violation or token wasn't set
+          throw updateError;
+        }
+      },
+      {
+        isolationLevel: 'ReadCommitted', // Standard isolation level
+        maxWait: 5000, // 5 seconds max wait
+        timeout: 10000, // 10 seconds timeout
+      }
+    );
+  } catch (error) {
+    // Log error but don't fail - QR token generation is non-critical
+    console.error(`Error generating QR token for task ${taskId}:`, error);
+  }
 }
 

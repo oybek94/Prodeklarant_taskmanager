@@ -29,6 +29,8 @@ import taskDocumentsRouter from './routes/task-documents';
 import taskAiChecksRouter from './routes/task-ai-checks';
 import aiRouter from './routes/ai';
 import reportsRouter from './routes/reports';
+import qrRouter from './routes/qr';
+import stickerRouter from './routes/sticker';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 import OpenAIClient from './ai/openai.client';
@@ -163,6 +165,10 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/invoices', requireAuth(), invoicesRouter);
 app.use('/api/company-settings', companySettingsRouter);
 app.use('/api/contracts', requireAuth(), contractsRouter);
+// Public QR verification endpoint (no authentication required)
+app.use('/q', qrRouter);
+// Sticker PDF generation endpoint (requires authentication)
+app.use('/api/sticker', stickerRouter);
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

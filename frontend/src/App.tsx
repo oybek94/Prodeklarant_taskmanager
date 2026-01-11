@@ -26,6 +26,7 @@ import Finance from './pages/Finance';
 import Invoice from './pages/Invoice';
 import Invoices from './pages/Invoices';
 import Reports from './pages/Reports';
+import QRVerification from './pages/QRVerification';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -55,6 +56,10 @@ const AppRoutes = () => {
       <Route 
         path="/client/dashboard" 
         element={<ClientDashboard />} 
+      />
+      <Route 
+        path="/q/:token" 
+        element={<QRVerification />} 
       />
       <Route
         element={

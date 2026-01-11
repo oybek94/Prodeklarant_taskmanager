@@ -134,6 +134,7 @@ model Task {
   snapshotCustomsPayment_exchange_rate       Decimal?             @db.Decimal(10, 4)
   snapshotCustomsPayment_amount_uzs          Decimal?             @db.Decimal(16, 2)
   snapshotCustomsPayment_exchange_source     ExchangeSource?
+  qrToken                                    String?                @unique
   aiChecks                                   AiCheck[]
   invoice                                    Invoice?
   kpiLogs                                    KpiLog[]

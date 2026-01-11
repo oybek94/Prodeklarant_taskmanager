@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
-import { updateTaskStatus, calculateTaskStatus } from '../services/task-status';
+import { updateTaskStatus, calculateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
 import { TaskStatus, Currency, ExchangeSource } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ValidationService } from '../services/validation.service';
@@ -1147,9 +1147,9 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     }
     
     // Update task status based on all stages
-    await updateTaskStatus(tx, taskId);
+    const needsQrToken = await updateTaskStatus(tx, taskId);
     
-      return upd;
+      return { updated: upd, needsQrToken };
     }, {
       maxWait: 30000, // 30 seconds max wait for transaction to start
       timeout: 30000, // 30 seconds timeout for transaction to complete (remote database uchun)
@@ -1158,7 +1158,15 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
   debugLog({location:'tasks.ts:824',message:'Transaction completed',data:{taskId,stageId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
   // #endregion
 
-    res.json(updated);
+  // Generate QR token after transaction commits (non-blocking, idempotent)
+  if (updated.needsQrToken) {
+    // Fire and forget - don't wait for QR token generation
+    generateQrTokenIfNeeded(taskId).catch((error) => {
+      // Error already logged in generateQrTokenIfNeeded
+    });
+  }
+
+    res.json(updated.updated);
   } catch (error: any) {
   // #region agent log
   debugLog({location:'tasks.ts:830',message:'PATCH stage error',data:{errorMessage:error?.message,errorCode:error?.code,taskId,stageId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'});

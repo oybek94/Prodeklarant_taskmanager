@@ -9,7 +9,7 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: false, // For now, we'll use localStorage for refresh token
-  timeout: 10000, // 10 seconds timeout (qisqartirildi, tezroq xatolik ko'rsatish uchun)
+  timeout: 30000, // 30 seconds timeout (remote database uchun oshirildi)
   validateStatus: (status) => status < 500, // Don't throw on 4xx errors
 });
 

@@ -56,24 +56,8 @@ export async function getExchangeRate(
       },
     });
 
-    // If no exact match and it's today, try to fetch from CBU API immediately
-    if (!rate && isToday) {
-      console.log(`[ExchangeRate] Today's rate not found in database, fetching from CBU API...`);
-      const cbuRate = await fetchRateFromCBU(date);
-      
-      if (cbuRate) {
-        // Save the fetched rate to database for future use
-        try {
-          await upsertExchangeRate(date, cbuRate, 'CBU', client);
-          console.log(`[ExchangeRate] Successfully fetched and saved today's rate from CBU API: ${cbuRate.toString()}`);
-          return cbuRate;
-        } catch (saveError) {
-          console.error('[ExchangeRate] Error saving CBU rate to database:', saveError);
-          // Return the rate anyway, even if saving failed
-          return cbuRate;
-        }
-      }
-    }
+    // Skip CBU API call for stage operations - only use database rates
+    // CBU API calls removed to avoid timeouts during transactions
 
     // If no exact match found, try to find rate with preferred source (for historical dates)
     if (!rate && preferredSource) {
@@ -118,27 +102,11 @@ export async function getExchangeRate(
       });
     }
 
-    // If still no rate found in database, try to fetch from CBU API
+    // Skip CBU API call for stage operations - only use database rates
+    // If no rate found in database (including most recent), throw error
     if (!rate) {
-      console.log(`[ExchangeRate] No rate in database, trying to fetch from CBU API for date: ${date.toISOString()}`);
-      const cbuRate = await fetchRateFromCBU(date);
-      
-      if (cbuRate) {
-        // Save the fetched rate to database for future use
-        try {
-          await upsertExchangeRate(date, cbuRate, 'CBU', client);
-          console.log(`[ExchangeRate] Successfully fetched and saved rate from CBU API: ${cbuRate.toString()}`);
-          return cbuRate;
-        } catch (saveError) {
-          console.error('[ExchangeRate] Error saving CBU rate to database:', saveError);
-          // Return the rate anyway, even if saving failed
-          return cbuRate;
-        }
-      }
-      
-      // If CBU API also failed, throw error
       throw new Error(
-        `No exchange rate found for USD to UZS on or before ${date.toISOString()} and CBU API unavailable`
+        `No exchange rate found for USD to UZS on or before ${date.toISOString()}. Please ensure exchange rates are configured in the database.`
       );
     }
 

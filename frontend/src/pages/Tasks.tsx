@@ -116,7 +116,6 @@ const Tasks = () => {
   const [taskVersions, setTaskVersions] = useState<TaskVersion[]>([]);
   const [showVersions, setShowVersions] = useState(false);
   const [loadingVersions, setLoadingVersions] = useState(false);
-  const [showReminderModal, setShowReminderModal] = useState(false);
   const [selectedStageForReminder, setSelectedStageForReminder] = useState<TaskStage | null>(null);
   const [showBXMModal, setShowBXMModal] = useState(false);
   const [bxmMultiplier, setBxmMultiplier] = useState<string>('1.5');
@@ -298,10 +297,7 @@ const Tasks = () => {
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (showReminderModal) {
-          setShowReminderModal(false);
-          setSelectedStageForReminder(null);
-        } else if (showEditModal) {
+        if (showEditModal) {
           setShowEditModal(false);
         } else if (showTaskModal) {
           setShowTaskModal(false);
@@ -318,7 +314,7 @@ const Tasks = () => {
     return () => {
       window.removeEventListener('keydown', handleEscKey);
     };
-  }, [showForm, showTaskModal, showEditModal, showReminderModal, showArchiveFilters]);
+  }, [showForm, showTaskModal, showEditModal, showArchiveFilters]);
 
   const loadBranches = async () => {
     try {
@@ -765,7 +761,9 @@ const Tasks = () => {
         setFileUploadName('');
         setFileUploadStageName('');
         // Fayl yuklangandan keyin stage'ni tayyor qilish
-        await updateStageToReady();
+        if (selectedStageForReminder) {
+          await updateStageToReady(selectedStageForReminder);
+        }
       } else {
         setShowFileUploadModal(false);
         setFileUploadFile(null);
@@ -810,7 +808,7 @@ const Tasks = () => {
 
       // Agar Pochta jarayoni uchun hujjatlar yuklanganda, jarayonni tayyor qilamiz
       if (selectedStageForReminder && selectedStageForReminder.name === 'Pochta' && selectedStageForReminder.status === 'BOSHLANMAGAN') {
-        await updateStageToReady();
+        await updateStageToReady(selectedStageForReminder);
       }
 
       setUploadFiles([]);
@@ -1179,19 +1177,6 @@ const Tasks = () => {
     }
   };
 
-  const getReminderMessage = (stageName: string): string => {
-    const reminders: { [key: string]: string } = {
-      'Invoys': 'ESLATMA!!!\n\nInvoys raqam va sana\nRastamojka joyi\nUsloviya postavi\nAvtomobil raqami\nMaxsulotlar mijoz bergan malumotlar bilan bir xilmi?',
-      'Deklaratsiya': 'ESLATMA!!!\n\nAvtoraqam\nUsloviya postavki\nva boshqalarni tekshirdingizmi',
-      'Sertifikat olib chiqish': 'ESLATMA!!!\n\nSertifikat (ST yoki Fito) hujjatlarini tekshiring.\n\nKorxona ma\'lumotlari\nSotib oluvchi mamlakat\nMaxsulotlar\nPechat va imzolar to\'g\'riligini tekshirdingizmi?',
-      'Fito': 'ESLATMA!!!\n\nJonatuvchi va sotib oluvchi\nAvtoraqam\nPechat va imzolarni TEKSHIRDINGIZMI?',
-      'ST': 'ESLATMA!!!\n\nKorxona malumotlari\nSotib oluvchi mamlakat\nMaxsulotlar\nPechat va imzolar TO\'G\'RILIGINI TEKSHIRDINGIZMI?',
-      'TIR-SMR': 'ESLATMA!!!\n\nAvtomobil raqami\nMaxsulotlar mijoz bergan malumotlar bir xilligi\nTIR-SMR raqamlari togri yozilganini TEKSHIRDINGIZMI?',
-      'Tekshirish': 'ESLATMA!!!\n\nEng asosiy ishni qilyapsiz iltimos erinchoqlik qilmang va barcha ma\'lumotlarni yaxshilab kozdan kechiring.\n\nMijoz bergan malumotlarga biz tayyorlagan xujjatlar togri kelishini tekshirib chiqing!!!',
-      'Topshirish': 'Markirovka togriligini\nPoddonlarga pechat bosilganligini tekshirdingizmi?',
-    };
-    return reminders[stageName] || 'ESLATMA!!!\n\nJarayonni bajarishdan oldin barcha ma\'lumotlarni tekshiring.';
-  };
 
   const handleStageClick = async (stage: TaskStage) => {
     if (!user) {
@@ -1207,9 +1192,23 @@ const Tasks = () => {
         setDocumentNames([]);
         setDocumentDescriptions([]);
       } else {
-        // Boshqa stage'lar uchun oddiy reminder modal
+        // Boshqa stage'lar uchun to'g'ridan-to'g'ri stage'ni yangilash
         setSelectedStageForReminder(stage);
-        setShowReminderModal(true);
+        // If Deklaratsiya stage, show BXM multiplier modal
+        if (stage.name === 'Deklaratsiya') {
+          try {
+            const bxmResponse = await apiClient.get('/bxm/current');
+            setCurrentBXM(Number(bxmResponse.data.amount));
+            setBxmMultiplier('1.5');
+            setShowBXMModal(true);
+          } catch (error) {
+            console.error('Error loading BXM:', error);
+            setBxmMultiplier('1.5');
+            setShowBXMModal(true);
+          }
+        } else {
+          await updateStageToReady(stage);
+        }
       }
     } else {
       // If already completed, allow unchecking
@@ -1217,58 +1216,31 @@ const Tasks = () => {
     }
   };
 
-  const handleConfirmStage = async (confirmed: boolean) => {
-    if (!selectedStageForReminder || !selectedTask) return;
-    
-    setShowReminderModal(false);
-    
-    if (confirmed) {
-      // If Deklaratsiya stage, show BXM multiplier modal
-      if (selectedStageForReminder.name === 'Deklaratsiya') {
-        try {
-          const bxmResponse = await apiClient.get('/bxm/current');
-          setCurrentBXM(Number(bxmResponse.data.amount));
-          setBxmMultiplier('1.5');
-          setShowBXMModal(true);
-        } catch (error) {
-          console.error('Error loading BXM:', error);
-          setBxmMultiplier('1.5');
-          setShowBXMModal(true);
-        }
-      } else {
-        await updateStageToReady();
-      }
-    } else {
-      setSelectedStageForReminder(null);
-    }
-  };
 
-  const updateStageToReady = async (customsPaymentMultiplier?: number, skipValidation?: boolean) => {
+  const updateStageToReady = async (stage: TaskStage, customsPaymentMultiplier?: number, skipValidation?: boolean) => {
       // Debug logging removed (CSP violation)
-    if (!selectedStageForReminder || !selectedTask) {
+    if (!stage || !selectedTask) {
         // Debug logging removed (CSP violation)
       return;
     }
     
     try {
-      setUpdatingStage(selectedStageForReminder.id);
-      // Small delay for animation
-      await new Promise(resolve => setTimeout(resolve, 300));
+      setUpdatingStage(stage.id);
       // Debug logging removed (CSP violation)
-      await apiClient.patch(`/tasks/${selectedTask.id}/stages/${selectedStageForReminder.id}`, {
+      const response = await apiClient.patch(`/tasks/${selectedTask.id}/stages/${stage.id}`, {
         status: 'TAYYOR',
         ...(customsPaymentMultiplier && { customsPaymentMultiplier }),
         ...(skipValidation && { skipValidation: true }),
-      }).then((response) => {
-        // Debug logging removed (CSP violation)
-        return response;
-      }).catch((error: any) => {
-        // Debug logging removed (CSP violation)
-        // Xatolik bo'lsa, foydalanuvchiga ko'rsatamiz
-        const errorMessage = error.response?.data?.error || 'Xatolik yuz berdi';
-        alert(errorMessage);
-        throw error;
       });
+      
+      // Check if response status indicates an error (4xx or 5xx)
+      if (response.status >= 400) {
+        const errorMessage = response.data?.error || 'Xatolik yuz berdi';
+        alert(errorMessage);
+        setUpdatingStage(null);
+        return;
+      }
+      
       await loadTaskDetail(selectedTask.id);
       await loadTasks();
       setShowBXMModal(false);
@@ -1279,7 +1251,18 @@ const Tasks = () => {
       setSelectedStageForReminder(null);
     } catch (error: any) {
       console.error('Error updating stage:', error);
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+      // Handle network errors, timeouts, etc.
+      if (error.response) {
+        // HTTP error response
+        const errorMessage = error.response.data?.error || error.message || 'Xatolik yuz berdi';
+        alert(errorMessage);
+      } else if (error.request) {
+        // Request made but no response
+        alert('Serverga javob kelmadi. Iltimos, qayta urinib ko\'ring.');
+      } else {
+        // Something else happened
+        alert(error.message || 'Xatolik yuz berdi');
+      }
     } finally {
       setUpdatingStage(null);
     }
@@ -1330,7 +1313,9 @@ const Tasks = () => {
       }
     }
     
-    await updateStageToReady(multiplier);
+    if (selectedStageForReminder) {
+      await updateStageToReady(selectedStageForReminder, multiplier);
+    }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -1369,14 +1354,34 @@ const Tasks = () => {
     try {
       setUpdatingStage(stageId);
       const newStatus = currentStatus === 'BOSHLANMAGAN' ? 'TAYYOR' : 'BOSHLANMAGAN';
-      await apiClient.patch(`/tasks/${selectedTask.id}/stages/${stageId}`, {
+      const response = await apiClient.patch(`/tasks/${selectedTask.id}/stages/${stageId}`, {
         status: newStatus,
       });
+      
+      // Check if response status indicates an error (4xx or 5xx)
+      if (response.status >= 400) {
+        const errorMessage = response.data?.error || 'Xatolik yuz berdi';
+        alert(errorMessage);
+        setUpdatingStage(null);
+        return;
+      }
+      
       await loadTaskDetail(selectedTask.id);
       await loadTasks();
     } catch (error: any) {
       console.error('Error updating stage:', error);
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+      // Handle network errors, timeouts, etc.
+      if (error.response) {
+        // HTTP error response
+        const errorMessage = error.response.data?.error || error.message || 'Xatolik yuz berdi';
+        alert(errorMessage);
+      } else if (error.request) {
+        // Request made but no response
+        alert('Serverga javob kelmadi. Iltimos, qayta urinib ko\'ring.');
+      } else {
+        // Something else happened
+        alert(error.message || 'Xatolik yuz berdi');
+      }
     } finally {
       setUpdatingStage(null);
     }
@@ -2941,12 +2946,16 @@ const Tasks = () => {
                     return (
                     <div
                       key={stage.id}
-                      className={`flex items-center justify-between p-3 border ${borderColor} rounded-lg hover:bg-gray-50 transition ${bgColor}`}
+                      onClick={() => {
+                        if (!updatingStage) {
+                          handleStageClick(stage);
+                        }
+                      }}
+                      className={`flex items-center justify-between p-3 border ${borderColor} rounded-lg hover:bg-gray-50 transition ${bgColor} ${updatingStage === stage.id ? 'cursor-wait' : 'cursor-pointer'}`}
                     >
                       <div className="flex items-center flex-1">
                         <div
-                          onClick={() => !updatingStage && handleStageClick(stage)}
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer ${
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
                             stage.status === 'TAYYOR'
                               ? 'bg-green-500 border-green-500'
                               : 'border-gray-300 bg-white hover:border-green-400'
@@ -2986,12 +2995,11 @@ const Tasks = () => {
                           )}
                         </div>
                         <label
-                          className={`ml-3 text-sm font-medium cursor-pointer flex-1 transition-all duration-300 ${
+                          className={`ml-3 text-sm font-medium flex-1 transition-all duration-300 ${
                             stage.status === 'TAYYOR'
                               ? 'line-through text-gray-400 opacity-60'
                               : 'text-gray-900'
                           }`}
-                          onClick={() => !updatingStage && handleStageClick(stage)}
                         >
                           {stage.name}
                         </label>
@@ -3831,7 +3839,9 @@ const Tasks = () => {
                           <button
                             onClick={async () => {
                               try {
-                                await updateStageToReady(undefined, true);
+                                if (selectedStageForReminder) {
+                                  await updateStageToReady(selectedStageForReminder, undefined, true);
+                                }
                                 setShowFileUploadModal(false);
                                 setFileUploadFile(null);
                                 setFileUploadName('');
@@ -3905,7 +3915,7 @@ const Tasks = () => {
                             setFileUploadStageName('');
                             setAiCheckResult(null);
                             if (selectedStageForReminder) {
-                              await updateStageToReady();
+                              await updateStageToReady(selectedStageForReminder);
                             } else {
                               await loadTaskDetail(selectedTask.id);
                               await loadTaskDocuments(selectedTask.id);
@@ -3923,47 +3933,6 @@ const Tasks = () => {
             )}
 
 
-            {/* Reminder Modal */}
-            {showReminderModal && selectedStageForReminder && (
-              <div 
-                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] backdrop-blur-sm"
-                style={{
-                  animation: 'backdropFadeIn 0.3s ease-out'
-                }}
-                onClick={(e) => {
-                  if (e.target === e.currentTarget) {
-                    setShowReminderModal(false);
-                    setSelectedStageForReminder(null);
-                  }
-                }}
-              >
-                <div 
-                  className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
-                  style={{
-                    animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                  }}
-                >
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">ESLATMA!!!</h3>
-                  <div className="mb-6 whitespace-pre-line text-sm text-gray-700">
-                    {getReminderMessage(selectedStageForReminder.name)}
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => handleConfirmStage(true)}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 font-medium transform hover:scale-105 active:scale-95"
-                    >
-                      Ha
-                    </button>
-                    <button
-                      onClick={() => handleConfirmStage(false)}
-                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200 font-medium transform hover:scale-105 active:scale-95"
-                    >
-                      Yo'q
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}

@@ -110,7 +110,12 @@ app.get('/', (_req, res) => {
 app.get('/health', async (_req, res) => {
   try {
     // Quick health check without database query to avoid timeout
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    // Immediately respond to avoid blocking
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      server: 'running'
+    });
   } catch (err) {
     res.status(500).json({ status: 'error', error: String(err) });
   }
@@ -210,13 +215,17 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server ishga tushdi!`);
   
   // Database ulanishini tekshirish (async, server ishga tushgandan keyin)
-  prisma.$connect()
+  // Add timeout to avoid blocking server startup
+  Promise.race([
+    prisma.$connect(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Database connection timeout')), 10000))
+  ])
     .then(() => {
       console.log('✅ Database ulanishi muvaffaqiyatli!');
     })
     .catch((err: any) => {
       console.error('⚠️  Database ulanishi muammosi:', err.message);
-      console.log('⚠️  Server ishlayapti, lekin database ulanishi yo\'q. Iltimos, database sozlamalarini tekshiring.');
+      console.log('⚠️  Server ishlayapti, lekin database ulanishi sekin yoki mavjud emas. Remote database\'ga ulanish muammosi bo\'lishi mumkin.');
     });
 });
 

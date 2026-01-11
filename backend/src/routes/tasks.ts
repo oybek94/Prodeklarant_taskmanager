@@ -1150,6 +1150,9 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     await updateTaskStatus(tx, taskId);
     
       return upd;
+    }, {
+      maxWait: 30000, // 30 seconds max wait for transaction to start
+      timeout: 30000, // 30 seconds timeout for transaction to complete (remote database uchun)
     });
   // #region agent log
   debugLog({location:'tasks.ts:824',message:'Transaction completed',data:{taskId,stageId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});

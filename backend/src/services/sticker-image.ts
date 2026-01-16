@@ -10,7 +10,7 @@ import { generateQRCodeBuffer } from '../utils/qr-code';
 import { isStickerReady } from './task-status';
 import * as fs from 'fs';
 import * as path from 'path';
-import sharp from 'sharp';
+import { Resvg } from '@resvg/resvg-js';
 
 // ============================================================================
 // Type Definitions
@@ -135,7 +135,9 @@ function buildStickerSvg(
   data: StickerData,
   qrBase64: string,
   logoBase64?: string | null,
-  fontBase64?: string | null
+  fontBase64?: string | null,
+  pixelWidth?: number,
+  pixelHeight?: number
 ): string {
   const width = 58;
   const height = 40;
@@ -173,9 +175,11 @@ function buildStickerSvg(
   const fontStyle = fontBase64
     ? `<style>@font-face{font-family:'Montserrat';src:url(data:font/ttf;base64,${fontBase64}) format('truetype');}text{font-family:'Montserrat',sans-serif;font-weight:700;}</style>`
     : `<style>text{font-family:'Montserrat',sans-serif;font-weight:700;}</style>`;
+  const svgWidth = pixelWidth ? `${pixelWidth}` : `${width}mm`;
+  const svgHeight = pixelHeight ? `${pixelHeight}` : `${height}mm`;
 
   return `
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}mm" height="${height}mm" viewBox="0 0 ${width} ${height}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${width} ${height}">
   ${fontStyle}
   ${logoBase64 ? `<image href="data:image/png;base64,${logoBase64}" x="${logoX}" y="${logoY}" width="${logoW}" height="${logoH}" />` : ''}
   <text x="${plateX}" y="${plateY}" font-size="8.5" fill="#111111">${safePlate}</text>
@@ -223,15 +227,20 @@ export async function generateStickerImage(taskId: number): Promise<Buffer> {
   const logoBase64 = loadLogoBase64();
   const fontBase64 = loadFontBase64();
 
-  const svg = buildStickerSvg(stickerData, qrBase64, logoBase64, fontBase64);
-  const svgBuffer = Buffer.from(svg, 'utf-8');
-
   const dpi = 300;
   const widthPx = Math.round((58 / 25.4) * dpi);
   const heightPx = Math.round((40 / 25.4) * dpi);
 
-  return sharp(svgBuffer, { density: dpi })
-    .resize(widthPx, heightPx, { fit: 'fill' })
-    .png()
-    .toBuffer();
+  const svg = buildStickerSvg(
+    stickerData,
+    qrBase64,
+    logoBase64,
+    fontBase64,
+    widthPx,
+    heightPx
+  );
+
+  const resvg = new Resvg(svg, { fitTo: { mode: 'original' } });
+  const pngData = resvg.render();
+  return pngData.asPng();
 }

@@ -46,6 +46,8 @@ router.get('/', async (_req, res) => {
         select: {
           id: true,
           hasPsr: true,
+          snapshotDealAmount: true,
+          snapshotPsrPrice: true,
         },
       },
       transactions: {
@@ -59,68 +61,34 @@ router.get('/', async (_req, res) => {
     orderBy: { createdAt: 'desc' } 
   });
   
-  // Calculate balance for each client - use amount_uzs for all calculations
+  // Calculate balance for each client in deal currency
   const clientsWithBalance = await Promise.all(clients.map(async (client: any) => {
     try {
-      // Use universal fields if available, fallback to old fields
-      const dealAmountUzs = client.dealAmount_amount_uzs 
-        ? Number(client.dealAmount_amount_uzs)
-        : (client.dealAmountInUzs ? Number(client.dealAmountInUzs) : 0);
+      const dealCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
+      const dealAmount = Number(client.dealAmount || 0);
       
       const totalTasks = client.tasks?.length || 0;
       const tasksWithPsr = (client.tasks || []).filter((t: any) => t.hasPsr).length;
       
-      // Calculate total deal amount in UZS (with PSR - PSR amount is 10 UZS per requirement)
-      const totalDealAmountUzs = (dealAmountUzs * totalTasks) + (10 * tasksWithPsr);
-      
-      // Get all INCOME transactions for this client - use amount_uzs
-      let clientTransactions: {
-        amount: any;
-        convertedUzsAmount: any;
-        amount_uzs: any;
-        exchange_rate: any;
-        exchange_source: any;
-      }[] = [];
-      try {
-        clientTransactions = await prisma.transaction.findMany({
-          where: { clientId: client.id, type: 'INCOME' },
-          select: {
-            amount_uzs: true,
-            convertedUzsAmount: true,
-            amount: true,
-            exchange_rate: true,
-            exchange_source: true,
-          },
-        });
-      } catch (txError) {
-        console.error(`Error fetching transactions for client ${client.id}:`, txError);
-        clientTransactions = [];
-      }
-      
-      const totalIncome = clientTransactions.reduce((sum, tx: any) => {
-        const txAmount = tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0;
-        return sum + Number(txAmount);
+      // Calculate total deal amount in deal currency using task snapshots
+      const totalDealAmount = (client.tasks || []).reduce((sum: number, task: any) => {
+        const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
+        const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+        return sum + baseAmount + psrAmount;
       }, 0);
       
-      const balance = totalDealAmountUzs - totalIncome;
-      
-      // Include exchange rate information if available
-      const exchangeRates = new Set<string>();
-      clientTransactions.forEach((tx: any) => {
-        if (tx.exchange_rate) {
-          exchangeRates.add(`${tx.exchange_rate}-${tx.exchange_source || 'CBU'}`);
-        }
-      });
+      const totalIncome = (client.transactions || [])
+        .filter((t: any) => t.currency === dealCurrency)
+        .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+
+      const balance = totalDealAmount - totalIncome;
       
       return {
         ...client,
         balance,
-        totalDealAmount: totalDealAmountUzs, // Return in UZS for accounting view
+        totalDealAmount, // Return in deal currency
         totalIncome,
-        exchangeRatesUsed: Array.from(exchangeRates).map(rate => {
-          const [value, source] = rate.split('-');
-          return { rate: parseFloat(value), source };
-        }),
+        balanceCurrency: dealCurrency,
       };
     } catch (clientError) {
       console.error(`Error processing client ${client.id}:`, clientError);
@@ -130,7 +98,7 @@ router.get('/', async (_req, res) => {
         balance: 0,
         totalDealAmount: 0,
         totalIncome: 0,
-        exchangeRatesUsed: [],
+        balanceCurrency: client.dealAmount_currency || client.dealAmountCurrency || 'USD',
       };
     }
   }));

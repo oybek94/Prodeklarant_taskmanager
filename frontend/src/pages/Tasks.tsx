@@ -62,6 +62,7 @@ interface TaskDetail {
   comments?: string;
   hasPsr?: boolean;
   driverPhone?: string;
+  qrToken?: string | null;
   createdAt: string;
   updatedAt?: string;
   client: { id: number; name: string; dealAmount?: number; dealAmountCurrency?: 'USD' | 'UZS'; dealAmount_currency?: 'USD' | 'UZS' };
@@ -188,6 +189,11 @@ const Tasks = () => {
   const generateTelegramMessage = (task: TaskDetail): string => {
     const taskName = task.title;
     const branchName = task.branch.name;
+    const baseUrl =
+      import.meta.env.VITE_PUBLIC_BASE_URL ||
+      import.meta.env.VITE_FRONTEND_URL ||
+      window.location.origin;
+    const documentsUrl = task.qrToken ? `${baseUrl}/q/${task.qrToken}` : null;
     
     // Branch information mapping
     const branchInfo: Record<string, { operator: string; address: string; phone: string }> = {
@@ -207,19 +213,32 @@ const Tasks = () => {
     const branch = branchInfo[branchName] || branchInfo['Oltiariq'];
     
     // Generate message with only the task's branch information
-    return `📄 Sizning hujjatingiz tayyor!\nHujjat raqami: ${taskName}\n\n🏢 Filial:\n\n📍 ${branchName} filial:\n👤 Operator: ${branch.operator}\n📌 Manzil: ${branch.address}\n📞 Tel: ${branch.phone}\n\n🤝 Har qanday savol bo'lsa — bemalol murojaat qiling.`;
+    return `📄 Sizning hujjatingiz tayyor!\nHujjat raqami: ${taskName}\n\n🏢 Filial:\n\n📍 ${branchName} filial:\n👤 Operator: ${branch.operator}\n📌 Manzil: ${branch.address}\n📞 Tel: ${branch.phone}${
+      documentsUrl ? `\n\n📎 Elektron hujjatlar: ${documentsUrl}` : ''
+    }\n\n🤝 Har qanday savol bo'lsa — bemalol murojaat qiling.`;
   };
 
   // Handler function to open Telegram with formatted message
   // URL format: https://t.me/+PHONE?text=ENCODED_MESSAGE
-  const handleTelegramClick = () => {
+  const handleTelegramClick = async () => {
     if (!selectedTask?.driverPhone) return;
     
     // Clean phone number: remove spaces only (keep + sign)
     const cleanedPhone = cleanPhoneNumber(selectedTask.driverPhone);
+    let taskForMessage = selectedTask;
+
+    if (!selectedTask.qrToken) {
+      try {
+        const response = await apiClient.get(`/tasks/${selectedTask.id}`);
+        taskForMessage = response.data;
+        setSelectedTask(response.data);
+      } catch (error) {
+        // If refresh fails, fallback to existing task data
+      }
+    }
     
     // Generate message
-    const message = generateTelegramMessage(selectedTask);
+    const message = generateTelegramMessage(taskForMessage);
     
     // Encode message for URL
     const encodedMessage = encodeURIComponent(message);

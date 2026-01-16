@@ -3,15 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import MonetaryInput from '../components/MonetaryInput';
 import CurrencyDisplay from '../components/CurrencyDisplay';
+import { validateMonetaryFields, isValidMonetaryFields } from '../utils/validation';
 
 interface Client {
   id: number;
   name: string;
   dealAmount?: number | string | null;
+  dealAmountCurrency?: 'USD' | 'UZS';
   phone?: string;
   createdAt: string;
   tasks?: { id: number }[];
   balance?: number;
+  balanceCurrency?: 'USD' | 'UZS';
   totalDealAmount?: number;
   totalIncome?: number;
 }
@@ -864,7 +867,10 @@ const Clients = () => {
                                 ? 'text-gray-600'
                                 : 'text-green-600'
                             }`}>
-                              {balance > 0 ? '+' : ''}${balance.toFixed(2)}
+                              <CurrencyDisplay
+                                amount={Number(balance)}
+                                originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                              />
                             </span>
                           );
                         }
@@ -884,7 +890,10 @@ const Clients = () => {
                               ? 'text-gray-600'
                               : 'text-green-600'
                           }`}>
-                            {calculatedBalance > 0 ? '+' : ''}${calculatedBalance.toFixed(2)}
+                            <CurrencyDisplay
+                              amount={Number(calculatedBalance)}
+                              originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                            />
                           </span>
                         );
                       })()}

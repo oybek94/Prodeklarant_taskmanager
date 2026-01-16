@@ -173,14 +173,15 @@ function buildStickerSvg(
   const safePlate = data.vehiclePlate ?? '';
   const safeDate = formatDate(data.verificationDate);
   const fontStyle = fontBase64
-    ? `<style>@font-face{font-family:'Montserrat';src:url(data:font/ttf;base64,${fontBase64}) format('truetype');}text{font-family:'Montserrat',sans-serif;font-weight:700;}</style>`
-    : `<style>text{font-family:'Montserrat',sans-serif;font-weight:700;}</style>`;
+    ? `<style>@font-face{font-family:'Montserrat';src:url(data:font/ttf;base64,${fontBase64}) format('truetype');font-weight:700;font-style:normal;}svg{text-rendering:geometricPrecision;}text{font-family:'Montserrat',sans-serif;font-weight:700;}</style>`
+    : `<style>svg{text-rendering:geometricPrecision;}text{font-family:'Montserrat',sans-serif;font-weight:700;}</style>`;
   const svgWidth = pixelWidth ? `${pixelWidth}` : `${width}mm`;
   const svgHeight = pixelHeight ? `${pixelHeight}` : `${height}mm`;
 
   return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${width} ${height}">
   ${fontStyle}
+  <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />
   ${logoBase64 ? `<image href="data:image/png;base64,${logoBase64}" x="${logoX}" y="${logoY}" width="${logoW}" height="${logoH}" />` : ''}
   <text x="${plateX}" y="${plateY}" font-size="8.5" fill="#111111">${safePlate}</text>
   <text x="${subtitleX}" y="${subtitleY}" font-size="3.2" fill="#111111">Tekshiruvdan o&apos;tgan</text>

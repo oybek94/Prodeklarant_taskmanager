@@ -3,52 +3,120 @@ import { prisma } from '../prisma';
 import * as fs from 'fs';
 import * as path from 'path';
 import { isStickerReady } from './task-status';
+import {
+  TaskNotFoundError,
+  StickerNotReadyError,
+  QrTokenMissingError,
+  QrGenerationError,
+} from './sticker-errors';
+import { generateQRCodeBuffer, QRErrorCorrectionLevel } from '../utils/qr-code';
+import { Prisma } from '@prisma/client';
 
-// Helper function to ensure text is a valid UTF-8 string
-function ensureUTF8(text: any): string {
-  if (text === null || text === undefined) return '';
-  let result = String(text);
-  try {
-    result = result.normalize('NFC');
-  } catch (e) {
-    // Continue with original string
-  }
-  try {
-    const utf8Buffer = Buffer.from(result, 'utf8');
-    result = utf8Buffer.toString('utf8');
-  } catch (e) {
-    result = '';
-  }
-  return result;
+// ============================================================================
+// Constants
+// ============================================================================
+
+const STICKER_DIMENSIONS = {
+  widthMm: 60,
+  heightMm: 40,
+} as const;
+
+const MM_TO_POINTS = 2.83465;
+
+const STICKER_PADDING = 5;
+
+const FONT_SIZES = {
+  header: 10,
+  plate: 9,
+  date: 7,
+} as const;
+
+const LAYOUT_RATIOS = {
+  qrSizeRatio: 0.45,
+  qrHeightRatio: 0.7,
+  textSpacing: 5,
+  headerSpacing: 12,
+  plateSpacing: 10,
+} as const;
+
+const QR_ERROR_CORRECTION_LEVEL: QRErrorCorrectionLevel = 'M';
+
+const FONT_PATHS = [
+  path.join(__dirname, '../fonts/DejaVuSans.ttf'),
+  path.join(__dirname, '../../fonts/DejaVuSans.ttf'),
+  'C:/Windows/Fonts/arial.ttf',
+  'C:/Windows/Fonts/times.ttf',
+] as const;
+
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+type TaskWithStages = Prisma.TaskGetPayload<{
+  include: {
+    stages: {
+      where: { name: 'Tekshirish' };
+      select: { completedAt: true };
+    };
+  };
+}>;
+
+interface StickerData {
+  taskId: number;
+  vehiclePlate: string | null;
+  verificationDate: Date | null;
+  qrToken: string;
+  qrUrl: string;
 }
 
-// Parse vehicle plate number from task title
-function parseVehiclePlate(title: string): string | null {
-  if (!title) return null;
-  const autoIndex = title.indexOf('АВТО');
-  if (autoIndex === -1) return null;
-  const afterAuto = title.substring(autoIndex + 4).trim();
-  const plateMatch = afterAuto.match(/^\S+/);
-  return plateMatch ? plateMatch[0] : null;
+interface LayoutMetrics {
+  widthPt: number;
+  heightPt: number;
+  padding: number;
+  contentWidth: number;
+  contentHeight: number;
+  qrSize: number;
+  qrX: number;
+  qrY: number;
+  textX: number;
+  textY: number;
+  textWidth: number;
 }
 
-// Format date for display
-function formatDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  return `${day}.${month}.${year}`;
+type FontName = 'CyrillicFont' | 'Helvetica';
+
+// PDFDocument instance type (PDFKit doesn't export instance type, so we infer it)
+interface TextOptions {
+  width?: number;
+  align?: 'left' | 'center' | 'right' | 'justify';
 }
+
+interface ImageOptions {
+  width?: number;
+  height?: number;
+}
+
+type PDFDoc = {
+  registerFont: (name: string, path: string) => void;
+  font: (name: string) => PDFDoc;
+  fontSize: (size: number) => PDFDoc;
+  fillColor: (color: string) => PDFDoc;
+  text: (text: string, x: number, y: number, options?: TextOptions) => PDFDoc;
+  rect: (x: number, y: number, w: number, h: number) => PDFDoc;
+  fillAndStroke: (fill: string, stroke: string) => PDFDoc;
+  image: (buffer: Buffer, x: number, y: number, options?: ImageOptions) => PDFDoc;
+  on: (event: 'data' | 'end' | 'error', handler: (data: Buffer | Error) => void) => void;
+  end: () => void;
+};
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
 /**
- * Generate sticker PDF for a task
- * Size: 60mm x 40mm
- * Content: ✔ TEKSHIRILDI, vehicle plate, verification date, QR code
- * Returns PDF as Buffer (safe for async operations)
+ * Fetches task with verification stage data
  */
-export async function generateStickerPDF(taskId: number): Promise<Buffer> {
-  // Get task with required data
+async function getTaskForSticker(taskId: number): Promise<TaskWithStages> {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
     include: {
@@ -60,36 +128,220 @@ export async function generateStickerPDF(taskId: number): Promise<Buffer> {
   });
 
   if (!task) {
-    throw new Error('Task not found');
+    throw new TaskNotFoundError(taskId);
   }
 
+  return task;
+}
+
+/**
+ * Validates task eligibility for sticker generation
+ */
+function validateStickerEligibility(
+  task: TaskWithStages
+): asserts task is TaskWithStages & { qrToken: string } {
   if (!isStickerReady(task.status)) {
-    throw new Error('Task is not ready for sticker generation');
+    throw new StickerNotReadyError(task.id, task.status);
   }
 
   if (!task.qrToken) {
-    throw new Error('Task does not have a QR token');
+    throw new QrTokenMissingError(task.id);
+  }
+}
+
+/**
+ * Extracts vehicle plate number from task title
+ * Format: "01 АВТО 40845FCA" -> "40845FCA"
+ */
+function parseVehiclePlate(title: string): string | null {
+  if (!title) return null;
+  const autoIndex = title.indexOf('АВТО');
+  if (autoIndex === -1) return null;
+  const afterAuto = title.substring(autoIndex + 4).trim();
+  const plateMatch = afterAuto.match(/^\S+/);
+  return plateMatch ? plateMatch[0] : null;
+}
+
+/**
+ * Formats date for display (DD.MM.YYYY)
+ */
+function formatDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}.${month}.${year}`;
+}
+
+/**
+ * Normalizes text for safe Cyrillic rendering
+ * Uses NFC normalization for proper character composition
+ */
+function normalizeText(text: unknown): string {
+  if (text === null || text === undefined) return '';
+  try {
+    return String(text).normalize('NFC');
+  } catch {
+    return String(text);
+  }
+}
+
+/**
+ * Registers Cyrillic font if available, returns font name
+ */
+function registerCyrillicFont(doc: PDFDoc): FontName {
+  for (const fontPath of FONT_PATHS) {
+    try {
+      if (fs.existsSync(fontPath)) {
+        doc.registerFont('CyrillicFont', fontPath);
+        return 'CyrillicFont';
+      }
+    } catch {
+      continue;
+    }
+  }
+  return 'Helvetica';
+}
+
+/**
+ * Builds QR verification URL from token
+ */
+function buildQrUrl(qrToken: string): string {
+  const baseUrl =
+    process.env.FRONTEND_URL ||
+    process.env.API_BASE_URL ||
+    'http://localhost:5173';
+  return `${baseUrl}/q/${qrToken}`;
+}
+
+/**
+ * Calculates all layout metrics for sticker
+ */
+function calculateLayout(
+  dimensions: typeof STICKER_DIMENSIONS,
+  padding: number
+): LayoutMetrics {
+  const widthPt = dimensions.widthMm * MM_TO_POINTS;
+  const heightPt = dimensions.heightMm * MM_TO_POINTS;
+  const contentWidth = widthPt - padding * 2;
+  const contentHeight = heightPt - padding * 2;
+
+  const qrSize = Math.min(
+    contentHeight * LAYOUT_RATIOS.qrHeightRatio,
+    contentWidth * LAYOUT_RATIOS.qrSizeRatio
+  );
+  const qrX = padding;
+  const qrY = padding + (contentHeight - qrSize) / 2;
+
+  const textX = padding + qrSize + LAYOUT_RATIOS.textSpacing;
+  const textY = padding;
+  const textWidth = contentWidth - qrSize - LAYOUT_RATIOS.textSpacing;
+
+  return {
+    widthPt,
+    heightPt,
+    padding,
+    contentWidth,
+    contentHeight,
+    qrSize,
+    qrX,
+    qrY,
+    textX,
+    textY,
+    textWidth,
+  };
+}
+
+/**
+ * Draws complete sticker layout on PDF document
+ */
+function drawStickerLayout(
+  doc: PDFDoc,
+  data: StickerData,
+  layout: LayoutMetrics,
+  fontName: FontName
+): void {
+  // Background
+  doc
+    .rect(0, 0, layout.widthPt, layout.heightPt)
+    .fillAndStroke('white', 'black');
+
+  // Header: ✔ TEKSHIRILDI
+  let currentY = layout.textY;
+  doc
+    .fontSize(FONT_SIZES.header)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('✔ TEKSHIRILDI', layout.textX, currentY, {
+      width: layout.textWidth,
+      align: 'left',
+    });
+  currentY += LAYOUT_RATIOS.headerSpacing;
+
+  // Vehicle plate
+  if (data.vehiclePlate) {
+    doc
+      .fontSize(FONT_SIZES.plate)
+      .font(fontName)
+      .text(normalizeText(data.vehiclePlate), layout.textX, currentY, {
+        width: layout.textWidth,
+        align: 'left',
+      });
+    currentY += LAYOUT_RATIOS.plateSpacing;
   }
 
-  // Parse vehicle plate
+  // Verification date
+  if (data.verificationDate) {
+    const formattedDate = formatDate(data.verificationDate);
+    doc
+      .fontSize(FONT_SIZES.date)
+      .font(fontName)
+      .text(formattedDate, layout.textX, currentY, {
+        width: layout.textWidth,
+        align: 'left',
+      });
+  }
+}
+
+// ============================================================================
+// Main Function
+// ============================================================================
+
+/**
+ * Generates sticker PDF for a task
+ * Size: 60mm x 40mm
+ * Content: ✔ TEKSHIRILDI, vehicle plate, verification date, QR code
+ * @param taskId - Task ID to generate sticker for
+ * @returns Promise<Buffer> - PDF as buffer
+ */
+export async function generateStickerPDF(taskId: number): Promise<Buffer> {
+  // Fetch and validate task
+  const task = await getTaskForSticker(taskId);
+  validateStickerEligibility(task);
+
+  // Prepare sticker data
   const vehiclePlate = parseVehiclePlate(task.title);
-  
-  // Get verification date
-  const verificationDate = task.stages.length > 0 && task.stages[0].completedAt
-    ? task.stages[0].completedAt
-    : null;
+  const verificationDate =
+    task.stages.length > 0 && task.stages[0].completedAt
+      ? task.stages[0].completedAt
+      : null;
+  const qrUrl = buildQrUrl(task.qrToken);
 
-  // Sticker dimensions: 60mm x 40mm
-  // Convert to points: 1mm = 2.83465 points
-  const widthMm = 60;
-  const heightMm = 40;
-  const widthPt = widthMm * 2.83465; // ~170.08 points
-  const heightPt = heightMm * 2.83465; // ~113.39 points
+  const stickerData: StickerData = {
+    taskId: task.id,
+    vehiclePlate,
+    verificationDate,
+    qrToken: task.qrToken,
+    qrUrl,
+  };
 
-  // Create PDF document and set up buffer collection
+  // Calculate layout
+  const layout = calculateLayout(STICKER_DIMENSIONS, STICKER_PADDING);
+
+  // Create PDF document
   const chunks: Buffer[] = [];
   const doc = new PDFDocument({
-    size: [widthPt, heightPt],
+    size: [layout.widthPt, layout.heightPt],
     margin: 0,
     autoFirstPage: true,
     info: {
@@ -100,124 +352,33 @@ export async function generateStickerPDF(taskId: number): Promise<Buffer> {
     },
   });
 
-  // Set up buffer collection (listening to 'data' events puts stream in flowing mode)
   doc.on('data', (chunk: Buffer) => chunks.push(chunk));
 
-  // Register Cyrillic font (same pattern as invoice-pdf.ts)
-  let fontRegistered = false;
-  const fontPaths = [
-    path.join(__dirname, '../fonts/DejaVuSans.ttf'),
-    path.join(__dirname, '../../fonts/DejaVuSans.ttf'),
-    'C:/Windows/Fonts/arial.ttf',
-    'C:/Windows/Fonts/times.ttf',
-  ];
+  // Register font
+  const fontName = registerCyrillicFont(doc);
 
-  for (const fontPath of fontPaths) {
-    try {
-      if (fs.existsSync(fontPath)) {
-        doc.registerFont('CyrillicFont', fontPath);
-        doc.font('CyrillicFont');
-        fontRegistered = true;
-        break;
-      }
-    } catch (error) {
-      // Continue to next font path
-    }
-  }
-
-  if (!fontRegistered) {
-    doc.font('Helvetica');
-  }
-
-  // Background color (optional white background)
-  doc.rect(0, 0, widthPt, heightPt).fillAndStroke('white', 'black');
-
-  // Padding
-  const padding = 5;
-  const contentWidth = widthPt - (padding * 2);
-  const contentHeight = heightPt - (padding * 2);
-
-  // Layout: QR code on left, text on right
-  const qrSize = Math.min(contentHeight * 0.7, contentWidth * 0.45);
-  const qrX = padding;
-  const qrY = padding + (contentHeight - qrSize) / 2;
-  
-  const textX = padding + qrSize + 5;
-  const textY = padding;
-  const textWidth = contentWidth - qrSize - 5;
-
-  // Generate QR code URL (construct the verification URL)
-  const baseUrl = process.env.FRONTEND_URL || process.env.API_BASE_URL || 'http://localhost:5173';
-  const qrUrl = `${baseUrl}/q/${task.qrToken}`;
-
-  // Generate QR code (black, high contrast)
-  // QR code generation is required - no fallback allowed
-  let qrCodeDataUrl: string;
+  // Generate QR code
+  let qrBuffer: Buffer;
   try {
-    const QRCodeModule = await import('qrcode');
-    const QRCode = QRCodeModule.default || QRCodeModule;
-    if (!QRCode || typeof QRCode.toDataURL !== 'function') {
-      throw new Error('QRCode.toDataURL is not a function');
-    }
-    qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
-      width: Math.round(qrSize),
-      margin: 1,
-      color: {
-        dark: '#000000', // Black
-        light: '#FFFFFF', // White
-      },
-      errorCorrectionLevel: 'M',
+    qrBuffer = await generateQRCodeBuffer(qrUrl, {
+      size: layout.qrSize,
+      errorCorrectionLevel: QR_ERROR_CORRECTION_LEVEL,
     });
-  } catch (qrError: any) {
-    console.error('QR code generation error:', qrError);
-    throw new Error(`QR code generation failed: ${qrError.message}`);
+  } catch (error) {
+    const cause = error instanceof Error ? error : new Error(String(error));
+    throw new QrGenerationError(qrUrl, cause);
   }
 
-  // Convert data URL to buffer and embed in PDF
-  const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');
-  const qrImageBuffer = Buffer.from(base64Data, 'base64');
+  // Draw layout
+  drawStickerLayout(doc, stickerData, layout, fontName);
 
-  doc.image(qrImageBuffer, qrX, qrY, {
-    width: qrSize,
-    height: qrSize,
+  // Embed QR code
+  doc.image(qrBuffer, layout.qrX, layout.qrY, {
+    width: layout.qrSize,
+    height: layout.qrSize,
   });
 
-  // Text content on the right
-  let currentY = textY;
-
-  // ✔ TEKSHIRILDI (bold, larger)
-  doc.fontSize(10)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('✔ TEKSHIRILDI', textX, currentY, {
-      width: textWidth,
-      align: 'left',
-    });
-  currentY += 12;
-
-  // Vehicle plate (medium size)
-  if (vehiclePlate) {
-    doc.fontSize(9)
-      .font(fontRegistered ? 'CyrillicFont' : 'Helvetica')
-      .text(ensureUTF8(vehiclePlate), textX, currentY, {
-        width: textWidth,
-        align: 'left',
-      });
-    currentY += 10;
-  }
-
-  // Verification date (smaller)
-  if (verificationDate) {
-    const formattedDate = formatDate(verificationDate);
-    doc.fontSize(7)
-      .font(fontRegistered ? 'CyrillicFont' : 'Helvetica')
-      .text(formattedDate, textX, currentY, {
-        width: textWidth,
-        align: 'left',
-      });
-  }
-
-  // Set up Promise BEFORE calling end() to ensure listeners are attached
+  // Set up Promise before ending stream
   const pdfPromise = new Promise<Buffer>((resolve, reject) => {
     doc.on('end', () => {
       resolve(Buffer.concat(chunks));
@@ -227,9 +388,6 @@ export async function generateStickerPDF(taskId: number): Promise<Buffer> {
     });
   });
 
-  // Finalize PDF (this triggers the stream to end)
   doc.end();
-
-  // Wait for PDF buffer to be complete
   return pdfPromise;
 }

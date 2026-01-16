@@ -170,30 +170,31 @@ const TaskDetail = () => {
           <h1 className="text-2xl font-bold text-gray-800">{task.title}</h1>
         </div>
             {task.status === 'TEKSHIRILGAN' && (
-              <button
-                onClick={async () => {
-                  try {
-                    const response = await apiClient.get(`/sticker/${task.id}/pdf`, {
-                      responseType: 'blob',
-                    });
-                    const blob = new Blob([response.data], { type: 'application/pdf' });
-                    const url = window.URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `sticker-${task.id}.pdf`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    // Clean up the URL after a delay
-                    setTimeout(() => window.URL.revokeObjectURL(url), 100);
-                  } catch (error: any) {
-                    alert(error.response?.data?.error || 'Stiker yuklab olishda xatolik');
-                  }
-                }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-              >
-                Stiker yuklab olish (PDF)
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await apiClient.get(`/sticker/${task.id}/image`, {
+                        responseType: 'blob',
+                      });
+                      const blob = new Blob([response.data], { type: 'image/png' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `sticker-${task.id}.png`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      setTimeout(() => URL.revokeObjectURL(url), 100);
+                    } catch (error: any) {
+                      alert(error.response?.data?.error || 'Stiker yuklab olishda xatolik');
+                    }
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  Stiker yuklab olish (PNG)
+                </button>
+              </div>
             )}
       </div>
 

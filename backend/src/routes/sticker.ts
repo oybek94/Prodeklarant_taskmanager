@@ -2,15 +2,15 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { isStickerReady } from '../services/task-status';
-import { generateStickerPDF } from '../services/sticker-pdf';
+import { generateStickerImage } from '../services/sticker-image';
 
 const router = Router();
 
 /**
- * GET /api/sticker/:taskId/pdf
- * Generate sticker PDF for a task (manual generation only)
+ * GET /api/sticker/:taskId/image
+ * Generate sticker image (SVG) for a task
  */
-router.get('/:taskId/pdf', requireAuth(), async (req: AuthRequest, res) => {
+router.get('/:taskId/image', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const taskId = parseInt(req.params.taskId);
 
@@ -41,20 +41,20 @@ router.get('/:taskId/pdf', requireAuth(), async (req: AuthRequest, res) => {
       });
     }
 
-    // Generate sticker PDF as buffer
-    const pdfBuffer = await generateStickerPDF(taskId);
+    // Generate sticker PNG image as buffer
+    const imageBuffer = await generateStickerImage(taskId);
 
     // Set response headers
-    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Type', 'image/png');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="sticker-${taskId}.pdf"`
+      `attachment; filename="sticker-${taskId}.png"`
     );
 
-    // Send PDF buffer
-    res.send(pdfBuffer);
+    // Send image buffer
+    res.send(imageBuffer);
   } catch (error: any) {
-    console.error('Error generating sticker PDF:', error);
+    console.error('Error generating sticker image:', error);
     console.error('Error stack:', error?.stack);
     console.error('Error details:', {
       message: error?.message,

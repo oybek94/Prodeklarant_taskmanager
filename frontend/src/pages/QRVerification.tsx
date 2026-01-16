@@ -104,7 +104,12 @@ const QRVerification = () => {
     }
     // Otherwise, prepend the API base URL
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-    return `${apiBaseUrl}${fileUrl}`;
+    const combinedUrl = `${apiBaseUrl}${fileUrl}`;
+    // If combined URL is relative, make it absolute for sharing/copy
+    if (combinedUrl.startsWith('/')) {
+      return `${window.location.origin}${combinedUrl}`;
+    }
+    return combinedUrl;
   };
 
   const formatDate = (dateString: string | null) => {

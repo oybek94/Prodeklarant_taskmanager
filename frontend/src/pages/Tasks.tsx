@@ -196,26 +196,23 @@ const Tasks = () => {
     const documentsUrl = task.qrToken ? `${baseUrl}/q/${task.qrToken}` : null;
     
     // Branch information mapping
-    const branchInfo: Record<string, { operator: string; address: string; phone: string }> = {
+    const branchInfo: Record<string, { address: string; phones: string[] }> = {
       'Oltiariq': {
-        operator: 'Abdukamol',
         address: 'https://yandex.ru/maps/-/CLWAuE5H',
-        phone: '+998339077778'
+        phones: ['+998939079017', '+998339077778', '+998947877475']
       },
       'Toshkent': {
-        operator: 'Sardorbek',
         address: 'https://yandex.ru/maps/-/CLWAy4Y9',
-        phone: '+998976626221'
+        phones: ['+998976616121', '+998939079017', '+998339077778']
       }
     };
     
     // Get branch info (default to Oltiariq if branch not found)
     const branch = branchInfo[branchName] || branchInfo['Oltiariq'];
     
-    // Generate message with only the task's branch information
-    return `📄 Sizning hujjatingiz tayyor!\nHujjat raqami: ${taskName}\n\n🏢 Filial:\n\n📍 ${branchName} filial:\n👤 Operator: ${branch.operator}\n📌 Manzil: ${branch.address}\n📞 Tel: ${branch.phone}${
-      documentsUrl ? `\n\n📎 Elektron hujjatlar: ${documentsUrl}` : ''
-    }\n\n🤝 Har qanday savol bo'lsa — bemalol murojaat qiling.`;
+    const phoneLines = branch.phones.map((phone) => `📞 Tel: ${phone}`).join('\n');
+
+    return `📄 *HUJJATINGIZ TAYYOR* ✅\n━━━━━━━━━━━━━━━━━━\n🆔 *Hujjat raqami:*\n${taskName}\n\n${phoneLines}\n📌 Xarita: ${branch.address}\n\n📎 *Elektron hujjatlar*\n👇 Yuklab olish / ko‘rish:\n🔗 ${documentsUrl || ''}\n\n🤝 Savollaringiz bo‘lsa — bemalol murojaat qiling!`;
   };
 
   // Handler function to open Telegram with formatted message

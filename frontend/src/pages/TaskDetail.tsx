@@ -23,6 +23,8 @@ interface TaskError {
   comment?: string;
   date: string;
   worker: { id: number; name: string };
+  createdAt: string;
+  createdById: number;
 }
 
 interface Task {
@@ -52,6 +54,7 @@ const TaskDetail = () => {
   const [updatingStage, setUpdatingStage] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'stages' | 'errors'>('stages');
   const [showErrorForm, setShowErrorForm] = useState(false);
+  const [editingErrorId, setEditingErrorId] = useState<number | null>(null);
   const [workers, setWorkers] = useState<User[]>([]);
   const [errorForm, setErrorForm] = useState({
     stageName: '',
@@ -105,14 +108,25 @@ const TaskDetail = () => {
   const handleAddError = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient.post(`/tasks/${id}/errors`, {
-        stageName: errorForm.stageName,
-        workerId: parseInt(errorForm.workerId),
-        amount: parseFloat(errorForm.amount),
-        comment: errorForm.comment,
-        date: new Date(errorForm.date),
-      });
+      if (editingErrorId) {
+        await apiClient.patch(`/tasks/${id}/errors/${editingErrorId}`, {
+          stageName: errorForm.stageName,
+          workerId: parseInt(errorForm.workerId),
+          amount: parseFloat(errorForm.amount),
+          comment: errorForm.comment,
+          date: new Date(errorForm.date),
+        });
+      } else {
+        await apiClient.post(`/tasks/${id}/errors`, {
+          stageName: errorForm.stageName,
+          workerId: parseInt(errorForm.workerId),
+          amount: parseFloat(errorForm.amount),
+          comment: errorForm.comment,
+          date: new Date(errorForm.date),
+        });
+      }
       setShowErrorForm(false);
+      setEditingErrorId(null);
       setErrorForm({
         stageName: '',
         workerId: '',
@@ -134,6 +148,13 @@ const TaskDetail = () => {
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
+  };
+
+  const canEditError = (error: TaskError) => {
+    if (!user) return false;
+    const createdAt = new Date(error.createdAt).getTime();
+    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+    return error.createdById === user.id && Date.now() - createdAt <= twoDaysMs;
   };
 
   const formatDate = (dateString?: string) => {
@@ -308,7 +329,17 @@ const TaskDetail = () => {
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Xatolar ro'yxati</h3>
                 <button
-                  onClick={() => setShowErrorForm(true)}
+                  onClick={() => {
+                    setEditingErrorId(null);
+                    setErrorForm({
+                      stageName: '',
+                      workerId: '',
+                      amount: '',
+                      comment: '',
+                      date: new Date().toISOString().split('T')[0],
+                    });
+                    setShowErrorForm(true);
+                  }}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
                 >
                   + Xato qo'shish
@@ -317,6 +348,9 @@ const TaskDetail = () => {
 
               {showErrorForm && (
                 <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <div className="text-sm font-semibold text-gray-700 mb-3">
+                    {editingErrorId ? 'Xatoni tahrirlash' : 'Xato qo\'shish'}
+                  </div>
                   <form onSubmit={handleAddError} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -425,12 +459,32 @@ const TaskDetail = () => {
                           <div className="text-sm text-gray-600 mt-2">{error.comment}</div>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleDeleteError(error.id)}
-                        className="text-red-600 hover:text-red-800 ml-4"
-                      >
-                        O'chirish
-                      </button>
+                      {canEditError(error) && (
+                        <div className="ml-4 flex flex-col gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingErrorId(error.id);
+                              setErrorForm({
+                                stageName: error.stageName,
+                                workerId: error.worker.id.toString(),
+                                amount: String(error.amount),
+                                comment: error.comment || '',
+                                date: new Date(error.date).toISOString().split('T')[0],
+                              });
+                              setShowErrorForm(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            Tahrirlash
+                          </button>
+                          <button
+                            onClick={() => handleDeleteError(error.id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            O'chirish
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

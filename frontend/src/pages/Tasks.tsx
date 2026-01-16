@@ -44,6 +44,17 @@ interface KpiLog {
   createdAt: string;
 }
 
+interface TaskError {
+  id: number;
+  stageName: string;
+  workerId: number;
+  amount: number;
+  comment?: string;
+  date: string;
+  createdAt: string;
+  createdById: number;
+}
+
 interface TaskDetail {
   id: number;
   title: string;
@@ -53,7 +64,7 @@ interface TaskDetail {
   driverPhone?: string;
   createdAt: string;
   updatedAt?: string;
-  client: { id: number; name: string; dealAmount?: number; dealAmountCurrency?: 'USD' | 'UZS' };
+  client: { id: number; name: string; dealAmount?: number; dealAmountCurrency?: 'USD' | 'UZS'; dealAmount_currency?: 'USD' | 'UZS' };
   branch: { id: number; name: string };
   createdBy?: { id: number; name: string; email: string };
   updatedBy?: { id: number; name: string; email: string };
@@ -65,7 +76,9 @@ interface TaskDetail {
   snapshotPsrPrice?: number | null; // Task yaratilgan vaqtdagi PSR narxi
   snapshotWorkerPrice?: number | null; // Task yaratilgan vaqtdagi ishchi narxi
   snapshotCustomsPayment?: number | null; // Task yaratilgan vaqtdagi bojxona to'lovi
+  customsPaymentMultiplier?: number | null; // BXM multiplikator (Deklaratsiya)
   kpiLogs?: KpiLog[]; // KPI log'lar (jarayonlar bo'yicha pul ma'lumotlari)
+  errors?: TaskError[];
 }
 
 interface TaskVersion {
@@ -119,8 +132,10 @@ const Tasks = () => {
   const [selectedStageForReminder, setSelectedStageForReminder] = useState<TaskStage | null>(null);
   const [showBXMModal, setShowBXMModal] = useState(false);
   const [bxmMultiplier, setBxmMultiplier] = useState<string>('1.5');
-  const [currentBXM, setCurrentBXM] = useState<number>(34.4);
+  const [currentBxmUsd, setCurrentBxmUsd] = useState<number>(34.4);
+  const [currentBxmUzs, setCurrentBxmUzs] = useState<number>(412000);
   const [showErrorModal, setShowErrorModal] = useState(false);
+  const [editingErrorId, setEditingErrorId] = useState<number | null>(null);
   const [errorForm, setErrorForm] = useState({
     workerId: '',
     stageName: '',
@@ -252,6 +267,7 @@ const Tasks = () => {
   const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
   const [archiveFilters, setArchiveFilters] = useState({
     branchId: '',
+    clientId: '',
     startDate: '',
     endDate: '',
     hasPsr: '',
@@ -298,7 +314,7 @@ const Tasks = () => {
   useEffect(() => {
     if (!showArchive) {
       setArchiveSearchQuery('');
-      setArchiveFilters({ branchId: '', startDate: '', endDate: '', hasPsr: '' });
+      setArchiveFilters({ branchId: '', clientId: '', startDate: '', endDate: '', hasPsr: '' });
     }
   }, [showArchive]);
 
@@ -1217,11 +1233,16 @@ const Tasks = () => {
         if (stage.name === 'Deklaratsiya') {
           try {
             const bxmResponse = await apiClient.get('/bxm/current');
-            setCurrentBXM(Number(bxmResponse.data.amount));
+            const amountUsd = Number(bxmResponse.data.amountUsd ?? bxmResponse.data.amount ?? 34.4);
+            const amountUzs = Number(bxmResponse.data.amountUzs ?? 412000);
+            setCurrentBxmUsd(amountUsd);
+            setCurrentBxmUzs(amountUzs);
             setBxmMultiplier('1.5');
             setShowBXMModal(true);
           } catch (error) {
             console.error('Error loading BXM:', error);
+            setCurrentBxmUsd(34.4);
+            setCurrentBxmUzs(412000);
             setBxmMultiplier('1.5');
             setShowBXMModal(true);
           }
@@ -1296,14 +1317,14 @@ const Tasks = () => {
     
     // If multiplier > 1, show warning about additional payment
     if (multiplier > 1 && selectedTask) {
-      const clientCurrency = selectedTask.client.dealAmountCurrency || 'USD';
+      const clientCurrency = getClientCurrency(selectedTask.client);
       let additionalPayment: number;
       let formattedAdditional: string;
       
       if (clientCurrency === 'USD') {
         // If client's contract is in USD, calculate in USD
         // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
-        additionalPayment = (multiplier - 1) * currentBXM;
+        additionalPayment = (multiplier - 1) * currentBxmUsd;
         formattedAdditional = new Intl.NumberFormat('uz-UZ', {
           style: 'currency',
           currency: 'USD',
@@ -1312,8 +1333,7 @@ const Tasks = () => {
       } else {
         // If client's contract is in UZS, calculate in UZS
         // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
-        const ONE_BXM_IN_SOM = 412000;
-        additionalPayment = (multiplier - 1) * ONE_BXM_IN_SOM;
+        additionalPayment = (multiplier - 1) * currentBxmUzs;
         formattedAdditional = new Intl.NumberFormat('uz-UZ', {
           style: 'currency',
           currency: 'UZS',
@@ -1562,6 +1582,34 @@ const Tasks = () => {
     } else {
       return `${mins} daqiqa`;
     }
+  };
+
+  const getClientCurrency = (client?: { dealAmount_currency?: 'USD' | 'UZS'; dealAmountCurrency?: 'USD' | 'UZS' }) =>
+    client?.dealAmount_currency || client?.dealAmountCurrency || 'USD';
+
+  const formatMoney = (amount: number, currency: 'USD' | 'UZS') => {
+    const formatted = new Intl.NumberFormat('uz-UZ', {
+      minimumFractionDigits: currency === 'USD' ? 2 : 0,
+      maximumFractionDigits: currency === 'USD' ? 2 : 0,
+    }).format(amount).replace(/,/g, ' ');
+    return currency === 'USD' ? `$ ${formatted}` : `UZS ${formatted}`;
+  };
+
+  const getPsrAmount = (task?: { hasPsr?: boolean; snapshotPsrPrice?: number | null }) =>
+    task?.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+
+  const canEditError = (error: TaskError) => {
+    if (!user) return false;
+    const createdAt = new Date(error.createdAt).getTime();
+    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+    return error.createdById === user.id && Date.now() - createdAt <= twoDaysMs;
+  };
+
+  const formatBxmAmount = (multiplier: number) => {
+    const currency = getClientCurrency(selectedTask?.client);
+    const baseAmount = currency === 'USD' ? currentBxmUsd : currentBxmUzs;
+    const amount = baseAmount * multiplier;
+    return formatMoney(amount, currency);
   };
 
   // Jarayon vaqtini baholash
@@ -1846,6 +1894,13 @@ const Tasks = () => {
         task.branch.id.toString() === archiveFilters.branchId
       );
     }
+
+    // Client filter
+    if (archiveFilters.clientId) {
+      filtered = filtered.filter((task) =>
+        task.client.id.toString() === archiveFilters.clientId
+      );
+    }
     
     // Date range filter
     if (archiveFilters.startDate) {
@@ -2004,7 +2059,7 @@ const Tasks = () => {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                {(archiveSearchQuery || archiveFilters.branchId || archiveFilters.startDate || archiveFilters.endDate || archiveFilters.hasPsr) && (
+                {(archiveSearchQuery || archiveFilters.branchId || archiveFilters.clientId || archiveFilters.startDate || archiveFilters.endDate || archiveFilters.hasPsr) && (
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
                 )}
               </button>
@@ -2094,6 +2149,35 @@ const Tasks = () => {
                       </div>
                     </div>
 
+                    {/* Client Filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A4 4 0 0110 15h4a4 4 0 014.879 2.804M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Mijoz
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A4 4 0 0110 15h4a4 4 0 014.879 2.804M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </div>
+                        <select
+                          value={archiveFilters.clientId}
+                          onChange={(e) => setArchiveFilters({ ...archiveFilters, clientId: e.target.value })}
+                          className="w-full pl-10 pr-9 py-2 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none appearance-none text-sm shadow-sm hover:border-gray-300 bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.5rem_center] bg-[length:12px_12px]"
+                        >
+                          <option value="">Barcha mijozlar</option>
+                          {Array.isArray(clients) && clients.map((client) => (
+                            <option key={client.id} value={client.id.toString()}>
+                              {client.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
                     {/* Date Range */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
@@ -2169,18 +2253,18 @@ const Tasks = () => {
                         <span className="font-medium text-gray-700">
                           {filteredArchiveTasks.length} ta natija
                         </span>
-                        {(archiveSearchQuery || archiveFilters.branchId || archiveFilters.startDate || archiveFilters.endDate || archiveFilters.hasPsr) && (
+                        {(archiveSearchQuery || archiveFilters.branchId || archiveFilters.clientId || archiveFilters.startDate || archiveFilters.endDate || archiveFilters.hasPsr) && (
                           <span className="text-gray-500">(filtrlangan)</span>
                         )}
                       </div>
                     </div>
 
                     {/* Clear Filters Button */}
-                    {(archiveSearchQuery || archiveFilters.branchId || archiveFilters.startDate || archiveFilters.endDate || archiveFilters.hasPsr) && (
+                    {(archiveSearchQuery || archiveFilters.branchId || archiveFilters.clientId || archiveFilters.startDate || archiveFilters.endDate || archiveFilters.hasPsr) && (
                       <button
                         onClick={() => {
                           setArchiveSearchQuery('');
-                          setArchiveFilters({ branchId: '', startDate: '', endDate: '', hasPsr: '' });
+                          setArchiveFilters({ branchId: '', clientId: '', startDate: '', endDate: '', hasPsr: '' });
                         }}
                         className="w-full px-4 py-2 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 rounded-lg font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md border border-gray-300"
                       >
@@ -2600,6 +2684,7 @@ const Tasks = () => {
                       comment: '',
                       date: new Date().toISOString().split('T')[0],
                     });
+                    setEditingErrorId(null);
                     setShowErrorModal(true);
                   }}
                   className="px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium flex items-center gap-1.5"
@@ -2777,15 +2862,46 @@ const Tasks = () => {
             {/* Foyda hisoboti - barcha foydalanuvchilar uchun */}
             {selectedTask.netProfit !== null && selectedTask.netProfit !== undefined && (
               <div className={`mb-6 p-4 border rounded-lg ${
-                selectedTask.netProfit >= 0 
+                (() => {
+                  const currency = getClientCurrency(selectedTask.client);
+                  const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
+                    + getPsrAmount(selectedTask);
+                  const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
+                  const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
+                  const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
+                  const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
+                  const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                  const netProfitDisplay = dealAmount - branchPayments;
+                  return netProfitDisplay >= 0;
+                })()
                   ? 'bg-green-50 border-green-200' 
                   : 'bg-orange-50 border-orange-200'
               }`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <svg className={`w-5 h-5 ${selectedTask.netProfit >= 0 ? 'text-green-600' : 'text-orange-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-5 h-5 ${(() => {
+                    const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
+                      + getPsrAmount(selectedTask);
+                    const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
+                    const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
+                    const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
+                    const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
+                    const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                    const netProfitDisplay = dealAmount - branchPayments;
+                    return netProfitDisplay >= 0 ? 'text-green-600' : 'text-orange-600';
+                  })()}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <div className={`text-sm font-semibold ${selectedTask.netProfit >= 0 ? 'text-green-800' : 'text-orange-800'}`}>
+                  <div className={`text-sm font-semibold ${(() => {
+                    const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
+                      + getPsrAmount(selectedTask);
+                    const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
+                    const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
+                    const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
+                    const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
+                    const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                    const netProfitDisplay = dealAmount - branchPayments;
+                    return netProfitDisplay >= 0 ? 'text-green-800' : 'text-orange-800';
+                  })()}`}>
                     Foyda hisoboti
                   </div>
                 </div>
@@ -2796,20 +2912,16 @@ const Tasks = () => {
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Kelishuv summasi:</span>
                         <span className="text-sm font-medium text-gray-800">
-                          {new Intl.NumberFormat('uz-UZ', {
-                            style: 'currency',
-                            currency: 'USD',
-                            minimumFractionDigits: 2,
-                          }).format(
-                            (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)) + (selectedTask.hasPsr ? 10 : 0)
-                          ).replace(/,/g, ' ')}
+                          {formatMoney(
+                            (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)) + getPsrAmount(selectedTask),
+                            getClientCurrency(selectedTask.client)
+                          )}
                           {selectedTask.hasPsr && (
                             <span className="text-xs text-gray-500 ml-1">
-                              (asosiy: {new Intl.NumberFormat('uz-UZ', {
-                                style: 'currency',
-                                currency: 'USD',
-                                minimumFractionDigits: 2,
-                              }).format(selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)).replace(/,/g, ' ')} + 10)
+                              (asosiy: {formatMoney(
+                                selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0),
+                                getClientCurrency(selectedTask.client)
+                              )} + {formatMoney(getPsrAmount(selectedTask), getClientCurrency(selectedTask.client))})
                             </span>
                           )}
                         </span>
@@ -2817,25 +2929,55 @@ const Tasks = () => {
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Filial bo'yicha to'lovlar:</span>
                         <span className="text-sm font-medium text-red-600">
-                          {new Intl.NumberFormat('uz-UZ', {
-                            style: 'currency',
-                            currency: 'USD',
-                            minimumFractionDigits: 2,
-                          }).format(
-                            ((selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)) + (selectedTask.hasPsr ? 10 : 0)) - (selectedTask.netProfit || 0)
-                          ).replace(/,/g, ' ')}
+                          {(() => {
+                            const currency = getClientCurrency(selectedTask.client);
+                            const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
+                            const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
+                            const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
+                            const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
+                            const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+
+                            return formatMoney(branchPayments, currency);
+                          })()}
                         </span>
                       </div>
                       <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
-                        <span className={`text-sm font-semibold ${selectedTask.netProfit >= 0 ? 'text-green-800' : 'text-orange-800'}`}>
+                        <span className={`text-sm font-semibold ${(() => {
+                          const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
+                            + getPsrAmount(selectedTask);
+                          const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
+                          const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
+                          const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
+                          const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
+                          const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                          const netProfitDisplay = dealAmount - branchPayments;
+                          return netProfitDisplay >= 0 ? 'text-green-800' : 'text-orange-800';
+                        })()}`}>
                           Sof foyda:
                         </span>
-                        <span className={`text-sm font-bold ${selectedTask.netProfit >= 0 ? 'text-green-600' : 'text-orange-600'}`}>
-                          {new Intl.NumberFormat('uz-UZ', {
-                            style: 'currency',
-                            currency: 'USD',
-                            minimumFractionDigits: 2,
-                          }).format(selectedTask.netProfit).replace(/,/g, ' ')}
+                        <span className={`text-sm font-bold ${(() => {
+                          const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
+                            + getPsrAmount(selectedTask);
+                          const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
+                          const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
+                          const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
+                          const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
+                          const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                          const netProfitDisplay = dealAmount - branchPayments;
+                          return netProfitDisplay >= 0 ? 'text-green-600' : 'text-orange-600';
+                        })()}`}>
+                          {(() => {
+                            const currency = getClientCurrency(selectedTask.client);
+                            const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
+                              + getPsrAmount(selectedTask);
+                            const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
+                            const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
+                            const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
+                            const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
+                            const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                            const netProfitDisplay = dealAmount - branchPayments;
+                            return formatMoney(netProfitDisplay, currency);
+                          })()}
                         </span>
                       </div>
                       {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
@@ -2844,11 +2986,7 @@ const Tasks = () => {
                             Admin ishlab topgan pul:
                           </span>
                           <span className="text-sm font-bold text-blue-600">
-                            {new Intl.NumberFormat('uz-UZ', {
-                              style: 'currency',
-                              currency: 'USD',
-                              minimumFractionDigits: 2,
-                            }).format(selectedTask.adminEarnedAmount).replace(/,/g, ' ')}
+                            {formatMoney(Number(selectedTask.adminEarnedAmount), getClientCurrency(selectedTask.client))}
                           </span>
                         </div>
                       )}
@@ -2858,11 +2996,19 @@ const Tasks = () => {
                             Jami foyda:
                           </span>
                           <span className="text-lg font-bold text-purple-600">
-                            {new Intl.NumberFormat('uz-UZ', {
-                              style: 'currency',
-                              currency: 'USD',
-                              minimumFractionDigits: 2,
-                            }).format((selectedTask.netProfit || 0) + (selectedTask.adminEarnedAmount || 0)).replace(/,/g, ' ')}
+                            {(() => {
+                              const currency = getClientCurrency(selectedTask.client);
+                              const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
+                                + getPsrAmount(selectedTask);
+                              const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
+                              const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
+                              const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
+                              const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
+                              const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                              const netProfitDisplay = dealAmount - branchPayments;
+                              const totalProfitDisplay = netProfitDisplay + Number(selectedTask.adminEarnedAmount || 0);
+                              return formatMoney(totalProfitDisplay, currency);
+                            })()}
                           </span>
                         </div>
                       )}
@@ -3038,6 +3184,10 @@ const Tasks = () => {
                       </div>
                       {stage.status === 'TAYYOR' && (() => {
                         const durationText = formatDuration(durationMinutes);
+                        const deklarMultiplier =
+                          stage.name === 'Deklaratsiya' && selectedTask?.customsPaymentMultiplier != null
+                            ? Number(selectedTask.customsPaymentMultiplier)
+                            : null;
                         
                         return (
                           <div className="text-xs text-gray-500 ml-4 flex items-center gap-2 flex-wrap">
@@ -3046,15 +3196,18 @@ const Tasks = () => {
                                 ({stage.assignedTo.name})
                               </span>
                             )}
+                            {deklarMultiplier != null && (
+                              <span className="text-gray-700">
+                                BXM {deklarMultiplier} barobari
+                              </span>
+                            )}
+                            {durationText && <span>{durationText}</span>}
                             {durationText && evaluation && (
-                              <>
-                                <span>{durationText}</span>
-                                <i className={`fas ${evaluation.icon} ${evaluation.color}`} title={
-                                  evaluation.rating === 'alo' ? 'A\'lo' : 
-                                  evaluation.rating === 'ortacha' ? 'Ortacha' : 
-                                  'Yomon'
-                                }></i>
-                              </>
+                              <i className={`fas ${evaluation.icon} ${evaluation.color}`} title={
+                                evaluation.rating === 'alo' ? 'A\'lo' : 
+                                evaluation.rating === 'ortacha' ? 'Ortacha' : 
+                                'Yomon'
+                              }></i>
                             )}
                           </div>
                         );
@@ -3677,10 +3830,10 @@ const Tasks = () => {
                       onChange={(e) => setBxmMultiplier(e.target.value)}
                       className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
                     >
-                      <option value="1">BXM 1 barobari (412 000 so'm)</option>
-                      <option value="1.5">BXM 1.5 barobari (618 000 so'm)</option>
-                      <option value="2.5">BXM 2.5 barobari (1 030 000 so'm)</option>
-                      <option value="4">BXM 4 barobari (1 648 000 so'm)</option>
+                      <option value="1">BXM 1 barobari ({formatBxmAmount(1)})</option>
+                      <option value="1.5">BXM 1.5 barobari ({formatBxmAmount(1.5)})</option>
+                      <option value="2.5">BXM 2.5 barobari ({formatBxmAmount(2.5)})</option>
+                      <option value="4">BXM 4 barobari ({formatBxmAmount(4)})</option>
                     </select>
                   </div>
                   {parseFloat(bxmMultiplier) > 1 && selectedTask && (
@@ -3689,12 +3842,12 @@ const Tasks = () => {
                         <div className="font-medium mb-1">⚠️ Qo'shimcha to'lov:</div>
                         <div>
                           {(() => {
-                            const clientCurrency = selectedTask.client.dealAmountCurrency || 'USD';
+                            const clientCurrency = getClientCurrency(selectedTask.client);
                             let additionalPayment: number;
                             
                             if (clientCurrency === 'USD') {
                               // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
-                              additionalPayment = (parseFloat(bxmMultiplier) - 1) * currentBXM;
+                              additionalPayment = (parseFloat(bxmMultiplier) - 1) * currentBxmUsd;
                               return new Intl.NumberFormat('uz-UZ', {
                                 style: 'currency',
                                 currency: 'USD',
@@ -3702,7 +3855,7 @@ const Tasks = () => {
                               }).format(additionalPayment).replace(/,/g, ' ');
                             } else {
                               // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
-                              additionalPayment = (parseFloat(bxmMultiplier) - 1) * 412000;
+                              additionalPayment = (parseFloat(bxmMultiplier) - 1) * currentBxmUzs;
                               return new Intl.NumberFormat('uz-UZ', {
                                 style: 'currency',
                                 currency: 'UZS',
@@ -4410,28 +4563,121 @@ const Tasks = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Xato qo'shish</h2>
+              <h2 className="text-xl font-semibold text-gray-800">Xatolar</h2>
               <button
-                onClick={() => setShowErrorModal(false)}
+                onClick={() => {
+                  setEditingErrorId(null);
+                  setShowErrorModal(false);
+                }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
               >
                 ×
               </button>
             </div>
 
+            {selectedTask.errors && selectedTask.errors.length > 0 ? (
+              <div className="mb-4 space-y-2">
+                {selectedTask.errors.map((error) => {
+                  const workerName = workers.find((w) => w.id === error.workerId)?.name || `#${error.workerId}`;
+                  return (
+                    <div key={error.id} className="p-3 border rounded-lg bg-gray-50 flex items-start justify-between">
+                      <div>
+                        <div className="text-sm font-medium text-gray-800">
+                          {error.stageName} — {formatMoney(Number(error.amount), getClientCurrency(selectedTask.client))}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Xato qildi: {workerName} • Sana: {new Date(error.date).toLocaleDateString('uz-UZ')}
+                        </div>
+                        {error.comment && (
+                          <div className="text-xs text-gray-600 mt-2">{error.comment}</div>
+                        )}
+                      </div>
+                      {canEditError(error) && (
+                        <div className="ml-4 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingErrorId(error.id);
+                              setErrorForm({
+                                workerId: error.workerId.toString(),
+                                stageName: error.stageName,
+                                amount: String(error.amount),
+                                comment: error.comment || '',
+                                date: new Date(error.date).toISOString().split('T')[0],
+                              });
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            title="Tahrirlash"
+                          >
+                            <i className="fas fa-pen"></i>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!confirm('Xatoni o\'chirishni xohlaysizmi?')) return;
+                              try {
+                                await apiClient.delete(`/tasks/${selectedTask.id}/errors/${error.id}`);
+                                const response = await apiClient.get(`/tasks/${selectedTask.id}`);
+                                setSelectedTask(response.data);
+                                await loadTasks();
+                              } catch (error: any) {
+                                alert(error.response?.data?.error || 'Xatolik yuz berdi');
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                            title="O'chirish"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mb-4 text-sm text-gray-500">Xatolar yo'q</div>
+            )}
+
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  await apiClient.post(`/tasks/${selectedTask.id}/errors`, {
-                    taskTitle: selectedTask.title,
-                    workerId: parseInt(errorForm.workerId),
-                    stageName: errorForm.stageName,
-                    amount: parseFloat(errorForm.amount),
-                    comment: errorForm.comment,
-                    date: new Date(errorForm.date),
-                  });
+                  const currency = getClientCurrency(selectedTask?.client);
+                  const amountValue = errorForm.amount.trim();
+
+                  if (currency === 'USD') {
+                    if (!/^\d{1,4}(\.\d{1,4})?$/.test(amountValue)) {
+                      alert('USD uchun summa 4 xonagacha va 4 kasrgacha bo\'lishi kerak');
+                      return;
+                    }
+                  } else {
+                    if (!/^\d{5,7}$/.test(amountValue)) {
+                      alert('UZS uchun summa 5 dan 7 xonagacha bo\'lishi kerak');
+                      return;
+                    }
+                  }
+
+                  if (editingErrorId) {
+                    await apiClient.patch(`/tasks/${selectedTask.id}/errors/${editingErrorId}`, {
+                      workerId: parseInt(errorForm.workerId),
+                      stageName: errorForm.stageName,
+                      amount: parseFloat(amountValue),
+                      comment: errorForm.comment,
+                      date: new Date(errorForm.date),
+                    });
+                  } else {
+                    await apiClient.post(`/tasks/${selectedTask.id}/errors`, {
+                      taskTitle: selectedTask.title,
+                      workerId: parseInt(errorForm.workerId),
+                      stageName: errorForm.stageName,
+                      amount: parseFloat(amountValue),
+                      comment: errorForm.comment,
+                      date: new Date(errorForm.date),
+                    });
+                  }
                   setShowErrorModal(false);
+                  setEditingErrorId(null);
                   setErrorForm({
                     workerId: '',
                     stageName: '',
@@ -4515,13 +4761,32 @@ const Tasks = () => {
                   Summa <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode={getClientCurrency(selectedTask?.client) === 'USD' ? 'decimal' : 'numeric'}
                   required
                   value={errorForm.amount}
-                  onChange={(e) => setErrorForm({ ...errorForm, amount: e.target.value })}
+                  onChange={(e) => {
+                    const currency = getClientCurrency(selectedTask?.client);
+                    const nextValue = e.target.value;
+
+                    if (nextValue === '') {
+                      setErrorForm({ ...errorForm, amount: '' });
+                      return;
+                    }
+
+                    if (currency === 'USD') {
+                      if (/^\d{0,4}(\.\d{0,4})?$/.test(nextValue)) {
+                        setErrorForm({ ...errorForm, amount: nextValue });
+                      }
+                      return;
+                    }
+
+                    if (/^\d+$/.test(nextValue) && nextValue.length <= 7) {
+                      setErrorForm({ ...errorForm, amount: nextValue });
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="0.00"
+                  placeholder={getClientCurrency(selectedTask?.client) === 'USD' ? '0.0000' : '10000'}
                 />
               </div>
 

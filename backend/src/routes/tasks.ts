@@ -331,12 +331,16 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     let snapshotDealAmountExchangeRate: Decimal | null = null;
     let snapshotCertificatePayment = null;
     let snapshotCertificatePaymentExchangeRate: Decimal | null = null;
+    let snapshotCertificatePaymentAmountUzs: number | null = null;
     let snapshotPsrPrice = null;
     let snapshotPsrPriceExchangeRate: Decimal | null = null;
+    let snapshotPsrPriceAmountUzs: number | null = null;
     let snapshotWorkerPrice = null;
     let snapshotWorkerPriceExchangeRate: Decimal | null = null;
+    let snapshotWorkerPriceAmountUzs: number | null = null;
     let snapshotCustomsPayment = null;
     let snapshotCustomsPaymentExchangeRate: Decimal | null = null;
+    let snapshotCustomsPaymentAmountUzs: number | null = null;
 
     // Capture exchange rates for deal amount and populate universal fields
     let snapshotDealAmountAmountUzs: number | null = null;
@@ -379,15 +383,72 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
 
     if (statePayment) {
       // Task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovidan foydalanamiz
-      // State payments are always in UZS (rule 5), so exchange rate is always 1
-      snapshotCertificatePayment = Number(statePayment.certificatePayment) as any;
-      snapshotCertificatePaymentExchangeRate = new Decimal(1);
-      snapshotPsrPrice = Number(statePayment.psrPrice) as any;
-      snapshotPsrPriceExchangeRate = new Decimal(1);
-      snapshotWorkerPrice = Number(statePayment.workerPrice) as any;
-      snapshotWorkerPriceExchangeRate = new Decimal(1);
-      snapshotCustomsPayment = Number(statePayment.customsPayment) as any;
-      snapshotCustomsPaymentExchangeRate = new Decimal(1);
+      const paymentCurrency: Currency = snapshotDealAmountCurrency || 'USD';
+      const paymentExchangeRate = snapshotDealAmountExchangeRateValue || new Decimal(1);
+      const resolvePaymentAmounts = (
+        amountUsdRaw: number | null | undefined,
+        amountUzsRaw: number | null | undefined,
+        fallbackRaw: number | null | undefined,
+        currency: Currency,
+        exchangeRate: Decimal
+      ) => {
+        const amountUsd = Number(amountUsdRaw ?? fallbackRaw ?? 0);
+        const amountUzs = Number(amountUzsRaw ?? fallbackRaw ?? 0);
+        if (currency === 'USD') {
+          const original = amountUsd;
+          const uzs = amountUzsRaw != null
+            ? amountUzs
+            : Number(calculateAmountUzs(original, 'USD', exchangeRate));
+          const rate = original > 0 ? new Decimal(uzs / original) : new Decimal(1);
+          return { original, uzs, rate };
+        }
+        const original = amountUzs;
+        return { original, uzs: amountUzs, rate: new Decimal(1) };
+      };
+
+      const certificateAmounts = resolvePaymentAmounts(
+        statePayment.certificatePayment_amount_original,
+        statePayment.certificatePayment_amount_uzs,
+        statePayment.certificatePayment,
+        paymentCurrency,
+        paymentExchangeRate
+      );
+      snapshotCertificatePayment = certificateAmounts.original as any;
+      snapshotCertificatePaymentExchangeRate = certificateAmounts.rate;
+      snapshotCertificatePaymentAmountUzs = certificateAmounts.uzs;
+
+      const psrAmounts = resolvePaymentAmounts(
+        statePayment.psrPrice_amount_original,
+        statePayment.psrPrice_amount_uzs,
+        statePayment.psrPrice,
+        paymentCurrency,
+        paymentExchangeRate
+      );
+      snapshotPsrPrice = psrAmounts.original as any;
+      snapshotPsrPriceExchangeRate = psrAmounts.rate;
+      snapshotPsrPriceAmountUzs = psrAmounts.uzs;
+
+      const workerAmounts = resolvePaymentAmounts(
+        statePayment.workerPrice_amount_original,
+        statePayment.workerPrice_amount_uzs,
+        statePayment.workerPrice,
+        paymentCurrency,
+        paymentExchangeRate
+      );
+      snapshotWorkerPrice = workerAmounts.original as any;
+      snapshotWorkerPriceExchangeRate = workerAmounts.rate;
+      snapshotWorkerPriceAmountUzs = workerAmounts.uzs;
+
+      const customsAmounts = resolvePaymentAmounts(
+        statePayment.customsPayment_amount_original,
+        statePayment.customsPayment_amount_uzs,
+        statePayment.customsPayment,
+        paymentCurrency,
+        paymentExchangeRate
+      );
+      snapshotCustomsPayment = customsAmounts.original as any;
+      snapshotCustomsPaymentExchangeRate = customsAmounts.rate;
+      snapshotCustomsPaymentAmountUzs = customsAmounts.uzs;
     }
 
     // Prisma data object - faqat mavjud field'larni qo'shamiz
@@ -438,6 +499,37 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       taskData.snapshotDealAmount_exchange_rate = Number(snapshotDealAmountExchangeRateValue);
       taskData.snapshotDealAmount_amount_uzs = snapshotDealAmountAmountUzs;
       taskData.snapshotDealAmount_exchange_source = snapshotDealAmountExchangeSource;
+    }
+
+    const snapshotPaymentCurrency: Currency = snapshotDealAmountCurrency || 'USD';
+
+    if (snapshotCertificatePayment != null && snapshotCertificatePaymentAmountUzs != null) {
+      taskData.snapshotCertificatePayment_amount_original = snapshotCertificatePayment;
+      taskData.snapshotCertificatePayment_currency = snapshotPaymentCurrency;
+      taskData.snapshotCertificatePayment_exchange_rate = Number(snapshotCertificatePaymentExchangeRate || 1);
+      taskData.snapshotCertificatePayment_amount_uzs = snapshotCertificatePaymentAmountUzs;
+      taskData.snapshotCertificatePayment_exchange_source = 'MANUAL';
+    }
+    if (snapshotPsrPrice != null && snapshotPsrPriceAmountUzs != null) {
+      taskData.snapshotPsrPrice_amount_original = snapshotPsrPrice;
+      taskData.snapshotPsrPrice_currency = snapshotPaymentCurrency;
+      taskData.snapshotPsrPrice_exchange_rate = Number(snapshotPsrPriceExchangeRate || 1);
+      taskData.snapshotPsrPrice_amount_uzs = snapshotPsrPriceAmountUzs;
+      taskData.snapshotPsrPrice_exchange_source = 'MANUAL';
+    }
+    if (snapshotWorkerPrice != null && snapshotWorkerPriceAmountUzs != null) {
+      taskData.snapshotWorkerPrice_amount_original = snapshotWorkerPrice;
+      taskData.snapshotWorkerPrice_currency = snapshotPaymentCurrency;
+      taskData.snapshotWorkerPrice_exchange_rate = Number(snapshotWorkerPriceExchangeRate || 1);
+      taskData.snapshotWorkerPrice_amount_uzs = snapshotWorkerPriceAmountUzs;
+      taskData.snapshotWorkerPrice_exchange_source = 'MANUAL';
+    }
+    if (snapshotCustomsPayment != null && snapshotCustomsPaymentAmountUzs != null) {
+      taskData.snapshotCustomsPayment_amount_original = snapshotCustomsPayment;
+      taskData.snapshotCustomsPayment_currency = snapshotPaymentCurrency;
+      taskData.snapshotCustomsPayment_exchange_rate = Number(snapshotCustomsPaymentExchangeRate || 1);
+      taskData.snapshotCustomsPayment_amount_uzs = snapshotCustomsPaymentAmountUzs;
+      taskData.snapshotCustomsPayment_exchange_source = 'MANUAL';
     }
     
     if (snapshotCertificatePayment != null) {
@@ -621,12 +713,12 @@ router.get('/:id', async (req, res) => {
   try {
     // Get deal amount - use amount_uzs from universal fields
     let dealAmountInUzs: number = 0;
+    const clientDealCurrency = task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
     if (task.snapshotDealAmount_amount_uzs) {
       // Use universal field if available
       dealAmountInUzs = Number(task.snapshotDealAmount_amount_uzs);
     } else if (task.snapshotDealAmount) {
       // Fallback to old field - convert if needed
-      const clientDealCurrency = task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
       if (clientDealCurrency === 'USD' && task.snapshotDealAmount_exchange_rate) {
         // Convert USD to UZS using snapshot exchange rate
         dealAmountInUzs = Number(task.snapshotDealAmount) * Number(task.snapshotDealAmount_exchange_rate);
@@ -642,7 +734,6 @@ router.get('/:id', async (req, res) => {
       dealAmountInUzs = Number(task.client.dealAmount_amount_uzs);
     } else if (task.client.dealAmount) {
       // Fallback to old client fields
-      const clientDealCurrency = task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
       const clientDealAmount = Number(task.client.dealAmount);
       
       if (clientDealCurrency === 'USD' && task.client.dealAmount_exchange_rate) {
@@ -668,17 +759,54 @@ router.get('/:id', async (req, res) => {
     }
     
     // Davlat to'lovlarini olish (always in UZS per rule 5)
-    let certificatePayment: number;
-    let psrPrice: number;
-    let workerPrice: number;
-    let customsPayment: number;
+    const resolvePaymentUzs = (
+      amountOriginal: number | null | undefined,
+      amountUzs: number | null | undefined,
+      currency: Currency,
+      exchangeRate?: Decimal | number | null
+    ) => {
+      if (currency === 'UZS') {
+        return Number(amountUzs ?? amountOriginal ?? 0);
+      }
+      const original = Number(amountOriginal ?? 0);
+      if (amountUzs != null) return Number(amountUzs);
+      const rate = exchangeRate ? new Decimal(exchangeRate) : new Decimal(1);
+      return Number(calculateAmountUzs(original, 'USD', rate));
+    };
+
+    let certificatePaymentUzs: number;
+    let psrPriceUzs: number;
+    let workerPriceUzs: number;
+    let customsPaymentUzs: number;
 
     // Agar snapshot'lar mavjud bo'lsa, ulardan foydalanamiz (all in UZS)
     if (task.snapshotCertificatePayment !== null && task.snapshotCertificatePayment !== undefined) {
-      certificatePayment = Number(task.snapshotCertificatePayment);
-      psrPrice = Number(task.snapshotPsrPrice || 0);
-      workerPrice = Number(task.snapshotWorkerPrice || 0);
-      customsPayment = Number(task.snapshotCustomsPayment || 0);
+      const paymentCurrency = task.snapshotCertificatePayment_currency || clientDealCurrency;
+      const snapshotRate = task.snapshotCertificatePayment_exchange_rate || task.snapshotDealAmount_exchange_rate || task.snapshotDealAmountExchangeRate;
+      certificatePaymentUzs = resolvePaymentUzs(
+        task.snapshotCertificatePayment,
+        task.snapshotCertificatePayment_amount_uzs,
+        paymentCurrency,
+        snapshotRate
+      );
+      psrPriceUzs = resolvePaymentUzs(
+        task.snapshotPsrPrice || 0,
+        task.snapshotPsrPrice_amount_uzs,
+        task.snapshotPsrPrice_currency || clientDealCurrency,
+        task.snapshotPsrPrice_exchange_rate || snapshotRate
+      );
+      workerPriceUzs = resolvePaymentUzs(
+        task.snapshotWorkerPrice || 0,
+        task.snapshotWorkerPrice_amount_uzs,
+        task.snapshotWorkerPrice_currency || clientDealCurrency,
+        task.snapshotWorkerPrice_exchange_rate || snapshotRate
+      );
+      customsPaymentUzs = resolvePaymentUzs(
+        task.snapshotCustomsPayment || 0,
+        task.snapshotCustomsPayment_amount_uzs,
+        task.snapshotCustomsPayment_currency || clientDealCurrency,
+        task.snapshotCustomsPayment_exchange_rate || snapshotRate
+      );
     } else {
       // Snapshot bo'sh bo'lsa, task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovini topamiz
       const taskCreatedAt = new Date(task.createdAt);
@@ -693,17 +821,46 @@ router.get('/:id', async (req, res) => {
       });
 
       if (statePayment) {
-        // State payments are always in UZS (rule 5)
-        certificatePayment = Number(statePayment.certificatePayment);
-        psrPrice = Number(statePayment.psrPrice);
-        workerPrice = Number(statePayment.workerPrice);
-        customsPayment = Number(statePayment.customsPayment);
+        const paymentCurrency: Currency = clientDealCurrency === 'UZS' ? 'UZS' : 'USD';
+        const fallbackRate = task.snapshotDealAmount_exchange_rate || task.snapshotDealAmountExchangeRate || 1;
+        certificatePaymentUzs = resolvePaymentUzs(
+          paymentCurrency === 'USD'
+            ? Number(statePayment.certificatePayment_amount_original ?? statePayment.certificatePayment)
+            : Number(statePayment.certificatePayment_amount_uzs ?? statePayment.certificatePayment),
+          statePayment.certificatePayment_amount_uzs,
+          paymentCurrency,
+          fallbackRate
+        );
+        psrPriceUzs = resolvePaymentUzs(
+          paymentCurrency === 'USD'
+            ? Number(statePayment.psrPrice_amount_original ?? statePayment.psrPrice)
+            : Number(statePayment.psrPrice_amount_uzs ?? statePayment.psrPrice),
+          statePayment.psrPrice_amount_uzs,
+          paymentCurrency,
+          fallbackRate
+        );
+        workerPriceUzs = resolvePaymentUzs(
+          paymentCurrency === 'USD'
+            ? Number(statePayment.workerPrice_amount_original ?? statePayment.workerPrice)
+            : Number(statePayment.workerPrice_amount_uzs ?? statePayment.workerPrice),
+          statePayment.workerPrice_amount_uzs,
+          paymentCurrency,
+          fallbackRate
+        );
+        customsPaymentUzs = resolvePaymentUzs(
+          paymentCurrency === 'USD'
+            ? Number(statePayment.customsPayment_amount_original ?? statePayment.customsPayment)
+            : Number(statePayment.customsPayment_amount_uzs ?? statePayment.customsPayment),
+          statePayment.customsPayment_amount_uzs,
+          paymentCurrency,
+          fallbackRate
+        );
       } else {
         // StatePayment yo'q bo'lsa, 0 qaytaramiz
-        certificatePayment = 0;
-        psrPrice = 0;
-        workerPrice = 0;
-        customsPayment = 0;
+        certificatePaymentUzs = 0;
+        psrPriceUzs = 0;
+        workerPriceUzs = 0;
+        customsPaymentUzs = 0;
       }
     }
 
@@ -711,7 +868,6 @@ router.get('/:id', async (req, res) => {
     // Use exchange rate from snapshot universal fields
     let psrAmountInUzs = 0;
     if (task.hasPsr) {
-      const clientDealCurrency = task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
       if (clientDealCurrency === 'USD') {
         // 10 USD - need to convert using snapshot exchange rate
         let psrExchangeRate: Decimal = new Decimal(1);
@@ -743,11 +899,11 @@ router.get('/:id', async (req, res) => {
     const finalDealAmountInUzs = dealAmountInUzs + psrAmountInUzs;
     
     // Asosiy to'lovlar: Sertifikat + Ishchi + Bojxona (all in UZS)
-    let totalPaymentsInUzs = certificatePayment + workerPrice + customsPayment;
+    let totalPaymentsInUzs = certificatePaymentUzs + workerPriceUzs + customsPaymentUzs;
     
     // Agar PSR bor bo'lsa, PSR narxini qo'shamiz (in UZS)
     if (task.hasPsr) {
-      totalPaymentsInUzs += psrPrice;
+      totalPaymentsInUzs += psrPriceUzs;
     }
     
     // Calculate net profit in UZS
@@ -772,15 +928,23 @@ router.get('/:id', async (req, res) => {
       'Pochta': 10,
     };
     
-    // Get workerPrice from snapshot or state payment (always in UZS per rule 5)
-    // Use amount_uzs from universal fields
+    // Get workerPrice from snapshot or state payment (convert to UZS if needed)
+    // Use amount_uzs from universal fields when available
     let workerPriceInUzs = 0;
     if (task.snapshotWorkerPrice_amount_uzs !== null && task.snapshotWorkerPrice_amount_uzs !== undefined) {
       // Use universal field
       workerPriceInUzs = Number(task.snapshotWorkerPrice_amount_uzs);
     } else if (task.snapshotWorkerPrice !== null && task.snapshotWorkerPrice !== undefined) {
-      // Fallback to old field
-      workerPriceInUzs = Number(task.snapshotWorkerPrice);
+      const workerCurrency = task.snapshotWorkerPrice_currency || task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
+      if (workerCurrency === 'USD') {
+        const rate = task.snapshotWorkerPrice_exchange_rate
+          || task.snapshotDealAmount_exchange_rate
+          || task.snapshotDealAmountExchangeRate
+          || 1;
+        workerPriceInUzs = Number(calculateAmountUzs(Number(task.snapshotWorkerPrice), 'USD', new Decimal(rate)));
+      } else {
+        workerPriceInUzs = Number(task.snapshotWorkerPrice);
+      }
     } else {
       const taskCreatedAt = new Date(task.createdAt);
       const statePayment = await prisma.statePayment.findFirst({
@@ -793,8 +957,20 @@ router.get('/:id', async (req, res) => {
         },
       });
       if (statePayment) {
-        // State payments are always in UZS
-        workerPriceInUzs = Number(statePayment.workerPrice);
+        const workerCurrency = task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
+        if (workerCurrency === 'USD') {
+          const amountUsd = Number(statePayment.workerPrice_amount_original ?? statePayment.workerPrice);
+          if (statePayment.workerPrice_amount_uzs != null) {
+            workerPriceInUzs = Number(statePayment.workerPrice_amount_uzs);
+          } else {
+            const rate = task.snapshotDealAmount_exchange_rate
+              || task.snapshotDealAmountExchangeRate
+              || 1;
+            workerPriceInUzs = Number(calculateAmountUzs(amountUsd, 'USD', new Decimal(rate)));
+          }
+        } else {
+          workerPriceInUzs = Number(statePayment.workerPrice_amount_uzs ?? statePayment.workerPrice);
+        }
       }
     }
     
@@ -1005,8 +1181,8 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
       const bxmConfig = await (tx as any).bXMConfig.findUnique({
         where: { year: currentYear },
       });
-      const bxmAmount = bxmConfig ? Number(bxmConfig.amount) : 34.4; // Default BXM
-      const calculatedCustomsPayment = bxmAmount * parsed.data.customsPaymentMultiplier;
+      const bxmAmountUsd = bxmConfig ? Number(bxmConfig.amountUsd ?? bxmConfig.amount) : 34.4; // Default BXM USD
+      const bxmAmountUzs = bxmConfig ? Number(bxmConfig.amountUzs ?? 412000) : 412000; // Default BXM UZS
       
       // Get task with client to update dealAmount
       const task = await (tx as any).task.findUnique({
@@ -1017,9 +1193,19 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
       // Calculate additional payment based on multiplier changes
       // Note: client.dealAmount should NOT be changed - it's the base contract amount
       // Only task.snapshotDealAmount should be updated for this specific task
+      const clientCurrency = task?.client
+        ? (task.client as any).dealAmount_currency || (task.client as any).dealAmountCurrency || 'USD'
+        : 'USD';
+      const bxmAmountForClient = clientCurrency === 'USD' ? bxmAmountUsd : bxmAmountUzs;
+      const calculatedCustomsPayment = bxmAmountForClient * parsed.data.customsPaymentMultiplier;
+      const calculatedCustomsPaymentUzs = clientCurrency === 'USD'
+        ? bxmAmountUzs * parsed.data.customsPaymentMultiplier
+        : calculatedCustomsPayment;
+      const calculatedCustomsExchangeRate = clientCurrency === 'USD' && calculatedCustomsPayment > 0
+        ? new Decimal(calculatedCustomsPaymentUzs / calculatedCustomsPayment)
+        : new Decimal(1);
+
       if (task?.client) {
-        // Get client's currency
-        const clientCurrency = (task.client as any).dealAmountCurrency || 'USD';
         
         // Get previous multiplier (if exists)
         const previousMultiplier = task.customsPaymentMultiplier ? Number(task.customsPaymentMultiplier) : 1;
@@ -1030,10 +1216,9 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         let previousAdditionalPayment = 0;
         if (previousMultiplier > 1) {
           if (clientCurrency === 'USD') {
-            previousAdditionalPayment = (previousMultiplier - 1) * bxmAmount;
+            previousAdditionalPayment = (previousMultiplier - 1) * bxmAmountUsd;
           } else {
-            const ONE_BXM_IN_SOM = 412000;
-            previousAdditionalPayment = (previousMultiplier - 1) * ONE_BXM_IN_SOM;
+            previousAdditionalPayment = (previousMultiplier - 1) * bxmAmountUzs;
           }
         }
         
@@ -1042,10 +1227,9 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         let newAdditionalPayment = 0;
         if (newMultiplier > 1) {
           if (clientCurrency === 'USD') {
-            newAdditionalPayment = (newMultiplier - 1) * bxmAmount;
+            newAdditionalPayment = (newMultiplier - 1) * bxmAmountUsd;
           } else {
-            const ONE_BXM_IN_SOM = 412000;
-            newAdditionalPayment = (newMultiplier - 1) * ONE_BXM_IN_SOM;
+            newAdditionalPayment = (newMultiplier - 1) * bxmAmountUzs;
           }
         }
         
@@ -1054,6 +1238,11 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         
         // Get base deal amount (from client or current snapshot)
         const baseDealAmount = task.client.dealAmount ? Number(task.client.dealAmount) : 0;
+        const baseDealAmountUzs = task.snapshotDealAmount_amount_uzs
+          ? Number(task.snapshotDealAmount_amount_uzs)
+          : clientCurrency === 'USD'
+            ? baseDealAmount * Number(task.snapshotDealAmount_exchange_rate || task.snapshotDealAmountExchangeRate || 1)
+            : baseDealAmount;
         
         // Get current snapshotDealAmount (or use base dealAmount if snapshot is null)
         const currentSnapshotDealAmount = task.snapshotDealAmount 
@@ -1063,6 +1252,9 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         // Calculate new snapshotDealAmount by removing previous additional payment and adding new one
         // Or simply: baseDealAmount + newAdditionalPayment
         const newSnapshotDealAmount = baseDealAmount + newAdditionalPayment;
+        const newSnapshotDealAmountUzs = baseDealAmountUzs + (clientCurrency === 'USD'
+          ? (newMultiplier - 1) * bxmAmountUzs
+          : (newMultiplier - 1) * bxmAmountUzs);
         
         // Update task's snapshotDealAmount
         await (tx as any).task.update({
@@ -1070,7 +1262,14 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
           data: {
             customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
             snapshotCustomsPayment: calculatedCustomsPayment,
+            snapshotCustomsPaymentExchangeRate: calculatedCustomsExchangeRate,
+            snapshotCustomsPayment_amount_original: calculatedCustomsPayment,
+            snapshotCustomsPayment_currency: clientCurrency,
+            snapshotCustomsPayment_exchange_rate: Number(calculatedCustomsExchangeRate),
+            snapshotCustomsPayment_amount_uzs: calculatedCustomsPaymentUzs,
+            snapshotCustomsPayment_exchange_source: 'MANUAL',
             snapshotDealAmount: newSnapshotDealAmount,
+            snapshotDealAmount_amount_uzs: newSnapshotDealAmountUzs,
           },
         });
       } else {
@@ -1080,9 +1279,47 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
           data: {
             customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
             snapshotCustomsPayment: calculatedCustomsPayment,
+            snapshotCustomsPaymentExchangeRate: calculatedCustomsExchangeRate,
+            snapshotCustomsPayment_amount_original: calculatedCustomsPayment,
+            snapshotCustomsPayment_currency: clientCurrency,
+            snapshotCustomsPayment_exchange_rate: Number(calculatedCustomsExchangeRate),
+            snapshotCustomsPayment_amount_uzs: calculatedCustomsPaymentUzs,
+            snapshotCustomsPayment_exchange_source: 'MANUAL',
           },
         });
       }
+    } else if (stage.name === 'Deklaratsiya' && parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
+      const task = await (tx as any).task.findUnique({
+        where: { id: taskId },
+        include: { client: true },
+      });
+
+      const clientCurrency = task?.client
+        ? (task.client as any).dealAmount_currency || (task.client as any).dealAmountCurrency || 'USD'
+        : 'USD';
+
+      const baseDealAmount = task?.client?.dealAmount ? Number(task.client.dealAmount) : 0;
+      const baseDealAmountUzs = task?.snapshotDealAmount_amount_uzs
+        ? Number(task.snapshotDealAmount_amount_uzs)
+        : clientCurrency === 'USD'
+          ? baseDealAmount * Number(task?.snapshotDealAmount_exchange_rate || task?.snapshotDealAmountExchangeRate || 1)
+          : baseDealAmount;
+
+      await (tx as any).task.update({
+        where: { id: taskId },
+        data: {
+          customsPaymentMultiplier: null,
+          snapshotCustomsPayment: 0,
+          snapshotCustomsPaymentExchangeRate: new Decimal(1),
+          snapshotCustomsPayment_amount_original: 0,
+          snapshotCustomsPayment_currency: clientCurrency,
+          snapshotCustomsPayment_exchange_rate: 1,
+          snapshotCustomsPayment_amount_uzs: 0,
+          snapshotCustomsPayment_exchange_source: 'MANUAL',
+          snapshotDealAmount: baseDealAmount,
+          snapshotDealAmount_amount_uzs: baseDealAmountUzs,
+        },
+      });
     }
     
     // #region agent log
@@ -1188,6 +1425,14 @@ const errorSchema = z.object({
   date: z.coerce.date(),
 });
 
+const updateErrorSchema = z.object({
+  stageName: z.string().optional(),
+  workerId: z.number().optional(),
+  amount: z.number().optional(),
+  comment: z.string().optional(),
+  date: z.coerce.date().optional(),
+});
+
 router.get('/:taskId/errors', async (req, res) => {
   const taskId = Number(req.params.taskId);
   const errors = await prisma.taskError.findMany({
@@ -1198,10 +1443,14 @@ router.get('/:taskId/errors', async (req, res) => {
   res.json(errors);
 });
 
-router.post('/:taskId/errors', async (req: AuthRequest, res) => {
+router.post('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
   const taskId = Number(req.params.taskId);
   const parsed = errorSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
   // Create error and deduct from worker's earned amount using transaction
   const result = await prisma.$transaction(async (tx) => {
@@ -1214,6 +1463,7 @@ router.post('/:taskId/errors', async (req: AuthRequest, res) => {
         amount: parsed.data.amount,
         comment: parsed.data.comment,
         date: parsed.data.date,
+        createdById: req.user.id,
       },
       include: {
         worker: { select: { id: true, name: true } },
@@ -1237,10 +1487,95 @@ router.post('/:taskId/errors', async (req: AuthRequest, res) => {
   res.status(201).json(result);
 });
 
-router.delete('/:taskId/errors/:errorId', async (req: AuthRequest, res) => {
+router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest, res) => {
   const errorId = Number(req.params.errorId);
-  await prisma.taskError.delete({ where: { id: errorId } });
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const error = await prisma.taskError.findUnique({
+    where: { id: errorId },
+  });
+  if (!error) {
+    return res.status(404).json({ error: 'Xato topilmadi' });
+  }
+
+  const createdAt = new Date(error.createdAt);
+  const diffMs = Date.now() - createdAt.getTime();
+  const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+  if (error.createdById !== req.user.id || diffMs > twoDaysMs) {
+    return res.status(403).json({ error: 'Xatoni faqat 2 kun ichida qo‘shgan odam o‘chira oladi' });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await (tx as any).taskError.delete({ where: { id: errorId } });
+    await (tx as any).kpiLog.create({
+      data: {
+        userId: error.workerId,
+        taskId: error.taskId,
+        stageName: error.stageName,
+        amount: Number(error.amount), // Revert deduction
+      },
+    });
+  });
+
   res.status(204).send();
+});
+
+router.patch('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest, res) => {
+  const errorId = Number(req.params.errorId);
+  const parsed = updateErrorSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const error = await prisma.taskError.findUnique({
+    where: { id: errorId },
+  });
+  if (!error) {
+    return res.status(404).json({ error: 'Xato topilmadi' });
+  }
+
+  const createdAt = new Date(error.createdAt);
+  const diffMs = Date.now() - createdAt.getTime();
+  const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+  if (error.createdById !== req.user.id || diffMs > twoDaysMs) {
+    return res.status(403).json({ error: 'Xatoni faqat 2 kun ichida qo‘shgan odam o‘zgartira oladi' });
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const next = await (tx as any).taskError.update({
+      where: { id: errorId },
+      data: {
+        ...(parsed.data.stageName && { stageName: parsed.data.stageName }),
+        ...(parsed.data.workerId && { workerId: parsed.data.workerId }),
+        ...(parsed.data.amount !== undefined && { amount: parsed.data.amount }),
+        ...(parsed.data.comment !== undefined && { comment: parsed.data.comment }),
+        ...(parsed.data.date && { date: parsed.data.date }),
+      },
+      include: { worker: { select: { id: true, name: true } } },
+    });
+
+    if (parsed.data.amount !== undefined && Number(parsed.data.amount) !== Number(error.amount)) {
+      const diff = Number(parsed.data.amount) - Number(error.amount);
+      if (diff !== 0) {
+        await (tx as any).kpiLog.create({
+          data: {
+            userId: next.workerId,
+            taskId: next.taskId,
+            stageName: next.stageName,
+            amount: -diff, // Adjust deduction by delta
+          },
+        });
+      }
+    }
+
+    return next;
+  });
+
+  res.json(updated);
 });
 
 const updateTaskSchema = z.object({
@@ -1362,6 +1697,10 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
       hasPsr: true,
       driverPhone: true,
       createdById: true,
+      createdAt: true,
+      snapshotDealAmount: true,
+      snapshotDealAmountExchangeRate: true,
+      snapshotDealAmount_exchange_rate: true,
     }
   });
   if (!task) return res.status(404).json({ error: 'Task not found' });
@@ -1388,17 +1727,98 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
       await createTaskVersion(tx, id, req.user.id);
     }
 
+    const updateData: any = {
+      ...(parsed.data.title && { title: parsed.data.title }),
+      ...(parsed.data.clientId && { clientId: parsed.data.clientId }),
+      ...(parsed.data.branchId && { branchId: parsed.data.branchId }),
+      ...(parsed.data.comments !== undefined && { comments: parsed.data.comments || null }),
+      ...(parsed.data.hasPsr !== undefined && { hasPsr: parsed.data.hasPsr }),
+      ...(parsed.data.driverPhone !== undefined && { driverPhone: parsed.data.driverPhone || null }),
+      ...(hasChanges && req.user && { updatedById: req.user.id }),
+    };
+
+    if (parsed.data.branchId && parsed.data.branchId !== task.branchId) {
+      const statePayment = await (tx as any).statePayment.findFirst({
+        where: {
+          branchId: parsed.data.branchId,
+          createdAt: { lte: task.createdAt },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const client = await (tx as any).client.findUnique({
+        where: { id: task.clientId },
+        select: {
+          dealAmount_currency: true,
+          dealAmountCurrency: true,
+        },
+      });
+
+      const clientCurrency: Currency = client?.dealAmount_currency || client?.dealAmountCurrency || 'USD';
+
+      const pickAmount = (usd: number | null | undefined, uzs: number | null | undefined, fallback: number) =>
+        clientCurrency === 'USD'
+          ? Number(usd ?? fallback)
+          : Number(uzs ?? fallback);
+
+      if (statePayment) {
+        const certAmount = pickAmount(statePayment.certificatePayment_amount_original, statePayment.certificatePayment_amount_uzs, Number(statePayment.certificatePayment));
+        const psrAmount = pickAmount(statePayment.psrPrice_amount_original, statePayment.psrPrice_amount_uzs, Number(statePayment.psrPrice));
+        const workerAmount = pickAmount(statePayment.workerPrice_amount_original, statePayment.workerPrice_amount_uzs, Number(statePayment.workerPrice));
+
+        updateData.snapshotCertificatePayment = certAmount;
+        updateData.snapshotPsrPrice = psrAmount;
+        updateData.snapshotWorkerPrice = workerAmount;
+
+        updateData.snapshotCertificatePayment_amount_original = certAmount;
+        updateData.snapshotPsrPrice_amount_original = psrAmount;
+        updateData.snapshotWorkerPrice_amount_original = workerAmount;
+
+        updateData.snapshotCertificatePayment_currency = clientCurrency;
+        updateData.snapshotPsrPrice_currency = clientCurrency;
+        updateData.snapshotWorkerPrice_currency = clientCurrency;
+
+        updateData.snapshotCertificatePayment_amount_uzs = Number(statePayment.certificatePayment_amount_uzs ?? statePayment.certificatePayment);
+        updateData.snapshotPsrPrice_amount_uzs = Number(statePayment.psrPrice_amount_uzs ?? statePayment.psrPrice);
+        updateData.snapshotWorkerPrice_amount_uzs = Number(statePayment.workerPrice_amount_uzs ?? statePayment.workerPrice);
+
+        updateData.snapshotCertificatePayment_exchange_rate = 1;
+        updateData.snapshotPsrPrice_exchange_rate = 1;
+        updateData.snapshotWorkerPrice_exchange_rate = 1;
+
+        updateData.snapshotCertificatePayment_exchange_source = 'MANUAL';
+        updateData.snapshotPsrPrice_exchange_source = 'MANUAL';
+        updateData.snapshotWorkerPrice_exchange_source = 'MANUAL';
+      } else {
+        updateData.snapshotCertificatePayment = 0;
+        updateData.snapshotPsrPrice = 0;
+        updateData.snapshotWorkerPrice = 0;
+
+        updateData.snapshotCertificatePayment_amount_original = 0;
+        updateData.snapshotPsrPrice_amount_original = 0;
+        updateData.snapshotWorkerPrice_amount_original = 0;
+
+        updateData.snapshotCertificatePayment_currency = clientCurrency;
+        updateData.snapshotPsrPrice_currency = clientCurrency;
+        updateData.snapshotWorkerPrice_currency = clientCurrency;
+
+        updateData.snapshotCertificatePayment_amount_uzs = 0;
+        updateData.snapshotPsrPrice_amount_uzs = 0;
+        updateData.snapshotWorkerPrice_amount_uzs = 0;
+
+        updateData.snapshotCertificatePayment_exchange_rate = 1;
+        updateData.snapshotPsrPrice_exchange_rate = 1;
+        updateData.snapshotWorkerPrice_exchange_rate = 1;
+
+        updateData.snapshotCertificatePayment_exchange_source = 'MANUAL';
+        updateData.snapshotPsrPrice_exchange_source = 'MANUAL';
+        updateData.snapshotWorkerPrice_exchange_source = 'MANUAL';
+      }
+    }
+
     const updatedTask = await (tx as any).task.update({
       where: { id },
-      data: {
-        ...(parsed.data.title && { title: parsed.data.title }),
-        ...(parsed.data.clientId && { clientId: parsed.data.clientId }),
-        ...(parsed.data.branchId && { branchId: parsed.data.branchId }),
-        ...(parsed.data.comments !== undefined && { comments: parsed.data.comments || null }),
-        ...(parsed.data.hasPsr !== undefined && { hasPsr: parsed.data.hasPsr }),
-        ...(parsed.data.driverPhone !== undefined && { driverPhone: parsed.data.driverPhone || null }),
-        ...(hasChanges && req.user && { updatedById: req.user.id }),
-      },
+      data: updateData,
     });
 
     return updatedTask;

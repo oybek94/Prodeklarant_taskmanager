@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
-import MonetaryInput from '../components/MonetaryInput';
-import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 
 interface StatePayment {
@@ -11,6 +9,14 @@ interface StatePayment {
   psrPrice: number;
   workerPrice: number;
   customsPayment: number;
+  certificatePaymentUsd?: number;
+  certificatePaymentUzs?: number;
+  psrPriceUsd?: number;
+  psrPriceUzs?: number;
+  workerPriceUsd?: number;
+  workerPriceUzs?: number;
+  customsPaymentUsd?: number;
+  customsPaymentUzs?: number;
   branch: {
     id: number;
     name: string;
@@ -30,13 +36,13 @@ const StatePayments = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [form, setForm] = useState({
     branchId: '',
-    certificatePayment: '',
-    psrPrice: '',
-    workerPrice: '',
-    customsPayment: '',
-    currency: 'UZS' as 'USD' | 'UZS',
+    certificatePaymentUsd: '',
+    certificatePaymentUzs: '',
+    psrPriceUsd: '',
+    psrPriceUzs: '',
+    workerPriceUsd: '',
+    workerPriceUzs: '',
   });
-  const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
 
   useEffect(() => {
     loadStatePayments();
@@ -69,20 +75,22 @@ const StatePayments = () => {
     try {
       await apiClient.post('/state-payments', {
         branchId: Number(form.branchId),
-        certificatePayment: Number(form.certificatePayment),
-        psrPrice: Number(form.psrPrice),
-        workerPrice: Number(form.workerPrice),
-        customsPayment: Number(form.customsPayment),
-        currency: form.currency,
+        certificatePaymentUsd: Number(form.certificatePaymentUsd),
+        certificatePaymentUzs: Number(form.certificatePaymentUzs),
+        psrPriceUsd: Number(form.psrPriceUsd),
+        psrPriceUzs: Number(form.psrPriceUzs),
+        workerPriceUsd: Number(form.workerPriceUsd),
+        workerPriceUzs: Number(form.workerPriceUzs),
       });
       setShowForm(false);
       setForm({
         branchId: '',
-        certificatePayment: '',
-        psrPrice: '',
-        workerPrice: '',
-        customsPayment: '',
-        currency: 'UZS',
+        certificatePaymentUsd: '',
+        certificatePaymentUzs: '',
+        psrPriceUsd: '',
+        psrPriceUzs: '',
+        workerPriceUsd: '',
+        workerPriceUzs: '',
       });
       await loadStatePayments();
     } catch (error: any) {
@@ -101,9 +109,8 @@ const StatePayments = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    // State payments are always in UZS
-    return <CurrencyDisplay amount={amount} originalCurrency="UZS" />;
+  const formatCurrency = (amount: number, currency: 'USD' | 'UZS') => {
+    return <CurrencyDisplay amount={amount} originalCurrency={currency} />;
   };
 
   const formatDate = (dateString: string) => {
@@ -153,9 +160,6 @@ const StatePayments = () => {
                 Ishchi narxi
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                Bojxona to'lovi
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                 Jami to'lovlar
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -175,31 +179,32 @@ const StatePayments = () => {
               </tr>
             ) : (
               statePayments.map((payment) => {
-                // Convert Decimal values to numbers
-                const cert = Number(payment.certificatePayment) || 0;
-                const psr = Number(payment.psrPrice) || 0;
-                const worker = Number(payment.workerPrice) || 0;
-                const customs = Number(payment.customsPayment) || 0;
-                const totalPayments = cert + psr + worker + customs;
+                const certUsd = Number(payment.certificatePaymentUsd ?? payment.certificatePayment) || 0;
+                const certUzs = Number(payment.certificatePaymentUzs ?? payment.certificatePayment) || 0;
+                const psrUsd = Number(payment.psrPriceUsd ?? payment.psrPrice) || 0;
+                const psrUzs = Number(payment.psrPriceUzs ?? payment.psrPrice) || 0;
+                const workerUsd = Number(payment.workerPriceUsd ?? payment.workerPrice) || 0;
+                const workerUzs = Number(payment.workerPriceUzs ?? payment.workerPrice) || 0;
+                const totalPaymentsUzs = certUzs + psrUzs + workerUzs;
                 return (
                   <tr key={payment.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{payment.branch.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(cert)}
+                      <div>{formatCurrency(certUsd, 'USD')}</div>
+                      <div className="text-xs text-gray-500">{formatCurrency(certUzs, 'UZS')}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(psr)}
+                      <div>{formatCurrency(psrUsd, 'USD')}</div>
+                      <div className="text-xs text-gray-500">{formatCurrency(psrUzs, 'UZS')}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(worker)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(customs)}
+                      <div>{formatCurrency(workerUsd, 'USD')}</div>
+                      <div className="text-xs text-gray-500">{formatCurrency(workerUzs, 'UZS')}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                      {formatCurrency(totalPayments)}
+                      {formatCurrency(totalPaymentsUzs, 'UZS')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(payment.createdAt)}
@@ -257,65 +262,86 @@ const StatePayments = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Sertifikat to'lovi <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.certificatePayment}
-                    onChange={(e) => setForm({ ...form, certificatePayment: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="0.00"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.certificatePaymentUsd}
+                      onChange={(e) => setForm({ ...form, certificatePaymentUsd: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="USD"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.certificatePaymentUzs}
+                      onChange={(e) => setForm({ ...form, certificatePaymentUzs: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="UZS"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     PSR narxi <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.psrPrice}
-                    onChange={(e) => setForm({ ...form, psrPrice: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="0.00"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.psrPriceUsd}
+                      onChange={(e) => setForm({ ...form, psrPriceUsd: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="USD"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.psrPriceUzs}
+                      onChange={(e) => setForm({ ...form, psrPriceUzs: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="UZS"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Ishchi narxi <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.workerPrice}
-                    onChange={(e) => setForm({ ...form, workerPrice: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="0.00"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.workerPriceUsd}
+                      onChange={(e) => setForm({ ...form, workerPriceUsd: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="USD"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.workerPriceUzs}
+                      onChange={(e) => setForm({ ...form, workerPriceUzs: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="UZS"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bojxona to'lovi <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.customsPayment}
-                    onChange={(e) => setForm({ ...form, customsPayment: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="0.00"
-                  />
-                </div>
 
               </div>
 

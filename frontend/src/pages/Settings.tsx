@@ -6,6 +6,8 @@ interface BXMConfig {
   id: number;
   year: number;
   amount: number;
+  amountUsd?: number;
+  amountUzs?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -17,6 +19,14 @@ interface StatePayment {
   psrPrice: number;
   workerPrice: number;
   customsPayment: number;
+  certificatePaymentUsd?: number;
+  certificatePaymentUzs?: number;
+  psrPriceUsd?: number;
+  psrPriceUzs?: number;
+  workerPriceUsd?: number;
+  workerPriceUzs?: number;
+  customsPaymentUsd?: number;
+  customsPaymentUzs?: number;
   branch: {
     id: number;
     name: string;
@@ -52,17 +62,20 @@ const Settings = () => {
   const [currentBXM, setCurrentBXM] = useState<BXMConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingYear, setEditingYear] = useState<number | null>(null);
-  const [editAmount, setEditAmount] = useState<string>('');
+  const [editAmountUsd, setEditAmountUsd] = useState<string>('');
+  const [editAmountUzs, setEditAmountUzs] = useState<string>('');
   const [statePayments, setStatePayments] = useState<StatePayment[]>([]);
   const [loadingStatePayments, setLoadingStatePayments] = useState(true);
   const [showStatePaymentForm, setShowStatePaymentForm] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [statePaymentForm, setStatePaymentForm] = useState({
     branchId: '',
-    certificatePayment: '',
-    psrPrice: '',
-    workerPrice: '',
-    customsPayment: '',
+    certificatePaymentUsd: '',
+    certificatePaymentUzs: '',
+    psrPriceUsd: '',
+    psrPriceUzs: '',
+    workerPriceUsd: '',
+    workerPriceUzs: '',
   });
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [loadingCompanySettings, setLoadingCompanySettings] = useState(true);
@@ -113,22 +126,25 @@ const Settings = () => {
 
   const handleEdit = (config: BXMConfig) => {
     setEditingYear(config.year);
-    setEditAmount(config.amount.toString());
+    setEditAmountUsd((config.amountUsd ?? config.amount).toString());
+    setEditAmountUzs((config.amountUzs ?? 412000).toString());
   };
 
   const handleSave = async (year: number) => {
     try {
-      const amount = parseFloat(editAmount);
-      if (isNaN(amount) || amount < 0) {
+      const amountUsd = parseFloat(editAmountUsd);
+      const amountUzs = parseFloat(editAmountUzs);
+      if (isNaN(amountUsd) || amountUsd < 0 || isNaN(amountUzs) || amountUzs < 0) {
         alert('Noto\'g\'ri summa');
         return;
       }
 
-      await apiClient.put(`/bxm/${year}`, { amount });
+      await apiClient.put(`/bxm/${year}`, { amountUsd, amountUzs });
       await loadBXMConfigs();
       await loadCurrentBXM();
       setEditingYear(null);
-      setEditAmount('');
+      setEditAmountUsd('');
+      setEditAmountUzs('');
       alert('BXM muvaffaqiyatli yangilandi');
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
@@ -139,17 +155,19 @@ const Settings = () => {
     try {
       const currentYear = new Date().getFullYear();
       const newYear = currentYear + 1;
-      const amount = parseFloat(editAmount);
+      const amountUsd = parseFloat(editAmountUsd);
+      const amountUzs = parseFloat(editAmountUzs);
       
-      if (isNaN(amount) || amount < 0) {
+      if (isNaN(amountUsd) || amountUsd < 0 || isNaN(amountUzs) || amountUzs < 0) {
         alert('Noto\'g\'ri summa');
         return;
       }
 
-      await apiClient.put(`/bxm/${newYear}`, { amount });
+      await apiClient.put(`/bxm/${newYear}`, { amountUsd, amountUzs });
       await loadBXMConfigs();
       setEditingYear(null);
-      setEditAmount('');
+      setEditAmountUsd('');
+      setEditAmountUzs('');
       alert('Yangi yil uchun BXM muvaffaqiyatli qo\'shildi');
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
@@ -182,18 +200,22 @@ const Settings = () => {
     try {
       await apiClient.post('/state-payments', {
         branchId: Number(statePaymentForm.branchId),
-        certificatePayment: Number(statePaymentForm.certificatePayment),
-        psrPrice: Number(statePaymentForm.psrPrice),
-        workerPrice: Number(statePaymentForm.workerPrice),
-        customsPayment: Number(statePaymentForm.customsPayment),
+        certificatePaymentUsd: Number(statePaymentForm.certificatePaymentUsd),
+        certificatePaymentUzs: Number(statePaymentForm.certificatePaymentUzs),
+        psrPriceUsd: Number(statePaymentForm.psrPriceUsd),
+        psrPriceUzs: Number(statePaymentForm.psrPriceUzs),
+        workerPriceUsd: Number(statePaymentForm.workerPriceUsd),
+        workerPriceUzs: Number(statePaymentForm.workerPriceUzs),
       });
       setShowStatePaymentForm(false);
       setStatePaymentForm({
         branchId: '',
-        certificatePayment: '',
-        psrPrice: '',
-        workerPrice: '',
-        customsPayment: '',
+        certificatePaymentUsd: '',
+        certificatePaymentUzs: '',
+        psrPriceUsd: '',
+        psrPriceUzs: '',
+        workerPriceUsd: '',
+        workerPriceUzs: '',
       });
       await loadStatePayments();
     } catch (error: any) {
@@ -211,11 +233,12 @@ const Settings = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, currency: 'USD' | 'UZS') => {
     return new Intl.NumberFormat('uz-UZ', {
       style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
+      currency,
+      minimumFractionDigits: currency === 'USD' ? 2 : 0,
+      maximumFractionDigits: currency === 'USD' ? 2 : 0,
     }).format(amount).replace(/,/g, ' ');
   };
 
@@ -292,7 +315,10 @@ const Settings = () => {
             <div>
               <div className="text-sm text-gray-600">Yil: {currentBXM.year}</div>
               <div className="text-2xl font-bold text-blue-600">
-                ${Number(currentBXM.amount).toFixed(2)}
+                {formatCurrency(Number(currentBXM.amountUsd ?? currentBXM.amount), 'USD')}
+              </div>
+              <div className="text-sm text-gray-600 mt-1">
+                {formatCurrency(Number(currentBXM.amountUzs ?? 412000), 'UZS')}
               </div>
             </div>
             <button
@@ -315,7 +341,8 @@ const Settings = () => {
             onClick={() => {
               const currentYear = new Date().getFullYear();
               setEditingYear(currentYear + 1);
-              setEditAmount('34.4');
+              setEditAmountUsd('34.4');
+              setEditAmountUzs('412000');
             }}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
@@ -334,10 +361,18 @@ const Settings = () => {
                   <input
                     type="number"
                     step="0.01"
-                    value={editAmount}
-                    onChange={(e) => setEditAmount(e.target.value)}
+                    value={editAmountUsd}
+                    onChange={(e) => setEditAmountUsd(e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="BXM summa"
+                    placeholder="BXM USD"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editAmountUzs}
+                    onChange={(e) => setEditAmountUzs(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="BXM UZS"
                   />
                   <button
                     onClick={() => handleSave(config.year)}
@@ -348,7 +383,8 @@ const Settings = () => {
                   <button
                     onClick={() => {
                       setEditingYear(null);
-                      setEditAmount('');
+                      setEditAmountUsd('');
+                      setEditAmountUzs('');
                     }}
                     className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
                   >
@@ -360,7 +396,10 @@ const Settings = () => {
                   <div>
                     <div className="text-sm font-medium text-gray-800">{config.year} yil</div>
                     <div className="text-lg font-bold text-blue-600">
-                      ${Number(config.amount).toFixed(2)}
+                      {formatCurrency(Number(config.amountUsd ?? config.amount), 'USD')}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {formatCurrency(Number(config.amountUzs ?? 412000), 'UZS')}
                     </div>
                   </div>
                   <button
@@ -379,10 +418,18 @@ const Settings = () => {
               <input
                 type="number"
                 step="0.01"
-                value={editAmount}
-                onChange={(e) => setEditAmount(e.target.value)}
+                value={editAmountUsd}
+                onChange={(e) => setEditAmountUsd(e.target.value)}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="BXM summa"
+                placeholder="BXM USD"
+              />
+              <input
+                type="number"
+                step="0.01"
+                value={editAmountUzs}
+                onChange={(e) => setEditAmountUzs(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="BXM UZS"
               />
               <button
                 onClick={handleAddNewYear}
@@ -393,7 +440,8 @@ const Settings = () => {
               <button
                 onClick={() => {
                   setEditingYear(null);
-                  setEditAmount('');
+                  setEditAmountUsd('');
+                  setEditAmountUzs('');
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
               >
@@ -429,7 +477,6 @@ const Settings = () => {
                   <th className="text-right py-3 px-4 font-semibold text-gray-700">Sertifikat to'lovi</th>
                   <th className="text-right py-3 px-4 font-semibold text-gray-700">PSR narxi</th>
                   <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishchi narxi</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Bojxona to'lovi</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-700">Yaratilgan</th>
                   <th className="text-center py-3 px-4 font-semibold text-gray-700">Amallar</th>
                 </tr>
@@ -438,10 +485,18 @@ const Settings = () => {
                 {statePayments.map((payment) => (
                   <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-4 text-gray-800 font-medium">{payment.branch.name}</td>
-                    <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(payment.certificatePayment)}</td>
-                    <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(payment.psrPrice)}</td>
-                    <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(payment.workerPrice)}</td>
-                    <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(payment.customsPayment)}</td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="text-sm text-gray-700">{formatCurrency(Number(payment.certificatePaymentUsd ?? payment.certificatePayment), 'USD')}</div>
+                      <div className="text-xs text-gray-500">{formatCurrency(Number(payment.certificatePaymentUzs ?? payment.certificatePayment), 'UZS')}</div>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="text-sm text-gray-700">{formatCurrency(Number(payment.psrPriceUsd ?? payment.psrPrice), 'USD')}</div>
+                      <div className="text-xs text-gray-500">{formatCurrency(Number(payment.psrPriceUzs ?? payment.psrPrice), 'UZS')}</div>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="text-sm text-gray-700">{formatCurrency(Number(payment.workerPriceUsd ?? payment.workerPrice), 'USD')}</div>
+                      <div className="text-xs text-gray-500">{formatCurrency(Number(payment.workerPriceUzs ?? payment.workerPrice), 'UZS')}</div>
+                    </td>
                     <td className="py-3 px-4 text-sm text-gray-500">{formatDate(payment.createdAt)}</td>
                     <td className="py-3 px-4 text-center">
                       <button
@@ -503,57 +558,76 @@ const Settings = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Sertifikat to'lovi <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={statePaymentForm.certificatePayment}
-                    onChange={(e) => setStatePaymentForm({ ...statePaymentForm, certificatePayment: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    placeholder="0.00"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={statePaymentForm.certificatePaymentUsd}
+                      onChange={(e) => setStatePaymentForm({ ...statePaymentForm, certificatePaymentUsd: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      placeholder="USD"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={statePaymentForm.certificatePaymentUzs}
+                      onChange={(e) => setStatePaymentForm({ ...statePaymentForm, certificatePaymentUzs: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      placeholder="UZS"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     PSR narxi <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={statePaymentForm.psrPrice}
-                    onChange={(e) => setStatePaymentForm({ ...statePaymentForm, psrPrice: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    placeholder="0.00"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={statePaymentForm.psrPriceUsd}
+                      onChange={(e) => setStatePaymentForm({ ...statePaymentForm, psrPriceUsd: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      placeholder="USD"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={statePaymentForm.psrPriceUzs}
+                      onChange={(e) => setStatePaymentForm({ ...statePaymentForm, psrPriceUzs: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      placeholder="UZS"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Ishchi narxi <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={statePaymentForm.workerPrice}
-                    onChange={(e) => setStatePaymentForm({ ...statePaymentForm, workerPrice: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bojxona to'lovi <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={statePaymentForm.customsPayment}
-                    onChange={(e) => setStatePaymentForm({ ...statePaymentForm, customsPayment: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    placeholder="0.00"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={statePaymentForm.workerPriceUsd}
+                      onChange={(e) => setStatePaymentForm({ ...statePaymentForm, workerPriceUsd: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      placeholder="USD"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={statePaymentForm.workerPriceUzs}
+                      onChange={(e) => setStatePaymentForm({ ...statePaymentForm, workerPriceUzs: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      placeholder="UZS"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex gap-3 mt-6">

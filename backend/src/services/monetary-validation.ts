@@ -155,9 +155,8 @@ export function validateExchangeRateImmutability(
 /**
  * Validates StatePayment data
  * StatePayment MUST have:
- * - currency = UZS (reject USD)
- * - exchange_rate = 1
- * - All amounts stored with universal monetary fields
+ * - Both USD and UZS amounts provided
+ * - Currency can be USD or UZS (used only for display)
  */
 export function validateStatePayment(data: {
   currency?: Currency | string | null;
@@ -170,19 +169,8 @@ export function validateStatePayment(data: {
   const errors: string[] = [];
   const currency = data.currency;
 
-  // Currency MUST be UZS
-  if (currency === undefined || currency === null) {
-    errors.push('Currency is required for StatePayment and must be UZS');
-  } else if (currency !== 'UZS') {
-    errors.push(`StatePayment currency must be UZS, got ${currency}. USD is not allowed for state payments.`);
-  }
-
-  // Exchange rate MUST be 1 (or will be set to 1)
-  if (data.exchangeRate !== undefined && data.exchangeRate !== null) {
-    const rate = new Decimal(data.exchangeRate);
-    if (!rate.eq(1)) {
-      errors.push(`StatePayment exchange_rate must be 1 (UZS currency), got ${rate.toString()}`);
-    }
+  if (currency !== undefined && currency !== null && currency !== 'USD' && currency !== 'UZS') {
+    errors.push(`StatePayment currency must be USD or UZS, got ${currency}.`);
   }
 
   return {

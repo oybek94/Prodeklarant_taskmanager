@@ -453,10 +453,16 @@ router.get('/:id', async (req, res) => {
     const tasksWithPsr = client.tasks.filter(task => task.hasPsr).length;
     const tasksWithoutPsr = totalTasks - tasksWithPsr;
     
-    // PSR bor bo'lgan tasklar uchun dealAmount + 10, qolganlari uchun dealAmount
-    // Jami shartnoma summasi = (dealAmount + 10) * tasksWithPsr + dealAmount * tasksWithoutPsr
-    // Yoki oddiyroq: dealAmount * totalTasks + 10 * tasksWithPsr
-    const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+    // Har bir task bo'yicha kelishuv summasini yig'amiz
+    // snapshotDealAmount bo'lsa o'shani olamiz, bo'lmasa client.dealAmount
+    // PSR bo'lsa +10 qo'shamiz
+    const totalDealAmount = client.tasks.reduce((sum, task) => {
+      const baseAmount = task.snapshotDealAmount != null
+        ? Number(task.snapshotDealAmount)
+        : dealAmount;
+      const psrAmount = task.hasPsr ? 10 : 0;
+      return sum + baseAmount + psrAmount;
+    }, 0);
     
     // Qoldiq = Jami shartnoma summasi - Jami kirim
     const balance = totalDealAmount - totalIncome;

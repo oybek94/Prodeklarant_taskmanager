@@ -70,12 +70,15 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     return acc;
   }, {});
 
+  const workerActivityList = Object.values(workerActivity) as any[];
+  const workerIds = workerActivityList.map((w) => w.userId);
+
   const workerDetails = await prisma.user.findMany({
-    where: { id: { in: workerActivity.map((w: any) => w.userId) } },
+    where: { id: { in: workerIds } },
     select: { id: true, name: true },
   });
 
-  const workerActivityWithNames = Object.values(workerActivity).map((w: any) => ({
+  const workerActivityWithNames = workerActivityList.map((w: any) => ({
     userId: w.userId,
     name: workerDetails.find((d: any) => d.id === w.userId)?.name || 'Unknown',
     totalKPI: w.totalKPI || 0, // USD for worker display

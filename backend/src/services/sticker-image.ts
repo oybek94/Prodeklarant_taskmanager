@@ -79,8 +79,8 @@ function parseVehiclePlate(title: string): string | null {
 function buildQrUrl(qrToken: string): string {
   const baseUrl =
     process.env.FRONTEND_URL ||
-    process.env.API_BASE_URL ||
-    'http://localhost:5173';
+    process.env.PUBLIC_BASE_URL ||
+    'https://app.prodeklarant.uz';
   return `${baseUrl}/q/${qrToken}`;
 }
 

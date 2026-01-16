@@ -25,6 +25,8 @@ export class QrTokenMissingError extends Error {
 }
 
 export class QrGenerationError extends Error {
+  public readonly cause: Error;
+
   constructor(url: string, cause: Error) {
     super(`QR code generation failed for URL: ${url}. Cause: ${cause.message}`);
     this.name = 'QrGenerationError';

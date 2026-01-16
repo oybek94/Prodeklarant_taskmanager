@@ -82,7 +82,7 @@ const QRVerification = () => {
       setLoading(true);
       setError(null);
       // QR endpoint is public and mounted at /q (not /api/q)
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '' : 'http://localhost:3001');
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
       const response = await axios.get(`${apiBaseUrl}/q/${token}`);
       setData(response.data);
     } catch (err: any) {
@@ -103,7 +103,7 @@ const QRVerification = () => {
       return fileUrl;
     }
     // Otherwise, prepend the API base URL
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '' : 'http://localhost:3001');
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
     return `${apiBaseUrl}${fileUrl}`;
   };
 

@@ -167,6 +167,7 @@ app.use('/api/company-settings', companySettingsRouter);
 app.use('/api/contracts', requireAuth(), contractsRouter);
 // Public QR verification endpoint (no authentication required)
 app.use('/q', qrRouter);
+app.use('/api/q', qrRouter);
 // Sticker PDF generation endpoint (requires authentication)
 app.use('/api/sticker', stickerRouter);
 

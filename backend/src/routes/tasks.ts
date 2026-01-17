@@ -413,7 +413,9 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         statePayment.certificatePayment_amount_uzs != null
           ? Number(statePayment.certificatePayment_amount_uzs)
           : null,
-        statePayment.certificatePayment,
+        statePayment.certificatePayment != null
+          ? Number(statePayment.certificatePayment)
+          : null,
         paymentCurrency,
         paymentExchangeRate
       );
@@ -428,7 +430,9 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         statePayment.psrPrice_amount_uzs != null
           ? Number(statePayment.psrPrice_amount_uzs)
           : null,
-        statePayment.psrPrice,
+        statePayment.psrPrice != null
+          ? Number(statePayment.psrPrice)
+          : null,
         paymentCurrency,
         paymentExchangeRate
       );
@@ -443,7 +447,9 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         statePayment.workerPrice_amount_uzs != null
           ? Number(statePayment.workerPrice_amount_uzs)
           : null,
-        statePayment.workerPrice,
+        statePayment.workerPrice != null
+          ? Number(statePayment.workerPrice)
+          : null,
         paymentCurrency,
         paymentExchangeRate
       );
@@ -458,7 +464,9 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         statePayment.customsPayment_amount_uzs != null
           ? Number(statePayment.customsPayment_amount_uzs)
           : null,
-        statePayment.customsPayment,
+        statePayment.customsPayment != null
+          ? Number(statePayment.customsPayment)
+          : null,
         paymentCurrency,
         paymentExchangeRate
       );

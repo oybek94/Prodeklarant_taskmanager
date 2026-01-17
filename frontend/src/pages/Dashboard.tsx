@@ -16,6 +16,7 @@ import {
   Filler,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { Icon } from '@iconify/react';
 
 ChartJS.register(
   CategoryScale,
@@ -50,13 +51,31 @@ interface DashboardStats {
   paymentReminders?: PaymentReminder[];
 }
 
+interface CompletedSummaryItem {
+  count: number;
+  deltaPercent: number | null;
+  series: { labels: string[]; data: number[] };
+}
+
+interface CompletedSummary {
+  today: CompletedSummaryItem;
+  week: CompletedSummaryItem;
+  month: CompletedSummaryItem;
+  year: CompletedSummaryItem;
+}
+
 interface ChartData {
   period: string;
   dateRange?: {
     start: string;
     end: string;
   };
+  previousDateRange?: {
+    start: string;
+    end: string;
+  };
   tasksCompleted: Array<{ date: string }>;
+  previousTasksCompleted?: Array<{ date: string }>;
   kpiByWorker: Array<{ userId: number; name: string; total: number }>;
   transactionsByType: Array<{ type: string; date: string; amount: number }>;
 }
@@ -80,6 +99,8 @@ const Dashboard = () => {
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
+  const [completedSummary, setCompletedSummary] = useState<CompletedSummary | null>(null);
+  const [loadingCompletedSummary, setLoadingCompletedSummary] = useState(true);
 
   useEffect(() => {
     loadStats();
@@ -87,6 +108,23 @@ const Dashboard = () => {
     loadRecentTasks();
     loadExchangeRate();
   }, [period]);
+
+  useEffect(() => {
+    loadCompletedSummary();
+  }, []);
+
+  const loadCompletedSummary = async () => {
+    try {
+      setLoadingCompletedSummary(true);
+      const response = await apiClient.get('/dashboard/completed-summary');
+      setCompletedSummary(response.data);
+    } catch (error) {
+      console.error('Error loading completed summary:', error);
+      setCompletedSummary(null);
+    } finally {
+      setLoadingCompletedSummary(false);
+    }
+  };
 
   const loadExchangeRate = async () => {
     try {
@@ -199,73 +237,76 @@ const Dashboard = () => {
     return formatCurrencyForRole(amount, originalCurrency, role, amountUzs, exchangeRate);
   };
 
-  // Prepare chart data with all dates included (even days with no tasks)
   const chartDataWithLabels = useMemo(() => {
     if (!chartData?.tasksCompleted || !chartData?.dateRange) {
-      return { labels: [], data: [] };
+      return { labels: [], current: [], previous: [] };
     }
 
     const startDate = new Date(chartData.dateRange.start);
     const endDate = new Date(chartData.dateRange.end);
-    
-    // Group tasks by date
-    const tasksByDate = chartData.tasksCompleted.reduce((acc: any, item) => {
-      const date = item.date;
-      acc[date] = (acc[date] || 0) + 1;
+    const previousTasks = chartData.previousTasksCompleted || [];
+
+    const tasksByDate = chartData.tasksCompleted.reduce((acc: Record<string, number>, item) => {
+      acc[item.date] = (acc[item.date] || 0) + 1;
+      return acc;
+    }, {});
+
+    const previousByDate = previousTasks.reduce((acc: Record<string, number>, item) => {
+      acc[item.date] = (acc[item.date] || 0) + 1;
       return acc;
     }, {});
 
     const labels: string[] = [];
-    const data: number[] = [];
-    const currentDate = new Date(startDate);
+    const current: number[] = [];
+    const previous: number[] = [];
 
     if (period === 'weekly') {
-      // Show all 7 days
-      while (currentDate <= endDate) {
-        const dateStr = currentDate.toISOString().split('T')[0];
-        labels.push(
-          currentDate.toLocaleDateString('uz-UZ', { weekday: 'short', day: 'numeric', month: 'short' })
-        );
-        data.push(tasksByDate[dateStr] || 0);
-        currentDate.setDate(currentDate.getDate() + 1);
+      const weekDays = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
+      const cursor = new Date(startDate);
+      while (cursor <= endDate) {
+        const dateStr = cursor.toISOString().split('T')[0];
+        const dayIndex = (cursor.getDay() + 6) % 7;
+        labels.push(weekDays[dayIndex]);
+        current.push(tasksByDate[dateStr] || 0);
+        previous.push(previousByDate[dateStr] || 0);
+        cursor.setDate(cursor.getDate() + 1);
       }
     } else if (period === 'monthly') {
-      // Show all days in the month
-      while (currentDate <= endDate) {
-        const dateStr = currentDate.toISOString().split('T')[0];
-        labels.push(
-          currentDate.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' })
-        );
-        data.push(tasksByDate[dateStr] || 0);
-        currentDate.setDate(currentDate.getDate() + 1);
+      const monthShort = ['yan.', 'fev.', 'mar.', 'apr.', 'may', 'iyun', 'iyul', 'avg.', 'sen.', 'okt.', 'noy.', 'dek.'];
+      const cursor = new Date(startDate);
+      while (cursor <= endDate) {
+        const dateStr = cursor.toISOString().split('T')[0];
+        labels.push(`${cursor.getDate()} ${monthShort[cursor.getMonth()]}`);
+        current.push(tasksByDate[dateStr] || 0);
+        previous.push(previousByDate[dateStr] || 0);
+        cursor.setDate(cursor.getDate() + 1);
       }
     } else if (period === 'yearly') {
-      // Show all months in the year
-      const monthCounts: { [key: string]: number } = {};
+      const monthNames = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentyabr', 'oktyabr', 'noyabr', 'dekabr'];
       const targetYear = startDate.getFullYear();
-      
-      // Count tasks by month (only for the target year)
+      const endMonth = endDate.getMonth();
+      const currentByMonth = Array.from({ length: 12 }, () => 0);
+      const previousByMonth = Array.from({ length: 12 }, () => 0);
+
       chartData.tasksCompleted.forEach((item) => {
         const date = new Date(item.date);
-        // Only count tasks from the target year
         if (date.getFullYear() === targetYear) {
-          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
+          currentByMonth[date.getMonth()] += 1;
         }
       });
+      previousTasks.forEach((item) => {
+        const date = new Date(item.date);
+        previousByMonth[date.getMonth()] += 1;
+      });
 
-      // Generate all months for the target year
-      for (let month = 0; month < 12; month++) {
-        const monthDate = new Date(targetYear, month, 1);
-        const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
-        labels.push(
-          monthDate.toLocaleDateString('uz-UZ', { month: 'short' })
-        );
-        data.push(monthCounts[monthKey] || 0);
+      for (let month = 0; month <= endMonth; month++) {
+        labels.push(monthNames[month]);
+        current.push(currentByMonth[month] || 0);
+        previous.push(previousByMonth[month] || 0);
       }
     }
 
-    return { labels, data };
+    return { labels, current, previous };
   }, [chartData, period]);
 
   const getTaskProgress = (task: Task) => {
@@ -303,10 +344,40 @@ const Dashboard = () => {
     }
   };
 
-  // Calculate stats for cards
-  const completedTasksCount = stats?.completedTasks || 0;
-  const newTasksCount = stats?.newTasks || 0;
-  const projectDoneCount = stats?.tasksByStatus?.find(t => t.status === 'YAKUNLANDI')?.count || 0;
+  const formatDeltaLabel = (value: number | null, suffix: string) => {
+    if (value === null || value === undefined) return 'Taqqoslash uchun ma\'lumot yo\'q';
+    const sign = value >= 0 ? '+' : '-';
+    return `${sign}${Math.abs(value).toFixed(1)}% ${suffix}`;
+  };
+
+  const buildSparklineData = (labels: string[], data: number[], color: string) => ({
+    labels,
+    datasets: [
+      {
+        data,
+        borderColor: color,
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.35,
+        pointRadius: 0,
+      },
+    ],
+  });
+
+  const sparklineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: false },
+      datalabels: { display: false },
+    },
+    scales: {
+      x: { display: false },
+      y: { display: false },
+    },
+    events: [],
+  } as const;
 
   if (loading) {
     return (
@@ -323,70 +394,51 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-0 py-0">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {/* Task Completed */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex justify-between items-start mb-4">
-    <div>
-                <p className="text-sm text-gray-600 mb-1">Task Completed</p>
-                <p className="text-3xl font-bold text-gray-900">{completedTasksCount}</p>
-              </div>
-              <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center">
-                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-            <div className="flex items-center text-xs text-emerald-600">
-              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-              {completedTasksCount > 0 ? `${completedTasksCount}+ more from last week` : 'No completed tasks'}
-            </div>
-          </div>
+        {/* Completed Tasks Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          {[
+            { key: 'today', title: 'Bugun', suffix: 'kechagidan', icon: 'mdi:calendar-today', accent: 'text-emerald-600', spark: '#34d399', showChart: false },
+            { key: 'week', title: 'Haftalik', suffix: 'o‘tgan haftadan', icon: 'mdi:calendar-week', accent: 'text-blue-600', spark: '#60a5fa', showChart: true },
+            { key: 'month', title: 'Oylik', suffix: 'o‘tgan oydan', icon: 'mdi:calendar-month', accent: 'text-purple-600', spark: '#a78bfa', showChart: true },
+            { key: 'year', title: 'Yillik', suffix: 'o‘tgan yildan', icon: 'mdi:calendar', accent: 'text-orange-600', spark: '#fb923c', showChart: true },
+          ].map((item) => {
+            const data = completedSummary?.[item.key as keyof CompletedSummary];
+            const delta = data?.deltaPercent ?? null;
+            const deltaLabel = loadingCompletedSummary
+              ? 'Yuklanmoqda...'
+              : delta === null || delta === undefined
+              ? 'Taqqoslash uchun ma\'lumot yo\'q'
+              : `${item.suffix} ${formatDeltaLabel(delta, '')} ${delta >= 0 ? 'yuqori' : 'past'}`.trim();
+            const deltaTone = delta === null ? 'text-gray-400' : delta >= 0 ? 'text-emerald-600' : 'text-red-600';
+            const sparkLabels = data?.series?.labels ?? [];
+            const sparkData = data?.series?.data ?? [];
 
-          {/* New Task */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">New Task</p>
-                <p className="text-3xl font-bold text-gray-900">{newTasksCount}</p>
+            return (
+              <div key={item.key} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg">
+                      <Icon icon={item.icon} className="text-gray-600" />
+                    </div>
+                    <div className="text-sm text-gray-600">{item.title}</div>
+                  </div>
+                  <div className={`text-3xl font-bold ${item.accent}`}>
+                    {loadingCompletedSummary ? '-' : data?.count ?? 0}
+                  </div>
+                </div>
+                <div className="mt-4 border-t border-gray-100 pt-4 flex items-center justify-between gap-4">
+                  {item.showChart ? (
+                    <div className="h-8 w-24">
+                      <Line data={buildSparklineData(sparkLabels, sparkData, item.spark)} options={sparklineOptions} />
+                    </div>
+                  ) : (
+                    <div className="h-8 w-24" />
+                  )}
+                  <div className={`text-xs font-medium ${deltaTone}`}>{deltaLabel}</div>
+                </div>
               </div>
-              <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-            </div>
-            <div className="flex items-center text-xs text-emerald-600">
-              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-              {newTasksCount > 0 ? `${newTasksCount}+ more from last week` : 'No new tasks'}
-            </div>
-          </div>
-
-          {/* Project Done */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Project Done</p>
-                <p className="text-3xl font-bold text-gray-900">{projectDoneCount}</p>
-              </div>
-              <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
-                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-            <div className="flex items-center text-xs text-emerald-600">
-              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-              {projectDoneCount > 0 ? `${projectDoneCount}+ more from last week` : 'No projects done'}
-            </div>
-          </div>
+            );
+          })}
         </div>
 
         {/* Main Content Grid */}
@@ -439,13 +491,13 @@ const Dashboard = () => {
                       labels: chartDataWithLabels.labels,
                       datasets: [
                         {
-                          label: 'Bajarilgan tasklar',
-                          data: chartDataWithLabels.data,
+                          label: 'Joriy davr',
+                          data: chartDataWithLabels.current,
                           borderColor: 'rgb(99, 102, 241)',
                           backgroundColor: 'rgba(99, 102, 241, 0.1)',
                           borderWidth: 2,
                           fill: true,
-                          tension: 0.4, // Smooth curve (interpolation)
+                          tension: 0.4,
                           pointRadius: 4,
                           pointHoverRadius: 6,
                           pointBackgroundColor: 'rgb(99, 102, 241)',
@@ -453,6 +505,22 @@ const Dashboard = () => {
                           pointBorderWidth: 2,
                           pointHoverBackgroundColor: 'rgb(79, 70, 229)',
                           pointHoverBorderColor: '#fff',
+                          yAxisID: 'y',
+                        },
+                        {
+                          label: 'O‘tgan davr',
+                          data: chartDataWithLabels.previous,
+                          borderColor: 'rgb(148, 163, 184)',
+                          backgroundColor: 'rgba(148, 163, 184, 0.1)',
+                          borderWidth: 2,
+                          fill: false,
+                          tension: 0.35,
+                          pointRadius: 3,
+                          pointHoverRadius: 5,
+                          pointBackgroundColor: 'rgb(148, 163, 184)',
+                          pointBorderColor: '#fff',
+                          pointBorderWidth: 1,
+                          yAxisID: 'y1',
                         },
                       ],
                     }}
@@ -487,6 +555,17 @@ const Dashboard = () => {
                           },
                           grid: {
                             color: 'rgba(0, 0, 0, 0.05)',
+                          },
+                        },
+                        y1: {
+                          beginAtZero: true,
+                          position: 'right' as const,
+                          ticks: {
+                            stepSize: 1,
+                            precision: 0,
+                          },
+                          grid: {
+                            drawOnChartArea: false,
                           },
                         },
                         x: {

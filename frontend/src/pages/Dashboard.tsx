@@ -17,6 +17,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { Icon } from '@iconify/react';
+import Chart from 'react-apexcharts';
 
 ChartJS.register(
   CategoryScale,
@@ -379,7 +380,7 @@ const Dashboard = () => {
     ],
   });
 
-  const sparklineOptions = {
+  const sparklineOptions: any = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -392,7 +393,7 @@ const Dashboard = () => {
       y: { display: false },
     },
     events: [],
-  } as const;
+  };
 
   if (loading) {
     return (
@@ -442,12 +443,17 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="mt-4 border-t border-gray-100 pt-4 flex items-center justify-between gap-4">
-                  {item.showChart ? (
+                  {item.showChart && Array.isArray(sparkData) && sparkData.length > 0 ? (
                     <div className="h-8 w-24">
-                      <Line data={buildSparklineData(sparkLabels, sparkData, item.spark)} options={sparklineOptions} />
+                      <Line
+                        data={buildSparklineData(sparkLabels, sparkData, item.spark)}
+                        options={sparklineOptions}
+                      />
                     </div>
                   ) : (
-                    <div className="h-8 w-24" />
+                    <div className="h-8 w-24 flex items-center justify-center text-gray-300">
+                      <span className="text-xs">Ma'lumot yo‘q</span>
+                    </div>
                   )}
                   <div className={`text-xs font-medium ${deltaTone}`}>{deltaLabel}</div>
                 </div>
@@ -546,7 +552,6 @@ const Dashboard = () => {
                         mode: 'index' as const,
                         intersect: false,
                       },
-                      stacked: false,
                       plugins: {
                         legend: {
                           display: true,
@@ -575,6 +580,7 @@ const Dashboard = () => {
                           ticks: {
                             stepSize: 1,
                             precision: 0,
+                            display: true,
                           },
                           grid: {
                             color: 'rgba(0, 0, 0, 0.05)',
@@ -588,6 +594,7 @@ const Dashboard = () => {
                           ticks: {
                             stepSize: 1,
                             precision: 0,
+                            display: false,
                           },
                           grid: {
                             drawOnChartArea: false,
@@ -693,6 +700,124 @@ const Dashboard = () => {
 
           {/* Right Sidebar */}
           <div className="space-y-6">
+            {/* Yearly Goal Gauge Chart */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Icon icon="mdi:target" className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Yillik maqsad</h2>
+                  <p className="text-xs text-gray-500">2026 yil uchun</p>
+                </div>
+              </div>
+              {loadingCompletedSummary ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (() => {
+                const TARGET_TASKS = 2000;
+                const completed = completedSummary?.year?.count ?? 0;
+                const percentage = Math.min((completed / TARGET_TASKS) * 100, 100);
+                const remaining = Math.max(TARGET_TASKS - completed, 0);
+
+                const gaugeOptions: any = {
+                  chart: {
+                    type: 'radialBar',
+                    height: 280,
+                  },
+                  series: [percentage],
+                  plotOptions: {
+                    radialBar: {
+                      startAngle: -90,
+                      endAngle: 90,
+                      track: {
+                        background: '#e5e7eb',
+                        strokeWidth: '97%',
+                        margin: 5,
+                      },
+                      dataLabels: {
+                        name: {
+                          show: true,
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color: '#6b7280',
+                          offsetY: -10,
+                        },
+                        value: {
+                          show: true,
+                          fontSize: '32px',
+                          fontWeight: 700,
+                          color: '#1f2937',
+                          offsetY: 10,
+                          formatter: function (val: number) {
+                            return Math.round((val / 100) * TARGET_TASKS).toString();
+                          },
+                        },
+                      },
+                    },
+                  },
+                  fill: {
+                    type: 'gradient',
+                    gradient: {
+                      shade: 'light',
+                      type: 'horizontal',
+                      shadeIntensity: 0.5,
+                      gradientToColors: ['#3b82f6', '#8b5cf6'],
+                      inverseColors: true,
+                      opacityFrom: 1,
+                      opacityTo: 1,
+                      stops: [0, 100],
+                    },
+                  },
+                  stroke: {
+                    lineCap: 'round',
+                  },
+                  labels: ['Yakunlangan tasklar'],
+                };
+
+                return (
+                  <div>
+                    <div className="flex justify-center mb-0" style={{ lineHeight: '28px' }}>
+                      <Chart
+                        options={gaugeOptions}
+                        series={gaugeOptions.series}
+                        type="radialBar"
+                        height={280}
+                      />
+                    </div>
+                    <div className="mt-6 space-y-3 pt-6 border-t border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Maqsad:</span>
+                        <span className="text-lg font-bold text-gray-900">{TARGET_TASKS.toLocaleString('uz-UZ')} task</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Yakunlangan:</span>
+                        <span className="text-lg font-bold text-blue-600">{completed.toLocaleString('uz-UZ')} task</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Qolgan:</span>
+                        <span className="text-lg font-bold text-orange-600">{remaining.toLocaleString('uz-UZ')} task</span>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <div className="bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-blue-500 to-purple-600 h-full transition-all duration-500 rounded-full"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <div className="text-center mt-2">
+                          <span className="text-xs font-medium text-gray-600">
+                            {percentage.toFixed(1)}% bajarildi
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Payment Reminders */}
             {stats?.paymentReminders && stats.paymentReminders.length > 0 && (
               <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl shadow-sm border-2 border-red-200 p-6">

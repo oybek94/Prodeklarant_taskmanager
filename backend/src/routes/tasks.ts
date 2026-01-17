@@ -407,8 +407,12 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       };
 
       const certificateAmounts = resolvePaymentAmounts(
-        statePayment.certificatePayment_amount_original,
-        statePayment.certificatePayment_amount_uzs,
+        statePayment.certificatePayment_amount_original != null
+          ? Number(statePayment.certificatePayment_amount_original)
+          : null,
+        statePayment.certificatePayment_amount_uzs != null
+          ? Number(statePayment.certificatePayment_amount_uzs)
+          : null,
         statePayment.certificatePayment,
         paymentCurrency,
         paymentExchangeRate
@@ -418,8 +422,12 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       snapshotCertificatePaymentAmountUzs = certificateAmounts.uzs;
 
       const psrAmounts = resolvePaymentAmounts(
-        statePayment.psrPrice_amount_original,
-        statePayment.psrPrice_amount_uzs,
+        statePayment.psrPrice_amount_original != null
+          ? Number(statePayment.psrPrice_amount_original)
+          : null,
+        statePayment.psrPrice_amount_uzs != null
+          ? Number(statePayment.psrPrice_amount_uzs)
+          : null,
         statePayment.psrPrice,
         paymentCurrency,
         paymentExchangeRate
@@ -429,8 +437,12 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       snapshotPsrPriceAmountUzs = psrAmounts.uzs;
 
       const workerAmounts = resolvePaymentAmounts(
-        statePayment.workerPrice_amount_original,
-        statePayment.workerPrice_amount_uzs,
+        statePayment.workerPrice_amount_original != null
+          ? Number(statePayment.workerPrice_amount_original)
+          : null,
+        statePayment.workerPrice_amount_uzs != null
+          ? Number(statePayment.workerPrice_amount_uzs)
+          : null,
         statePayment.workerPrice,
         paymentCurrency,
         paymentExchangeRate
@@ -440,8 +452,12 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       snapshotWorkerPriceAmountUzs = workerAmounts.uzs;
 
       const customsAmounts = resolvePaymentAmounts(
-        statePayment.customsPayment_amount_original,
-        statePayment.customsPayment_amount_uzs,
+        statePayment.customsPayment_amount_original != null
+          ? Number(statePayment.customsPayment_amount_original)
+          : null,
+        statePayment.customsPayment_amount_uzs != null
+          ? Number(statePayment.customsPayment_amount_uzs)
+          : null,
         statePayment.customsPayment,
         paymentCurrency,
         paymentExchangeRate
@@ -784,26 +800,34 @@ router.get('/:id', async (req, res) => {
       const paymentCurrency = task.snapshotCertificatePayment_currency || clientDealCurrency;
       const snapshotRate = task.snapshotCertificatePayment_exchange_rate || task.snapshotDealAmount_exchange_rate || task.snapshotDealAmountExchangeRate;
       certificatePaymentUzs = resolvePaymentUzs(
-        task.snapshotCertificatePayment,
-        task.snapshotCertificatePayment_amount_uzs,
+        Number(task.snapshotCertificatePayment),
+        task.snapshotCertificatePayment_amount_uzs != null
+          ? Number(task.snapshotCertificatePayment_amount_uzs)
+          : null,
         paymentCurrency,
         snapshotRate
       );
       psrPriceUzs = resolvePaymentUzs(
-        task.snapshotPsrPrice || 0,
-        task.snapshotPsrPrice_amount_uzs,
+        Number(task.snapshotPsrPrice || 0),
+        task.snapshotPsrPrice_amount_uzs != null
+          ? Number(task.snapshotPsrPrice_amount_uzs)
+          : null,
         task.snapshotPsrPrice_currency || clientDealCurrency,
         task.snapshotPsrPrice_exchange_rate || snapshotRate
       );
       workerPriceUzs = resolvePaymentUzs(
-        task.snapshotWorkerPrice || 0,
-        task.snapshotWorkerPrice_amount_uzs,
+        Number(task.snapshotWorkerPrice || 0),
+        task.snapshotWorkerPrice_amount_uzs != null
+          ? Number(task.snapshotWorkerPrice_amount_uzs)
+          : null,
         task.snapshotWorkerPrice_currency || clientDealCurrency,
         task.snapshotWorkerPrice_exchange_rate || snapshotRate
       );
       customsPaymentUzs = resolvePaymentUzs(
-        task.snapshotCustomsPayment || 0,
-        task.snapshotCustomsPayment_amount_uzs,
+        Number(task.snapshotCustomsPayment || 0),
+        task.snapshotCustomsPayment_amount_uzs != null
+          ? Number(task.snapshotCustomsPayment_amount_uzs)
+          : null,
         task.snapshotCustomsPayment_currency || clientDealCurrency,
         task.snapshotCustomsPayment_exchange_rate || snapshotRate
       );
@@ -827,7 +851,9 @@ router.get('/:id', async (req, res) => {
           paymentCurrency === 'USD'
             ? Number(statePayment.certificatePayment_amount_original ?? statePayment.certificatePayment)
             : Number(statePayment.certificatePayment_amount_uzs ?? statePayment.certificatePayment),
-          statePayment.certificatePayment_amount_uzs,
+          statePayment.certificatePayment_amount_uzs != null
+            ? Number(statePayment.certificatePayment_amount_uzs)
+            : null,
           paymentCurrency,
           fallbackRate
         );
@@ -835,7 +861,9 @@ router.get('/:id', async (req, res) => {
           paymentCurrency === 'USD'
             ? Number(statePayment.psrPrice_amount_original ?? statePayment.psrPrice)
             : Number(statePayment.psrPrice_amount_uzs ?? statePayment.psrPrice),
-          statePayment.psrPrice_amount_uzs,
+          statePayment.psrPrice_amount_uzs != null
+            ? Number(statePayment.psrPrice_amount_uzs)
+            : null,
           paymentCurrency,
           fallbackRate
         );
@@ -843,7 +871,9 @@ router.get('/:id', async (req, res) => {
           paymentCurrency === 'USD'
             ? Number(statePayment.workerPrice_amount_original ?? statePayment.workerPrice)
             : Number(statePayment.workerPrice_amount_uzs ?? statePayment.workerPrice),
-          statePayment.workerPrice_amount_uzs,
+          statePayment.workerPrice_amount_uzs != null
+            ? Number(statePayment.workerPrice_amount_uzs)
+            : null,
           paymentCurrency,
           fallbackRate
         );
@@ -851,7 +881,9 @@ router.get('/:id', async (req, res) => {
           paymentCurrency === 'USD'
             ? Number(statePayment.customsPayment_amount_original ?? statePayment.customsPayment)
             : Number(statePayment.customsPayment_amount_uzs ?? statePayment.customsPayment),
-          statePayment.customsPayment_amount_uzs,
+          statePayment.customsPayment_amount_uzs != null
+            ? Number(statePayment.customsPayment_amount_uzs)
+            : null,
           paymentCurrency,
           fallbackRate
         );
@@ -1463,7 +1495,7 @@ router.post('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
         amount: parsed.data.amount,
         comment: parsed.data.comment,
         date: parsed.data.date,
-        createdById: req.user.id,
+        createdById: req.user!.id,
       },
       include: {
         worker: { select: { id: true, name: true } },

@@ -1,13 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
-import PdfIcon from '../assets/icons/pdf-icon.svg?react';
-import ExcelIcon from '../assets/icons/excel-icon.svg?react';
-import WordIcon from '../assets/icons/word-icon.svg?react';
-import JpgIcon from '../assets/icons/jpg-icon.svg?react';
-import PngIcon from '../assets/icons/png-icon.svg?react';
-import PptIcon from '../assets/icons/ppt-icon.svg?react';
-import RarIcon from '../assets/icons/rar-icon.svg?react';
-import ZipIcon from '../assets/icons/zip-icon.svg?react';
+import { Icon } from '@iconify/react';
 
 interface ArchiveDocument {
   id: number;
@@ -69,84 +62,55 @@ const Archive = () => {
     
     // PDF
     if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) {
-      return <PdfIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-pdf-box" className="w-10 h-10 text-red-500" />;
     }
     // Excel (xls, xlsx)
     if (lowerType.includes('excel') || lowerType.includes('spreadsheet') || 
         lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx')) {
-      return <ExcelIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-excel-box" className="w-10 h-10 text-emerald-500" />;
     }
     // Word (doc, docx)
     if (lowerType.includes('word') || lowerType.includes('document') ||
         lowerName.endsWith('.doc') || lowerName.endsWith('.docx')) {
-      return <WordIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-word-box" className="w-10 h-10 text-blue-500" />;
     }
     // JPG/JPEG
     if (lowerType.includes('jpeg') || lowerType.includes('jpg') ||
         lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
-      return <JpgIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
     }
     // PNG
     if (lowerType.includes('png') || lowerName.endsWith('.png')) {
-      return <PngIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
     }
     // PPT/PPTX
     if (lowerType.includes('powerpoint') || lowerType.includes('presentation') ||
         lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx')) {
-      return <PptIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-powerpoint-box" className="w-10 h-10 text-orange-500" />;
     }
     // RAR
     if (lowerType.includes('rar') || lowerName.endsWith('.rar')) {
-      return <RarIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:zip-box" className="w-10 h-10 text-gray-500" />;
     }
     // ZIP
     if (lowerType.includes('zip') || lowerName.endsWith('.zip')) {
-      return <ZipIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:zip-box" className="w-10 h-10 text-gray-500" />;
     }
     // Rasm (boshqa formatlar)
     if (lowerType.includes('image') || lowerType.includes('gif') || lowerType.includes('webp') ||
         lowerName.match(/\.(gif|webp|bmp|svg)$/i)) {
-      return <JpgIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
     }
     // Video
     if (lowerType.includes('video') || lowerName.match(/\.(mp4|avi|mov|wmv|flv|mkv)$/i)) {
-      return (
-        <div className="relative w-10 h-10">
-          <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
-            <rect x="4" y="4" width="16" height="20" rx="1.5" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="1.5"/>
-            <rect x="6" y="8" width="12" height="8" rx="1" fill="#EF4444"/>
-            <polygon points="10,11 10,13 13,12" fill="white"/>
-          </svg>
-        </div>
-      );
+      return <Icon icon="mdi:file-video" className="w-10 h-10 text-red-500" />;
     }
     // Audio
     if (lowerType.includes('audio') || lowerName.match(/\.(mp3|wav|ogg|m4a)$/i)) {
-      return (
-        <div className="relative w-10 h-10">
-          <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
-            <rect x="4" y="4" width="16" height="20" rx="1.5" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="1.5"/>
-            <path d="M8 10v4c0 1.1.9 2 2 2s2-.9 2-2v-4" stroke="#9333EA" strokeWidth="2" strokeLinecap="round" fill="none"/>
-            <path d="M14 8v8c0 1.1.9 2 2 2s2-.9 2-2V8" stroke="#9333EA" strokeWidth="2" strokeLinecap="round" fill="none"/>
-            <circle cx="10" cy="10" r="1" fill="#9333EA"/>
-            <circle cx="16" cy="12" r="1" fill="#9333EA"/>
-          </svg>
-        </div>
-      );
+      return <Icon icon="mdi:file-music" className="w-10 h-10 text-purple-500" />;
     }
     // Boshqa fayllar (default)
-    return (
-      <div className="relative w-10 h-10">
-        <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
-          <rect x="4" y="4" width="16" height="20" rx="1.5" fill="#F3F4F6" stroke="#9CA3AF" strokeWidth="1.5"/>
-          <path d="M18 4v4h4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-          <path d="M18 4l4 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-          <line x1="7" y1="11" x2="17" y2="11" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round"/>
-          <line x1="7" y1="14" x2="17" y2="14" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round"/>
-          <line x1="7" y1="17" x2="14" y2="17" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round"/>
-        </svg>
-      </div>
-    );
+    return <Icon icon="mdi:file" className="w-10 h-10 text-gray-500" />;
   };
 
   const downloadFile = (fileUrl: string, _fileName: string) => {
@@ -294,9 +258,7 @@ const Archive = () => {
                         className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         title="Yuklab olish"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
+                        <Icon icon="mdi:download" className="w-5 h-5" />
                       </button>
                     </td>
                   </tr>

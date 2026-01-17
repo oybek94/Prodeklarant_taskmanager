@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { Icon } from '@iconify/react';
 
 interface AccountBalance {
   id: number;
@@ -324,9 +325,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Jami balans (USD)</p>
                       <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <Icon icon="mdi:cash" className="w-6 h-6 text-green-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.USD.balances.total)}</p>
@@ -336,9 +335,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Naqt pul (USD)</p>
                       <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
+                        <Icon icon="mdi:wallet-outline" className="w-6 h-6 text-blue-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.USD.balances.cash)}</p>
@@ -348,9 +345,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Karta (USD)</p>
                       <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                        </svg>
+                        <Icon icon="mdi:credit-card-outline" className="w-6 h-6 text-purple-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.USD.balances.card)}</p>
@@ -360,9 +355,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Jami qarz (USD)</p>
                       <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <Icon icon="mdi:alert-circle-outline" className="w-6 h-6 text-red-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-red-600">{formatCurrency(statistics.USD.debts.total)}</p>
@@ -388,11 +381,7 @@ const Finance = () => {
                       <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${
                         statistics.USD.netBalance >= 0 ? 'bg-green-100' : 'bg-red-100'
                       }`}>
-                        <svg className={`w-8 h-8 ${
-                          statistics.USD.netBalance >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
+                        <Icon icon="mdi:chart-line" className={`w-8 h-8 ${statistics.USD.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
                       </div>
                     </div>
                   </div>
@@ -409,9 +398,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Jami balans (UZS)</p>
                       <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <Icon icon="mdi:cash" className="w-6 h-6 text-green-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.UZS.balances.total)}</p>
@@ -421,9 +408,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Naqt pul (UZS)</p>
                       <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
+                        <Icon icon="mdi:wallet-outline" className="w-6 h-6 text-blue-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.UZS.balances.cash)}</p>
@@ -433,9 +418,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Karta (UZS)</p>
                       <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                        </svg>
+                        <Icon icon="mdi:credit-card-outline" className="w-6 h-6 text-purple-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.UZS.balances.card)}</p>
@@ -445,9 +428,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Jami qarz (UZS)</p>
                       <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <Icon icon="mdi:alert-circle-outline" className="w-6 h-6 text-red-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-red-600">{formatCurrency(statistics.UZS.debts.total)}</p>
@@ -473,11 +454,7 @@ const Finance = () => {
                       <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${
                         statistics.UZS.netBalance >= 0 ? 'bg-green-100' : 'bg-red-100'
                       }`}>
-                        <svg className={`w-8 h-8 ${
-                          statistics.UZS.netBalance >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
+                        <Icon icon="mdi:chart-line" className={`w-8 h-8 ${statistics.UZS.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
                       </div>
                     </div>
                   </div>
@@ -514,13 +491,9 @@ const Finance = () => {
                       balance.type === 'CASH' ? 'bg-blue-100' : 'bg-purple-100'
                     }`}>
                       {balance.type === 'CASH' ? (
-                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
+                        <Icon icon="mdi:wallet-outline" className="w-6 h-6 text-blue-600" />
                       ) : (
-                        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                        </svg>
+                        <Icon icon="mdi:credit-card-outline" className="w-6 h-6 text-purple-600" />
                       )}
                     </div>
                     <div>
@@ -657,9 +630,7 @@ const Finance = () => {
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <Icon icon="mdi:close" className="w-6 h-6" />
               </button>
             </div>
             <div className="space-y-4">
@@ -773,9 +744,7 @@ const Finance = () => {
                 onClick={() => setShowDebtModal(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <Icon icon="mdi:close" className="w-6 h-6" />
               </button>
             </div>
             <div className="space-y-4">
@@ -876,9 +845,7 @@ const Finance = () => {
                 onClick={() => setShowConvertModal(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <Icon icon="mdi:close" className="w-6 h-6" />
               </button>
             </div>
             <div className="space-y-4">

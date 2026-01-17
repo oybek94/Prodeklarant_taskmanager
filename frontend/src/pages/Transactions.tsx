@@ -5,6 +5,7 @@ import MonetaryInput from '../components/MonetaryInput';
 import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import { formatCurrencyForRole, shouldShowExchangeRate, type Role } from '../utils/currencyFormatting';
+import { Icon } from '@iconify/react';
 
 // Handle ESC key to close modal
 const useEscKey = (isOpen: boolean, onClose: () => void) => {
@@ -538,9 +539,7 @@ const Transactions = () => {
             </div>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Icon icon="mdi:cash" className="w-4 h-4 text-white" />
               </div>
               <div className="text-sm text-blue-100 font-medium">Oylik Kirim</div>
             </div>
@@ -565,9 +564,7 @@ const Transactions = () => {
             </div>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
+                <Icon icon="mdi:credit-card-outline" className="w-4 h-4 text-white" />
               </div>
               <div className="text-sm text-blue-100 font-medium">Oylik Chiqim</div>
             </div>
@@ -592,9 +589,7 @@ const Transactions = () => {
             </div>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+                <Icon icon="mdi:chart-line" className="w-4 h-4 text-white" />
               </div>
               <div className="text-sm text-blue-100 font-medium">Foyda</div>
             </div>
@@ -1151,18 +1146,14 @@ const Transactions = () => {
                             className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                             title="O'zgartirish"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
+                          <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(t.id)}
                             className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
                             title="O'chirish"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                          <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
                           </button>
                         </div>
                       ) : (

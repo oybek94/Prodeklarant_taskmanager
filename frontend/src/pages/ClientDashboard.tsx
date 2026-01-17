@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { Icon } from '@iconify/react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
@@ -240,15 +241,11 @@ const ClientDashboard = () => {
                 <p className="text-3xl font-bold text-gray-900">{completedTasks}</p>
               </div>
               <div className="w-16 h-16 bg-emerald-100 rounded-lg flex items-center justify-center">
-                <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Icon icon="mdi:check-circle-outline" className="w-8 h-8 text-emerald-600" />
               </div>
             </div>
             <div className="flex items-center text-xs text-gray-500">
-              <svg className="w-4 h-4 mr-1 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+              <Icon icon="mdi:chevron-down" className="w-4 h-4 mr-1 text-emerald-500" />
               {tasks.length > 0 ? `${tasks.length} ta jami ish` : 'Ishlar mavjud emas'}
             </div>
           </div>
@@ -261,15 +258,11 @@ const ClientDashboard = () => {
                 <p className="text-3xl font-bold text-gray-900">{activeTasks}</p>
               </div>
               <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Icon icon="mdi:clock-outline" className="w-8 h-8 text-blue-600" />
               </div>
             </div>
             <div className="flex items-center text-xs text-gray-500">
-              <svg className="w-4 h-4 mr-1 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+              <Icon icon="mdi:chevron-down" className="w-4 h-4 mr-1 text-blue-500" />
               {activeTasks > 0 ? `${activeTasks} ta ish jarayonda` : 'Jarayondagi ishlar yo\'q'}
             </div>
           </div>
@@ -284,15 +277,11 @@ const ClientDashboard = () => {
                 </p>
               </div>
               <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center">
-                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Icon icon="mdi:cash" className="w-8 h-8 text-purple-600" />
               </div>
             </div>
             <div className="flex items-center text-xs text-gray-500">
-              <svg className="w-4 h-4 mr-1 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+              <Icon icon="mdi:chevron-down" className="w-4 h-4 mr-1 text-purple-500" />
               {transactions.length} ta tranzaksiya
             </div>
           </div>
@@ -325,9 +314,7 @@ const ClientDashboard = () => {
                       >
                         <div className="flex items-start gap-4">
                           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
+                            <Icon icon="mdi:clipboard-text-outline" className="w-5 h-5 text-blue-600" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-2">
@@ -337,9 +324,7 @@ const ClientDashboard = () => {
                                 </h3>
                                 <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                                   <span className="flex items-center gap-1">
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
+                                    <Icon icon="mdi:clock-outline" className="w-3 h-3" />
                                     {new Date(task.createdAt).toLocaleDateString('uz-UZ', {
                                       month: 'short',
                                       day: 'numeric',
@@ -403,9 +388,7 @@ const ClientDashboard = () => {
                       className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                     >
                       <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <Icon icon="mdi:cash" className="w-5 h-5 text-purple-600" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm">

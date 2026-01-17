@@ -2,14 +2,7 @@ import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
-import PdfIcon from '../assets/icons/pdf-icon.svg?react';
-import ExcelIcon from '../assets/icons/excel-icon.svg?react';
-import WordIcon from '../assets/icons/word-icon.svg?react';
-import JpgIcon from '../assets/icons/jpg-icon.svg?react';
-import PngIcon from '../assets/icons/png-icon.svg?react';
-import PptIcon from '../assets/icons/ppt-icon.svg?react';
-import RarIcon from '../assets/icons/rar-icon.svg?react';
-import ZipIcon from '../assets/icons/zip-icon.svg?react';
+import { Icon } from '@iconify/react';
 
 interface Task {
   id: number;
@@ -1127,84 +1120,55 @@ const Tasks = () => {
     
     // PDF
     if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) {
-      return <PdfIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-pdf-box" className="w-10 h-10 text-red-500" />;
     }
     // Excel (xls, xlsx)
     if (lowerType.includes('excel') || lowerType.includes('spreadsheet') || 
         lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx')) {
-      return <ExcelIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-excel-box" className="w-10 h-10 text-emerald-500" />;
     }
     // Word (doc, docx)
     if (lowerType.includes('word') || lowerType.includes('document') ||
         lowerName.endsWith('.doc') || lowerName.endsWith('.docx')) {
-      return <WordIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-word-box" className="w-10 h-10 text-blue-500" />;
     }
     // JPG/JPEG
     if (lowerType.includes('jpeg') || lowerType.includes('jpg') ||
         lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
-      return <JpgIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
     }
     // PNG
     if (lowerType.includes('png') || lowerName.endsWith('.png')) {
-      return <PngIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
     }
     // PPT/PPTX
     if (lowerType.includes('powerpoint') || lowerType.includes('presentation') ||
         lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx')) {
-      return <PptIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-powerpoint-box" className="w-10 h-10 text-orange-500" />;
     }
     // RAR
     if (lowerType.includes('rar') || lowerName.endsWith('.rar')) {
-      return <RarIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:zip-box" className="w-10 h-10 text-gray-500" />;
     }
     // ZIP
     if (lowerType.includes('zip') || lowerName.endsWith('.zip')) {
-      return <ZipIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:zip-box" className="w-10 h-10 text-gray-500" />;
     }
     // Rasm (boshqa formatlar)
     if (lowerType.includes('image') || lowerType.includes('gif') || lowerType.includes('webp') ||
         lowerName.match(/\.(gif|webp|bmp|svg)$/i)) {
-      return <JpgIcon className="w-10 h-10" />;
+      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
     }
     // Video
     if (lowerType.includes('video') || lowerName.match(/\.(mp4|avi|mov|wmv|flv|mkv)$/i)) {
-      return (
-        <div className="relative w-10 h-10">
-          <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
-            <rect x="4" y="4" width="16" height="20" rx="1.5" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="1.5"/>
-            <rect x="6" y="8" width="12" height="8" rx="1" fill="#EF4444"/>
-            <polygon points="10,11 10,13 13,12" fill="white"/>
-          </svg>
-        </div>
-      );
+      return <Icon icon="mdi:file-video" className="w-10 h-10 text-red-500" />;
     }
     // Audio
     if (lowerType.includes('audio') || lowerName.match(/\.(mp3|wav|ogg|m4a)$/i)) {
-      return (
-        <div className="relative w-10 h-10">
-          <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
-            <rect x="4" y="4" width="16" height="20" rx="1.5" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="1.5"/>
-            <path d="M8 10v4c0 1.1.9 2 2 2s2-.9 2-2v-4" stroke="#9333EA" strokeWidth="2" strokeLinecap="round" fill="none"/>
-            <path d="M14 8v8c0 1.1.9 2 2 2s2-.9 2-2V8" stroke="#9333EA" strokeWidth="2" strokeLinecap="round" fill="none"/>
-            <circle cx="10" cy="10" r="1" fill="#9333EA"/>
-            <circle cx="16" cy="12" r="1" fill="#9333EA"/>
-          </svg>
-        </div>
-      );
+      return <Icon icon="mdi:file-music" className="w-10 h-10 text-purple-500" />;
     }
     // Boshqa fayllar (default)
-    return (
-      <div className="relative w-10 h-10">
-        <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
-          <rect x="4" y="4" width="16" height="20" rx="1.5" fill="#F3F4F6" stroke="#9CA3AF" strokeWidth="1.5"/>
-          <path d="M18 4v4h4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-          <path d="M18 4l4 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-          <line x1="7" y1="11" x2="17" y2="11" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round"/>
-          <line x1="7" y1="14" x2="17" y2="14" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round"/>
-          <line x1="7" y1="17" x2="14" y2="17" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round"/>
-        </svg>
-      </div>
-    );
+    return <Icon icon="mdi:file" className="w-10 h-10 text-gray-500" />;
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -1858,9 +1822,7 @@ const Tasks = () => {
                       {isArchive && (
                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900 border-b border-blue-100">
                           <div className="flex items-center gap-1.5">
-                            <svg className={`w-3.5 h-3.5 ${totalDuration.color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            <Icon icon="mdi:clock-outline" className={`w-3.5 h-3.5 ${totalDuration.color}`} />
                             <span className={`font-medium ${totalDuration.color}`}>{totalDuration.text}</span>
                           </div>
                         </td>
@@ -2059,9 +2021,7 @@ const Tasks = () => {
                 className="relative p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all shadow-sm hover:shadow z-10"
                 title="Excel formatida yuklab olish"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <Icon icon="mdi:file-export-outline" className="w-4 h-4" />
               </button>
               {/* Search Icon - Minimalistic */}
               <button
@@ -2071,9 +2031,7 @@ const Tasks = () => {
                 }`}
                 title="Qidirish va filtrlash"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                <Icon icon="mdi:magnify" className="w-4 h-4" />
                 {(archiveSearchQuery || archiveFilters.branchId || archiveFilters.clientId || archiveFilters.startDate || archiveFilters.endDate || archiveFilters.hasPsr) && (
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
                 )}
@@ -2085,9 +2043,7 @@ const Tasks = () => {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                        </svg>
+                        <Icon icon="mdi:filter-outline" className="w-4 h-4 text-white" />
                       </div>
                       <h3 className="text-sm font-semibold text-gray-800">Qidiruv va filtrlash</h3>
                     </div>
@@ -2103,16 +2059,12 @@ const Tasks = () => {
                     {/* Search */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
+                        <Icon icon="mdi:magnify" className="w-3.5 h-3.5 text-blue-600" />
                         Qidirish
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
+                          <Icon icon="mdi:magnify" className="w-4 h-4 text-gray-400" />
                         </div>
                         <input
                           type="text"
@@ -2127,9 +2079,7 @@ const Tasks = () => {
                             onClick={() => setArchiveSearchQuery('')}
                             className="absolute inset-y-0 right-0 pr-3 flex items-center"
                           >
-                            <svg className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <Icon icon="mdi:close" className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 transition-colors" />
                           </button>
                         )}
                       </div>
@@ -2138,16 +2088,12 @@ const Tasks = () => {
                     {/* Branch Filter */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
+                        <Icon icon="mdi:office-building-outline" className="w-3.5 h-3.5 text-blue-600" />
                         Filial
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                          </svg>
+                          <Icon icon="mdi:office-building-outline" className="w-4 h-4 text-gray-400" />
                         </div>
                         <select
                           value={archiveFilters.branchId}
@@ -2167,16 +2113,12 @@ const Tasks = () => {
                     {/* Client Filter */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A4 4 0 0110 15h4a4 4 0 014.879 2.804M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
+                        <Icon icon="mdi:account-group-outline" className="w-3.5 h-3.5 text-blue-600" />
                         Mijoz
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A4 4 0 0110 15h4a4 4 0 014.879 2.804M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
+                          <Icon icon="mdi:account-group-outline" className="w-4 h-4 text-gray-400" />
                         </div>
                         <select
                           value={archiveFilters.clientId}
@@ -2196,17 +2138,13 @@ const Tasks = () => {
                     {/* Date Range */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
+                        <Icon icon="mdi:calendar-range" className="w-3.5 h-3.5 text-blue-600" />
                         Sana oralig'i
                       </label>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
+                            <Icon icon="mdi:calendar-outline" className="w-3.5 h-3.5 text-gray-400" />
                           </div>
                           <input
                             type="date"
@@ -2218,9 +2156,7 @@ const Tasks = () => {
                         </div>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
+                            <Icon icon="mdi:calendar-outline" className="w-3.5 h-3.5 text-gray-400" />
                           </div>
                           <input
                             type="date"
@@ -2236,16 +2172,12 @@ const Tasks = () => {
                     {/* PSR Filter */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+                        <Icon icon="mdi:file-document-outline" className="w-3.5 h-3.5 text-blue-600" />
                         PSR
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
+                          <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-gray-400" />
                         </div>
                         <select
                           value={archiveFilters.hasPsr}
@@ -2262,9 +2194,7 @@ const Tasks = () => {
                     {/* Results Count */}
                     <div className="pt-3 border-t border-gray-200">
                       <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+                        <Icon icon="mdi:file-document-multiple-outline" className="w-3.5 h-3.5 text-blue-600" />
                         <span className="font-medium text-gray-700">
                           {filteredArchiveTasks.length} ta natija
                         </span>
@@ -2283,9 +2213,7 @@ const Tasks = () => {
                         }}
                         className="w-full px-4 py-2 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 rounded-lg font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md border border-gray-300"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <Icon icon="mdi:close-circle-outline" className="w-3.5 h-3.5" />
                         Filtrlarni tozalash
                       </button>
                     )}
@@ -2322,9 +2250,7 @@ const Tasks = () => {
               return (
                 <div className={`absolute top-3 right-3 ${changeInfo.bgColor} ${changeInfo.color} text-xs font-medium px-2 py-1 rounded shadow-md backdrop-blur-sm`}>
                   <span className="inline-flex items-center">
-                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={change >= 0 ? "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" : "M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"} />
-                    </svg>
+                    <Icon icon={change >= 0 ? "mdi:trending-up" : "mdi:trending-down"} className="w-3 h-3 mr-1" />
                     {changeInfo.text}
                   </span>
                 </div>
@@ -2332,9 +2258,7 @@ const Tasks = () => {
             })()}
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+                <Icon icon="mdi:calendar-outline" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.daily.current}</div>
@@ -2353,9 +2277,7 @@ const Tasks = () => {
               return (
                 <div className={`absolute top-3 right-3 ${changeInfo.bgColor} ${changeInfo.color} text-xs font-medium px-2 py-1 rounded shadow-md backdrop-blur-sm`}>
                   <span className="inline-flex items-center">
-                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={change >= 0 ? "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" : "M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"} />
-                    </svg>
+                    <Icon icon={change >= 0 ? "mdi:trending-up" : "mdi:trending-down"} className="w-3 h-3 mr-1" />
                     {changeInfo.text}
                   </span>
                 </div>
@@ -2363,9 +2285,7 @@ const Tasks = () => {
             })()}
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
+                <Icon icon="mdi:swap-horizontal" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.weekly.current}</div>
@@ -2384,9 +2304,7 @@ const Tasks = () => {
               return (
                 <div className={`absolute top-3 right-3 ${changeInfo.bgColor} ${changeInfo.color} text-xs font-medium px-2 py-1 rounded shadow-md backdrop-blur-sm`}>
                   <span className="inline-flex items-center">
-                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={change >= 0 ? "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" : "M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"} />
-                    </svg>
+                    <Icon icon={change >= 0 ? "mdi:trending-up" : "mdi:trending-down"} className="w-3 h-3 mr-1" />
                     {changeInfo.text}
                   </span>
                 </div>
@@ -2394,9 +2312,7 @@ const Tasks = () => {
             })()}
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+                <Icon icon="mdi:chart-bar" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.monthly.current}</div>
@@ -2415,9 +2331,7 @@ const Tasks = () => {
               return (
                 <div className={`absolute top-3 right-3 ${changeInfo.bgColor} ${changeInfo.color} text-xs font-medium px-2 py-1 rounded shadow-md backdrop-blur-sm`}>
                   <span className="inline-flex items-center">
-                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={change >= 0 ? "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" : "M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"} />
-                    </svg>
+                    <Icon icon={change >= 0 ? "mdi:trending-up" : "mdi:trending-down"} className="w-3 h-3 mr-1" />
                     {changeInfo.text}
                   </span>
                 </div>
@@ -2425,9 +2339,7 @@ const Tasks = () => {
             })()}
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+                <Icon icon="mdi:chart-bar" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.yearly.current}</div>
@@ -2469,9 +2381,7 @@ const Tasks = () => {
                 {/* 1. Task name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <Icon icon="mdi:text-box-outline" className="w-4 h-4 text-blue-600" />
                     Task name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -2487,9 +2397,7 @@ const Tasks = () => {
                 {/* 2. Mijoz */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
+                    <Icon icon="mdi:account-outline" className="w-4 h-4 text-blue-600" />
                     Mijoz <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -2510,9 +2418,7 @@ const Tasks = () => {
                 {/* 3. Filial - Button style */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
+                    <Icon icon="mdi:office-building-outline" className="w-4 h-4 text-blue-600" />
                     Filial <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
@@ -2580,9 +2486,7 @@ const Tasks = () => {
                 {/* 4. PSR - Button style */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-blue-600" />
                     PSR <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
@@ -2614,9 +2518,7 @@ const Tasks = () => {
                 {/* 5. Sho'pir telefon raqami */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
+                    <Icon icon="mdi:phone-outline" className="w-4 h-4 text-blue-600" />
                     Sho'pir tel raqami
                   </label>
                   <input
@@ -2631,9 +2533,7 @@ const Tasks = () => {
                 {/* 6. Comments */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
+                    <Icon icon="mdi:comment-text-outline" className="w-4 h-4 text-blue-600" />
                     Comments
                   </label>
                   <textarea
@@ -2704,9 +2604,7 @@ const Tasks = () => {
                   }}
                   className="px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium flex items-center gap-1.5"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
+                  <Icon icon="mdi:alert" className="w-4 h-4" />
                   Xato
                 </button>
                 {/* Faqat task yaratgan ishchi o'zgartira oladi */}
@@ -2727,9 +2625,7 @@ const Tasks = () => {
                     }}
                     className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1.5"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
+                    <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
                     O'zgartirish
                   </button>
                 )}
@@ -2752,9 +2648,7 @@ const Tasks = () => {
                     }}
                     className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center gap-1.5"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
                     O'chirish
                   </button>
                 )}
@@ -2764,9 +2658,7 @@ const Tasks = () => {
                       onClick={() => downloadStickerPng(selectedTask.id)}
                       className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1.5"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                      <Icon icon="mdi:download" className="w-4 h-4" />
                       Stiker yuklab olish (PNG)
                     </button>
                   </div>
@@ -2837,9 +2729,7 @@ const Tasks = () => {
             {/* PSR Information */}
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <Icon icon="mdi:file-document-outline" className="w-5 h-5 text-blue-600" />
                 <div className="text-sm font-semibold text-blue-800">PSR Ma'lumotlari</div>
               </div>
               <div className="space-y-2">
@@ -2855,9 +2745,7 @@ const Tasks = () => {
                 </div>
                 {selectedTask.driverPhone && (
                   <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
+                    <Icon icon="mdi:phone-outline" className="w-4 h-4 text-gray-500" />
                     <span className="text-sm text-gray-600">Sho'pir tel raqami:</span>
                     <span className="text-sm font-medium text-gray-800">{selectedTask.driverPhone}</span>
                   </div>
@@ -2893,7 +2781,17 @@ const Tasks = () => {
                   : 'bg-orange-50 border-orange-200'
               }`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <svg className={`w-5 h-5 ${(() => {
+                  <Icon icon={(() => {
+                    const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
+                      + getPsrAmount(selectedTask);
+                    const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
+                    const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
+                    const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
+                    const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
+                    const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                    const netProfitDisplay = dealAmount - branchPayments;
+                    return netProfitDisplay >= 0 ? 'mdi:currency-usd' : 'mdi:alert-circle';
+                  })()} className={`w-5 h-5 ${(() => {
                     const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
                       + getPsrAmount(selectedTask);
                     const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
@@ -2903,9 +2801,7 @@ const Tasks = () => {
                     const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
                     const netProfitDisplay = dealAmount - branchPayments;
                     return netProfitDisplay >= 0 ? 'text-green-600' : 'text-orange-600';
-                  })()}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  })()}`} />
                   <div className={`text-sm font-semibold ${(() => {
                     const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
                       + getPsrAmount(selectedTask);
@@ -3093,9 +2989,7 @@ const Tasks = () => {
             {selectedTask.comments && (
               <div className="mb-6">
                 <div className="text-sm text-gray-500 mb-1 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
+                  <Icon icon="mdi:comment-text-outline" className="w-4 h-4 text-blue-600" />
                   Izohlar
                 </div>
                 <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
@@ -3167,24 +3061,7 @@ const Tasks = () => {
                           }}
                         >
                           {stage.status === 'TAYYOR' && (
-                            <svg 
-                              className="w-4 h-4 text-white" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path 
-                                strokeLinecap="round" 
-                                strokeLinejoin="round" 
-                                strokeWidth={3} 
-                                d="M5 13l4 4L19 7"
-                                style={{
-                                  strokeDasharray: 20,
-                                  strokeDashoffset: 0,
-                                  animation: 'checkmarkDraw 0.5s ease-in-out forwards'
-                                }}
-                              />
-                            </svg>
+                            <Icon icon="mdi:check" className="w-4 h-4 text-white" />
                           )}
                         </div>
                         <label
@@ -3281,9 +3158,7 @@ const Tasks = () => {
                       className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center gap-1.5"
                       title="Barcha hujjatlarni ZIP qilib yuklab olish"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                      <Icon icon="mdi:download" className="w-4 h-4" />
                       Barchasini yuklab olish
                     </button>
                   )}
@@ -3297,9 +3172,7 @@ const Tasks = () => {
                       }}
                       className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1.5"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
+                      <Icon icon="mdi:plus" className="w-4 h-4" />
                       Hujjat qo'shish
                     </button>
                   )}
@@ -3341,10 +3214,7 @@ const Tasks = () => {
                                 className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                                 title="Ko'rish"
                               >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
+                                <Icon icon="mdi:eye-outline" className="w-5 h-5" />
                               </button>
                             )}
                             <button
@@ -3352,9 +3222,7 @@ const Tasks = () => {
                               className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                               title="Yuklab olish"
                             >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                              </svg>
+                              <Icon icon="mdi:download" className="w-5 h-5" />
                             </button>
                             {(() => {
                               // Admin har doim o'chira oladi
@@ -3382,9 +3250,7 @@ const Tasks = () => {
                                     className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                                     title="O'chirish (Admin)"
                                   >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
+                                    <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
                                   </button>
                                 );
                               }
@@ -3399,9 +3265,7 @@ const Tasks = () => {
                                       className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                                       title="O'chirish"
                                     >
-                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                      </svg>
+                                      <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
                                     </button>
                                   );
                                 } else {
@@ -3436,9 +3300,7 @@ const Tasks = () => {
                                 className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
                                 title="Nusxalash"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
+                                <Icon icon="mdi:content-copy" className="w-4 h-4" />
                                 Nusxalash
                               </button>
                             </div>
@@ -3479,9 +3341,7 @@ const Tasks = () => {
                     className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
                     title="Yangilash"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                    <Icon icon="mdi:refresh" className="w-4 h-4" />
                     Yangilash
                   </button>
                 </div>
@@ -3712,9 +3572,7 @@ const Tasks = () => {
                   }}
                   className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showVersions ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
-                  </svg>
+                  <Icon icon={showVersions ? "mdi:chevron-up" : "mdi:chevron-down"} className="w-4 h-4" />
                   {showVersions ? 'Yashirish' : 'Ko\'rsatish'}
                 </button>
               </div>
@@ -4170,9 +4028,7 @@ const Tasks = () => {
                 {/* 1. Task name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <Icon icon="mdi:text-box-outline" className="w-4 h-4 text-blue-600" />
                     Task name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -4188,9 +4044,7 @@ const Tasks = () => {
                 {/* 2. Mijoz */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
+                    <Icon icon="mdi:account-outline" className="w-4 h-4 text-blue-600" />
                     Mijoz <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -4211,9 +4065,7 @@ const Tasks = () => {
                 {/* 3. Filial - Button style */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
+                    <Icon icon="mdi:office-building-outline" className="w-4 h-4 text-blue-600" />
                     Filial <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
@@ -4281,9 +4133,7 @@ const Tasks = () => {
                 {/* 4. PSR - Button style */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-blue-600" />
                     PSR <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
@@ -4315,9 +4165,7 @@ const Tasks = () => {
                 {/* 5. Sho'pir telefon raqami */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
+                    <Icon icon="mdi:phone-outline" className="w-4 h-4 text-blue-600" />
                     Sho'pir tel raqami
                   </label>
                   <input
@@ -4332,9 +4180,7 @@ const Tasks = () => {
                 {/* 6. Comments */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
+                    <Icon icon="mdi:comment-text-outline" className="w-4 h-4 text-blue-600" />
                     Comments
                   </label>
                   <textarea
@@ -4452,9 +4298,7 @@ const Tasks = () => {
                             className="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 z-10"
                             title="O'chirish"
                           >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <Icon icon="mdi:close" className="w-3.5 h-3.5" />
                           </button>
                           <div className="flex-shrink-0 mb-2">
                             {getFileIcon(file.type || '', file.name)}

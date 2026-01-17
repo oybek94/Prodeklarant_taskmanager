@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { getReadArticles } from '../utils/articleStorage';
+import { Icon } from '@iconify/react';
 
 // Google Drive linkini rasm URL'iga o'tkazish
 const convertGoogleDriveUrl = (url: string): string => {
@@ -294,9 +295,7 @@ export default function TrainingDetail() {
                                 : 'bg-gray-200 border-gray-300 text-gray-500'
                             }`}>
                               {isCompleted ? (
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
+                                <Icon icon="mdi:check" className="w-6 h-6" />
                               ) : (
                                 <span className="text-sm font-bold">{index + 1}</span>
                               )}
@@ -376,13 +375,9 @@ export default function TrainingDetail() {
                                 : 'bg-gray-100 border-gray-300 text-gray-600'
                             }`}>
                               {isRead ? (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
+                                <Icon icon="mdi:check" className="w-5 h-5" />
                               ) : isCompleted ? (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
+                                <Icon icon="mdi:check" className="w-5 h-5" />
                               ) : (
                                 <span className="text-sm font-bold">{stageIndex + 1}</span>
                               )}
@@ -398,9 +393,7 @@ export default function TrainingDetail() {
                             <div className="flex items-center gap-2 flex-wrap">
                               {isRead && (
                                 <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
+                                  <Icon icon="mdi:check" className="w-3 h-3" />
                                   O'qildi
                                 </span>
                               )}
@@ -447,9 +440,7 @@ export default function TrainingDetail() {
                         {/* Maqolani o'qish linki */}
                         <div className="flex items-center gap-2 text-blue-600 font-medium text-sm mt-auto pt-2 border-t border-gray-100">
                           <span>Maqolani o'qish</span>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
+                          <Icon icon="mdi:chevron-right" className="w-4 h-4" />
                         </div>
                       </div>
                     </div>

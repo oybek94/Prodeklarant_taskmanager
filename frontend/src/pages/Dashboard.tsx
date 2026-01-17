@@ -246,39 +246,54 @@ const Dashboard = () => {
     const endDate = new Date(chartData.dateRange.end);
     const previousTasks = chartData.previousTasksCompleted || [];
 
-    const tasksByDate = chartData.tasksCompleted.reduce((acc: Record<string, number>, item) => {
-      acc[item.date] = (acc[item.date] || 0) + 1;
-      return acc;
-    }, {});
-
-    const previousByDate = previousTasks.reduce((acc: Record<string, number>, item) => {
-      acc[item.date] = (acc[item.date] || 0) + 1;
-      return acc;
-    }, {});
-
     const labels: string[] = [];
     const current: number[] = [];
     const previous: number[] = [];
 
     if (period === 'weekly') {
       const weekDays = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
+      const currentByWeekday = Array.from({ length: 7 }, () => 0);
+      const previousByWeekday = Array.from({ length: 7 }, () => 0);
+
+      chartData.tasksCompleted.forEach((item) => {
+        const date = new Date(item.date);
+        const dayIndex = (date.getDay() + 6) % 7;
+        currentByWeekday[dayIndex] += 1;
+      });
+      previousTasks.forEach((item) => {
+        const date = new Date(item.date);
+        const dayIndex = (date.getDay() + 6) % 7;
+        previousByWeekday[dayIndex] += 1;
+      });
+
       const cursor = new Date(startDate);
       while (cursor <= endDate) {
-        const dateStr = cursor.toISOString().split('T')[0];
         const dayIndex = (cursor.getDay() + 6) % 7;
         labels.push(weekDays[dayIndex]);
-        current.push(tasksByDate[dateStr] || 0);
-        previous.push(previousByDate[dateStr] || 0);
+        current.push(currentByWeekday[dayIndex] || 0);
+        previous.push(previousByWeekday[dayIndex] || 0);
         cursor.setDate(cursor.getDate() + 1);
       }
     } else if (period === 'monthly') {
       const monthShort = ['yan.', 'fev.', 'mar.', 'apr.', 'may', 'iyun', 'iyul', 'avg.', 'sen.', 'okt.', 'noy.', 'dek.'];
+      const currentByDay = new Map<number, number>();
+      const previousByDay = new Map<number, number>();
+
+      chartData.tasksCompleted.forEach((item) => {
+        const date = new Date(item.date);
+        currentByDay.set(date.getDate(), (currentByDay.get(date.getDate()) || 0) + 1);
+      });
+      previousTasks.forEach((item) => {
+        const date = new Date(item.date);
+        previousByDay.set(date.getDate(), (previousByDay.get(date.getDate()) || 0) + 1);
+      });
+
       const cursor = new Date(startDate);
       while (cursor <= endDate) {
-        const dateStr = cursor.toISOString().split('T')[0];
-        labels.push(`${cursor.getDate()} ${monthShort[cursor.getMonth()]}`);
-        current.push(tasksByDate[dateStr] || 0);
-        previous.push(previousByDate[dateStr] || 0);
+        const day = cursor.getDate();
+        labels.push(`${day} ${monthShort[cursor.getMonth()]}`);
+        current.push(currentByDay.get(day) || 0);
+        previous.push(previousByDay.get(day) || 0);
         cursor.setDate(cursor.getDate() + 1);
       }
     } else if (period === 'yearly') {
@@ -527,6 +542,11 @@ const Dashboard = () => {
                     options={{
                       responsive: true,
                       maintainAspectRatio: false,
+                      interaction: {
+                        mode: 'index' as const,
+                        intersect: false,
+                      },
+                      stacked: false,
                       plugins: {
                         legend: {
                           display: true,
@@ -548,6 +568,9 @@ const Dashboard = () => {
                       },
                       scales: {
                         y: {
+                          type: 'linear' as const,
+                          display: true,
+                          position: 'left' as const,
                           beginAtZero: true,
                           ticks: {
                             stepSize: 1,
@@ -558,8 +581,10 @@ const Dashboard = () => {
                           },
                         },
                         y1: {
-                          beginAtZero: true,
+                          type: 'linear' as const,
+                          display: true,
                           position: 'right' as const,
+                          beginAtZero: true,
                           ticks: {
                             stepSize: 1,
                             precision: 0,
@@ -577,11 +602,6 @@ const Dashboard = () => {
                             minRotation: period === 'yearly' ? 0 : 45,
                           },
                         },
-                      },
-                      interaction: {
-                        mode: 'nearest' as const,
-                        axis: 'x' as const,
-                        intersect: false,
                       },
                     }}
                   />
@@ -619,19 +639,14 @@ const Dashboard = () => {
                       >
                         <div className="flex items-start gap-4">
                           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            <Icon icon="mdi:play-circle-outline" className="w-5 h-5 text-blue-600" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-2">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className="text-xs text-gray-500 flex items-center gap-1">
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
+                                    <Icon icon="mdi:clock-outline" className="w-3 h-3" />
                                     Start from {new Date(task.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 </div>
@@ -683,9 +698,7 @@ const Dashboard = () => {
               <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl shadow-sm border-2 border-red-200 p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
+                    <Icon icon="mdi:alert" className="w-6 h-6 text-red-600" />
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900">To'lov eslatmalari</h2>
@@ -730,9 +743,7 @@ const Dashboard = () => {
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-sm border-2 border-green-200 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <Icon icon="mdi:currency-usd" className="w-7 h-7 text-green-600" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Valyuta kursi</h2>
@@ -749,9 +760,7 @@ const Dashboard = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-2xl font-bold text-gray-900">USD</span>
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                        </svg>
+                        <Icon icon="mdi:arrow-right" className="w-5 h-5 text-gray-400" />
                         <span className="text-2xl font-bold text-gray-900">UZS</span>
                       </div>
                     </div>
@@ -772,9 +781,7 @@ const Dashboard = () => {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-600 bg-white rounded-lg p-2 border border-green-100">
-                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <Icon icon="mdi:information-outline" className="w-4 h-4 text-green-600" />
                     <span>Markaziy Bank kursi</span>
                   </div>
                 </div>

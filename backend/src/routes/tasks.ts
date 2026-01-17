@@ -1503,7 +1503,8 @@ router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest
   const createdAt = new Date(error.createdAt);
   const diffMs = Date.now() - createdAt.getTime();
   const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-  if (error.createdById !== req.user.id || diffMs > twoDaysMs) {
+  const isAdmin = req.user.role === 'ADMIN';
+  if (!isAdmin && (error.createdById !== req.user.id || diffMs > twoDaysMs)) {
     return res.status(403).json({ error: 'Xatoni faqat 2 kun ichida qo‘shgan odam o‘chira oladi' });
   }
 
@@ -1541,7 +1542,8 @@ router.patch('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest,
   const createdAt = new Date(error.createdAt);
   const diffMs = Date.now() - createdAt.getTime();
   const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-  if (error.createdById !== req.user.id || diffMs > twoDaysMs) {
+  const isAdmin = req.user.role === 'ADMIN';
+  if (!isAdmin && (error.createdById !== req.user.id || diffMs > twoDaysMs)) {
     return res.status(403).json({ error: 'Xatoni faqat 2 kun ichida qo‘shgan odam o‘zgartira oladi' });
   }
 

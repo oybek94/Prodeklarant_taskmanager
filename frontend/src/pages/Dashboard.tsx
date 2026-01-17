@@ -37,6 +37,7 @@ interface PaymentReminder {
   dueReason: string;
   creditStartDate: string;
   currentDebt?: number;
+  currency?: 'USD' | 'UZS';
 }
 
 interface DashboardStats {
@@ -627,14 +628,14 @@ const Dashboard = () => {
                       </div>
                       <div className="mt-2 space-y-1">
                         <p className="text-xs text-gray-600">
-                          {reminder.dueReason.split(/Joriy qardorlik:/)[0].trim()}
+                          {reminder.dueReason}
                         </p>
                         <p className="text-xs">
                           <span className="text-gray-600">Joriy qardorlik: </span>
                           <span className="text-red-600 font-bold">
                             <CurrencyDisplay
                               amount={reminder.currentDebt || 0}
-                              originalCurrency="USD"
+                              originalCurrency={(reminder.currency || 'USD') as 'USD' | 'UZS'}
                               className="inline"
                             />
                           </span>

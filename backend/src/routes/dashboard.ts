@@ -131,13 +131,15 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
   // Payment reminders - clients with due payments
   // Get all clients with their tasks and transactions
-  const allClients = await prisma.client.findMany({
+    const allClients = await prisma.client.findMany({
     include: {
       tasks: {
         select: {
           id: true,
           createdAt: true,
           hasPsr: true,
+            snapshotDealAmount: true,
+            snapshotPsrPrice: true,
         },
         orderBy: { createdAt: 'asc' },
       },
@@ -146,6 +148,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         select: {
           amount: true,
           date: true,
+            currency: true,
         },
       },
     },
@@ -153,15 +156,19 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
   const paymentReminders = allClients
     .map((client) => {
-      // Calculate current debt for all clients
+      const dealCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
       const dealAmount = Number(client.dealAmount || 0);
-      const totalTasks = client.tasks.length;
-      const tasksWithPsr = client.tasks.filter((t: any) => t.hasPsr).length;
-      const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
-      const totalPaid = client.transactions.reduce(
-        (sum, t) => sum + Number(t.amount),
-        0
-      );
+
+      const totalDealAmount = client.tasks.reduce((sum: number, task: any) => {
+        const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
+        const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+        return sum + baseAmount + psrAmount;
+      }, 0);
+
+      const totalPaid = client.transactions
+        .filter((t: any) => t.currency === dealCurrency)
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
       const currentDebt = totalDealAmount - totalPaid;
 
       // If client has no debt, skip
@@ -185,21 +192,21 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
           
           if (taskCount >= creditLimit) {
             isDue = true;
-            dueReason = `${creditLimit} ta ishdan keyin to'lov kerak (${taskCount} ta ish bajarildi). Joriy qardorlik: $${currentDebt.toFixed(2)}`;
+            dueReason = `${creditLimit} ta ishdan keyin to'lov kerak (${taskCount} ta ish bajarildi).`;
           }
         } else if (client.creditType === 'AMOUNT') {
           // Nasiya: ma'lum bir summagacha
           if (currentDebt >= creditLimit) {
             isDue = true;
-            dueReason = `Qardorlik ${creditLimit.toFixed(2)} ga yetdi (Joriy qardorlik: $${currentDebt.toFixed(2)})`;
+            dueReason = `Qardorlik ${creditLimit.toFixed(2)} ga yetdi.`;
           }
         }
       } else {
         // Client without credit terms - if they have debt, they need to pay
         // Only show if they have tasks (active client)
-        if (totalTasks > 0 && currentDebt > 0) {
+        if (client.tasks.length > 0 && currentDebt > 0) {
           isDue = true;
-          dueReason = `Shartnomaga ko'ra to'lov qilish kerak. Joriy qardorlik: $${currentDebt.toFixed(2)}`;
+          dueReason = `Shartnomaga ko'ra to'lov qilish kerak.`;
         }
       }
 
@@ -213,6 +220,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
           dueReason,
           creditStartDate: client.creditStartDate || client.createdAt,
           currentDebt: currentDebt,
+            currency: dealCurrency,
         };
       }
       return null;

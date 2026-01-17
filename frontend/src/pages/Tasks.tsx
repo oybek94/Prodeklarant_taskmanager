@@ -408,9 +408,7 @@ const Tasks = () => {
       // Admin bo'lsa /users, aks holda /workers endpoint'ini ishlatamiz
       if (user?.role === 'ADMIN') {
         const response = await apiClient.get('/users');
-        setWorkers(Array.isArray(response.data) 
-          ? response.data.filter((u: any) => u.role === 'DEKLARANT' || u.role === 'ADMIN')
-          : []);
+        setWorkers(Array.isArray(response.data) ? response.data : []);
       } else {
         const response = await apiClient.get('/workers');
         setWorkers(Array.isArray(response.data) ? response.data : []);
@@ -1616,6 +1614,7 @@ const Tasks = () => {
 
   const canEditError = (error: TaskError) => {
     if (!user) return false;
+    if (user.role === 'ADMIN') return true;
     const createdAt = new Date(error.createdAt).getTime();
     const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
     return error.createdById === user.id && Date.now() - createdAt <= twoDaysMs;
@@ -4599,7 +4598,7 @@ const Tasks = () => {
                     <div key={error.id} className="p-3 border rounded-lg bg-gray-50 flex items-start justify-between">
                       <div>
                         <div className="text-sm font-medium text-gray-800">
-                          {error.stageName} — {formatMoney(Number(error.amount), getClientCurrency(selectedTask.client))}
+                          {error.stageName} — {formatMoney(Number(error.amount), 'USD')}
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
                           Xato qildi: {workerName} • Sana: {new Date(error.date).toLocaleDateString('uz-UZ')}
@@ -4659,19 +4658,11 @@ const Tasks = () => {
               onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  const currency = getClientCurrency(selectedTask?.client);
                   const amountValue = errorForm.amount.trim();
 
-                  if (currency === 'USD') {
-                    if (!/^\d{1,4}(\.\d{1,4})?$/.test(amountValue)) {
-                      alert('USD uchun summa 4 xonagacha va 4 kasrgacha bo\'lishi kerak');
-                      return;
-                    }
-                  } else {
-                    if (!/^\d{5,7}$/.test(amountValue)) {
-                      alert('UZS uchun summa 5 dan 7 xonagacha bo\'lishi kerak');
-                      return;
-                    }
+                  if (!/^\d{1,4}$/.test(amountValue)) {
+                    alert('Summa faqat USD bo\'lishi va 4 xonagacha bo\'lishi kerak');
+                    return;
                   }
 
                   if (editingErrorId) {
@@ -4778,11 +4769,10 @@ const Tasks = () => {
                 </label>
                 <input
                   type="text"
-                  inputMode={getClientCurrency(selectedTask?.client) === 'USD' ? 'decimal' : 'numeric'}
+                  inputMode="numeric"
                   required
                   value={errorForm.amount}
                   onChange={(e) => {
-                    const currency = getClientCurrency(selectedTask?.client);
                     const nextValue = e.target.value;
 
                     if (nextValue === '') {
@@ -4790,19 +4780,12 @@ const Tasks = () => {
                       return;
                     }
 
-                    if (currency === 'USD') {
-                      if (/^\d{0,4}(\.\d{0,4})?$/.test(nextValue)) {
-                        setErrorForm({ ...errorForm, amount: nextValue });
-                      }
-                      return;
-                    }
-
-                    if (/^\d+$/.test(nextValue) && nextValue.length <= 7) {
+                    if (/^\d{0,4}$/.test(nextValue)) {
                       setErrorForm({ ...errorForm, amount: nextValue });
                     }
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder={getClientCurrency(selectedTask?.client) === 'USD' ? '0.0000' : '10000'}
+                  placeholder="0"
                 />
               </div>
 

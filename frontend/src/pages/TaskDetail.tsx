@@ -108,11 +108,16 @@ const TaskDetail = () => {
   const handleAddError = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const amountValue = errorForm.amount.trim();
+      if (!/^\d{1,4}$/.test(amountValue)) {
+        alert('Summa faqat USD bo\'lishi va 4 xonagacha bo\'lishi kerak');
+        return;
+      }
       if (editingErrorId) {
         await apiClient.patch(`/tasks/${id}/errors/${editingErrorId}`, {
           stageName: errorForm.stageName,
           workerId: parseInt(errorForm.workerId),
-          amount: parseFloat(errorForm.amount),
+          amount: parseFloat(amountValue),
           comment: errorForm.comment,
           date: new Date(errorForm.date),
         });
@@ -120,7 +125,7 @@ const TaskDetail = () => {
         await apiClient.post(`/tasks/${id}/errors`, {
           stageName: errorForm.stageName,
           workerId: parseInt(errorForm.workerId),
-          amount: parseFloat(errorForm.amount),
+          amount: parseFloat(amountValue),
           comment: errorForm.comment,
           date: new Date(errorForm.date),
         });
@@ -152,6 +157,7 @@ const TaskDetail = () => {
 
   const canEditError = (error: TaskError) => {
     if (!user) return false;
+    if (user.role === 'ADMIN') return true;
     const createdAt = new Date(error.createdAt).getTime();
     const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
     return error.createdById === user.id && Date.now() - createdAt <= twoDaysMs;
@@ -394,12 +400,22 @@ const TaskDetail = () => {
                           Xato summasi
                         </label>
                         <input
-                          type="number"
-                          step="0.01"
+                        type="text"
+                        inputMode="numeric"
                           value={errorForm.amount}
-                          onChange={(e) => setErrorForm({ ...errorForm, amount: e.target.value })}
+                        onChange={(e) => {
+                          const nextValue = e.target.value;
+                          if (nextValue === '') {
+                            setErrorForm({ ...errorForm, amount: '' });
+                            return;
+                          }
+                          if (/^\d{0,4}$/.test(nextValue)) {
+                            setErrorForm({ ...errorForm, amount: nextValue });
+                          }
+                        }}
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="0"
                         />
                       </div>
                       <div>

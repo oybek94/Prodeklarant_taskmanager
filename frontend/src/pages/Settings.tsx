@@ -56,6 +56,24 @@ interface CompanySettings {
   correspondentBankSwift?: string;
 }
 
+interface KpiConfig {
+  id: number;
+  stageName: string;
+  price: number;
+  updatedAt: string;
+}
+
+const STAGE_PRICE_DEFAULTS = [
+  { stageName: 'Invoys', price: 3.0 },
+  { stageName: 'Zayavka', price: 3.0 },
+  { stageName: 'TIR-SMR', price: 1.5 },
+  { stageName: 'Sertifikat olib chiqish', price: 1.25 },
+  { stageName: 'Deklaratsiya', price: 2.0 },
+  { stageName: 'Tekshirish', price: 2.0 },
+  { stageName: 'Topshirish', price: 1.25 },
+  { stageName: 'Pochta', price: 1.0 },
+];
+
 const Settings = () => {
   const { user } = useAuth();
   const [bxmConfigs, setBxmConfigs] = useState<BXMConfig[]>([]);
@@ -95,6 +113,9 @@ const Settings = () => {
     correspondentBankAddress: '',
     correspondentBankSwift: '',
   });
+  const [kpiConfigEdits, setKpiConfigEdits] = useState<Record<string, string>>({});
+  const [loadingKpiConfigs, setLoadingKpiConfigs] = useState(true);
+  const [savingKpiConfigs, setSavingKpiConfigs] = useState(false);
 
   useEffect(() => {
     loadBXMConfigs();
@@ -102,6 +123,7 @@ const Settings = () => {
     loadStatePayments();
     loadBranches();
     loadCompanySettings();
+    loadKpiConfigs();
   }, []);
 
   const loadBXMConfigs = async () => {
@@ -278,6 +300,47 @@ const Settings = () => {
       console.error('Error loading company settings:', error);
     } finally {
       setLoadingCompanySettings(false);
+    }
+  };
+
+  const loadKpiConfigs = async () => {
+    try {
+      setLoadingKpiConfigs(true);
+      const response = await apiClient.get('/kpi/configs');
+      const configMap = new Map<string, number>(
+        response.data.map((config: KpiConfig) => [config.stageName, Number(config.price)])
+      );
+      const edits: Record<string, string> = {};
+      STAGE_PRICE_DEFAULTS.forEach((stage) => {
+        const value = configMap.get(stage.stageName) ?? stage.price;
+        edits[stage.stageName] = value.toString();
+      });
+      setKpiConfigEdits(edits);
+    } catch (error) {
+      console.error('Error loading KPI configs:', error);
+    } finally {
+      setLoadingKpiConfigs(false);
+    }
+  };
+
+  const handleSaveKpiConfigs = async () => {
+    try {
+      setSavingKpiConfigs(true);
+      const payload = STAGE_PRICE_DEFAULTS.map((stage) => {
+        const rawValue = kpiConfigEdits[stage.stageName];
+        const price = parseFloat(rawValue);
+        if (isNaN(price) || price < 0) {
+          throw new Error(`Noto'g'ri summa: ${stage.stageName}`);
+        }
+        return { stageName: stage.stageName, price };
+      });
+      await apiClient.put('/kpi/configs', payload);
+      await loadKpiConfigs();
+      alert('Jarayonlar bo\'yicha summalar saqlandi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || error.message || 'Xatolik yuz berdi');
+    } finally {
+      setSavingKpiConfigs(false);
     }
   };
 
@@ -649,6 +712,59 @@ const Settings = () => {
           </div>
         </div>
       )}
+
+      {/* Stage fixed amounts */}
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">Jarayonlar bo'yicha qatiy summalar</h2>
+            <div className="text-sm text-gray-500">Barcha summalar USD da kiritiladi</div>
+          </div>
+          <button
+            onClick={handleSaveKpiConfigs}
+            disabled={savingKpiConfigs || loadingKpiConfigs}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            {savingKpiConfigs ? 'Saqlanmoqda...' : 'Saqlash'}
+          </button>
+        </div>
+        {loadingKpiConfigs ? (
+          <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Jarayon</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Summa (USD)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {STAGE_PRICE_DEFAULTS.map((stage) => (
+                  <tr key={stage.stageName} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4 text-gray-800 font-medium">{stage.stageName}</td>
+                    <td className="py-3 px-4 text-right">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={kpiConfigEdits[stage.stageName] ?? ''}
+                        onChange={(e) =>
+                          setKpiConfigEdits({
+                            ...kpiConfigEdits,
+                            [stage.stageName]: e.target.value,
+                          })
+                        }
+                        className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder={stage.price.toString()}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Company Settings Section */}
       <div className="bg-white rounded-lg shadow p-6 mt-6">

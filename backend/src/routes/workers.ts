@@ -5,6 +5,18 @@ import { getWorkerPaymentReport } from '../services/worker-payment';
 
 const router = Router();
 
+// Stage fixed prices mapping (USD)
+const STAGE_FIXED_PRICES: Record<string, number> = {
+  'Invoys': 3.0,
+  'Zayavka': 3.0,
+  'TIR-SMR': 1.5,
+  'Sertifikat olib chiqish': 1.25,
+  'Deklaratsiya': 2.0,
+  'Tekshirish': 2.0,
+  'Topshirish': 1.25,
+  'Pochta': 1.0,
+};
+
 // GET /api/workers - Get all workers (users with DEKLARANT or ADMIN role)
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
@@ -137,7 +149,41 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
   if (startDate) dateFilter.gte = new Date(startDate as string);
   if (endDate) dateFilter.lte = new Date(endDate as string);
 
-  // KPI stats - use USD amounts only
+  // KPI stats - use fixed stage prices (USD)
+  const kpiConfigs = await prisma.kpiConfig.findMany();
+  const stagePriceMap = new Map<string, number>();
+  kpiConfigs.forEach((config) => {
+    stagePriceMap.set(config.stageName, Number(config.price));
+  });
+
+  const completedStagesData = await prisma.taskStage.findMany({
+    where: {
+      assignedToId: workerId,
+      status: 'TAYYOR',
+      completedAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+    },
+    select: {
+      name: true,
+      completedAt: true,
+    },
+  });
+
+  const totalKPI = completedStagesData.reduce((sum: number, stage: any) => {
+    let normalizedStageName = stage.name;
+    if (stage.name === 'Xujjat_tekshirish' || stage.name === 'Xujjat tekshirish' || stage.name === 'Tekshirish') {
+      normalizedStageName = 'Tekshirish';
+    } else if (stage.name === 'Xujjat_topshirish' || stage.name === 'Xujjat topshirish' || stage.name === 'Topshirish') {
+      normalizedStageName = 'Topshirish';
+    } else if (stage.name === 'ST' || stage.name === 'Fito' || stage.name === 'FITO' || stage.name === 'Sertifikat olib chiqish') {
+      normalizedStageName = 'Sertifikat olib chiqish';
+    }
+
+    const basePrice = stagePriceMap.get(normalizedStageName) ?? STAGE_FIXED_PRICES[normalizedStageName] ?? 0;
+    return sum + basePrice;
+  }, 0);
+  const completedStages = completedStagesData.length;
+
+  // Keep KPI logs for backward compatibility
   const kpiLogs = await prisma.kpiLog.findMany({
     where: {
       userId: workerId,
@@ -151,9 +197,6 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
       createdAt: true,
     },
   });
-
-  const totalKPI = kpiLogs.reduce((sum: number, log: any) => sum + Number(log.amount_original || 0), 0);
-  const completedStages = kpiLogs.length;
 
   // Get worker payment report - USD values only
   const paymentReport = await getWorkerPaymentReport(workerId, {
@@ -198,19 +241,6 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
   });
 });
 
-// Stage percentages mapping
-const STAGE_PERCENTAGES: Record<string, number> = {
-  'Invoys': 20,
-  'Zayavka': 10,
-  'TIR-SMR': 10,
-  'ST': 5,
-  'FITO': 5,
-  'Deklaratsiya': 15,
-  'Tekshirish': 15,
-  'Topshirish': 10,
-  'Pochta': 10,
-};
-
 router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
   const workerId = parseInt(req.params.id);
   const { period = 'month', startDate, endDate } = req.query;
@@ -240,6 +270,13 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
 
   if (startDate) dateFilter.gte = new Date(startDate as string);
   if (endDate) dateFilter.lte = new Date(endDate as string);
+
+  // Load fixed stage prices from KPI configs
+  const kpiConfigs = await prisma.kpiConfig.findMany();
+  const stagePriceMap = new Map<string, number>();
+  kpiConfigs.forEach((config) => {
+    stagePriceMap.set(config.stageName, Number(config.price));
+  });
 
   // Get all completed stages for this worker
   const completedStages = await prisma.taskStage.findMany({
@@ -280,14 +317,14 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
   }> = {};
 
   // Initialize all stages
-  Object.keys(STAGE_PERCENTAGES).forEach(stageName => {
+  Object.keys(STAGE_FIXED_PRICES).forEach(stageName => {
     stageStats[stageName] = {
       stageName,
       participationCount: 0,
       earnedAmount: 0,
       receivedAmount: 0,
       pendingAmount: 0,
-      percentage: STAGE_PERCENTAGES[stageName],
+      percentage: 0,
     };
   });
   
@@ -298,7 +335,7 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
     earnedAmount: 0,
     receivedAmount: 0,
     pendingAmount: 0,
-    percentage: 15,
+    percentage: 0,
   };
   stageStats['Xujjat_topshirish'] = {
     stageName: 'Topshirish',
@@ -306,7 +343,7 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
     earnedAmount: 0,
     receivedAmount: 0,
     pendingAmount: 0,
-    percentage: 10,
+    percentage: 0,
   };
 
   // Cache for state payment lookup to avoid repetitive queries
@@ -332,41 +369,6 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
     return price;
   };
 
-  // Get KPI logs for this worker in date range (already in USD)
-  const kpiLogs = await prisma.kpiLog.findMany({
-    where: {
-      userId: workerId,
-      createdAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
-      currency_universal: 'USD', // Only USD earnings
-    },
-    select: {
-      id: true,
-      taskId: true,
-      stageName: true,
-      amount_original: true, // USD amount
-      createdAt: true,
-    },
-  });
-
-  // Create a map of stage earnings from KpiLog (already in USD)
-  const stageEarningsMap = new Map<string, number>();
-  for (const log of kpiLogs) {
-    let normalizedStageName = log.stageName;
-    
-    // Handle different naming conventions
-    if (normalizedStageName === 'Xujjat_tekshirish' || normalizedStageName === 'Xujjat tekshirish' || normalizedStageName === 'Tekshirish') {
-      normalizedStageName = 'Tekshirish';
-    } else if (normalizedStageName === 'Xujjat_topshirish' || normalizedStageName === 'Xujjat topshirish' || normalizedStageName === 'Topshirish') {
-      normalizedStageName = 'Topshirish';
-    } else if (normalizedStageName === 'Fito' || normalizedStageName === 'FITO') {
-      normalizedStageName = 'FITO';
-    }
-    
-    const key = normalizedStageName;
-    const current = stageEarningsMap.get(key) || 0;
-    stageEarningsMap.set(key, current + Number(log.amount_original));
-  }
-
   // Calculate participation count and earned amount from completed stages
   for (const stage of completedStages) {
     let stageName = stage.name;
@@ -377,8 +379,8 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
       normalizedStageName = 'Tekshirish';
     } else if (stageName === 'Xujjat_topshirish' || stageName === 'Xujjat topshirish' || stageName === 'Topshirish') {
       normalizedStageName = 'Topshirish';
-    } else if (stageName === 'Fito' || stageName === 'FITO') {
-      normalizedStageName = 'FITO';
+    } else if (stageName === 'ST' || stageName === 'Fito' || stageName === 'FITO' || stageName === 'Sertifikat olib chiqish') {
+      normalizedStageName = 'Sertifikat olib chiqish';
     }
     
     // Use normalized name for stats
@@ -391,15 +393,15 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
         earnedAmount: 0,
         receivedAmount: 0,
         pendingAmount: 0,
-        percentage: STAGE_PERCENTAGES[targetStageName] || 0,
+        percentage: 0,
       };
     }
 
     stageStats[targetStageName].participationCount += 1;
 
-    // Use earned amount from KpiLog (already in USD)
-    const earnedAmount = stageEarningsMap.get(targetStageName) || 0;
-    stageStats[targetStageName].earnedAmount = earnedAmount;
+    const basePrice = stagePriceMap.get(targetStageName) ?? STAGE_FIXED_PRICES[targetStageName] ?? 0;
+    const earnedForStage = basePrice;
+    stageStats[targetStageName].earnedAmount += earnedForStage;
   }
 
   // Get worker payment report for paid amounts (USD equivalent)
@@ -414,10 +416,7 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
   Object.keys(stageStats).forEach(stageName => {
     const stats = stageStats[stageName];
     stats.pendingAmount = stats.earnedAmount - stats.receivedAmount;
-    // Ensure percentage is always correct from STAGE_PERCENTAGES
-    if (STAGE_PERCENTAGES[stageName] !== undefined) {
-      stats.percentage = STAGE_PERCENTAGES[stageName];
-    }
+    // Keep percentage at 0 since fixed pricing is used
   });
 
   // Convert to array and sort by participation count

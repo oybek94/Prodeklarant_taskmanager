@@ -40,14 +40,18 @@ export async function logKpiForStage(
   // Narxni aniqlash
   const price = STAGE_PRICES[normalizedStageName] ?? STAGE_PRICES[stageName] ?? 0;
   
-  // KpiConfig'ni yangilash yoki yaratish
-  const cfg = await (tx as any).kpiConfig.upsert({
+  // KpiConfig'dan foydalanish (mavjud bo'lsa o'zgartirmaymiz)
+  const existingConfig = await (tx as any).kpiConfig.findUnique({
     where: { stageName: normalizedStageName },
-    update: { price },
-    create: { stageName: normalizedStageName, price },
   });
   
-  const amount = cfg.price ?? price;
+  if (!existingConfig) {
+    await (tx as any).kpiConfig.create({
+      data: { stageName: normalizedStageName, price },
+    });
+  }
+  
+  const amount = existingConfig?.price ?? price;
   
   // KPI amounts are in USD by default
   const currency: Currency = 'USD';

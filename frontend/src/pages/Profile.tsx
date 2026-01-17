@@ -338,7 +338,7 @@ const Profile = () => {
         ) : (
           <>
             {/* Summary Cards - Always show, even if no stage stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
               <div className="bg-blue-50 rounded-lg p-3">
                 <div className="text-xs text-blue-600 mb-1">Jami ishtirok</div>
                 <div className="text-xl font-bold text-blue-800">
@@ -365,6 +365,19 @@ const Profile = () => {
                   })()}
                 </div>
               </div>
+              <div className="bg-red-50 rounded-lg p-3">
+                <div className="text-xs text-red-600 mb-1">Jami xatolar summasi</div>
+                <div className="text-xl font-bold text-red-800">
+                  {errorStatsLoading ? (
+                    <span className="text-gray-400">Yuklanmoqda...</span>
+                  ) : (
+                    <CurrencyDisplay
+                      amount={Number(errorStats?.totalErrorAmount || 0)}
+                      originalCurrency="USD"
+                    />
+                  )}
+                </div>
+              </div>
               <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
                 <div className="text-xs text-purple-600 mb-1">Jami olingan</div>
                 <div className="text-xl font-bold text-purple-800">
@@ -386,18 +399,20 @@ const Profile = () => {
                 </div>
               </div>
               {(() => {
-                // Joriy davrdagi qolgan haq
-                const currentPending = loading 
-                  ? 0 
-                  : stats 
-                    ? (Number(stats.totalKPI) - Number(stats.totalSalary))
-                    : (stageStats?.totals?.totalPending || 0);
-                
-                // O'tgan yil qarzini qo'shish
-                const previousYearBalance = previousYearDebt?.balance || 0;
-                
-                // Umumiy qolgan haq (joriy + o'tgan yil)
-                const totalPending = currentPending + previousYearBalance;
+                const currentEarned = stats 
+                  ? Number(stats.totalKPI)
+                  : (stageStats?.totals?.totalEarned || 0);
+                const previousYearEarned = previousYearDebt?.totalEarned || 0;
+                const totalEarned = currentEarned + previousYearEarned;
+
+                const currentReceived = stats 
+                  ? Number(stats.totalSalary)
+                  : (stageStats?.totals?.totalReceived || 0);
+                const previousYearPaid = previousYearDebt?.totalPaid || 0;
+                const totalReceived = currentReceived + previousYearPaid;
+
+                const totalErrors = Number(errorStats?.totalErrorAmount || 0);
+                const totalPending = totalEarned - totalErrors - totalReceived;
                 const hasPending = totalPending > 0;
                 
                 return (
@@ -414,7 +429,7 @@ const Profile = () => {
                     <div className={`text-xl font-bold ${
                       hasPending ? 'text-orange-800' : 'text-gray-800'
                     }`}>
-                      {loading ? (
+                      {loading || errorStatsLoading ? (
                         <span className="text-gray-400">Yuklanmoqda...</span>
                       ) : (
                         <CurrencyDisplay

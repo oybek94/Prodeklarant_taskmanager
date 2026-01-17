@@ -467,7 +467,7 @@ const Dashboard = () => {
           {/* Left Column - Chart and Tasks */}
           <div className="lg:col-span-2 space-y-6">
             {/* Task Done Graph */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6" style={{ height: '503px' }}>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Task Done</h2>
                 <div className="flex gap-2">
@@ -506,7 +506,7 @@ const Dashboard = () => {
               
               {/* Charts.js Line Chart */}
               {chartDataWithLabels.labels.length > 0 ? (
-                <div className="h-80">
+                <div className="h-[400px]">
                   <Line
                     data={{
                       labels: chartDataWithLabels.labels,
@@ -617,86 +617,7 @@ const Dashboard = () => {
                 <div className="w-full text-center text-gray-400 py-12">Ma'lumotlar yo'q</div>
               )}
             </div>
-
-            {/* Tasks List */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Task</h2>
-                <button
-                  onClick={() => navigate('/tasks')}
-                  className="text-sm text-blue-600 hover:text-blue-700"
-                >
-                  Barchasini ko'rish
-                </button>
-              </div>
-              
-              {tasks.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-400">Ishlar mavjud emas</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {tasks.map((task) => {
-                    const progress = getTaskProgress(task);
-                return (
-                      <div
-                        key={task.id}
-                        onClick={() => navigate(`/tasks/${task.id}`)}
-                        className="group bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                      >
-                        <div className="flex items-start gap-4">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                            <Icon icon="mdi:play-circle-outline" className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-xs text-gray-500 flex items-center gap-1">
-                                    <Icon icon="mdi:clock-outline" className="w-3 h-3" />
-                                    Start from {new Date(task.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                </div>
-                                <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                                  {task.title}
-                                </h3>
-                                <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                                  <span>{task.client.name}</span>
-                                  <span>•</span>
-                                  <span>{task.branch.name}</span>
-                                </div>
-                              </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                                {getStatusText(task.status)}
-                              </span>
-                            </div>
-                            <div className="mt-3">
-                              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                                <span>Progress</span>
-                                <span>{progress}% complete</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                                  className={`h-2 rounded-full transition-all ${
-                                    progress === 100
-                                      ? 'bg-emerald-500'
-                                      : progress > 0
-                                      ? 'bg-blue-500'
-                                      : 'bg-gray-300'
-                                  }`}
-                                  style={{ width: `${progress}%` }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-            </div>
-        </div>
+          </div>
 
           {/* Right Sidebar */}
           <div className="space-y-6">
@@ -818,162 +739,48 @@ const Dashboard = () => {
               })()}
             </div>
 
-            {/* Payment Reminders */}
-            {stats?.paymentReminders && stats.paymentReminders.length > 0 && (
-              <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl shadow-sm border-2 border-red-200 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                    <Icon icon="mdi:alert" className="w-6 h-6 text-red-600" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900">To'lov eslatmalari</h2>
-                    <p className="text-xs text-gray-500">{stats.paymentReminders.length} ta mijoz</p>
-                  </div>
-                </div>
-                <div className="space-y-3 max-h-[360px] overflow-y-auto">
-                  {stats.paymentReminders.map((reminder) => (
-                    <div
-                      key={reminder.clientId}
-                      onClick={() => navigate(`/clients`)}
-                      className="bg-white rounded-lg p-4 border border-red-200 hover:border-red-300 hover:shadow-md transition-all cursor-pointer"
-                    >
-                      <div className="mb-2">
-                        <h3 className="font-semibold text-gray-900 text-sm">{reminder.clientName}</h3>
-                        {reminder.phone && (
-                          <p className="text-xs text-gray-500 mt-1">{reminder.phone}</p>
-                        )}
-                      </div>
-                      <div className="mt-2 space-y-1">
-                        <p className="text-xs text-gray-600">
-                          {reminder.dueReason}
-                        </p>
-                        <p className="text-xs">
-                          <span className="text-gray-600">Joriy qardorlik: </span>
-                          <span className="text-red-600 font-bold">
-                            <CurrencyDisplay
-                              amount={reminder.currentDebt || 0}
-                              originalCurrency={(reminder.currency || 'USD') as 'USD' | 'UZS'}
-                              className="inline"
-                            />
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Exchange Rate Card */}
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-sm border-2 border-green-200 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Icon icon="mdi:currency-usd" className="w-7 h-7 text-green-600" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Valyuta kursi</h2>
-                  <p className="text-xs text-gray-500">Bugungi kurs</p>
-                </div>
-              </div>
-              {loadingExchangeRate ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-                </div>
-              ) : exchangeRate ? (
-                <div className="space-y-3">
-                  <div className="bg-white rounded-lg p-4 border border-green-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold text-gray-900">USD</span>
-                        <Icon icon="mdi:arrow-right" className="w-5 h-5 text-gray-400" />
-                        <span className="text-2xl font-bold text-gray-900">UZS</span>
-                      </div>
-                    </div>
-                    <div className="text-3xl font-bold text-green-600">
-                      {new Intl.NumberFormat('uz-UZ', {
-                        style: 'decimal',
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      }).format(exchangeRate).replace(/,/g, ' ')}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {new Date().toLocaleDateString('uz-UZ', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-600 bg-white rounded-lg p-2 border border-green-100">
-                    <Icon icon="mdi:information-outline" className="w-4 h-4 text-green-600" />
-                    <span>Markaziy Bank kursi</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <div className="text-gray-400 text-sm mb-2">Kurs yuklanmadi</div>
-                  <button
-                    onClick={loadExchangeRate}
-                    className="text-xs text-green-600 hover:text-green-700 underline"
-                  >
-                    Qayta yuklash
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Messages */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Messages</h2>
-              <div className="space-y-3">
-                {[
-                  { name: 'Cris Morich', message: 'Hi Angelina! How are You?', color: 'bg-yellow-100' },
-                  { name: 'Charmie', message: 'Do you need that design?', color: 'bg-red-100' },
-                  { name: 'Jason Mandala', message: 'What is the price of hourly...', color: 'bg-blue-100' },
-                  { name: 'Charlie Chu', message: 'Awsome design!!', color: 'bg-orange-100' },
-                ].map((msg, idx) => (
-                  <div key={idx} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
-                    <div className={`w-10 h-10 rounded-full ${msg.color} flex items-center justify-center flex-shrink-0`}>
-                      <span className="text-xs font-medium text-gray-700">{msg.name[0]}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">{msg.name}</p>
-                      <p className="text-xs text-gray-600 truncate">{msg.message}</p>
-                    </div>
-                  </div>
-                ))}
-        </div>
-      </div>
-
-            {/* New Task */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">New Task</h2>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Task Title</label>
-                  <input
-                    type="text"
-                    placeholder="Create new"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {['🎉', '🔥', '😊', '👍', '💪', '🎯'].map((emoji, idx) => (
-                    <button
-                      key={idx}
-                      className="w-8 h-8 flex items-center justify-center text-lg hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-                <button className="w-full text-sm text-gray-600 hover:text-gray-900 py-2 text-left">
-                  Add Collaborators
-                </button>
-              </div>
-            </div>
           </div>
+        </div>
+
+        {/* Financial Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 mt-6">
+          {[
+            { type: 'INCOME', title: 'Kirim', icon: 'mdi:arrow-down-circle', accent: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+            { type: 'EXPENSE', title: 'Chiqim', icon: 'mdi:arrow-up-circle', accent: 'text-red-600', bgColor: 'bg-red-50' },
+            { type: 'TRANSFER', title: 'O\'tkazma', icon: 'mdi:swap-horizontal', accent: 'text-blue-600', bgColor: 'bg-blue-50' },
+            { type: 'PAYMENT', title: 'To\'lov', icon: 'mdi:credit-card', accent: 'text-purple-600', bgColor: 'bg-purple-50' },
+          ].map((item) => {
+            const financialData = stats?.financialStats?.find((fs) => fs.type === item.type);
+            const total = financialData?.total || 0;
+
+            return (
+              <div key={item.type} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full ${item.bgColor} flex items-center justify-center text-lg`}>
+                      <Icon icon={item.icon} className={item.accent} />
+                    </div>
+                    <div className="text-sm text-gray-600">{item.title}</div>
+                  </div>
+                  <div className={`text-3xl font-bold ${item.accent}`}>
+                    {loading ? (
+                      <span className="text-gray-300">-</span>
+                    ) : (
+                      <CurrencyDisplay
+                        amount={total}
+                        originalCurrency="UZS"
+                        className="inline"
+                      />
+                    )}
+                  </div>
+                </div>
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                  <div className="text-xs text-gray-500">Jami summa</div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

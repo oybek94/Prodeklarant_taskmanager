@@ -115,37 +115,46 @@ function loadLogoBase64(): string | null {
 
 function loadFontBase64(): string | null {
   const fontPaths = [
-    // Production build paths (compiled JavaScript in dist/)
-    path.join(__dirname, '../fonts/Montserrat-Bold.ttf'),
-    path.join(__dirname, '../../fonts/Montserrat-Bold.ttf'),
-    // Source paths (TypeScript)
+    // Production build paths (compiled JavaScript in dist/) - CHECK FIRST
+    path.join(__dirname, '../fonts/Montserrat-Bold.ttf'), // dist/services -> dist/fonts
+    path.join(__dirname, '../../fonts/Montserrat-Bold.ttf'), // dist/services -> dist/fonts (alternative)
+    // Absolute path for server - CHECK EARLY
+    '/var/www/app/backend/src/fonts/Montserrat-Bold.ttf',
+    '/var/www/app/backend/dist/fonts/Montserrat-Bold.ttf',
+    // Source paths (TypeScript/Development)
     path.join(__dirname, '../../src/fonts/Montserrat-Bold.ttf'),
     // Common server deployment paths
     path.join(process.cwd(), 'backend/src/fonts/Montserrat-Bold.ttf'),
+    path.join(process.cwd(), 'backend/dist/fonts/Montserrat-Bold.ttf'),
     path.join(process.cwd(), 'src/fonts/Montserrat-Bold.ttf'),
-    // Absolute paths for common server locations
-    '/var/www/app/backend/src/fonts/Montserrat-Bold.ttf',
+    path.join(process.cwd(), 'dist/fonts/Montserrat-Bold.ttf'),
+    // Other absolute paths
     '/app/backend/src/fonts/Montserrat-Bold.ttf',
+    '/app/backend/dist/fonts/Montserrat-Bold.ttf',
     '/app/src/fonts/Montserrat-Bold.ttf',
+    '/app/dist/fonts/Montserrat-Bold.ttf',
   ];
+  
+  // Log debug info for production
+  console.log(`[Sticker] Font loading: cwd=${process.cwd()}, __dirname=${__dirname}`);
   
   for (const fontPath of fontPaths) {
     try {
       if (fs.existsSync(fontPath)) {
         const buffer = fs.readFileSync(fontPath);
-        console.log(`[Sticker] ✅ Font loaded from: ${fontPath}`);
-        return buffer.toString('base64');
+        const base64 = buffer.toString('base64');
+        console.log(`[Sticker] ✅ Font loaded from: ${fontPath} (size: ${buffer.length} bytes, base64: ${base64.length} chars)`);
+        return base64;
+      } else {
+        console.log(`[Sticker] ❌ Font not found at: ${fontPath}`);
       }
     } catch (error) {
-      // Continue to next path
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[Sticker] Font check failed for: ${fontPath}`, error);
-      }
+      console.log(`[Sticker] ⚠️ Error checking font path ${fontPath}:`, error);
     }
   }
   
   // Log warning if font not found
-  console.warn(`[Sticker] ⚠️ Montserrat-Bold.ttf not found. Checked paths:`, fontPaths);
+  console.warn(`[Sticker] ⚠️ Montserrat-Bold.ttf not found in any path! Checked ${fontPaths.length} paths.`);
   console.warn(`[Sticker] Current working directory: ${process.cwd()}, __dirname: ${__dirname}`);
   return null;
 }
@@ -246,6 +255,13 @@ export async function generateStickerImage(taskId: number): Promise<Buffer> {
   const qrBase64 = qrBuffer.toString('base64');
   const logoBase64 = loadLogoBase64();
   const fontBase64 = loadFontBase64();
+  
+  // Debug: log font loading result
+  if (fontBase64) {
+    console.log(`[Sticker] Font loaded successfully (base64 length: ${fontBase64.length})`);
+  } else {
+    console.warn(`[Sticker] ⚠️ Font NOT loaded - will use fallback sans-serif font`);
+  }
 
   const dpi = 300;
   const widthPx = Math.round((58 / 25.4) * dpi);

@@ -44,7 +44,15 @@ router.get('/:taskId/image', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     // Generate sticker PNG image as buffer
-    const imageBuffer = await generateStickerImage(taskId);
+    console.log(`[Sticker] Generating sticker for task ${taskId}, current status: ${task.status}`);
+    let imageBuffer: Buffer;
+    try {
+      imageBuffer = await generateStickerImage(taskId);
+    } catch (genError: any) {
+      console.error(`[Sticker] Error in generateStickerImage for task ${taskId}:`, genError);
+      // Re-throw to be caught by outer catch block
+      throw genError;
+    }
 
     // Validate buffer
     if (!imageBuffer || !Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {

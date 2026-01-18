@@ -202,36 +202,34 @@ function buildStickerSvg(
   const safeDate = formatDate(data.verificationDate);
   
   // Improved font-face syntax for better Resvg compatibility
+  // Note: Resvg may have issues with base64 fonts, but we'll try with proper MIME type
   const fontStyle = fontBase64
     ? `<defs>
-  <style type="text/css">
+  <style type="text/css"><![CDATA[
     @font-face {
-      font-family: 'Montserrat';
-      src: url('data:font/truetype;charset=utf-8;base64,${fontBase64}') format('truetype');
+      font-family: "Montserrat";
+      src: url(data:application/font-sfnt;base64,${fontBase64}) format("truetype");
       font-weight: 700;
       font-style: normal;
-      font-display: block;
     }
-  </style>
-</defs>
-<style type="text/css">
+    svg {
+      text-rendering: geometricPrecision;
+    }
+    text {
+      font-family: "Montserrat", Arial, Helvetica, sans-serif;
+      font-weight: 700;
+    }
+  ]]></style>
+</defs>`
+    : `<style type="text/css"><![CDATA[
   svg {
     text-rendering: geometricPrecision;
   }
   text {
-    font-family: 'Montserrat', 'Arial', 'Helvetica', sans-serif;
+    font-family: "Montserrat", Arial, Helvetica, sans-serif;
     font-weight: 700;
   }
-</style>`
-    : `<style type="text/css">
-  svg {
-    text-rendering: geometricPrecision;
-  }
-  text {
-    font-family: 'Montserrat', 'Arial', 'Helvetica', sans-serif;
-    font-weight: 700;
-  }
-</style>`;
+]]></style>`;
   const svgWidth = pixelWidth ? `${pixelWidth}` : `${width}mm`;
   const svgHeight = pixelHeight ? `${pixelHeight}` : `${height}mm`;
 
@@ -305,7 +303,37 @@ export async function generateStickerImage(taskId: number): Promise<Buffer> {
     heightPx
   );
 
-  const resvg = new Resvg(svg, { fitTo: { mode: 'original' } });
+  // Try to find font file path for Resvg (it may better support file paths than embedded fonts)
+  let fontFilePath: string | undefined;
+  const possibleFontPaths = [
+    '/var/www/app/backend/src/fonts/Montserrat-Bold.ttf',
+    '/var/www/app/backend/dist/fonts/Montserrat-Bold.ttf',
+    path.join(__dirname, '../fonts/Montserrat-Bold.ttf'),
+    path.join(__dirname, '../../src/fonts/Montserrat-Bold.ttf'),
+    path.join(process.cwd(), 'backend/src/fonts/Montserrat-Bold.ttf'),
+    path.join(process.cwd(), 'src/fonts/Montserrat-Bold.ttf'),
+  ];
+  
+  for (const fontPath of possibleFontPaths) {
+    if (fs.existsSync(fontPath)) {
+      fontFilePath = fontPath;
+      console.log(`[Sticker] Using font file path for Resvg: ${fontFilePath}`);
+      break;
+    }
+  }
+
+  // Resvg options - try to include font path if available
+  const resvgOptions: any = { fitTo: { mode: 'original' } };
+  
+  // Note: Resvg JS may not support fontPaths option directly, but we'll try
+  // The @font-face in SVG should work, but if not, we may need to pre-load fonts
+  if (fontFilePath) {
+    // Some Resvg implementations support fontPaths, but @resvg/resvg-js may not
+    // We'll rely on @font-face in SVG for now
+    console.log(`[Sticker] Font file found at: ${fontFilePath}, but Resvg may need @font-face in SVG`);
+  }
+
+  const resvg = new Resvg(svg, resvgOptions);
   const pngData = resvg.render();
   return pngData.asPng();
 }

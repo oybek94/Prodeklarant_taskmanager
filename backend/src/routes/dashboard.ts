@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { TaskStatus } from '@prisma/client';
 
 const router = Router();
 
@@ -134,7 +135,7 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
       
       // First, count tasks from completionDates
       for (const item of completionDates) {
-        if (item.date >= range.start && item.date <= range.end) {
+        if (item.date && item.date >= range.start && item.date <= range.end) {
           count += 1;
           countedTaskIds.add(item.id);
         }
@@ -168,7 +169,7 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
         labels = Array.from({ length: 24 }, (_, idx) => `${idx}`.padStart(2, '0'));
         data = Array.from({ length: 24 }, () => 0);
         for (const item of completionDates) {
-          if (item.date >= range.start && item.date <= range.end) {
+          if (item.date && item.date >= range.start && item.date <= range.end) {
             const hour = item.date.getHours();
             data[hour] += 1;
           }
@@ -189,7 +190,7 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
         labels = Array.from({ length: 12 }, (_, idx) => `${startYear}-${String(idx + 1).padStart(2, '0')}`);
         data = Array.from({ length: 12 }, () => 0);
         for (const item of completionDates) {
-          if (item.date >= range.start && item.date <= range.end && item.date.getFullYear() === startYear) {
+          if (item.date && item.date >= range.start && item.date <= range.end && item.date.getFullYear() === startYear) {
             data[item.date.getMonth()] += 1;
           }
         }
@@ -213,7 +214,7 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
 
       const indexByDate = new Map(labels.map((label, idx) => [label, idx]));
       for (const item of completionDates) {
-        if (item.date >= range.start && item.date <= range.end) {
+        if (item.date && item.date >= range.start && item.date <= range.end) {
           const key = item.date.toISOString().split('T')[0];
           const index = indexByDate.get(key);
           if (index !== undefined) data[index] += 1;
@@ -523,7 +524,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
     const sumNetProfitForRange = async (start: Date, end: Date) => {
       // Only calculate net profit for completed tasks (TAYYOR or YAKUNLANDI)
-      const completedStatuses = ['TAYYOR', 'YAKUNLANDI'];
+      const completedStatuses: TaskStatus[] = [TaskStatus.TAYYOR, TaskStatus.YAKUNLANDI];
       
       const rangeTasks = await prisma.task.findMany({
         where: {

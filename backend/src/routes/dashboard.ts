@@ -49,6 +49,9 @@ const calcDeltaPercent = (current: number, previous: number) => {
 router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const { branchId, employeeId, clientId } = req.query;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.ts:completed-summary:start',message:'completed-summary request',data:{branchId,employeeId,clientId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     const baseTaskWhere: any = {};
 
     if (branchId) baseTaskWhere.branchId = Number(branchId);
@@ -276,6 +279,9 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
       deltaPercent: calcDeltaPercent(todayCreatedCount, yesterdayCreatedCount),
       series: result.today.series,
     };
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.ts:completed-summary:today-override',message:'today override counts',data:{todayCreatedCount,yesterdayCreatedCount,baseTaskWhere},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
 
     res.json(result);
   } catch (error: any) {
@@ -291,6 +297,9 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const { startDate, endDate, branchId, workerId } = req.query;
     const where: any = {};
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.ts:stats:start',message:'stats request',data:{startDate,endDate,branchId,workerId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
   if (startDate || endDate) {
     where.createdAt = {};
     if (startDate) where.createdAt.gte = new Date(startDate as string);
@@ -580,6 +589,9 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       sumNetProfitForRange(monthStart, todayEnd),
       sumNetProfitForRange(yearStart, todayEnd),
     ]);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.ts:stats:net-profit',message:'net profit totals',data:{todayNetProfit,weeklyNetProfit,monthlyNetProfit,yearlyNetProfit,branchId,startDate,endDate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
 
     res.json({
       newTasks,

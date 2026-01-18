@@ -49,9 +49,6 @@ const calcDeltaPercent = (current: number, previous: number) => {
 router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const { branchId, employeeId, clientId } = req.query;
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.ts:completed-summary:start',message:'completed-summary request',data:{branchId,employeeId,clientId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     const baseTaskWhere: any = {};
 
     if (branchId) baseTaskWhere.branchId = Number(branchId);
@@ -249,10 +246,10 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
     }
 
     // Override "today" to match Tasks page logic (count by createdAt)
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    // Use UTC to avoid timezone issues between server and client
+    const now = new Date();
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
     const yesterdayStart = new Date(todayStart);
     yesterdayStart.setDate(todayStart.getDate() - 1);
@@ -279,9 +276,6 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
       deltaPercent: calcDeltaPercent(todayCreatedCount, yesterdayCreatedCount),
       series: result.today.series,
     };
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.ts:completed-summary:today-override',message:'today override counts',data:{todayCreatedCount,yesterdayCreatedCount,baseTaskWhere},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
 
     res.json(result);
   } catch (error: any) {
@@ -297,9 +291,6 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const { startDate, endDate, branchId, workerId } = req.query;
     const where: any = {};
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.ts:stats:start',message:'stats request',data:{startDate,endDate,branchId,workerId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
   if (startDate || endDate) {
     where.createdAt = {};
     if (startDate) where.createdAt.gte = new Date(startDate as string);
@@ -520,19 +511,24 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     .filter((reminder) => reminder !== null);
 
     // Calculate today's and weekly net profit from completed tasks created in range
+    // Use UTC to avoid timezone issues between server and client
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
     const weekStart = new Date(todayStart);
-    const weekDayIndex = (todayStart.getDay() + 6) % 7; // Monday = 0
-    weekStart.setDate(todayStart.getDate() - weekDayIndex);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const weekDayIndex = (todayStart.getUTCDay() + 6) % 7; // Monday = 0
+    weekStart.setUTCDate(todayStart.getUTCDate() - weekDayIndex);
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+    const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1, 0, 0, 0, 0));
 
     const sumNetProfitForRange = async (start: Date, end: Date) => {
+      // Only calculate net profit for completed tasks (TAYYOR or YAKUNLANDI)
+      const completedStatuses = ['TAYYOR', 'YAKUNLANDI'];
+      
       const rangeTasks = await prisma.task.findMany({
         where: {
           createdAt: { gte: start, lte: end },
+          status: { in: completedStatuses }, // Only completed tasks
           ...(branchId ? { branchId: parseInt(branchId as string) } : {}),
         },
         select: {
@@ -554,13 +550,19 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         },
       });
 
+      // Debug logging
+      console.log(`[Dashboard] sumNetProfitForRange: Found ${rangeTasks.length} completed tasks in range ${start.toISOString()} to ${end.toISOString()}`);
+
       let usd = 0;
       let uzs = 0;
       let usdCount = 0;
       let uzsCount = 0;
+      
       for (const task of rangeTasks) {
         const client = task.client;
         const clientCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
+        
+        // Use snapshot values if available, otherwise fallback to client dealAmount
         const baseDealAmount = task.snapshotDealAmount != null
           ? Number(task.snapshotDealAmount)
           : Number(client.dealAmount || 0);
@@ -572,6 +574,13 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         const branchPayments = certificatePayment + workerPrice + psrAmount + customsPayment;
         const netProfit = dealAmount - branchPayments;
 
+        // Debug logging for first few tasks
+        if (usdCount + uzsCount < 3) {
+          console.log(`[Dashboard] Task ${task.id}: baseDealAmount=${baseDealAmount}, psrAmount=${psrAmount}, dealAmount=${dealAmount}, branchPayments=${branchPayments}, netProfit=${netProfit}, currency=${clientCurrency}`);
+        }
+
+        // Count all completed tasks, even if net profit is 0 or negative
+        // This ensures accurate reporting
         if (clientCurrency === 'USD') {
           usd += netProfit;
           usdCount += 1;
@@ -580,6 +589,9 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
           uzsCount += 1;
         }
       }
+      
+      console.log(`[Dashboard] sumNetProfitForRange result: USD=${usd} (${usdCount} tasks), UZS=${uzs} (${uzsCount} tasks)`);
+      
       return { usd, uzs, usdCount, uzsCount };
     };
 
@@ -589,9 +601,6 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       sumNetProfitForRange(monthStart, todayEnd),
       sumNetProfitForRange(yearStart, todayEnd),
     ]);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.ts:stats:net-profit',message:'net profit totals',data:{todayNetProfit,weeklyNetProfit,monthlyNetProfit,yearlyNetProfit,branchId,startDate,endDate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
 
     res.json({
       newTasks,

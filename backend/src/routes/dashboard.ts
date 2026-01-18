@@ -517,6 +517,8 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     const weekStart = new Date(todayStart);
     const weekDayIndex = (todayStart.getDay() + 6) % 7; // Monday = 0
     weekStart.setDate(todayStart.getDate() - weekDayIndex);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
 
     const sumNetProfitForRange = async (start: Date, end: Date) => {
       const rangeTasks = await prisma.task.findMany({
@@ -545,6 +547,8 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
       let usd = 0;
       let uzs = 0;
+      let usdCount = 0;
+      let uzsCount = 0;
       for (const task of rangeTasks) {
         const client = task.client;
         const clientCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
@@ -561,16 +565,20 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
         if (clientCurrency === 'USD') {
           usd += netProfit;
+          usdCount += 1;
         } else {
           uzs += netProfit;
+          uzsCount += 1;
         }
       }
-      return { usd, uzs };
+      return { usd, uzs, usdCount, uzsCount };
     };
 
-    const [todayNetProfit, weeklyNetProfit] = await Promise.all([
+    const [todayNetProfit, weeklyNetProfit, monthlyNetProfit, yearlyNetProfit] = await Promise.all([
       sumNetProfitForRange(todayStart, todayEnd),
       sumNetProfitForRange(weekStart, todayEnd),
+      sumNetProfitForRange(monthStart, todayEnd),
+      sumNetProfitForRange(yearStart, todayEnd),
     ]);
 
     res.json({
@@ -583,6 +591,8 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       paymentReminders,
       todayNetProfit,
       weeklyNetProfit,
+      monthlyNetProfit,
+      yearlyNetProfit,
     });
   } catch (error: any) {
     console.error('Error fetching dashboard stats:', error);

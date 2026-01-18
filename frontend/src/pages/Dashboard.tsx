@@ -50,8 +50,10 @@ interface DashboardStats {
   workerActivity: Array<{ userId: number; name: string; totalKPI: number; completedStages: number }>;
   financialStats: Array<{ type: string; total: number }>;
   paymentReminders?: PaymentReminder[];
-  todayNetProfit?: { usd: number; uzs: number };
-  weeklyNetProfit?: { usd: number; uzs: number };
+  todayNetProfit?: { usd: number; uzs: number; usdCount: number; uzsCount: number };
+  weeklyNetProfit?: { usd: number; uzs: number; usdCount: number; uzsCount: number };
+  monthlyNetProfit?: { usd: number; uzs: number; usdCount: number; uzsCount: number };
+  yearlyNetProfit?: { usd: number; uzs: number; usdCount: number; uzsCount: number };
 }
 
 interface CompletedSummaryItem {
@@ -782,6 +784,17 @@ const Dashboard = () => {
                             originalCurrency="USD"
                             className="inline"
                           />
+                          {todayNetProfit!.usdCount > 0 && (
+                            <span className="ml-2 text-sm font-medium text-gray-500">
+                              (
+                              <CurrencyDisplay
+                                amount={todayNetProfit!.usd / todayNetProfit!.usdCount}
+                                originalCurrency="USD"
+                                className="inline"
+                              />
+                              )
+                            </span>
+                          )}
                         </div>
                       )}
                       {hasUzs && (
@@ -791,6 +804,17 @@ const Dashboard = () => {
                             originalCurrency="UZS"
                             className="inline"
                           />
+                          {todayNetProfit!.uzsCount > 0 && (
+                            <span className="ml-2 text-xs font-medium text-gray-500">
+                              (
+                              <CurrencyDisplay
+                                amount={todayNetProfit!.uzs / todayNetProfit!.uzsCount}
+                                originalCurrency="UZS"
+                                className="inline"
+                              />
+                              )
+                            </span>
+                          )}
                         </div>
                       )}
                       {!hasUsd && !hasUzs && (
@@ -847,6 +871,17 @@ const Dashboard = () => {
                             originalCurrency="USD"
                             className="inline"
                           />
+                          {weeklyNetProfit!.usdCount > 0 && (
+                            <span className="ml-2 text-sm font-medium text-gray-500">
+                              (
+                              <CurrencyDisplay
+                                amount={weeklyNetProfit!.usd / weeklyNetProfit!.usdCount}
+                                originalCurrency="USD"
+                                className="inline"
+                              />
+                              )
+                            </span>
+                          )}
                         </div>
                       )}
                       {hasUzs && (
@@ -856,6 +891,17 @@ const Dashboard = () => {
                             originalCurrency="UZS"
                             className="inline"
                           />
+                          {weeklyNetProfit!.uzsCount > 0 && (
+                            <span className="ml-2 text-xs font-medium text-gray-500">
+                              (
+                              <CurrencyDisplay
+                                amount={weeklyNetProfit!.uzs / weeklyNetProfit!.uzsCount}
+                                originalCurrency="UZS"
+                                className="inline"
+                              />
+                              )
+                            </span>
+                          )}
                         </div>
                       )}
                       {!hasUsd && !hasUzs && (
@@ -877,41 +923,179 @@ const Dashboard = () => {
             );
           })()}
 
-          {/* Qolgan cardlar */}
-          {[
-            { type: 'TRANSFER', title: 'O\'tkazma', icon: 'mdi:swap-horizontal', accent: 'text-blue-600', bgColor: 'bg-blue-50' },
-            { type: 'PAYMENT', title: 'To\'lov', icon: 'mdi:credit-card', accent: 'text-purple-600', bgColor: 'bg-purple-50' },
-          ].map((item) => {
-            const financialData = stats?.financialStats?.find((fs) => fs.type === item.type);
-            const total = financialData?.total || 0;
+          {/* Oylik sof foyda - uchinchi card */}
+          {(() => {
+            const monthlyNetProfit = stats?.monthlyNetProfit;
+            const hasUsd = monthlyNetProfit?.usd !== undefined && monthlyNetProfit.usd !== 0;
+            const hasUzs = monthlyNetProfit?.uzs !== undefined && monthlyNetProfit.uzs !== 0;
+            const totalProfit = (monthlyNetProfit?.usd || 0) + (monthlyNetProfit?.uzs || 0);
+            const isPositive = totalProfit >= 0;
+            const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
+            const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
+            const icon = isPositive ? 'mdi:trending-up' : 'mdi:trending-down';
 
             return (
-              <div key={item.type} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full ${item.bgColor} flex items-center justify-center text-lg`}>
-                      <Icon icon={item.icon} className={item.accent} />
+                    <div className={`w-10 h-10 rounded-full ${bgColor} flex items-center justify-center text-lg`}>
+                      <Icon icon={icon} className={accentColor} />
                     </div>
-                    <div className="text-sm text-gray-600">{item.title}</div>
-                  </div>
-                  <div className={`text-3xl font-bold ${item.accent}`}>
-                    {loading ? (
-                      <span className="text-gray-300">-</span>
-                    ) : (
-                      <CurrencyDisplay
-                        amount={total}
-                        originalCurrency="UZS"
-                        className="inline"
-                      />
-                    )}
+                    <div className="text-sm text-gray-600">Sof foyda</div>
                   </div>
                 </div>
+                <div className="mt-4">
+                  {loading ? (
+                    <div className={`text-3xl font-bold ${accentColor}`}>
+                      <span className="text-gray-300">-</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {hasUsd && (
+                        <div className={`text-2xl font-bold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={monthlyNetProfit!.usd}
+                            originalCurrency="USD"
+                            className="inline"
+                          />
+                          {monthlyNetProfit!.usdCount > 0 && (
+                            <span className="ml-2 text-sm font-medium text-gray-500">
+                              (
+                              <CurrencyDisplay
+                                amount={monthlyNetProfit!.usd / monthlyNetProfit!.usdCount}
+                                originalCurrency="USD"
+                                className="inline"
+                              />
+                              )
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {hasUzs && (
+                        <div className={`text-lg font-semibold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={monthlyNetProfit!.uzs}
+                            originalCurrency="UZS"
+                            className="inline"
+                          />
+                          {monthlyNetProfit!.uzsCount > 0 && (
+                            <span className="ml-2 text-xs font-medium text-gray-500">
+                              (
+                              <CurrencyDisplay
+                                amount={monthlyNetProfit!.uzs / monthlyNetProfit!.uzsCount}
+                                originalCurrency="UZS"
+                                className="inline"
+                              />
+                              )
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {!hasUsd && !hasUzs && (
+                        <div className={`text-3xl font-bold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={0}
+                            originalCurrency="USD"
+                            className="inline"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="mt-4 border-t border-gray-100 pt-4">
-                  <div className="text-xs text-gray-500">Jami summa</div>
+                  <div className="text-xs text-gray-500">Oylik</div>
                 </div>
               </div>
             );
-          })}
+          })()}
+
+          {/* Yillik sof foyda - to'rtinchi card */}
+          {(() => {
+            const yearlyNetProfit = stats?.yearlyNetProfit;
+            const hasUsd = yearlyNetProfit?.usd !== undefined && yearlyNetProfit.usd !== 0;
+            const hasUzs = yearlyNetProfit?.uzs !== undefined && yearlyNetProfit.uzs !== 0;
+            const totalProfit = (yearlyNetProfit?.usd || 0) + (yearlyNetProfit?.uzs || 0);
+            const isPositive = totalProfit >= 0;
+            const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
+            const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
+            const icon = isPositive ? 'mdi:trending-up' : 'mdi:trending-down';
+
+            return (
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full ${bgColor} flex items-center justify-center text-lg`}>
+                      <Icon icon={icon} className={accentColor} />
+                    </div>
+                    <div className="text-sm text-gray-600">Sof foyda</div>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  {loading ? (
+                    <div className={`text-3xl font-bold ${accentColor}`}>
+                      <span className="text-gray-300">-</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {hasUsd && (
+                        <div className={`text-2xl font-bold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={yearlyNetProfit!.usd}
+                            originalCurrency="USD"
+                            className="inline"
+                          />
+                          {yearlyNetProfit!.usdCount > 0 && (
+                            <span className="ml-2 text-sm font-medium text-gray-500">
+                              (
+                              <CurrencyDisplay
+                                amount={yearlyNetProfit!.usd / yearlyNetProfit!.usdCount}
+                                originalCurrency="USD"
+                                className="inline"
+                              />
+                              )
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {hasUzs && (
+                        <div className={`text-lg font-semibold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={yearlyNetProfit!.uzs}
+                            originalCurrency="UZS"
+                            className="inline"
+                          />
+                          {yearlyNetProfit!.uzsCount > 0 && (
+                            <span className="ml-2 text-xs font-medium text-gray-500">
+                              (
+                              <CurrencyDisplay
+                                amount={yearlyNetProfit!.uzs / yearlyNetProfit!.uzsCount}
+                                originalCurrency="UZS"
+                                className="inline"
+                              />
+                              )
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {!hasUsd && !hasUzs && (
+                        <div className={`text-3xl font-bold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={0}
+                            originalCurrency="USD"
+                            className="inline"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                  <div className="text-xs text-gray-500">Yillik</div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>

@@ -169,6 +169,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
         comments: true,
         hasPsr: true,
         driverPhone: true,
+        customsPaymentMultiplier: true,
         createdAt: true,
         client: true, 
         branch: true,

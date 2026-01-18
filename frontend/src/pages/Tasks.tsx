@@ -118,6 +118,7 @@ const Tasks = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalTasks, setTotalTasks] = useState(0);
   const limit = 50; // Har bir sahifada 50 ta task
+  const archiveLimit = 20; // Arxivda har sahifada 20 ta task
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [updatingStage, setUpdatingStage] = useState<number | null>(null);
   const [taskVersions, setTaskVersions] = useState<TaskVersion[]>([]);
@@ -353,6 +354,22 @@ const Tasks = () => {
   // Remove filters.branchId because it does not exist on filters; fix lint error
   }, [filters.status, filters.clientId, showArchive]);
 
+  // Reset page when archive filters change
+  useEffect(() => {
+    if (showArchive && page !== 1) {
+      setPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    showArchive,
+    archiveSearchQuery,
+    archiveFilters.branchId,
+    archiveFilters.clientId,
+    archiveFilters.startDate,
+    archiveFilters.endDate,
+    archiveFilters.hasPsr,
+  ]);
+
   useEffect(() => {
     loadTasks();
     loadClients();
@@ -457,16 +474,16 @@ const Tasks = () => {
   const loadTasks = async () => {
     try {
       setLoading(true);
-      const params: any = {
-        page: page.toString(),
-        limit: limit.toString(),
-      };
+      const params: any = {};
       if (showArchive) {
         // Arxiv bo'limida faqat YAKUNLANDI statusidagi tasklar
         params.status = 'YAKUNLANDI';
+        // Fetch all archive tasks for client-side pagination/filtering
       } else {
         // Barcha ishlar bo'limida YAKUNLANDI dan tashqari barcha tasklar
         if (filters.status) params.status = filters.status;
+        params.page = page.toString();
+        params.limit = limit.toString();
       }
       if (filters.clientId) params.clientId = filters.clientId;
       if (filters.branchId) params.branchId = filters.branchId;
@@ -503,8 +520,13 @@ const Tasks = () => {
           filteredTasks = response.data.filter((task: Task) => task.status !== 'YAKUNLANDI');
         }
         setTasks(filteredTasks);
-        setTotalPages(1);
-        setTotalTasks(filteredTasks.length);
+        if (showArchive) {
+          setTotalPages(Math.max(1, Math.ceil(filteredTasks.length / archiveLimit)));
+          setTotalTasks(filteredTasks.length);
+        } else {
+          setTotalPages(1);
+          setTotalTasks(filteredTasks.length);
+        }
         
         if (!showArchive) {
           calculateStats(response.data);
@@ -609,6 +631,17 @@ const Tasks = () => {
   const calculateChange = (current: number, previous: number): number => {
     if (previous === 0) return current > 0 ? 100 : 0;
     return ((current - previous) / previous) * 100;
+  };
+
+  const getPageNumbers = (current: number, total: number) => {
+    const delta = 2;
+    const start = Math.max(1, current - delta);
+    const end = Math.min(total, current + delta);
+    const pages: number[] = [];
+    for (let i = start; i <= end; i += 1) {
+      pages.push(i);
+    }
+    return pages;
   };
 
   const formatChange = (change: number): { text: string; color: string; bgColor: string } => {
@@ -1801,6 +1834,16 @@ const Tasks = () => {
                     Filial
                   </th>
                 )}
+                {isArchive && (
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
+                    PSR
+                  </th>
+                )}
+                {isArchive && (
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
+                    BXM
+                  </th>
+                )}
                 <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Start Date
                 </th>
@@ -1820,7 +1863,7 @@ const Tasks = () => {
             <tbody className="divide-y divide-blue-100">
               {branchTasks.length === 0 ? (
                 <tr>
-                  <td colSpan={isArchive ? 7 : 5} className="px-6 py-4 text-center text-gray-500 bg-blue-50">
+                  <td colSpan={isArchive ? 9 : 5} className="px-6 py-4 text-center text-gray-500 bg-blue-50">
                     Ma'lumotlar yo'q
                   </td>
                 </tr>
@@ -1855,6 +1898,22 @@ const Tasks = () => {
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 border-b border-blue-100">
                           <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                             {task.branch.name}
+                          </span>
+                        </td>
+                      )}
+                      {isArchive && (
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900 border-b border-blue-100">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            task.hasPsr ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.hasPsr ? 'Bor' : 'Yo\'q'}
+                          </span>
+                        </td>
+                      )}
+                      {isArchive && (
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900 border-b border-blue-100">
+                          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                            {task.customsPaymentMultiplier ? `${task.customsPaymentMultiplier} BXM` : '-'}
                           </span>
                         </td>
                       )}
@@ -2013,6 +2072,9 @@ const Tasks = () => {
   const toshkentTasks = Array.isArray(tasks) ? tasks.filter((task) => task.branch.name === 'Toshkent') : [];
   const oltiariqTasks = Array.isArray(tasks) ? tasks.filter((task) => task.branch.name === 'Oltiariq') : [];
   const filteredArchiveTasks = getFilteredArchiveTasks();
+  const archiveTotalTasks = filteredArchiveTasks.length;
+  const archiveTotalPages = Math.max(1, Math.ceil(archiveTotalTasks / archiveLimit));
+  const archivePageTasks = filteredArchiveTasks.slice((page - 1) * archiveLimit, page * archiveLimit);
 
   // Check if user is DEKLARANT with a branch assigned
   const isDeklarantWithBranch = user?.role === 'DEKLARANT' && user?.branchId;
@@ -4735,7 +4797,53 @@ const Tasks = () => {
         ) : showArchive ? (
           // Arxiv bo'limida barcha tasklar bitta jadvalda
           <div>
-            {renderTaskTable(filteredArchiveTasks, 'Arxiv')}
+            {renderTaskTable(archivePageTasks, 'Arxiv')}
+            {/* Archive Pagination UI */}
+            {!loading && archiveTotalPages > 1 && (
+              <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="text-sm text-gray-600">
+                  Jami <span className="font-semibold">{archiveTotalTasks}</span> ta task,{' '}
+                  <span className="font-semibold">{page}</span>/{archiveTotalPages} sahifa
+                </div>
+                <div className="flex gap-2 items-center flex-wrap">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+                      page === 1
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    }`}
+                  >
+                    Oldingi
+                  </button>
+                  {getPageNumbers(page, archiveTotalPages).map((p) => (
+                    <button
+                      key={`archive-page-${p}`}
+                      onClick={() => setPage(p)}
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        p === page
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPage((p) => Math.min(archiveTotalPages, p + 1))}
+                    disabled={page === archiveTotalPages}
+                    className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+                      page === archiveTotalPages
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    }`}
+                  >
+                    Keyingi
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           // Barcha ishlar bo'limida filiallarga bo'lingan
@@ -4759,13 +4867,13 @@ const Tasks = () => {
       </div>
 
       {/* Pagination UI */}
-      {!loading && totalPages > 1 && (
+      {!showArchive && !loading && totalPages > 1 && (
         <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="text-sm text-gray-600">
             Jami <span className="font-semibold">{totalTasks}</span> ta task,{' '}
             <span className="font-semibold">{page}</span>/{totalPages} sahifa
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center flex-wrap">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
@@ -4777,6 +4885,19 @@ const Tasks = () => {
             >
               Oldingi
             </button>
+            {getPageNumbers(page, totalPages).map((p) => (
+              <button
+                key={`tasks-page-${p}`}
+                onClick={() => setPage(p)}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  p === page
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}

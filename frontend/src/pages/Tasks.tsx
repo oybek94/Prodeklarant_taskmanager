@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
@@ -2074,9 +2074,33 @@ const Tasks = () => {
     XLSX.writeFile(wb, filename);
   };
 
-  // Separate tasks by branch
-  const toshkentTasks = Array.isArray(tasks) ? tasks.filter((task) => task.branch.name === 'Toshkent') : [];
-  const oltiariqTasks = Array.isArray(tasks) ? tasks.filter((task) => task.branch.name === 'Oltiariq') : [];
+  // Separate tasks by branch - dynamically group by all branches
+  const tasksByBranch = useMemo(() => {
+    if (!Array.isArray(tasks) || !Array.isArray(branches)) {
+      return new Map<string, Task[]>();
+    }
+
+    const grouped = new Map<string, Task[]>();
+    
+    // Initialize all branches with empty arrays
+    branches.forEach(branch => {
+      grouped.set(branch.name, []);
+    });
+    
+    // Group tasks by branch name
+    tasks.forEach(task => {
+      const branchName = task.branch?.name;
+      if (branchName && grouped.has(branchName)) {
+        grouped.get(branchName)!.push(task);
+      }
+    });
+
+    return grouped;
+  }, [tasks, branches]);
+
+  // Backward compatibility - keep for now
+  const toshkentTasks = tasksByBranch.get('Toshkent') || [];
+  const oltiariqTasks = tasksByBranch.get('Oltiariq') || [];
   const filteredArchiveTasks = getFilteredArchiveTasks();
   const archiveTotalTasks = filteredArchiveTasks.length;
   const archiveTotalPages = Math.max(1, Math.ceil(archiveTotalTasks / archiveLimit));
@@ -2531,65 +2555,27 @@ const Tasks = () => {
                     <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
                     Filial <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (branches.length === 0) {
-                          console.warn('Branches not loaded yet');
-                          return;
-                        }
-                        const toshkentBranch = branches.find((b) => 
-                          b.name?.toLowerCase().trim() === 'toshkent' || 
-                          b.name === 'Toshkent'
-                        );
-                        if (toshkentBranch) {
-                          setForm({ ...form, branchId: toshkentBranch.id.toString() });
-                        } else {
-                          console.error('Toshkent branch not found. Available branches:', branches);
-                        }
-                      }}
-                      disabled={branches.length === 0}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        form.branchId === branches.find((b) => 
-                          b.name?.toLowerCase().trim() === 'toshkent' || 
-                          b.name === 'Toshkent'
-                        )?.id.toString()
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
-                      }`}
-                    >
-                      Toshkent
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (branches.length === 0) {
-                          console.warn('Branches not loaded yet');
-                          return;
-                        }
-                        const oltiariqBranch = branches.find((b) => 
-                          b.name?.toLowerCase().trim() === 'oltiariq' || 
-                          b.name === 'Oltiariq'
-                        );
-                        if (oltiariqBranch) {
-                          setForm({ ...form, branchId: oltiariqBranch.id.toString() });
-                        } else {
-                          console.error('Oltiariq branch not found. Available branches:', branches);
-                        }
-                      }}
-                      disabled={branches.length === 0}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        form.branchId === branches.find((b) => 
-                          b.name?.toLowerCase().trim() === 'oltiariq' || 
-                          b.name === 'Oltiariq'
-                        )?.id.toString()
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
-                      }`}
-                    >
-                      Oltiariq
-                    </button>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.isArray(branches) && branches.length > 0 ? (
+                      branches.map((branch) => (
+                        <button
+                          key={branch.id}
+                          type="button"
+                          onClick={() => {
+                            setForm({ ...form, branchId: branch.id.toString() });
+                          }}
+                          className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
+                            form.branchId === branch.id.toString()
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          }`}
+                        >
+                          {branch.name}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="text-sm text-gray-500 py-2">Filiallar yuklanmoqda...</div>
+                    )}
                   </div>
                 </div>
 
@@ -4183,65 +4169,27 @@ const Tasks = () => {
                     <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
                     Filial <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (branches.length === 0) {
-                          console.warn('Branches not loaded yet');
-                          return;
-                        }
-                        const toshkentBranch = branches.find((b) => 
-                          b.name?.toLowerCase().trim() === 'toshkent' || 
-                          b.name === 'Toshkent'
-                        );
-                        if (toshkentBranch) {
-                          setEditForm({ ...editForm, branchId: toshkentBranch.id.toString() });
-                        } else {
-                          console.error('Toshkent branch not found. Available branches:', branches);
-                        }
-                      }}
-                      disabled={branches.length === 0}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        editForm.branchId === branches.find((b) => 
-                          b.name?.toLowerCase().trim() === 'toshkent' || 
-                          b.name === 'Toshkent'
-                        )?.id.toString()
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
-                      }`}
-                    >
-                      Toshkent
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (branches.length === 0) {
-                          console.warn('Branches not loaded yet');
-                          return;
-                        }
-                        const oltiariqBranch = branches.find((b) => 
-                          b.name?.toLowerCase().trim() === 'oltiariq' || 
-                          b.name === 'Oltiariq'
-                        );
-                        if (oltiariqBranch) {
-                          setEditForm({ ...editForm, branchId: oltiariqBranch.id.toString() });
-                        } else {
-                          console.error('Oltiariq branch not found. Available branches:', branches);
-                        }
-                      }}
-                      disabled={branches.length === 0}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        editForm.branchId === branches.find((b) => 
-                          b.name?.toLowerCase().trim() === 'oltiariq' || 
-                          b.name === 'Oltiariq'
-                        )?.id.toString()
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
-                      }`}
-                    >
-                      Oltiariq
-                    </button>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.isArray(branches) && branches.length > 0 ? (
+                      branches.map((branch) => (
+                        <button
+                          key={branch.id}
+                          type="button"
+                          onClick={() => {
+                            setEditForm({ ...editForm, branchId: branch.id.toString() });
+                          }}
+                          className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
+                            editForm.branchId === branch.id.toString()
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          }`}
+                        >
+                          {branch.name}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="text-sm text-gray-500 py-2">Filiallar yuklanmoqda...</div>
+                    )}
                   </div>
                 </div>
 
@@ -4859,13 +4807,16 @@ const Tasks = () => {
               {renderTaskTable(userBranchTasks, userBranch.name)}
             </div>
           ) : (
-            // ADMIN/MANAGER uchun barcha filiallar
+            // ADMIN/MANAGER uchun barcha filiallar - dinamik
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-[30px]">
-              {/* Oltiariq filiali */}
-              <div>{renderTaskTable(oltiariqTasks, 'Oltiariq')}</div>
-
-              {/* Toshkent filiali */}
-              <div>{renderTaskTable(toshkentTasks, 'Toshkent')}</div>
+              {Array.isArray(branches) && branches.map((branch) => {
+                const branchTasks = tasksByBranch.get(branch.name) || [];
+                return (
+                  <div key={branch.id}>
+                    {renderTaskTable(branchTasks, branch.name)}
+                  </div>
+                );
+              })}
             </div>
           )
         )}

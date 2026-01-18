@@ -603,6 +603,41 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       sumNetProfitForRange(yearStart, todayEnd),
     ]);
 
+    // Tasks by branch statistics - use separate where condition without date filters
+    // to show all tasks by branch regardless of date filters
+    const branchWhere: any = {};
+    if (branchId) branchWhere.branchId = parseInt(branchId as string);
+    if (workerId) {
+      branchWhere.stages = { some: { assignedTo: parseInt(workerId as string) } };
+    }
+    
+    const tasksByBranch = await prisma.task.groupBy({
+      by: ['branchId'],
+      where: branchWhere,
+      _count: true,
+    });
+
+    console.log('[Dashboard] tasksByBranch raw:', JSON.stringify(tasksByBranch, null, 2));
+
+    // Get branch details
+    const branchIds = tasksByBranch.map((t: any) => t.branchId).filter((id: any) => id !== null);
+    const branchDetails = branchIds.length > 0
+      ? await prisma.branch.findMany({
+          where: { id: { in: branchIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+
+    const tasksByBranchWithNames = tasksByBranch
+      .filter((t: any) => t.branchId !== null)
+      .map((t: any) => ({
+        branchId: t.branchId,
+        branchName: branchDetails.find((b: any) => b.id === t.branchId)?.name || 'Noma\'lum',
+        count: t._count,
+      }));
+
+    console.log('[Dashboard] tasksByBranchWithNames:', JSON.stringify(tasksByBranchWithNames, null, 2));
+
     res.json({
       newTasks,
       completedTasks,
@@ -615,6 +650,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       weeklyNetProfit,
       monthlyNetProfit,
       yearlyNetProfit,
+      tasksByBranch: tasksByBranchWithNames,
     });
   } catch (error: any) {
     console.error('Error fetching dashboard stats:', error);

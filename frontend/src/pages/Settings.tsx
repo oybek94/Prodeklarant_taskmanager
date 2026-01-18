@@ -116,6 +116,9 @@ const Settings = () => {
   const [kpiConfigEdits, setKpiConfigEdits] = useState<Record<string, string>>({});
   const [loadingKpiConfigs, setLoadingKpiConfigs] = useState(true);
   const [savingKpiConfigs, setSavingKpiConfigs] = useState(false);
+  const [showBranchForm, setShowBranchForm] = useState(false);
+  const [newBranchName, setNewBranchName] = useState('');
+  const [deletingBranchId, setDeletingBranchId] = useState<number | null>(null);
 
   useEffect(() => {
     loadBXMConfigs();
@@ -214,6 +217,31 @@ const Settings = () => {
       setBranches(response.data);
     } catch (error) {
       console.error('Error loading branches:', error);
+      setBranches([]);
+    }
+  };
+
+  const handleCreateBranch = async (branchName: string) => {
+    try {
+      await apiClient.post('/branches', { name: branchName });
+      await loadBranches();
+      alert('Filial muvaffaqiyatli qo\'shildi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleDeleteBranch = async (branchId: number, branchName: string) => {
+    if (!confirm(`"${branchName}" filialini o'chirishni xohlaysizmi?`)) return;
+    try {
+      setDeletingBranchId(branchId);
+      await apiClient.delete(`/branches/${branchId}`);
+      await loadBranches();
+      alert('Filial muvaffaqiyatli o\'chirildi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    } finally {
+      setDeletingBranchId(null);
     }
   };
 
@@ -513,6 +541,85 @@ const Settings = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Branches Section */}
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">Filiallar</h2>
+          <button
+            onClick={() => setShowBranchForm(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            + Filial qo'shish
+          </button>
+        </div>
+
+        {branches.length === 0 ? (
+          <div className="text-center py-4 text-gray-400">Filiallar topilmadi</div>
+        ) : (
+          <div className="space-y-2">
+            {branches.map((branch) => (
+              <div
+                key={branch.id}
+                className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+              >
+                <div className="text-gray-800 font-medium">{branch.name}</div>
+                <button
+                  onClick={() => handleDeleteBranch(branch.id, branch.name)}
+                  disabled={deletingBranchId === branch.id}
+                  className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
+                >
+                  {deletingBranchId === branch.id ? 'O\'chirilmoqda...' : 'O\'chirish'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showBranchForm && (
+          <div className="mt-4 p-4 border-2 border-green-300 rounded-lg bg-green-50">
+            <h3 className="text-md font-semibold text-gray-800 mb-3">Yangi filial</h3>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newBranchName}
+                onChange={(e) => setNewBranchName(e.target.value)}
+                placeholder="Filial nomi"
+                className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && newBranchName.trim()) {
+                    handleCreateBranch(newBranchName.trim());
+                    setNewBranchName('');
+                    setShowBranchForm(false);
+                  }
+                }}
+                autoFocus
+              />
+              <button
+                onClick={() => {
+                  if (newBranchName.trim()) {
+                    handleCreateBranch(newBranchName.trim());
+                    setNewBranchName('');
+                    setShowBranchForm(false);
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Qo'shish
+              </button>
+              <button
+                onClick={() => {
+                  setShowBranchForm(false);
+                  setNewBranchName('');
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+              >
+                Bekor qilish
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* State Payments Section */}

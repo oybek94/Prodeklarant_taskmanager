@@ -54,6 +54,7 @@ interface DashboardStats {
   weeklyNetProfit?: { usd: number; uzs: number; usdCount: number; uzsCount: number };
   monthlyNetProfit?: { usd: number; uzs: number; usdCount: number; uzsCount: number };
   yearlyNetProfit?: { usd: number; uzs: number; usdCount: number; uzsCount: number };
+  tasksByBranch?: Array<{ branchId: number; branchName: string; count: number }>;
 }
 
 interface CompletedSummaryItem {
@@ -210,6 +211,8 @@ const Dashboard = () => {
     try {
       setLoading(true);
       const response = await apiClient.get('/dashboard/stats');
+      console.log('[Dashboard] Stats response:', response.data);
+      console.log('[Dashboard] tasksByBranch:', response.data?.tasksByBranch);
       setStats(response.data);
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -619,6 +622,72 @@ const Dashboard = () => {
                 </div>
               ) : (
                 <div className="w-full text-center text-gray-400 py-12">Ma'lumotlar yo'q</div>
+              )}
+            </div>
+
+            {/* Tasks by Branch Chart */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <Icon icon="lucide:building" className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Filiallar bo'yicha tasklar</h2>
+                  <p className="text-xs text-gray-500">Qaysi filialda qancha ish bo'lgani</p>
+                </div>
+              </div>
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : stats?.tasksByBranch && Array.isArray(stats.tasksByBranch) && stats.tasksByBranch.length > 0 ? (
+                <div>
+                  <Chart
+                    options={{
+                      chart: {
+                        type: 'pie',
+                        height: 350,
+                        toolbar: { show: false },
+                      },
+                      labels: stats.tasksByBranch.map((b) => b.branchName),
+                      colors: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'],
+                      legend: {
+                        position: 'bottom',
+                        fontSize: '14px',
+                        fontFamily: 'inherit',
+                      },
+                      dataLabels: {
+                        enabled: true,
+                        formatter: (val: number) => `${val.toFixed(1)}%`,
+                        style: {
+                          fontSize: '12px',
+                          fontWeight: 600,
+                        },
+                      },
+                      tooltip: {
+                        y: {
+                          formatter: (value: number) => `${value} ta task`,
+                        },
+                      },
+                    }}
+                    series={stats.tasksByBranch.map((b) => b.count)}
+                    type="pie"
+                    height={350}
+                  />
+                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                    {stats.tasksByBranch.map((branch) => (
+                      <div key={branch.branchId} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">{branch.branchName}:</span>
+                        <span className="font-semibold text-gray-900">{branch.count} ta</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-400">
+                  <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
+                </div>
               )}
             </div>
           </div>

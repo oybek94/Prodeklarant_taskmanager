@@ -288,17 +288,59 @@ const Tasks = () => {
       const response = await apiClient.get(`/sticker/${taskId}/image`, {
         responseType: 'blob',
       });
-      const blob = new Blob([response.data], { type: 'image/png' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `sticker-${taskId}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 100);
+      
+      // Blob'ni tekshirish - agar xatolik bo'lsa, JSON bo'lishi mumkin
+      if (response.data.type === 'application/json') {
+        const text = await response.data.text();
+        const errorData = JSON.parse(text);
+        throw new Error(errorData.error || errorData.message || 'Stiker yuklab olishda xatolik yuz berdi');
+      }
+      
+      // Blob type'ni tekshirish va to'g'rilash
+      const blobType = response.data.type || 'image/png';
+      const blob = new Blob([response.data], { type: blobType });
+      
+      // PNG faylining to'g'riligini tekshirish
+      if (!blobType.includes('image') && !blobType.includes('png')) {
+        // Agar type to'g'ri bo'lmasa, uni PNG sifatida belgilash
+        const correctedBlob = new Blob([response.data], { type: 'image/png' });
+        const url = URL.createObjectURL(correctedBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `sticker-${taskId}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      } else {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `sticker-${taskId}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      }
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Stiker yuklab olishda xatolik');
+      console.error('Error downloading sticker:', error);
+      let errorMessage = 'Stiker yuklab olishda xatolik yuz berdi';
+      
+      // Blob response'da xatolik bo'lsa, uni JSON sifatida parse qilish
+      if (error.response?.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          // Parse qilish mumkin bo'lmasa, default xabar
+          errorMessage = error.message || errorMessage;
+        }
+      } else {
+        errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || errorMessage;
+      }
+      
+      alert(errorMessage);
     }
   };
 

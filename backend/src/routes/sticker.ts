@@ -46,15 +46,24 @@ router.get('/:taskId/image', requireAuth(), async (req: AuthRequest, res) => {
     // Generate sticker PNG image as buffer
     const imageBuffer = await generateStickerImage(taskId);
 
-    // Set response headers
+    // Validate buffer
+    if (!imageBuffer || !Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {
+      return res.status(500).json({
+        error: 'Failed to generate sticker image: invalid buffer',
+      });
+    }
+
+    // Set response headers BEFORE sending
     res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', imageBuffer.length.toString());
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="sticker-${taskId}.png"`
     );
+    res.setHeader('Cache-Control', 'no-cache');
 
     // Send image buffer
-    res.send(imageBuffer);
+    res.end(imageBuffer);
   } catch (error: any) {
     console.error('Error generating sticker image:', error);
     console.error('Error stack:', error?.stack);

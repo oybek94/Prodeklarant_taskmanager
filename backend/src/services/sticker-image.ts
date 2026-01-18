@@ -2,12 +2,10 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import {
   TaskNotFoundError,
-  StickerNotReadyError,
   QrTokenMissingError,
   QrGenerationError,
 } from './sticker-errors';
 import { generateQRCodeBuffer } from '../utils/qr-code';
-import { isStickerReady } from './task-status';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Resvg } from '@resvg/resvg-js';
@@ -58,10 +56,8 @@ async function getTaskForSticker(taskId: number): Promise<TaskWithStages> {
 function validateStickerEligibility(
   task: TaskWithStages
 ): asserts task is TaskWithStages & { qrToken: string } {
-  if (!isStickerReady(task.status)) {
-    throw new StickerNotReadyError(task.id, task.status);
-  }
-
+  // Status check removed - allow sticker generation for any task status
+  // Only check for qrToken presence (should be generated in route if missing)
   if (!task.qrToken) {
     throw new QrTokenMissingError(task.id);
   }

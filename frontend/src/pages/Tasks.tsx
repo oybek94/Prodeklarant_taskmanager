@@ -2602,10 +2602,10 @@ const Tasks = () => {
                     setEditingErrorId(null);
                     setShowErrorModal(true);
                   }}
-                  className="px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                  className="p-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                  title="Xato"
                 >
-                  <Icon icon="mdi:alert" className="w-4 h-4" />
-                  Xato
+                  <Icon icon="mdi:alert" className="w-5 h-5" />
                 </button>
                 {/* Faqat task yaratgan ishchi o'zgartira oladi */}
                 {selectedTask.createdBy && user && selectedTask.createdBy.id === user.id && (
@@ -2623,10 +2623,10 @@ const Tasks = () => {
                         setShowEditModal(true);
                       }
                     }}
-                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    title="O'zgartirish"
                   >
-                    <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
-                    O'zgartirish
+                    <Icon icon="mdi:pencil-outline" className="w-5 h-5" />
                   </button>
                 )}
                 {/* Task o'chirish: faqat barcha jarayonlar BOSHLANMAGAN bo'lsa va task Jarayonda bo'lmasa */}
@@ -2646,23 +2646,19 @@ const Tasks = () => {
                         }
                       }
                     }}
-                    className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                    className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    title="O'chirish"
                   >
-                    <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-                    O'chirish
+                    <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
                   </button>
                 )}
-                {selectedTask.status === 'TEKSHIRILGAN' && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => downloadStickerPng(selectedTask.id)}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1.5"
-                    >
-                      <Icon icon="mdi:download" className="w-4 h-4" />
-                      Stiker yuklab olish (PNG)
-                    </button>
-                  </div>
-                )}
+                <button
+                  onClick={() => downloadStickerPng(selectedTask.id)}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                >
+                  <Icon icon="mdi:download" className="w-4 h-4" />
+                  Stiker
+                </button>
                 <button
                   onClick={() => {
                     setShowTaskModal(false);

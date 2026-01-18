@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { isStickerReady } from '../services/task-status';
+import { generateQrTokenIfNeeded } from '../services/task-status';
 import { generateStickerImage } from '../services/sticker-image';
 
 const router = Router();
@@ -28,17 +28,19 @@ router.get('/:taskId/image', requireAuth(), async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
 
-    // Check if task is sticker-ready
-    if (!isStickerReady(task.status)) {
-      return res.status(400).json({
-        error: 'Task is not ready for sticker generation. Status must be TEKSHIRILGAN.',
-      });
-    }
-
+    // Generate QR token if it doesn't exist (allow sticker download for any status)
     if (!task.qrToken) {
-      return res.status(400).json({
-        error: 'Task does not have a QR token',
+      await generateQrTokenIfNeeded(taskId);
+      // Reload task to get the newly generated token
+      const updatedTask = await prisma.task.findUnique({
+        where: { id: taskId },
+        select: { qrToken: true },
       });
+      if (!updatedTask?.qrToken) {
+        return res.status(500).json({
+          error: 'Failed to generate QR token for task',
+        });
+      }
     }
 
     // Generate sticker PNG image as buffer

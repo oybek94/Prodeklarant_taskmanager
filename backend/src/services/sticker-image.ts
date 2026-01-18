@@ -21,7 +21,9 @@ type TaskWithStages = Prisma.TaskGetPayload<{
       select: { completedAt: true };
     };
   };
-}>;
+}> & {
+  qrToken: string | null;
+};
 
 interface StickerData {
   taskId: number;
@@ -38,7 +40,10 @@ interface StickerData {
 async function getTaskForSticker(taskId: number): Promise<TaskWithStages> {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      qrToken: true,
       stages: {
         where: { name: 'Tekshirish' },
         select: { completedAt: true },
@@ -50,7 +55,7 @@ async function getTaskForSticker(taskId: number): Promise<TaskWithStages> {
     throw new TaskNotFoundError(taskId);
   }
 
-  return task;
+  return task as TaskWithStages;
 }
 
 function validateStickerEligibility(
@@ -110,20 +115,38 @@ function loadLogoBase64(): string | null {
 
 function loadFontBase64(): string | null {
   const fontPaths = [
+    // Production build paths (compiled JavaScript in dist/)
     path.join(__dirname, '../fonts/Montserrat-Bold.ttf'),
     path.join(__dirname, '../../fonts/Montserrat-Bold.ttf'),
+    // Source paths (TypeScript)
+    path.join(__dirname, '../../src/fonts/Montserrat-Bold.ttf'),
+    // Common server deployment paths
     path.join(process.cwd(), 'backend/src/fonts/Montserrat-Bold.ttf'),
+    path.join(process.cwd(), 'src/fonts/Montserrat-Bold.ttf'),
+    // Absolute paths for common server locations
+    '/var/www/app/backend/src/fonts/Montserrat-Bold.ttf',
+    '/app/backend/src/fonts/Montserrat-Bold.ttf',
+    '/app/src/fonts/Montserrat-Bold.ttf',
   ];
+  
   for (const fontPath of fontPaths) {
     try {
       if (fs.existsSync(fontPath)) {
         const buffer = fs.readFileSync(fontPath);
+        console.log(`[Sticker] ✅ Font loaded from: ${fontPath}`);
         return buffer.toString('base64');
       }
-    } catch {
+    } catch (error) {
       // Continue to next path
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Sticker] Font check failed for: ${fontPath}`, error);
+      }
     }
   }
+  
+  // Log warning if font not found
+  console.warn(`[Sticker] ⚠️ Montserrat-Bold.ttf not found. Checked paths:`, fontPaths);
+  console.warn(`[Sticker] Current working directory: ${process.cwd()}, __dirname: ${__dirname}`);
   return null;
 }
 

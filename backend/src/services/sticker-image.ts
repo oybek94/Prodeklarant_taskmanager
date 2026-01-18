@@ -200,9 +200,38 @@ function buildStickerSvg(
 
   const safePlate = data.vehiclePlate ?? '';
   const safeDate = formatDate(data.verificationDate);
+  
+  // Improved font-face syntax for better Resvg compatibility
   const fontStyle = fontBase64
-    ? `<style>@font-face{font-family:'Montserrat';src:url(data:font/ttf;base64,${fontBase64}) format('truetype');font-weight:700;font-style:normal;}svg{text-rendering:geometricPrecision;}text{font-family:'Montserrat',sans-serif;font-weight:700;}</style>`
-    : `<style>svg{text-rendering:geometricPrecision;}text{font-family:'Montserrat',sans-serif;font-weight:700;}</style>`;
+    ? `<defs>
+  <style type="text/css">
+    @font-face {
+      font-family: 'Montserrat';
+      src: url('data:font/truetype;charset=utf-8;base64,${fontBase64}') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: block;
+    }
+  </style>
+</defs>
+<style type="text/css">
+  svg {
+    text-rendering: geometricPrecision;
+  }
+  text {
+    font-family: 'Montserrat', 'Arial', 'Helvetica', sans-serif;
+    font-weight: 700;
+  }
+</style>`
+    : `<style type="text/css">
+  svg {
+    text-rendering: geometricPrecision;
+  }
+  text {
+    font-family: 'Montserrat', 'Arial', 'Helvetica', sans-serif;
+    font-weight: 700;
+  }
+</style>`;
   const svgWidth = pixelWidth ? `${pixelWidth}` : `${width}mm`;
   const svgHeight = pixelHeight ? `${pixelHeight}` : `${height}mm`;
 

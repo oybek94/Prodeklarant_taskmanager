@@ -62,55 +62,55 @@ const Archive = () => {
     
     // PDF
     if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) {
-      return <Icon icon="mdi:file-pdf-box" className="w-10 h-10 text-red-500" />;
+      return <Icon icon="lucide:file-text" className="w-10 h-10 text-red-500" />;
     }
     // Excel (xls, xlsx)
     if (lowerType.includes('excel') || lowerType.includes('spreadsheet') || 
         lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx')) {
-      return <Icon icon="mdi:file-excel-box" className="w-10 h-10 text-emerald-500" />;
+      return <Icon icon="lucide:file-spreadsheet" className="w-10 h-10 text-emerald-500" />;
     }
     // Word (doc, docx)
     if (lowerType.includes('word') || lowerType.includes('document') ||
         lowerName.endsWith('.doc') || lowerName.endsWith('.docx')) {
-      return <Icon icon="mdi:file-word-box" className="w-10 h-10 text-blue-500" />;
+      return <Icon icon="lucide:file-text" className="w-10 h-10 text-blue-500" />;
     }
     // JPG/JPEG
     if (lowerType.includes('jpeg') || lowerType.includes('jpg') ||
         lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
-      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
+      return <Icon icon="lucide:image" className="w-10 h-10 text-amber-500" />;
     }
     // PNG
     if (lowerType.includes('png') || lowerName.endsWith('.png')) {
-      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
+      return <Icon icon="lucide:image" className="w-10 h-10 text-amber-500" />;
     }
     // PPT/PPTX
     if (lowerType.includes('powerpoint') || lowerType.includes('presentation') ||
         lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx')) {
-      return <Icon icon="mdi:file-powerpoint-box" className="w-10 h-10 text-orange-500" />;
+      return <Icon icon="lucide:presentation" className="w-10 h-10 text-orange-500" />;
     }
     // RAR
     if (lowerType.includes('rar') || lowerName.endsWith('.rar')) {
-      return <Icon icon="mdi:zip-box" className="w-10 h-10 text-gray-500" />;
+      return <Icon icon="lucide:archive" className="w-10 h-10 text-gray-500" />;
     }
     // ZIP
     if (lowerType.includes('zip') || lowerName.endsWith('.zip')) {
-      return <Icon icon="mdi:zip-box" className="w-10 h-10 text-gray-500" />;
+      return <Icon icon="lucide:archive" className="w-10 h-10 text-gray-500" />;
     }
     // Rasm (boshqa formatlar)
     if (lowerType.includes('image') || lowerType.includes('gif') || lowerType.includes('webp') ||
         lowerName.match(/\.(gif|webp|bmp|svg)$/i)) {
-      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
+      return <Icon icon="lucide:image" className="w-10 h-10 text-amber-500" />;
     }
     // Video
     if (lowerType.includes('video') || lowerName.match(/\.(mp4|avi|mov|wmv|flv|mkv)$/i)) {
-      return <Icon icon="mdi:file-video" className="w-10 h-10 text-red-500" />;
+      return <Icon icon="lucide:video" className="w-10 h-10 text-red-500" />;
     }
     // Audio
     if (lowerType.includes('audio') || lowerName.match(/\.(mp3|wav|ogg|m4a)$/i)) {
-      return <Icon icon="mdi:file-music" className="w-10 h-10 text-purple-500" />;
+      return <Icon icon="lucide:music" className="w-10 h-10 text-purple-500" />;
     }
     // Boshqa fayllar (default)
-    return <Icon icon="mdi:file" className="w-10 h-10 text-gray-500" />;
+    return <Icon icon="lucide:file" className="w-10 h-10 text-gray-500" />;
   };
 
   const downloadFile = (fileUrl: string, _fileName: string) => {
@@ -258,7 +258,7 @@ const Archive = () => {
                         className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         title="Yuklab olish"
                       >
-                        <Icon icon="mdi:download" className="w-5 h-5" />
+                        <Icon icon="lucide:download" className="w-5 h-5" />
                       </button>
                     </td>
                   </tr>

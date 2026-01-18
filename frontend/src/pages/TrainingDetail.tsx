@@ -295,7 +295,7 @@ export default function TrainingDetail() {
                                 : 'bg-gray-200 border-gray-300 text-gray-500'
                             }`}>
                               {isCompleted ? (
-                                <Icon icon="mdi:check" className="w-6 h-6" />
+                                <Icon icon="lucide:check" className="w-6 h-6" />
                               ) : (
                                 <span className="text-sm font-bold">{index + 1}</span>
                               )}
@@ -375,9 +375,9 @@ export default function TrainingDetail() {
                                 : 'bg-gray-100 border-gray-300 text-gray-600'
                             }`}>
                               {isRead ? (
-                                <Icon icon="mdi:check" className="w-5 h-5" />
+                                <Icon icon="lucide:check" className="w-5 h-5" />
                               ) : isCompleted ? (
-                                <Icon icon="mdi:check" className="w-5 h-5" />
+                                <Icon icon="lucide:check" className="w-5 h-5" />
                               ) : (
                                 <span className="text-sm font-bold">{stageIndex + 1}</span>
                               )}
@@ -393,7 +393,7 @@ export default function TrainingDetail() {
                             <div className="flex items-center gap-2 flex-wrap">
                               {isRead && (
                                 <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                                  <Icon icon="mdi:check" className="w-3 h-3" />
+                                  <Icon icon="lucide:check" className="w-3 h-3" />
                                   O'qildi
                                 </span>
                               )}
@@ -440,7 +440,7 @@ export default function TrainingDetail() {
                         {/* Maqolani o'qish linki */}
                         <div className="flex items-center gap-2 text-blue-600 font-medium text-sm mt-auto pt-2 border-t border-gray-100">
                           <span>Maqolani o'qish</span>
-                          <Icon icon="mdi:chevron-right" className="w-4 h-4" />
+                          <Icon icon="lucide:chevron-right" className="w-4 h-4" />
                         </div>
                       </div>
                     </div>

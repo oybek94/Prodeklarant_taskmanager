@@ -113,12 +113,12 @@ export default function ExamResult() {
           >
             {result.passed ? (
               <>
-                <Icon icon="mdi:check-circle" className="w-6 h-6 mr-2" />
+                <Icon icon="lucide:check-circle-2" className="w-6 h-6 mr-2" />
                 O'tdingiz!
               </>
             ) : (
               <>
-                <Icon icon="mdi:close-circle" className="w-6 h-6 mr-2" />
+                <Icon icon="lucide:x-circle" className="w-6 h-6 mr-2" />
                 O'ta olmadingiz
               </>
             )}

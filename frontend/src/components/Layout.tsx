@@ -50,15 +50,15 @@ const Layout = () => {
   };
 
   const navItems = [
-    ...(user?.role === 'ADMIN' ? [{ path: '/dashboard', label: 'Dashboard', icon: 'mdi:view-dashboard' }] : []),
-    { path: '/tasks', label: 'Vazifalar', icon: 'mdi:clipboard-list' },
-    { path: '/transactions', label: 'Tranzaksiyalar', icon: 'mdi:cash-multiple' },
-    ...(user?.role === 'ADMIN' ? [{ path: '/invoices', label: 'Hisob-fakturalar', icon: 'mdi:file-document-multiple' }] : []),
-    ...(user?.role === 'ADMIN' ? [{ path: '/clients', label: 'Mijozlar', icon: 'mdi:account-group' }] : []),
-    { path: '/training', label: 'O\'qitish', icon: 'mdi:school' },
-    ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'mdi:account-hard-hat' }] : []),
-    ...(user?.role === 'ADMIN' ? [{ path: '/settings', label: 'Sozlamalar', icon: 'mdi:cog' }] : []),
-    { path: '/profile', label: 'Profil', icon: 'mdi:account' },
+    ...(user?.role === 'ADMIN' ? [{ path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' }] : []),
+    { path: '/tasks', label: 'Vazifalar', icon: 'lucide:clipboard-list' },
+    { path: '/transactions', label: 'Tranzaksiyalar', icon: 'lucide:receipt' },
+    ...(user?.role === 'ADMIN' ? [{ path: '/invoices', label: 'Hisob-fakturalar', icon: 'lucide:file-text' }] : []),
+    ...(user?.role === 'ADMIN' ? [{ path: '/clients', label: 'Mijozlar', icon: 'lucide:users' }] : []),
+    { path: '/training', label: 'O\'qitish', icon: 'lucide:graduation-cap' },
+    ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'lucide:user-cog' }] : []),
+    ...(user?.role === 'ADMIN' ? [{ path: '/settings', label: 'Sozlamalar', icon: 'lucide:settings' }] : []),
+    { path: '/profile', label: 'Profil', icon: 'lucide:user' },
   ];
 
   return (
@@ -73,7 +73,7 @@ const Layout = () => {
               className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
               aria-label="Toggle sidebar"
             >
-              <Icon icon="mdi:menu" className="w-5 h-5 text-gray-600" />
+              <Icon icon="lucide:menu" className="w-5 h-5 text-gray-600" />
             </button>
           </div>
         )}
@@ -92,7 +92,7 @@ const Layout = () => {
               className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
               aria-label="Toggle sidebar"
             >
-              <Icon icon="mdi:close" className="w-5 h-5 text-gray-600" />
+              <Icon icon="lucide:x" className="w-5 h-5 text-gray-600" />
             </button>
           </div>
         )}
@@ -105,7 +105,7 @@ const Layout = () => {
               className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
               aria-label="Toggle sidebar"
             >
-              <Icon icon="mdi:menu" className="w-5 h-5 text-gray-600" />
+              <Icon icon="lucide:menu" className="w-5 h-5 text-gray-600" />
             </button>
             <h1 className="text-lg font-bold text-gray-900">Prodeklarant</h1>
           </div>
@@ -125,7 +125,7 @@ const Layout = () => {
               className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
               aria-label="Toggle sidebar"
             >
-              <Icon icon="mdi:close" className="w-5 h-5 text-gray-600" />
+              <Icon icon="lucide:x" className="w-5 h-5 text-gray-600" />
             </button>
           </div>
         )}
@@ -165,7 +165,7 @@ const Layout = () => {
             className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors`}
             title={!sidebarOpen ? 'Chiqish' : ''}
           >
-            <Icon icon="mdi:logout" className="w-5 h-5 flex-shrink-0" />
+            <Icon icon="lucide:log-out" className="w-5 h-5 flex-shrink-0" />
             {sidebarOpen && <span>Chiqish</span>}
           </button>
         </div>

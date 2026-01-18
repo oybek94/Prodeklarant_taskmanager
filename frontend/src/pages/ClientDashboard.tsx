@@ -241,11 +241,11 @@ const ClientDashboard = () => {
                 <p className="text-3xl font-bold text-gray-900">{completedTasks}</p>
               </div>
               <div className="w-16 h-16 bg-emerald-100 rounded-lg flex items-center justify-center">
-                <Icon icon="mdi:check-circle-outline" className="w-8 h-8 text-emerald-600" />
+                <Icon icon="lucide:check-circle-2" className="w-8 h-8 text-emerald-600" />
               </div>
             </div>
             <div className="flex items-center text-xs text-gray-500">
-              <Icon icon="mdi:chevron-down" className="w-4 h-4 mr-1 text-emerald-500" />
+              <Icon icon="lucide:chevron-down" className="w-4 h-4 mr-1 text-emerald-500" />
               {tasks.length > 0 ? `${tasks.length} ta jami ish` : 'Ishlar mavjud emas'}
             </div>
           </div>
@@ -258,11 +258,11 @@ const ClientDashboard = () => {
                 <p className="text-3xl font-bold text-gray-900">{activeTasks}</p>
               </div>
               <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Icon icon="mdi:clock-outline" className="w-8 h-8 text-blue-600" />
+                <Icon icon="lucide:clock" className="w-8 h-8 text-blue-600" />
               </div>
             </div>
             <div className="flex items-center text-xs text-gray-500">
-              <Icon icon="mdi:chevron-down" className="w-4 h-4 mr-1 text-blue-500" />
+              <Icon icon="lucide:chevron-down" className="w-4 h-4 mr-1 text-blue-500" />
               {activeTasks > 0 ? `${activeTasks} ta ish jarayonda` : 'Jarayondagi ishlar yo\'q'}
             </div>
           </div>
@@ -277,11 +277,11 @@ const ClientDashboard = () => {
                 </p>
               </div>
               <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Icon icon="mdi:cash" className="w-8 h-8 text-purple-600" />
+                <Icon icon="lucide:dollar-sign" className="w-8 h-8 text-purple-600" />
               </div>
             </div>
             <div className="flex items-center text-xs text-gray-500">
-              <Icon icon="mdi:chevron-down" className="w-4 h-4 mr-1 text-purple-500" />
+              <Icon icon="lucide:chevron-down" className="w-4 h-4 mr-1 text-purple-500" />
               {transactions.length} ta tranzaksiya
             </div>
           </div>
@@ -314,7 +314,7 @@ const ClientDashboard = () => {
                       >
                         <div className="flex items-start gap-4">
                           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                            <Icon icon="mdi:clipboard-text-outline" className="w-5 h-5 text-blue-600" />
+                            <Icon icon="lucide:clipboard-list" className="w-5 h-5 text-blue-600" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-2">
@@ -324,7 +324,7 @@ const ClientDashboard = () => {
                                 </h3>
                                 <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                                   <span className="flex items-center gap-1">
-                                    <Icon icon="mdi:clock-outline" className="w-3 h-3" />
+                                    <Icon icon="lucide:clock" className="w-3 h-3" />
                                     {new Date(task.createdAt).toLocaleDateString('uz-UZ', {
                                       month: 'short',
                                       day: 'numeric',
@@ -388,7 +388,7 @@ const ClientDashboard = () => {
                       className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                     >
                       <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Icon icon="mdi:cash" className="w-5 h-5 text-purple-600" />
+                        <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-purple-600" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm">

@@ -417,10 +417,10 @@ const Dashboard = () => {
         {/* Completed Tasks Summary */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           {[
-            { key: 'today', title: 'Bugun', suffix: 'kechagidan', icon: 'mdi:calendar-today', accent: 'text-emerald-600', spark: '#34d399', showChart: false },
-            { key: 'week', title: 'Haftalik', suffix: 'o‘tgan haftadan', icon: 'mdi:calendar-week', accent: 'text-blue-600', spark: '#60a5fa', showChart: true },
-            { key: 'month', title: 'Oylik', suffix: 'o‘tgan oydan', icon: 'mdi:calendar-month', accent: 'text-purple-600', spark: '#a78bfa', showChart: true },
-            { key: 'year', title: 'Yillik', suffix: 'o‘tgan yildan', icon: 'mdi:calendar', accent: 'text-orange-600', spark: '#fb923c', showChart: true },
+            { key: 'today', title: 'Bugun', suffix: 'kechagidan', icon: 'lucide:calendar', accent: 'text-emerald-600', spark: '#34d399', showChart: false },
+            { key: 'week', title: 'Haftalik', suffix: 'o‘tgan haftadan', icon: 'lucide:calendar-range', accent: 'text-blue-600', spark: '#60a5fa', showChart: true },
+            { key: 'month', title: 'Oylik', suffix: 'o‘tgan oydan', icon: 'lucide:calendar-days', accent: 'text-purple-600', spark: '#a78bfa', showChart: true },
+            { key: 'year', title: 'Yillik', suffix: 'o‘tgan yildan', icon: 'lucide:calendar', accent: 'text-orange-600', spark: '#fb923c', showChart: true },
           ].map((item) => {
             const data = completedSummary?.[item.key as keyof CompletedSummary];
             const delta = data?.deltaPercent ?? null;
@@ -629,7 +629,7 @@ const Dashboard = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Icon icon="mdi:target" className="w-6 h-6 text-blue-600" />
+                  <Icon icon="lucide:target" className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Yillik maqsad</h2>
@@ -758,7 +758,7 @@ const Dashboard = () => {
             const isPositive = totalProfit >= 0;
             const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
             const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
-            const icon = isPositive ? 'mdi:trending-up' : 'mdi:trending-down';
+            const icon = isPositive ? 'lucide:trending-up' : 'lucide:trending-down';
 
             return (
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
@@ -845,7 +845,7 @@ const Dashboard = () => {
             const isPositive = totalProfit >= 0;
             const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
             const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
-            const icon = isPositive ? 'mdi:trending-up' : 'mdi:trending-down';
+            const icon = isPositive ? 'lucide:trending-up' : 'lucide:trending-down';
 
             return (
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
@@ -932,7 +932,7 @@ const Dashboard = () => {
             const isPositive = totalProfit >= 0;
             const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
             const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
-            const icon = isPositive ? 'mdi:trending-up' : 'mdi:trending-down';
+            const icon = isPositive ? 'lucide:trending-up' : 'lucide:trending-down';
 
             return (
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
@@ -1019,7 +1019,7 @@ const Dashboard = () => {
             const isPositive = totalProfit >= 0;
             const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
             const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
-            const icon = isPositive ? 'mdi:trending-up' : 'mdi:trending-down';
+            const icon = isPositive ? 'lucide:trending-up' : 'lucide:trending-down';
 
             return (
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">

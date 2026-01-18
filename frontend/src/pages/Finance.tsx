@@ -325,7 +325,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Jami balans (USD)</p>
                       <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="mdi:cash" className="w-6 h-6 text-green-600" />
+                        <Icon icon="lucide:dollar-sign" className="w-6 h-6 text-green-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.USD.balances.total)}</p>
@@ -335,7 +335,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Naqt pul (USD)</p>
                       <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="mdi:wallet-outline" className="w-6 h-6 text-blue-600" />
+                        <Icon icon="lucide:wallet" className="w-6 h-6 text-blue-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.USD.balances.cash)}</p>
@@ -345,7 +345,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Karta (USD)</p>
                       <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="mdi:credit-card-outline" className="w-6 h-6 text-purple-600" />
+                        <Icon icon="lucide:credit-card" className="w-6 h-6 text-purple-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.USD.balances.card)}</p>
@@ -355,7 +355,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Jami qarz (USD)</p>
                       <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="mdi:alert-circle-outline" className="w-6 h-6 text-red-600" />
+                        <Icon icon="lucide:alert-circle" className="w-6 h-6 text-red-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-red-600">{formatCurrency(statistics.USD.debts.total)}</p>
@@ -381,7 +381,7 @@ const Finance = () => {
                       <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${
                         statistics.USD.netBalance >= 0 ? 'bg-green-100' : 'bg-red-100'
                       }`}>
-                        <Icon icon="mdi:chart-line" className={`w-8 h-8 ${statistics.USD.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                        <Icon icon="lucide:trending-up" className={`w-8 h-8 ${statistics.USD.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
                       </div>
                     </div>
                   </div>
@@ -398,7 +398,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Jami balans (UZS)</p>
                       <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="mdi:cash" className="w-6 h-6 text-green-600" />
+                        <Icon icon="lucide:dollar-sign" className="w-6 h-6 text-green-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.UZS.balances.total)}</p>
@@ -408,7 +408,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Naqt pul (UZS)</p>
                       <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="mdi:wallet-outline" className="w-6 h-6 text-blue-600" />
+                        <Icon icon="lucide:wallet" className="w-6 h-6 text-blue-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.UZS.balances.cash)}</p>
@@ -418,7 +418,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Karta (UZS)</p>
                       <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="mdi:credit-card-outline" className="w-6 h-6 text-purple-600" />
+                        <Icon icon="lucide:credit-card" className="w-6 h-6 text-purple-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.UZS.balances.card)}</p>
@@ -428,7 +428,7 @@ const Finance = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-gray-600">Jami qarz (UZS)</p>
                       <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="mdi:alert-circle-outline" className="w-6 h-6 text-red-600" />
+                        <Icon icon="lucide:alert-circle" className="w-6 h-6 text-red-600" />
                       </div>
                     </div>
                     <p className="text-2xl font-bold text-red-600">{formatCurrency(statistics.UZS.debts.total)}</p>
@@ -454,7 +454,7 @@ const Finance = () => {
                       <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${
                         statistics.UZS.netBalance >= 0 ? 'bg-green-100' : 'bg-red-100'
                       }`}>
-                        <Icon icon="mdi:chart-line" className={`w-8 h-8 ${statistics.UZS.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                        <Icon icon="lucide:trending-up" className={`w-8 h-8 ${statistics.UZS.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
                       </div>
                     </div>
                   </div>
@@ -491,9 +491,9 @@ const Finance = () => {
                       balance.type === 'CASH' ? 'bg-blue-100' : 'bg-purple-100'
                     }`}>
                       {balance.type === 'CASH' ? (
-                        <Icon icon="mdi:wallet-outline" className="w-6 h-6 text-blue-600" />
+                        <Icon icon="lucide:wallet" className="w-6 h-6 text-blue-600" />
                       ) : (
-                        <Icon icon="mdi:credit-card-outline" className="w-6 h-6 text-purple-600" />
+                        <Icon icon="lucide:credit-card" className="w-6 h-6 text-purple-600" />
                       )}
                     </div>
                     <div>
@@ -630,7 +630,7 @@ const Finance = () => {
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <Icon icon="mdi:close" className="w-6 h-6" />
+                <Icon icon="lucide:x" className="w-6 h-6" />
               </button>
             </div>
             <div className="space-y-4">
@@ -744,7 +744,7 @@ const Finance = () => {
                 onClick={() => setShowDebtModal(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <Icon icon="mdi:close" className="w-6 h-6" />
+                <Icon icon="lucide:x" className="w-6 h-6" />
               </button>
             </div>
             <div className="space-y-4">
@@ -845,7 +845,7 @@ const Finance = () => {
                 onClick={() => setShowConvertModal(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <Icon icon="mdi:close" className="w-6 h-6" />
+                <Icon icon="lucide:x" className="w-6 h-6" />
               </button>
             </div>
             <div className="space-y-4">

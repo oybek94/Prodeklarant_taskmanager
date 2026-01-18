@@ -137,7 +137,7 @@ export default function TrainingManagement() {
           onClick={handleAdd}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
         >
-          <Icon icon="mdi:plus" className="w-5 h-5" />
+          <Icon icon="lucide:plus" className="w-5 h-5" />
           Yangi Kurs
         </button>
       </div>

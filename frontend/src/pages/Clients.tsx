@@ -510,7 +510,7 @@ const Clients = () => {
           onClick={() => setShowForm(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
         >
-          <Icon icon="mdi:plus" className="w-5 h-5" />
+          <Icon icon="lucide:plus" className="w-5 h-5" />
           Add New
         </button>
       </div>
@@ -538,7 +538,7 @@ const Clients = () => {
             </div>
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="mdi:account-group" className="w-6 h-6 text-white" />
+                <Icon icon="lucide:users" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.total.current}</div>
@@ -565,7 +565,7 @@ const Clients = () => {
             </div>
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="mdi:check-circle-outline" className="w-6 h-6 text-white" />
+                <Icon icon="lucide:check-circle-2" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.active.current}</div>
@@ -592,7 +592,7 @@ const Clients = () => {
             </div>
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="mdi:close-circle-outline" className="w-6 h-6 text-white" />
+                <Icon icon="lucide:x-circle" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.inactive.current}</div>
@@ -619,7 +619,7 @@ const Clients = () => {
             </div>
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="mdi:archive-outline" className="w-6 h-6 text-white" />
+                <Icon icon="lucide:archive" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.archived.current}</div>
@@ -901,14 +901,14 @@ const Clients = () => {
                           className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                           title="O'zgartirish"
                         >
-                          <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+                          <Icon icon="lucide:pencil" className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(client.id)}
                           className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
                           title="O'chirish"
                         >
-                          <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+                          <Icon icon="lucide:trash-2" className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -1043,7 +1043,7 @@ const Clients = () => {
             {(selectedClient.creditType || selectedClient.creditLimit) && (
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <Icon icon="mdi:shield-check-outline" className="w-5 h-5 text-blue-600" />
+                  <Icon icon="lucide:shield-check" className="w-5 h-5 text-blue-600" />
                   Kelishuv shartlari (Nasiya)
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

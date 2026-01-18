@@ -114,7 +114,7 @@ export default function Training() {
 
                 {training.progress.completed && (
                   <div className="mt-3 flex items-center text-green-600 text-sm">
-                    <Icon icon="mdi:check-circle" className="w-5 h-5 mr-1" />
+                    <Icon icon="lucide:check-circle-2" className="w-5 h-5 mr-1" />
                     Tugallangan
                   </div>
                 )}

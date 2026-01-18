@@ -231,7 +231,7 @@ const Workers = () => {
                         }}
                         className="text-gray-400 hover:text-gray-600 p-1"
                       >
-                        <Icon icon="mdi:dots-vertical" className="w-5 h-5" />
+                        <Icon icon="lucide:more-vertical" className="w-5 h-5" />
                       </button>
                       {openMenuId === worker.id && (
                         <div 
@@ -242,14 +242,14 @@ const Workers = () => {
                             onClick={() => handleEdit(worker)}
                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                           >
-                            <Icon icon="mdi:pencil-outline" className="w-4 h-4 text-blue-600" />
+                            <Icon icon="lucide:pencil" className="w-4 h-4 text-blue-600" />
                             O'zgartirish
                           </button>
                           <button
                             onClick={() => handleDelete(worker.id)}
                             className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                           >
-                            <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+                            <Icon icon="lucide:trash-2" className="w-4 h-4" />
                             O'chirish
                           </button>
                         </div>
@@ -276,12 +276,12 @@ const Workers = () => {
                   {/* Email and Phone */}
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <Icon icon="mdi:email-outline" className="w-4 h-4 text-gray-400" />
+                      <Icon icon="lucide:mail" className="w-4 h-4 text-gray-400" />
                       <span className="truncate">{worker.email}</span>
                     </div>
                     {worker.phone && (
                       <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <Icon icon="mdi:phone-outline" className="w-4 h-4 text-gray-400" />
+                        <Icon icon="lucide:phone" className="w-4 h-4 text-gray-400" />
                         <span>{worker.phone}</span>
                       </div>
                     )}

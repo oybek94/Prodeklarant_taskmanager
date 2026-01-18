@@ -1195,55 +1195,55 @@ const Tasks = () => {
     
     // PDF
     if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) {
-      return <Icon icon="mdi:file-pdf-box" className="w-10 h-10 text-red-500" />;
+      return <Icon icon="lucide:file-text" className="w-10 h-10 text-red-500" />;
     }
     // Excel (xls, xlsx)
     if (lowerType.includes('excel') || lowerType.includes('spreadsheet') || 
         lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx')) {
-      return <Icon icon="mdi:file-excel-box" className="w-10 h-10 text-emerald-500" />;
+      return <Icon icon="lucide:file-spreadsheet" className="w-10 h-10 text-emerald-500" />;
     }
     // Word (doc, docx)
     if (lowerType.includes('word') || lowerType.includes('document') ||
         lowerName.endsWith('.doc') || lowerName.endsWith('.docx')) {
-      return <Icon icon="mdi:file-word-box" className="w-10 h-10 text-blue-500" />;
+      return <Icon icon="lucide:file-text" className="w-10 h-10 text-blue-500" />;
     }
     // JPG/JPEG
     if (lowerType.includes('jpeg') || lowerType.includes('jpg') ||
         lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
-      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
+      return <Icon icon="lucide:image" className="w-10 h-10 text-amber-500" />;
     }
     // PNG
     if (lowerType.includes('png') || lowerName.endsWith('.png')) {
-      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
+      return <Icon icon="lucide:image" className="w-10 h-10 text-amber-500" />;
     }
     // PPT/PPTX
     if (lowerType.includes('powerpoint') || lowerType.includes('presentation') ||
         lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx')) {
-      return <Icon icon="mdi:file-powerpoint-box" className="w-10 h-10 text-orange-500" />;
+      return <Icon icon="lucide:presentation" className="w-10 h-10 text-orange-500" />;
     }
     // RAR
     if (lowerType.includes('rar') || lowerName.endsWith('.rar')) {
-      return <Icon icon="mdi:zip-box" className="w-10 h-10 text-gray-500" />;
+      return <Icon icon="lucide:archive" className="w-10 h-10 text-gray-500" />;
     }
     // ZIP
     if (lowerType.includes('zip') || lowerName.endsWith('.zip')) {
-      return <Icon icon="mdi:zip-box" className="w-10 h-10 text-gray-500" />;
+      return <Icon icon="lucide:archive" className="w-10 h-10 text-gray-500" />;
     }
     // Rasm (boshqa formatlar)
     if (lowerType.includes('image') || lowerType.includes('gif') || lowerType.includes('webp') ||
         lowerName.match(/\.(gif|webp|bmp|svg)$/i)) {
-      return <Icon icon="mdi:file-image" className="w-10 h-10 text-amber-500" />;
+      return <Icon icon="lucide:image" className="w-10 h-10 text-amber-500" />;
     }
     // Video
     if (lowerType.includes('video') || lowerName.match(/\.(mp4|avi|mov|wmv|flv|mkv)$/i)) {
-      return <Icon icon="mdi:file-video" className="w-10 h-10 text-red-500" />;
+      return <Icon icon="lucide:video" className="w-10 h-10 text-red-500" />;
     }
     // Audio
     if (lowerType.includes('audio') || lowerName.match(/\.(mp3|wav|ogg|m4a)$/i)) {
-      return <Icon icon="mdi:file-music" className="w-10 h-10 text-purple-500" />;
+      return <Icon icon="lucide:music" className="w-10 h-10 text-purple-500" />;
     }
     // Boshqa fayllar (default)
-    return <Icon icon="mdi:file" className="w-10 h-10 text-gray-500" />;
+    return <Icon icon="lucide:file" className="w-10 h-10 text-gray-500" />;
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -1764,29 +1764,19 @@ const Tasks = () => {
       .slice(0, 2);
   };
 
-  // Calculate total duration for a task: Topshirish tayyor bo'lgan vaqt - Task yaratilgan vaqt
+  // Calculate total duration for a task: Sum of all stages' durationMin
   const calculateTotalDuration = (task: Task): { text: string; color: string } => {
     if (!task.stages || task.stages.length === 0) return { text: '-', color: 'text-gray-500' };
     
-    // Find "Topshirish" stage
-    const topshirishStage = task.stages.find((stage) => stage.name === 'Topshirish');
+    // Sum all durationMin from stages
+    const totalMinutes = task.stages.reduce((sum, stage) => {
+      return sum + (stage.durationMin || 0);
+    }, 0);
     
-    // If Topshirish is not completed, return '-'
-    if (!topshirishStage || topshirishStage.status !== 'TAYYOR' || !topshirishStage.completedAt) {
-      return { text: '-', color: 'text-gray-500' };
-    }
+    if (totalMinutes <= 0) return { text: '-', color: 'text-gray-500' };
     
-    // Calculate difference: Topshirish completedAt - Task createdAt
-    const completedAt = new Date(topshirishStage.completedAt);
-    const createdAt = new Date(task.createdAt);
-    
-    const diffMs = completedAt.getTime() - createdAt.getTime();
-    const diffMinutes = Math.floor(diffMs / 60000);
-    
-    if (diffMinutes <= 0) return { text: '-', color: 'text-gray-500' };
-    
-    const hours = Math.floor(diffMinutes / 60);
-    const minutes = diffMinutes % 60;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
     
     let text = '';
     if (hours > 0) {
@@ -1806,6 +1796,22 @@ const Tasks = () => {
     }
     
     return { text, color };
+  };
+
+  // Get BXM color based on multiplier value
+  const getBXMColor = (multiplier: number | null | undefined): string => {
+    if (!multiplier) return 'bg-gray-100 text-gray-800';
+    
+    const value = Number(multiplier);
+    if (value === 1) return 'bg-green-100 text-green-800';
+    if (value === 1.5) return 'bg-blue-100 text-blue-800';
+    if (value === 2) return 'bg-yellow-100 text-yellow-800';
+    if (value === 2.5) return 'bg-orange-100 text-orange-800';
+    if (value === 3) return 'bg-red-100 text-red-800';
+    if (value === 4) return 'bg-purple-100 text-purple-800';
+    
+    // Default for other values
+    return 'bg-gray-100 text-gray-800';
   };
 
   const renderTaskTable = (branchTasks: Task[], branchName: string) => {
@@ -1912,7 +1918,7 @@ const Tasks = () => {
                       )}
                       {isArchive && (
                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900 border-b border-blue-100">
-                          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getBXMColor(task.customsPaymentMultiplier)}`}>
                             {task.customsPaymentMultiplier ? `${task.customsPaymentMultiplier} BXM` : '-'}
                           </span>
                         </td>
@@ -1923,7 +1929,7 @@ const Tasks = () => {
                       {isArchive && (
                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900 border-b border-blue-100">
                           <div className="flex items-center gap-1.5">
-                            <Icon icon="mdi:clock-outline" className={`w-3.5 h-3.5 ${totalDuration.color}`} />
+                            <Icon icon="lucide:clock" className={`w-3.5 h-3.5 ${totalDuration.color}`} />
                             <span className={`font-medium ${totalDuration.color}`}>{totalDuration.text}</span>
                           </div>
                         </td>
@@ -2125,7 +2131,7 @@ const Tasks = () => {
                 className="relative p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all shadow-sm hover:shadow z-10"
                 title="Excel formatida yuklab olish"
               >
-                <Icon icon="mdi:file-export-outline" className="w-4 h-4" />
+                <Icon icon="lucide:download" className="w-4 h-4" />
               </button>
               {/* Search Icon - Minimalistic */}
               <button
@@ -2135,7 +2141,7 @@ const Tasks = () => {
                 }`}
                 title="Qidirish va filtrlash"
               >
-                <Icon icon="mdi:magnify" className="w-4 h-4" />
+                <Icon icon="lucide:search" className="w-4 h-4" />
                 {(archiveSearchQuery || archiveFilters.branchId || archiveFilters.clientId || archiveFilters.startDate || archiveFilters.endDate || archiveFilters.hasPsr) && (
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
                 )}
@@ -2147,7 +2153,7 @@ const Tasks = () => {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                        <Icon icon="mdi:filter-outline" className="w-4 h-4 text-white" />
+                        <Icon icon="lucide:filter" className="w-4 h-4 text-white" />
                       </div>
                       <h3 className="text-sm font-semibold text-gray-800">Qidiruv va filtrlash</h3>
                     </div>
@@ -2163,12 +2169,12 @@ const Tasks = () => {
                     {/* Search */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                        <Icon icon="mdi:magnify" className="w-3.5 h-3.5 text-blue-600" />
+                        <Icon icon="lucide:search" className="w-3.5 h-3.5 text-blue-600" />
                         Qidirish
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Icon icon="mdi:magnify" className="w-4 h-4 text-gray-400" />
+                          <Icon icon="lucide:search" className="w-4 h-4 text-gray-400" />
                         </div>
                         <input
                           type="text"
@@ -2183,7 +2189,7 @@ const Tasks = () => {
                             onClick={() => setArchiveSearchQuery('')}
                             className="absolute inset-y-0 right-0 pr-3 flex items-center"
                           >
-                            <Icon icon="mdi:close" className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 transition-colors" />
+                            <Icon icon="lucide:x" className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 transition-colors" />
                           </button>
                         )}
                       </div>
@@ -2192,12 +2198,12 @@ const Tasks = () => {
                     {/* Branch Filter */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                        <Icon icon="mdi:office-building-outline" className="w-3.5 h-3.5 text-blue-600" />
+                        <Icon icon="lucide:building" className="w-3.5 h-3.5 text-blue-600" />
                         Filial
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Icon icon="mdi:office-building-outline" className="w-4 h-4 text-gray-400" />
+                          <Icon icon="lucide:building" className="w-4 h-4 text-gray-400" />
                         </div>
                         <select
                           value={archiveFilters.branchId}
@@ -2217,12 +2223,12 @@ const Tasks = () => {
                     {/* Client Filter */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                        <Icon icon="mdi:account-group-outline" className="w-3.5 h-3.5 text-blue-600" />
+                        <Icon icon="lucide:users" className="w-3.5 h-3.5 text-blue-600" />
                         Mijoz
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Icon icon="mdi:account-group-outline" className="w-4 h-4 text-gray-400" />
+                          <Icon icon="lucide:users" className="w-4 h-4 text-gray-400" />
                         </div>
                         <select
                           value={archiveFilters.clientId}
@@ -2242,13 +2248,13 @@ const Tasks = () => {
                     {/* Date Range */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                        <Icon icon="mdi:calendar-range" className="w-3.5 h-3.5 text-blue-600" />
+                        <Icon icon="lucide:calendar-range" className="w-3.5 h-3.5 text-blue-600" />
                         Sana oralig'i
                       </label>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                            <Icon icon="mdi:calendar-outline" className="w-3.5 h-3.5 text-gray-400" />
+                            <Icon icon="lucide:calendar" className="w-3.5 h-3.5 text-gray-400" />
                           </div>
                           <input
                             type="date"
@@ -2260,7 +2266,7 @@ const Tasks = () => {
                         </div>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                            <Icon icon="mdi:calendar-outline" className="w-3.5 h-3.5 text-gray-400" />
+                            <Icon icon="lucide:calendar" className="w-3.5 h-3.5 text-gray-400" />
                           </div>
                           <input
                             type="date"
@@ -2276,12 +2282,12 @@ const Tasks = () => {
                     {/* PSR Filter */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                        <Icon icon="mdi:file-document-outline" className="w-3.5 h-3.5 text-blue-600" />
+                        <Icon icon="lucide:file-text" className="w-3.5 h-3.5 text-blue-600" />
                         PSR
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-gray-400" />
+                          <Icon icon="lucide:file-text" className="w-4 h-4 text-gray-400" />
                         </div>
                         <select
                           value={archiveFilters.hasPsr}
@@ -2298,7 +2304,7 @@ const Tasks = () => {
                     {/* Results Count */}
                     <div className="pt-3 border-t border-gray-200">
                       <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <Icon icon="mdi:file-document-multiple-outline" className="w-3.5 h-3.5 text-blue-600" />
+                        <Icon icon="lucide:files" className="w-3.5 h-3.5 text-blue-600" />
                         <span className="font-medium text-gray-700">
                           {filteredArchiveTasks.length} ta natija
                         </span>
@@ -2317,7 +2323,7 @@ const Tasks = () => {
                         }}
                         className="w-full px-4 py-2 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 rounded-lg font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md border border-gray-300"
                       >
-                        <Icon icon="mdi:close-circle-outline" className="w-3.5 h-3.5" />
+                        <Icon icon="lucide:x-circle" className="w-3.5 h-3.5" />
                         Filtrlarni tozalash
                       </button>
                     )}
@@ -2354,7 +2360,7 @@ const Tasks = () => {
               return (
                 <div className={`absolute top-3 right-3 ${changeInfo.bgColor} ${changeInfo.color} text-xs font-medium px-2 py-1 rounded shadow-md backdrop-blur-sm`}>
                   <span className="inline-flex items-center">
-                    <Icon icon={change >= 0 ? "mdi:trending-up" : "mdi:trending-down"} className="w-3 h-3 mr-1" />
+                    <Icon icon={change >= 0 ? "lucide:trending-up" : "lucide:trending-down"} className="w-3 h-3 mr-1" />
                     {changeInfo.text}
                   </span>
                 </div>
@@ -2362,7 +2368,7 @@ const Tasks = () => {
             })()}
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="mdi:calendar-outline" className="w-6 h-6 text-white" />
+                <Icon icon="lucide:calendar" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.daily.current}</div>
@@ -2381,7 +2387,7 @@ const Tasks = () => {
               return (
                 <div className={`absolute top-3 right-3 ${changeInfo.bgColor} ${changeInfo.color} text-xs font-medium px-2 py-1 rounded shadow-md backdrop-blur-sm`}>
                   <span className="inline-flex items-center">
-                    <Icon icon={change >= 0 ? "mdi:trending-up" : "mdi:trending-down"} className="w-3 h-3 mr-1" />
+                    <Icon icon={change >= 0 ? "lucide:trending-up" : "lucide:trending-down"} className="w-3 h-3 mr-1" />
                     {changeInfo.text}
                   </span>
                 </div>
@@ -2389,7 +2395,7 @@ const Tasks = () => {
             })()}
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="mdi:swap-horizontal" className="w-6 h-6 text-white" />
+                <Icon icon="lucide:arrow-left-right" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.weekly.current}</div>
@@ -2408,7 +2414,7 @@ const Tasks = () => {
               return (
                 <div className={`absolute top-3 right-3 ${changeInfo.bgColor} ${changeInfo.color} text-xs font-medium px-2 py-1 rounded shadow-md backdrop-blur-sm`}>
                   <span className="inline-flex items-center">
-                    <Icon icon={change >= 0 ? "mdi:trending-up" : "mdi:trending-down"} className="w-3 h-3 mr-1" />
+                    <Icon icon={change >= 0 ? "lucide:trending-up" : "lucide:trending-down"} className="w-3 h-3 mr-1" />
                     {changeInfo.text}
                   </span>
                 </div>
@@ -2416,7 +2422,7 @@ const Tasks = () => {
             })()}
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="mdi:chart-bar" className="w-6 h-6 text-white" />
+                <Icon icon="lucide:bar-chart-3" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.monthly.current}</div>
@@ -2435,7 +2441,7 @@ const Tasks = () => {
               return (
                 <div className={`absolute top-3 right-3 ${changeInfo.bgColor} ${changeInfo.color} text-xs font-medium px-2 py-1 rounded shadow-md backdrop-blur-sm`}>
                   <span className="inline-flex items-center">
-                    <Icon icon={change >= 0 ? "mdi:trending-up" : "mdi:trending-down"} className="w-3 h-3 mr-1" />
+                    <Icon icon={change >= 0 ? "lucide:trending-up" : "lucide:trending-down"} className="w-3 h-3 mr-1" />
                     {changeInfo.text}
                   </span>
                 </div>
@@ -2443,7 +2449,7 @@ const Tasks = () => {
             })()}
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="mdi:chart-bar" className="w-6 h-6 text-white" />
+                <Icon icon="lucide:bar-chart-3" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.yearly.current}</div>
@@ -2485,7 +2491,7 @@ const Tasks = () => {
                 {/* 1. Task name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:text-box-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
                     Task name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -2501,7 +2507,7 @@ const Tasks = () => {
                 {/* 2. Mijoz */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:account-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:user" className="w-4 h-4 text-blue-600" />
                     Mijoz <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -2522,7 +2528,7 @@ const Tasks = () => {
                 {/* 3. Filial - Button style */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:office-building-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
                     Filial <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
@@ -2590,7 +2596,7 @@ const Tasks = () => {
                 {/* 4. PSR - Button style */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
                     PSR <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
@@ -2622,7 +2628,7 @@ const Tasks = () => {
                 {/* 5. Sho'pir telefon raqami */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:phone-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
                     Sho'pir tel raqami
                   </label>
                   <input
@@ -2637,7 +2643,7 @@ const Tasks = () => {
                 {/* 6. Comments */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:comment-text-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
                     Comments
                   </label>
                   <textarea
@@ -2709,7 +2715,7 @@ const Tasks = () => {
                   className="p-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
                   title="Xato"
                 >
-                  <Icon icon="mdi:alert" className="w-5 h-5" />
+                  <Icon icon="lucide:alert-circle" className="w-5 h-5" />
                 </button>
                 {/* Faqat task yaratgan ishchi o'zgartira oladi */}
                 {selectedTask.createdBy && user && selectedTask.createdBy.id === user.id && (
@@ -2730,7 +2736,7 @@ const Tasks = () => {
                     className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     title="O'zgartirish"
                   >
-                    <Icon icon="mdi:pencil-outline" className="w-5 h-5" />
+                    <Icon icon="lucide:pencil" className="w-5 h-5" />
                   </button>
                 )}
                 {/* Task o'chirish: faqat barcha jarayonlar BOSHLANMAGAN bo'lsa va task Jarayonda bo'lmasa */}
@@ -2753,14 +2759,14 @@ const Tasks = () => {
                     className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                     title="O'chirish"
                   >
-                    <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
+                    <Icon icon="lucide:trash-2" className="w-5 h-5" />
                   </button>
                 )}
                 <button
                   onClick={() => downloadStickerPng(selectedTask.id)}
                   className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1.5"
                 >
-                  <Icon icon="mdi:download" className="w-4 h-4" />
+                  <Icon icon="lucide:download" className="w-4 h-4" />
                   Stiker
                 </button>
                 <button
@@ -2829,7 +2835,7 @@ const Tasks = () => {
             {/* PSR Information */}
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <Icon icon="mdi:file-document-outline" className="w-5 h-5 text-blue-600" />
+                <Icon icon="lucide:file-text" className="w-5 h-5 text-blue-600" />
                 <div className="text-sm font-semibold text-blue-800">PSR Ma'lumotlari</div>
               </div>
               <div className="space-y-2">
@@ -2845,7 +2851,7 @@ const Tasks = () => {
                 </div>
                 {selectedTask.driverPhone && (
                   <div className="flex items-center gap-2">
-                    <Icon icon="mdi:phone-outline" className="w-4 h-4 text-gray-500" />
+                    <Icon icon="lucide:phone" className="w-4 h-4 text-gray-500" />
                     <span className="text-sm text-gray-600">Sho'pir tel raqami:</span>
                     <span className="text-sm font-medium text-gray-800">{selectedTask.driverPhone}</span>
                   </div>
@@ -2890,7 +2896,7 @@ const Tasks = () => {
                     const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
                     const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
                     const netProfitDisplay = dealAmount - branchPayments;
-                    return netProfitDisplay >= 0 ? 'mdi:currency-usd' : 'mdi:alert-circle';
+                    return netProfitDisplay >= 0 ? 'lucide:dollar-sign' : 'lucide:alert-circle';
                   })()} className={`w-5 h-5 ${(() => {
                     const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
                       + getPsrAmount(selectedTask);
@@ -3089,7 +3095,7 @@ const Tasks = () => {
             {selectedTask.comments && (
               <div className="mb-6">
                 <div className="text-sm text-gray-500 mb-1 flex items-center gap-2">
-                  <Icon icon="mdi:comment-text-outline" className="w-4 h-4 text-blue-600" />
+                  <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
                   Izohlar
                 </div>
                 <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
@@ -3161,7 +3167,7 @@ const Tasks = () => {
                           }}
                         >
                           {stage.status === 'TAYYOR' && (
-                            <Icon icon="mdi:check" className="w-4 h-4 text-white" />
+                            <Icon icon="lucide:check" className="w-4 h-4 text-white" />
                           )}
                         </div>
                         <label
@@ -3267,7 +3273,7 @@ const Tasks = () => {
                       className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center gap-1.5"
                       title="Barcha hujjatlarni ZIP qilib yuklab olish"
                     >
-                      <Icon icon="mdi:download" className="w-4 h-4" />
+                      <Icon icon="lucide:download" className="w-4 h-4" />
                       Barchasini yuklab olish
                     </button>
                   )}
@@ -3281,7 +3287,7 @@ const Tasks = () => {
                       }}
                       className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1.5"
                     >
-                      <Icon icon="mdi:plus" className="w-4 h-4" />
+                      <Icon icon="lucide:plus" className="w-4 h-4" />
                       Hujjat qo'shish
                     </button>
                   )}
@@ -3323,7 +3329,7 @@ const Tasks = () => {
                                 className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                                 title="Ko'rish"
                               >
-                                <Icon icon="mdi:eye-outline" className="w-5 h-5" />
+                                <Icon icon="lucide:eye" className="w-5 h-5" />
                               </button>
                             )}
                             <button
@@ -3331,7 +3337,7 @@ const Tasks = () => {
                               className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                               title="Yuklab olish"
                             >
-                              <Icon icon="mdi:download" className="w-5 h-5" />
+                              <Icon icon="lucide:download" className="w-5 h-5" />
                             </button>
                             {(() => {
                               // Admin har doim o'chira oladi
@@ -3359,7 +3365,7 @@ const Tasks = () => {
                                     className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                                     title="O'chirish (Admin)"
                                   >
-                                    <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
+                                    <Icon icon="lucide:trash-2" className="w-5 h-5" />
                                   </button>
                                 );
                               }
@@ -3374,7 +3380,7 @@ const Tasks = () => {
                                       className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                                       title="O'chirish"
                                     >
-                                      <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
+                                      <Icon icon="lucide:trash-2" className="w-5 h-5" />
                                     </button>
                                   );
                                 } else {
@@ -3409,7 +3415,7 @@ const Tasks = () => {
                                 className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
                                 title="Nusxalash"
                               >
-                                <Icon icon="mdi:content-copy" className="w-4 h-4" />
+                                <Icon icon="lucide:copy" className="w-4 h-4" />
                                 Nusxalash
                               </button>
                             </div>
@@ -3450,7 +3456,7 @@ const Tasks = () => {
                     className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
                     title="Yangilash"
                   >
-                    <Icon icon="mdi:refresh" className="w-4 h-4" />
+                    <Icon icon="lucide:refresh-cw" className="w-4 h-4" />
                     Yangilash
                   </button>
                 </div>
@@ -3681,7 +3687,7 @@ const Tasks = () => {
                   }}
                   className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
                 >
-                  <Icon icon={showVersions ? "mdi:chevron-up" : "mdi:chevron-down"} className="w-4 h-4" />
+                  <Icon icon={showVersions ? "lucide:chevron-up" : "lucide:chevron-down"} className="w-4 h-4" />
                   {showVersions ? 'Yashirish' : 'Ko\'rsatish'}
                 </button>
               </div>
@@ -4137,7 +4143,7 @@ const Tasks = () => {
                 {/* 1. Task name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:text-box-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
                     Task name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -4153,7 +4159,7 @@ const Tasks = () => {
                 {/* 2. Mijoz */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:account-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:user" className="w-4 h-4 text-blue-600" />
                     Mijoz <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -4174,7 +4180,7 @@ const Tasks = () => {
                 {/* 3. Filial - Button style */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:office-building-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
                     Filial <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
@@ -4242,7 +4248,7 @@ const Tasks = () => {
                 {/* 4. PSR - Button style */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
                     PSR <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
@@ -4274,7 +4280,7 @@ const Tasks = () => {
                 {/* 5. Sho'pir telefon raqami */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:phone-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
                     Sho'pir tel raqami
                   </label>
                   <input
@@ -4289,7 +4295,7 @@ const Tasks = () => {
                 {/* 6. Comments */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="mdi:comment-text-outline" className="w-4 h-4 text-blue-600" />
+                    <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
                     Comments
                   </label>
                   <textarea
@@ -4405,9 +4411,9 @@ const Tasks = () => {
                               setDocumentDescriptions(newDescriptions);
                             }}
                             className="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 z-10"
-                            title="O'chirish"
+                            title="O&#39;chirish"
                           >
-                            <Icon icon="mdi:close" className="w-3.5 h-3.5" />
+                            <Icon icon="lucide:x" className="w-3.5 h-3.5" />
                           </button>
                           <div className="flex-shrink-0 mb-2">
                             {getFileIcon(file.type || '', file.name)}

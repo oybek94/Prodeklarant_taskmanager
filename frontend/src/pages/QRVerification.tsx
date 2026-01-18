@@ -296,7 +296,7 @@ const QRVerification = () => {
                               className="inline-flex items-center justify-center gap-1 px-2 py-1.5 sm:px-2.5 sm:py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 hover:border-blue-300 transition-colors no-underline min-w-[36px] sm:min-w-auto"
                               title={t[language].view}
                             >
-                              <Icon icon="mdi:eye-outline" className="w-4 h-4" />
+                              <Icon icon="lucide:eye" className="w-4 h-4" />
                               <span className="hidden sm:inline">{t[language].view}</span>
                             </a>
                             <a
@@ -305,7 +305,7 @@ const QRVerification = () => {
                               className="inline-flex items-center justify-center gap-1 px-2 py-1.5 sm:px-2.5 sm:py-1.5 text-xs font-medium text-green-600 bg-green-50 border border-green-200 rounded hover:bg-green-100 hover:border-green-300 transition-colors no-underline min-w-[36px] sm:min-w-auto"
                               title={t[language].download}
                             >
-                              <Icon icon="mdi:download" className="w-4 h-4" />
+                              <Icon icon="lucide:download" className="w-4 h-4" />
                               <span className="hidden sm:inline">{t[language].download}</span>
                             </a>
                             <button
@@ -316,7 +316,7 @@ const QRVerification = () => {
                               className="inline-flex items-center justify-center gap-1 px-2 py-1.5 sm:px-2.5 sm:py-1.5 text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 rounded hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer min-w-[36px] sm:min-w-auto"
                               title={t[language].share}
                             >
-                              <Icon icon="mdi:share-variant-outline" className="w-4 h-4" />
+                              <Icon icon="lucide:share-2" className="w-4 h-4" />
                               <span className="hidden sm:inline">{t[language].share}</span>
                             </button>
                           </div>

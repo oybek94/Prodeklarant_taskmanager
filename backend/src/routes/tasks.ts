@@ -180,7 +180,15 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
             email: true,
           },
         },
-          // Stages include o'chirildi - lazy load uchun
+        stages: {
+          select: {
+            name: true,
+            status: true,
+            durationMin: true,
+            completedAt: true,
+          },
+          orderBy: { stageOrder: 'asc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
         skip,
@@ -195,27 +203,13 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     // If status filter is set, we trust the database value
     if (!status && tasks.length > 0) {
       // Only recalculate if no status filter is applied
-      // Optimize: Get all stages for all tasks in one query
-      const taskIds = tasks.map(t => t.id);
-      const allStages = await prisma.taskStage.findMany({
-        where: { taskId: { in: taskIds } },
-        select: { taskId: true, name: true, status: true },
-      });
-      
-      // Group stages by taskId
-      const stagesByTask = new Map<number, Array<{name: string, status: string}>>();
-      for (const stage of allStages) {
-        if (!stagesByTask.has(stage.taskId)) {
-          stagesByTask.set(stage.taskId, []);
-        }
-        stagesByTask.get(stage.taskId)!.push({ name: stage.name, status: stage.status });
-      }
-      
+      // Use stages from task object (already included in select)
       // Calculate status for each task
       const updates: Array<{id: number, status: TaskStatus}> = [];
       for (const task of tasks) {
-        const stages = stagesByTask.get(task.id) || [];
-        const calculatedStatus = await calculateTaskStatusFromStages(stages);
+        const stages = (task as any).stages || [];
+        const stageStatuses = stages.map((s: any) => ({ name: s.name, status: s.status }));
+        const calculatedStatus = await calculateTaskStatusFromStages(stageStatuses);
         
         // Update task object for response
         (task as any).status = calculatedStatus;

@@ -297,14 +297,14 @@ const Profile = () => {
               onClick={handleEdit}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
-              <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+              <Icon icon="lucide:pencil" className="w-4 h-4" />
               O'zgartirish
             </button>
             <button
               onClick={handleDelete}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
             >
-              <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+              <Icon icon="lucide:trash-2" className="w-4 h-4" />
               O'chirish
             </button>
           </div>

@@ -539,7 +539,7 @@ const Transactions = () => {
             </div>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
-                <Icon icon="mdi:cash" className="w-4 h-4 text-white" />
+                <Icon icon="lucide:dollar-sign" className="w-4 h-4 text-white" />
               </div>
               <div className="text-sm text-blue-100 font-medium">Oylik Kirim</div>
             </div>
@@ -564,7 +564,7 @@ const Transactions = () => {
             </div>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
-                <Icon icon="mdi:credit-card-outline" className="w-4 h-4 text-white" />
+                <Icon icon="lucide:credit-card" className="w-4 h-4 text-white" />
               </div>
               <div className="text-sm text-blue-100 font-medium">Oylik Chiqim</div>
             </div>
@@ -589,7 +589,7 @@ const Transactions = () => {
             </div>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
-                <Icon icon="mdi:chart-line" className="w-4 h-4 text-white" />
+                <Icon icon="lucide:trending-up" className="w-4 h-4 text-white" />
               </div>
               <div className="text-sm text-blue-100 font-medium">Foyda</div>
             </div>
@@ -1146,14 +1146,14 @@ const Transactions = () => {
                             className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                             title="O'zgartirish"
                           >
-                          <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+                          <Icon icon="lucide:pencil" className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(t.id)}
                             className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
                             title="O'chirish"
                           >
-                          <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+                          <Icon icon="lucide:trash-2" className="w-4 h-4" />
                           </button>
                         </div>
                       ) : (

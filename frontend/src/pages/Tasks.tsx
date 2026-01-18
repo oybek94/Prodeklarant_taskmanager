@@ -3162,24 +3162,23 @@ const Tasks = () => {
                     <button
                       onClick={async () => {
                         try {
-                          const baseUrl = apiClient.defaults.baseURL || 'http://localhost:3001/api';
-                          const serverBaseUrl = baseUrl.replace('/api', '');
-                          const url = `${serverBaseUrl}/api/documents/task/${selectedTask?.id}/download-all`;
-                          
-                          // Token bilan so'rov yuborish
-                          const accessToken = localStorage.getItem('accessToken');
-                          const response = await fetch(url, {
-                            headers: {
-                              'Authorization': `Bearer ${accessToken}`,
-                            },
-                          });
-
-                          if (!response.ok) {
-                            throw new Error('Yuklab olishda xatolik');
+                          if (!selectedTask?.id) {
+                            throw new Error('Task topilmadi');
                           }
 
-                          // Blob olish va yuklab olish
-                          const blob = await response.blob();
+                          const response = await apiClient.get(`/documents/task/${selectedTask.id}/download-all`, {
+                            responseType: 'blob',
+                          });
+
+                          // Agar backend JSON xatolik yuborsa, uni parse qilish
+                          if (response.data?.type === 'application/json') {
+                            const text = await response.data.text();
+                            const errorData = JSON.parse(text);
+                            throw new Error(errorData.error || errorData.message || 'Yuklab olishda xatolik');
+                          }
+
+                          const blobType = response.data?.type || 'application/zip';
+                          const blob = new Blob([response.data], { type: blobType });
                           const downloadUrl = window.URL.createObjectURL(blob);
                           const link = document.createElement('a');
                           link.href = downloadUrl;
@@ -3190,7 +3189,17 @@ const Tasks = () => {
                           window.URL.revokeObjectURL(downloadUrl);
                         } catch (error: any) {
                           console.error('Error downloading ZIP:', error);
-                          alert(error.message || 'Yuklab olishda xatolik');
+                          let message = error?.message || 'Yuklab olishda xatolik';
+                          if (error?.response?.data instanceof Blob) {
+                            try {
+                              const text = await error.response.data.text();
+                              const data = JSON.parse(text);
+                              message = data.error || data.message || message;
+                            } catch {
+                              // ignore
+                            }
+                          }
+                          alert(message);
                         }
                       }}
                       className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center gap-1.5"

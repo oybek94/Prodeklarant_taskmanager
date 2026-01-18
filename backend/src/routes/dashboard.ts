@@ -97,7 +97,8 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
           return stage.completedAt;
         }
       }
-      return task.updatedAt;
+      // If no completion stage timestamp exists, do not count it as completed today.
+      return null;
     };
 
     const completionDates = completedTasks.map((task) => ({
@@ -130,6 +131,8 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
     const countRange = (range: { start: Date; end: Date }) => {
       const countedTaskIds = new Set<number>();
       let count = 0;
+      
+      // First, count tasks from completionDates
       for (const item of completionDates) {
         if (item.date >= range.start && item.date <= range.end) {
           count += 1;
@@ -137,12 +140,23 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
         }
       }
 
+      // Group archived docs by taskId to avoid double counting
+      // (one task can have multiple documents archived)
+      const archivedTaskIds = new Set<number>();
       for (const doc of archivedDocs) {
-        if (doc.archivedAt >= range.start && doc.archivedAt <= range.end && !countedTaskIds.has(doc.taskId)) {
-          count += 1;
-          countedTaskIds.add(doc.taskId);
+        if (doc.archivedAt >= range.start && doc.archivedAt <= range.end) {
+          archivedTaskIds.add(doc.taskId);
         }
       }
+      
+      // Add archived tasks that weren't already counted
+      for (const taskId of archivedTaskIds) {
+        if (!countedTaskIds.has(taskId)) {
+          count += 1;
+          countedTaskIds.add(taskId);
+        }
+      }
+      
       return count;
     };
 
@@ -230,6 +244,38 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
         series: buildSeries(period, rangePair.current),
       };
     }
+
+    // Override "today" to match Tasks page logic (count by createdAt)
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(todayStart.getDate() - 1);
+    const yesterdayEnd = new Date(todayEnd);
+    yesterdayEnd.setDate(todayEnd.getDate() - 1);
+
+    const [todayCreatedCount, yesterdayCreatedCount] = await Promise.all([
+      prisma.task.count({
+        where: {
+          ...baseTaskWhere,
+          createdAt: { gte: todayStart, lte: todayEnd },
+        },
+      }),
+      prisma.task.count({
+        where: {
+          ...baseTaskWhere,
+          createdAt: { gte: yesterdayStart, lte: yesterdayEnd },
+        },
+      }),
+    ]);
+
+    result.today = {
+      count: todayCreatedCount,
+      deltaPercent: calcDeltaPercent(todayCreatedCount, yesterdayCreatedCount),
+      series: result.today.series,
+    };
 
     res.json(result);
   } catch (error: any) {
@@ -464,6 +510,69 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     })
     .filter((reminder) => reminder !== null);
 
+    // Calculate today's and weekly net profit from completed tasks created in range
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const weekStart = new Date(todayStart);
+    const weekDayIndex = (todayStart.getDay() + 6) % 7; // Monday = 0
+    weekStart.setDate(todayStart.getDate() - weekDayIndex);
+
+    const sumNetProfitForRange = async (start: Date, end: Date) => {
+      const rangeTasks = await prisma.task.findMany({
+        where: {
+          createdAt: { gte: start, lte: end },
+          ...(branchId ? { branchId: parseInt(branchId as string) } : {}),
+        },
+        select: {
+          id: true,
+          status: true,
+          hasPsr: true,
+          snapshotDealAmount: true,
+          snapshotPsrPrice: true,
+          snapshotCertificatePayment: true,
+          snapshotWorkerPrice: true,
+          snapshotCustomsPayment: true,
+          client: {
+            select: {
+              dealAmount: true,
+              dealAmount_currency: true,
+              dealAmountCurrency: true,
+            },
+          },
+        },
+      });
+
+      let usd = 0;
+      let uzs = 0;
+      for (const task of rangeTasks) {
+        const client = task.client;
+        const clientCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
+        const baseDealAmount = task.snapshotDealAmount != null
+          ? Number(task.snapshotDealAmount)
+          : Number(client.dealAmount || 0);
+        const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+        const dealAmount = baseDealAmount + psrAmount;
+        const certificatePayment = Number(task.snapshotCertificatePayment || 0);
+        const workerPrice = Number(task.snapshotWorkerPrice || 0);
+        const customsPayment = Number(task.snapshotCustomsPayment || 0);
+        const branchPayments = certificatePayment + workerPrice + psrAmount + customsPayment;
+        const netProfit = dealAmount - branchPayments;
+
+        if (clientCurrency === 'USD') {
+          usd += netProfit;
+        } else {
+          uzs += netProfit;
+        }
+      }
+      return { usd, uzs };
+    };
+
+    const [todayNetProfit, weeklyNetProfit] = await Promise.all([
+      sumNetProfitForRange(todayStart, todayEnd),
+      sumNetProfitForRange(weekStart, todayEnd),
+    ]);
+
     res.json({
       newTasks,
       completedTasks,
@@ -472,6 +581,8 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       workerActivity: workerActivityWithNames,
       financialStats: financialStatsArray,
       paymentReminders,
+      todayNetProfit,
+      weeklyNetProfit,
     });
   } catch (error: any) {
     console.error('Error fetching dashboard stats:', error);

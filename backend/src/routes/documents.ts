@@ -615,16 +615,13 @@ router.get('/task/:taskId/download-all', requireAuth(), async (req: AuthRequest,
     }
 
     // Hujjatlarni olish
-    let documents;
-    if (task.status === 'YAKUNLANDI') {
-      documents = await prisma.archiveDocument.findMany({
-        where: { taskId },
-      });
-    } else {
-      documents = await prisma.taskDocument.findMany({
-        where: { taskId },
-      });
-    }
+    // Ba'zi holatlarda YAKUNLANDI bo'lsa ham hujjatlar TaskDocument'da qolgan bo'lishi mumkin.
+    const [archiveDocs, taskDocs] = await Promise.all([
+      prisma.archiveDocument.findMany({ where: { taskId } }),
+      prisma.taskDocument.findMany({ where: { taskId } }),
+    ]);
+
+    const documents = archiveDocs.length > 0 ? archiveDocs : taskDocs;
 
     if (documents.length === 0) {
       return res.status(404).json({ error: 'Hujjatlar topilmadi' });
@@ -656,10 +653,40 @@ router.get('/task/:taskId/download-all', requireAuth(), async (req: AuthRequest,
 
     archive.pipe(res);
 
+    const resolveFilePaths = (fileUrl?: string | null, fallbackName?: string | null) => {
+      const candidates: string[] = [];
+      if (fileUrl) {
+        let pathname = fileUrl;
+        if (/^https?:\/\//i.test(fileUrl)) {
+          try {
+            pathname = new URL(fileUrl).pathname;
+          } catch {
+            pathname = fileUrl;
+          }
+        }
+        if (pathname.startsWith('/uploads/')) {
+          pathname = pathname.replace(/^\/uploads\//, '');
+        } else {
+          pathname = pathname.replace(/^\/+/, '');
+        }
+        candidates.push(path.join(uploadsDir, pathname));
+      }
+
+      const baseName = fileUrl ? path.basename(fileUrl) : fallbackName ? path.basename(fallbackName) : '';
+      if (baseName) {
+        candidates.push(path.join(documentsDir, baseName));
+        candidates.push(path.join(archiveDir, baseName));
+      }
+
+      return candidates;
+    };
+
     // Har bir hujjatni ZIP'ga qo'shish
     for (const doc of documents) {
-      const filePath = path.join(__dirname, '../../', doc.fileUrl);
-      
+      const candidatePaths = resolveFilePaths(doc.fileUrl, doc.name);
+      const filePath = candidatePaths.find((candidate) => fs.existsSync(candidate));
+      if (!filePath) continue;
+
       if (fs.existsSync(filePath)) {
         // Fayl nomini tozalash
         const cleanFileName = doc.name

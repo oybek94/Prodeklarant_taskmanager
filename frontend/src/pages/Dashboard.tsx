@@ -50,6 +50,8 @@ interface DashboardStats {
   workerActivity: Array<{ userId: number; name: string; totalKPI: number; completedStages: number }>;
   financialStats: Array<{ type: string; total: number }>;
   paymentReminders?: PaymentReminder[];
+  todayNetProfit?: { usd: number; uzs: number };
+  weeklyNetProfit?: { usd: number; uzs: number };
 }
 
 interface CompletedSummaryItem {
@@ -745,9 +747,138 @@ const Dashboard = () => {
 
         {/* Financial Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 mt-6">
+          {/* Bugun sof foyda - birinchi card */}
+          {(() => {
+            const todayNetProfit = stats?.todayNetProfit;
+            const hasUsd = todayNetProfit?.usd !== undefined && todayNetProfit.usd !== 0;
+            const hasUzs = todayNetProfit?.uzs !== undefined && todayNetProfit.uzs !== 0;
+            const totalProfit = (todayNetProfit?.usd || 0) + (todayNetProfit?.uzs || 0);
+            const isPositive = totalProfit >= 0;
+            const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
+            const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
+            const icon = isPositive ? 'mdi:trending-up' : 'mdi:trending-down';
+
+            return (
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full ${bgColor} flex items-center justify-center text-lg`}>
+                      <Icon icon={icon} className={accentColor} />
+                    </div>
+                    <div className="text-sm text-gray-600">Sof foyda</div>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  {loading ? (
+                    <div className={`text-3xl font-bold ${accentColor}`}>
+                      <span className="text-gray-300">-</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {hasUsd && (
+                        <div className={`text-2xl font-bold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={todayNetProfit!.usd}
+                            originalCurrency="USD"
+                            className="inline"
+                          />
+                        </div>
+                      )}
+                      {hasUzs && (
+                        <div className={`text-lg font-semibold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={todayNetProfit!.uzs}
+                            originalCurrency="UZS"
+                            className="inline"
+                          />
+                        </div>
+                      )}
+                      {!hasUsd && !hasUzs && (
+                        <div className={`text-3xl font-bold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={0}
+                            originalCurrency="USD"
+                            className="inline"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                  <div className="text-xs text-gray-500">Bugun</div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Haftalik sof foyda - ikkinchi card */}
+          {(() => {
+            const weeklyNetProfit = stats?.weeklyNetProfit;
+            const hasUsd = weeklyNetProfit?.usd !== undefined && weeklyNetProfit.usd !== 0;
+            const hasUzs = weeklyNetProfit?.uzs !== undefined && weeklyNetProfit.uzs !== 0;
+            const totalProfit = (weeklyNetProfit?.usd || 0) + (weeklyNetProfit?.uzs || 0);
+            const isPositive = totalProfit >= 0;
+            const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
+            const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
+            const icon = isPositive ? 'mdi:trending-up' : 'mdi:trending-down';
+
+            return (
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full ${bgColor} flex items-center justify-center text-lg`}>
+                      <Icon icon={icon} className={accentColor} />
+                    </div>
+                    <div className="text-sm text-gray-600">Sof foyda</div>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  {loading ? (
+                    <div className={`text-3xl font-bold ${accentColor}`}>
+                      <span className="text-gray-300">-</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {hasUsd && (
+                        <div className={`text-2xl font-bold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={weeklyNetProfit!.usd}
+                            originalCurrency="USD"
+                            className="inline"
+                          />
+                        </div>
+                      )}
+                      {hasUzs && (
+                        <div className={`text-lg font-semibold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={weeklyNetProfit!.uzs}
+                            originalCurrency="UZS"
+                            className="inline"
+                          />
+                        </div>
+                      )}
+                      {!hasUsd && !hasUzs && (
+                        <div className={`text-3xl font-bold ${accentColor}`}>
+                          <CurrencyDisplay
+                            amount={0}
+                            originalCurrency="USD"
+                            className="inline"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                  <div className="text-xs text-gray-500">Haftalik</div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Qolgan cardlar */}
           {[
-            { type: 'INCOME', title: 'Kirim', icon: 'mdi:arrow-down-circle', accent: 'text-emerald-600', bgColor: 'bg-emerald-50' },
-            { type: 'EXPENSE', title: 'Chiqim', icon: 'mdi:arrow-up-circle', accent: 'text-red-600', bgColor: 'bg-red-50' },
             { type: 'TRANSFER', title: 'O\'tkazma', icon: 'mdi:swap-horizontal', accent: 'text-blue-600', bgColor: 'bg-blue-50' },
             { type: 'PAYMENT', title: 'To\'lov', icon: 'mdi:credit-card', accent: 'text-purple-600', bgColor: 'bg-purple-50' },
           ].map((item) => {

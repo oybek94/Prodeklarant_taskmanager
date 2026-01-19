@@ -330,6 +330,148 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     _count: true,
   });
 
+  // Helper function to calculate worker ranking for a date range
+  const calculateWorkerRanking = async (startDate: Date, endDate: Date) => {
+    // Get all workers (DEKLARANT, ADMIN, MANAGER roles)
+    const allWorkers = await prisma.user.findMany({
+      where: {
+        role: {
+          in: ['DEKLARANT', 'ADMIN', 'MANAGER'],
+        },
+        active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    // Get completed stages count for each worker in the date range
+    const completedStagesByWorker = await prisma.taskStage.groupBy({
+      by: ['assignedToId'],
+      where: {
+        status: 'TAYYOR',
+        assignedToId: { not: null },
+        completedAt: { not: null, gte: startDate, lte: endDate },
+        ...(branchId ? { task: { branchId: parseInt(branchId as string) } } : {}),
+        ...(workerId ? { assignedToId: parseInt(workerId as string) } : {}),
+      },
+      _count: { _all: true },
+    });
+
+    // Create a map of workerId -> completedStages count
+    const completedStagesMap = new Map<number, number>();
+    completedStagesByWorker.forEach((item) => {
+      if (item.assignedToId !== null) {
+        completedStagesMap.set(item.assignedToId, item._count._all || 0);
+      }
+    });
+
+    // Combine all workers with their completed stages count (0 if no completed stages)
+    const ranking = allWorkers.map((worker) => ({
+      userId: worker.id,
+      name: worker.name,
+      completedStages: completedStagesMap.get(worker.id) || 0,
+    }));
+
+    // Sort by completed stages (descending), then by name (ascending) for tie-breaking
+    return ranking.sort((a, b) => {
+      if (b.completedStages !== a.completedStages) {
+        return b.completedStages - a.completedStages;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  };
+
+  // Calculate rankings for different periods
+  const rankingNow = new Date();
+  const rankingTodayStart = new Date(rankingNow.getFullYear(), rankingNow.getMonth(), rankingNow.getDate(), 0, 0, 0, 0);
+  const rankingTodayEnd = new Date(rankingNow.getFullYear(), rankingNow.getMonth(), rankingNow.getDate(), 23, 59, 59, 999);
+  
+  // Weekly: Monday to today
+  const rankingWeekStart = new Date(rankingTodayStart);
+  const rankingWeekDayIndex = (rankingTodayStart.getDay() + 6) % 7; // Monday = 0
+  rankingWeekStart.setDate(rankingTodayStart.getDate() - rankingWeekDayIndex);
+  
+  // Monthly: First day of month to today
+  const rankingMonthStart = new Date(rankingNow.getFullYear(), rankingNow.getMonth(), 1, 0, 0, 0, 0);
+  
+  // Yearly: First day of year to today
+  const rankingYearStart = new Date(rankingNow.getFullYear(), 0, 1, 0, 0, 0, 0);
+
+  const [weeklyRanking, monthlyRanking, yearlyRanking] = await Promise.all([
+    calculateWorkerRanking(rankingWeekStart, rankingTodayEnd),
+    calculateWorkerRanking(rankingMonthStart, rankingTodayEnd),
+    calculateWorkerRanking(rankingYearStart, rankingTodayEnd),
+  ]);
+
+  const workerCompletionRanking = {
+    weekly: weeklyRanking,
+    monthly: monthlyRanking,
+    yearly: yearlyRanking,
+  };
+
+  // Helper function to calculate worker error ranking for a date range
+  const calculateWorkerErrorRanking = async (startDate: Date, endDate: Date) => {
+    // Get all workers (DEKLARANT, ADMIN, MANAGER roles)
+    const allWorkers = await prisma.user.findMany({
+      where: {
+        role: {
+          in: ['DEKLARANT', 'ADMIN', 'MANAGER'],
+        },
+        active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    // Get errors count for each worker in the date range
+    const errorsByWorker = await prisma.taskError.groupBy({
+      by: ['workerId'],
+      where: {
+        date: { gte: startDate, lte: endDate },
+        ...(branchId ? { task: { branchId: parseInt(branchId as string) } } : {}),
+        ...(workerId ? { workerId: parseInt(workerId as string) } : {}),
+      },
+      _count: { _all: true },
+    });
+
+    // Create a map of workerId -> errors count
+    const errorsMap = new Map<number, number>();
+    errorsByWorker.forEach((item) => {
+      errorsMap.set(item.workerId, item._count._all || 0);
+    });
+
+    // Combine all workers with their errors count (0 if no errors)
+    const ranking = allWorkers.map((worker) => ({
+      userId: worker.id,
+      name: worker.name,
+      errorsCount: errorsMap.get(worker.id) || 0,
+    }));
+
+    // Sort by errors count (descending), then by name (ascending) for tie-breaking
+    return ranking.sort((a, b) => {
+      if (b.errorsCount !== a.errorsCount) {
+        return b.errorsCount - a.errorsCount;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  };
+
+  const [weeklyErrorRanking, monthlyErrorRanking, yearlyErrorRanking] = await Promise.all([
+    calculateWorkerErrorRanking(rankingWeekStart, rankingTodayEnd),
+    calculateWorkerErrorRanking(rankingMonthStart, rankingTodayEnd),
+    calculateWorkerErrorRanking(rankingYearStart, rankingTodayEnd),
+  ]);
+
+  const workerErrorRanking = {
+    weekly: weeklyErrorRanking,
+    monthly: monthlyErrorRanking,
+    yearly: yearlyErrorRanking,
+  };
+
   // Worker activity (KPI logs) - use amount_original (USD) for worker earnings display
   const kpiLogs = await prisma.kpiLog.findMany({
     where: {
@@ -671,6 +813,8 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       tasksByStatus: tasksByStatus.map((t: any) => ({ status: t.status, count: t._count })),
       processStats: processStats.map((p: any) => ({ status: p.status, count: p._count })),
       workerActivity: workerActivityWithNames,
+      workerCompletionRanking,
+      workerErrorRanking,
       financialStats: financialStatsArray,
       paymentReminders,
       todayNetProfit,

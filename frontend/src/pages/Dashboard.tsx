@@ -48,6 +48,16 @@ interface DashboardStats {
   tasksByStatus: Array<{ status: string; count: number }>;
   processStats: Array<{ status: string; count: number }>;
   workerActivity: Array<{ userId: number; name: string; totalKPI: number; completedStages: number }>;
+  workerCompletionRanking?: {
+    weekly: Array<{ userId: number; name: string; completedStages: number }>;
+    monthly: Array<{ userId: number; name: string; completedStages: number }>;
+    yearly: Array<{ userId: number; name: string; completedStages: number }>;
+  };
+  workerErrorRanking?: {
+    weekly: Array<{ userId: number; name: string; errorsCount: number }>;
+    monthly: Array<{ userId: number; name: string; errorsCount: number }>;
+    yearly: Array<{ userId: number; name: string; errorsCount: number }>;
+  };
   financialStats: Array<{ type: string; total: number }>;
   paymentReminders?: PaymentReminder[];
   todayNetProfit?: { usd: number; uzs: number; usdCount: number; uzsCount: number };
@@ -104,6 +114,8 @@ const Dashboard = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [rankingPeriod, setRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
+  const [errorRankingPeriod, setErrorRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
   const [completedSummary, setCompletedSummary] = useState<CompletedSummary | null>(null);
@@ -670,134 +682,219 @@ const Dashboard = () => {
               )}
             </div>
 
-            {/* Tasks by Branch Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <Icon icon="lucide:building" className="w-6 h-6 text-indigo-600" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Filiallar bo'yicha tasklar</h2>
-                  <p className="text-xs text-gray-500">Qaysi filialda qancha ish bo'lgani</p>
-                </div>
-              </div>
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : (() => {
-                const branches = stats?.tasksByBranch;
-                
-                // Debug information - faqat development uchun
-                console.log('[Dashboard Debug] tasksByBranch raw:', branches);
-                console.log('[Dashboard Debug] tasksByBranch type:', typeof branches);
-                console.log('[Dashboard Debug] tasksByBranch isArray:', Array.isArray(branches));
-                console.log('[Dashboard Debug] tasksByBranch length:', branches?.length);
-                console.log('[Dashboard Debug] Full stats object:', stats);
-                console.log('[Dashboard Debug] statsError:', statsError);
-                
-                const hasValidData = branches && 
-                  Array.isArray(branches) && 
-                  branches.length > 0 && 
-                  branches.some((b: any) => b && b.count > 0);
-                
-                if (statsError) {
-                  return (
-                    <div className="text-center py-12 text-gray-400">
-                      <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>{statsError}</p>
-                    </div>
-                  );
-                }
-
-                if (!hasValidData) {
-                  return (
-                    <div className="text-center py-12 text-gray-400">
-                      <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
-                      {/* Debug info - faqat development'da ko'rinadi */}
-                      {import.meta.env.DEV && (
-                        <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left max-w-md mx-auto">
-                          <p className="font-semibold mb-1">Debug Info:</p>
-                          <p>Type: {typeof branches}</p>
-                          <p>Is Array: {Array.isArray(branches) ? 'Yes' : 'No'}</p>
-                          <p>Length: {branches?.length ?? 'undefined'}</p>
-                          <pre className="mt-2 text-xs overflow-auto max-h-40 bg-white p-2 rounded border">
-                            {JSON.stringify(branches, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-                
-                const validBranches = branches.filter((b: any) => b && b.branchName && b.count > 0);
-                const labels = validBranches.map((b: any) => b.branchName);
-                const series = validBranches.map((b: any) => b.count);
-                
-                if (labels.length === 0 || series.length === 0 || series.every((s: number) => s === 0)) {
-                  return (
-                    <div className="text-center py-12 text-gray-400">
-                      <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
-                      {import.meta.env.DEV && (
-                        <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left max-w-md mx-auto">
-                          <p className="font-semibold mb-1">Debug Info:</p>
-                          <p>Valid branches: {validBranches.length}</p>
-                          <p>Labels: {JSON.stringify(labels)}</p>
-                          <p>Series: {JSON.stringify(series)}</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-                
-                return (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Tasks by Branch Chart */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <Icon icon="lucide:building" className="w-6 h-6 text-indigo-600" />
+                  </div>
                   <div>
-                    <Chart
-                      key={`branch-chart-${series.join('-')}-${labels.join('-')}`}
-                      options={{
-                        chart: {
-                          type: 'pie',
-                          height: 350,
-                          toolbar: { show: false },
-                        },
-                        labels: labels,
-                        colors: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'],
-                        legend: {
-                          position: 'bottom',
-                          fontSize: '14px',
-                          fontFamily: 'inherit',
-                        },
-                        dataLabels: {
-                          enabled: true,
-                          formatter: (val: number) => `${val.toFixed(1)}%`,
-                          style: {
-                            fontSize: '12px',
-                            fontWeight: 600,
+                    <h2 className="text-lg font-semibold text-gray-900">Filiallar bo'yicha tasklar</h2>
+                    <p className="text-xs text-gray-500">Qaysi filialda qancha ish bo'lgani</p>
+                  </div>
+                </div>
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : (() => {
+                  const branches = stats?.tasksByBranch;
+                  
+                  // Debug information - faqat development uchun
+                  console.log('[Dashboard Debug] tasksByBranch raw:', branches);
+                  console.log('[Dashboard Debug] tasksByBranch type:', typeof branches);
+                  console.log('[Dashboard Debug] tasksByBranch isArray:', Array.isArray(branches));
+                  console.log('[Dashboard Debug] tasksByBranch length:', branches?.length);
+                  console.log('[Dashboard Debug] Full stats object:', stats);
+                  console.log('[Dashboard Debug] statsError:', statsError);
+                  
+                  const hasValidData = branches && 
+                    Array.isArray(branches) && 
+                    branches.length > 0 && 
+                    branches.some((b: any) => b && b.count > 0);
+                  
+                  if (statsError) {
+                    return (
+                      <div className="text-center py-12 text-gray-400">
+                        <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p>{statsError}</p>
+                      </div>
+                    );
+                  }
+
+                  if (!hasValidData) {
+                    return (
+                      <div className="text-center py-12 text-gray-400">
+                        <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
+                        {/* Debug info - faqat development'da ko'rinadi */}
+                        {import.meta.env.DEV && (
+                          <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left max-w-md mx-auto">
+                            <p className="font-semibold mb-1">Debug Info:</p>
+                            <p>Type: {typeof branches}</p>
+                            <p>Is Array: {Array.isArray(branches) ? 'Yes' : 'No'}</p>
+                            <p>Length: {branches?.length ?? 'undefined'}</p>
+                            <pre className="mt-2 text-xs overflow-auto max-h-40 bg-white p-2 rounded border">
+                              {JSON.stringify(branches, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  
+                  const validBranches = branches.filter((b: any) => b && b.branchName && b.count > 0);
+                  const labels = validBranches.map((b: any) => b.branchName);
+                  const series = validBranches.map((b: any) => b.count);
+                  
+                  if (labels.length === 0 || series.length === 0 || series.every((s: number) => s === 0)) {
+                    return (
+                      <div className="text-center py-12 text-gray-400">
+                        <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
+                        {import.meta.env.DEV && (
+                          <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left max-w-md mx-auto">
+                            <p className="font-semibold mb-1">Debug Info:</p>
+                            <p>Valid branches: {validBranches.length}</p>
+                            <p>Labels: {JSON.stringify(labels)}</p>
+                            <p>Series: {JSON.stringify(series)}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div>
+                      <Chart
+                        key={`branch-chart-${series.join('-')}-${labels.join('-')}`}
+                        options={{
+                          chart: {
+                            type: 'pie',
+                            height: 350,
+                            toolbar: { show: false },
                           },
-                        },
-                        tooltip: {
-                          y: {
-                            formatter: (value: number) => `${value} ta task`,
+                          labels: labels,
+                          colors: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'],
+                          legend: {
+                            position: 'bottom',
+                            fontSize: '14px',
+                            fontFamily: 'inherit',
                           },
-                        },
-                      }}
-                      series={series}
-                      type="pie"
-                      height={350}
-                    />
-                    <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
-                      {validBranches.map((branch: any) => (
-                        <div key={branch.branchId} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">{branch.branchName}:</span>
-                          <span className="font-semibold text-gray-900">{branch.count} ta</span>
+                          dataLabels: {
+                            enabled: true,
+                            formatter: (val: number) => `${val.toFixed(1)}%`,
+                            style: {
+                              fontSize: '12px',
+                              fontWeight: 600,
+                            },
+                          },
+                          tooltip: {
+                            y: {
+                              formatter: (value: number) => `${value} ta task`,
+                            },
+                          },
+                        }}
+                        series={series}
+                        type="pie"
+                        height={350}
+                      />
+                      <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                        {validBranches.map((branch: any) => (
+                          <div key={branch.branchId ?? branch.branchName} className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">{branch.branchName}:</span>
+                            <span className="font-semibold text-gray-900">{branch.count} ta</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Worker completion ranking */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="flex flex-col gap-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <Icon icon="lucide:trophy" className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">Eng ko'p ish bajarganlar</h2>
+                      <p className="text-xs text-gray-500">Ishchilar bo'yicha yakunlangan jarayonlar</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setRankingPeriod('weekly')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                        rankingPeriod === 'weekly'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Haftalik
+                    </button>
+                    <button
+                      onClick={() => setRankingPeriod('monthly')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                        rankingPeriod === 'monthly'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Oylik
+                    </button>
+                    <button
+                      onClick={() => setRankingPeriod('yearly')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                        rankingPeriod === 'yearly'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Yillik
+                    </button>
+                  </div>
+                </div>
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : (() => {
+                  const rankingData = stats?.workerCompletionRanking;
+                  const ranking = rankingData?.[rankingPeriod] || [];
+                  if (!Array.isArray(ranking) || ranking.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-gray-400">
+                        <Icon icon="lucide:users" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p>Reyting uchun ma'lumotlar topilmadi</p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-3">
+                      {ranking.map((worker, index) => (
+                        <div key={worker.userId} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-3">
+                            <span className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-semibold ${
+                              index === 0 ? 'bg-yellow-100 text-yellow-700' :
+                              index === 1 ? 'bg-gray-100 text-gray-700' :
+                              index === 2 ? 'bg-orange-100 text-orange-700' :
+                              'bg-emerald-50 text-emerald-700'
+                            }`}>
+                              {index + 1}
+                            </span>
+                            <span className="text-gray-700">{worker.name}</span>
+                          </div>
+                          <span className="font-semibold text-gray-900">{worker.completedStages} ta</span>
                         </div>
                       ))}
                     </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
+              </div>
             </div>
           </div>
 
@@ -921,7 +1018,88 @@ const Dashboard = () => {
               })()}
             </div>
 
-
+            {/* Worker error ranking */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div className="flex flex-col gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                    <Icon icon="lucide:alert-circle" className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Eng ko'p xato qilganlar</h2>
+                    <p className="text-xs text-gray-500">Ishchilar bo'yicha xatolar soni</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setErrorRankingPeriod('weekly')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      errorRankingPeriod === 'weekly'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Haftalik
+                  </button>
+                  <button
+                    onClick={() => setErrorRankingPeriod('monthly')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      errorRankingPeriod === 'monthly'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Oylik
+                  </button>
+                  <button
+                    onClick={() => setErrorRankingPeriod('yearly')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      errorRankingPeriod === 'yearly'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Yillik
+                  </button>
+                </div>
+              </div>
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (() => {
+                const errorRankingData = stats?.workerErrorRanking;
+                const errorRanking = errorRankingData?.[errorRankingPeriod] || [];
+                if (!Array.isArray(errorRanking) || errorRanking.length === 0) {
+                  return (
+                    <div className="text-center py-12 text-gray-400">
+                      <Icon icon="lucide:users" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>Reyting uchun ma'lumotlar topilmadi</p>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-3">
+                    {errorRanking.map((worker, index) => (
+                      <div key={worker.userId} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-3">
+                          <span className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-semibold ${
+                            index === 0 ? 'bg-red-100 text-red-700' :
+                            index === 1 ? 'bg-orange-100 text-orange-700' :
+                            index === 2 ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-50 text-gray-700'
+                          }`}>
+                            {index + 1}
+                          </span>
+                          <span className="text-gray-700">{worker.name}</span>
+                        </div>
+                        <span className="font-semibold text-gray-900">{worker.errorsCount} ta</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
 
@@ -1271,6 +1449,118 @@ const Dashboard = () => {
                 <div className="mt-4 border-t border-gray-100 pt-4">
                   <div className="text-xs text-gray-500">Yillik</div>
                 </div>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Qarzdorlar ro'yxati */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex flex-col gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Icon icon="lucide:users" className="w-6 h-6 text-orange-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Qarzdorlar ro'yxati</h2>
+                <p className="text-xs text-gray-500">To'lov qilish kerak bo'lgan mijozlar</p>
+              </div>
+            </div>
+          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (() => {
+            const paymentReminders = stats?.paymentReminders || [];
+            if (!Array.isArray(paymentReminders) || paymentReminders.length === 0) {
+              return (
+                <div className="text-center py-12 text-gray-400">
+                  <Icon icon="lucide:check-circle" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Qarzdorlar mavjud emas</p>
+                </div>
+              );
+            }
+            
+            // Calculate totals by currency
+            const totalDebtUSD = paymentReminders
+              .filter((p: PaymentReminder) => p.currency === 'USD')
+              .reduce((sum, p) => sum + (p.currentDebt || 0), 0);
+            const totalDebtUZS = paymentReminders
+              .filter((p: PaymentReminder) => p.currency === 'UZS')
+              .reduce((sum, p) => sum + (p.currentDebt || 0), 0);
+
+            return (
+              <div>
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {paymentReminders.map((reminder: PaymentReminder) => (
+                    <div
+                      key={reminder.clientId}
+                      className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-orange-300 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900">{reminder.clientName}</p>
+                          {reminder.phone && (
+                            <p className="text-xs text-gray-500 mt-1">{reminder.phone}</p>
+                          )}
+                          {reminder.dueReason && (
+                            <p className="text-xs text-orange-600 mt-1">{reminder.dueReason}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-orange-600">
+                            {reminder.currentDebt !== undefined && (
+                              <CurrencyDisplay
+                                amount={reminder.currentDebt}
+                                originalCurrency={reminder.currency || 'USD'}
+                                className="inline"
+                              />
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Jami qarz */}
+                {(totalDebtUSD > 0 || totalDebtUZS > 0) && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="space-y-2">
+                      {totalDebtUSD > 0 && (
+                        <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
+                          <div className="flex items-center gap-2">
+                            <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-orange-600" />
+                            <span className="text-sm font-medium text-gray-700">Jami qarz (USD):</span>
+                          </div>
+                          <span className="text-lg font-bold text-orange-600">
+                            <CurrencyDisplay
+                              amount={totalDebtUSD}
+                              originalCurrency="USD"
+                              className="inline"
+                            />
+                          </span>
+                        </div>
+                      )}
+                      {totalDebtUZS > 0 && (
+                        <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
+                          <div className="flex items-center gap-2">
+                            <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-orange-600" />
+                            <span className="text-sm font-medium text-gray-700">Jami qarz (UZS):</span>
+                          </div>
+                          <span className="text-lg font-bold text-orange-600">
+                            <CurrencyDisplay
+                              amount={totalDebtUZS}
+                              originalCurrency="UZS"
+                              className="inline"
+                            />
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}

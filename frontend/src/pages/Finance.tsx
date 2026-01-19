@@ -23,6 +23,17 @@ interface Debt {
   debtorInfo?: any;
 }
 
+interface Debtor {
+  clientId: number;
+  clientName: string;
+  phone: string | null;
+  creditType: string | null;
+  creditLimit: number | null;
+  creditStartDate: string | null;
+  currentDebt: number;
+  currency: 'USD' | 'UZS';
+}
+
 interface CurrencyStatistics {
   balances: {
     total: number;
@@ -49,6 +60,7 @@ const Finance = () => {
   const { user } = useAuth();
   const [balances, setBalances] = useState<AccountBalance[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [debtors, setDebtors] = useState<Debtor[]>([]);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
@@ -87,6 +99,7 @@ const Finance = () => {
       await Promise.all([
         loadBalances(),
         loadDebts(),
+        loadDebtors(),
         loadStatistics(),
         loadClients(),
         loadWorkers(),
@@ -95,6 +108,15 @@ const Finance = () => {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDebtors = async () => {
+    try {
+      const response = await apiClient.get('/finance/debtors');
+      setDebtors(response.data);
+    } catch (error) {
+      console.error('Error loading debtors:', error);
     }
   };
 
@@ -273,6 +295,7 @@ const Finance = () => {
     try {
       await apiClient.delete(`/finance/debt/${id}`);
       loadDebts();
+      loadDebtors();
       loadStatistics();
     } catch (error: any) {
       alert('Xatolik: ' + (error.response?.data?.error || error.message));
@@ -464,9 +487,11 @@ const Finance = () => {
           </>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Balanslar */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left and Center - Balanslar va Qarzlar */}
+          <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Balanslar */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900">Balanslar</h2>
               <button
@@ -526,10 +551,10 @@ const Finance = () => {
                 </div>
               ))}
             </div>
-          </div>
+            </div>
 
-          {/* Qarzlar */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            {/* Qarzlar */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900">Qarzlar</h2>
               <button
@@ -575,6 +600,97 @@ const Finance = () => {
                     </p>
                   </div>
                 ))
+              )}
+            </div>
+            </div>
+          </div>
+
+          {/* Right Sidebar - Qarzdorlar ro'yxati */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Qarzdorlar ro'yxati</h2>
+            <div className="space-y-3 max-h-[600px] overflow-y-auto">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : debtors.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <Icon icon="lucide:users" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Qarzdorlar mavjud emas</p>
+                </div>
+              ) : (
+                <>
+                  {debtors.map((debtor) => (
+                    <div
+                      key={debtor.clientId}
+                      className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-red-300 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900">{debtor.clientName}</p>
+                          {debtor.phone && (
+                            <p className="text-xs text-gray-500 mt-1">{debtor.phone}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-red-600">
+                            {debtor.currency === 'USD' 
+                              ? formatCurrency(debtor.currentDebt)
+                              : new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'UZS', minimumFractionDigits: 0 }).format(debtor.currentDebt).replace(/,/g, ' ')
+                            }
+                          </p>
+                          <span className="text-xs text-gray-500">{debtor.currency}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Jami qarz */}
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="space-y-3">
+                      {(() => {
+                        const totalDebtUSD = debtors
+                          .filter(d => d.currency === 'USD')
+                          .reduce((sum, d) => sum + d.currentDebt, 0);
+                        const totalDebtUZS = debtors
+                          .filter(d => d.currency === 'UZS')
+                          .reduce((sum, d) => sum + d.currentDebt, 0);
+                        
+                        return (
+                          <>
+                            {totalDebtUSD > 0 && (
+                              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                                <div className="flex items-center gap-2">
+                                  <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-red-600" />
+                                  <span className="text-sm font-medium text-gray-700">Jami qarz (USD):</span>
+                                </div>
+                                <span className="text-lg font-bold text-red-600">
+                                  {formatCurrency(totalDebtUSD)}
+                                </span>
+                              </div>
+                            )}
+                            {totalDebtUZS > 0 && (
+                              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                                <div className="flex items-center gap-2">
+                                  <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-red-600" />
+                                  <span className="text-sm font-medium text-gray-700">Jami qarz (UZS):</span>
+                                </div>
+                                <span className="text-lg font-bold text-red-600">
+                                  {new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'UZS', minimumFractionDigits: 0 }).format(totalDebtUZS).replace(/,/g, ' ')}
+                                </span>
+                              </div>
+                            )}
+                            {totalDebtUSD === 0 && totalDebtUZS === 0 && (
+                              <div className="text-center py-4 text-gray-400">
+                                <p className="text-sm">Jami qarz: 0</p>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>

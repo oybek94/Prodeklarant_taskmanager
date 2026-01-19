@@ -194,6 +194,77 @@ router.post('/balance', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   }
 });
 
+// Qarzdorlar ro'yxati (mijozlardan qarz)
+router.get('/debtors', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
+  try {
+    const allClients = await prisma.client.findMany({
+      include: {
+        tasks: {
+          select: {
+            id: true,
+            createdAt: true,
+            hasPsr: true,
+            snapshotDealAmount: true,
+            snapshotPsrPrice: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        transactions: {
+          where: { type: 'INCOME' },
+          select: {
+            amount: true,
+            date: true,
+            currency: true,
+          },
+        },
+      },
+    });
+
+    const debtors = allClients
+      .map((client) => {
+        const dealCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
+        const dealAmount = Number(client.dealAmount || 0);
+
+        const totalDealAmount = client.tasks.reduce((sum: number, task: any) => {
+          const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
+          const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+          return sum + baseAmount + psrAmount;
+        }, 0);
+
+        const totalPaid = client.transactions
+          .filter((t: any) => t.currency === dealCurrency)
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+
+        const currentDebt = totalDealAmount - totalPaid;
+
+        // If client has no debt, skip
+        if (currentDebt <= 0) {
+          return null;
+        }
+
+        return {
+          clientId: client.id,
+          clientName: client.name,
+          phone: client.phone,
+          creditType: client.creditType || null,
+          creditLimit: client.creditLimit ? Number(client.creditLimit) : null,
+          creditStartDate: client.creditStartDate || null,
+          currentDebt: currentDebt,
+          currency: dealCurrency,
+        };
+      })
+      .filter((debtor) => debtor !== null);
+
+    res.json(debtors);
+  } catch (error: any) {
+    console.error('Error fetching debtors:', error);
+    res.status(500).json({ 
+      error: 'Qarzdorlarni yuklashda xatolik yuz berdi',
+      details: error.message 
+    });
+  }
+});
+
 // Qarzlar ro'yxati
 router.get('/debts', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
   try {

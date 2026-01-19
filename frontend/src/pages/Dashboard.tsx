@@ -213,9 +213,31 @@ const Dashboard = () => {
       const response = await apiClient.get('/dashboard/stats');
       console.log('[Dashboard] Stats response:', response.data);
       console.log('[Dashboard] tasksByBranch:', response.data?.tasksByBranch);
-      setStats(response.data);
+      console.log('[Dashboard] tasksByBranch type:', typeof response.data?.tasksByBranch);
+      console.log('[Dashboard] tasksByBranch isArray:', Array.isArray(response.data?.tasksByBranch));
+      console.log('[Dashboard] tasksByBranch length:', response.data?.tasksByBranch?.length);
+      
+      // Ensure tasksByBranch is always an array
+      const statsData = {
+        ...response.data,
+        tasksByBranch: Array.isArray(response.data?.tasksByBranch) 
+          ? response.data.tasksByBranch 
+          : [],
+      };
+      
+      setStats(statsData);
     } catch (error) {
       console.error('Error loading stats:', error);
+      // Set empty stats on error to prevent rendering issues
+      setStats({
+        newTasks: 0,
+        completedTasks: 0,
+        tasksByStatus: [],
+        processStats: [],
+        workerActivity: [],
+        financialStats: [],
+        tasksByBranch: [],
+      });
     } finally {
       setLoading(false);
     }
@@ -640,55 +662,81 @@ const Dashboard = () => {
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
-              ) : stats?.tasksByBranch && Array.isArray(stats.tasksByBranch) && stats.tasksByBranch.length > 0 ? (
-                <div>
-                  <Chart
-                    options={{
-                      chart: {
-                        type: 'pie',
-                        height: 350,
-                        toolbar: { show: false },
-                      },
-                      labels: stats.tasksByBranch.map((b) => b.branchName),
-                      colors: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'],
-                      legend: {
-                        position: 'bottom',
-                        fontSize: '14px',
-                        fontFamily: 'inherit',
-                      },
-                      dataLabels: {
-                        enabled: true,
-                        formatter: (val: number) => `${val.toFixed(1)}%`,
-                        style: {
-                          fontSize: '12px',
-                          fontWeight: 600,
+              ) : (() => {
+                const branches = stats?.tasksByBranch;
+                const hasValidData = branches && 
+                  Array.isArray(branches) && 
+                  branches.length > 0 && 
+                  branches.some((b: any) => b && b.count > 0);
+                
+                if (!hasValidData) {
+                  return (
+                    <div className="text-center py-12 text-gray-400">
+                      <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
+                    </div>
+                  );
+                }
+                
+                const validBranches = branches.filter((b: any) => b && b.branchName && b.count > 0);
+                const labels = validBranches.map((b: any) => b.branchName);
+                const series = validBranches.map((b: any) => b.count);
+                
+                if (labels.length === 0 || series.length === 0 || series.every((s: number) => s === 0)) {
+                  return (
+                    <div className="text-center py-12 text-gray-400">
+                      <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div>
+                    <Chart
+                      key={`branch-chart-${series.join('-')}-${labels.join('-')}`}
+                      options={{
+                        chart: {
+                          type: 'pie',
+                          height: 350,
+                          toolbar: { show: false },
                         },
-                      },
-                      tooltip: {
-                        y: {
-                          formatter: (value: number) => `${value} ta task`,
+                        labels: labels,
+                        colors: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'],
+                        legend: {
+                          position: 'bottom',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
                         },
-                      },
-                    }}
-                    series={stats.tasksByBranch.map((b) => b.count)}
-                    type="pie"
-                    height={350}
-                  />
-                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
-                    {stats.tasksByBranch.map((branch) => (
-                      <div key={branch.branchId} className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">{branch.branchName}:</span>
-                        <span className="font-semibold text-gray-900">{branch.count} ta</span>
-                      </div>
-                    ))}
+                        dataLabels: {
+                          enabled: true,
+                          formatter: (val: number) => `${val.toFixed(1)}%`,
+                          style: {
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          },
+                        },
+                        tooltip: {
+                          y: {
+                            formatter: (value: number) => `${value} ta task`,
+                          },
+                        },
+                      }}
+                      series={series}
+                      type="pie"
+                      height={350}
+                    />
+                    <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                      {validBranches.map((branch: any) => (
+                        <div key={branch.branchId} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">{branch.branchName}:</span>
+                          <span className="font-semibold text-gray-900">{branch.count} ta</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-400">
-                  <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
 

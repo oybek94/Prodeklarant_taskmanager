@@ -638,6 +638,11 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
     console.log('[Dashboard] tasksByBranchWithNames:', JSON.stringify(tasksByBranchWithNames, null, 2));
 
+    // Ensure tasksByBranch is always an array
+    const finalTasksByBranch = Array.isArray(tasksByBranchWithNames) 
+      ? tasksByBranchWithNames 
+      : [];
+
     res.json({
       newTasks,
       completedTasks,
@@ -650,13 +655,22 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       weeklyNetProfit,
       monthlyNetProfit,
       yearlyNetProfit,
-      tasksByBranch: tasksByBranchWithNames,
+      tasksByBranch: finalTasksByBranch,
     });
   } catch (error: any) {
     console.error('Error fetching dashboard stats:', error);
+    // Return partial data with empty arrays to prevent frontend errors
     res.status(500).json({ 
       error: 'Dashboard statistikalarini yuklashda xatolik yuz berdi',
-      details: error instanceof Error ? error.message : String(error)
+      details: error instanceof Error ? error.message : String(error),
+      newTasks: 0,
+      completedTasks: 0,
+      tasksByStatus: [],
+      processStats: [],
+      workerActivity: [],
+      financialStats: [],
+      paymentReminders: [],
+      tasksByBranch: [],
     });
   }
 });

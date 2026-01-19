@@ -77,8 +77,14 @@ const AppRoutes = () => {
           }
         />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/tasks/new" element={<Tasks />} />
+        <Route path="/tasks/archive" element={<Tasks />} />
+        <Route path="/tasks/archive/filters" element={<Tasks />} />
+        <Route path="/tasks/:id/edit" element={<Tasks />} />
         <Route path="/tasks/:id" element={<TaskDetail />} />
         <Route path="/transactions" element={<Transactions />} />
+        <Route path="/transactions/new" element={<Transactions />} />
+        <Route path="/transactions/:id/edit" element={<Transactions />} />
         <Route
           path="/finance"
           element={
@@ -105,6 +111,22 @@ const AppRoutes = () => {
         />
         <Route
           path="/clients"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Clients />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/clients/new"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Clients />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/clients/:id/edit"
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <Clients />
@@ -169,6 +191,22 @@ const AppRoutes = () => {
         <Route path="/exam/:id/result" element={<ExamResult />} />
         <Route
           path="/workers"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Workers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/workers/new"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Workers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/workers/:id/edit"
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <Workers />

@@ -85,6 +85,25 @@ body {
   }
 }
 
+/* Mobile: render modal overlays as full-page panels */
+@media (max-width: 768px) {
+  div[class*="fixed"][class*="inset-0"][class*="bg-black"] {
+    background: #fff !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    padding: 0 !important;
+    backdrop-filter: none !important;
+  }
+
+  div[class*="fixed"][class*="inset-0"][class*="bg-black"] > div {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+}
+
 .animate-slideIn {
   animation: slideIn 0.3s ease-out;
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import MonetaryInput from '../components/MonetaryInput';
@@ -6,6 +7,7 @@ import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationE
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import { formatCurrencyForRole, shouldShowExchangeRate, type Role } from '../utils/currencyFormatting';
 import { Icon } from '@iconify/react';
+import { useIsMobile } from '../utils/useIsMobile';
 
 // Handle ESC key to close modal
 const useEscKey = (isOpen: boolean, onClose: () => void) => {
@@ -57,6 +59,14 @@ interface MonthlyStats {
 
 const Transactions = () => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isNewTransactionRoute = location.pathname === '/transactions/new';
+  const editMatch = location.pathname.match(/^\/transactions\/(\d+)\/edit$/);
+  const editTransactionId = editMatch ? Number(editMatch[1]) : null;
+  const showTransactionForm = showForm || (isMobile && isNewTransactionRoute);
+  const showEditTransactionForm = showEditModal || (isMobile && !!editTransactionId);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -221,10 +231,24 @@ const Transactions = () => {
   };
 
   // Handle ESC key to close modals
-  useEscKey(showForm, () => setShowForm(false));
-  useEscKey(showEditModal, () => {
-    setShowEditModal(false);
-    setEditingTransaction(null);
+  useEscKey(showTransactionForm, () => {
+    if (isMobile && isNewTransactionRoute) {
+      navigate('/transactions');
+    } else {
+      if (isMobile && isNewTransactionRoute) {
+        navigate('/transactions');
+      } else {
+        setShowForm(false);
+      }
+    }
+  });
+  useEscKey(showEditTransactionForm, () => {
+    if (isMobile && editTransactionId) {
+      navigate('/transactions');
+    } else {
+      setShowEditModal(false);
+      setEditingTransaction(null);
+    }
   });
 
   const loadTransactions = async () => {
@@ -345,6 +369,15 @@ const Transactions = () => {
     setForm(newForm);
     setShowEditModal(true);
   };
+
+  useEffect(() => {
+    if (!isMobile || !editTransactionId) return;
+    const txn = transactions.find((t) => t.id === editTransactionId);
+    if (txn) {
+      handleEdit(txn);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, editTransactionId, transactions]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -482,7 +515,13 @@ const Transactions = () => {
               O'tgan yil qarzlarini yozish
             </button>
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                if (isMobile) {
+                  navigate('/transactions/new');
+                } else {
+                  setShowForm(true);
+                }
+              }}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
             >
               + Add Transaction
@@ -600,28 +639,38 @@ const Transactions = () => {
         </div>
       )}
 
-      {showForm && (
+      {showTransactionForm && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
+          className={isMobile && isNewTransactionRoute
+            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+          style={isMobile && isNewTransactionRoute ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setShowForm(false);
+              if (isMobile && isNewTransactionRoute) {
+                navigate('/transactions');
+              } else {
+                setShowForm(false);
+              }
             }
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-            }}
+            className={isMobile && isNewTransactionRoute
+              ? 'bg-white w-full h-full p-6 overflow-y-auto'
+              : 'bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
+            style={isMobile && isNewTransactionRoute ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Yangi transaction</h2>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  if (isMobile && isNewTransactionRoute) {
+                    navigate('/transactions');
+                  } else {
+                    setShowForm(false);
+                  }
+                }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
               >
                 ×
@@ -811,7 +860,13 @@ const Transactions = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  if (isMobile && isNewTransactionRoute) {
+                    navigate('/transactions');
+                  } else {
+                    setShowForm(false);
+                  }
+                }}
                 className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
               >
                 Bekor
@@ -823,31 +878,39 @@ const Transactions = () => {
       )}
 
       {/* Edit Modal */}
-      {showEditModal && editingTransaction && (
+      {showEditTransactionForm && editingTransaction && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
+          className={isMobile && editTransactionId
+            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+          style={isMobile && editTransactionId ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setShowEditModal(false);
-              setEditingTransaction(null);
+              if (isMobile && editTransactionId) {
+                navigate('/transactions');
+              } else {
+                setShowEditModal(false);
+                setEditingTransaction(null);
+              }
             }
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-            }}
+            className={isMobile && editTransactionId
+              ? 'bg-white w-full h-full p-6 overflow-y-auto'
+              : 'bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
+            style={isMobile && editTransactionId ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Transactionni tahrirlash</h2>
               <button
                 onClick={() => {
-                  setShowEditModal(false);
-                  setEditingTransaction(null);
+                  if (isMobile && editTransactionId) {
+                    navigate('/transactions');
+                  } else {
+                    setShowEditModal(false);
+                    setEditingTransaction(null);
+                  }
                 }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
               >
@@ -1142,7 +1205,13 @@ const Transactions = () => {
                       {user?.role === 'ADMIN' ? (
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleEdit(t)}
+                            onClick={() => {
+                              if (isMobile) {
+                                navigate(`/transactions/${t.id}/edit`);
+                              } else {
+                                handleEdit(t);
+                              }
+                            }}
                             className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                             title="O'zgartirish"
                           >

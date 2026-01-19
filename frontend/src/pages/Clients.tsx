@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
 import MonetaryInput from '../components/MonetaryInput';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import { validateMonetaryFields, isValidMonetaryFields } from '../utils/validation';
+import { useIsMobile } from '../utils/useIsMobile';
 
 interface Client {
   id: number;
@@ -124,8 +125,14 @@ const Clients = () => {
     correspondentBankAccount: '',
     correspondentBankSwift: '',
   });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMobile = useIsMobile();
+  const isNewClientRoute = location.pathname === '/clients/new';
+  const editMatch = location.pathname.match(/^\/clients\/(\d+)\/edit$/);
+  const editClientId = editMatch ? Number(editMatch[1]) : null;
+  const showClientForm = showForm || (isMobile && isNewClientRoute);
+  const showEditClientForm = showEditModal || (isMobile && !!editClientId);
 
   useEffect(() => {
     loadClients();
@@ -139,8 +146,19 @@ const Clients = () => {
         if (showClientModal) {
           setShowClientModal(false);
           setSelectedClient(null);
-        } else if (showForm) {
-          setShowForm(false);
+        } else if (showForm || isNewClientRoute) {
+          if (isMobile && isNewClientRoute) {
+            navigate('/clients');
+          } else {
+            setShowForm(false);
+          }
+        } else if (showEditModal || editClientId) {
+          if (isMobile && editClientId) {
+            navigate('/clients');
+          } else {
+            setShowEditModal(false);
+            setEditingClient(null);
+          }
         }
       }
     };
@@ -149,7 +167,7 @@ const Clients = () => {
     return () => {
       window.removeEventListener('keydown', handleEscKey);
     };
-  }, [showForm, showClientModal]);
+  }, [showForm, showClientModal, showEditModal, isMobile, isNewClientRoute, editClientId, navigate]);
 
   const loadClients = async () => {
     try {
@@ -249,7 +267,11 @@ const Clients = () => {
       }
 
       await apiClient.post('/clients', createData);
-      setShowForm(false);
+      if (isMobile && isNewClientRoute) {
+        navigate('/clients');
+      } else {
+        setShowForm(false);
+      }
       setForm({ 
         name: '', 
         dealAmount: '', 
@@ -306,6 +328,15 @@ const Clients = () => {
     });
     setShowEditModal(true);
   };
+
+  useEffect(() => {
+    if (!isMobile || !editClientId) return;
+    const client = clients.find((c) => c.id === editClientId);
+    if (client) {
+      handleEdit(client);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, editClientId, clients]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -402,7 +433,11 @@ const Clients = () => {
         console.error('⚠️ WARNING: creditStartDate was sent but not returned!');
       }
       
-      setShowEditModal(false);
+      if (isMobile && editClientId) {
+        navigate('/clients');
+      } else {
+        setShowEditModal(false);
+      }
       setEditingClient(null);
       setEditForm({ 
         name: '', 
@@ -507,7 +542,13 @@ const Clients = () => {
           <div className="text-sm text-gray-500 mt-1">Home &gt; Clients</div>
         </div>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            if (isMobile) {
+              navigate('/clients/new');
+            } else {
+              setShowForm(true);
+            }
+          }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
         >
           <Icon icon="lucide:plus" className="w-5 h-5" />
@@ -630,28 +671,38 @@ const Clients = () => {
 
 
       {/* Add Client Modal */}
-      {showForm && (
+      {showClientForm && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
+          className={isMobile && isNewClientRoute
+            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+          style={isMobile && isNewClientRoute ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setShowForm(false);
+              if (isMobile && isNewClientRoute) {
+                navigate('/clients');
+              } else {
+                setShowForm(false);
+              }
             }
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-            }}
+            className={isMobile && isNewClientRoute
+              ? 'bg-white w-full h-full p-6 overflow-y-auto'
+              : 'bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
+            style={isMobile && isNewClientRoute ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Yangi mijoz</h2>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  if (isMobile && isNewClientRoute) {
+                    navigate('/clients');
+                  } else {
+                    setShowForm(false);
+                  }
+                }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
               >
                 ×
@@ -897,7 +948,13 @@ const Clients = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => handleEdit(client)}
+                          onClick={() => {
+                            if (isMobile) {
+                              navigate(`/clients/${client.id}/edit`);
+                            } else {
+                              handleEdit(client);
+                            }
+                          }}
                           className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                           title="O'zgartirish"
                         >
@@ -1190,31 +1247,39 @@ const Clients = () => {
       )}
 
       {/* Edit Client Modal */}
-      {showEditModal && editingClient && (
+      {showEditClientForm && editingClient && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
+          className={isMobile && editClientId
+            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+          style={isMobile && editClientId ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setShowEditModal(false);
-              setEditingClient(null);
+              if (isMobile && editClientId) {
+                navigate('/clients');
+              } else {
+                setShowEditModal(false);
+                setEditingClient(null);
+              }
             }
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-            }}
+            className={isMobile && editClientId
+              ? 'bg-white w-full h-full p-6 overflow-y-auto'
+              : 'bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
+            style={isMobile && editClientId ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Mijozni tahrirlash</h2>
               <button
                 onClick={() => {
-                  setShowEditModal(false);
-                  setEditingClient(null);
+                  if (isMobile && editClientId) {
+                    navigate('/clients');
+                  } else {
+                    setShowEditModal(false);
+                    setEditingClient(null);
+                  }
                 }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
               >

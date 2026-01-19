@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { Icon } from '@iconify/react';
+import { useIsMobile } from '../utils/useIsMobile';
 
 interface Task {
   id: number;
@@ -172,6 +174,18 @@ const Tasks = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [stats, setStats] = useState<TaskStats | null>(null);
   const { user } = useAuth();
+  const isMobile = useIsMobile();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isArchiveRoute = location.pathname.startsWith('/tasks/archive');
+  const isArchiveFiltersRoute = location.pathname === '/tasks/archive/filters';
+  const isNewTaskRoute = location.pathname === '/tasks/new';
+  const editTaskMatch = location.pathname.match(/^\/tasks\/(\d+)\/edit$/);
+  const editTaskId = editTaskMatch ? Number(editTaskMatch[1]) : null;
+  const showTaskForm = showForm || (isMobile && isNewTaskRoute);
+  const showEditTaskForm = showEditModal || (isMobile && !!editTaskId);
+  const showArchiveFiltersPanel = showArchiveFilters || (isMobile && isArchiveFiltersRoute);
 
   // Helper function to clean phone number (remove spaces, keep + sign)
   const cleanPhoneNumber = (phone: string): string => {
@@ -386,6 +400,21 @@ const Tasks = () => {
     }
   }, [showArchive]);
 
+  useEffect(() => {
+    if (showArchive !== isArchiveRoute) {
+      setShowArchive(isArchiveRoute);
+    }
+  }, [isArchiveRoute, showArchive]);
+
+  useEffect(() => {
+    if (isArchiveFiltersRoute && !showArchiveFilters) {
+      setShowArchiveFilters(true);
+    }
+    if (!isArchiveFiltersRoute && showArchiveFilters && isMobile) {
+      setShowArchiveFilters(false);
+    }
+  }, [isArchiveFiltersRoute, showArchiveFilters, isMobile]);
+
   // Set default values when branches are loaded
   useEffect(() => {
     if (branches.length > 0) {
@@ -400,15 +429,27 @@ const Tasks = () => {
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (showEditModal) {
-          setShowEditModal(false);
+        if (showEditModal || editTaskId) {
+          if (isMobile && editTaskId) {
+            navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
+          } else {
+            setShowEditModal(false);
+          }
         } else if (showTaskModal) {
           setShowTaskModal(false);
           setSelectedTask(null);
-        } else if (showForm) {
-          setShowForm(false);
-        } else if (showArchiveFilters) {
-          setShowArchiveFilters(false);
+        } else if (showForm || isNewTaskRoute) {
+          if (isMobile && isNewTaskRoute) {
+            navigate('/tasks');
+          } else {
+            setShowForm(false);
+          }
+        } else if (showArchiveFilters || isArchiveFiltersRoute) {
+          if (isMobile && isArchiveFiltersRoute) {
+            navigate('/tasks/archive');
+          } else {
+            setShowArchiveFilters(false);
+          }
         }
       }
     };
@@ -417,7 +458,18 @@ const Tasks = () => {
     return () => {
       window.removeEventListener('keydown', handleEscKey);
     };
-  }, [showForm, showTaskModal, showEditModal, showArchiveFilters]);
+  }, [
+    showForm,
+    showTaskModal,
+    showEditModal,
+    showArchiveFilters,
+    editTaskId,
+    isMobile,
+    isArchiveRoute,
+    isArchiveFiltersRoute,
+    isNewTaskRoute,
+    navigate,
+  ]);
 
   const loadBranches = async () => {
     try {
@@ -717,6 +769,39 @@ const Tasks = () => {
       setLoadingTask(false);
     }
   };
+
+  const loadTaskDetailForEdit = async (taskId: number) => {
+    try {
+      setLoadingTask(true);
+      const response = await apiClient.get(`/tasks/${taskId}`);
+      const taskData = { ...response.data };
+      if (!taskData.stages || taskData.stages.length === 0) {
+        taskData.stages = [];
+      }
+      setSelectedTask(taskData);
+      setEditForm({
+        title: taskData.title,
+        clientId: taskData.client.id.toString(),
+        branchId: taskData.branch.id.toString(),
+        comments: taskData.comments || '',
+        hasPsr: taskData.hasPsr || false,
+        driverPhone: taskData.driverPhone || '',
+      });
+      setShowEditModal(true);
+    } catch (error) {
+      console.error('Error loading task detail for edit:', error);
+      alert('Task ma\'lumotlarini yuklashda xatolik');
+    } finally {
+      setLoadingTask(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isMobile || !editTaskId) return;
+    if (selectedTask?.id === editTaskId && showEditModal) return;
+    loadTaskDetailForEdit(editTaskId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, editTaskId]);
 
   const loadAiChecks = async (taskId: number) => {
     try {
@@ -1430,7 +1515,11 @@ const Tasks = () => {
         hasPsr: editForm.hasPsr,
         driverPhone: editForm.driverPhone || undefined,
       });
-      setShowEditModal(false);
+      if (isMobile && editTaskId) {
+        navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
+      } else {
+        setShowEditModal(false);
+      }
       await loadTaskDetail(selectedTask.id);
       await loadTasks();
     } catch (error: any) {
@@ -1497,7 +1586,11 @@ const Tasks = () => {
         hasPsr: form.hasPsr,
         driverPhone: form.driverPhone || undefined,
       });
-      setShowForm(false);
+      if (isMobile && isNewTaskRoute) {
+        navigate('/tasks');
+      } else {
+        setShowForm(false);
+      }
       const oltiariqBranch = branches.find((b) => b.name === 'Oltiariq');
       setForm({ 
         title: '', 
@@ -2125,7 +2218,13 @@ const Tasks = () => {
           {/* Tab buttons */}
           <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
             <button
-              onClick={() => setShowArchive(false)}
+              onClick={() => {
+                if (isMobile) {
+                  navigate('/tasks');
+                } else {
+                  setShowArchive(false);
+                }
+              }}
               className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
                 !showArchive
                   ? 'bg-white text-blue-600 shadow-sm'
@@ -2135,7 +2234,13 @@ const Tasks = () => {
               Barcha ishlar
             </button>
             <button
-              onClick={() => setShowArchive(true)}
+              onClick={() => {
+                if (isMobile) {
+                  navigate('/tasks/archive');
+                } else {
+                  setShowArchive(true);
+                }
+              }}
               className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
                 showArchive
                   ? 'bg-white text-blue-600 shadow-sm'
@@ -2159,7 +2264,13 @@ const Tasks = () => {
               </button>
               {/* Search Icon - Minimalistic */}
               <button
-                onClick={() => setShowArchiveFilters(!showArchiveFilters)}
+                onClick={() => {
+                  if (isMobile) {
+                    navigate(showArchiveFilters ? '/tasks/archive' : '/tasks/archive/filters');
+                  } else {
+                    setShowArchiveFilters(!showArchiveFilters);
+                  }
+                }}
                 className={`relative p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all shadow-sm hover:shadow z-10 ${
                   showArchiveFilters ? 'opacity-0 pointer-events-none' : ''
                 }`}
@@ -2172,8 +2283,14 @@ const Tasks = () => {
               </button>
               
               {/* Expandable Search and Filter Panel */}
-              {showArchiveFilters && (
-                <div className="absolute right-0 top-0 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 z-20 min-w-[500px] animate-slideIn">
+              {showArchiveFiltersPanel && (
+                <div
+                  className={
+                    isMobile && isArchiveFiltersRoute
+                      ? 'fixed inset-0 bg-white z-50 p-4 overflow-y-auto'
+                      : 'absolute right-0 top-0 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 z-20 min-w-[500px] animate-slideIn'
+                  }
+                >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
@@ -2182,7 +2299,13 @@ const Tasks = () => {
                       <h3 className="text-sm font-semibold text-gray-800">Qidiruv va filtrlash</h3>
                     </div>
                     <button
-                      onClick={() => setShowArchiveFilters(false)}
+                      onClick={() => {
+                        if (isMobile && isArchiveFiltersRoute) {
+                          navigate('/tasks/archive');
+                        } else {
+                          setShowArchiveFilters(false);
+                        }
+                      }}
                       className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none transition-colors"
                     >
                       ×
@@ -2358,7 +2481,13 @@ const Tasks = () => {
           )}
           {!showArchive && (
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                if (isMobile) {
+                  navigate('/tasks/new');
+                } else {
+                  setShowForm(true);
+                }
+              }}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
             >
               + Add Task
@@ -2483,28 +2612,38 @@ const Tasks = () => {
       )}
 
       {/* Modal for Add Task */}
-      {showForm && (
+      {showTaskForm && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
+          className={isMobile && isNewTaskRoute
+            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+          style={isMobile && isNewTaskRoute ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setShowForm(false);
+              if (isMobile && isNewTaskRoute) {
+                navigate('/tasks');
+              } else {
+                setShowForm(false);
+              }
             }
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-            }}
+            className={isMobile && isNewTaskRoute
+              ? 'bg-white w-full h-full px-6 py-6 overflow-y-auto'
+              : 'bg-white rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto'}
+            style={isMobile && isNewTaskRoute ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Yangi task</h2>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  if (isMobile && isNewTaskRoute) {
+                    navigate('/tasks');
+                  } else {
+                    setShowForm(false);
+                  }
+                }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
               >
                 ×
@@ -2708,15 +2847,19 @@ const Tasks = () => {
                   <button
                     onClick={() => {
                       if (selectedTask) {
-                        setEditForm({
-                          title: selectedTask.title,
-                          clientId: selectedTask.client.id.toString(),
-                          branchId: selectedTask.branch.id.toString(),
-                          comments: selectedTask.comments || '',
-                          hasPsr: selectedTask.hasPsr || false,
-                          driverPhone: selectedTask.driverPhone || '',
-                        });
-                        setShowEditModal(true);
+                        if (isMobile) {
+                          navigate(`/tasks/${selectedTask.id}/edit`);
+                        } else {
+                          setEditForm({
+                            title: selectedTask.title,
+                            clientId: selectedTask.client.id.toString(),
+                            branchId: selectedTask.branch.id.toString(),
+                            comments: selectedTask.comments || '',
+                            hasPsr: selectedTask.hasPsr || false,
+                            driverPhone: selectedTask.driverPhone || '',
+                          });
+                          setShowEditModal(true);
+                        }
                       }
                     }}
                     className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -4097,28 +4240,38 @@ const Tasks = () => {
       )}
 
       {/* Modal for Edit Task */}
-      {showEditModal && selectedTask && (
+      {showEditTaskForm && selectedTask && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
+          className={isMobile && editTaskId
+            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+          style={isMobile && editTaskId ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setShowEditModal(false);
+              if (isMobile && editTaskId) {
+                navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
+              } else {
+                setShowEditModal(false);
+              }
             }
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-            }}
+            className={isMobile && editTaskId
+              ? 'bg-white w-full h-full px-6 py-6 overflow-y-auto'
+              : 'bg-white rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto'}
+            style={isMobile && editTaskId ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Taskni tahrirlash</h2>
               <button
-                onClick={() => setShowEditModal(false)}
+                onClick={() => {
+                  if (isMobile && editTaskId) {
+                    navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
+                  } else {
+                    setShowEditModal(false);
+                  }
+                }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
               >
                 ×

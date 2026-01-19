@@ -48,6 +48,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           // Avval access token bilan urinib ko'ramiz
           const response = await apiClient.get(endpoint);
+          if (response.status >= 400 || response.data?.error) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            setUser(null);
+            setIsLoading(false);
+            return;
+          }
           const userData = response.data;
           
           // For CLIENT, add role from token since backend doesn't return it
@@ -120,6 +127,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         ...(email && email.trim() !== '' ? { email } : {}),
         password 
       });
+      if (response.status >= 400 || response.data?.error) {
+        throw new Error(response.data?.error || 'Login failed');
+      }
       const { accessToken, refreshToken, user: userData } = response.data;
 
       localStorage.setItem('accessToken', accessToken);

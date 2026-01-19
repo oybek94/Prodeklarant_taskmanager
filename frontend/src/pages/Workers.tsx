@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
+import { useIsMobile } from '../utils/useIsMobile';
 
 interface Worker {
   id: number;
@@ -22,6 +23,12 @@ const Workers = () => {
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMobile = useIsMobile();
+  const isNewWorkerRoute = location.pathname === '/workers/new';
+  const editMatch = location.pathname.match(/^\/workers\/(\d+)\/edit$/);
+  const editWorkerId = editMatch ? Number(editMatch[1]) : null;
+  const showWorkerForm = showForm || (isMobile && isNewWorkerRoute);
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
   const [form, setForm] = useState({
     name: '',
@@ -49,14 +56,18 @@ const Workers = () => {
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && showForm) {
-        setShowForm(false);
+        if (isMobile && (isNewWorkerRoute || editWorkerId)) {
+          navigate('/workers');
+        } else {
+          setShowForm(false);
+        }
       }
     };
     window.addEventListener('keydown', handleEscKey);
     return () => {
       window.removeEventListener('keydown', handleEscKey);
     };
-  }, [showForm]);
+  }, [showForm, isMobile, isNewWorkerRoute, editWorkerId, navigate]);
 
   const loadWorkers = async () => {
     try {
@@ -109,7 +120,11 @@ const Workers = () => {
           salary: form.salary ? parseFloat(form.salary) : undefined,
         });
       }
-      setShowForm(false);
+      if (isMobile && (isNewWorkerRoute || editWorkerId)) {
+        navigate('/workers');
+      } else {
+        setShowForm(false);
+      }
       setEditingWorker(null);
       setForm({
         name: '',
@@ -139,6 +154,15 @@ const Workers = () => {
     setOpenMenuId(null);
     setShowForm(true);
   };
+
+  useEffect(() => {
+    if (!isMobile || !editWorkerId) return;
+    const worker = workers.find((w) => w.id === editWorkerId);
+    if (worker) {
+      handleEdit(worker);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, editWorkerId, workers]);
 
   const handleDelete = async (workerId: number) => {
     if (!confirm('Bu ishchini o\'chirishni xohlaysizmi? Bu amalni qaytarib bo\'lmaydi.')) return;
@@ -172,7 +196,13 @@ const Workers = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Workers</h1>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            if (isMobile) {
+              navigate('/workers/new');
+            } else {
+              setShowForm(true);
+            }
+          }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           + Add New
@@ -239,7 +269,13 @@ const Workers = () => {
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
-                            onClick={() => handleEdit(worker)}
+                            onClick={() => {
+                              if (isMobile) {
+                                navigate(`/workers/${worker.id}/edit`);
+                              } else {
+                                handleEdit(worker);
+                              }
+                            }}
                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                           >
                             <Icon icon="lucide:pencil" className="w-4 h-4 text-blue-600" />
@@ -302,23 +338,27 @@ const Workers = () => {
       )}
 
       {/* Add Worker Modal */}
-      {showForm && (
+      {showWorkerForm && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
+          className={isMobile && (isNewWorkerRoute || editWorkerId)
+            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+          style={isMobile && (isNewWorkerRoute || editWorkerId) ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setShowForm(false);
+              if (isMobile && (isNewWorkerRoute || editWorkerId)) {
+                navigate('/workers');
+              } else {
+                setShowForm(false);
+              }
             }
           }}
         >
           <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-            }}
+            className={isMobile && (isNewWorkerRoute || editWorkerId)
+              ? 'bg-white w-full h-full p-6 overflow-y-auto'
+              : 'bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4'}
+            style={isMobile && (isNewWorkerRoute || editWorkerId) ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-6">
@@ -327,7 +367,11 @@ const Workers = () => {
               </h2>
               <button
                 onClick={() => {
-                  setShowForm(false);
+                  if (isMobile && (isNewWorkerRoute || editWorkerId)) {
+                    navigate('/workers');
+                  } else {
+                    setShowForm(false);
+                  }
                   setEditingWorker(null);
                   setForm({
                     name: '',

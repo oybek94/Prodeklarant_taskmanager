@@ -611,6 +611,20 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       branchWhere.stages = { some: { assignedTo: parseInt(workerId as string) } };
     }
     
+    // Debug: Check total tasks
+    const totalTasksCount = await prisma.task.count({ where: branchWhere });
+    console.log('[Dashboard] Total tasks count:', totalTasksCount);
+    
+    // Debug: Check tasks with and without branchId
+    const tasksWithBranchId = await prisma.task.count({
+      where: { ...branchWhere, branchId: { not: null } },
+    });
+    const tasksWithoutBranchId = await prisma.task.count({
+      where: { ...branchWhere, branchId: null },
+    });
+    console.log('[Dashboard] Tasks with branchId:', tasksWithBranchId);
+    console.log('[Dashboard] Tasks without branchId:', tasksWithoutBranchId);
+    
     const tasksByBranch = await prisma.task.groupBy({
       by: ['branchId'],
       where: branchWhere,
@@ -618,15 +632,21 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     });
 
     console.log('[Dashboard] tasksByBranch raw:', JSON.stringify(tasksByBranch, null, 2));
+    console.log('[Dashboard] tasksByBranch length:', tasksByBranch.length);
 
     // Get branch details
     const branchIds = tasksByBranch.map((t: any) => t.branchId).filter((id: any) => id !== null);
+    console.log('[Dashboard] branchIds extracted:', branchIds);
+    
     const branchDetails = branchIds.length > 0
       ? await prisma.branch.findMany({
           where: { id: { in: branchIds } },
           select: { id: true, name: true },
         })
       : [];
+    
+    console.log('[Dashboard] branchDetails found:', JSON.stringify(branchDetails, null, 2));
+    console.log('[Dashboard] branchDetails count:', branchDetails.length);
 
     const tasksByBranchWithNames = tasksByBranch
       .filter((t: any) => t.branchId !== null)
@@ -637,11 +657,14 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       }));
 
     console.log('[Dashboard] tasksByBranchWithNames:', JSON.stringify(tasksByBranchWithNames, null, 2));
+    console.log('[Dashboard] tasksByBranchWithNames length:', tasksByBranchWithNames.length);
 
     // Ensure tasksByBranch is always an array
     const finalTasksByBranch = Array.isArray(tasksByBranchWithNames) 
       ? tasksByBranchWithNames 
       : [];
+    
+    console.log('[Dashboard] Final tasksByBranch being sent:', JSON.stringify(finalTasksByBranch, null, 2));
 
     res.json({
       newTasks,

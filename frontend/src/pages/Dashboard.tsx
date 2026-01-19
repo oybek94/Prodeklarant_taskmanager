@@ -664,6 +664,14 @@ const Dashboard = () => {
                 </div>
               ) : (() => {
                 const branches = stats?.tasksByBranch;
+                
+                // Debug information - faqat development uchun
+                console.log('[Dashboard Debug] tasksByBranch raw:', branches);
+                console.log('[Dashboard Debug] tasksByBranch type:', typeof branches);
+                console.log('[Dashboard Debug] tasksByBranch isArray:', Array.isArray(branches));
+                console.log('[Dashboard Debug] tasksByBranch length:', branches?.length);
+                console.log('[Dashboard Debug] Full stats object:', stats);
+                
                 const hasValidData = branches && 
                   Array.isArray(branches) && 
                   branches.length > 0 && 
@@ -674,6 +682,18 @@ const Dashboard = () => {
                     <div className="text-center py-12 text-gray-400">
                       <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
                       <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
+                      {/* Debug info - faqat development'da ko'rinadi */}
+                      {import.meta.env.DEV && (
+                        <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left max-w-md mx-auto">
+                          <p className="font-semibold mb-1">Debug Info:</p>
+                          <p>Type: {typeof branches}</p>
+                          <p>Is Array: {Array.isArray(branches) ? 'Yes' : 'No'}</p>
+                          <p>Length: {branches?.length ?? 'undefined'}</p>
+                          <pre className="mt-2 text-xs overflow-auto max-h-40 bg-white p-2 rounded border">
+                            {JSON.stringify(branches, null, 2)}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   );
                 }
@@ -687,6 +707,14 @@ const Dashboard = () => {
                     <div className="text-center py-12 text-gray-400">
                       <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
                       <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
+                      {import.meta.env.DEV && (
+                        <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left max-w-md mx-auto">
+                          <p className="font-semibold mb-1">Debug Info:</p>
+                          <p>Valid branches: {validBranches.length}</p>
+                          <p>Labels: {JSON.stringify(labels)}</p>
+                          <p>Series: {JSON.stringify(series)}</p>
+                        </div>
+                      )}
                     </div>
                   );
                 }

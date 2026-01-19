@@ -62,11 +62,6 @@ const Transactions = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
-  const isNewTransactionRoute = location.pathname === '/transactions/new';
-  const editMatch = location.pathname.match(/^\/transactions\/(\d+)\/edit$/);
-  const editTransactionId = editMatch ? Number(editMatch[1]) : null;
-  const showTransactionForm = showForm || (isMobile && isNewTransactionRoute);
-  const showEditTransactionForm = showEditModal || (isMobile && !!editTransactionId);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -108,6 +103,11 @@ const Transactions = () => {
   });
   const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
   const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
+  const isNewTransactionRoute = location.pathname === '/transactions/new';
+  const editMatch = location.pathname.match(/^\/transactions\/(\d+)\/edit$/);
+  const editTransactionId = editMatch ? Number(editMatch[1]) : null;
+  const showTransactionForm = showForm || (isMobile && isNewTransactionRoute);
+  const showEditTransactionForm = showEditModal || (isMobile && !!editTransactionId);
 
   useEffect(() => {
     loadTransactions();

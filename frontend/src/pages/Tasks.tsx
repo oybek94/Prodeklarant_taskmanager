@@ -178,15 +178,6 @@ const Tasks = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isArchiveRoute = location.pathname.startsWith('/tasks/archive');
-  const isArchiveFiltersRoute = location.pathname === '/tasks/archive/filters';
-  const isNewTaskRoute = location.pathname === '/tasks/new';
-  const editTaskMatch = location.pathname.match(/^\/tasks\/(\d+)\/edit$/);
-  const editTaskId = editTaskMatch ? Number(editTaskMatch[1]) : null;
-  const showTaskForm = showForm || (isMobile && isNewTaskRoute);
-  const showEditTaskForm = showEditModal || (isMobile && !!editTaskId);
-  const showArchiveFiltersPanel = showArchiveFilters || (isMobile && isArchiveFiltersRoute);
-
   // Helper function to clean phone number (remove spaces, keep + sign)
   const cleanPhoneNumber = (phone: string): string => {
     // Remove all spaces, keep + sign if present
@@ -297,6 +288,15 @@ const Tasks = () => {
     hasPsr: '',
   });
   const [showArchiveFilters, setShowArchiveFilters] = useState(false);
+
+  const isArchiveRoute = location.pathname.startsWith('/tasks/archive');
+  const isArchiveFiltersRoute = location.pathname === '/tasks/archive/filters';
+  const isNewTaskRoute = location.pathname === '/tasks/new';
+  const editTaskMatch = location.pathname.match(/^\/tasks\/(\d+)\/edit$/);
+  const editTaskId = editTaskMatch ? Number(editTaskMatch[1]) : null;
+  const showTaskForm = showForm || (isMobile && isNewTaskRoute);
+  const showEditTaskForm = showEditModal || (isMobile && !!editTaskId);
+  const showArchiveFiltersPanel = showArchiveFilters || (isMobile && isArchiveFiltersRoute);
 
   const downloadStickerPng = async (taskId: number) => {
     try {

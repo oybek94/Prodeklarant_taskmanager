@@ -99,6 +99,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,12 +211,28 @@ const Dashboard = () => {
   const loadStats = async () => {
     try {
       setLoading(true);
+      setStatsError(null);
       const response = await apiClient.get('/dashboard/stats');
       console.log('[Dashboard] Stats response:', response.data);
       console.log('[Dashboard] tasksByBranch:', response.data?.tasksByBranch);
       console.log('[Dashboard] tasksByBranch type:', typeof response.data?.tasksByBranch);
       console.log('[Dashboard] tasksByBranch isArray:', Array.isArray(response.data?.tasksByBranch));
       console.log('[Dashboard] tasksByBranch length:', response.data?.tasksByBranch?.length);
+
+      if (response.status >= 400 || response.data?.error) {
+        const errorMessage = response.data?.error || `Dashboard statistikasi yuklanmadi (status: ${response.status})`;
+        setStatsError(errorMessage);
+        setStats({
+          newTasks: 0,
+          completedTasks: 0,
+          tasksByStatus: [],
+          processStats: [],
+          workerActivity: [],
+          financialStats: [],
+          tasksByBranch: [],
+        });
+        return;
+      }
       
       // Ensure tasksByBranch is always an array
       const statsData = {
@@ -226,8 +243,14 @@ const Dashboard = () => {
       };
       
       setStats(statsData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading stats:', error);
+      const errorMessage =
+        error?.response?.data?.details ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Dashboard statistikasi yuklanmadi';
+      setStatsError(errorMessage);
       // Set empty stats on error to prevent rendering issues
       setStats({
         newTasks: 0,
@@ -671,12 +694,22 @@ const Dashboard = () => {
                 console.log('[Dashboard Debug] tasksByBranch isArray:', Array.isArray(branches));
                 console.log('[Dashboard Debug] tasksByBranch length:', branches?.length);
                 console.log('[Dashboard Debug] Full stats object:', stats);
+                console.log('[Dashboard Debug] statsError:', statsError);
                 
                 const hasValidData = branches && 
                   Array.isArray(branches) && 
                   branches.length > 0 && 
                   branches.some((b: any) => b && b.count > 0);
                 
+                if (statsError) {
+                  return (
+                    <div className="text-center py-12 text-gray-400">
+                      <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>{statsError}</p>
+                    </div>
+                  );
+                }
+
                 if (!hasValidData) {
                   return (
                     <div className="text-center py-12 text-gray-400">

@@ -615,15 +615,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     const totalTasksCount = await prisma.task.count({ where: branchWhere });
     console.log('[Dashboard] Total tasks count:', totalTasksCount);
     
-    // Debug: Check tasks with and without branchId
-    const tasksWithBranchId = await prisma.task.count({
-      where: { ...branchWhere, branchId: { not: null } },
-    });
-    const tasksWithoutBranchId = await prisma.task.count({
-      where: { ...branchWhere, branchId: null },
-    });
-    console.log('[Dashboard] Tasks with branchId:', tasksWithBranchId);
-    console.log('[Dashboard] Tasks without branchId:', tasksWithoutBranchId);
+    // Debug: branchId null checks removed for schema compatibility
     
     const tasksByBranch = await prisma.task.groupBy({
       by: ['branchId'],
@@ -648,13 +640,20 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     console.log('[Dashboard] branchDetails found:', JSON.stringify(branchDetails, null, 2));
     console.log('[Dashboard] branchDetails count:', branchDetails.length);
 
-    const tasksByBranchWithNames = tasksByBranch
-      .filter((t: any) => t.branchId !== null)
-      .map((t: any) => ({
+    const tasksByBranchWithNames = tasksByBranch.map((t: any) => {
+      if (t.branchId === null) {
+        return {
+          branchId: null,
+          branchName: 'Filial belgilanmagan',
+          count: t._count,
+        };
+      }
+      return {
         branchId: t.branchId,
         branchName: branchDetails.find((b: any) => b.id === t.branchId)?.name || 'Noma\'lum',
         count: t._count,
-      }));
+      };
+    });
 
     console.log('[Dashboard] tasksByBranchWithNames:', JSON.stringify(tasksByBranchWithNames, null, 2));
     console.log('[Dashboard] tasksByBranchWithNames length:', tasksByBranchWithNames.length);

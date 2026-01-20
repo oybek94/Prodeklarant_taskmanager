@@ -81,6 +81,7 @@ interface DashboardStats {
     totalPaidUsd: number;
     pendingUsd: number;
   }>;
+  yearlyGoalTarget?: number;
 }
 
 interface CompletedSummaryItem {
@@ -937,7 +938,7 @@ const Dashboard = () => {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
               ) : (() => {
-                const TARGET_TASKS = 2000;
+                const TARGET_TASKS = stats?.yearlyGoalTarget ?? 2000;
                 const completed = completedSummary?.year?.count ?? 0;
                 const percentage = Math.min((completed / TARGET_TASKS) * 100, 100);
                 const remaining = Math.max(TARGET_TASKS - completed, 0);
@@ -1484,7 +1485,7 @@ const Dashboard = () => {
                   <Icon icon="lucide:users" className="w-6 h-6 text-orange-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Qarzdorlar ro'yxati</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">Qarzdorlar</h2>
                   <p className="text-xs text-gray-500">To'lov qilish kerak bo'lgan mijozlar</p>
                 </div>
               </div>

@@ -65,6 +65,14 @@ interface CertifierFeeConfig {
   updatedAt: string;
 }
 
+interface YearlyGoalConfig {
+  id: number;
+  year: number;
+  targetTasks: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface KpiConfig {
   id: number;
   stageName: string;
@@ -130,6 +138,13 @@ const Settings = () => {
     fitoRate: '',
     aktRate: '',
   });
+  const [yearlyGoalConfig, setYearlyGoalConfig] = useState<YearlyGoalConfig | null>(null);
+  const [loadingYearlyGoalConfig, setLoadingYearlyGoalConfig] = useState(true);
+  const [showYearlyGoalForm, setShowYearlyGoalForm] = useState(false);
+  const [yearlyGoalForm, setYearlyGoalForm] = useState({
+    year: new Date().getFullYear().toString(),
+    targetTasks: '',
+  });
   const [kpiConfigEdits, setKpiConfigEdits] = useState<Record<string, string>>({});
   const [loadingKpiConfigs, setLoadingKpiConfigs] = useState(true);
   const [savingKpiConfigs, setSavingKpiConfigs] = useState(false);
@@ -144,6 +159,7 @@ const Settings = () => {
     loadBranches();
     loadCompanySettings();
     loadCertifierFeeConfig();
+    loadYearlyGoalConfig();
     loadKpiConfigs();
   }, []);
 
@@ -368,6 +384,24 @@ const Settings = () => {
     }
   };
 
+  const loadYearlyGoalConfig = async () => {
+    try {
+      setLoadingYearlyGoalConfig(true);
+      const response = await apiClient.get('/yearly-goal-config');
+      if (response.data) {
+        setYearlyGoalConfig(response.data);
+        setYearlyGoalForm({
+          year: response.data.year?.toString() ?? new Date().getFullYear().toString(),
+          targetTasks: response.data.targetTasks?.toString() ?? '',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading yearly goal config:', error);
+    } finally {
+      setLoadingYearlyGoalConfig(false);
+    }
+  };
+
   const loadKpiConfigs = async () => {
     try {
       setLoadingKpiConfigs(true);
@@ -437,6 +471,21 @@ const Settings = () => {
     }
   };
 
+  const handleYearlyGoalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiClient.post('/yearly-goal-config', {
+        year: Number(yearlyGoalForm.year),
+        targetTasks: Number(yearlyGoalForm.targetTasks),
+      });
+      setShowYearlyGoalForm(false);
+      await loadYearlyGoalConfig();
+      alert('Yillik maqsad muvaffaqiyatli saqlandi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
   if (user?.role !== 'ADMIN') {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -446,62 +495,310 @@ const Settings = () => {
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Sozlamalar</h1>
-
-      {/* Current BXM */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Joriy BXM (Bazaviy Xisoblash Miqdori)</h2>
-        {loading ? (
-          <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-        ) : currentBXM ? (
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm text-gray-600">Yil: {currentBXM.year}</div>
-              <div className="text-2xl font-bold text-blue-600">
-                {formatCurrency(Number(currentBXM.amountUsd ?? currentBXM.amount), 'USD')}
-              </div>
-              <div className="text-sm text-gray-600 mt-1">
-                {formatCurrency(Number(currentBXM.amountUzs ?? 412000), 'UZS')}
-              </div>
-            </div>
-            <button
-              onClick={() => handleEdit(currentBXM)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              O'zgartirish
-            </button>
-          </div>
-        ) : (
-          <div className="text-center py-4 text-gray-400">BXM topilmadi</div>
-        )}
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-800">Sozlamalar</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Asosiy ma'lumotlar, tariflar va hisob-kitob sozlamalarini tartibga keltiring.
+        </p>
       </div>
 
-      {/* BXM History */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">BXM tarixi</h2>
-          <button
-            onClick={() => {
-              const currentYear = new Date().getFullYear();
-              setEditingYear(currentYear + 1);
-              setEditAmountUsd('34.4');
-              setEditAmountUzs('412000');
-            }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            + Yangi yil qo'shish
-          </button>
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Asosiy</h2>
+          <span className="text-sm text-gray-400">Kompaniya va filiallar</span>
         </div>
-        <div className="space-y-3">
-          {bxmConfigs.map((config) => (
-            <div
-              key={config.id}
-              className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-            >
-              {editingYear === config.year ? (
-                <div className="flex items-center gap-3 flex-1">
-                  <span className="text-sm font-medium text-gray-700 w-20">{config.year}</span>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* Company Settings Section */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Kompaniya ma'lumotlari</h2>
+              <button
+                onClick={() => {
+                  if (companySettings) {
+                    setShowCompanySettingsForm(true);
+                  } else {
+                    setShowCompanySettingsForm(true);
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                {companySettings ? 'O\'zgartirish' : '+ Qo\'shish'}
+              </button>
+            </div>
+
+            {loadingCompanySettings ? (
+              <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+            ) : companySettings ? (
+              <div className="space-y-2 text-sm">
+                <div><span className="font-semibold">Nomi:</span> {companySettings.name}</div>
+                <div><span className="font-semibold">Yuridik manzil:</span> {companySettings.legalAddress}</div>
+                <div><span className="font-semibold">Haqiqiy manzil:</span> {companySettings.actualAddress}</div>
+                {companySettings.inn && <div><span className="font-semibold">INN:</span> {companySettings.inn}</div>}
+                {companySettings.phone && <div><span className="font-semibold">Telefon:</span> {companySettings.phone}</div>}
+                {companySettings.email && <div><span className="font-semibold">Email:</span> {companySettings.email}</div>}
+                {companySettings.bankName && <div><span className="font-semibold">Bank:</span> {companySettings.bankName}</div>}
+                {companySettings.bankAccount && <div><span className="font-semibold">Hisob raqami:</span> {companySettings.bankAccount}</div>}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-400">
+                Kompaniya ma'lumotlari kiritilmagan. Invoice yaratish uchun kompaniya ma'lumotlarini kiriting.
+              </div>
+            )}
+          </div>
+
+          {/* Branches Section */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Filiallar</h2>
+              <button
+                onClick={() => setShowBranchForm(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                + Filial qo'shish
+              </button>
+            </div>
+
+            {branches.length === 0 ? (
+              <div className="text-center py-4 text-gray-400">Filiallar topilmadi</div>
+            ) : (
+              <div className="space-y-2">
+                {branches.map((branch) => (
+                  <div
+                    key={branch.id}
+                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  >
+                    <div className="text-gray-800 font-medium">{branch.name}</div>
+                    <button
+                      onClick={() => handleDeleteBranch(branch.id, branch.name)}
+                      disabled={deletingBranchId === branch.id}
+                      className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
+                    >
+                      {deletingBranchId === branch.id ? 'O\'chirilmoqda...' : 'O\'chirish'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showBranchForm && (
+              <div className="mt-4 p-4 border-2 border-green-300 rounded-lg bg-green-50">
+                <h3 className="text-md font-semibold text-gray-800 mb-3">Yangi filial</h3>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newBranchName}
+                    onChange={(e) => setNewBranchName(e.target.value)}
+                    placeholder="Filial nomi"
+                    className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && newBranchName.trim()) {
+                        handleCreateBranch(newBranchName.trim());
+                        setNewBranchName('');
+                        setShowBranchForm(false);
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => {
+                      if (newBranchName.trim()) {
+                        handleCreateBranch(newBranchName.trim());
+                        setNewBranchName('');
+                        setShowBranchForm(false);
+                      }
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Qo'shish
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowBranchForm(false);
+                      setNewBranchName('');
+                    }}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                  >
+                    Bekor qilish
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Moliyaviy</h2>
+          <span className="text-sm text-gray-400">BXM, sertifikatchi va maqsad</span>
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Current BXM */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Joriy BXM (Bazaviy Xisoblash Miqdori)</h2>
+            {loading ? (
+              <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+            ) : currentBXM ? (
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-gray-600">Yil: {currentBXM.year}</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(Number(currentBXM.amountUsd ?? currentBXM.amount), 'USD')}
+                  </div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    {formatCurrency(Number(currentBXM.amountUzs ?? 412000), 'UZS')}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleEdit(currentBXM)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  O'zgartirish
+                </button>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-400">BXM topilmadi</div>
+            )}
+          </div>
+
+          {/* Certifier Fee Settings Section */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Sertifikatchi tariflari (Oltiariq)</h2>
+              <button
+                onClick={() => setShowCertifierFeeForm(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                {certifierFeeConfig ? 'O\'zgartirish' : '+ Qo\'shish'}
+              </button>
+            </div>
+
+            {loadingCertifierFeeConfig ? (
+              <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+            ) : certifierFeeConfig ? (
+              <div className="space-y-2 text-sm">
+                <div><span className="font-semibold">ST-1:</span> {formatCurrency(Number(certifierFeeConfig.st1Rate), 'UZS')}</div>
+                <div><span className="font-semibold">FITO:</span> {formatCurrency(Number(certifierFeeConfig.fitoRate), 'UZS')}</div>
+                <div><span className="font-semibold">AKT:</span> {formatCurrency(Number(certifierFeeConfig.aktRate), 'UZS')}</div>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-400">
+                Sertifikatchi tariflari kiritilmagan.
+              </div>
+            )}
+          </div>
+
+          {/* Yearly Goal Settings Section */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Yillik maqsad</h2>
+              <button
+                onClick={() => setShowYearlyGoalForm(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                {yearlyGoalConfig ? 'O\'zgartirish' : '+ Qo\'shish'}
+              </button>
+            </div>
+
+            {loadingYearlyGoalConfig ? (
+              <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+            ) : yearlyGoalConfig ? (
+              <div className="space-y-2 text-sm">
+                <div><span className="font-semibold">Yil:</span> {yearlyGoalConfig.year}</div>
+                <div><span className="font-semibold">Maqsad:</span> {yearlyGoalConfig.targetTasks.toLocaleString('uz-UZ')} task</div>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-400">
+                Yillik maqsad kiritilmagan.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* BXM History */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">BXM tarixi</h2>
+              <button
+                onClick={() => {
+                  const currentYear = new Date().getFullYear();
+                  setEditingYear(currentYear + 1);
+                  setEditAmountUsd('34.4');
+                  setEditAmountUzs('412000');
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                + Yangi yil qo'shish
+              </button>
+            </div>
+            <div className="space-y-3">
+              {bxmConfigs.map((config) => (
+                <div
+                  key={config.id}
+                  className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                >
+                  {editingYear === config.year ? (
+                    <div className="flex items-center gap-3 flex-1">
+                      <span className="text-sm font-medium text-gray-700 w-20">{config.year}</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editAmountUsd}
+                        onChange={(e) => setEditAmountUsd(e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="BXM USD"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editAmountUzs}
+                        onChange={(e) => setEditAmountUzs(e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="BXM UZS"
+                      />
+                      <button
+                        onClick={() => handleSave(config.year)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Saqlash
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingYear(null);
+                          setEditAmountUsd('');
+                          setEditAmountUzs('');
+                        }}
+                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                      >
+                        Bekor qilish
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <div className="text-sm font-medium text-gray-800">{config.year} yil</div>
+                        <div className="text-lg font-bold text-blue-600">
+                          {formatCurrency(Number(config.amountUsd ?? config.amount), 'USD')}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {formatCurrency(Number(config.amountUzs ?? 412000), 'UZS')}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleEdit(config)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        O'zgartirish
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+              {editingYear && editingYear > Math.max(...bxmConfigs.map(c => c.year), 0) && (
+                <div className="flex items-center gap-3 p-3 border-2 border-green-300 rounded-lg bg-green-50">
+                  <span className="text-sm font-medium text-gray-700 w-20">{editingYear}</span>
                   <input
                     type="number"
                     step="0.01"
@@ -519,10 +816,10 @@ const Settings = () => {
                     placeholder="BXM UZS"
                   />
                   <button
-                    onClick={() => handleSave(config.year)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    onClick={handleAddNewYear}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                   >
-                    Saqlash
+                    Qo'shish
                   </button>
                   <button
                     onClick={() => {
@@ -535,207 +832,134 @@ const Settings = () => {
                     Bekor qilish
                   </button>
                 </div>
-              ) : (
-                <>
-                  <div>
-                    <div className="text-sm font-medium text-gray-800">{config.year} yil</div>
-                    <div className="text-lg font-bold text-blue-600">
-                      {formatCurrency(Number(config.amountUsd ?? config.amount), 'USD')}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {formatCurrency(Number(config.amountUzs ?? 412000), 'UZS')}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleEdit(config)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    O'zgartirish
-                  </button>
-                </>
               )}
             </div>
-          ))}
-          {editingYear && editingYear > Math.max(...bxmConfigs.map(c => c.year), 0) && (
-            <div className="flex items-center gap-3 p-3 border-2 border-green-300 rounded-lg bg-green-50">
-              <span className="text-sm font-medium text-gray-700 w-20">{editingYear}</span>
-              <input
-                type="number"
-                step="0.01"
-                value={editAmountUsd}
-                onChange={(e) => setEditAmountUsd(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="BXM USD"
-              />
-              <input
-                type="number"
-                step="0.01"
-                value={editAmountUzs}
-                onChange={(e) => setEditAmountUzs(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="BXM UZS"
-              />
+          </div>
+
+          {/* State Payments Section */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Davlat to'lovlari</h2>
               <button
-                onClick={handleAddNewYear}
+                onClick={() => setShowStatePaymentForm(true)}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
-                Qo'shish
-              </button>
-              <button
-                onClick={() => {
-                  setEditingYear(null);
-                  setEditAmountUsd('');
-                  setEditAmountUzs('');
-                }}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-              >
-                Bekor qilish
+                + Qo'shish
               </button>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Branches Section */}
-      <div className="bg-white rounded-lg shadow p-6 mt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">Filiallar</h2>
-          <button
-            onClick={() => setShowBranchForm(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            + Filial qo'shish
-          </button>
-        </div>
-
-        {branches.length === 0 ? (
-          <div className="text-center py-4 text-gray-400">Filiallar topilmadi</div>
-        ) : (
-          <div className="space-y-2">
-            {branches.map((branch) => (
-              <div
-                key={branch.id}
-                className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-              >
-                <div className="text-gray-800 font-medium">{branch.name}</div>
-                <button
-                  onClick={() => handleDeleteBranch(branch.id, branch.name)}
-                  disabled={deletingBranchId === branch.id}
-                  className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
-                >
-                  {deletingBranchId === branch.id ? 'O\'chirilmoqda...' : 'O\'chirish'}
-                </button>
+            {loadingStatePayments ? (
+              <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+            ) : statePayments.length === 0 ? (
+              <div className="text-center py-4 text-gray-400">Davlat to'lovlari topilmadi</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Filial</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700">Sertifikat to'lovi</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700">PSR narxi</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishchi narxi</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Yaratilgan</th>
+                      <th className="text-center py-3 px-4 font-semibold text-gray-700">Amallar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statePayments.map((payment) => (
+                      <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 text-gray-800 font-medium">{payment.branch.name}</td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="text-sm text-gray-700">{formatCurrency(Number(payment.certificatePaymentUsd ?? payment.certificatePayment), 'USD')}</div>
+                          <div className="text-xs text-gray-500">{formatCurrency(Number(payment.certificatePaymentUzs ?? payment.certificatePayment), 'UZS')}</div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="text-sm text-gray-700">{formatCurrency(Number(payment.psrPriceUsd ?? payment.psrPrice), 'USD')}</div>
+                          <div className="text-xs text-gray-500">{formatCurrency(Number(payment.psrPriceUzs ?? payment.psrPrice), 'UZS')}</div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="text-sm text-gray-700">{formatCurrency(Number(payment.workerPriceUsd ?? payment.workerPrice), 'USD')}</div>
+                          <div className="text-xs text-gray-500">{formatCurrency(Number(payment.workerPriceUzs ?? payment.workerPrice), 'UZS')}</div>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-500">{formatDate(payment.createdAt)}</td>
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={() => handleDeleteStatePayment(payment.id)}
+                            className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                          >
+                            O'chirish
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
+            )}
           </div>
-        )}
+        </div>
+      </section>
 
-        {showBranchForm && (
-          <div className="mt-4 p-4 border-2 border-green-300 rounded-lg bg-green-50">
-            <h3 className="text-md font-semibold text-gray-800 mb-3">Yangi filial</h3>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newBranchName}
-                onChange={(e) => setNewBranchName(e.target.value)}
-                placeholder="Filial nomi"
-                className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && newBranchName.trim()) {
-                    handleCreateBranch(newBranchName.trim());
-                    setNewBranchName('');
-                    setShowBranchForm(false);
-                  }
-                }}
-                autoFocus
-              />
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Jarayonlar</h2>
+          <span className="text-sm text-gray-400">Ish haqi summalari</span>
+        </div>
+        <div className="grid grid-cols-1 gap-6">
+          {/* Stage fixed amounts */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">Jarayonlar bo'yicha qatiy summalar</h2>
+                <div className="text-sm text-gray-500">Barcha summalar USD da kiritiladi</div>
+              </div>
               <button
-                onClick={() => {
-                  if (newBranchName.trim()) {
-                    handleCreateBranch(newBranchName.trim());
-                    setNewBranchName('');
-                    setShowBranchForm(false);
-                  }
-                }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                onClick={handleSaveKpiConfigs}
+                disabled={savingKpiConfigs || loadingKpiConfigs}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
-                Qo'shish
-              </button>
-              <button
-                onClick={() => {
-                  setShowBranchForm(false);
-                  setNewBranchName('');
-                }}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-              >
-                Bekor qilish
+                {savingKpiConfigs ? 'Saqlanmoqda...' : 'Saqlash'}
               </button>
             </div>
+            {loadingKpiConfigs ? (
+              <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Jarayon</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700">Summa (USD)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {STAGE_PRICE_DEFAULTS.map((stage) => (
+                      <tr key={stage.stageName} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 text-gray-800 font-medium">{stage.stageName}</td>
+                        <td className="py-3 px-4 text-right">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={kpiConfigEdits[stage.stageName] ?? ''}
+                            onChange={(e) =>
+                              setKpiConfigEdits({
+                                ...kpiConfigEdits,
+                                [stage.stageName]: e.target.value,
+                              })
+                            }
+                            className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder={stage.price.toString()}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* State Payments Section */}
-      <div className="bg-white rounded-lg shadow p-6 mt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">Davlat to'lovlari</h2>
-          <button
-            onClick={() => setShowStatePaymentForm(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            + Qo'shish
-          </button>
         </div>
-
-        {loadingStatePayments ? (
-          <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-        ) : statePayments.length === 0 ? (
-          <div className="text-center py-4 text-gray-400">Davlat to'lovlari topilmadi</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Filial</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Sertifikat to'lovi</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">PSR narxi</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishchi narxi</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Yaratilgan</th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Amallar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {statePayments.map((payment) => (
-                  <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-gray-800 font-medium">{payment.branch.name}</td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="text-sm text-gray-700">{formatCurrency(Number(payment.certificatePaymentUsd ?? payment.certificatePayment), 'USD')}</div>
-                      <div className="text-xs text-gray-500">{formatCurrency(Number(payment.certificatePaymentUzs ?? payment.certificatePayment), 'UZS')}</div>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="text-sm text-gray-700">{formatCurrency(Number(payment.psrPriceUsd ?? payment.psrPrice), 'USD')}</div>
-                      <div className="text-xs text-gray-500">{formatCurrency(Number(payment.psrPriceUzs ?? payment.psrPrice), 'UZS')}</div>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="text-sm text-gray-700">{formatCurrency(Number(payment.workerPriceUsd ?? payment.workerPrice), 'USD')}</div>
-                      <div className="text-xs text-gray-500">{formatCurrency(Number(payment.workerPriceUzs ?? payment.workerPrice), 'UZS')}</div>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-500">{formatDate(payment.createdAt)}</td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleDeleteStatePayment(payment.id)}
-                        className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-                      >
-                        O'chirish
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      </section>
 
       {/* State Payment Form Modal */}
       {showStatePaymentForm && (
@@ -873,124 +1097,6 @@ const Settings = () => {
         </div>
       )}
 
-      {/* Stage fixed amounts */}
-      <div className="bg-white rounded-lg shadow p-6 mt-6">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800">Jarayonlar bo'yicha qatiy summalar</h2>
-            <div className="text-sm text-gray-500">Barcha summalar USD da kiritiladi</div>
-          </div>
-          <button
-            onClick={handleSaveKpiConfigs}
-            disabled={savingKpiConfigs || loadingKpiConfigs}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {savingKpiConfigs ? 'Saqlanmoqda...' : 'Saqlash'}
-          </button>
-        </div>
-        {loadingKpiConfigs ? (
-          <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Jarayon</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Summa (USD)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {STAGE_PRICE_DEFAULTS.map((stage) => (
-                  <tr key={stage.stageName} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-gray-800 font-medium">{stage.stageName}</td>
-                    <td className="py-3 px-4 text-right">
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={kpiConfigEdits[stage.stageName] ?? ''}
-                        onChange={(e) =>
-                          setKpiConfigEdits({
-                            ...kpiConfigEdits,
-                            [stage.stageName]: e.target.value,
-                          })
-                        }
-                        className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder={stage.price.toString()}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Certifier Fee Settings Section */}
-      <div className="bg-white rounded-lg shadow p-6 mt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">Sertifikatchi tariflari (Oltiariq)</h2>
-          <button
-            onClick={() => setShowCertifierFeeForm(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            {certifierFeeConfig ? 'O\'zgartirish' : '+ Qo\'shish'}
-          </button>
-        </div>
-
-        {loadingCertifierFeeConfig ? (
-          <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-        ) : certifierFeeConfig ? (
-          <div className="space-y-2 text-sm">
-            <div><span className="font-semibold">ST-1:</span> {formatCurrency(Number(certifierFeeConfig.st1Rate), 'UZS')}</div>
-            <div><span className="font-semibold">FITO:</span> {formatCurrency(Number(certifierFeeConfig.fitoRate), 'UZS')}</div>
-            <div><span className="font-semibold">AKT:</span> {formatCurrency(Number(certifierFeeConfig.aktRate), 'UZS')}</div>
-          </div>
-        ) : (
-          <div className="text-center py-4 text-gray-400">
-            Sertifikatchi tariflari kiritilmagan.
-          </div>
-        )}
-      </div>
-
-      {/* Company Settings Section */}
-      <div className="bg-white rounded-lg shadow p-6 mt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">Kompaniya ma'lumotlari</h2>
-          <button
-            onClick={() => {
-              if (companySettings) {
-                setShowCompanySettingsForm(true);
-              } else {
-                setShowCompanySettingsForm(true);
-              }
-            }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            {companySettings ? 'O\'zgartirish' : '+ Qo\'shish'}
-          </button>
-        </div>
-
-        {loadingCompanySettings ? (
-          <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-        ) : companySettings ? (
-          <div className="space-y-2 text-sm">
-            <div><span className="font-semibold">Nomi:</span> {companySettings.name}</div>
-            <div><span className="font-semibold">Yuridik manzil:</span> {companySettings.legalAddress}</div>
-            <div><span className="font-semibold">Haqiqiy manzil:</span> {companySettings.actualAddress}</div>
-            {companySettings.inn && <div><span className="font-semibold">INN:</span> {companySettings.inn}</div>}
-            {companySettings.phone && <div><span className="font-semibold">Telefon:</span> {companySettings.phone}</div>}
-            {companySettings.email && <div><span className="font-semibold">Email:</span> {companySettings.email}</div>}
-            {companySettings.bankName && <div><span className="font-semibold">Bank:</span> {companySettings.bankName}</div>}
-            {companySettings.bankAccount && <div><span className="font-semibold">Hisob raqami:</span> {companySettings.bankAccount}</div>}
-          </div>
-        ) : (
-          <div className="text-center py-4 text-gray-400">
-            Kompaniya ma'lumotlari kiritilmagan. Invoice yaratish uchun kompaniya ma'lumotlarini kiriting.
-          </div>
-        )}
-      </div>
-
       {/* Certifier Fee Form Modal */}
       {showCertifierFeeForm && (
         <div 
@@ -1057,6 +1163,71 @@ const Settings = () => {
                 <button
                   type="button"
                   onClick={() => setShowCertifierFeeForm(false)}
+                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                >
+                  Bekor qilish
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Yearly Goal Form Modal */}
+      {showYearlyGoalForm && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowYearlyGoalForm(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Yillik maqsad</h3>
+              <button
+                onClick={() => setShowYearlyGoalForm(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleYearlyGoalSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Yil</label>
+                  <input
+                    type="number"
+                    min="2000"
+                    value={yearlyGoalForm.year}
+                    onChange={(e) => setYearlyGoalForm({ ...yearlyGoalForm, year: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Maqsad (task)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={yearlyGoalForm.targetTasks}
+                    onChange={(e) => setYearlyGoalForm({ ...yearlyGoalForm, targetTasks: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Saqlash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowYearlyGoalForm(false)}
                   className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
                 >
                   Bekor qilish

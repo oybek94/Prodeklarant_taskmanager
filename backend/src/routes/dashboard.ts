@@ -1026,6 +1026,9 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       financialStats: financialStatsArray,
       paymentReminders,
       certifierDebt,
+      yearlyGoalTarget: (await (prisma as any).yearlyGoalConfig?.findUnique?.({
+        where: { year: new Date().getFullYear() },
+      }))?.targetTasks ?? 2000,
       todayNetProfit,
       weeklyNetProfit,
       monthlyNetProfit,
@@ -1048,6 +1051,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       tasksByBranch: [],
       certifierDebt: null,
       workerDebts: [],
+      yearlyGoalTarget: 2000,
     });
   }
 });

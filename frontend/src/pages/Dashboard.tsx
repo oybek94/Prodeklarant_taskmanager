@@ -1525,7 +1525,7 @@ const Dashboard = () => {
                             <p className="font-semibold text-gray-900">{reminder.clientName}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-base font-semibold text-red-600">
+                          <p className="text-base font-semibold text-gray-900">
                               {reminder.currentDebt !== undefined && (
                                 <CurrencyDisplay
                                   amount={reminder.currentDebt}
@@ -1550,7 +1550,7 @@ const Dashboard = () => {
                               <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-gray-500" />
                               <span className="text-sm font-medium text-gray-600">Jami qarz (USD):</span>
                             </div>
-                            <span className="text-base font-semibold text-red-600">
+                          <span className="text-base font-semibold text-gray-900">
                               <CurrencyDisplay
                                 amount={totalDebtUSD}
                                 originalCurrency="USD"
@@ -1565,7 +1565,7 @@ const Dashboard = () => {
                               <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-gray-500" />
                               <span className="text-sm font-medium text-gray-600">Jami qarz (UZS):</span>
                             </div>
-                            <span className="text-base font-semibold text-red-600">
+                          <span className="text-base font-semibold text-gray-900">
                               <CurrencyDisplay
                                 amount={totalDebtUZS}
                                 originalCurrency="UZS"
@@ -1588,7 +1588,7 @@ const Dashboard = () => {
                 <Icon icon="lucide:clipboard-list" className="w-6 h-6 text-slate-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Sertifikatchilar qarzi</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Sertifikatchilar</h2>
                 <p className="text-xs text-gray-500">Oltiariq filialidan</p>
               </div>
             </div>
@@ -1612,13 +1612,9 @@ const Dashboard = () => {
                     <div key={label} className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-700">{label}</span>
-                        <span className="font-semibold text-red-600">
+                        <span className="font-semibold text-gray-900">
                           {formatUzs(stats.certifierDebt.remaining[key])} so'm
                         </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>Hisob: {formatUzs(stats.certifierDebt.accrued[key])}</span>
-                        <span>To'landi: {formatUzs(stats.certifierDebt.paid[key])}</span>
                       </div>
                     </div>
                   ))}
@@ -1639,7 +1635,7 @@ const Dashboard = () => {
                 <Icon icon="lucide:wallet" className="w-6 h-6 text-emerald-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Ishchilarga qarz</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Ishchilar</h2>
                 <p className="text-xs text-gray-500">Sizning ishchilardan qarzingiz (USD)</p>
               </div>
             </div>
@@ -1651,14 +1647,29 @@ const Dashboard = () => {
               </div>
             ) : (
               <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {stats.workerDebts.map((worker) => (
-                  <div key={worker.userId} className="flex items-center justify-between p-3 bg-white rounded-md">
-                    <span className="text-sm font-medium text-gray-700">{worker.name}</span>
-                    <span className="text-sm font-semibold text-red-600">
-                      {worker.pendingUsd.toFixed(2)} $
-                    </span>
-                  </div>
-                ))}
+                {stats.workerDebts.map((worker) => {
+                  const amountClass = 'text-gray-900';
+                  return (
+                    <div key={worker.userId} className="flex items-center justify-between p-3 bg-white rounded-md">
+                      <span className="text-sm font-medium text-gray-700">{worker.name}</span>
+                      <span className={`text-sm font-semibold ${amountClass}`}>
+                        {worker.pendingUsd.toFixed(2)} $
+                      </span>
+                    </div>
+                  );
+                })}
+                {(() => {
+                  const total = stats.workerDebts.reduce((sum, worker) => sum + worker.pendingUsd, 0);
+                  const totalClass = total !== 0 ? 'text-red-600' : 'text-gray-500';
+                  return (
+                    <div className="flex items-center justify-between pt-3 mt-2 border-t border-gray-200">
+                      <span className="text-sm font-semibold text-gray-700">Jami</span>
+                      <span className={`text-sm font-semibold ${totalClass}`}>
+                        {total.toFixed(2)} $
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

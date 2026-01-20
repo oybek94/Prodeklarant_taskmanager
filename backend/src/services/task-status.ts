@@ -38,9 +38,8 @@ export async function calculateTaskStatus(
     return TaskStatus.BOSHLANMAGAN;
   }
 
-  // Priority order based on formula (check from highest to lowest priority):
-  // 5. Pochta = TAYYOR → YAKUNLANDI
-  if (isReady('Pochta')) {
+  const allReady = stages.every((s: any) => s.status === 'TAYYOR');
+  if (allReady) {
     return TaskStatus.YAKUNLANDI;
   }
 

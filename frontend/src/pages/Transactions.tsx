@@ -84,6 +84,15 @@ const Transactions = () => {
     totalPaid: number;
     totalPending: number;
   } | null>(null);
+  const [expenseCategories, setExpenseCategories] = useState<string[]>([
+    'Transport',
+    'Ofis',
+    'Boshqa',
+    'ST-1',
+    'FITO',
+    'AKT',
+  ]);
+  const [newExpenseCategory, setNewExpenseCategory] = useState('');
   const [previousYearDebt, setPreviousYearDebt] = useState<{
     totalEarned: number;
     totalPaid: number;
@@ -256,6 +265,12 @@ const Transactions = () => {
       setLoading(true);
       const response = await apiClient.get('/transactions');
       setTransactions(response.data);
+      const categorySet = new Set<string>(expenseCategories);
+      response.data
+        .map((tx: Transaction) => tx.expenseCategory)
+        .filter((category: string | undefined): category is string => Boolean(category && category.trim()))
+        .forEach((category: string) => categorySet.add(category.trim()));
+      setExpenseCategories(Array.from(categorySet));
     } catch (error) {
       console.error('Error loading transactions:', error);
     } finally {
@@ -292,6 +307,16 @@ const Transactions = () => {
         console.warn('Failed to load workers, continuing with empty list');
       }
     }
+  };
+
+  const handleAddExpenseCategory = () => {
+    const trimmed = newExpenseCategory.trim();
+    if (!trimmed) return;
+    if (!expenseCategories.includes(trimmed)) {
+      setExpenseCategories([...expenseCategories, trimmed]);
+    }
+    setForm({ ...form, expenseCategory: trimmed });
+    setNewExpenseCategory('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -345,6 +370,7 @@ const Transactions = () => {
         expenseCategory: '',
       });
       await loadTransactions();
+      setNewExpenseCategory('');
       await loadMonthlyStats();
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
@@ -740,14 +766,37 @@ const Transactions = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Xarajat kategoriyasi
                 </label>
-                <input
-                  type="text"
-                  value={form.expenseCategory}
-                  onChange={(e) => setForm({ ...form, expenseCategory: e.target.value })}
-                  required
-                  placeholder="Masalan: Transport, Ofis, Boshqa..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
+                <div className="space-y-2">
+                  <select
+                    value={form.expenseCategory}
+                    onChange={(e) => setForm({ ...form, expenseCategory: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Tanlang...</option>
+                    {expenseCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newExpenseCategory}
+                      onChange={(e) => setNewExpenseCategory(e.target.value)}
+                      placeholder="Yangi kategoriya"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddExpenseCategory}
+                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      Qo'shish
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -981,14 +1030,37 @@ const Transactions = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Xarajat kategoriyasi
                   </label>
-                  <input
-                    type="text"
+                <div className="space-y-2">
+                  <select
                     value={form.expenseCategory}
                     onChange={(e) => setForm({ ...form, expenseCategory: e.target.value })}
                     required
-                    placeholder="Masalan: Transport, Ofis, Boshqa..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
+                  >
+                    <option value="">Tanlang...</option>
+                    {expenseCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newExpenseCategory}
+                      onChange={(e) => setNewExpenseCategory(e.target.value)}
+                      placeholder="Yangi kategoriya"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddExpenseCategory}
+                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      Qo'shish
+                    </button>
+                  </div>
+                </div>
                 </div>
               )}
 

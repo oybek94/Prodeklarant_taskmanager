@@ -542,8 +542,11 @@ router.post('/archive-task/:taskId', requireAuth('ADMIN'), async (req: AuthReque
       return res.status(404).json({ error: 'Task topilmadi' });
     }
 
-    if (task.status !== 'YAKUNLANDI') {
-      return res.status(400).json({ error: 'Task yakunlanmagan' });
+    const incompleteStages = await prisma.taskStage.count({
+      where: { taskId, status: { not: 'TAYYOR' } },
+    });
+    if (incompleteStages > 0) {
+      return res.status(400).json({ error: 'Task barcha jarayonlari yakunlanmagan' });
     }
 
     // Check if documents exist before archiving - STRICT VALIDATION

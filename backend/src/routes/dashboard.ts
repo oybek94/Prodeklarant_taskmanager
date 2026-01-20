@@ -874,26 +874,30 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       const payments = await prisma.transaction.findMany({
         where: {
           type: 'EXPENSE',
-          branchId: oltiariqBranch.id,
-          expenseCategory: { in: ['ST-1', 'FITO', 'AKT'] },
+          expenseCategory: { not: null },
         },
         select: {
           expenseCategory: true,
           amount_uzs: true,
           convertedUzsAmount: true,
           amount: true,
+          branchId: true,
         },
       });
 
       const paid = { st1: 0, fito: 0, akt: 0 };
       for (const tx of payments) {
+        if (tx.branchId && tx.branchId !== oltiariqBranch.id) {
+          continue;
+        }
         const amount = Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0);
-        const category = (tx.expenseCategory || '').toUpperCase();
-        if (category === 'ST-1') {
+        const rawCategory = tx.expenseCategory || '';
+        const normalized = rawCategory.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        if (normalized.startsWith('ST1')) {
           paid.st1 += amount;
-        } else if (category === 'FITO') {
+        } else if (normalized.startsWith('FITO')) {
           paid.fito += amount;
-        } else if (category === 'AKT') {
+        } else if (normalized.startsWith('AKT')) {
           paid.akt += amount;
         }
       }
@@ -1008,7 +1012,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       })
     );
 
-    const workerDebts = workerDebtsRaw.filter((item) => item.pendingUsd > 0);
+    const workerDebts = workerDebtsRaw;
 
     res.json({
       newTasks,

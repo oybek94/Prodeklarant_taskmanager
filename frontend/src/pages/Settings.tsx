@@ -56,6 +56,15 @@ interface CompanySettings {
   correspondentBankSwift?: string;
 }
 
+interface CertifierFeeConfig {
+  id: number;
+  st1Rate: number;
+  fitoRate: number;
+  aktRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface KpiConfig {
   id: number;
   stageName: string;
@@ -113,6 +122,14 @@ const Settings = () => {
     correspondentBankAddress: '',
     correspondentBankSwift: '',
   });
+  const [certifierFeeConfig, setCertifierFeeConfig] = useState<CertifierFeeConfig | null>(null);
+  const [loadingCertifierFeeConfig, setLoadingCertifierFeeConfig] = useState(true);
+  const [showCertifierFeeForm, setShowCertifierFeeForm] = useState(false);
+  const [certifierFeeForm, setCertifierFeeForm] = useState({
+    st1Rate: '',
+    fitoRate: '',
+    aktRate: '',
+  });
   const [kpiConfigEdits, setKpiConfigEdits] = useState<Record<string, string>>({});
   const [loadingKpiConfigs, setLoadingKpiConfigs] = useState(true);
   const [savingKpiConfigs, setSavingKpiConfigs] = useState(false);
@@ -126,6 +143,7 @@ const Settings = () => {
     loadStatePayments();
     loadBranches();
     loadCompanySettings();
+    loadCertifierFeeConfig();
     loadKpiConfigs();
   }, []);
 
@@ -331,6 +349,25 @@ const Settings = () => {
     }
   };
 
+  const loadCertifierFeeConfig = async () => {
+    try {
+      setLoadingCertifierFeeConfig(true);
+      const response = await apiClient.get('/certifier-fee-config');
+      if (response.data) {
+        setCertifierFeeConfig(response.data);
+        setCertifierFeeForm({
+          st1Rate: response.data.st1Rate?.toString() ?? '',
+          fitoRate: response.data.fitoRate?.toString() ?? '',
+          aktRate: response.data.aktRate?.toString() ?? '',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading certifier fee config:', error);
+    } finally {
+      setLoadingCertifierFeeConfig(false);
+    }
+  };
+
   const loadKpiConfigs = async () => {
     try {
       setLoadingKpiConfigs(true);
@@ -379,6 +416,22 @@ const Settings = () => {
       setShowCompanySettingsForm(false);
       await loadCompanySettings();
       alert('Kompaniya sozlamalari muvaffaqiyatli saqlandi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleCertifierFeeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiClient.post('/certifier-fee-config', {
+        st1Rate: Number(certifierFeeForm.st1Rate),
+        fitoRate: Number(certifierFeeForm.fitoRate),
+        aktRate: Number(certifierFeeForm.aktRate),
+      });
+      setShowCertifierFeeForm(false);
+      await loadCertifierFeeConfig();
+      alert('Sertifikatchi tariflari muvaffaqiyatli saqlandi');
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
@@ -873,6 +926,33 @@ const Settings = () => {
         )}
       </div>
 
+      {/* Certifier Fee Settings Section */}
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">Sertifikatchi tariflari (Oltiariq)</h2>
+          <button
+            onClick={() => setShowCertifierFeeForm(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            {certifierFeeConfig ? 'O\'zgartirish' : '+ Qo\'shish'}
+          </button>
+        </div>
+
+        {loadingCertifierFeeConfig ? (
+          <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+        ) : certifierFeeConfig ? (
+          <div className="space-y-2 text-sm">
+            <div><span className="font-semibold">ST-1:</span> {formatCurrency(Number(certifierFeeConfig.st1Rate), 'UZS')}</div>
+            <div><span className="font-semibold">FITO:</span> {formatCurrency(Number(certifierFeeConfig.fitoRate), 'UZS')}</div>
+            <div><span className="font-semibold">AKT:</span> {formatCurrency(Number(certifierFeeConfig.aktRate), 'UZS')}</div>
+          </div>
+        ) : (
+          <div className="text-center py-4 text-gray-400">
+            Sertifikatchi tariflari kiritilmagan.
+          </div>
+        )}
+      </div>
+
       {/* Company Settings Section */}
       <div className="bg-white rounded-lg shadow p-6 mt-6">
         <div className="flex justify-between items-center mb-4">
@@ -910,6 +990,82 @@ const Settings = () => {
           </div>
         )}
       </div>
+
+      {/* Certifier Fee Form Modal */}
+      {showCertifierFeeForm && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCertifierFeeForm(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Sertifikatchi tariflari</h3>
+              <button
+                onClick={() => setShowCertifierFeeForm(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleCertifierFeeSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ST-1 (UZS)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={certifierFeeForm.st1Rate}
+                    onChange={(e) => setCertifierFeeForm({ ...certifierFeeForm, st1Rate: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">FITO (UZS)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={certifierFeeForm.fitoRate}
+                    onChange={(e) => setCertifierFeeForm({ ...certifierFeeForm, fitoRate: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">AKT (UZS)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={certifierFeeForm.aktRate}
+                    onChange={(e) => setCertifierFeeForm({ ...certifierFeeForm, aktRate: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Saqlash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCertifierFeeForm(false)}
+                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                >
+                  Bekor qilish
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Company Settings Form Modal */}
       {showCompanySettingsForm && (

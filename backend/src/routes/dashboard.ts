@@ -332,11 +332,11 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
   // Helper function to calculate worker ranking for a date range
   const calculateWorkerRanking = async (startDate: Date, endDate: Date) => {
-    // Get all workers (DEKLARANT, ADMIN, MANAGER roles)
+    // Get all workers (DEKLARANT, ADMIN, MANAGER, CERTIFICATE_WORKER roles)
     const allWorkers = await prisma.user.findMany({
       where: {
         role: {
-          in: ['DEKLARANT', 'ADMIN', 'MANAGER'],
+          in: ['DEKLARANT', 'ADMIN', 'MANAGER', 'CERTIFICATE_WORKER'],
         },
         active: true,
       },
@@ -413,11 +413,11 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
   // Helper function to calculate worker error ranking for a date range
   const calculateWorkerErrorRanking = async (startDate: Date, endDate: Date) => {
-    // Get all workers (DEKLARANT, ADMIN, MANAGER roles)
+    // Get all workers (DEKLARANT, ADMIN, MANAGER, CERTIFICATE_WORKER roles)
     const allWorkers = await prisma.user.findMany({
       where: {
         role: {
-          in: ['DEKLARANT', 'ADMIN', 'MANAGER'],
+          in: ['DEKLARANT', 'ADMIN', 'MANAGER', 'CERTIFICATE_WORKER'],
         },
         active: true,
       },
@@ -807,6 +807,115 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     
     console.log('[Dashboard] Final tasksByBranch being sent:', JSON.stringify(finalTasksByBranch, null, 2));
 
+    const DEFAULT_CERTIFIER_FEES = {
+      st1Rate: 95000,
+      fitoRate: 80000,
+      aktRate: 25000,
+    };
+
+    const certifierModel = (prisma as any).certifierFeeConfig;
+    const certifierConfigs = certifierModel
+      ? await certifierModel.findMany({ orderBy: { createdAt: 'asc' } })
+      : [];
+    const latestCertifierConfig =
+      certifierConfigs.length > 0 ? certifierConfigs[certifierConfigs.length - 1] : null;
+    const certifierRates = {
+      st1Rate: Number(latestCertifierConfig?.st1Rate ?? DEFAULT_CERTIFIER_FEES.st1Rate),
+      fitoRate: Number(latestCertifierConfig?.fitoRate ?? DEFAULT_CERTIFIER_FEES.fitoRate),
+      aktRate: Number(latestCertifierConfig?.aktRate ?? DEFAULT_CERTIFIER_FEES.aktRate),
+    };
+
+    let certifierDebt: any = null;
+    const oltiariqBranch = await prisma.branch.findFirst({
+      where: { name: 'Oltiariq' },
+      select: { id: true, name: true },
+    });
+
+    if (oltiariqBranch) {
+      const taskCount = await prisma.task.count({
+        where: { branchId: oltiariqBranch.id },
+      });
+
+      const accrued = { st1: 0, fito: 0, akt: 0 };
+      if (certifierConfigs.length === 0) {
+        accrued.st1 = taskCount * DEFAULT_CERTIFIER_FEES.st1Rate;
+        accrued.fito = taskCount * DEFAULT_CERTIFIER_FEES.fitoRate;
+        accrued.akt = taskCount * DEFAULT_CERTIFIER_FEES.aktRate;
+      } else {
+        const firstConfig = certifierConfigs[0];
+        const beforeFirstCount = await prisma.task.count({
+          where: {
+            branchId: oltiariqBranch.id,
+            createdAt: { lt: firstConfig.createdAt },
+          },
+        });
+        accrued.st1 += beforeFirstCount * Number(firstConfig.st1Rate);
+        accrued.fito += beforeFirstCount * Number(firstConfig.fitoRate);
+        accrued.akt += beforeFirstCount * Number(firstConfig.aktRate);
+
+        for (let i = 0; i < certifierConfigs.length; i += 1) {
+          const config = certifierConfigs[i];
+          const start = config.createdAt;
+          const end = certifierConfigs[i + 1]?.createdAt;
+          const count = await prisma.task.count({
+            where: {
+              branchId: oltiariqBranch.id,
+              createdAt: end ? { gte: start, lt: end } : { gte: start },
+            },
+          });
+          accrued.st1 += count * Number(config.st1Rate);
+          accrued.fito += count * Number(config.fitoRate);
+          accrued.akt += count * Number(config.aktRate);
+        }
+      }
+      const accruedTotal = accrued.st1 + accrued.fito + accrued.akt;
+
+      const payments = await prisma.transaction.findMany({
+        where: {
+          type: 'EXPENSE',
+          branchId: oltiariqBranch.id,
+          expenseCategory: { in: ['ST-1', 'FITO', 'AKT'] },
+        },
+        select: {
+          expenseCategory: true,
+          amount_uzs: true,
+          convertedUzsAmount: true,
+          amount: true,
+        },
+      });
+
+      const paid = { st1: 0, fito: 0, akt: 0 };
+      for (const tx of payments) {
+        const amount = Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0);
+        const category = (tx.expenseCategory || '').toUpperCase();
+        if (category === 'ST-1') {
+          paid.st1 += amount;
+        } else if (category === 'FITO') {
+          paid.fito += amount;
+        } else if (category === 'AKT') {
+          paid.akt += amount;
+        }
+      }
+      const paidTotal = paid.st1 + paid.fito + paid.akt;
+
+      const remaining = {
+        st1: Math.max(accrued.st1 - paid.st1, 0),
+        fito: Math.max(accrued.fito - paid.fito, 0),
+        akt: Math.max(accrued.akt - paid.akt, 0),
+      };
+      const remainingTotal = remaining.st1 + remaining.fito + remaining.akt;
+
+      certifierDebt = {
+        branchId: oltiariqBranch.id,
+        branchName: oltiariqBranch.name,
+        taskCount,
+        rates: certifierRates,
+        accrued: { ...accrued, total: accruedTotal },
+        paid: { ...paid, total: paidTotal },
+        remaining: { ...remaining, total: remainingTotal },
+      };
+    }
+
     res.json({
       newTasks,
       completedTasks,
@@ -817,6 +926,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       workerErrorRanking,
       financialStats: financialStatsArray,
       paymentReminders,
+      certifierDebt,
       todayNetProfit,
       weeklyNetProfit,
       monthlyNetProfit,
@@ -837,6 +947,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       financialStats: [],
       paymentReminders: [],
       tasksByBranch: [],
+      certifierDebt: null,
     });
   }
 });

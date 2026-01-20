@@ -65,6 +65,15 @@ interface DashboardStats {
   monthlyNetProfit?: { usd: number; uzs: number; usdCount: number; uzsCount: number };
   yearlyNetProfit?: { usd: number; uzs: number; usdCount: number; uzsCount: number };
   tasksByBranch?: Array<{ branchId: number; branchName: string; count: number }>;
+  certifierDebt?: {
+    branchId: number;
+    branchName: string;
+    taskCount: number;
+    rates: { st1Rate: number; fitoRate: number; aktRate: number };
+    accrued: { st1: number; fito: number; akt: number; total: number };
+    paid: { st1: number; fito: number; akt: number; total: number };
+    remaining: { st1: number; fito: number; akt: number; total: number };
+  } | null;
 }
 
 interface CompletedSummaryItem {
@@ -242,6 +251,7 @@ const Dashboard = () => {
           workerActivity: [],
           financialStats: [],
           tasksByBranch: [],
+          certifierDebt: null,
         });
         return;
       }
@@ -272,6 +282,7 @@ const Dashboard = () => {
         workerActivity: [],
         financialStats: [],
         tasksByBranch: [],
+        certifierDebt: null,
       });
     } finally {
       setLoading(false);
@@ -301,6 +312,7 @@ const Dashboard = () => {
     const role = (user?.role || 'DEKLARANT') as Role;
     return formatCurrencyForRole(amount, originalCurrency, role, amountUzs, exchangeRate);
   };
+  const formatUzs = (value: number) => value.toLocaleString('uz-UZ');
 
   const chartDataWithLabels = useMemo(() => {
     if (!chartData?.tasksCompleted || !chartData?.dateRange) {
@@ -1454,116 +1466,163 @@ const Dashboard = () => {
           })()}
         </div>
 
-        {/* Qarzdorlar ro'yxati */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex flex-col gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Icon icon="lucide:users" className="w-6 h-6 text-orange-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Qarzdorlar ro'yxati</h2>
-                <p className="text-xs text-gray-500">To'lov qilish kerak bo'lgan mijozlar</p>
-              </div>
-            </div>
-          </div>
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : (() => {
-            const paymentReminders = stats?.paymentReminders || [];
-            if (!Array.isArray(paymentReminders) || paymentReminders.length === 0) {
-              return (
-                <div className="text-center py-12 text-gray-400">
-                  <Icon icon="lucide:check-circle" className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Qarzdorlar mavjud emas</p>
+        {/* Qarzdorlar va sertifikatchi qarzi */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="flex flex-col gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <Icon icon="lucide:users" className="w-6 h-6 text-orange-600" />
                 </div>
-              );
-            }
-            
-            // Calculate totals by currency
-            const totalDebtUSD = paymentReminders
-              .filter((p: PaymentReminder) => p.currency === 'USD')
-              .reduce((sum, p) => sum + (p.currentDebt || 0), 0);
-            const totalDebtUZS = paymentReminders
-              .filter((p: PaymentReminder) => p.currency === 'UZS')
-              .reduce((sum, p) => sum + (p.currentDebt || 0), 0);
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Qarzdorlar ro'yxati</h2>
+                  <p className="text-xs text-gray-500">To'lov qilish kerak bo'lgan mijozlar</p>
+                </div>
+              </div>
+            </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (() => {
+              const paymentReminders = stats?.paymentReminders || [];
+              if (!Array.isArray(paymentReminders) || paymentReminders.length === 0) {
+                return (
+                  <div className="text-center py-12 text-gray-400">
+                    <Icon icon="lucide:check-circle" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>Qarzdorlar mavjud emas</p>
+                  </div>
+                );
+              }
+              
+              // Calculate totals by currency
+              const totalDebtUSD = paymentReminders
+                .filter((p: PaymentReminder) => p.currency === 'USD')
+                .reduce((sum, p) => sum + (p.currentDebt || 0), 0);
+              const totalDebtUZS = paymentReminders
+                .filter((p: PaymentReminder) => p.currency === 'UZS')
+                .reduce((sum, p) => sum + (p.currentDebt || 0), 0);
 
-            return (
-              <div>
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                  {paymentReminders.map((reminder: PaymentReminder) => (
-                    <div
-                      key={reminder.clientId}
-                      className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-orange-300 transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900">{reminder.clientName}</p>
-                          {reminder.phone && (
-                            <p className="text-xs text-gray-500 mt-1">{reminder.phone}</p>
-                          )}
-                          {reminder.dueReason && (
-                            <p className="text-xs text-orange-600 mt-1">{reminder.dueReason}</p>
-                          )}
+              return (
+                <div>
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {paymentReminders.map((reminder: PaymentReminder) => (
+                      <div
+                        key={reminder.clientId}
+                        className="p-3 bg-white rounded-md"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900">{reminder.clientName}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-base font-semibold text-red-600">
+                              {reminder.currentDebt !== undefined && (
+                                <CurrencyDisplay
+                                  amount={reminder.currentDebt}
+                                  originalCurrency={reminder.currency || 'USD'}
+                                  className="inline"
+                                />
+                              )}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-orange-600">
-                            {reminder.currentDebt !== undefined && (
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Jami qarz */}
+                  {(totalDebtUSD > 0 || totalDebtUZS > 0) && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="space-y-2">
+                        {totalDebtUSD > 0 && (
+                          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-gray-500" />
+                              <span className="text-sm font-medium text-gray-600">Jami qarz (USD):</span>
+                            </div>
+                            <span className="text-base font-semibold text-red-600">
                               <CurrencyDisplay
-                                amount={reminder.currentDebt}
-                                originalCurrency={reminder.currency || 'USD'}
+                                amount={totalDebtUSD}
+                                originalCurrency="USD"
                                 className="inline"
                               />
-                            )}
-                          </p>
-                        </div>
+                            </span>
+                          </div>
+                        )}
+                        {totalDebtUZS > 0 && (
+                          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-gray-500" />
+                              <span className="text-sm font-medium text-gray-600">Jami qarz (UZS):</span>
+                            </div>
+                            <span className="text-base font-semibold text-red-600">
+                              <CurrencyDisplay
+                                amount={totalDebtUZS}
+                                originalCurrency="UZS"
+                                className="inline"
+                              />
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                <Icon icon="lucide:clipboard-list" className="w-6 h-6 text-slate-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Sertifikatchilar qarzi</h2>
+                <p className="text-xs text-gray-500">Oltiariq filialidan</p>
+              </div>
+            </div>
+
+            {!stats?.certifierDebt ? (
+              <div className="text-center py-12 text-gray-400">
+                <Icon icon="lucide:clipboard" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Ma'lumotlar topilmadi</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="text-xs text-gray-500">
+                  Tasklar soni: <span className="font-semibold text-gray-700">{stats.certifierDebt.taskCount}</span>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { label: 'ST-1', key: 'st1' as const },
+                    { label: 'FITO', key: 'fito' as const },
+                    { label: 'AKT', key: 'akt' as const },
+                  ].map(({ label, key }) => (
+                    <div key={label} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{label}</span>
+                        <span className="font-semibold text-red-600">
+                          {formatUzs(stats.certifierDebt.remaining[key])} so'm
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>Hisob: {formatUzs(stats.certifierDebt.accrued[key])}</span>
+                        <span>To'landi: {formatUzs(stats.certifierDebt.paid[key])}</span>
                       </div>
                     </div>
                   ))}
                 </div>
-                
-                {/* Jami qarz */}
-                {(totalDebtUSD > 0 || totalDebtUZS > 0) && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="space-y-2">
-                      {totalDebtUSD > 0 && (
-                        <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
-                          <div className="flex items-center gap-2">
-                            <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-orange-600" />
-                            <span className="text-sm font-medium text-gray-700">Jami qarz (USD):</span>
-                          </div>
-                          <span className="text-lg font-bold text-orange-600">
-                            <CurrencyDisplay
-                              amount={totalDebtUSD}
-                              originalCurrency="USD"
-                              className="inline"
-                            />
-                          </span>
-                        </div>
-                      )}
-                      {totalDebtUZS > 0 && (
-                        <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
-                          <div className="flex items-center gap-2">
-                            <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-orange-600" />
-                            <span className="text-sm font-medium text-gray-700">Jami qarz (UZS):</span>
-                          </div>
-                          <span className="text-lg font-bold text-orange-600">
-                            <CurrencyDisplay
-                              amount={totalDebtUZS}
-                              originalCurrency="UZS"
-                              className="inline"
-                            />
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <div className="pt-3 border-t border-gray-200 flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Jami qoldiq</span>
+                  <span className="font-semibold text-red-600">
+                    {formatUzs(stats.certifierDebt.remaining.total)} so'm
+                  </span>
+                </div>
               </div>
-            );
-          })()}
+            )}
+          </div>
         </div>
       </div>
     </div>

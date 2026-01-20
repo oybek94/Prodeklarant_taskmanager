@@ -2222,6 +2222,7 @@ const Tasks = () => {
                 if (isMobile) {
                   navigate('/tasks');
                 } else {
+                  navigate('/tasks');
                   setShowArchive(false);
                 }
               }}
@@ -2238,6 +2239,7 @@ const Tasks = () => {
                 if (isMobile) {
                   navigate('/tasks/archive');
                 } else {
+                  navigate('/tasks/archive');
                   setShowArchive(true);
                 }
               }}

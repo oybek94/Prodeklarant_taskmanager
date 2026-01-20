@@ -1049,10 +1049,10 @@ const Finance = () => {
                 />
                 {convertForm.amount && convertForm.rate && (
                   <p className="text-sm text-gray-600 mt-2">
-                    Siz oladi: {convertForm.fromCurrency === 'USD' 
+                    Siz oladi:{' '}
+                    {convertForm.fromCurrency === 'USD'
                       ? `${(parseFloat(convertForm.amount) * parseFloat(convertForm.rate)).toFixed(2)} ${convertForm.toCurrency}`
-                      : `${(parseFloat(convertForm.amount) / parseFloat(convertForm.rate)).toFixed(2)} ${convertForm.toCurrency}`
-                    }
+                      : `${(parseFloat(convertForm.amount) / parseFloat(convertForm.rate)).toFixed(2)} ${convertForm.toCurrency}`}
                   </p>
                 )}
               </div>

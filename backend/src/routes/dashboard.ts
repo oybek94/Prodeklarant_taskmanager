@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
+import { calculateTotalPaidUsd } from '../services/worker-payment';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { TaskStatus } from '@prisma/client';
 
@@ -916,6 +917,99 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       };
     }
 
+    const STAGE_FIXED_PRICES: Record<string, number> = {
+      'Invoys': 3.0,
+      'Zayavka': 3.0,
+      'TIR-SMR': 1.5,
+      'Sertifikat olib chiqish': 1.25,
+      'Deklaratsiya': 2.0,
+      'Tekshirish': 2.0,
+      'Topshirish': 1.25,
+      'Pochta': 1.0,
+    };
+    const normalizeStageName = (stageName: string) => {
+      if (stageName === 'Xujjat_tekshirish' || stageName === 'Xujjat tekshirish' || stageName === 'Tekshirish') {
+        return 'Tekshirish';
+      }
+      if (stageName === 'Xujjat_topshirish' || stageName === 'Xujjat topshirish' || stageName === 'Topshirish') {
+        return 'Topshirish';
+      }
+      if (stageName === 'ST' || stageName === 'Fito' || stageName === 'FITO' || stageName === 'Sertifikat olib chiqish') {
+        return 'Sertifikat olib chiqish';
+      }
+      return stageName;
+    };
+    const kpiConfigs = await prisma.kpiConfig.findMany();
+    const stagePriceMap = new Map<string, number>();
+    kpiConfigs.forEach((config) => {
+      stagePriceMap.set(config.stageName, Number(config.price));
+    });
+
+    const workerDebtUsers = await prisma.user.findMany({
+      where: {
+        active: true,
+        role: {
+          in: ['DEKLARANT', 'ADMIN', 'MANAGER', 'CERTIFICATE_WORKER'],
+        },
+      },
+      select: { id: true, name: true },
+    });
+
+    const workerDebtsRaw = await Promise.all(
+      workerDebtUsers.map(async (worker) => {
+        const [stageGroups, paid, errorSum] = await Promise.all([
+          prisma.taskStage.groupBy({
+            by: ['name'],
+            where: {
+              assignedToId: worker.id,
+              status: 'TAYYOR',
+            },
+            _count: true,
+          }),
+          calculateTotalPaidUsd(worker.id),
+          prisma.taskError.aggregate({
+            where: { workerId: worker.id },
+            _sum: { amount: true },
+          }),
+        ]);
+
+        const previousYear = 2024;
+        const lastYear = new Date().getFullYear() - 1;
+        let previousDebt = await prisma.previousYearWorkerDebt.findFirst({
+          where: { workerId: worker.id, year: previousYear },
+        });
+        if (!previousDebt && lastYear !== previousYear) {
+          previousDebt = await prisma.previousYearWorkerDebt.findFirst({
+            where: { workerId: worker.id, year: lastYear },
+          });
+        }
+
+        const previousEarned = Number(previousDebt?.totalEarned || 0);
+        const previousPaid = Number(previousDebt?.totalPaid || 0);
+        const totalErrors = Number(errorSum._sum.amount || 0);
+
+        const totalKpi = stageGroups.reduce((sum, group) => {
+          const normalized = normalizeStageName(group.name);
+          const basePrice = stagePriceMap.get(normalized) ?? STAGE_FIXED_PRICES[normalized] ?? 0;
+          return sum + basePrice * Number(group._count);
+        }, 0);
+
+        const totalEarned = totalKpi + previousEarned;
+        const totalPaid = Number(paid) + previousPaid;
+        const pending = totalEarned - totalErrors - totalPaid;
+
+        return {
+          userId: worker.id,
+          name: worker.name,
+          totalEarnedUsd: totalEarned,
+          totalPaidUsd: totalPaid,
+          pendingUsd: pending,
+        };
+      })
+    );
+
+    const workerDebts = workerDebtsRaw.filter((item) => item.pendingUsd > 0);
+
     res.json({
       newTasks,
       completedTasks,
@@ -924,6 +1018,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       workerActivity: workerActivityWithNames,
       workerCompletionRanking,
       workerErrorRanking,
+      workerDebts,
       financialStats: financialStatsArray,
       paymentReminders,
       certifierDebt,
@@ -948,6 +1043,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       paymentReminders: [],
       tasksByBranch: [],
       certifierDebt: null,
+      workerDebts: [],
     });
   }
 });

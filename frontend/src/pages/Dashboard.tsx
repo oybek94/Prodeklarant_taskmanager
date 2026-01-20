@@ -74,6 +74,13 @@ interface DashboardStats {
     paid: { st1: number; fito: number; akt: number; total: number };
     remaining: { st1: number; fito: number; akt: number; total: number };
   } | null;
+  workerDebts?: Array<{
+    userId: number;
+    name: string;
+    totalEarnedUsd: number;
+    totalPaidUsd: number;
+    pendingUsd: number;
+  }>;
 }
 
 interface CompletedSummaryItem {
@@ -252,6 +259,7 @@ const Dashboard = () => {
           financialStats: [],
           tasksByBranch: [],
           certifierDebt: null,
+          workerDebts: [],
         });
         return;
       }
@@ -283,6 +291,7 @@ const Dashboard = () => {
         financialStats: [],
         tasksByBranch: [],
         certifierDebt: null,
+        workerDebts: [],
       });
     } finally {
       setLoading(false);
@@ -1467,7 +1476,7 @@ const Dashboard = () => {
         </div>
 
         {/* Qarzdorlar va sertifikatchi qarzi */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex flex-col gap-3 mb-4">
               <div className="flex items-center gap-2">
@@ -1620,6 +1629,36 @@ const Dashboard = () => {
                     {formatUzs(stats.certifierDebt.remaining.total)} so'm
                   </span>
                 </div>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                <Icon icon="lucide:wallet" className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Ishchilarga qarz</h2>
+                <p className="text-xs text-gray-500">Sizning ishchilardan qarzingiz (USD)</p>
+              </div>
+            </div>
+
+            {!stats?.workerDebts || stats.workerDebts.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <Icon icon="lucide:check-circle" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Ishchilardan qarz mavjud emas</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {stats.workerDebts.map((worker) => (
+                  <div key={worker.userId} className="flex items-center justify-between p-3 bg-white rounded-md">
+                    <span className="text-sm font-medium text-gray-700">{worker.name}</span>
+                    <span className="text-sm font-semibold text-red-600">
+                      {worker.pendingUsd.toFixed(2)} $
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>

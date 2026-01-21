@@ -30,9 +30,10 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
-          Prodeklarant
-        </h1>
+        <div className="flex justify-center mb-6">
+          <img src="/logo.png" alt="Prodeklarant" className="h-10 w-auto" />
+        </div>
+        <h1 className="sr-only">Prodeklarant</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="hidden">
             <label className="block text-sm font-medium text-gray-700 mb-1">

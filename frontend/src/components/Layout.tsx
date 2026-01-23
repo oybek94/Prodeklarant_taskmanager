@@ -82,9 +82,10 @@ const Layout = () => {
         {sidebarOpen && isDesktop && (
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Prodeklarant</h1>
+              <img src="/logo.png" alt="Prodeklarant" className="h-8 w-auto" />
+              <h1 className="sr-only">Prodeklarant</h1>
               {user && (
-                <p className="text-sm text-gray-500 mt-1">{user.name}</p>
+                <p className="text-sm text-gray-500 mt-2">{user.name}</p>
               )}
             </div>
             <button
@@ -107,7 +108,8 @@ const Layout = () => {
             >
               <Icon icon="lucide:menu" className="w-5 h-5 text-gray-600" />
             </button>
-            <h1 className="text-lg font-bold text-gray-900">Prodeklarant</h1>
+            <img src="/logo.png" alt="Prodeklarant" className="h-6 w-auto" />
+            <h1 className="sr-only">Prodeklarant</h1>
           </div>
         )}
 
@@ -115,9 +117,10 @@ const Layout = () => {
         {!isDesktop && sidebarOpen && (
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Prodeklarant</h1>
+              <img src="/logo.png" alt="Prodeklarant" className="h-8 w-auto" />
+              <h1 className="sr-only">Prodeklarant</h1>
               {user && (
-                <p className="text-sm text-gray-500 mt-1">{user.name}</p>
+                <p className="text-sm text-gray-500 mt-2">{user.name}</p>
               )}
             </div>
             <button

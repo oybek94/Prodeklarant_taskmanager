@@ -125,6 +125,27 @@ const Clients = () => {
     correspondentBankAccount: '',
     correspondentBankSwift: '',
   });
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [savingContract, setSavingContract] = useState(false);
+  const [hasShipper, setHasShipper] = useState(false);
+  const [hasConsignee, setHasConsignee] = useState(false);
+  const [contractForm, setContractForm] = useState({
+    contractNumber: '',
+    contractDate: new Date().toISOString().split('T')[0],
+    sellerName: '',
+    sellerLegalAddress: '',
+    sellerDetails: '',
+    buyerName: '',
+    buyerAddress: '',
+    buyerDetails: '',
+    shipperName: '',
+    shipperAddress: '',
+    shipperDetails: '',
+    consigneeName: '',
+    consigneeAddress: '',
+    consigneeDetails: '',
+    supplierDirector: '',
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -143,7 +164,9 @@ const Clients = () => {
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (showClientModal) {
+        if (showContractModal) {
+          setShowContractModal(false);
+        } else if (showClientModal) {
           setShowClientModal(false);
           setSelectedClient(null);
         } else if (showForm || isNewClientRoute) {
@@ -167,7 +190,29 @@ const Clients = () => {
     return () => {
       window.removeEventListener('keydown', handleEscKey);
     };
-  }, [showForm, showClientModal, showEditModal, isMobile, isNewClientRoute, editClientId, navigate]);
+  }, [showForm, showClientModal, showContractModal, showEditModal, isMobile, isNewClientRoute, editClientId, navigate]);
+
+  const resetContractForm = () => {
+    setContractForm({
+      contractNumber: '',
+      contractDate: new Date().toISOString().split('T')[0],
+      sellerName: '',
+      sellerLegalAddress: '',
+      sellerDetails: '',
+      buyerName: '',
+      buyerAddress: '',
+      buyerDetails: '',
+      shipperName: '',
+      shipperAddress: '',
+      shipperDetails: '',
+      consigneeName: '',
+      consigneeAddress: '',
+      consigneeDetails: '',
+      supplierDirector: '',
+    });
+    setHasShipper(false);
+    setHasConsignee(false);
+  };
 
   const loadClients = async () => {
     try {
@@ -223,6 +268,67 @@ const Clients = () => {
       alert('Mijoz ma\'lumotlarini yuklashda xatolik yuz berdi');
     } finally {
       setLoadingClient(false);
+    }
+  };
+
+  const handleContractSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClient) return;
+    if (!contractForm.contractNumber || !contractForm.contractDate) {
+      alert('Shartnoma raqami va sanasi majburiy');
+      return;
+    }
+    if (!contractForm.sellerName || !contractForm.sellerLegalAddress) {
+      alert('Sotuvchi ma\'lumotlari to\'liq bo\'lishi kerak');
+      return;
+    }
+    if (!contractForm.buyerName || !contractForm.buyerAddress) {
+      alert('Sotib oluvchi ma\'lumotlari to\'liq bo\'lishi kerak');
+      return;
+    }
+    if (!contractForm.supplierDirector) {
+      alert('Direktor F.I.O. majburiy');
+      return;
+    }
+
+    try {
+      setSavingContract(true);
+      const payload: any = {
+        clientId: selectedClient.id,
+        contractNumber: contractForm.contractNumber,
+        contractDate: contractForm.contractDate,
+        sellerName: contractForm.sellerName,
+        sellerLegalAddress: contractForm.sellerLegalAddress,
+        sellerDetails: contractForm.sellerDetails || undefined,
+        buyerName: contractForm.buyerName,
+        buyerAddress: contractForm.buyerAddress,
+        buyerDetails: contractForm.buyerDetails || undefined,
+        supplierDirector: contractForm.supplierDirector,
+      };
+
+      if (hasShipper) {
+        payload.shipperName = contractForm.shipperName || undefined;
+        payload.shipperAddress = contractForm.shipperAddress || undefined;
+        payload.shipperDetails = contractForm.shipperDetails || undefined;
+      }
+
+      if (hasConsignee) {
+        payload.consigneeName = contractForm.consigneeName || undefined;
+        payload.consigneeAddress = contractForm.consigneeAddress || undefined;
+        payload.consigneeDetails = contractForm.consigneeDetails || undefined;
+      }
+
+      await apiClient.post('/contracts', payload);
+      setShowContractModal(false);
+      resetContractForm();
+      await loadClientDetail(selectedClient.id);
+      await loadClients();
+      await loadStats();
+    } catch (error: any) {
+      console.error('Error creating contract:', error);
+      alert(error.response?.data?.error || 'Shartnoma yaratishda xatolik yuz berdi');
+    } finally {
+      setSavingContract(false);
     }
   };
 
@@ -1013,15 +1119,26 @@ const Clients = () => {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setShowClientModal(false);
-                  setSelectedClient(null);
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    resetContractForm();
+                    setShowContractModal(true);
+                  }}
+                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  + Shartnoma qo'shish
+                </button>
+                <button
+                  onClick={() => {
+                    setShowClientModal(false);
+                    setSelectedClient(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             {/* Top Financial Summary */}
@@ -1242,6 +1359,273 @@ const Clients = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contract Create Modal */}
+      {showContractModal && selectedClient && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowContractModal(false);
+              resetContractForm();
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Shartnoma qo'shish</h3>
+                <p className="text-sm text-gray-500">{selectedClient.name}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowContractModal(false);
+                  resetContractForm();
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleContractSubmit} className="space-y-6">
+              {/* Shartnoma ma'lumotlari */}
+              <div className="border-b pb-4">
+                <h4 className="font-semibold text-gray-700 mb-3">Shartnoma ma'lumotlari</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma raqami *</label>
+                    <input
+                      type="text"
+                      value={contractForm.contractNumber}
+                      onChange={(e) => setContractForm({ ...contractForm, contractNumber: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma sanasi *</label>
+                    <input
+                      type="date"
+                      value={contractForm.contractDate}
+                      onChange={(e) => setContractForm({ ...contractForm, contractDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sotuvchi ma'lumotlari */}
+              <div className="border-b pb-4">
+                <h4 className="font-semibold text-gray-700 mb-3">Sotuvchi ma'lumotlari</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi *</label>
+                    <input
+                      type="text"
+                      value={contractForm.sellerName}
+                      onChange={(e) => setContractForm({ ...contractForm, sellerName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili *</label>
+                    <textarea
+                      rows={2}
+                      value={contractForm.sellerLegalAddress}
+                      onChange={(e) => setContractForm({ ...contractForm, sellerLegalAddress: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                    <textarea
+                      rows={3}
+                      value={contractForm.sellerDetails}
+                      onChange={(e) => setContractForm({ ...contractForm, sellerDetails: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="INN, MFO, bank, hisob raqam va h.k."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sotib oluvchi ma'lumotlari */}
+              <div className="border-b pb-4">
+                <h4 className="font-semibold text-gray-700 mb-3">Sotib oluvchi ma'lumotlari</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi *</label>
+                    <input
+                      type="text"
+                      value={contractForm.buyerName}
+                      onChange={(e) => setContractForm({ ...contractForm, buyerName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili *</label>
+                    <textarea
+                      rows={2}
+                      value={contractForm.buyerAddress}
+                      onChange={(e) => setContractForm({ ...contractForm, buyerAddress: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                    <textarea
+                      rows={3}
+                      value={contractForm.buyerDetails}
+                      onChange={(e) => setContractForm({ ...contractForm, buyerDetails: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="INN, MFO, bank, hisob raqam va h.k."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Yuk jo'natuvchi */}
+              <div className="border-b pb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-gray-700">Yuk jo'natuvchi ma'lumotlari</h4>
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={hasShipper}
+                      onChange={(e) => setHasShipper(e.target.checked)}
+                    />
+                    Yuk jo'natuvchi mavjud
+                  </label>
+                </div>
+                {hasShipper && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi</label>
+                      <input
+                        type="text"
+                        value={contractForm.shipperName}
+                        onChange={(e) => setContractForm({ ...contractForm, shipperName: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili</label>
+                      <textarea
+                        rows={2}
+                        value={contractForm.shipperAddress}
+                        onChange={(e) => setContractForm({ ...contractForm, shipperAddress: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                      <textarea
+                        rows={3}
+                        value={contractForm.shipperDetails}
+                        onChange={(e) => setContractForm({ ...contractForm, shipperDetails: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="INN, MFO, bank, hisob raqam va h.k."
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Yuk qabul qiluvchi */}
+              <div className="border-b pb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-gray-700">Yuk qabul qiluvchi ma'lumotlari</h4>
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={hasConsignee}
+                      onChange={(e) => setHasConsignee(e.target.checked)}
+                    />
+                    Yuk qabul qiluvchi mavjud
+                  </label>
+                </div>
+                {hasConsignee && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi</label>
+                      <input
+                        type="text"
+                        value={contractForm.consigneeName}
+                        onChange={(e) => setContractForm({ ...contractForm, consigneeName: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili</label>
+                      <textarea
+                        rows={2}
+                        value={contractForm.consigneeAddress}
+                        onChange={(e) => setContractForm({ ...contractForm, consigneeAddress: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                      <textarea
+                        rows={3}
+                        value={contractForm.consigneeDetails}
+                        onChange={(e) => setContractForm({ ...contractForm, consigneeDetails: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="INN, MFO, bank, hisob raqam va h.k."
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Direktor */}
+              <div>
+                <h4 className="font-semibold text-gray-700 mb-3">Direktor ma'lumotlari</h4>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Direktor F.I.O. *</label>
+                  <input
+                    type="text"
+                    value={contractForm.supplierDirector}
+                    onChange={(e) => setContractForm({ ...contractForm, supplierDirector: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={savingContract}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  {savingContract ? 'Saqlanmoqda...' : 'Saqlash'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowContractModal(false);
+                    resetContractForm();
+                  }}
+                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
+                >
+                  Bekor qilish
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

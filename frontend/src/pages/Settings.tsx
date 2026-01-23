@@ -506,47 +506,9 @@ const Settings = () => {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Asosiy</h2>
-          <span className="text-sm text-gray-400">Kompaniya va filiallar</span>
+          <span className="text-sm text-gray-400">Filiallar</span>
         </div>
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* Company Settings Section */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">Kompaniya ma'lumotlari</h2>
-              <button
-                onClick={() => {
-                  if (companySettings) {
-                    setShowCompanySettingsForm(true);
-                  } else {
-                    setShowCompanySettingsForm(true);
-                  }
-                }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                {companySettings ? 'O\'zgartirish' : '+ Qo\'shish'}
-              </button>
-            </div>
-
-            {loadingCompanySettings ? (
-              <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-            ) : companySettings ? (
-              <div className="space-y-2 text-sm">
-                <div><span className="font-semibold">Nomi:</span> {companySettings.name}</div>
-                <div><span className="font-semibold">Yuridik manzil:</span> {companySettings.legalAddress}</div>
-                <div><span className="font-semibold">Haqiqiy manzil:</span> {companySettings.actualAddress}</div>
-                {companySettings.inn && <div><span className="font-semibold">INN:</span> {companySettings.inn}</div>}
-                {companySettings.phone && <div><span className="font-semibold">Telefon:</span> {companySettings.phone}</div>}
-                {companySettings.email && <div><span className="font-semibold">Email:</span> {companySettings.email}</div>}
-                {companySettings.bankName && <div><span className="font-semibold">Bank:</span> {companySettings.bankName}</div>}
-                {companySettings.bankAccount && <div><span className="font-semibold">Hisob raqami:</span> {companySettings.bankAccount}</div>}
-              </div>
-            ) : (
-              <div className="text-center py-4 text-gray-400">
-                Kompaniya ma'lumotlari kiritilmagan. Invoice yaratish uchun kompaniya ma'lumotlarini kiriting.
-              </div>
-            )}
-          </div>
-
+        <div className="grid grid-cols-1 gap-6">
           {/* Branches Section */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import CurrencyDisplay from '../components/CurrencyDisplay';
+import DateInput from '../components/DateInput';
 
 interface Task {
   id: number;
@@ -60,7 +61,7 @@ const ClientDetail = () => {
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [contractForm, setContractForm] = useState({
     contractNumber: '',
-    contractDate: new Date().toISOString().split('T')[0],
+    contractDate: '',
     // Sotuvchi - alohida maydonlar
     sellerName: '',
     sellerLegalAddress: '',
@@ -345,7 +346,7 @@ const ClientDetail = () => {
       setEditingContract(null);
       setContractForm({
         contractNumber: '',
-        contractDate: new Date().toISOString().split('T')[0],
+        contractDate: '',
         sellerDetails: '',
         buyerDetails: '',
         shipperDetails: '',
@@ -451,7 +452,7 @@ const ClientDetail = () => {
         
         setContractForm({
           contractNumber: contractData.contractNumber || '',
-          contractDate: contractData.contractDate ? contractData.contractDate.split('T')[0] : new Date().toISOString().split('T')[0],
+          contractDate: contractData.contractDate ? contractData.contractDate.split('T')[0] : '',
           // Sotuvchi
           sellerName: contractData.sellerName || '',
           sellerLegalAddress: contractData.sellerLegalAddress || '',
@@ -614,7 +615,7 @@ const ClientDetail = () => {
               setEditingContract(null);
               setContractForm({
                 contractNumber: '',
-                contractDate: new Date().toISOString().split('T')[0],
+                contractDate: '',
                 sellerDetails: '',
                 buyerDetails: '',
                 shipperDetails: '',
@@ -890,10 +891,9 @@ const ClientDetail = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma sanasi *</label>
-                    <input
-                      type="date"
+                    <DateInput
                       value={contractForm.contractDate}
-                      onChange={(e) => setContractForm({ ...contractForm, contractDate: e.target.value })}
+                      onChange={(value) => setContractForm({ ...contractForm, contractDate: value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />

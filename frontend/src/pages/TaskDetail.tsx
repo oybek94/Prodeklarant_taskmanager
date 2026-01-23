@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import MonetaryInput from '../components/MonetaryInput';
+import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 
 interface TaskStage {
@@ -420,10 +421,9 @@ const TaskDetail = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
-                        <input
-                          type="date"
+                        <DateInput
                           value={errorForm.date}
-                          onChange={(e) => setErrorForm({ ...errorForm, date: e.target.value })}
+                          onChange={(value) => setErrorForm({ ...errorForm, date: value })}
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         />

@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { Icon } from '@iconify/react';
 import { useIsMobile } from '../utils/useIsMobile';
+import DateInput from '../components/DateInput';
 
 interface Task {
   id: number;
@@ -2405,10 +2406,9 @@ const Tasks = () => {
                           <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
                             <Icon icon="lucide:calendar" className="w-3.5 h-3.5 text-gray-400" />
                           </div>
-                          <input
-                            type="date"
+                          <DateInput
                             value={archiveFilters.startDate}
-                            onChange={(e) => setArchiveFilters({ ...archiveFilters, startDate: e.target.value })}
+                            onChange={(value) => setArchiveFilters({ ...archiveFilters, startDate: value })}
                             className="w-full pl-9 pr-3 py-2 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-sm shadow-sm hover:border-gray-300"
                             placeholder="Boshlanish"
                           />
@@ -2417,10 +2417,9 @@ const Tasks = () => {
                           <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
                             <Icon icon="lucide:calendar" className="w-3.5 h-3.5 text-gray-400" />
                           </div>
-                          <input
-                            type="date"
+                          <DateInput
                             value={archiveFilters.endDate}
-                            onChange={(e) => setArchiveFilters({ ...archiveFilters, endDate: e.target.value })}
+                            onChange={(value) => setArchiveFilters({ ...archiveFilters, endDate: value })}
                             className="w-full pl-9 pr-3 py-2 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-sm shadow-sm hover:border-gray-300"
                             placeholder="Tugash"
                           />
@@ -4870,11 +4869,10 @@ const Tasks = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Sana <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   required
                   value={errorForm.date}
-                  onChange={(e) => setErrorForm({ ...errorForm, date: e.target.value })}
+                  onChange={(value) => setErrorForm({ ...errorForm, date: value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>

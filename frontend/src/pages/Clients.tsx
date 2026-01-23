@@ -4,6 +4,7 @@ import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
 import MonetaryInput from '../components/MonetaryInput';
 import CurrencyDisplay from '../components/CurrencyDisplay';
+import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields } from '../utils/validation';
 import { useIsMobile } from '../utils/useIsMobile';
 
@@ -129,9 +130,12 @@ const Clients = () => {
   const [savingContract, setSavingContract] = useState(false);
   const [hasShipper, setHasShipper] = useState(false);
   const [hasConsignee, setHasConsignee] = useState(false);
+  const [contracts, setContracts] = useState<any[]>([]);
+  const [loadingContracts, setLoadingContracts] = useState(false);
+  const [editingContractId, setEditingContractId] = useState<number | null>(null);
   const [contractForm, setContractForm] = useState({
     contractNumber: '',
-    contractDate: new Date().toISOString().split('T')[0],
+    contractDate: '',
     sellerName: '',
     sellerLegalAddress: '',
     sellerDetails: '',
@@ -195,7 +199,7 @@ const Clients = () => {
   const resetContractForm = () => {
     setContractForm({
       contractNumber: '',
-      contractDate: new Date().toISOString().split('T')[0],
+      contractDate: '',
       sellerName: '',
       sellerLegalAddress: '',
       sellerDetails: '',
@@ -212,6 +216,7 @@ const Clients = () => {
     });
     setHasShipper(false);
     setHasConsignee(false);
+    setEditingContractId(null);
   };
 
   const loadClients = async () => {
@@ -263,11 +268,31 @@ const Clients = () => {
       // Load monthly tasks data
       const monthlyResponse = await apiClient.get(`/clients/${clientId}/monthly-tasks`);
       setMonthlyTasks(monthlyResponse.data);
+      
+      // Load contracts
+      await loadContracts(clientId);
     } catch (error) {
       console.error('Error loading client detail:', error);
       alert('Mijoz ma\'lumotlarini yuklashda xatolik yuz berdi');
     } finally {
       setLoadingClient(false);
+    }
+  };
+
+  const loadContracts = async (clientId: number) => {
+    try {
+      setLoadingContracts(true);
+      const response = await apiClient.get(`/contracts/client/${clientId}`);
+      if (Array.isArray(response.data)) {
+        setContracts(response.data);
+      } else {
+        setContracts([]);
+      }
+    } catch (error) {
+      console.error('Error loading contracts:', error);
+      setContracts([]);
+    } finally {
+      setLoadingContracts(false);
     }
   };
 
@@ -318,9 +343,17 @@ const Clients = () => {
         payload.consigneeDetails = contractForm.consigneeDetails || undefined;
       }
 
-      await apiClient.post('/contracts', payload);
+      if (editingContractId) {
+        // Tahrirlash
+        await apiClient.put(`/contracts/${editingContractId}`, payload);
+      } else {
+        // Yangi qo'shish
+        await apiClient.post('/contracts', payload);
+      }
       setShowContractModal(false);
       resetContractForm();
+      setEditingContractId(null);
+      await loadContracts(selectedClient.id);
       await loadClientDetail(selectedClient.id);
       await loadClients();
       await loadStats();
@@ -329,6 +362,49 @@ const Clients = () => {
       alert(error.response?.data?.error || 'Shartnoma yaratishda xatolik yuz berdi');
     } finally {
       setSavingContract(false);
+    }
+  };
+
+  const handleEditContract = async (contract: any) => {
+    // Contract ma'lumotlarini formaga yuklash
+    setContractForm({
+      contractNumber: contract.contractNumber || '',
+      contractDate: contract.contractDate ? contract.contractDate.split('T')[0] : '',
+      sellerName: contract.sellerName || '',
+      sellerLegalAddress: contract.sellerLegalAddress || '',
+      sellerDetails: contract.sellerDetails || '',
+      buyerName: contract.buyerName || '',
+      buyerAddress: contract.buyerAddress || '',
+      buyerDetails: contract.buyerDetails || '',
+      shipperName: contract.shipperName || '',
+      shipperAddress: contract.shipperAddress || '',
+      shipperDetails: contract.shipperDetails || '',
+      consigneeName: contract.consigneeName || '',
+      consigneeAddress: contract.consigneeAddress || '',
+      consigneeDetails: contract.consigneeDetails || '',
+      supplierDirector: contract.supplierDirector || '',
+    });
+    setHasShipper(!!contract.shipperName);
+    setHasConsignee(!!contract.consigneeName);
+    setEditingContractId(contract.id);
+    setShowContractModal(true);
+  };
+
+  const handleDeleteContract = async (contractId: number) => {
+    if (!confirm('Shartnomani o\'chirishni tasdiqlaysizmi?')) {
+      return;
+    }
+    try {
+      await apiClient.delete(`/contracts/${contractId}`);
+      if (selectedClient) {
+        await loadContracts(selectedClient.id);
+        await loadClientDetail(selectedClient.id);
+      }
+      await loadClients();
+      alert('Shartnoma muvaffaqiyatli o\'chirildi');
+    } catch (error: any) {
+      console.error('Error deleting contract:', error);
+      alert(error.response?.data?.error || 'Shartnoma o\'chirishda xatolik yuz berdi');
     }
   };
 
@@ -894,10 +970,9 @@ const Clients = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya boshlangan sana</label>
-                        <input
-                          type="date"
+                        <DateInput
                           value={form.creditStartDate}
-                          onChange={(e) => setForm({ ...form, creditStartDate: e.target.value })}
+                          onChange={(value) => setForm({ ...form, creditStartDate: value })}
                           required={!!form.creditType}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         />
@@ -1121,8 +1196,11 @@ const Clients = () => {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     resetContractForm();
+                    if (selectedClient) {
+                      await loadContracts(selectedClient.id);
+                    }
                     setShowContractModal(true);
                   }}
                   className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
@@ -1288,6 +1366,74 @@ const Clients = () => {
               </div>
             )}
 
+            {/* Shartnomalar ro'yxati */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-semibold text-gray-800">Shartnomalar</h3>
+                <button
+                  onClick={async () => {
+                    resetContractForm();
+                    if (selectedClient) {
+                      await loadContracts(selectedClient.id);
+                    }
+                    setShowContractModal(true);
+                  }}
+                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  + Shartnoma qo'shish
+                </button>
+              </div>
+              {loadingContracts ? (
+                <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+              ) : contracts.length === 0 ? (
+                <div className="text-center py-4 text-gray-400">Shartnomalar yo'q</div>
+              ) : (
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shartnoma raqami</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sana</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sotuvchi</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sotib oluvchi</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amallar</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {contracts.map((contract) => (
+                          <tr key={contract.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{contract.contractNumber}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(contract.contractDate).toLocaleDateString('uz-UZ')}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">{contract.sellerName}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900">{contract.buyerName}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleEditContract(contract)}
+                                  className="text-blue-600 hover:text-blue-800"
+                                >
+                                  Tahrirlash
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteContract(contract.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  O'chirish
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Monthly Tasks Chart */}
             {monthlyTasks.length > 0 && (
               <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg">
@@ -1381,7 +1527,9 @@ const Clients = () => {
           >
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-800">Shartnoma qo'shish</h3>
+                <h3 className="text-lg font-semibold text-gray-800">
+                  {editingContractId ? 'Shartnomani tahrirlash' : 'Yangi shartnoma qo\'shish'}
+                </h3>
                 <p className="text-sm text-gray-500">{selectedClient.name}</p>
               </div>
               <button
@@ -1412,10 +1560,9 @@ const Clients = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma sanasi *</label>
-                    <input
-                      type="date"
+                    <DateInput
                       value={contractForm.contractDate}
-                      onChange={(e) => setContractForm({ ...contractForm, contractDate: e.target.value })}
+                      onChange={(value) => setContractForm({ ...contractForm, contractDate: value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />
@@ -1748,10 +1895,9 @@ const Clients = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya boshlangan sana</label>
-                        <input
-                          type="date"
+                        <DateInput
                           value={editForm.creditStartDate}
-                          onChange={(e) => setEditForm({ ...editForm, creditStartDate: e.target.value })}
+                          onChange={(value) => setEditForm({ ...editForm, creditStartDate: value })}
                           required={!!editForm.creditType}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         />

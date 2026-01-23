@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Icon } from '@iconify/react';
+import DateInput from '../components/DateInput';
 
 interface AccountBalance {
   id: number;
@@ -914,10 +915,9 @@ const Finance = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Sana <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   value={debtForm.date}
-                  onChange={(e) => setDebtForm({ ...debtForm, date: e.target.value })}
+                  onChange={(value) => setDebtForm({ ...debtForm, date: value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
@@ -1111,10 +1111,9 @@ const Finance = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Sana <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   value={convertForm.date}
-                  onChange={(e) => setConvertForm({ ...convertForm, date: e.target.value })}
+                  onChange={(value) => setConvertForm({ ...convertForm, date: value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>

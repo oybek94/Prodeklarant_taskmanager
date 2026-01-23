@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import MonetaryInput from '../components/MonetaryInput';
+import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import { formatCurrencyForRole, shouldShowExchangeRate, type Role } from '../utils/currencyFormatting';
@@ -821,10 +822,9 @@ const Transactions = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
-              <input
-                type="date"
+              <DateInput
                 value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
+                onChange={(value) => setForm({ ...form, date: value })}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
@@ -1085,10 +1085,9 @@ const Transactions = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
-                <input
-                  type="date"
+                <DateInput
                   value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  onChange={(value) => setForm({ ...form, date: value })}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />

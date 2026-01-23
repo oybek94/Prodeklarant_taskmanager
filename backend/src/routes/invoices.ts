@@ -484,16 +484,7 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
 
     console.log('Invoice found, items count:', invoice.items.length);
 
-    // Company settings'ni olish
-    const companySettings = await prisma.companySettings.findFirst();
-    if (!companySettings) {
-      console.log('Company settings not found');
-      return res.status(400).json({ error: 'Kompaniya sozlamalari topilmadi. Iltimos, avval kompaniya ma\'lumotlarini kiriting.' });
-    }
-
-    console.log('Company settings found');
-
-    // Contract ma'lumotlarini olish
+    // Contract ma'lumotlarini olish (asosiy manba - mijoz sahifasidan)
     let contract: any = null;
     if (invoice.contractId) {
       try {
@@ -506,6 +497,75 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
       }
     } else {
       console.log('No contractId in invoice');
+    }
+
+    // Agar invoice contractId bo'lmasa yoki topilmasa, contractNumber bo'yicha izlash
+    if (!contract && invoice.contractNumber) {
+      try {
+        contract = await prisma.contract.findFirst({
+          where: {
+            clientId: invoice.clientId,
+            contractNumber: invoice.contractNumber
+          }
+        });
+        console.log('Contract found by contractNumber:', contract ? `ID ${contract.id}` : 'not found');
+      } catch (contractError) {
+        console.error('Error fetching contract by contractNumber:', contractError);
+      }
+    }
+
+    // Agar hali ham topilmasa, mijozga biriktirilgan so'nggi shartnomani olish
+    if (!contract) {
+      try {
+        contract = await prisma.contract.findFirst({
+          where: { clientId: invoice.clientId },
+          orderBy: [
+            { contractDate: 'desc' },
+            { id: 'desc' }
+          ]
+        });
+        console.log('Fallback contract for client:', contract ? `ID ${contract.id}` : 'not found');
+      } catch (contractError) {
+        console.error('Error fetching fallback contract:', contractError);
+      }
+    }
+
+    // Company settings'ni olish - avval contract seller ma'lumotlaridan, keyin global settings
+    let companySettings: any = null;
+    
+    // Avval contract seller ma'lumotlaridan foydalanish (asosiy manba)
+    if (contract) {
+      console.log('Using company settings from contract seller information (mijoz sahifasidan)');
+      // Contract seller ma'lumotlaridan company settings yaratish
+      companySettings = {
+        id: 0, // Temporary ID
+        name: contract.sellerName || '',
+        legalAddress: contract.sellerLegalAddress || '',
+        actualAddress: contract.sellerLegalAddress || '',
+        inn: contract.sellerInn || null,
+        phone: null, // Contract'da phone yo'q
+        email: null, // Contract'da email yo'q
+        bankName: contract.sellerBankName || null,
+        bankAddress: contract.sellerBankAddress || null,
+        bankAccount: contract.sellerBankAccount || null,
+        swiftCode: contract.sellerBankSwift || null,
+        correspondentBank: contract.sellerCorrespondentBank || null,
+        correspondentBankAddress: null, // Contract'da bu maydon yo'q
+        correspondentBankSwift: contract.sellerCorrespondentBankSwift || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any;
+    } else {
+      // Fallback: global CompanySettings'ni tekshirish
+      console.log('Contract not found, trying global company settings');
+      companySettings = await prisma.companySettings.findFirst();
+      
+      if (!companySettings) {
+        console.log('Company settings not found and contract missing');
+        return res.status(400).json({ error: 'Kompaniya sozlamalari topilmadi. Iltimos, avval kompaniya ma\'lumotlarini kiriting yoki shartnoma ma\'lumotlarini to\'ldiring.' });
+      } else {
+        console.log('Using global company settings as fallback');
+      }
     }
 
     // PDF generatsiya

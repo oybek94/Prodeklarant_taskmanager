@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
 import apiClient from '../lib/api';
+import DateInput from '../components/DateInput';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 
 
@@ -242,6 +245,9 @@ const Invoice = () => {
 
   const [selectedContractId, setSelectedContractId] = useState<string>('');
 
+  const invoiceRef = useRef<HTMLDivElement | null>(null);
+  const [isPdfMode, setIsPdfMode] = useState(false);
+
   const [items, setItems] = useState<InvoiceItem[]>([
 
     {
@@ -259,6 +265,20 @@ const Invoice = () => {
     }
 
   ]);
+  const [visibleColumns, setVisibleColumns] = useState({
+    index: true,
+    tnved: true,
+    plu: true,
+    name: true,
+    package: true,
+    unit: true,
+    quantity: true,
+    gross: true,
+    net: true,
+    unitPrice: true,
+    total: true,
+    actions: true,
+  });
 
 
 
@@ -314,6 +334,15 @@ const Invoice = () => {
   }, [taskId, clientId, contractIdFromQuery]);
 
 
+
+  const normalizeItem = (item: InvoiceItem): InvoiceItem => ({
+    ...item,
+    tnvedCode: item.tnvedCode ?? undefined,
+    pluCode: item.pluCode ?? undefined,
+    packageType: item.packageType ?? undefined,
+    grossWeight: item.grossWeight ?? undefined,
+    netWeight: item.netWeight ?? undefined,
+  });
 
   const loadData = async () => {
 
@@ -503,7 +532,7 @@ const Invoice = () => {
             gln: inv.additionalInfo?.gln || prev.gln,
             harvestYear: inv.additionalInfo?.harvestYear || prev.harvestYear,
           }));
-          setItems(inv.items || []);
+          setItems((inv.items || []).map(normalizeItem));
 
           
 
@@ -603,6 +632,54 @@ const Invoice = () => {
 
     setItems(newItems);
 
+  };
+
+  const waitForPaint = () =>
+    new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+
+  const generatePdf = async () => {
+    if (!invoiceRef.current) {
+      alert("Invoice ko'rinishi topilmadi");
+      return;
+    }
+
+    setIsPdfMode(true);
+    await waitForPaint();
+
+    const element = invoiceRef.current;
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'pt', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * pageWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+
+    while (heightLeft > 0) {
+      position -= pageHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
+    const fileBase = invoice?.invoiceNumber || form.invoiceNumber || 'invoice';
+    pdf.save(`invoice-${fileBase}.pdf`);
+
+    setIsPdfMode(false);
   };
 
 
@@ -734,6 +811,17 @@ const Invoice = () => {
 
       
 
+      const normalizedItems = items.map((item, index) => {
+        const normalized = normalizeItem(item);
+        return {
+          ...normalized,
+          quantity: Number(normalized.quantity) || 0,
+          unitPrice: Number(normalized.unitPrice) || 0,
+          totalPrice: Number(normalized.totalPrice) || 0,
+          orderIndex: index,
+        };
+      });
+
       const invoiceData = {
 
         taskId: taskId ? Number(taskId) : undefined, // taskId ixtiyoriy bo'lishi mumkin
@@ -750,13 +838,7 @@ const Invoice = () => {
 
         contractId: selectedContractId ? Number(selectedContractId) : undefined,
 
-        items: items.map((item, index) => ({
-
-          ...item,
-
-          orderIndex: index,
-
-        })),
+        items: normalizedItems,
 
         notes: form.notes,
 
@@ -796,23 +878,29 @@ const Invoice = () => {
 
 
 
-      if (invoice) {
+      const response = invoice
+        ? await apiClient.post(`/invoices`, { ...invoiceData, id: invoice.id })
+        : await apiClient.post('/invoices', invoiceData);
 
-        await apiClient.post(`/invoices`, { ...invoiceData, id: invoice.id });
-
-        alert('Invoice muvaffaqiyatli yangilandi');
-
-      } else {
-
-        await apiClient.post('/invoices', invoiceData);
-
-        alert('Invoice muvaffaqiyatli yaratildi');
-
+      const savedInvoice = response.data;
+      setInvoice(savedInvoice);
+      if (savedInvoice?.items) {
+        setItems(savedInvoice.items.map(normalizeItem));
+      }
+      if (savedInvoice?.invoiceNumber) {
+        setForm(prev => ({
+          ...prev,
+          invoiceNumber: savedInvoice.invoiceNumber,
+        }));
+      }
+      if (savedInvoice?.contractId) {
+        setSelectedContractId(savedInvoice.contractId.toString());
       }
 
-      
+      alert(invoice ? 'Invoice muvaffaqiyatli yangilandi' : 'Invoice muvaffaqiyatli yaratildi');
 
-      await loadData();
+      await waitForPaint();
+      await generatePdf();
 
     } catch (error: any) {
 
@@ -830,111 +918,7 @@ const Invoice = () => {
 
 
 
-  const handleDownloadPDF = async () => {
-
-    if (!invoice) {
-
-      alert('Avval invoice\'ni saqlang');
-
-      return;
-
-    }
-
-    
-
-    try {
-
-      const response = await apiClient.get(`/invoices/${invoice.id}/pdf`, {
-
-        responseType: 'blob',
-
-      });
-
-      
-
-      // Blob'ni tekshirish - agar xatolik bo'lsa, JSON bo'lishi mumkin
-
-      if (response.data.type === 'application/json') {
-
-        const text = await response.data.text();
-
-        const errorData = JSON.parse(text);
-
-        throw new Error(errorData.error || errorData.message || 'PDF yuklab olishda xatolik yuz berdi');
-
-      }
-
-      
-
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-
-      const url = window.URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-
-      link.href = url;
-
-      link.download = `invoice-${invoice.invoiceNumber}.pdf`;
-
-      link.click();
-
-      window.URL.revokeObjectURL(url);
-
-    } catch (error: any) {
-
-      console.error('Error downloading PDF:', error);
-
-      let errorMessage = 'PDF yuklab olishda xatolik yuz berdi';
-
-      
-
-      // Blob response'da xatolik bo'lsa, uni JSON sifatida parse qilish
-
-      if (error.response?.data instanceof Blob) {
-
-        try {
-
-          const text = await error.response.data.text();
-
-          const errorData = JSON.parse(text);
-
-          errorMessage = errorData.error || errorData.message || errorMessage;
-
-        } catch (e) {
-
-          // Parse qilish mumkin bo'lmasa, default xabar
-
-          errorMessage = error.message || errorMessage;
-
-        }
-
-      } else {
-
-        errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || errorMessage;
-
-      }
-
-      
-
-      alert(errorMessage);
-
-      
-
-      // Agar CompanySettings yo'q bo'lsa, Settings sahifasiga yo'naltirish
-
-      if (errorMessage.includes('Kompaniya sozlamalari') || errorMessage.includes('company settings') || errorMessage.includes('topilmadi')) {
-
-        if (confirm('Kompaniya ma\'lumotlari kiritilmagan. Sozlamalar sahifasiga o\'tishni xohlaysizmi?')) {
-
-          navigate('/settings');
-
-        }
-
-      }
-
-    }
-
-  };
+  
 
 
 
@@ -989,6 +973,39 @@ const Invoice = () => {
   const total = subtotal + taxAmount + form.shipping - form.discount;
 
   const balanceDue = total - form.amountPaid;
+  const selectedContract = selectedContractId
+    ? contracts.find((contract) => contract.id.toString() === selectedContractId)
+    : undefined;
+  const isSellerShipper =
+    !!selectedContract?.sellerName &&
+    (!selectedContract?.shipperName ||
+      selectedContract.shipperName.trim() === selectedContract.sellerName.trim());
+  const isBuyerConsignee =
+    !!selectedContract?.consigneeName &&
+    !!selectedContract?.buyerName &&
+    selectedContract.consigneeName.trim() === selectedContract.buyerName.trim();
+  const leadingColumnsCount = [
+    visibleColumns.index,
+    visibleColumns.tnved,
+    visibleColumns.plu,
+    visibleColumns.name,
+    visibleColumns.package,
+    visibleColumns.unit,
+  ].filter(Boolean).length;
+  const effectiveColumns = isPdfMode
+    ? { ...visibleColumns, actions: false }
+    : visibleColumns;
+  const formatNumber = (value?: number) =>
+    value !== undefined && value !== null && !Number.isNaN(value)
+      ? value.toLocaleString('ru-RU', {
+          minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+          maximumFractionDigits: 2,
+        })
+      : '';
+  const formatNumberFixed = (value?: number) =>
+    value !== undefined && value !== null && !Number.isNaN(value)
+      ? value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : '';
 
 
 
@@ -997,6 +1014,33 @@ const Invoice = () => {
     <div className="min-h-screen bg-gray-50 py-8">
 
       <div className="max-w-6xl mx-auto px-4">
+        {isPdfMode && (
+          <style>
+            {`
+              .pdf-mode input,
+              .pdf-mode select,
+              .pdf-mode textarea {
+                border: none !important;
+                box-shadow: none !important;
+                outline: none !important;
+              }
+              .pdf-mode table,
+              .pdf-mode th,
+              .pdf-mode td {
+                border: none !important;
+                vertical-align: middle !important;
+              }
+              .pdf-mode .pdf-hide-border {
+                border-top: none !important;
+              }
+              .pdf-mode button,
+              .pdf-mode summary,
+              .pdf-mode details {
+                display: none !important;
+              }
+            `}
+          </style>
+        )}
 
         {/* Header */}
 
@@ -1005,23 +1049,14 @@ const Invoice = () => {
           <h1 className="text-2xl font-bold text-gray-800">Invoice</h1>
 
           <div className="flex gap-2">
-
-            {invoice && (
-
-              <button
-
-                onClick={handleDownloadPDF}
-
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-
-              >
-
-                PDF yuklab olish
-
-              </button>
-
-            )}
-
+            <button
+              type="button"
+              onClick={generatePdf}
+              disabled={saving}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300"
+            >
+              PDF yuklab olish
+            </button>
             <button
 
               onClick={() => navigate(-1)}
@@ -1042,7 +1077,10 @@ const Invoice = () => {
 
         <form onSubmit={handleSubmit}>
 
-          <div className="bg-white rounded-lg shadow-lg p-8">
+          <div
+            ref={invoiceRef}
+            className={`bg-white rounded-lg shadow-lg p-8${isPdfMode ? ' pdf-mode' : ''}`}
+          >
 
             {/* Invoice Header */}
 
@@ -1053,61 +1091,57 @@ const Invoice = () => {
               <div>
 
                 <div className="space-y-1 mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-700">Инвойс №:</span>
-                    <input
+                  <div className="flex items-center gap-1">
+                    {isPdfMode ? (
+                      <span className="text-base font-semibold text-gray-900">
+                        Инвойс №: {form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')} от {formatDate(form.date)} г.
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-base font-bold text-gray-700">Инвойс №:</span>
+                        <input
+                          type="text"
+                          value={form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')}
+                          onChange={(e) => setForm({ ...form, invoiceNumber: e.target.value })}
+                          className="w-16 px-2 py-1 border border-gray-300 rounded text-base font-semibold"
+                          placeholder="Avtomatik"
+                        />
 
-                      type="text"
+                        <span className="text-base text-gray-700">от</span>
+                        <DateInput
+                          value={form.date}
+                          onChange={(value) => setForm({ ...form, date: value })}
+                          className="px-2 py-1 border border-gray-300 rounded text-base font-semibold"
+                          required
+                        />
 
-                      value={form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')}
-
-                      onChange={(e) => setForm({ ...form, invoiceNumber: e.target.value })}
-
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm font-semibold"
-                      placeholder="Avtomatik"
-
-                    />
-
-                    <span className="text-sm text-gray-700">от</span>
-                    <input
-
-                      type="date"
-
-                      value={form.date}
-
-                      onChange={(e) => setForm({ ...form, date: e.target.value })}
-
-                      className="px-2 py-1 border border-gray-300 rounded text-sm"
-                      required
-
-                    />
-
-                    <span className="text-sm text-gray-700">г.</span>
+                        <span className="text-base text-gray-700">г.</span>
+                      </>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-700">Контракт №:</span>
-                  <select
-
-                    value={selectedContractId}
-
-                    onChange={(e) => handleContractSelect(e.target.value)}
-
-                      className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                  >
-
-                    <option value="">Shartnoma tanlang...</option>
-
-                    {contracts.map(contract => (
-
-                      <option key={contract.id} value={contract.id}>
-
+                    <span className="text-base font-bold text-gray-700">Контракт №:</span>
+                  {isPdfMode ? (
+                    <span className="px-2 py-1 text-base font-semibold text-gray-900">
+                      {selectedContract
+                        ? `${selectedContract.contractNumber} от ${formatDate(selectedContract.contractDate)}`
+                        : ''}
+                    </span>
+                  ) : (
+                    <select
+                      value={selectedContractId}
+                      onChange={(e) => handleContractSelect(e.target.value)}
+                      className="flex-1 px-2 py-1 border border-gray-300 rounded text-base font-semibold"
+                    >
+                      <option value="">Shartnoma tanlang...</option>
+                      {contracts.map(contract => (
+                        <option key={contract.id} value={contract.id}>
                           {contract.contractNumber} от {formatDate(contract.contractDate)}
-                      </option>
-
-                    ))}
-
-                  </select>
+                        </option>
+                      ))}
+                    </select>
+                  )}
 
                   </div>
                 </div>
@@ -1120,7 +1154,7 @@ const Invoice = () => {
 
               <div className="text-right">
 
-                <h1 className="text-4xl font-bold text-gray-800 mb-6">INVOICE</h1>
+                <h1 className="text-5xl font-bold text-gray-800 mb-6">INVOICE</h1>
 
               </div>
 
@@ -1137,15 +1171,17 @@ const Invoice = () => {
 
               <div>
 
-                <h3 className="font-semibold text-gray-800 mb-2">Sotuvchi</h3>
+                <h3 className="font-semibold text-gray-800 mb-2">
+                  {isSellerShipper ? 'Продавец/Грузоотправитель' : 'Sotuvchi'}
+                </h3>
 
-                <div className="text-sm text-gray-600 space-y-1">
+                <div className="text-[15px] text-black space-y-1">
 
                   {selectedContractId && contracts.find(c => c.id.toString() === selectedContractId) ? (
 
                     <>
 
-                      <div className="font-medium">
+                      <div className="text-base font-bold text-black">
 
                         {contracts.find(c => c.id.toString() === selectedContractId)?.sellerName}
 
@@ -1171,12 +1207,12 @@ const Invoice = () => {
 
                       {contracts.find(c => c.id.toString() === selectedContractId)?.sellerDetails ? (
                         <div className="mt-2">
-                          <div className="whitespace-pre-line">{contracts.find(c => c.id.toString() === selectedContractId)?.sellerDetails}</div>
+                          <div className="whitespace-pre-line text-black">{contracts.find(c => c.id.toString() === selectedContractId)?.sellerDetails}</div>
                         </div>
                       ) : contracts.find(c => c.id.toString() === selectedContractId)?.sellerBankName && (
                         <div className="mt-2">
 
-                          <div className="font-medium">Bank ma'lumotlari:</div>
+                          <div className="text-base font-bold text-black">Bank ma'lumotlari:</div>
 
                           <div>
                             Bank: {contracts.find(c => c.id.toString() === selectedContractId)?.sellerBankName}
@@ -1226,7 +1262,7 @@ const Invoice = () => {
 
                     <>
 
-                      <div className="font-medium">{task?.client?.name || 'Mijoz tanlanmagan'}</div>
+                      <div className="text-base font-bold text-black">{task?.client?.name || 'Mijoz tanlanmagan'}</div>
 
                       {task?.client?.address && <div>{task.client.address}</div>}
 
@@ -1240,7 +1276,7 @@ const Invoice = () => {
 
                         <div className="mt-2">
 
-                          <div className="font-medium">Bank ma'lumotlari:</div>
+                          <div className="text-base font-bold text-black">Bank ma'lumotlari:</div>
 
                           <div>
                             Bank: {task.client.bankName}
@@ -1264,15 +1300,17 @@ const Invoice = () => {
 
               <div>
 
-                <h3 className="font-semibold text-gray-800 mb-2">Sotib oluvchi</h3>
+                <h3 className="font-semibold text-gray-800 mb-2">
+                  {isBuyerConsignee ? 'Покупатель/Грузополучатель' : 'Sotib oluvchi'}
+                </h3>
 
-                <div className="text-sm text-gray-600 space-y-1">
+                <div className="text-[15px] text-black space-y-1">
 
                   {selectedContractId && contracts.find(c => c.id.toString() === selectedContractId) ? (
 
                     <>
 
-                      <div className="font-medium">
+                      <div className="text-base font-bold text-black">
 
                         {contracts.find(c => c.id.toString() === selectedContractId)?.buyerName}
 
@@ -1298,12 +1336,12 @@ const Invoice = () => {
 
                       {contracts.find(c => c.id.toString() === selectedContractId)?.buyerDetails ? (
                         <div className="mt-2">
-                          <div className="whitespace-pre-line">{contracts.find(c => c.id.toString() === selectedContractId)?.buyerDetails}</div>
+                          <div className="whitespace-pre-line text-black">{contracts.find(c => c.id.toString() === selectedContractId)?.buyerDetails}</div>
                         </div>
                       ) : contracts.find(c => c.id.toString() === selectedContractId)?.buyerBankName && (
                         <div className="mt-2">
 
-                          <div className="font-medium">Bank ma'lumotlari:</div>
+                          <div className="text-base font-bold text-black">Bank ma'lumotlari:</div>
 
                           <div>
                             Bank: {contracts.find(c => c.id.toString() === selectedContractId)?.buyerBankName}
@@ -1374,7 +1412,10 @@ const Invoice = () => {
                   Tahrirlash
                 </button>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 space-y-1">
+              <div
+                className="p-4 rounded-lg text-base text-black space-y-1"
+                style={{ backgroundColor: 'var(--tw-ring-offset-color)', background: 'unset' }}
+              >
                 {form.deliveryTerms && <div><strong>Условия поставки:</strong> {form.deliveryTerms}</div>}
                 {form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
                 {form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
@@ -1394,9 +1435,115 @@ const Invoice = () => {
 
               <div className="flex items-center justify-between mb-4">
 
-                <h3 className="font-semibold text-gray-800">Tovarlar</h3>
+                <h3 className="font-semibold text-gray-800">Товары</h3>
 
-                <button
+                <div className="flex items-center gap-2">
+                  <details className="relative">
+                    <summary className="list-none cursor-pointer px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+                      Ustunlar
+                    </summary>
+                    <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-20">
+                      <div className="grid grid-cols-1 gap-2 text-sm text-gray-700">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.index}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, index: !prev.index }))}
+                          />
+                          №
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.tnved}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, tnved: !prev.tnved }))}
+                          />
+                          Код ТН ВЭД
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.plu}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, plu: !prev.plu }))}
+                          />
+                          Код PLU
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.name}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, name: !prev.name }))}
+                          />
+                          Наименование товара
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.package}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, package: !prev.package }))}
+                          />
+                          Вид упаковки
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.unit}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, unit: !prev.unit }))}
+                          />
+                          Ед. изм.
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.quantity}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, quantity: !prev.quantity }))}
+                          />
+                          Мест
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.gross}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, gross: !prev.gross }))}
+                          />
+                          Брутто (кг)
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.net}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, net: !prev.net }))}
+                          />
+                          Нетто (кг)
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.unitPrice}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, unitPrice: !prev.unitPrice }))}
+                          />
+                          Цена за ед.изм.
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.total}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, total: !prev.total }))}
+                          />
+                          Сумма с НДС
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.actions}
+                            onChange={() => setVisibleColumns((prev) => ({ ...prev, actions: !prev.actions }))}
+                          />
+                          Amallar
+                        </label>
+                      </div>
+                    </div>
+                  </details>
+                  <button
 
                   type="button"
 
@@ -1408,213 +1555,335 @@ const Invoice = () => {
 
                   + Line Item
 
-                </button>
+                  </button>
+                </div>
 
               </div>
 
               
 
               <div className="overflow-x-auto">
-
-                <table className="w-full text-sm">
-                  <thead>
-
-                    <tr className="bg-blue-700 text-white">
-
-                      <th className="px-2 py-3 text-center text-xs font-semibold w-12">№</th>
-                      <th className="px-2 py-3 text-left text-xs font-semibold">Код ТН ВЭД</th>
-                      <th className="px-2 py-3 text-left text-xs font-semibold">Код PLU</th>
-                      <th className="px-2 py-3 text-left text-xs font-semibold">Наименование товара</th>
-                      <th className="px-2 py-3 text-left text-xs font-semibold">Вид упаковки</th>
-                      <th className="px-2 py-3 text-center text-xs font-semibold">Ед. изм.</th>
-                      <th className="px-2 py-3 text-right text-xs font-semibold">Мест</th>
-                      <th className="px-2 py-3 text-right text-xs font-semibold">Брутто (кг)</th>
-                      <th className="px-2 py-3 text-right text-xs font-semibold">Нетто (кг)</th>
-                      <th className="px-2 py-3 text-right text-xs font-semibold">Цена за ед.изм.</th>
-                      <th className="px-2 py-3 text-right text-xs font-semibold">Сумма с НДС</th>
-                    </tr>
-
-                  </thead>
-
-                  <tbody>
-
-                    {items.map((item, index) => (
-
-                      <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-
-                        <td className="px-2 py-3 text-center">{index + 1}</td>
-                        <td className="px-2 py-3">
-                          <input
-                            type="text"
-                            value={item.tnvedCode || ''}
-                            onChange={(e) => handleItemChange(index, 'tnvedCode', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                            placeholder="0810700001"
-                          />
-                        </td>
-                        <td className="px-2 py-3">
-                          <input
-                            type="text"
-                            value={item.pluCode || ''}
-                            onChange={(e) => handleItemChange(index, 'pluCode', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                            placeholder="4309371"
-                          />
-                        </td>
-                        <td className="px-2 py-3">
-                          <input
-
-                            type="text"
-
-                            value={item.name}
-
-                            onChange={(e) => handleItemChange(index, 'name', e.target.value)}
-
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                            placeholder="Наименование товара"
-                            required
-
-                          />
-
-                        </td>
-
-                        <td className="px-2 py-3">
-                          <input
-                            type="text"
-                            value={item.packageType || ''}
-                            onChange={(e) => handleItemChange(index, 'packageType', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                            placeholder="пласт. ящик."
-                          />
-                        </td>
-                        <td className="px-2 py-3">
-                          <input
-                            type="text"
-                            value={item.unit}
-                            onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center"
-                            placeholder="кг"
-                            required
-                          />
-                        </td>
-                        <td className="px-2 py-3">
-                          <input
-
-                            type="number"
-
-                            value={item.quantity}
-
-                            onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
-                            min="0"
-
-                            step="0.01"
-
-                            required
-
-                          />
-
-                        </td>
-
-                        <td className="px-2 py-3">
-                          <input
-                            type="number"
-                            value={item.grossWeight || ''}
-                            onChange={(e) => handleItemChange(index, 'grossWeight', parseFloat(e.target.value) || undefined)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
-                            min="0"
-                            step="0.01"
-                            placeholder="7802"
-                          />
-                        </td>
-                        <td className="px-2 py-3">
-                          <input
-                            type="number"
-                            value={item.netWeight || ''}
-                            onChange={(e) => handleItemChange(index, 'netWeight', parseFloat(e.target.value) || undefined)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
-                            min="0"
-                            step="0.01"
-                            placeholder="7150"
-                          />
-                        </td>
-                        <td className="px-2 py-3">
-                            <input
-
-                              type="number"
-
-                              value={item.unitPrice}
-
-                              onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
-                              min="0"
-
-                              step="0.01"
-
-                              required
-
-                            placeholder="1,12"
-                            />
-
-                        </td>
-
-                        <td className="px-2 py-3">
-                          <div className="text-right font-semibold text-xs">
-                            {item.totalPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-
-                        </td>
-
-                        <td className="px-2 py-3 text-center">
-                          {items.length > 1 && (
-
-                            <button
-
-                              type="button"
-
-                              onClick={() => removeItem(index)}
-
-                              className="text-red-600 hover:text-red-800 text-sm"
-
-                            >
-
-                              ✕
-
-                            </button>
-
-                          )}
-
-                        </td>
-
+                {isPdfMode ? (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-blue-700 text-white">
+                        {effectiveColumns.index && (
+                          <th className="px-2 py-3 text-center text-xs font-semibold w-12">№</th>
+                        )}
+                        {effectiveColumns.tnved && (
+                          <th className="px-2 py-3 text-left text-xs font-semibold">Код ТН ВЭД</th>
+                        )}
+                        {effectiveColumns.plu && (
+                          <th className="px-2 py-3 text-left text-xs font-semibold">Код PLU</th>
+                        )}
+                        {effectiveColumns.name && (
+                          <th className="px-2 py-3 text-left text-xs font-semibold">Наименование товара</th>
+                        )}
+                        {effectiveColumns.package && (
+                          <th className="px-2 py-3 text-left text-xs font-semibold">Вид упаковки</th>
+                        )}
+                        {effectiveColumns.unit && (
+                          <th className="px-2 py-3 text-center text-xs font-semibold">Ед. изм.</th>
+                        )}
+                        {effectiveColumns.quantity && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">Мест</th>
+                        )}
+                        {effectiveColumns.gross && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">Брутто (кг)</th>
+                        )}
+                        {effectiveColumns.net && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">Нетто (кг)</th>
+                        )}
+                        {effectiveColumns.unitPrice && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">Цена за ед.изм.</th>
+                        )}
+                        {effectiveColumns.total && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">Сумма с НДС</th>
+                        )}
                       </tr>
-
-                    ))}
-
-                  </tbody>
-
-                  <tfoot>
-                    <tr className="bg-gray-100 font-semibold border-t-2 border-gray-400">
-                      <td className="px-2 py-3 text-center" colSpan={6}>Jami:</td>
-                      <td className="px-2 py-3 text-right">
-                        {items.reduce((sum, item) => sum + item.quantity, 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-2 py-3 text-right">
-                        {items.reduce((sum, item) => sum + (item.grossWeight || 0), 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-2 py-3 text-right">
-                        {items.reduce((sum, item) => sum + (item.netWeight || 0), 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-2 py-3"></td>
-                      <td className="px-2 py-3 text-right font-bold">
-                        {items.reduce((sum, item) => sum + item.totalPrice, 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-2 py-3"></td>
-                    </tr>
-                  </tfoot>
-                </table>
-
+                    </thead>
+                    <tbody>
+                      {items.map((item, index) => (
+                        <tr key={index} className="border-b border-gray-200">
+                          {effectiveColumns.index && (
+                            <td className="px-2 py-3 text-center">{index + 1}</td>
+                          )}
+                          {effectiveColumns.tnved && (
+                            <td className="px-2 py-3">{item.tnvedCode || ''}</td>
+                          )}
+                          {effectiveColumns.plu && (
+                            <td className="px-2 py-3">{item.pluCode || ''}</td>
+                          )}
+                          {effectiveColumns.name && (
+                            <td className="px-2 py-3">{item.name || ''}</td>
+                          )}
+                          {effectiveColumns.package && (
+                            <td className="px-2 py-3">{item.packageType || ''}</td>
+                          )}
+                          {effectiveColumns.unit && (
+                            <td className="px-2 py-3 text-center">{item.unit || ''}</td>
+                          )}
+                          {effectiveColumns.quantity && (
+                            <td className="px-2 py-3 text-right">{formatNumber(item.quantity)}</td>
+                          )}
+                          {effectiveColumns.gross && (
+                            <td className="px-2 py-3 text-right">{formatNumber(item.grossWeight || 0)}</td>
+                          )}
+                          {effectiveColumns.net && (
+                            <td className="px-2 py-3 text-right">{formatNumber(item.netWeight || 0)}</td>
+                          )}
+                          {effectiveColumns.unitPrice && (
+                            <td className="px-2 py-3 text-right">{formatNumber(item.unitPrice)}</td>
+                          )}
+                          {effectiveColumns.total && (
+                            <td className="px-2 py-3 text-right font-semibold">
+                              {formatNumberFixed(item.totalPrice)}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-gray-100 font-semibold border-t-2 border-gray-400">
+                        {leadingColumnsCount > 0 && (
+                          <td className="px-2 py-3 text-center" colSpan={leadingColumnsCount}>Всего:</td>
+                        )}
+                        {effectiveColumns.quantity && (
+                          <td className="px-2 py-3 text-right">
+                            {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
+                          </td>
+                        )}
+                        {effectiveColumns.gross && (
+                          <td className="px-2 py-3 text-right">
+                            {formatNumber(items.reduce((sum, item) => sum + (item.grossWeight || 0), 0))}
+                          </td>
+                        )}
+                        {effectiveColumns.net && (
+                          <td className="px-2 py-3 text-right">
+                            {formatNumber(items.reduce((sum, item) => sum + (item.netWeight || 0), 0))}
+                          </td>
+                        )}
+                        {effectiveColumns.unitPrice && <td className="px-2 py-3"></td>}
+                        {effectiveColumns.total && (
+                          <td className="px-2 py-3 text-right font-bold">
+                            {formatNumberFixed(items.reduce((sum, item) => sum + item.totalPrice, 0))}
+                          </td>
+                        )}
+                      </tr>
+                    </tfoot>
+                  </table>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-blue-700 text-white">
+                        {effectiveColumns.index && (
+                          <th className="px-2 py-3 text-center text-xs font-semibold w-12">№</th>
+                        )}
+                        {effectiveColumns.tnved && (
+                          <th className="px-2 py-3 text-left text-xs font-semibold">Код ТН ВЭД</th>
+                        )}
+                        {effectiveColumns.plu && (
+                          <th className="px-2 py-3 text-left text-xs font-semibold">Код PLU</th>
+                        )}
+                        {effectiveColumns.name && (
+                          <th className="px-2 py-3 text-left text-xs font-semibold">Наименование товара</th>
+                        )}
+                        {effectiveColumns.package && (
+                          <th className="px-2 py-3 text-left text-xs font-semibold">Вид упаковки</th>
+                        )}
+                        {effectiveColumns.unit && (
+                          <th className="px-2 py-3 text-center text-xs font-semibold">Ед. изм.</th>
+                        )}
+                        {effectiveColumns.quantity && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">Мест</th>
+                        )}
+                        {effectiveColumns.gross && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">Брутто (кг)</th>
+                        )}
+                        {effectiveColumns.net && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">Нетто (кг)</th>
+                        )}
+                        {effectiveColumns.unitPrice && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">Цена за ед.изм.</th>
+                        )}
+                        {effectiveColumns.total && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">Сумма с НДС</th>
+                        )}
+                        {effectiveColumns.actions && (
+                          <th className="px-2 py-3 text-center text-xs font-semibold">Amallar</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item, index) => (
+                        <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
+                          {effectiveColumns.index && (
+                            <td className="px-2 py-3 text-center">{index + 1}</td>
+                          )}
+                          {effectiveColumns.tnved && (
+                            <td className="px-2 py-3">
+                              <input
+                                type="text"
+                                value={item.tnvedCode || ''}
+                                onChange={(e) => handleItemChange(index, 'tnvedCode', e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                placeholder="0810700001"
+                              />
+                            </td>
+                          )}
+                          {effectiveColumns.plu && (
+                            <td className="px-2 py-3">
+                              <input
+                                type="text"
+                                value={item.pluCode || ''}
+                                onChange={(e) => handleItemChange(index, 'pluCode', e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                placeholder="4309371"
+                              />
+                            </td>
+                          )}
+                          {effectiveColumns.name && (
+                            <td className="px-2 py-3">
+                              <input
+                                type="text"
+                                value={item.name}
+                                onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                placeholder="Наименование товара"
+                                required
+                              />
+                            </td>
+                          )}
+                          {effectiveColumns.package && (
+                            <td className="px-2 py-3">
+                              <input
+                                type="text"
+                                value={item.packageType || ''}
+                                onChange={(e) => handleItemChange(index, 'packageType', e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                placeholder="пласт. ящик."
+                              />
+                            </td>
+                          )}
+                          {effectiveColumns.unit && (
+                            <td className="px-2 py-3">
+                              <input
+                                type="text"
+                                value={item.unit}
+                                onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center"
+                                placeholder="кг"
+                                required
+                              />
+                            </td>
+                          )}
+                          {effectiveColumns.quantity && (
+                            <td className="px-2 py-3">
+                              <input
+                                type="number"
+                                value={item.quantity}
+                                onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                min="0"
+                                step="0.01"
+                                required
+                              />
+                            </td>
+                          )}
+                          {effectiveColumns.gross && (
+                            <td className="px-2 py-3">
+                              <input
+                                type="number"
+                                value={item.grossWeight || ''}
+                                onChange={(e) => handleItemChange(index, 'grossWeight', parseFloat(e.target.value) || undefined)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                min="0"
+                                step="0.01"
+                                placeholder="7802"
+                              />
+                            </td>
+                          )}
+                          {effectiveColumns.net && (
+                            <td className="px-2 py-3">
+                              <input
+                                type="number"
+                                value={item.netWeight || ''}
+                                onChange={(e) => handleItemChange(index, 'netWeight', parseFloat(e.target.value) || undefined)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                min="0"
+                                step="0.01"
+                                placeholder="7150"
+                              />
+                            </td>
+                          )}
+                          {effectiveColumns.unitPrice && (
+                            <td className="px-2 py-3">
+                              <input
+                                type="number"
+                                value={item.unitPrice}
+                                onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                min="0"
+                                step="0.01"
+                                required
+                                placeholder="1,12"
+                              />
+                            </td>
+                          )}
+                          {effectiveColumns.total && (
+                            <td className="px-2 py-3">
+                              <div className="text-right font-semibold text-xs">
+                                {formatNumberFixed(item.totalPrice)}
+                              </div>
+                            </td>
+                          )}
+                          {effectiveColumns.actions && (
+                            <td className="px-2 py-3 text-center">
+                              {items.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(index)}
+                                  className="text-red-600 hover:text-red-800 text-sm"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-gray-100 font-semibold border-t-2 border-gray-400">
+                        {leadingColumnsCount > 0 && (
+                          <td className="px-2 py-3 text-center" colSpan={leadingColumnsCount}>Всего:</td>
+                        )}
+                        {effectiveColumns.quantity && (
+                          <td className="px-2 py-3 text-right">
+                            {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
+                          </td>
+                        )}
+                        {effectiveColumns.gross && (
+                          <td className="px-2 py-3 text-right">
+                            {formatNumber(items.reduce((sum, item) => sum + (item.grossWeight || 0), 0))}
+                          </td>
+                        )}
+                        {effectiveColumns.net && (
+                          <td className="px-2 py-3 text-right">
+                            {formatNumber(items.reduce((sum, item) => sum + (item.netWeight || 0), 0))}
+                          </td>
+                        )}
+                        {effectiveColumns.unitPrice && <td className="px-2 py-3"></td>}
+                        {effectiveColumns.total && (
+                          <td className="px-2 py-3 text-right font-bold">
+                            {formatNumberFixed(items.reduce((sum, item) => sum + item.totalPrice, 0))}
+                          </td>
+                        )}
+                        {effectiveColumns.actions && <td className="px-2 py-3"></td>}
+                      </tr>
+                    </tfoot>
+                  </table>
+                )}
               </div>
 
             </div>
@@ -1625,21 +1894,21 @@ const Invoice = () => {
 
             <div className="mb-8">
 
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Особые примечания</label>
 
-              <textarea
-
-                value={form.notes}
-
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm"
-
-                rows={3}
-
-                placeholder="Qo'shimcha eslatmalar..."
-
-              />
+              {isPdfMode ? (
+                <div className="w-full min-h-[90px] px-4 py-2 text-sm text-gray-900 whitespace-pre-wrap border border-gray-300 rounded-lg flex items-center text-left">
+                  {form.notes || ''}
+                </div>
+              ) : (
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-base"
+                  rows={3}
+                  placeholder="Qo'shimcha eslatmalar..."
+                />
+              )}
 
             </div>
 
@@ -1655,10 +1924,10 @@ const Invoice = () => {
                       {contract?.supplierDirector && (
               <div>
 
-                          <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          <label className="block text-base font-semibold text-gray-700 mb-1">
                             Руководитель Поставщика:
                           </label>
-                          <div className="text-sm text-gray-800">
+                          <div className="text-base text-gray-800">
                             {contract.supplierDirector}
               </div>
 
@@ -1667,10 +1936,10 @@ const Invoice = () => {
                       )}
                       {contract?.goodsReleasedBy && (
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          <label className="block text-base font-semibold text-gray-700 mb-1">
                             Товар отпустил:
                           </label>
-                          <div className="text-sm text-gray-800">
+                          <div className="text-base text-gray-800">
                             {contract.goodsReleasedBy}
                   </div>
 
@@ -1684,7 +1953,7 @@ const Invoice = () => {
             )}
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-3 mt-8 pt-6 border-t">
+            <div className="flex justify-end gap-3 mt-8 pt-6 border-t pdf-hide-border">
                     <button
 
                       type="button"

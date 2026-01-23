@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import CurrencyDisplay from '../components/CurrencyDisplay';
+import DateInput from '../components/DateInput';
 import { shouldShowExchangeRate, type Role } from '../utils/currencyFormatting';
 
 interface TransactionWithRate {
@@ -220,20 +221,18 @@ const Reports = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Boshlanish sanasi</label>
-              <input
-                type="date"
+              <DateInput
                 value={filters.startDate}
-                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                onChange={(value) => setFilters({ ...filters, startDate: value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tugash sanasi</label>
-              <input
-                type="date"
+              <DateInput
                 value={filters.endDate}
-                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                onChange={(value) => setFilters({ ...filters, endDate: value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>

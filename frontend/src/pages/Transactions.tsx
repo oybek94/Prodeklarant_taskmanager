@@ -557,35 +557,6 @@ const Transactions = () => {
         )}
       </div>
 
-      {/* Summary Cards */}
-      {/* Barcha foydalanuvchilar uchun ish xaqi statistikasi */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-        <div className="bg-green-50 rounded-lg p-3 border-2 border-green-200">
-          <div className="text-xs text-green-600 mb-1">Jami ish xaqi</div>
-          <div className="text-xl font-bold text-green-800">
-            {workerStats ? (
-              <CurrencyDisplay amount={Number(workerStats.totalEarned)} originalCurrency="USD" />
-            ) : 'Yuklanmoqda...'}
-          </div>
-        </div>
-        <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
-          <div className="text-xs text-purple-600 mb-1">Jami to'langan ish xaqi</div>
-          <div className="text-xl font-bold text-purple-800">
-            {workerStats ? (
-              <CurrencyDisplay amount={Number(workerStats.totalPaid)} originalCurrency="USD" />
-            ) : 'Yuklanmoqda...'}
-          </div>
-        </div>
-        <div className="bg-orange-50 rounded-lg p-3 border-2 border-orange-200">
-          <div className="text-xs text-orange-600 mb-1">Jami to'lanmagan ish xaqi</div>
-          <div className={`text-xl font-bold ${workerStats && workerStats.totalPending >= 0 ? 'text-orange-800' : 'text-red-800'}`}>
-            {workerStats ? (
-              <CurrencyDisplay amount={Number(workerStats.totalPending)} originalCurrency="USD" />
-            ) : 'Yuklanmoqda...'}
-          </div>
-        </div>
-      </div>
-
       {/* Monthly Stats Cards */}
       {user?.role === 'ADMIN' && monthlyStats && monthlyStats.income && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

@@ -27,6 +27,7 @@ interface Contract {
   contractDate: string;
   sellerName: string;
   buyerName: string;
+  destinationCountry?: string;
   deliveryTerms?: string;
   paymentMethod?: string;
 }
@@ -49,6 +50,22 @@ interface Client {
   };
 }
 
+const destinationCountryOptions = [
+  'Россия',
+  'Казахстан',
+  'Кыргызстан',
+  'Таджикистан',
+  'Туркменистан',
+  'Китай',
+  'Турция',
+  'ОАЭ',
+  'Германия',
+  'Польша',
+  'Литва',
+  'Латвия',
+  'Эстония',
+];
+
 const ClientDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -69,6 +86,7 @@ const ClientDetail = () => {
     // Sotib oluvchi - alohida maydonlar
     buyerName: '',
     buyerAddress: '',
+    destinationCountry: '',
     buyerDetails: '', // Qolgan rekvizitlar
     // Yuk jo'natuvchi - alohida maydonlar (ixtiyoriy)
     shipperName: '',
@@ -318,6 +336,7 @@ const ClientDetail = () => {
         // Sotib oluvchi
         buyerName: contractForm.buyerName,
         buyerAddress: contractForm.buyerAddress,
+        destinationCountry: contractForm.destinationCountry,
         buyerDetails: contractForm.buyerDetails || undefined, // To'g'ridan-to'g'ri textarea ma'lumotlari
         // Yuk jo'natuvchi
         shipperName: contractForm.shipperName || undefined,
@@ -364,6 +383,7 @@ const ClientDetail = () => {
         sellerCorrespondentBankSwift: '',
         buyerName: '',
         buyerAddress: '',
+        destinationCountry: '',
         buyerInn: '',
         buyerOgrn: '',
         buyerBankName: '',
@@ -460,6 +480,7 @@ const ClientDetail = () => {
           // Sotib oluvchi
           buyerName: contractData.buyerName || '',
           buyerAddress: contractData.buyerAddress || '',
+          destinationCountry: contractData.destinationCountry || '',
           buyerDetails,
           // Yuk jo'natuvchi
           shipperName: contractData.shipperName || '',
@@ -633,6 +654,7 @@ const ClientDetail = () => {
                 sellerCorrespondentBankSwift: '',
                 buyerName: '',
                 buyerAddress: '',
+                destinationCountry: '',
                 buyerInn: '',
                 buyerOgrn: '',
                 buyerBankName: '',
@@ -897,6 +919,22 @@ const ClientDetail = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Eksport davlati *</label>
+                    <select
+                      value={contractForm.destinationCountry}
+                      onChange={(e) => setContractForm({ ...contractForm, destinationCountry: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                    >
+                      <option value="">Tanlang...</option>
+                      {destinationCountryOptions.map((country) => (
+                        <option key={country} value={country}>
+                          {country}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>

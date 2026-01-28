@@ -755,6 +755,7 @@ model Contract {
   sellerCorrespondentBankSwift   String?
   buyerName                      String
   buyerAddress                   String
+  destinationCountry             String?
   buyerDetails                   String?
   buyerInn                       String?
   buyerOgrn                      String?

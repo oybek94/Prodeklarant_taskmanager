@@ -722,6 +722,106 @@ router.delete('/:id', async (req, res) => {
   res.status(204).send();
 });
 
+// Client invoice stats endpoint (for client dashboard)
+router.get('/me/invoice-stats', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (user.role !== 'CLIENT') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const monthParam = String(req.query.month || '');
+    const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
+    const parsedMonth = monthSchema.safeParse(monthParam);
+    if (!parsedMonth.success) {
+      return res.status(400).json({ error: 'Invalid month format. Use YYYY-MM.' });
+    }
+
+    const [yearStr, monthStr] = parsedMonth.data.split('-');
+    const year = Number(yearStr);
+    const monthIndex = Number(monthStr) - 1;
+    const startDate = new Date(Date.UTC(year, monthIndex, 1));
+    const endDate = new Date(Date.UTC(year, monthIndex + 1, 1));
+
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        clientId: user.id,
+        date: {
+          gte: startDate,
+          lt: endDate,
+        },
+      },
+      select: {
+        currency: true,
+        items: {
+          select: {
+            name: true,
+            quantity: true,
+            totalPrice: true,
+          },
+        },
+        contract: {
+          select: {
+            destinationCountry: true,
+          },
+        },
+      },
+    });
+
+    const totals = { totalQuantity: 0, totalValue: 0 };
+    const productMap = new Map<string, { name: string; totalQuantity: number; totalValue: number }>();
+    const countryMap = new Map<string, { country: string; totalQuantity: number; totalValue: number }>();
+
+    const currencySet = new Set<string>();
+    invoices.forEach((invoice) => {
+      currencySet.add(invoice.currency);
+      const country = invoice.contract?.destinationCountry || 'Noma\'lum';
+      invoice.items.forEach((item) => {
+        const quantity = Number(item.quantity || 0);
+        const totalValue = Number(item.totalPrice || 0);
+
+        totals.totalQuantity += quantity;
+        totals.totalValue += totalValue;
+
+        const productEntry = productMap.get(item.name) || {
+          name: item.name,
+          totalQuantity: 0,
+          totalValue: 0,
+        };
+        productEntry.totalQuantity += quantity;
+        productEntry.totalValue += totalValue;
+        productMap.set(item.name, productEntry);
+
+        const countryEntry = countryMap.get(country) || {
+          country,
+          totalQuantity: 0,
+          totalValue: 0,
+        };
+        countryEntry.totalQuantity += quantity;
+        countryEntry.totalValue += totalValue;
+        countryMap.set(country, countryEntry);
+      });
+    });
+
+    const products = Array.from(productMap.values()).sort((a, b) => b.totalValue - a.totalValue);
+    const countries = Array.from(countryMap.values()).sort((a, b) => b.totalValue - a.totalValue);
+
+    res.json({
+      month: parsedMonth.data,
+      currency: currencySet.size === 1 ? Array.from(currencySet)[0] : 'MIXED',
+      totals,
+      products,
+      countries,
+    });
+  } catch (error: any) {
+    console.error('Error fetching invoice stats:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi', details: error.message });
+  }
+});
+
 // Client tasks endpoint (for client dashboard) - CLIENT can access their own, ADMIN can access any
 router.get('/:id/tasks', requireAuth(), async (req: AuthRequest, res) => {
   try {

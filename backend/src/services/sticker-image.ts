@@ -194,9 +194,9 @@ function buildStickerSvg(
   const infoY1 = 33.6;
   const infoY2 = 37.4;
 
-  const qrSize = 16;
+  const qrSize = 20;
   const qrX = width - margin - qrSize;
-  const qrY = 22.5;
+  const qrY = 18;
 
   const safePlate = data.vehiclePlate ?? '';
   const safeDate = formatDate(data.verificationDate);

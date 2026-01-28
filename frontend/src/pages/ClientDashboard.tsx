@@ -66,6 +66,25 @@ interface Transaction {
   comment: string | null;
 }
 
+interface ExportStats {
+  month: string;
+  currency: string;
+  totals: {
+    totalQuantity: number;
+    totalValue: number;
+  };
+  products: Array<{
+    name: string;
+    totalQuantity: number;
+    totalValue: number;
+  }>;
+  countries: Array<{
+    country: string;
+    totalQuantity: number;
+    totalValue: number;
+  }>;
+}
+
 const ClientDashboard = () => {
   const [client, setClient] = useState<Client | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -75,6 +94,10 @@ const ClientDashboard = () => {
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isLoadingTaskDetail, setIsLoadingTaskDetail] = useState(false);
+  const [exportStats, setExportStats] = useState<ExportStats | null>(null);
+  const [exportStatsLoading, setExportStatsLoading] = useState(false);
+  const [exportStatsError, setExportStatsError] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -119,6 +142,33 @@ const ClientDashboard = () => {
 
     loadData();
   }, [navigate]);
+
+  useEffect(() => {
+    const loadExportStats = async () => {
+      if (!client) return;
+      try {
+        setExportStatsLoading(true);
+        setExportStatsError('');
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+          navigate('/client/login');
+          return;
+        }
+        const statsResponse = await axios.get(
+          `${API_BASE_URL}/clients/me/invoice-stats?month=${selectedMonth}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        setExportStats(statsResponse.data);
+      } catch (err: any) {
+        console.error('Error loading export stats:', err);
+        setExportStatsError('Eksport statistikasi yuklanmadi');
+      } finally {
+        setExportStatsLoading(false);
+      }
+    };
+
+    loadExportStats();
+  }, [client, selectedMonth, navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
@@ -285,6 +335,94 @@ const ClientDashboard = () => {
               {transactions.length} ta tranzaksiya
             </div>
           </div>
+        </div>
+
+        {/* Export Stats */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Eksport statistikasi</h2>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-500">Oy</label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+          </div>
+
+          {exportStatsLoading ? (
+            <div className="text-sm text-gray-500">Yuklanmoqda...</div>
+          ) : exportStatsError ? (
+            <div className="text-sm text-red-600">{exportStatsError}</div>
+          ) : !exportStats || (exportStats.products.length === 0 && exportStats.countries.length === 0) ? (
+            <div className="text-sm text-gray-500">Ma'lumotlar yo'q</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="text-xs text-gray-500 mb-1">Jami mahsulot soni</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {exportStats.totals.totalQuantity.toLocaleString()}
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="text-xs text-gray-500 mb-1">Jami qiymat</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {exportStats.totals.totalValue.toLocaleString('ru-RU', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    {exportStats.currency !== 'MIXED' ? exportStats.currency : ''}
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="text-xs text-gray-500 mb-1">Davlatlar soni</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {exportStats.countries.length}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">Mahsulotlar</div>
+                  <div className="space-y-2">
+                    {exportStats.products.map((product) => (
+                      <div key={product.name} className="flex items-center justify-between text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                        <span className="truncate">{product.name}</span>
+                        <span className="ml-3 whitespace-nowrap">
+                          {product.totalQuantity.toLocaleString()} /{' '}
+                          {product.totalValue.toLocaleString('ru-RU', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">Davlatlar</div>
+                  <div className="space-y-2">
+                    {exportStats.countries.map((country) => (
+                      <div key={country.country} className="flex items-center justify-between text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                        <span className="truncate">{country.country}</span>
+                        <span className="ml-3 whitespace-nowrap">
+                          {country.totalQuantity.toLocaleString()} /{' '}
+                          {country.totalValue.toLocaleString('ru-RU', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Main Content Grid */}

@@ -24,6 +24,7 @@ const contractSchema = z.object({
   sellerCorrespondentBankSwift: z.string().optional(),
   buyerName: z.string().min(1),
   buyerAddress: z.string().min(1),
+  destinationCountry: z.string().min(1),
   buyerDetails: z.string().optional(), // To'g'ridan-to'g'ri textarea ma'lumotlari
   buyerInn: z.string().optional(),
   buyerOgrn: z.string().optional(),
@@ -145,6 +146,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
       sellerLegalAddress: data.sellerLegalAddress,
       buyerName: data.buyerName,
       buyerAddress: data.buyerAddress,
+      destinationCountry: data.destinationCountry,
     };
 
     // Add optional seller fields
@@ -264,6 +266,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
       sellerLegalAddress: data.sellerLegalAddress,
       buyerName: data.buyerName,
       buyerAddress: data.buyerAddress,
+      destinationCountry: data.destinationCountry,
     };
 
     // Add optional seller fields

@@ -161,6 +161,7 @@ interface Contract {
 
   supplierDirector?: string; // Руководитель Поставщика
   goodsReleasedBy?: string; // Товар отпустил
+  gln?: string; // GLN код
 }
 
 
@@ -325,6 +326,10 @@ const Invoice = () => {
   });
 
   const [showAdditionalInfoModal, setShowAdditionalInfoModal] = useState(false);
+  const [additionalInfoError, setAdditionalInfoError] = useState<string | null>(null);
+  const [customFields, setCustomFields] = useState<Array<{ id: string; label: string; value: string }>>([]);
+  const [showAddFieldModal, setShowAddFieldModal] = useState(false);
+  const [newFieldLabel, setNewFieldLabel] = useState('');
 
 
   useEffect(() => {
@@ -394,6 +399,7 @@ const Invoice = () => {
             paymentTerms: contract.deliveryTerms || prev.paymentTerms,
 
             date: new Date().toISOString().split('T')[0],
+            gln: contract.gln || prev.gln,
 
           }));
 
@@ -462,6 +468,7 @@ const Invoice = () => {
                 contractNumber: contract.contractNumber,
 
                 paymentTerms: contract.deliveryTerms || prev.paymentTerms,
+                gln: contract.gln || prev.gln,
 
               }));
 
@@ -533,6 +540,7 @@ const Invoice = () => {
             harvestYear: inv.additionalInfo?.harvestYear || prev.harvestYear,
           }));
           setItems((inv.items || []).map(normalizeItem));
+          setCustomFields(inv.additionalInfo?.customFields || []);
 
           
 
@@ -557,6 +565,7 @@ const Invoice = () => {
                 contractNumber: contract.contractNumber,
 
                 paymentTerms: contract.deliveryTerms || prev.paymentTerms,
+                gln: contract.gln || prev.gln,
 
               }));
 
@@ -640,6 +649,16 @@ const Invoice = () => {
         requestAnimationFrame(() => resolve());
       });
     });
+  const getVehiclePlate = (value?: string) => {
+    if (!value) return '';
+    return value.split('/')[0].trim();
+  };
+  const buildTaskTitle = (invoiceNumber?: string, vehicleNumber?: string) => {
+    const safeInvoice = invoiceNumber?.trim();
+    const plate = getVehiclePlate(vehicleNumber);
+    if (!safeInvoice || !plate) return '';
+    return `${safeInvoice} АВТО ${plate}`;
+  };
 
   const generatePdf = async () => {
     if (!invoiceRef.current) {
@@ -676,8 +695,12 @@ const Invoice = () => {
       heightLeft -= pageHeight;
     }
 
-    const fileBase = invoice?.invoiceNumber || form.invoiceNumber || 'invoice';
-    pdf.save(`invoice-${fileBase}.pdf`);
+    const taskTitle = buildTaskTitle(
+      invoice?.invoiceNumber || form.invoiceNumber,
+      form.vehicleNumber
+    );
+    const fileBase = taskTitle || invoice?.invoiceNumber || form.invoiceNumber || 'invoice';
+    pdf.save(`${fileBase}.pdf`);
 
     setIsPdfMode(false);
   };
@@ -750,8 +773,8 @@ const Invoice = () => {
         paymentTerms: contract.deliveryTerms || '',
 
         deliveryTerms: contract.deliveryTerms || prev.deliveryTerms,
-        // GLN shartnomada bo'lsa, u yoziladi (hozircha shartnomada GLN maydoni yo'q, lekin kelajakda qo'shilishi mumkin)
-        // gln: contract.gln || prev.gln,
+        // GLN shartnomadan olinadi
+        gln: contract.gln || prev.gln,
       }));
 
       
@@ -790,6 +813,16 @@ const Invoice = () => {
   const handleSubmit = async (e: React.FormEvent) => {
 
     e.preventDefault();
+
+    if (!form.deliveryTerms.trim() || !form.vehicleNumber.trim()) {
+      setAdditionalInfoError('Iltimos, "Условия поставки" va "Номер автотранспорта" maydonlarini to‘ldiring');
+      setShowAdditionalInfoModal(true);
+      return;
+    }
+
+    if (additionalInfoError) {
+      setAdditionalInfoError(null);
+    }
 
     
 
@@ -839,6 +872,7 @@ const Invoice = () => {
         contractId: selectedContractId ? Number(selectedContractId) : undefined,
 
         items: normalizedItems,
+        totalAmount: normalizedItems.reduce((sum, item) => sum + item.totalPrice, 0),
 
         notes: form.notes,
 
@@ -872,6 +906,7 @@ const Invoice = () => {
           orderNumber: form.orderNumber,
           gln: form.gln,
           harvestYear: form.harvestYear,
+          customFields: customFields,
         },
 
       };
@@ -895,6 +930,18 @@ const Invoice = () => {
       }
       if (savedInvoice?.contractId) {
         setSelectedContractId(savedInvoice.contractId.toString());
+      }
+      const nextTaskTitle = buildTaskTitle(
+        savedInvoice?.invoiceNumber || form.invoiceNumber,
+        form.vehicleNumber
+      );
+      if (taskId && nextTaskTitle && task?.title !== nextTaskTitle) {
+        try {
+          await apiClient.patch(`/tasks/${taskId}`, { title: nextTaskTitle });
+        } catch (error: any) {
+          console.error('Error updating task title:', error);
+          alert(error.response?.data?.error || 'Task nomini yangilashda xatolik yuz berdi');
+        }
       }
 
       alert(invoice ? 'Invoice muvaffaqiyatli yangilandi' : 'Invoice muvaffaqiyatli yaratildi');
@@ -1425,6 +1472,13 @@ const Invoice = () => {
                 {form.orderNumber && <div><strong>Номер заказа:</strong> {form.orderNumber}</div>}
                 {form.gln && <div><strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}</div>}
                 {form.harvestYear && <div><strong>Урожай:</strong> {form.harvestYear} года</div>}
+                {customFields.map((field) => (
+                  field.value && (
+                    <div key={field.id}>
+                      <strong>{field.label}:</strong> {field.value}
+                    </div>
+                  )
+                ))}
               </div>
             </div>
 
@@ -1953,7 +2007,12 @@ const Invoice = () => {
             )}
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-3 mt-8 pt-6 border-t pdf-hide-border">
+            <div className="flex flex-wrap items-center justify-end gap-3 mt-8 pt-6 border-t pdf-hide-border">
+              {additionalInfoError && (
+                <div className="w-full text-sm text-red-600 text-right">
+                  {additionalInfoError}
+                </div>
+              )}
                     <button
 
                       type="button"
@@ -1998,15 +2057,23 @@ const Invoice = () => {
             </div>
 
             <div className="space-y-4">
+              {/* Majburiy maydonlar */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Условия поставки:
+                  Условия поставки:<span className="text-red-500 ml-1">*</span>
                 </label>
                       <input
 
                   type="text"
                   value={form.deliveryTerms}
-                  onChange={(e) => setForm({ ...form, deliveryTerms: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm({ ...form, deliveryTerms: value });
+                    if (additionalInfoError && value.trim() && form.vehicleNumber.trim()) {
+                      setAdditionalInfoError(null);
+                    }
+                  }}
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   placeholder="Shartnomadan olinadi"
                       />
@@ -2016,22 +2083,38 @@ const Invoice = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Номер автотранспорта:
+                  Номер автотранспорта:<span className="text-red-500 ml-1">*</span>
                 </label>
                 <input
                   type="text"
                   value={form.vehicleNumber}
-                  onChange={(e) => setForm({ ...form, vehicleNumber: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm({ ...form, vehicleNumber: value });
+                    if (additionalInfoError && form.deliveryTerms.trim() && value.trim()) {
+                      setAdditionalInfoError(null);
+                    }
+                  }}
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 />
                 </div>
 
-
-
+              {/* Ixtiyoriy maydonlar - o'chirish imkoniyati bilan */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Место отгрузки груза:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Место отгрузки груза:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, shipmentPlace: '' })}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                    title="O'chirish"
+                  >
+                    ✕
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={form.shipmentPlace}
@@ -2040,12 +2123,20 @@ const Invoice = () => {
                 />
                   </div>
 
-                  
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Место назначения:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Место назначения:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, destination: '' })}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                    title="O'chirish"
+                  >
+                    ✕
+                  </button>
+                </div>
                     <input
 
                   type="text"
@@ -2056,12 +2147,12 @@ const Invoice = () => {
 
                   </div>
 
-                  
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Происхождение товара:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Происхождение товара:
+                  </label>
+                </div>
                 <input
                   type="text"
                   value={form.origin}
@@ -2070,11 +2161,20 @@ const Invoice = () => {
                 />
                   </div>
 
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Производитель:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Производитель:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, manufacturer: '' })}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                    title="O'chirish"
+                  >
+                    ✕
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={form.manufacturer}
@@ -2083,11 +2183,20 @@ const Invoice = () => {
                 />
                 </div>
 
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Номер заказа:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Номер заказа:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, orderNumber: '' })}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                    title="O'chirish"
+                  >
+                    ✕
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={form.orderNumber}
@@ -2096,11 +2205,20 @@ const Invoice = () => {
                 />
               </div>
 
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Глобальный идентификационный номер GS1 (GLN):
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Глобальный идентификационный номер GS1 (GLN):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, gln: '' })}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                    title="O'chirish"
+                  >
+                    ✕
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={form.gln}
@@ -2110,12 +2228,20 @@ const Invoice = () => {
                 />
             </div>
 
-
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Урожай:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Урожай:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                    title="O'chirish"
+                  >
+                    ✕
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={form.harvestYear}
@@ -2123,6 +2249,47 @@ const Invoice = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 />
                 <span className="text-sm text-gray-500 ml-2">года</span>
+              </div>
+
+              {/* Dinamik maydonlar */}
+              {customFields.map((field) => (
+                <div key={field.id}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">
+                      {field.label}:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setCustomFields(customFields.filter(f => f.id !== field.id))}
+                      className="text-red-500 hover:text-red-700 text-sm"
+                      title="O'chirish"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={field.value}
+                    onChange={(e) => {
+                      setCustomFields(customFields.map(f => 
+                        f.id === field.id ? { ...f, value: e.target.value } : f
+                      ));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+              ))}
+
+              {/* Yangi maydon qo'shish tugmasi */}
+              <div className="pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowAddFieldModal(true)}
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2"
+                >
+                  <span>+</span>
+                  <span>Yangi maydon qo'shish</span>
+                </button>
               </div>
             </div>
 
@@ -2154,6 +2321,85 @@ const Invoice = () => {
 
       </div>
 
+      )}
+
+      {/* Yangi maydon qo'shish modal */}
+      {showAddFieldModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Yangi maydon qo'shish</h2>
+              <button
+                onClick={() => {
+                  setShowAddFieldModal(false);
+                  setNewFieldLabel('');
+                }}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Maydon nomi:
+                </label>
+                <input
+                  type="text"
+                  value={newFieldLabel}
+                  onChange={(e) => setNewFieldLabel(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="Masalan: Номер контейнера"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && newFieldLabel.trim()) {
+                      const newField = {
+                        id: Date.now().toString(),
+                        label: newFieldLabel.trim(),
+                        value: '',
+                      };
+                      setCustomFields([...customFields, newField]);
+                      setNewFieldLabel('');
+                      setShowAddFieldModal(false);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddFieldModal(false);
+                  setNewFieldLabel('');
+                }}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (newFieldLabel.trim()) {
+                    const newField = {
+                      id: Date.now().toString(),
+                      label: newFieldLabel.trim(),
+                      value: '',
+                    };
+                    setCustomFields([...customFields, newField]);
+                    setNewFieldLabel('');
+                    setShowAddFieldModal(false);
+                  }
+                }}
+                disabled={!newFieldLabel.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Qo'shish
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
 

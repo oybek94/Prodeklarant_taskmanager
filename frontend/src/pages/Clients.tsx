@@ -68,6 +68,203 @@ interface ClientStats {
   archived: { current: number; change: number };
 }
 
+const allCountries = [
+  'Afghanistan',
+  'Albania',
+  'Algeria',
+  'Andorra',
+  'Angola',
+  'Antigua and Barbuda',
+  'Argentina',
+  'Armenia',
+  'Australia',
+  'Austria',
+  'Azerbaijan',
+  'Bahamas',
+  'Bahrain',
+  'Bangladesh',
+  'Barbados',
+  'Belarus',
+  'Belgium',
+  'Belize',
+  'Benin',
+  'Bhutan',
+  'Bolivia',
+  'Bosnia and Herzegovina',
+  'Botswana',
+  'Brazil',
+  'Brunei',
+  'Bulgaria',
+  'Burkina Faso',
+  'Burundi',
+  'Cabo Verde',
+  'Cambodia',
+  'Cameroon',
+  'Canada',
+  'Central African Republic',
+  'Chad',
+  'Chile',
+  'China',
+  'Colombia',
+  'Comoros',
+  'Congo',
+  'Costa Rica',
+  'Cote d\'Ivoire',
+  'Croatia',
+  'Cuba',
+  'Cyprus',
+  'Czechia',
+  'Denmark',
+  'Djibouti',
+  'Dominica',
+  'Dominican Republic',
+  'Ecuador',
+  'Egypt',
+  'El Salvador',
+  'Equatorial Guinea',
+  'Eritrea',
+  'Estonia',
+  'Eswatini',
+  'Ethiopia',
+  'Fiji',
+  'Finland',
+  'France',
+  'Gabon',
+  'Gambia',
+  'Georgia',
+  'Germany',
+  'Ghana',
+  'Greece',
+  'Grenada',
+  'Guatemala',
+  'Guinea',
+  'Guinea-Bissau',
+  'Guyana',
+  'Haiti',
+  'Honduras',
+  'Hungary',
+  'Iceland',
+  'India',
+  'Indonesia',
+  'Iran',
+  'Iraq',
+  'Ireland',
+  'Israel',
+  'Italy',
+  'Jamaica',
+  'Japan',
+  'Jordan',
+  'Kazakhstan',
+  'Kenya',
+  'Kiribati',
+  'Kuwait',
+  'Kyrgyzstan',
+  'Laos',
+  'Latvia',
+  'Lebanon',
+  'Lesotho',
+  'Liberia',
+  'Libya',
+  'Liechtenstein',
+  'Lithuania',
+  'Luxembourg',
+  'Madagascar',
+  'Malawi',
+  'Malaysia',
+  'Maldives',
+  'Mali',
+  'Malta',
+  'Marshall Islands',
+  'Mauritania',
+  'Mauritius',
+  'Mexico',
+  'Micronesia',
+  'Moldova',
+  'Monaco',
+  'Mongolia',
+  'Montenegro',
+  'Morocco',
+  'Mozambique',
+  'Myanmar',
+  'Namibia',
+  'Nauru',
+  'Nepal',
+  'Netherlands',
+  'New Zealand',
+  'Nicaragua',
+  'Niger',
+  'Nigeria',
+  'North Korea',
+  'North Macedonia',
+  'Norway',
+  'Oman',
+  'Pakistan',
+  'Palau',
+  'Panama',
+  'Papua New Guinea',
+  'Paraguay',
+  'Peru',
+  'Philippines',
+  'Poland',
+  'Portugal',
+  'Qatar',
+  'Romania',
+  'Russia',
+  'Rwanda',
+  'Saint Kitts and Nevis',
+  'Saint Lucia',
+  'Saint Vincent and the Grenadines',
+  'Samoa',
+  'San Marino',
+  'Sao Tome and Principe',
+  'Saudi Arabia',
+  'Senegal',
+  'Serbia',
+  'Seychelles',
+  'Sierra Leone',
+  'Singapore',
+  'Slovakia',
+  'Slovenia',
+  'Solomon Islands',
+  'Somalia',
+  'South Africa',
+  'South Korea',
+  'South Sudan',
+  'Spain',
+  'Sri Lanka',
+  'Sudan',
+  'Suriname',
+  'Sweden',
+  'Switzerland',
+  'Syria',
+  'Taiwan',
+  'Tajikistan',
+  'Tanzania',
+  'Thailand',
+  'Timor-Leste',
+  'Togo',
+  'Tonga',
+  'Trinidad and Tobago',
+  'Tunisia',
+  'Turkey',
+  'Turkmenistan',
+  'Tuvalu',
+  'Uganda',
+  'Ukraine',
+  'United Arab Emirates',
+  'United Kingdom',
+  'United States',
+  'Uruguay',
+  'Uzbekistan',
+  'Vanuatu',
+  'Vatican City',
+  'Venezuela',
+  'Vietnam',
+  'Yemen',
+  'Zambia',
+  'Zimbabwe',
+];
+
 const Clients = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,8 +336,10 @@ const Clients = () => {
     sellerName: '',
     sellerLegalAddress: '',
     sellerDetails: '',
+    gln: '',
     buyerName: '',
     buyerAddress: '',
+    destinationCountry: '',
     buyerDetails: '',
     shipperName: '',
     shipperAddress: '',
@@ -203,8 +402,10 @@ const Clients = () => {
       sellerName: '',
       sellerLegalAddress: '',
       sellerDetails: '',
+      gln: '',
       buyerName: '',
       buyerAddress: '',
+      destinationCountry: '',
       buyerDetails: '',
       shipperName: '',
       shipperAddress: '',
@@ -311,6 +512,10 @@ const Clients = () => {
       alert('Sotib oluvchi ma\'lumotlari to\'liq bo\'lishi kerak');
       return;
     }
+    if (!contractForm.destinationCountry || !contractForm.destinationCountry.trim()) {
+      alert('Sotib oluvchi davlati majburiy');
+      return;
+    }
     if (!contractForm.supplierDirector) {
       alert('Direktor F.I.O. majburiy');
       return;
@@ -325,8 +530,10 @@ const Clients = () => {
         sellerName: contractForm.sellerName,
         sellerLegalAddress: contractForm.sellerLegalAddress,
         sellerDetails: contractForm.sellerDetails || undefined,
+        gln: contractForm.gln || undefined,
         buyerName: contractForm.buyerName,
         buyerAddress: contractForm.buyerAddress,
+        destinationCountry: contractForm.destinationCountry.trim(),
         buyerDetails: contractForm.buyerDetails || undefined,
         supplierDirector: contractForm.supplierDirector,
       };
@@ -343,12 +550,15 @@ const Clients = () => {
         payload.consigneeDetails = contractForm.consigneeDetails || undefined;
       }
 
+      console.log('Saving contract with payload:', payload);
       if (editingContractId) {
         // Tahrirlash
-        await apiClient.put(`/contracts/${editingContractId}`, payload);
+        const response = await apiClient.put(`/contracts/${editingContractId}`, payload);
+        console.log('Contract updated:', response.data);
       } else {
         // Yangi qo'shish
-        await apiClient.post('/contracts', payload);
+        const response = await apiClient.post('/contracts', payload);
+        console.log('Contract created:', response.data);
       }
       setShowContractModal(false);
       resetContractForm();
@@ -359,7 +569,9 @@ const Clients = () => {
       await loadStats();
     } catch (error: any) {
       console.error('Error creating contract:', error);
-      alert(error.response?.data?.error || 'Shartnoma yaratishda xatolik yuz berdi');
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Shartnoma yaratishda xatolik yuz berdi';
+      console.error('Contract payload:', payload);
+      alert(errorMessage);
     } finally {
       setSavingContract(false);
     }
@@ -373,8 +585,10 @@ const Clients = () => {
       sellerName: contract.sellerName || '',
       sellerLegalAddress: contract.sellerLegalAddress || '',
       sellerDetails: contract.sellerDetails || '',
+      gln: contract.gln || '',
       buyerName: contract.buyerName || '',
       buyerAddress: contract.buyerAddress || '',
+      destinationCountry: contract.destinationCountry || '',
       buyerDetails: contract.buyerDetails || '',
       shipperName: contract.shipperName || '',
       shipperAddress: contract.shipperAddress || '',
@@ -1604,6 +1818,16 @@ const Clients = () => {
                       placeholder="INN, MFO, bank, hisob raqam va h.k."
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">GLN kod</label>
+                    <input
+                      type="text"
+                      value={contractForm.gln}
+                      onChange={(e) => setContractForm({ ...contractForm, gln: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="GLN kodini kiriting"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1620,6 +1844,23 @@ const Clients = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Davlati *</label>
+                    <input
+                      type="text"
+                      list="destination-countries"
+                      value={contractForm.destinationCountry}
+                      onChange={(e) => setContractForm({ ...contractForm, destinationCountry: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="Davlatni tanlang..."
+                      required
+                    />
+                    <datalist id="destination-countries">
+                      {allCountries.map((country) => (
+                        <option key={country} value={country} />
+                      ))}
+                    </datalist>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili *</label>

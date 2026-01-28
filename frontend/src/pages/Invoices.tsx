@@ -3,6 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import { useAuth } from '../contexts/AuthContext';
+import { Icon } from '@iconify/react';
+import {
+  getTnvedProducts,
+  addTnvedProduct,
+  updateTnvedProduct,
+  deleteTnvedProduct,
+  type TnvedProduct,
+} from '../utils/tnvedProducts';
+import {
+  getPackagingTypes,
+  addPackagingType,
+  updatePackagingType,
+  deletePackagingType,
+  type PackagingType,
+} from '../utils/packagingTypes';
 
 interface Invoice {
   id: number;
@@ -59,6 +74,18 @@ const Invoices = () => {
   const [selectedContractId, setSelectedContractId] = useState<string>('');
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
+  const [showTnvedSettingsModal, setShowTnvedSettingsModal] = useState(false);
+  const [tnvedProducts, setTnvedProductsState] = useState<TnvedProduct[]>([]);
+  const [editingTnvedId, setEditingTnvedId] = useState<string | null>(null);
+  const [editTnvedName, setEditTnvedName] = useState('');
+  const [editTnvedCode, setEditTnvedCode] = useState('');
+  const [newTnvedName, setNewTnvedName] = useState('');
+  const [newTnvedCode, setNewTnvedCode] = useState('');
+  const [settingsTab, setSettingsTab] = useState<'tnved' | 'packaging'>('tnved');
+  const [packagingTypes, setPackagingTypesState] = useState<PackagingType[]>([]);
+  const [editingPackagingId, setEditingPackagingId] = useState<string | null>(null);
+  const [editPackagingName, setEditPackagingName] = useState('');
+  const [newPackagingName, setNewPackagingName] = useState('');
 
   useEffect(() => {
     loadInvoices();
@@ -74,6 +101,18 @@ const Invoices = () => {
       setSelectedContractId('');
     }
   }, [selectedClientId]);
+
+  useEffect(() => {
+    if (showTnvedSettingsModal) {
+      setTnvedProductsState(getTnvedProducts());
+      setPackagingTypesState(getPackagingTypes());
+      setEditingTnvedId(null);
+      setNewTnvedName('');
+      setNewTnvedCode('');
+      setEditingPackagingId(null);
+      setNewPackagingName('');
+    }
+  }, [showTnvedSettingsModal]);
 
   const loadInvoices = async () => {
     try {
@@ -213,12 +252,20 @@ const Invoices = () => {
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Invoice'lar</h1>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          + Yangi Invoice
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowTnvedSettingsModal(true)}
+            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+          >
+            Sozlamalar
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            + Yangi Invoice
+          </button>
+        </div>
       </div>
 
       {/* Create Invoice Modal */}
@@ -313,6 +360,320 @@ const Invoices = () => {
                   Bekor
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TNVED Sozlamalar Modal */}
+      {showTnvedSettingsModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowTnvedSettingsModal(false);
+          }}
+        >
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Sozlamalar</h2>
+              <button
+                onClick={() => setShowTnvedSettingsModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Tablar */}
+            <div className="flex gap-2 mb-4 border-b">
+              <button
+                type="button"
+                onClick={() => setSettingsTab('tnved')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+                  settingsTab === 'tnved'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                TNVED mahsulotlar
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettingsTab('packaging')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+                  settingsTab === 'packaging'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Qadoq turlari
+              </button>
+            </div>
+
+            {settingsTab === 'tnved' && (
+            <>
+            {/* Yangi mahsulot qo'shish */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-4 pb-4 border-b">
+              <div className="sm:col-span-6">
+                <input
+                  type="text"
+                  value={newTnvedName}
+                  onChange={(e) => setNewTnvedName(e.target.value)}
+                  placeholder="Наименование товара"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <div className="sm:col-span-4">
+                <input
+                  type="text"
+                  value={newTnvedCode}
+                  onChange={(e) => setNewTnvedCode(e.target.value)}
+                  placeholder="Код ТН ВЭД"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  maxLength={10}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newTnvedName.trim() && newTnvedCode.trim()) {
+                      addTnvedProduct(newTnvedName, newTnvedCode);
+                      setTnvedProductsState(getTnvedProducts());
+                      setNewTnvedName('');
+                      setNewTnvedCode('');
+                    }
+                  }}
+                  disabled={!newTnvedName.trim() || !newTnvedCode.trim()}
+                  className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
+                >
+                  Qo&apos;shish
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium text-gray-700">Наименование товара</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-700 w-32">Код ТН ВЭД</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-700 w-28">Amallar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {tnvedProducts.map((p) => (
+                    <tr key={p.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2">
+                        {editingTnvedId === p.id ? (
+                          <input
+                            type="text"
+                            value={editTnvedName}
+                            onChange={(e) => setEditTnvedName(e.target.value)}
+                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                            autoFocus
+                          />
+                        ) : (
+                          <span>{p.name}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">
+                        {editingTnvedId === p.id ? (
+                          <input
+                            type="text"
+                            value={editTnvedCode}
+                            onChange={(e) => setEditTnvedCode(e.target.value)}
+                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                            maxLength={10}
+                          />
+                        ) : (
+                          <span>{p.code}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {editingTnvedId === p.id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateTnvedProduct(p.id, editTnvedName, editTnvedCode);
+                                setTnvedProductsState(getTnvedProducts());
+                                setEditingTnvedId(null);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 p-1"
+                              title="Saqlash"
+                            >
+                              <Icon icon="lucide:check" className="w-5 h-5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingTnvedId(null)}
+                              className="text-gray-500 hover:text-gray-700 p-1"
+                              title="Bekor"
+                            >
+                              <Icon icon="lucide:x" className="w-5 h-5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingTnvedId(p.id);
+                                setEditTnvedName(p.name);
+                                setEditTnvedCode(p.code);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 p-1"
+                              title="Tahrirlash"
+                            >
+                              <Icon icon="lucide:pencil" className="w-5 h-5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`"${p.name}" o'chirilsinmi?`)) {
+                                  deleteTnvedProduct(p.id);
+                                  setTnvedProductsState(getTnvedProducts());
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-800 p-1"
+                              title="O'chirish"
+                            >
+                              <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            </>
+            )}
+
+            {settingsTab === 'packaging' && (
+            <>
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-4 pb-4 border-b">
+              <div className="sm:col-span-10">
+                <input
+                  type="text"
+                  value={newPackagingName}
+                  onChange={(e) => setNewPackagingName(e.target.value)}
+                  placeholder="Qadoq turi nomi"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newPackagingName.trim()) {
+                      addPackagingType(newPackagingName);
+                      setPackagingTypesState(getPackagingTypes());
+                      setNewPackagingName('');
+                    }
+                  }}
+                  disabled={!newPackagingName.trim()}
+                  className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
+                >
+                  Qo&apos;shish
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium text-gray-700">Вид упаковки</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-700 w-28">Amallar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {packagingTypes.map((p) => (
+                    <tr key={p.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2">
+                        {editingPackagingId === p.id ? (
+                          <input
+                            type="text"
+                            value={editPackagingName}
+                            onChange={(e) => setEditPackagingName(e.target.value)}
+                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm max-w-xs"
+                            autoFocus
+                          />
+                        ) : (
+                          <span>{p.name}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {editingPackagingId === p.id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updatePackagingType(p.id, editPackagingName);
+                                setPackagingTypesState(getPackagingTypes());
+                                setEditingPackagingId(null);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 p-1"
+                              title="Saqlash"
+                            >
+                              <Icon icon="lucide:check" className="w-5 h-5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingPackagingId(null)}
+                              className="text-gray-500 hover:text-gray-700 p-1"
+                              title="Bekor"
+                            >
+                              <Icon icon="lucide:x" className="w-5 h-5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPackagingId(p.id);
+                                setEditPackagingName(p.name);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 p-1"
+                              title="Tahrirlash"
+                            >
+                              <Icon icon="lucide:pencil" className="w-5 h-5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`"${p.name}" o'chirilsinmi?`)) {
+                                  deletePackagingType(p.id);
+                                  setPackagingTypesState(getPackagingTypes());
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-800 p-1"
+                              title="O'chirish"
+                            >
+                              <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            </>
+            )}
+
+            <div className="flex justify-end items-center gap-2 mt-4 pt-4 border-t">
+              <button
+                type="button"
+                onClick={() => setShowTnvedSettingsModal(false)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Yopish
+              </button>
             </div>
           </div>
         </div>

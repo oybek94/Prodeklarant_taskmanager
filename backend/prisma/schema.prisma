@@ -789,6 +789,7 @@ model Contract {
   gln                            String?
   supplierDirector               String?
   goodsReleasedBy                String?
+  specification                  Json?     // Spetsifikatsiya: [{ productName, quantity, unit, unitPrice, totalPrice }]
   createdAt                      DateTime  @default(now())
   updatedAt                      DateTime  @updatedAt
   client                         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)

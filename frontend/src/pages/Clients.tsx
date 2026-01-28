@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
@@ -7,6 +7,7 @@ import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields } from '../utils/validation';
 import { useIsMobile } from '../utils/useIsMobile';
+import { getTnvedProducts } from '../utils/tnvedProducts';
 
 interface Client {
   id: number;
@@ -330,7 +331,55 @@ const Clients = () => {
   const [contracts, setContracts] = useState<any[]>([]);
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [editingContractId, setEditingContractId] = useState<number | null>(null);
-  const [contractForm, setContractForm] = useState({
+  const [contractModalTab, setContractModalTab] = useState<'main' | 'spec'>('main');
+  type SpecRow = { productName: string; quantity: number; unit?: string; unitPrice?: number; totalPrice?: number; specNumber?: string; productNumber?: string };
+  function getDefaultSpecFromTnved(): SpecRow[] {
+    return getTnvedProducts().map((p) => ({
+      productName: p.name,
+      quantity: 0,
+      unit: 'кг',
+      unitPrice: 0,
+      totalPrice: 0,
+      specNumber: '',
+      productNumber: '',
+    }));
+  }
+  /** Har bir shartnoma spetsifikatsiyasida Sozlamalar (TNVED) ro'yxati bo'lishi uchun: mavjud spec ga TNVED da bor lekin spec da yo'q mahsulotlarni qo'shamiz. */
+  function ensureSpecHasTnvedProducts(currentSpec: SpecRow[]): SpecRow[] {
+    const namesInSpec = new Set((currentSpec || []).map((r) => r.productName?.trim()).filter(Boolean));
+    const fromTnved = getTnvedProducts();
+    const toAdd = fromTnved.filter((p) => !namesInSpec.has(p.name?.trim())).map((p) => ({
+      productName: p.name,
+      quantity: 0,
+      unit: 'кг' as const,
+      unitPrice: 0,
+      totalPrice: 0,
+      specNumber: '',
+      productNumber: '',
+    }));
+    if (toAdd.length === 0) return currentSpec || [];
+    return [...(currentSpec || []), ...toAdd];
+  }
+  const [contractForm, setContractForm] = useState<{
+    contractNumber: string;
+    contractDate: string;
+    sellerName: string;
+    sellerLegalAddress: string;
+    sellerDetails: string;
+    gln: string;
+    buyerName: string;
+    buyerAddress: string;
+    destinationCountry: string;
+    buyerDetails: string;
+    shipperName: string;
+    shipperAddress: string;
+    shipperDetails: string;
+    consigneeName: string;
+    consigneeAddress: string;
+    consigneeDetails: string;
+    supplierDirector: string;
+    specification: SpecRow[];
+  }>({
     contractNumber: '',
     contractDate: '',
     sellerName: '',
@@ -348,7 +397,10 @@ const Clients = () => {
     consigneeAddress: '',
     consigneeDetails: '',
     supplierDirector: '',
+    specification: [],
   });
+  const contractFormRef = useRef(contractForm);
+  contractFormRef.current = contractForm;
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -414,6 +466,7 @@ const Clients = () => {
       consigneeAddress: '',
       consigneeDetails: '',
       supplierDirector: '',
+      specification: [],
     });
     setHasShipper(false);
     setHasConsignee(false);
@@ -500,23 +553,24 @@ const Clients = () => {
   const handleContractSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClient) return;
-    if (!contractForm.contractNumber || !contractForm.contractDate) {
+    const form = contractFormRef.current;
+    if (!form.contractNumber || !form.contractDate) {
       alert('Shartnoma raqami va sanasi majburiy');
       return;
     }
-    if (!contractForm.sellerName || !contractForm.sellerLegalAddress) {
+    if (!form.sellerName || !form.sellerLegalAddress) {
       alert('Sotuvchi ma\'lumotlari to\'liq bo\'lishi kerak');
       return;
     }
-    if (!contractForm.buyerName || !contractForm.buyerAddress) {
+    if (!form.buyerName || !form.buyerAddress) {
       alert('Sotib oluvchi ma\'lumotlari to\'liq bo\'lishi kerak');
       return;
     }
-    if (!contractForm.destinationCountry || !contractForm.destinationCountry.trim()) {
+    if (!form.destinationCountry || !form.destinationCountry.trim()) {
       alert('Sotib oluvchi davlati majburiy');
       return;
     }
-    if (!contractForm.supplierDirector) {
+    if (!form.supplierDirector) {
       alert('Direktor F.I.O. majburiy');
       return;
     }
@@ -525,30 +579,40 @@ const Clients = () => {
       setSavingContract(true);
       const payload: any = {
         clientId: selectedClient.id,
-        contractNumber: contractForm.contractNumber,
-        contractDate: contractForm.contractDate,
-        sellerName: contractForm.sellerName,
-        sellerLegalAddress: contractForm.sellerLegalAddress,
-        sellerDetails: contractForm.sellerDetails || undefined,
-        gln: contractForm.gln || undefined,
-        buyerName: contractForm.buyerName,
-        buyerAddress: contractForm.buyerAddress,
-        destinationCountry: contractForm.destinationCountry.trim(),
-        buyerDetails: contractForm.buyerDetails || undefined,
-        supplierDirector: contractForm.supplierDirector,
+        contractNumber: form.contractNumber,
+        contractDate: form.contractDate,
+        sellerName: form.sellerName,
+        sellerLegalAddress: form.sellerLegalAddress,
+        sellerDetails: form.sellerDetails || undefined,
+        gln: form.gln || undefined,
+        buyerName: form.buyerName,
+        buyerAddress: form.buyerAddress,
+        destinationCountry: form.destinationCountry.trim(),
+        buyerDetails: form.buyerDetails || undefined,
+        supplierDirector: form.supplierDirector,
       };
 
       if (hasShipper) {
-        payload.shipperName = contractForm.shipperName || undefined;
-        payload.shipperAddress = contractForm.shipperAddress || undefined;
-        payload.shipperDetails = contractForm.shipperDetails || undefined;
+        payload.shipperName = form.shipperName || undefined;
+        payload.shipperAddress = form.shipperAddress || undefined;
+        payload.shipperDetails = form.shipperDetails || undefined;
       }
 
       if (hasConsignee) {
-        payload.consigneeName = contractForm.consigneeName || undefined;
-        payload.consigneeAddress = contractForm.consigneeAddress || undefined;
-        payload.consigneeDetails = contractForm.consigneeDetails || undefined;
+        payload.consigneeName = form.consigneeName || undefined;
+        payload.consigneeAddress = form.consigneeAddress || undefined;
+        payload.consigneeDetails = form.consigneeDetails || undefined;
       }
+
+      payload.specification = (form.specification || []).map((row) => ({
+        productName: row.productName || '',
+        quantity: Number(row.quantity) || 0,
+        unit: row.unit || undefined,
+        unitPrice: row.unitPrice != null ? Number(row.unitPrice) : undefined,
+        totalPrice: row.totalPrice != null ? Number(row.totalPrice) : (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0),
+        specNumber: row.specNumber || undefined,
+        productNumber: row.productNumber || undefined,
+      }));
 
       console.log('Saving contract with payload:', payload);
       if (editingContractId) {
@@ -570,7 +634,6 @@ const Clients = () => {
     } catch (error: any) {
       console.error('Error creating contract:', error);
       const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Shartnoma yaratishda xatolik yuz berdi';
-      console.error('Contract payload:', payload);
       alert(errorMessage);
     } finally {
       setSavingContract(false);
@@ -578,30 +641,72 @@ const Clients = () => {
   };
 
   const handleEditContract = async (contract: any) => {
-    // Contract ma'lumotlarini formaga yuklash
-    setContractForm({
-      contractNumber: contract.contractNumber || '',
-      contractDate: contract.contractDate ? contract.contractDate.split('T')[0] : '',
-      sellerName: contract.sellerName || '',
-      sellerLegalAddress: contract.sellerLegalAddress || '',
-      sellerDetails: contract.sellerDetails || '',
-      gln: contract.gln || '',
-      buyerName: contract.buyerName || '',
-      buyerAddress: contract.buyerAddress || '',
-      destinationCountry: contract.destinationCountry || '',
-      buyerDetails: contract.buyerDetails || '',
-      shipperName: contract.shipperName || '',
-      shipperAddress: contract.shipperAddress || '',
-      shipperDetails: contract.shipperDetails || '',
-      consigneeName: contract.consigneeName || '',
-      consigneeAddress: contract.consigneeAddress || '',
-      consigneeDetails: contract.consigneeDetails || '',
-      supplierDirector: contract.supplierDirector || '',
-    });
-    setHasShipper(!!contract.shipperName);
-    setHasConsignee(!!contract.consigneeName);
     setEditingContractId(contract.id);
     setShowContractModal(true);
+    try {
+      const response = await apiClient.get(`/contracts/${contract.id}`);
+      const c = response.data;
+      let spec: SpecRow[] = [];
+      if (c.specification) {
+        if (Array.isArray(c.specification)) spec = c.specification;
+        else if (typeof c.specification === 'string') {
+          try { spec = JSON.parse(c.specification); } catch { spec = []; }
+        }
+      }
+      setContractForm({
+        contractNumber: c.contractNumber || '',
+        contractDate: c.contractDate ? String(c.contractDate).split('T')[0] : '',
+        sellerName: c.sellerName || '',
+        sellerLegalAddress: c.sellerLegalAddress || '',
+        sellerDetails: c.sellerDetails || '',
+        gln: c.gln || '',
+        buyerName: c.buyerName || '',
+        buyerAddress: c.buyerAddress || '',
+        destinationCountry: c.destinationCountry || '',
+        buyerDetails: c.buyerDetails || '',
+        shipperName: c.shipperName || '',
+        shipperAddress: c.shipperAddress || '',
+        shipperDetails: c.shipperDetails || '',
+        consigneeName: c.consigneeName || '',
+        consigneeAddress: c.consigneeAddress || '',
+        consigneeDetails: c.consigneeDetails || '',
+        supplierDirector: c.supplierDirector || '',
+        specification: spec,
+      });
+      setHasShipper(!!c.shipperName);
+      setHasConsignee(!!c.consigneeName);
+    } catch (err) {
+      console.error('Error loading contract for edit:', err);
+      let spec: SpecRow[] = [];
+      if (contract.specification) {
+        if (Array.isArray(contract.specification)) spec = contract.specification;
+        else if (typeof contract.specification === 'string') {
+          try { spec = JSON.parse(contract.specification); } catch { spec = []; }
+        }
+      }
+      setContractForm({
+        contractNumber: contract.contractNumber || '',
+        contractDate: contract.contractDate ? contract.contractDate.split('T')[0] : '',
+        sellerName: contract.sellerName || '',
+        sellerLegalAddress: contract.sellerLegalAddress || '',
+        sellerDetails: contract.sellerDetails || '',
+        gln: contract.gln || '',
+        buyerName: contract.buyerName || '',
+        buyerAddress: contract.buyerAddress || '',
+        destinationCountry: contract.destinationCountry || '',
+        buyerDetails: contract.buyerDetails || '',
+        shipperName: contract.shipperName || '',
+        shipperAddress: contract.shipperAddress || '',
+        shipperDetails: contract.shipperDetails || '',
+        consigneeName: contract.consigneeName || '',
+        consigneeAddress: contract.consigneeAddress || '',
+        consigneeDetails: contract.consigneeDetails || '',
+        supplierDirector: contract.supplierDirector || '',
+        specification: spec,
+      });
+      setHasShipper(!!contract.shipperName);
+      setHasConsignee(!!contract.consigneeName);
+    }
   };
 
   const handleDeleteContract = async (contractId: number) => {
@@ -1626,16 +1731,20 @@ const Clients = () => {
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
                               <div className="flex gap-2">
                                 <button
+                                  type="button"
                                   onClick={() => handleEditContract(contract)}
-                                  className="text-blue-600 hover:text-blue-800"
+                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Tahrirlash"
                                 >
-                                  Tahrirlash
+                                  <Icon icon="lucide:pencil" className="w-4 h-4" />
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => handleDeleteContract(contract.id)}
-                                  className="text-red-600 hover:text-red-800"
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="O'chirish"
                                 >
-                                  O'chirish
+                                  <Icon icon="lucide:trash-2" className="w-4 h-4" />
                                 </button>
                               </div>
                             </td>
@@ -1757,7 +1866,35 @@ const Clients = () => {
               </button>
             </div>
 
+            {/* Tablar */}
+            <div className="flex gap-2 mb-4 border-b">
+              <button
+                type="button"
+                onClick={() => setContractModalTab('main')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'main' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                Shartnoma ma'lumotlari
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setContractModalTab('spec');
+                  const spec = contractForm.specification || [];
+                  if (spec.length === 0) {
+                    setContractForm((prev) => ({ ...prev, specification: getDefaultSpecFromTnved() }));
+                  } else {
+                    setContractForm((prev) => ({ ...prev, specification: ensureSpecHasTnvedProducts(prev.specification || []) }));
+                  }
+                }}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'spec' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                Spetsifikatsiya
+              </button>
+            </div>
+
             <form onSubmit={handleContractSubmit} className="space-y-6">
+              {contractModalTab === 'main' && (
+              <>
               {/* Shartnoma ma'lumotlari */}
               <div className="border-b pb-4">
                 <h4 className="font-semibold text-gray-700 mb-3">Shartnoma ma'lumotlari</h4>
@@ -1993,6 +2130,137 @@ const Clients = () => {
                   />
                 </div>
               </div>
+
+              </>
+              )}
+
+              {contractModalTab === 'spec' && (
+              <>
+              <div>
+                <h4 className="font-semibold text-gray-700 mb-3">Spetsifikatsiya (qaysi mahsulotlar, qancha, qanday narxda)</h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border border-gray-300 rounded-lg text-sm">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-20">Товар №</th>
+                        <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-24">Спецификация №</th>
+                        <th className="px-2 py-2 text-left font-medium text-gray-700 border-b">Mahsulot nomi</th>
+                        <th className="px-2 py-2 text-right font-medium text-gray-700 border-b w-28">ЦЕНА</th>
+                        <th className="px-2 py-2 w-10 border-b"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(contractForm.specification || []).map((row, idx) => (
+                        <tr key={idx} className="border-b border-gray-200">
+                          <td className="px-2 py-1">
+                            <input
+                              type="text"
+                              value={row.productNumber ?? ''}
+                              onChange={(e) => {
+                                setContractForm((prev) => {
+                                  const next = [...(prev.specification || [])];
+                                  next[idx] = { ...next[idx], productNumber: e.target.value };
+                                  const newState = { ...prev, specification: next };
+                                  contractFormRef.current = newState;
+                                  return newState;
+                                });
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                              placeholder="Товар №"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="text"
+                              value={row.specNumber ?? ''}
+                              onChange={(e) => {
+                                setContractForm((prev) => {
+                                  const next = [...(prev.specification || [])];
+                                  next[idx] = { ...next[idx], specNumber: e.target.value };
+                                  const newState = { ...prev, specification: next };
+                                  contractFormRef.current = newState;
+                                  return newState;
+                                });
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                              placeholder="Спецификация №"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="text"
+                              value={row.productName}
+                              onChange={(e) => {
+                                setContractForm((prev) => {
+                                  const next = [...(prev.specification || [])];
+                                  next[idx] = { ...next[idx], productName: e.target.value };
+                                  const newState = { ...prev, specification: next };
+                                  contractFormRef.current = newState;
+                                  return newState;
+                                });
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                              placeholder="Mahsulot nomi"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="number"
+                              min={0}
+                              step="any"
+                              value={row.unitPrice !== undefined && row.unitPrice !== null ? row.unitPrice : ''}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                const p = raw === '' ? 0 : parseFloat(raw);
+                                const num = typeof p === 'number' && !Number.isNaN(p) ? p : 0;
+                                setContractForm((prev) => {
+                                  const next = [...(prev.specification || [])];
+                                  next[idx] = { ...next[idx], unitPrice: num, totalPrice: (next[idx].quantity || 0) * num };
+                                  const newState = { ...prev, specification: next };
+                                  contractFormRef.current = newState;
+                                  return newState;
+                                });
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setContractForm((prev) => {
+                                  const newState = { ...prev, specification: (prev.specification || []).filter((_, i) => i !== idx) };
+                                  contractFormRef.current = newState;
+                                  return newState;
+                                });
+                              }}
+                              className="text-red-600 hover:text-red-800 text-sm"
+                            >
+                              ×
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContractForm((prev) => {
+                      const newState = { ...prev, specification: [...(prev.specification || []), { productName: '', quantity: 0, unit: 'кг', unitPrice: 0, totalPrice: 0, specNumber: '', productNumber: '' }] };
+                      contractFormRef.current = newState;
+                      return newState;
+                    });
+                  }}
+                  className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                >
+                  + Qator qo'shish
+                </button>
+              </div>
+              </>
+              )}
 
               <div className="flex gap-2">
                 <button

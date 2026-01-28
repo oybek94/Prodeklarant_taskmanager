@@ -58,6 +58,15 @@ const contractSchema = z.object({
   gln: z.string().optional(), // Глобальный идентификационный номер GS1 (GLN)
   supplierDirector: z.string().optional(), // Руководитель Поставщика
   goodsReleasedBy: z.string().optional(), // Товар отпустил
+  specification: z.array(z.object({
+    productName: z.string(),
+    quantity: z.number(),
+    unit: z.string().optional(),
+    unitPrice: z.number().optional(),
+    totalPrice: z.number().optional(),
+    specNumber: z.string().optional(),
+    productNumber: z.string().optional(),
+  })).optional(),
 });
 
 // GET /contracts/client/:clientId - Mijozning barcha shartnomalari
@@ -201,6 +210,23 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
+    if (data.specification !== undefined) {
+      const spec = Array.isArray(data.specification) ? data.specification : [];
+      const toNum = (v: any): number | undefined => {
+        if (v == null) return undefined;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : undefined;
+      };
+      contractData.specification = spec.map((row: any) => ({
+        productName: String(row?.productName ?? ''),
+        quantity: Number.isFinite(Number(row?.quantity)) ? Number(row.quantity) : 0,
+        unit: row?.unit != null ? String(row.unit) : undefined,
+        unitPrice: toNum(row?.unitPrice),
+        totalPrice: toNum(row?.totalPrice),
+        specNumber: row?.specNumber != null ? String(row.specNumber) : undefined,
+        productNumber: row?.productNumber != null ? String(row.productNumber) : undefined,
+      }));
+    }
 
     const contract = await prisma.contract.create({
       data: contractData,
@@ -321,6 +347,24 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
+    if (data.specification !== undefined) {
+      const spec = Array.isArray(data.specification) ? data.specification : [];
+      const toNum = (v: any): number | undefined => {
+        if (v == null) return undefined;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : undefined;
+      };
+      contractData.specification = spec.map((row: any) => ({
+        productName: String(row?.productName ?? ''),
+        quantity: Number.isFinite(Number(row?.quantity)) ? Number(row.quantity) : 0,
+        unit: row?.unit != null ? String(row.unit) : undefined,
+        unitPrice: toNum(row?.unitPrice),
+        totalPrice: toNum(row?.totalPrice),
+        specNumber: row?.specNumber != null ? String(row.specNumber) : undefined,
+        productNumber: row?.productNumber != null ? String(row.productNumber) : undefined,
+      }));
+      console.log('[contracts PUT] specification length:', contractData.specification.length);
+    }
 
     const contract = await prisma.contract.update({
       where: { id },
@@ -335,6 +379,9 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
       }
     });
 
+    if (contractData.specification !== undefined) {
+      console.log('[contracts PUT] saved specification length:', Array.isArray(contract.specification) ? (contract.specification as any[]).length : 'not array');
+    }
     res.json(contract);
   } catch (error: any) {
     console.error('Error updating contract:', error);

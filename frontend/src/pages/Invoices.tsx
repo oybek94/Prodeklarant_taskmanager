@@ -74,6 +74,7 @@ const Invoices = () => {
   const [selectedContractId, setSelectedContractId] = useState<string>('');
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
+  const [duplicatingInvoiceId, setDuplicatingInvoiceId] = useState<number | null>(null);
   const [showTnvedSettingsModal, setShowTnvedSettingsModal] = useState(false);
   const [tnvedProducts, setTnvedProductsState] = useState<TnvedProduct[]>([]);
   const [editingTnvedId, setEditingTnvedId] = useState<string | null>(null);
@@ -238,7 +239,92 @@ const Invoices = () => {
     }
   };
 
-  
+  const handleDuplicateInvoice = async (invoice: Invoice) => {
+    try {
+      setDuplicatingInvoiceId(invoice.id);
+      const fullRes = await apiClient.get(`/invoices/${invoice.id}`);
+      const full = fullRes.data as {
+        clientId: number;
+        contractId?: number;
+        contractNumber?: string;
+        branchId: number;
+        branch?: { id: number };
+        date: string;
+        currency: string;
+        totalAmount: number;
+        notes?: string;
+        additionalInfo?: unknown;
+        items: Array<{
+          name: string;
+          unit: string;
+          quantity: number;
+          unitPrice: number;
+          totalPrice: number;
+          tnvedCode?: string;
+          pluCode?: string;
+          packageType?: string;
+          grossWeight?: number;
+          netWeight?: number;
+          orderIndex?: number;
+        }>;
+      };
+      const clientId = full.clientId;
+      let branchId: number | undefined = full.branchId ?? (full.branch as { id: number } | undefined)?.id;
+      if (branchId == null) {
+        const tasksRes = await apiClient.get(`/tasks?clientId=${clientId}`);
+        const tasks = Array.isArray(tasksRes.data) ? tasksRes.data : [];
+        const first = tasks[0] as { branch?: { id: number } } | undefined;
+        branchId = first?.branch?.id;
+      }
+      if (!branchId && branches.length > 0) {
+        branchId = branches[0].id;
+      }
+      if (!branchId) {
+        alert('Filial topilmadi.');
+        return;
+      }
+      const taskRes = await apiClient.post('/tasks', {
+        clientId,
+        branchId,
+        title: `Invoice - ${full.contractNumber || invoice.contractNumber || 'nusxa'}`,
+        comments: `Invoice dublikat. Asl: №${invoice.invoiceNumber}`,
+        hasPsr: false,
+      });
+      const newTask = taskRes.data as { id: number };
+      const items = (full.items || []).map((item: { orderIndex?: number }, i: number) => ({
+        name: item.name,
+        unit: item.unit,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+        tnvedCode: item.tnvedCode,
+        pluCode: item.pluCode,
+        packageType: item.packageType,
+        grossWeight: item.grossWeight,
+        netWeight: item.netWeight,
+        orderIndex: item.orderIndex ?? i,
+      }));
+      await apiClient.post('/invoices', {
+        taskId: newTask.id,
+        clientId,
+        contractId: full.contractId,
+        contractNumber: full.contractNumber,
+        date: full.date,
+        currency: full.currency,
+        totalAmount: full.totalAmount,
+        notes: full.notes,
+        additionalInfo: full.additionalInfo,
+        items,
+      });
+      loadInvoices();
+      navigate(`/invoices/task/${newTask.id}`);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      alert(e.response?.data?.error || 'Invoice dublikat qilishda xatolik');
+    } finally {
+      setDuplicatingInvoiceId(null);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('uz-UZ');
@@ -746,12 +832,40 @@ const Invoices = () => {
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
                       <button
+                        type="button"
                         onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="text-blue-600 hover:text-blue-800 p-1"
+                        title="Tahrirlash"
                       >
-                        Tahrirlash
+                        <Icon icon="lucide:pencil" className="w-5 h-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateInvoice(invoice)}
+                        disabled={duplicatingInvoiceId === invoice.id}
+                        className="text-green-600 hover:text-green-800 p-1 disabled:opacity-50"
+                        title="Dublikat"
+                      >
+                        <Icon icon="lucide:copy" className="w-5 h-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!window.confirm(`Invoice №${invoice.invoiceNumber} o'chirilsinmi?`)) return;
+                          try {
+                            await apiClient.delete(`/invoices/${invoice.id}`);
+                            loadInvoices();
+                          } catch (err: unknown) {
+                            const e = err as { response?: { data?: { error?: string } } };
+                            alert(e.response?.data?.error || 'Invoice o\'chirishda xatolik');
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-800 p-1"
+                        title="O'chirish"
+                      >
+                        <Icon icon="lucide:trash-2" className="w-5 h-5" />
                       </button>
                     </div>
                   </td>

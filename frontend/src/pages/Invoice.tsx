@@ -6,6 +6,8 @@ import apiClient from '../lib/api';
 import DateInput from '../components/DateInput';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { getTnvedProducts } from '../utils/tnvedProducts';
+import { getPackagingTypes } from '../utils/packagingTypes';
 
 
 
@@ -162,6 +164,7 @@ interface Contract {
   supplierDirector?: string; // Руководитель Поставщика
   goodsReleasedBy?: string; // Товар отпустил
   gln?: string; // GLN код
+  specification?: Array<{ productName?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number }>;
 }
 
 
@@ -245,6 +248,8 @@ const Invoice = () => {
   const [contracts, setContracts] = useState<Contract[]>([]);
 
   const [selectedContractId, setSelectedContractId] = useState<string>('');
+  type SpecRow = { productName?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number };
+  const [selectedContractSpec, setSelectedContractSpec] = useState<SpecRow[]>([]);
 
   const invoiceRef = useRef<HTMLDivElement | null>(null);
   const [isPdfMode, setIsPdfMode] = useState(false);
@@ -266,7 +271,7 @@ const Invoice = () => {
     }
 
   ]);
-  const [visibleColumns, setVisibleColumns] = useState({
+  const defaultVisibleColumns = {
     index: true,
     tnved: true,
     plu: true,
@@ -279,9 +284,61 @@ const Invoice = () => {
     unitPrice: true,
     total: true,
     actions: true,
-  });
+  };
+  const getVisibleColumnsKey = (contractKey: string) => `invoice_visible_columns_${contractKey}`;
+  const loadVisibleColumns = (contractKey: string): typeof defaultVisibleColumns => {
+    try {
+      const raw = localStorage.getItem(getVisibleColumnsKey(contractKey));
+      if (!raw) return defaultVisibleColumns;
+      const parsed = JSON.parse(raw) as Record<string, boolean>;
+      return { ...defaultVisibleColumns, ...parsed };
+    } catch {
+      return defaultVisibleColumns;
+    }
+  };
+  const [visibleColumns, setVisibleColumns] = useState(() => loadVisibleColumns('default'));
+  useEffect(() => {
+    const key = String(selectedContractId || 'default');
+    localStorage.setItem(getVisibleColumnsKey(key), JSON.stringify(visibleColumns));
+  }, [visibleColumns, selectedContractId]);
 
+  const defaultColumnLabels = {
+    index: '№',
+    tnved: 'Код ТН ВЭД',
+    plu: 'Код PLU',
+    name: 'Наименование товара',
+    package: 'Вид упаковки',
+    unit: 'Ед. изм.',
+    quantity: 'Мест',
+    gross: 'Брутто (кг)',
+    net: 'Нетто (кг)',
+    unitPrice: 'Цена за ед.изм.',
+    total: 'Сумма с НДС',
+    actions: 'Amallar',
+  };
+  type ColumnLabelKey = keyof typeof defaultColumnLabels;
+  const getColumnLabelsKey = (contractKey: string) => `invoice_column_labels_${contractKey}`;
+  const loadColumnLabels = (contractKey: string): typeof defaultColumnLabels => {
+    try {
+      const raw = localStorage.getItem(getColumnLabelsKey(contractKey));
+      if (!raw) return { ...defaultColumnLabels };
+      const parsed = JSON.parse(raw) as Record<string, string>;
+      return { ...defaultColumnLabels, ...parsed };
+    } catch {
+      return { ...defaultColumnLabels };
+    }
+  };
+  const [columnLabels, setColumnLabels] = useState(() => loadColumnLabels('default'));
+  useEffect(() => {
+    const key = String(selectedContractId || 'default');
+    localStorage.setItem(getColumnLabelsKey(key), JSON.stringify(columnLabels));
+  }, [columnLabels, selectedContractId]);
 
+  useEffect(() => {
+    const key = String(selectedContractId || 'default');
+    setVisibleColumns(loadVisibleColumns(key));
+    setColumnLabels(loadColumnLabels(key));
+  }, [selectedContractId]);
 
   const [form, setForm] = useState({
 
@@ -330,6 +387,10 @@ const Invoice = () => {
   const [customFields, setCustomFields] = useState<Array<{ id: string; label: string; value: string }>>([]);
   const [showAddFieldModal, setShowAddFieldModal] = useState(false);
   const [newFieldLabel, setNewFieldLabel] = useState('');
+  const [tnvedProducts, setTnvedProducts] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [packagingTypes, setPackagingTypes] = useState<Array<{ id: string; name: string }>>([]);
+  const [editingGrossWeight, setEditingGrossWeight] = useState<{ index: number; value: string } | null>(null);
+  const [editingNetWeight, setEditingNetWeight] = useState<{ index: number; value: string } | null>(null);
 
 
   useEffect(() => {
@@ -338,7 +399,10 @@ const Invoice = () => {
 
   }, [taskId, clientId, contractIdFromQuery]);
 
-
+  useEffect(() => {
+    setTnvedProducts(getTnvedProducts());
+    setPackagingTypes(getPackagingTypes());
+  }, []);
 
   const normalizeItem = (item: InvoiceItem): InvoiceItem => ({
     ...item,
@@ -558,6 +622,15 @@ const Invoice = () => {
 
               const contract = contractResponse.data;
 
+              let spec: SpecRow[] = [];
+              if (contract.specification) {
+                if (Array.isArray(contract.specification)) spec = contract.specification;
+                else if (typeof contract.specification === 'string') {
+                  try { spec = JSON.parse(contract.specification); } catch { spec = []; }
+                }
+              }
+              setSelectedContractSpec(spec);
+
               setForm(prev => ({
 
                 ...prev,
@@ -641,6 +714,110 @@ const Invoice = () => {
 
     setItems(newItems);
 
+  };
+
+  const handleNameChange = (index: number, value: string) => {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], name: value };
+    const match = tnvedProducts.find((p) => p.name === value.trim());
+    if (match) {
+      newItems[index].tnvedCode = match.code;
+    }
+    const nameTrim = value.trim();
+    if (nameTrim && selectedContractSpec.length > 0) {
+      const specRow = selectedContractSpec.find(
+        (r) => (r.productName || '').trim().toLowerCase() === nameTrim.toLowerCase()
+      );
+      if (specRow) {
+        const up = specRow.unitPrice != null ? Number(specRow.unitPrice) : 0;
+        const tp = specRow.totalPrice != null ? Number(specRow.totalPrice) : up * (newItems[index].netWeight || 0);
+        newItems[index].unitPrice = up;
+        newItems[index].totalPrice = tp;
+      } else {
+        newItems[index].unitPrice = 0;
+        newItems[index].totalPrice = 0;
+      }
+    }
+    setItems(newItems);
+  };
+
+  const handleGrossWeightChange = (index: number, value: string) => {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      handleItemChange(index, 'grossWeight', undefined);
+      setEditingGrossWeight(null);
+      return;
+    }
+    if (trimmed.startsWith('*')) {
+      setEditingGrossWeight({ index, value });
+      return;
+    }
+    setEditingGrossWeight(null);
+    const num = parseFloat(trimmed.replace(',', '.'));
+    handleItemChange(index, 'grossWeight', Number.isNaN(num) ? undefined : num);
+  };
+
+  const applyGrossWeightFormula = (index: number) => {
+    if (editingGrossWeight?.index !== index) return;
+    const v = editingGrossWeight.value.trim();
+    if (!v.startsWith('*')) {
+      setEditingGrossWeight(null);
+      return;
+    }
+    const multiplier = parseFloat(v.slice(1).trim().replace(',', '.'));
+    if (Number.isNaN(multiplier)) {
+      setEditingGrossWeight(null);
+      return;
+    }
+    const quantity = items[index]?.quantity ?? 0;
+    const result = Math.round(quantity * multiplier);
+    handleItemChange(index, 'grossWeight', result);
+    setEditingGrossWeight(null);
+  };
+
+  const getGrossWeightDisplayValue = (index: number, item: InvoiceItem) => {
+    if (editingGrossWeight?.index === index) return editingGrossWeight.value;
+    return item.grossWeight !== undefined && item.grossWeight !== null ? String(item.grossWeight) : '';
+  };
+
+  const handleNetWeightChange = (index: number, value: string) => {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      handleItemChange(index, 'netWeight', undefined);
+      setEditingNetWeight(null);
+      return;
+    }
+    if (trimmed.startsWith('*')) {
+      setEditingNetWeight({ index, value });
+      return;
+    }
+    setEditingNetWeight(null);
+    const num = parseFloat(trimmed.replace(',', '.'));
+    handleItemChange(index, 'netWeight', Number.isNaN(num) ? undefined : num);
+  };
+
+  const applyNetWeightFormula = (index: number) => {
+    if (editingNetWeight?.index !== index) return;
+    const v = editingNetWeight.value.trim();
+    if (!v.startsWith('*')) {
+      setEditingNetWeight(null);
+      return;
+    }
+    const multiplier = parseFloat(v.slice(1).trim().replace(',', '.'));
+    if (Number.isNaN(multiplier)) {
+      setEditingNetWeight(null);
+      return;
+    }
+    const grossWeight = items[index]?.grossWeight ?? 0;
+    const quantity = items[index]?.quantity ?? 0;
+    const result = Math.round(grossWeight - multiplier * quantity);
+    handleItemChange(index, 'netWeight', result);
+    setEditingNetWeight(null);
+  };
+
+  const getNetWeightDisplayValue = (index: number, item: InvoiceItem) => {
+    if (editingNetWeight?.index === index) return editingNetWeight.value;
+    return item.netWeight !== undefined && item.netWeight !== null ? String(item.netWeight) : '';
   };
 
   const waitForPaint = () =>
@@ -748,9 +925,10 @@ const Invoice = () => {
 
     setSelectedContractId(contractId);
 
-    
-
-    if (!contractId) return;
+    if (!contractId) {
+      setSelectedContractSpec([]);
+      return;
+    }
 
     
 
@@ -760,7 +938,14 @@ const Invoice = () => {
 
       const contract = response.data;
 
-      
+      let spec: SpecRow[] = [];
+      if (contract.specification) {
+        if (Array.isArray(contract.specification)) spec = contract.specification;
+        else if (typeof contract.specification === 'string') {
+          try { spec = JSON.parse(contract.specification); } catch { spec = []; }
+        }
+      }
+      setSelectedContractSpec(spec);
 
       // Shartnoma ma'lumotlarini invoice form'ga to'ldirish
 
@@ -1061,6 +1246,19 @@ const Invoice = () => {
     <div className="min-h-screen bg-gray-50 py-8">
 
       <div className="max-w-6xl mx-auto px-4">
+        <style>
+          {`
+            .invoice-form input[type="number"]::-webkit-outer-spin-button,
+            .invoice-form input[type="number"]::-webkit-inner-spin-button {
+              -webkit-appearance: none;
+              margin: 0;
+            }
+            .invoice-form input[type="number"] {
+              -moz-appearance: textfield;
+              appearance: textfield;
+            }
+          `}
+        </style>
         {isPdfMode && (
           <style>
             {`
@@ -1122,7 +1320,18 @@ const Invoice = () => {
 
 
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="invoice-form">
+
+          <datalist id="invoice-tnved-products">
+            {tnvedProducts.map((p) => (
+              <option key={p.id} value={p.name} />
+            ))}
+          </datalist>
+          <datalist id="invoice-packaging-types">
+            {packagingTypes.map((p) => (
+              <option key={p.id} value={p.name} />
+            ))}
+          </datalist>
 
           <div
             ref={invoiceRef}
@@ -1496,104 +1705,25 @@ const Invoice = () => {
                     <summary className="list-none cursor-pointer px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
                       Ustunlar
                     </summary>
-                    <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-20">
+                    <div className="absolute right-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-20">
                       <div className="grid grid-cols-1 gap-2 text-sm text-gray-700">
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.index}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, index: !prev.index }))}
-                          />
-                          №
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.tnved}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, tnved: !prev.tnved }))}
-                          />
-                          Код ТН ВЭД
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.plu}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, plu: !prev.plu }))}
-                          />
-                          Код PLU
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.name}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, name: !prev.name }))}
-                          />
-                          Наименование товара
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.package}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, package: !prev.package }))}
-                          />
-                          Вид упаковки
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.unit}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, unit: !prev.unit }))}
-                          />
-                          Ед. изм.
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.quantity}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, quantity: !prev.quantity }))}
-                          />
-                          Мест
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.gross}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, gross: !prev.gross }))}
-                          />
-                          Брутто (кг)
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.net}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, net: !prev.net }))}
-                          />
-                          Нетто (кг)
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.unitPrice}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, unitPrice: !prev.unitPrice }))}
-                          />
-                          Цена за ед.изм.
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.total}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, total: !prev.total }))}
-                          />
-                          Сумма с НДС
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.actions}
-                            onChange={() => setVisibleColumns((prev) => ({ ...prev, actions: !prev.actions }))}
-                          />
-                          Amallar
-                        </label>
+                        {(['index', 'tnved', 'plu', 'name', 'package', 'unit', 'quantity', 'gross', 'net', 'unitPrice', 'total', 'actions'] as ColumnLabelKey[]).map((key) => (
+                          <div key={key} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={visibleColumns[key]}
+                              onChange={() => setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }))}
+                              className="shrink-0"
+                            />
+                            <input
+                              type="text"
+                              value={columnLabels[key]}
+                              onChange={(e) => setColumnLabels((prev) => ({ ...prev, [key]: e.target.value }))}
+                              className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-xs"
+                              placeholder={defaultColumnLabels[key]}
+                            />
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </details>
@@ -1622,37 +1752,37 @@ const Invoice = () => {
                     <thead>
                       <tr className="bg-blue-700 text-white">
                         {effectiveColumns.index && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold w-12">№</th>
+                          <th className="px-2 py-3 text-center text-xs font-semibold w-12">{columnLabels.index}</th>
                         )}
                         {effectiveColumns.tnved && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">Код ТН ВЭД</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.tnved}</th>
                         )}
                         {effectiveColumns.plu && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">Код PLU</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.plu}</th>
                         )}
                         {effectiveColumns.name && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">Наименование товара</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.name}</th>
                         )}
                         {effectiveColumns.package && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">Вид упаковки</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.package}</th>
                         )}
                         {effectiveColumns.unit && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold">Ед. изм.</th>
+                          <th className="px-2 py-3 text-center text-xs font-semibold">{columnLabels.unit}</th>
                         )}
                         {effectiveColumns.quantity && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">Мест</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.quantity}</th>
                         )}
                         {effectiveColumns.gross && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">Брутто (кг)</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.gross}</th>
                         )}
                         {effectiveColumns.net && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">Нетто (кг)</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.net}</th>
                         )}
                         {effectiveColumns.unitPrice && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">Цена за ед.изм.</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.unitPrice}</th>
                         )}
                         {effectiveColumns.total && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">Сумма с НДС</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.total}</th>
                         )}
                       </tr>
                     </thead>
@@ -1691,7 +1821,7 @@ const Invoice = () => {
                           )}
                           {effectiveColumns.total && (
                             <td className="px-2 py-3 text-right font-semibold">
-                              {formatNumberFixed(item.totalPrice)}
+                              {item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}
                             </td>
                           )}
                         </tr>
@@ -1731,40 +1861,40 @@ const Invoice = () => {
                     <thead>
                       <tr className="bg-blue-700 text-white">
                         {effectiveColumns.index && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold w-12">№</th>
+                          <th className="px-2 py-3 text-center text-xs font-semibold w-12">{columnLabels.index}</th>
                         )}
                         {effectiveColumns.tnved && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">Код ТН ВЭД</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.tnved}</th>
                         )}
                         {effectiveColumns.plu && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">Код PLU</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.plu}</th>
                         )}
                         {effectiveColumns.name && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">Наименование товара</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.name}</th>
                         )}
                         {effectiveColumns.package && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">Вид упаковки</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.package}</th>
                         )}
                         {effectiveColumns.unit && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold">Ед. изм.</th>
+                          <th className="px-2 py-3 text-center text-xs font-semibold">{columnLabels.unit}</th>
                         )}
                         {effectiveColumns.quantity && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">Мест</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.quantity}</th>
                         )}
                         {effectiveColumns.gross && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">Брутто (кг)</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.gross}</th>
                         )}
                         {effectiveColumns.net && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">Нетто (кг)</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.net}</th>
                         )}
                         {effectiveColumns.unitPrice && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">Цена за ед.изм.</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.unitPrice}</th>
                         )}
                         {effectiveColumns.total && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">Сумма с НДС</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.total}</th>
                         )}
                         {effectiveColumns.actions && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold">Amallar</th>
+                          <th className="px-2 py-3 text-center text-xs font-semibold">{columnLabels.actions}</th>
                         )}
                       </tr>
                     </thead>
@@ -1801,7 +1931,8 @@ const Invoice = () => {
                               <input
                                 type="text"
                                 value={item.name}
-                                onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                                onChange={(e) => handleNameChange(index, e.target.value)}
+                                list="invoice-tnved-products"
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                                 placeholder="Наименование товара"
                                 required
@@ -1814,6 +1945,7 @@ const Invoice = () => {
                                 type="text"
                                 value={item.packageType || ''}
                                 onChange={(e) => handleItemChange(index, 'packageType', e.target.value)}
+                                list="invoice-packaging-types"
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                                 placeholder="пласт. ящик."
                               />
@@ -1835,38 +1967,53 @@ const Invoice = () => {
                             <td className="px-2 py-3">
                               <input
                                 type="number"
-                                value={item.quantity}
+                                value={item.quantity === 0 ? '' : item.quantity}
                                 onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
                                 min="0"
                                 step="0.01"
                                 required
+                                placeholder=""
                               />
                             </td>
                           )}
                           {effectiveColumns.gross && (
                             <td className="px-2 py-3">
                               <input
-                                type="number"
-                                value={item.grossWeight || ''}
-                                onChange={(e) => handleItemChange(index, 'grossWeight', parseFloat(e.target.value) || undefined)}
+                                type="text"
+                                inputMode="decimal"
+                                value={getGrossWeightDisplayValue(index, item)}
+                                onChange={(e) => handleGrossWeightChange(index, e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    applyGrossWeightFormula(index);
+                                  }
+                                }}
+                                onBlur={() => applyGrossWeightFormula(index)}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
-                                min="0"
-                                step="0.01"
-                                placeholder="7802"
+                                placeholder="7802 yoki *8 (Enter)"
+                                title="Raqam yoki *8.5 — Enter bosganda Мест ga ko'paytiriladi, natija butun son"
                               />
                             </td>
                           )}
                           {effectiveColumns.net && (
                             <td className="px-2 py-3">
                               <input
-                                type="number"
-                                value={item.netWeight || ''}
-                                onChange={(e) => handleItemChange(index, 'netWeight', parseFloat(e.target.value) || undefined)}
+                                type="text"
+                                inputMode="decimal"
+                                value={getNetWeightDisplayValue(index, item)}
+                                onChange={(e) => handleNetWeightChange(index, e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    applyNetWeightFormula(index);
+                                  }
+                                }}
+                                onBlur={() => applyNetWeightFormula(index)}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
-                                min="0"
-                                step="0.01"
-                                placeholder="7150"
+                                placeholder="7150 yoki *1.2 (Enter)"
+                                title="Raqam yoki *1.2 — Enter: Brutto − (1.2 × Мест), natija butun son"
                               />
                             </td>
                           )}
@@ -1874,20 +2021,20 @@ const Invoice = () => {
                             <td className="px-2 py-3">
                               <input
                                 type="number"
-                                value={item.unitPrice}
+                                value={item.unitPrice === 0 ? '' : item.unitPrice}
                                 onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
                                 min="0"
                                 step="0.01"
                                 required
-                                placeholder="1,12"
+                                placeholder=""
                               />
                             </td>
                           )}
                           {effectiveColumns.total && (
                             <td className="px-2 py-3">
                               <div className="text-right font-semibold text-xs">
-                                {formatNumberFixed(item.totalPrice)}
+                                {item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}
                               </div>
                             </td>
                           )}

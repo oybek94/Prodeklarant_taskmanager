@@ -533,10 +533,10 @@ const Tasks = () => {
         params.status = 'YAKUNLANDI';
         // Fetch all archive tasks for client-side pagination/filtering
       } else {
-        // Barcha ishlar bo'limida YAKUNLANDI dan tashqari barcha tasklar
+        // Barcha ishlar bo'limida YAKUNLANDI dan tashqari barcha tasklar (pagination yo'q, barchasi bir sahifada)
         if (filters.status) params.status = filters.status;
-        params.page = page.toString();
-        params.limit = limit.toString();
+        params.page = '1';
+        params.limit = '5000';
       }
       if (filters.clientId) params.clientId = filters.clientId;
       if (filters.branchId) params.branchId = filters.branchId;
@@ -557,8 +557,8 @@ const Tasks = () => {
         }
         
         setTasks(filteredTasks);
-        setTotalPages(pagination.totalPages);
-        setTotalTasks(pagination.total);
+        setTotalPages(1);
+        setTotalTasks(filteredTasks.length);
         
         // Stats faqat barcha ishlar bo'limida hisoblanadi
         if (!showArchive) {
@@ -573,13 +573,8 @@ const Tasks = () => {
           filteredTasks = response.data.filter((task: Task) => task.status !== 'YAKUNLANDI');
         }
         setTasks(filteredTasks);
-        if (showArchive) {
-          setTotalPages(Math.max(1, Math.ceil(filteredTasks.length / archiveLimit)));
-          setTotalTasks(filteredTasks.length);
-        } else {
-          setTotalPages(1);
-          setTotalTasks(filteredTasks.length);
-        }
+        setTotalPages(1);
+        setTotalTasks(filteredTasks.length);
         
         if (!showArchive) {
           calculateStats(response.data);
@@ -2242,6 +2237,7 @@ const Tasks = () => {
                 } else {
                   navigate('/tasks/archive');
                   setShowArchive(true);
+                  setPage(1);
                 }
               }}
               className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
@@ -4902,10 +4898,9 @@ const Tasks = () => {
         {loading ? (
           <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
         ) : showArchive ? (
-          // Arxiv bo'limida barcha tasklar bitta jadvalda
+          // Arxiv bo'limida barcha tasklar bitta jadvalda, har sahifada 20 ta (pagination)
           <div>
             {renderTaskTable(archivePageTasks, 'Arxiv')}
-            {/* Archive Pagination UI */}
             {!loading && archiveTotalPages > 1 && (
               <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200">
                 <div className="text-sm text-gray-600">
@@ -4914,6 +4909,7 @@ const Tasks = () => {
                 </div>
                 <div className="flex gap-2 items-center flex-wrap">
                   <button
+                    type="button"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
                     className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
@@ -4927,6 +4923,7 @@ const Tasks = () => {
                   {getPageNumbers(page, archiveTotalPages).map((p) => (
                     <button
                       key={`archive-page-${p}`}
+                      type="button"
                       onClick={() => setPage(p)}
                       className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                         p === page
@@ -4938,6 +4935,7 @@ const Tasks = () => {
                     </button>
                   ))}
                   <button
+                    type="button"
                     onClick={() => setPage((p) => Math.min(archiveTotalPages, p + 1))}
                     disabled={page === archiveTotalPages}
                     className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
@@ -4976,52 +4974,6 @@ const Tasks = () => {
       </div>
       </div>
 
-      {/* Pagination UI */}
-      {!showArchive && !loading && totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="text-sm text-gray-600">
-            Jami <span className="font-semibold">{totalTasks}</span> ta task,{' '}
-            <span className="font-semibold">{page}</span>/{totalPages} sahifa
-          </div>
-          <div className="flex gap-2 items-center flex-wrap">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
-                page === 1
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-500 text-white hover:bg-blue-600'
-              }`}
-            >
-              Oldingi
-            </button>
-            {getPageNumbers(page, totalPages).map((p) => (
-              <button
-                key={`tasks-page-${p}`}
-                onClick={() => setPage(p)}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  p === page
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
-                page === totalPages
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-500 text-white hover:bg-blue-600'
-              }`}
-            >
-              Keyingi
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

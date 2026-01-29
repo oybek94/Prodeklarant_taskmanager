@@ -4,6 +4,9 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();
+const deliveryTermsSchema = z.object({
+  deliveryTerms: z.string().optional(),
+});
 
 // Contract yaratish/update uchun schema
 const contractSchema = z.object({
@@ -54,6 +57,7 @@ const contractSchema = z.object({
   consigneeBankAccount: z.string().optional(),
   consigneeBankSwift: z.string().optional(),
   deliveryTerms: z.string().optional(),
+  customsAddress: z.string().optional(),
   paymentMethod: z.string().optional(),
   gln: z.string().optional(), // Глобальный идентификационный номер GS1 (GLN)
   supplierDirector: z.string().optional(), // Руководитель Поставщика
@@ -206,6 +210,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
 
     // Add optional additional fields
     if (data.deliveryTerms !== undefined) contractData.deliveryTerms = data.deliveryTerms;
+    if (data.customsAddress !== undefined) contractData.customsAddress = data.customsAddress;
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
@@ -362,6 +367,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
 
     // Add optional additional fields
     if (data.deliveryTerms !== undefined) contractData.deliveryTerms = data.deliveryTerms;
+    if (data.customsAddress !== undefined) contractData.customsAddress = data.customsAddress;
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
@@ -423,6 +429,27 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
     res.json(updatedContract);
   } catch (error: any) {
     console.error('Error updating contract:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// PATCH /contracts/:id/delivery-terms - Update delivery terms only (any authenticated user)
+router.patch('/:id/delivery-terms', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const parsed = deliveryTermsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+    const contract = await prisma.contract.update({
+      where: { id },
+      data: {
+        deliveryTerms: parsed.data.deliveryTerms ?? null,
+      },
+    });
+    res.json(contract);
+  } catch (error: any) {
+    console.error('Error updating delivery terms:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });

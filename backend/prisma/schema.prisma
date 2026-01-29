@@ -785,6 +785,7 @@ model Contract {
   consigneeBankAccount           String?
   consigneeBankSwift             String?
   deliveryTerms                  String?
+  customsAddress                 String?
   paymentMethod                  String?
   gln                            String?
   supplierDirector               String?

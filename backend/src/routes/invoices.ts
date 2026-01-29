@@ -131,7 +131,7 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res) => 
   }
 });
 
-// GET /invoices/task/:taskId - Task uchun invoice
+// GET /invoices/task/:taskId - Task uchun invoice (yo'q bo'lsa 200 + null)
 router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const taskId = parseInt(req.params.taskId);
@@ -160,7 +160,7 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
     });
 
     if (!invoice) {
-      return res.status(404).json({ error: 'Invoice topilmadi' });
+      return res.status(200).json(null);
     }
 
     res.json({

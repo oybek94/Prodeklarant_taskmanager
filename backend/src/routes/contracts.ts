@@ -239,8 +239,27 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
         }
       }
     });
+    let createdContract = contract;
+    if (contractData.specification !== undefined) {
+      const specJson = JSON.stringify(contractData.specification);
+      await prisma.$executeRaw`UPDATE "Contract" SET "specification" = ${specJson}::jsonb WHERE "id" = ${contract.id}`;
+      const refreshed = await prisma.contract.findUnique({
+        where: { id: contract.id },
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+            }
+          }
+        }
+      });
+      if (refreshed) {
+        createdContract = refreshed;
+      }
+    }
 
-    res.json(contract);
+    res.json(createdContract);
   } catch (error: any) {
     console.error('Error creating contract:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
@@ -382,7 +401,26 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
     if (contractData.specification !== undefined) {
       console.log('[contracts PUT] saved specification length:', Array.isArray(contract.specification) ? (contract.specification as any[]).length : 'not array');
     }
-    res.json(contract);
+    let updatedContract = contract;
+    if (contractData.specification !== undefined) {
+      const specJson = JSON.stringify(contractData.specification);
+      await prisma.$executeRaw`UPDATE "Contract" SET "specification" = ${specJson}::jsonb WHERE "id" = ${id}`;
+      const refreshed = await prisma.contract.findUnique({
+        where: { id },
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+            }
+          }
+        }
+      });
+      if (refreshed) {
+        updatedContract = refreshed;
+      }
+    }
+    res.json(updatedContract);
   } catch (error: any) {
     console.error('Error updating contract:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });

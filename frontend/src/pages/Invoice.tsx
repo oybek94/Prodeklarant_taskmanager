@@ -31,6 +31,9 @@ interface InvoiceItem {
 
   netWeight?: number;
 
+  /** Netto formulasi, masalan "*1.2" — Brutto/Мест o'zgarganda shu bo'yicha qayta hisoblanadi */
+  netWeightFormula?: string;
+
   unitPrice: number;
 
   totalPrice: number;
@@ -750,17 +753,35 @@ const Invoice = () => {
 
     newItems[index] = { ...newItems[index], [field]: value };
 
-    
-
-    // Total price ni hisoblash: Нетто * Цена за ед.изм.
-    if (field === 'netWeight' || field === 'unitPrice') {
-      const netWeight = field === 'netWeight' ? (value || 0) : (newItems[index].netWeight || 0);
-      const unitPrice = field === 'unitPrice' ? value : newItems[index].unitPrice;
-
-      newItems[index].totalPrice = netWeight * unitPrice;
+    // Foydalanuvchi nettoni qo'lda o'zgartirganda formulani tozalash
+    if (field === 'netWeight') {
+      newItems[index].netWeightFormula = undefined;
     }
 
-    
+    // Brutto yoki Мест o'zgarganda: agar netto formulasi bor bo'lsa, formula bo'yicha yangilash; yo'q bo'lsa nettoni tozalash
+    if (field === 'grossWeight' || field === 'quantity') {
+      setEditingNetWeight((prev) => (prev?.index === index ? null : prev));
+      const formula = newItems[index].netWeightFormula?.trim();
+      if (formula?.startsWith('*')) {
+        const mult = parseFloat(formula.slice(1).trim().replace(',', '.'));
+        if (!Number.isNaN(mult)) {
+          const gross = field === 'grossWeight' ? (value ?? 0) : (newItems[index].grossWeight ?? 0);
+          const qty = field === 'quantity' ? (value ?? 0) : (newItems[index].quantity ?? 0);
+          newItems[index].netWeight = Math.round(gross - mult * qty);
+        } else {
+          newItems[index].netWeight = undefined;
+        }
+      } else {
+        newItems[index].netWeight = undefined;
+      }
+    }
+
+    // Total price ni hisoblash: Нетто * Цена за ед.изм.
+    if (field === 'netWeight' || field === 'unitPrice' || field === 'grossWeight' || field === 'quantity') {
+      const netWeight = newItems[index].netWeight ?? 0;
+      const unitPrice = newItems[index].unitPrice ?? 0;
+      newItems[index].totalPrice = netWeight * unitPrice;
+    }
 
     setItems(newItems);
 
@@ -861,7 +882,16 @@ const Invoice = () => {
     const grossWeight = items[index]?.grossWeight ?? 0;
     const quantity = items[index]?.quantity ?? 0;
     const result = Math.round(grossWeight - multiplier * quantity);
-    handleItemChange(index, 'netWeight', result);
+    setItems((prev) => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        netWeight: result,
+        netWeightFormula: v,
+        totalPrice: result * (next[index].unitPrice ?? 0),
+      };
+      return next;
+    });
     setEditingNetWeight(null);
   };
 
@@ -1297,6 +1327,27 @@ const Invoice = () => {
       ? value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : '';
 
+  /** Qadoq turi bo'yicha tara (кг) ruxsat etilgan oralig'i. Oraliqdan tashqarida bo'lsa tekshiruvda qizil. */
+  const getTareRange = (packageType: string): { min: number; max: number } | null => {
+    const key = (packageType || '').trim().toLowerCase().replace(/\s+/g, '');
+    const ranges: Record<string, { min: number; max: number }> = {
+      'дер.ящик': { min: 0.8, max: 2.5 },
+      'пласт.ящик': { min: 0.3, max: 0.7 },
+      'пласт.ящик.': { min: 0.3, max: 0.7 },
+      'мешки': { min: 0.01, max: 0.1 },
+      'картон.короб.': { min: 0.3, max: 2.5 },
+      'картон.короб': { min: 0.3, max: 2.5 },
+      'навалом': { min: 0, max: 0 },
+    };
+    return ranges[key] ?? null;
+  };
+  const isTareInRange = (tareKg: number, packageType: string): boolean => {
+    const range = getTareRange(packageType);
+    if (!range) return true;
+    if (range.min === 0 && range.max === 0) return Math.abs(tareKg) < 1e-6;
+    return tareKg >= range.min && tareKg <= range.max;
+  };
+
 
 
   return (
@@ -1307,11 +1358,14 @@ const Invoice = () => {
         <style>
           {`
             .invoice-form input[type="number"]::-webkit-outer-spin-button,
-            .invoice-form input[type="number"]::-webkit-inner-spin-button {
+            .invoice-form input[type="number"]::-webkit-inner-spin-button,
+            .invoice-additional-info-modal input[type="number"]::-webkit-outer-spin-button,
+            .invoice-additional-info-modal input[type="number"]::-webkit-inner-spin-button {
               -webkit-appearance: none;
               margin: 0;
             }
-            .invoice-form input[type="number"] {
+            .invoice-form input[type="number"],
+            .invoice-additional-info-modal input[type="number"] {
               -moz-appearance: textfield;
               appearance: textfield;
             }
@@ -1732,9 +1786,6 @@ const Invoice = () => {
               >
                 {form.deliveryTerms && <div><strong>Условия поставки:</strong> {form.deliveryTerms}</div>}
                 {form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
-                {form.loaderWeight && <div><strong>Yuk tortuvchi og'irligi:</strong> {form.loaderWeight}</div>}
-                {form.trailerWeight && <div><strong>Pritsep og'irligi:</strong> {form.trailerWeight}</div>}
-                {form.palletWeight && <div><strong>Poddon og'irligi:</strong> {form.palletWeight}</div>}
                 {form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
                 {form.destination && <div><strong>Место назначения:</strong> {form.destination}</div>}
                 <div><strong>Происхождение товара:</strong> {form.origin}</div>
@@ -2148,6 +2199,50 @@ const Invoice = () => {
                 )}
               </div>
 
+              {/* Maksimal og'irlik va Tekshiruv yonma-yon (PDF da ko'rinmas) */}
+              {!isPdfMode && (() => {
+                const totalGross = items.reduce((sum, item) => sum + (item.grossWeight || 0), 0);
+                const loader = Number(form.loaderWeight) || 0;
+                const trailer = Number(form.trailerWeight) || 0;
+                const pallet = Number(form.palletWeight) || 0;
+                const maxWeight = 39950 - loader - trailer - pallet;
+                const difference = maxWeight - totalGross;
+                return (
+                  <div className="mt-4 flex flex-wrap gap-4">
+                    <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm shrink-0">
+                      <div className="flex flex-wrap gap-x-6 gap-y-1">
+                        <span>
+                          <strong>Maks. og'irlik (кг):</strong> {formatNumber(maxWeight)}
+                        </span>
+                        <span className={difference >= 0 ? 'text-green-700' : 'text-red-700'}>
+                          <strong>Farq (кг):</strong> {difference >= 0 ? '+' : ''}{formatNumber(difference)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm flex-1 min-w-0">
+                      <div className="font-semibold text-gray-800 mb-2">Tekshiruv (invoyce to‘g‘riligini tekshirish uchun)</div>
+                      <ul className="space-y-1 list-none">
+                        {items.map((item, index) => {
+                          const qty = item.quantity || 0;
+                          const gross = item.grossWeight ?? 0;
+                          const net = item.netWeight ?? 0;
+                          if (!qty) return null;
+                          const grossPerPkg = gross / qty;
+                          const netPerPkg = net / qty;
+                          const tarePerPkg = grossPerPkg - netPerPkg;
+                          const tareOutOfRange = !isTareInRange(tarePerPkg, item.packageType || '');
+                          return (
+                            <li key={index} className={tareOutOfRange ? 'text-red-600 font-medium' : undefined}>
+                              {item.name || '—'} - {formatNumber(grossPerPkg)} -- {formatNumber(netPerPkg)} -- {formatNumber(tarePerPkg)}{item.packageType ? ` (${item.packageType})` : ''}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })()}
+
             </div>
 
 
@@ -2243,13 +2338,14 @@ const Invoice = () => {
 
           </div>
         </form>
+
                 </div>
 
 
 
       {/* Дополнительная информация Modal */}
       {showAdditionalInfoModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="invoice-additional-info-modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">Дополнительная информация</h2>
@@ -2395,7 +2491,16 @@ const Invoice = () => {
                     min={0}
                     step="any"
                     value={form.palletWeight}
-                    onChange={(e) => setForm({ ...form, palletWeight: e.target.value })}
+                    onChange={(e) => {
+                      const weight = e.target.value;
+                      setForm({
+                        ...form,
+                        palletWeight: weight,
+                        notes: weight.trim()
+                          ? `Товары уложены на деревянных паллетах которые не являются товаром весом ${weight} кг.`
+                          : form.notes,
+                      });
+                    }}
                     className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right"
                     placeholder="кг"
                   />

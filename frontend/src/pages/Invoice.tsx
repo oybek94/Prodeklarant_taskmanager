@@ -452,7 +452,7 @@ const Invoice = () => {
     orderNumber: '', // Номер заказа
     gln: '', // Глобальный идентификационный номер GS1 (GLN)
     harvestYear: '', // Урожай года
-    customsAddress: '', // Место таможки (shartnomadan tanlash)
+    customsAddress: '', // Место там. очистки (shartnomadan tanlash)
   });
 
   const [showAdditionalInfoModal, setShowAdditionalInfoModal] = useState(false);
@@ -1079,18 +1079,21 @@ const Invoice = () => {
       setSelectedContractSpec(spec);
 
       // Shartnoma ma'lumotlarini invoice form'ga to'ldirish
-
-      const deliveryTermsList = String(contract.deliveryTerms || '')
-        .split('\n')
-        .map((item: string) => item.trim())
-        .filter(Boolean);
-      setContractDeliveryTerms(deliveryTermsList);
+      const dtArr = String(contract.deliveryTerms || '').split('\n').map((s: string) => s.trim());
+      const caArr = String(contract.customsAddress || '').split('\n').map((s: string) => s.trim());
+      const maxLen = Math.max(dtArr.length, caArr.length);
+      while (dtArr.length < maxLen) dtArr.push('');
+      while (caArr.length < maxLen) caArr.push('');
+      const deliveryTermsList = dtArr.filter(Boolean);
+      const firstDt = deliveryTermsList[0] || dtArr[0] || '';
+      const pairedCustoms = firstDt ? (() => { const i = dtArr.indexOf(firstDt); return i >= 0 && caArr[i]?.trim() ? caArr[i].trim() : ''; })() : '';
+      setContractDeliveryTerms(deliveryTermsList.length ? deliveryTermsList : (firstDt ? [firstDt] : []));
       setForm(prev => ({
         ...prev,
         contractNumber: contract.contractNumber,
         paymentTerms: contract.deliveryTerms || '',
-        deliveryTerms: deliveryTermsList[0] || prev.deliveryTerms,
-        // GLN shartnomadan olinadi
+        deliveryTerms: firstDt || prev.deliveryTerms,
+        customsAddress: pairedCustoms,
         gln: contract.gln || prev.gln,
       }));
       const deliveryTermsKey = getDeliveryTermsContractKey();
@@ -1409,7 +1412,47 @@ const Invoice = () => {
     return tareKg >= range.min && tareKg <= range.max;
   };
 
-
+  const numberToWordsRu = (num: number, currency: string): string => {
+    const ones = ['', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять'];
+    const tens = ['', '', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто'];
+    const teens = ['десять', 'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать'];
+    const hundreds = ['', 'сто', 'двести', 'триста', 'четыреста', 'пятьсот', 'шестьсот', 'семьсот', 'восемьсот', 'девятьсот'];
+    const convertHundreds = (n: number): string => {
+      if (n === 0) return '';
+      let r = '';
+      const h = Math.floor(n / 100);
+      if (h > 0) r += hundreds[h] + ' ';
+      const rem = n % 100;
+      if (rem >= 10 && rem < 20) return (r + teens[rem - 10]).trim();
+      const t = Math.floor(rem / 10), o = rem % 10;
+      if (t > 0) r += tens[t] + ' ';
+      if (o > 0) r += ones[o];
+      return r.trim();
+    };
+    if (num === 0) return currency === 'USD' ? 'ноль долларов США' : 'ноль сумов';
+    const whole = Math.floor(num);
+    const dec = Math.round((num - whole) * 100);
+    let result = '';
+    const th = Math.floor(whole / 1000);
+    if (th > 0) {
+      if (th === 1) result += 'одна тысяча ';
+      else if (th < 5) result += convertHundreds(th) + ' тысячи ';
+      else result += convertHundreds(th) + ' тысяч ';
+    }
+    const rem = whole % 1000;
+    if (rem > 0) result += convertHundreds(rem);
+    if (currency === 'USD') {
+      if (whole === 1) result += ' доллар США';
+      else if (whole < 5) result += ' доллара США';
+      else result += ' долларов США';
+    } else {
+      if (whole === 1) result += ' сум';
+      else if (whole < 5) result += ' сума';
+      else result += ' сумов';
+    }
+    if (dec > 0) result += ` ${dec} ${currency === 'USD' ? 'центов' : 'тиин'}`;
+    return result.charAt(0).toUpperCase() + result.slice(1);
+  };
 
   return (
 
@@ -1881,7 +1924,7 @@ const Invoice = () => {
                 {form.deliveryTerms && <div><strong>Условия поставки:</strong> {form.deliveryTerms}</div>}
                 {form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
                 {form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
-                {form.customsAddress && <div><strong>Место таможки:</strong> {form.customsAddress}</div>}
+                {form.customsAddress && <div><strong>Место там. очистки:</strong> {form.customsAddress}</div>}
                 {form.destination && <div><strong>Место назначения:</strong> {form.destination}</div>}
                 <div><strong>Происхождение товара:</strong> {form.origin}</div>
                 {form.manufacturer && <div><strong>Производитель:</strong> {form.manufacturer}</div>}
@@ -2060,6 +2103,11 @@ const Invoice = () => {
                             {formatNumberFixed(items.reduce((sum, item) => sum + item.totalPrice, 0))}
                           </td>
                         )}
+                      </tr>
+                      <tr className="bg-gray-50 border-t border-gray-200">
+                        <td className="px-2 py-3 text-left text-sm" colSpan={15}>
+                          Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
+                        </td>
                       </tr>
                     </tfoot>
                   </table>
@@ -2289,6 +2337,11 @@ const Invoice = () => {
                         )}
                         {effectiveColumns.actions && <td className="px-2 py-3"></td>}
                       </tr>
+                      <tr className="bg-gray-50 border-t border-gray-200">
+                        <td className="px-2 py-3 text-left text-sm" colSpan={15}>
+                          Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
+                        </td>
+                      </tr>
                     </tfoot>
                   </table>
                 )}
@@ -2459,8 +2512,21 @@ const Invoice = () => {
                         value={contractDeliveryTerms.includes(form.deliveryTerms) ? form.deliveryTerms : '__other__'}
                         onChange={(e) => {
                           const value = e.target.value;
-                          setForm({ ...form, deliveryTerms: value === '__other__' ? '' : value });
-                          if (additionalInfoError && value.trim() && form.vehicleNumber.trim()) {
+                          const newDeliveryTerms = value === '__other__' ? '' : value;
+                          let newCustomsAddress = '';
+                          if (selectedContract && newDeliveryTerms) {
+                            const dtArr = (selectedContract.deliveryTerms || '').split('\n').map((s: string) => s.trim());
+                            const caArr = (selectedContract.customsAddress || '').split('\n').map((s: string) => s.trim());
+                            const maxLen = Math.max(dtArr.length, caArr.length);
+                            while (dtArr.length < maxLen) dtArr.push('');
+                            while (caArr.length < maxLen) caArr.push('');
+                            const idx = dtArr.indexOf(newDeliveryTerms);
+                            if (idx >= 0 && caArr[idx]?.trim()) {
+                              newCustomsAddress = caArr[idx].trim();
+                            }
+                          }
+                          setForm({ ...form, deliveryTerms: newDeliveryTerms, customsAddress: newCustomsAddress });
+                          if (additionalInfoError && newDeliveryTerms.trim() && form.vehicleNumber.trim()) {
                             setAdditionalInfoError(null);
                           }
                         }}
@@ -2508,7 +2574,19 @@ const Invoice = () => {
                       value={form.deliveryTerms}
                       onChange={(e) => {
                         const value = e.target.value;
-                        setForm({ ...form, deliveryTerms: value });
+                        let newCustomsAddress = '';
+                        if (selectedContract && value.trim()) {
+                          const dtArr = (selectedContract.deliveryTerms || '').split('\n').map((s: string) => s.trim());
+                          const caArr = (selectedContract.customsAddress || '').split('\n').map((s: string) => s.trim());
+                          const maxLen = Math.max(dtArr.length, caArr.length);
+                          while (dtArr.length < maxLen) dtArr.push('');
+                          while (caArr.length < maxLen) caArr.push('');
+                          const idx = dtArr.indexOf(value.trim());
+                          if (idx >= 0 && caArr[idx]?.trim()) {
+                            newCustomsAddress = caArr[idx].trim();
+                          }
+                        }
+                        setForm({ ...form, deliveryTerms: value, customsAddress: newCustomsAddress });
                         if (additionalInfoError && value.trim() && form.vehicleNumber.trim()) {
                           setAdditionalInfoError(null);
                         }
@@ -2521,28 +2599,37 @@ const Invoice = () => {
                 </div>
               </div>
 
-              {/* Место таможки — shartnomadagi ro'yxatdan tanlash */}
-              {selectedContract?.customsAddress && (() => {
-                const options = (selectedContract.customsAddress || '')
-                  .split('\n')
-                  .map((s) => s.trim())
-                  .filter(Boolean);
-                if (options.length === 0) return null;
+              {/* Место там. очистки — juft Растаможка avto-to'ldiriladi yoki Адрес растаможки dan tanlash */}
+              {selectedContract && (() => {
+                const customsStr = selectedContract.customsAddress || '';
+                const options = [...new Set(
+                  customsStr.split('\n').map((s: string) => s.trim()).filter(Boolean)
+                )];
                 return (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Место таможки:
+                      Место там. очистки:
                     </label>
-                    <select
-                      value={form.customsAddress ?? ''}
-                      onChange={(e) => setForm({ ...form, customsAddress: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    >
-                      <option value="">Shartnomadan tanlang...</option>
-                      {options.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
+                    {options.length > 0 ? (
+                      <select
+                        value={form.customsAddress ?? ''}
+                        onChange={(e) => setForm({ ...form, customsAddress: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="">Shartnomadan tanlang...</option>
+                        {options.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={form.customsAddress ?? ''}
+                        onChange={(e) => setForm({ ...form, customsAddress: e.target.value })}
+                        placeholder="Место там. очистки"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    )}
                   </div>
                 );
               })()}

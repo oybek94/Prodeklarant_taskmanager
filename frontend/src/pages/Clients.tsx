@@ -576,9 +576,9 @@ const Clients = () => {
     e.preventDefault();
     if (!selectedClient) return;
     const form = contractFormRef.current;
-    const normalizeList = (values: string[]) => values.map((item) => item.trim()).filter(Boolean);
-    const deliveryTermsValue = normalizeList(form.deliveryTerms).join('\n');
-    const customsAddressValue = normalizeList(form.customsAddress).join('\n');
+    const trimList = (values: string[]) => values.map((item) => item.trim());
+    const deliveryTermsValue = trimList(form.deliveryTerms).join('\n');
+    const customsAddressValue = trimList(form.customsAddress).join('\n');
     if (!form.contractNumber || !form.contractDate) {
       alert('Shartnoma raqami va sanasi majburiy');
       return;
@@ -679,12 +679,17 @@ const Clients = () => {
   const handleEditContract = async (contract: any) => {
     setEditingContractId(contract.id);
     setShowContractModal(true);
-    const normalizeList = (value?: string | null) => {
+    const parseListPreservingEmpty = (value?: string | null) => {
       const items = String(value ?? '')
         .split('\n')
-        .map((item) => item.trim())
-        .filter(Boolean);
+        .map((item) => item.trim());
       return items.length ? items : [''];
+    };
+    const syncTermsAndCustoms = (d: string[], c: string[]) => {
+      const maxLen = Math.max(d.length, c.length, 1);
+      const dd = [...d]; while (dd.length < maxLen) dd.push('');
+      const cc = [...c]; while (cc.length < maxLen) cc.push('');
+      return { deliveryTerms: dd, customsAddress: cc };
     };
     try {
       const response = await apiClient.get(`/contracts/${contract.id}`);
@@ -707,8 +712,7 @@ const Clients = () => {
         buyerAddress: c.buyerAddress || '',
         destinationCountry: c.destinationCountry || '',
         buyerDetails: c.buyerDetails || '',
-        deliveryTerms: normalizeList(c.deliveryTerms),
-        customsAddress: normalizeList(c.customsAddress),
+        ...syncTermsAndCustoms(parseListPreservingEmpty(c.deliveryTerms), parseListPreservingEmpty(c.customsAddress)),
         shipperName: c.shipperName || '',
         shipperAddress: c.shipperAddress || '',
         shipperDetails: c.shipperDetails || '',
@@ -741,8 +745,7 @@ const Clients = () => {
         buyerAddress: contract.buyerAddress || '',
         destinationCountry: contract.destinationCountry || '',
         buyerDetails: contract.buyerDetails || '',
-        deliveryTerms: normalizeList(contract.deliveryTerms),
-        customsAddress: normalizeList(contract.customsAddress),
+        ...syncTermsAndCustoms(parseListPreservingEmpty(contract.deliveryTerms), parseListPreservingEmpty(contract.customsAddress)),
         shipperName: contract.shipperName || '',
         shipperAddress: contract.shipperAddress || '',
         shipperDetails: contract.shipperDetails || '',
@@ -2212,41 +2215,72 @@ const Clients = () => {
               {contractModalTab === 'terms' && (
               <>
               <div>
-                <h4 className="font-semibold text-gray-700 mb-3">Условия поставки</h4>
+                <h4 className="font-semibold text-gray-700 mb-3">Условия поставки / Растаможка (juft qatorlar)</h4>
                 <div className="space-y-2">
-                  {contractForm.deliveryTerms.map((value, index) => (
-                    <div key={`delivery-terms-${index}`} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={value}
-                        onChange={(e) => {
-                          const next = [...contractForm.deliveryTerms];
-                          next[index] = e.target.value;
-                          setContractFormAndRef({ ...contractForm, deliveryTerms: next });
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        placeholder="Условия поставки"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (contractForm.deliveryTerms.length === 1) {
-                            setContractFormAndRef({ ...contractForm, deliveryTerms: [''] });
-                            return;
-                          }
-                          const next = contractForm.deliveryTerms.filter((_, i) => i !== index);
-                          setContractFormAndRef({ ...contractForm, deliveryTerms: next.length ? next : [''] });
-                        }}
-                        className="px-2 py-2 text-sm text-red-600 hover:text-red-700"
-                        title="O'chirish"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
+                  {(() => {
+                    const delivery = contractForm.deliveryTerms;
+                    const customs = contractForm.customsAddress;
+                    const maxLen = Math.max(delivery.length, customs.length, 1);
+                    return Array.from({ length: maxLen }, (_, index) => (
+                      <div key={`terms-pair-${index}`} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={delivery[index] ?? ''}
+                          onChange={(e) => {
+                            const next = [...delivery];
+                            while (next.length <= index) next.push('');
+                            next[index] = e.target.value;
+                            setContractFormAndRef({ ...contractForm, deliveryTerms: next });
+                          }}
+                          className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="Условия поставки"
+                        />
+                        <input
+                          type="text"
+                          value={customs[index] ?? ''}
+                          onChange={(e) => {
+                            const next = [...customs];
+                            while (next.length <= index) next.push('');
+                            next[index] = e.target.value;
+                            setContractFormAndRef({ ...contractForm, customsAddress: next });
+                          }}
+                          className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="Растаможка"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (maxLen <= 1) {
+                              setContractFormAndRef({
+                                ...contractForm,
+                                deliveryTerms: [''],
+                                customsAddress: [''],
+                              });
+                              return;
+                            }
+                            const nextDelivery = delivery.filter((_, i) => i !== index);
+                            const nextCustoms = customs.filter((_, i) => i !== index);
+                            setContractFormAndRef({
+                              ...contractForm,
+                              deliveryTerms: nextDelivery.length ? nextDelivery : [''],
+                              customsAddress: nextCustoms.length ? nextCustoms : [''],
+                            });
+                          }}
+                          className="px-2 py-2 text-sm text-red-600 hover:text-red-700 shrink-0"
+                          title="O'chirish"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ));
+                  })()}
                   <button
                     type="button"
-                    onClick={() => setContractFormAndRef({ ...contractForm, deliveryTerms: [...contractForm.deliveryTerms, ''] })}
+                    onClick={() => setContractFormAndRef({
+                      ...contractForm,
+                      deliveryTerms: [...contractForm.deliveryTerms, ''],
+                      customsAddress: [...contractForm.customsAddress, ''],
+                    })}
                     className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                   >
                     + Qator qo'shish

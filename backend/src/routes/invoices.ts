@@ -4,8 +4,54 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { generateInvoicePDF } from '../services/invoice-pdf';
 import { Prisma } from '@prisma/client';
+import { getNextInvoiceNumber } from '../utils/invoice-number';
 
 const router = Router();
+
+// GET /invoices/next-number?contractId=:id - Shartnoma uchun keyingi invoice raqami (parametrli routelardan oldin)
+router.get('/next-number', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const contractIdStr = req.query.contractId;
+    const contractId = contractIdStr ? parseInt(String(contractIdStr)) : NaN;
+    if (!Number.isFinite(contractId)) {
+      return res.status(400).json({ error: 'contractId kerak' });
+    }
+    const lastInvoice = await prisma.invoice.findFirst({
+      where: { contractId },
+      orderBy: { createdAt: 'desc' },
+    });
+    const nextNumber = lastInvoice ? getNextInvoiceNumber(lastInvoice.invoiceNumber) : '1';
+    res.json({ nextNumber });
+  } catch (error: any) {
+    console.error('Error getting next invoice number:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/check-number?invoiceNumber=:num&contractId=:id&excludeId=:id - Raqam mavjudligini tekshirish (shartnoma bo'yicha)
+router.get('/check-number', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const invoiceNumber = String(req.query.invoiceNumber || '').trim();
+    if (!invoiceNumber) {
+      return res.json({ available: true });
+    }
+    const contractIdStr = req.query.contractId;
+    const excludeIdStr = req.query.excludeId;
+    const excludeId = excludeIdStr ? parseInt(String(excludeIdStr)) : undefined;
+    const contractId = contractIdStr ? parseInt(String(contractIdStr)) : undefined;
+    const whereClause = Number.isFinite(contractId)
+      ? { contractId, invoiceNumber }
+      : { contractId: null, invoiceNumber };
+    const existing = await prisma.invoice.findFirst({
+      where: whereClause,
+    });
+    const available = !existing || (excludeId != null && existing.id === excludeId);
+    res.json({ available });
+  } catch (error: any) {
+    console.error('Error checking invoice number:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
 
 // GET /invoices - Barcha invoice'lar
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
@@ -28,6 +74,13 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
             name: true,
           }
         },
+        contract: {
+          select: {
+            sellerName: true,
+            buyerName: true,
+            consigneeName: true,
+          }
+        },
         branch: {
           select: {
             id: true,
@@ -38,18 +91,33 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json(invoices.map(invoice => ({
-      ...invoice,
-      totalAmount: Number(invoice.totalAmount),
-      items: invoice.items.map(item => ({
-        ...item,
-        quantity: Number(item.quantity),
-        grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
-        netWeight: item.netWeight ? Number(item.netWeight) : null,
-        unitPrice: Number(item.unitPrice),
-        totalPrice: Number(item.totalPrice),
-      }))
-    })));
+    const invoicesWithContract = await Promise.all(invoices.map(async (invoice) => {
+      let contract = invoice.contract;
+      if (!contract && invoice.contractNumber && invoice.clientId) {
+        const found = await prisma.contract.findFirst({
+          where: {
+            contractNumber: invoice.contractNumber,
+            clientId: invoice.clientId,
+          },
+          select: { sellerName: true, buyerName: true, consigneeName: true },
+        });
+        if (found) contract = found;
+      }
+      return {
+        ...invoice,
+        contract,
+        totalAmount: Number(invoice.totalAmount),
+        items: invoice.items.map(item => ({
+          ...item,
+          quantity: Number(item.quantity),
+          grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
+          netWeight: item.netWeight ? Number(item.netWeight) : null,
+          unitPrice: Number(item.unitPrice),
+          totalPrice: Number(item.totalPrice),
+        }))
+      };
+    }));
+    res.json(invoicesWithContract);
   } catch (error: any) {
     console.error('Error fetching invoices:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
@@ -69,10 +137,10 @@ const invoiceSchema = z.object({
   notes: z.string().optional(),
   additionalInfo: z.any().optional(),
   items: z.array(z.object({
-    tnvedCode: z.string().optional(),
-    pluCode: z.string().optional(),
+    tnvedCode: z.string().optional().nullable().transform(v => v ?? undefined),
+    pluCode: z.string().optional().nullable().transform(v => v ?? undefined),
     name: z.string(),
-    packageType: z.string().optional(),
+    packageType: z.string().optional().nullable().transform(v => v ?? undefined),
     unit: z.string(),
     quantity: z.number(),
     grossWeight: z.number().optional(),
@@ -184,7 +252,10 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
 // GET /invoices/:id - Invoice ma'lumotlari
 router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
     
     const invoice = await prisma.invoice.findUnique({
       where: { id },
@@ -236,7 +307,11 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const parsed = invoiceSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.flatten() });
+      const flat = parsed.error.flatten();
+      const firstFieldError = Object.values(flat.fieldErrors as Record<string, string[]>).flat()[0];
+      const firstFormError = flat.formErrors[0];
+      const errMsg = firstFieldError || firstFormError || 'Ma\'lumotlarda xatolik';
+      return res.status(400).json({ error: errMsg });
     }
 
     const { taskId, clientId, invoiceNumber, contractNumber, contractId, date, currency, totalAmount, notes, additionalInfo, items } = parsed.data;
@@ -290,13 +365,16 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       // Mavjud invoice'ni yangilash
       const finalInvoiceNumber = invoiceNumber || existingInvoice.invoiceNumber;
       
-      // Invoice raqami o'zgargan bo'lsa, unique tekshirish
+      // Invoice raqami o'zgargan bo'lsa, shartnoma bo'yicha unique tekshirish
       if (invoiceNumber && invoiceNumber !== existingInvoice.invoiceNumber) {
-        const duplicateInvoice = await prisma.invoice.findUnique({
-          where: { invoiceNumber: invoiceNumber }
+        const dupWhere = contractId
+          ? { contractId, invoiceNumber: invoiceNumber }
+          : { contractId: null, invoiceNumber: invoiceNumber };
+        const duplicateInvoice = await prisma.invoice.findFirst({
+          where: dupWhere,
         });
         if (duplicateInvoice && duplicateInvoice.id !== existingInvoice.id) {
-          return res.status(400).json({ error: 'Bu invoice raqami allaqachon mavjud' });
+          return res.status(400).json({ error: 'Bu invoice raqami allaqachon mavjud. Ozgartirish kerak' });
         }
       }
       
@@ -341,22 +419,32 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       let finalInvoiceNumber: string;
       
       if (invoiceNumber) {
-        // Foydalanuvchi invoice raqamini kiritgan
-        const duplicateInvoice = await prisma.invoice.findUnique({
-          where: { invoiceNumber: invoiceNumber }
+        // Foydalanuvchi invoice raqamini kiritgan — shartnoma bo'yicha unique tekshirish
+        const dupWhere = contractId
+          ? { contractId, invoiceNumber: invoiceNumber }
+          : { contractId: null, invoiceNumber: invoiceNumber };
+        const duplicateInvoice = await prisma.invoice.findFirst({
+          where: dupWhere,
         });
         if (duplicateInvoice) {
-          return res.status(400).json({ error: 'Bu invoice raqami allaqachon mavjud' });
+          return res.status(400).json({ error: 'Bu invoice raqami allaqachon mavjud. Ozgartirish kerak' });
         }
         finalInvoiceNumber = invoiceNumber;
       } else {
-        // Avtomatik invoice raqami generatsiya
-        const lastInvoice = await prisma.invoice.findFirst({
-          orderBy: { invoiceNumber: 'desc' }
-        });
-        
-        const lastNumber = lastInvoice ? parseInt(lastInvoice.invoiceNumber) : 0;
-        finalInvoiceNumber = (lastNumber + 1).toString();
+        // Avtomatik invoice raqami: contractId bor bo'lsa shartnoma bo'yicha, yo'q bo'lsa global
+        if (contractId) {
+          const lastInvoice = await prisma.invoice.findFirst({
+            where: { contractId },
+            orderBy: { createdAt: 'desc' },
+          });
+          finalInvoiceNumber = lastInvoice ? getNextInvoiceNumber(lastInvoice.invoiceNumber) : '1';
+        } else {
+          const lastInvoice = await prisma.invoice.findFirst({
+            orderBy: { invoiceNumber: 'desc' }
+          });
+          const lastNumber = lastInvoice ? parseInt(lastInvoice.invoiceNumber, 10) : 0;
+          finalInvoiceNumber = (isNaN(lastNumber) ? 0 : lastNumber + 1).toString();
+        }
       }
 
       // Contract mavjudligini tekshirish
@@ -642,7 +730,7 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
   }
 });
 
-// DELETE /invoices/:id - Invoice o'chirish
+// DELETE /invoices/:id - Invoice va unga tegishli task o'chirish
 router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -655,11 +743,17 @@ router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Invoice topilmadi' });
     }
 
-    await prisma.invoice.delete({
-      where: { id }
+    const taskId = invoice.taskId;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.invoice.delete({ where: { id } });
+      await tx.taskStage.deleteMany({ where: { taskId } });
+      await tx.taskError.deleteMany({ where: { taskId } });
+      await tx.kpiLog.deleteMany({ where: { taskId } });
+      await tx.task.delete({ where: { id: taskId } });
     });
 
-    res.json({ message: 'Invoice muvaffaqiyatli o\'chirildi' });
+    res.json({ message: 'Invoice va task muvaffaqiyatli o\'chirildi' });
   } catch (error: any) {
     console.error('Error deleting invoice:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });

@@ -28,6 +28,7 @@ interface Invoice {
   date: string;
   currency: 'USD' | 'UZS';
   totalAmount: number;
+  additionalInfo?: { vehicleNumber?: string; [k: string]: unknown };
   task?: {
     id: number;
     title: string;
@@ -36,6 +37,11 @@ interface Invoice {
   client?: {
     id: number;
     name: string;
+  };
+  contract?: {
+    sellerName: string;
+    buyerName: string;
+    consigneeName?: string | null;
   };
   branch?: {
     id: number;
@@ -291,36 +297,43 @@ const Invoices = () => {
         hasPsr: false,
       });
       const newTask = taskRes.data as { id: number };
-      const items = (full.items || []).map((item: { orderIndex?: number }, i: number) => ({
-        name: item.name,
-        unit: item.unit,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: item.totalPrice,
-        tnvedCode: item.tnvedCode,
-        pluCode: item.pluCode,
-        packageType: item.packageType,
-        grossWeight: item.grossWeight,
-        netWeight: item.netWeight,
-        orderIndex: item.orderIndex ?? i,
-      }));
-      await apiClient.post('/invoices', {
+      // Dublikat qilinganda tovarlar tozalanadi — faqat shartnoma, mijoz, filial va qo'shimcha ma'lumotlar nusxalanadi
+      const items: Array<{ name: string; unit: string; quantity: number; unitPrice: number; totalPrice: number }> = [];
+      // Invoys huddi shundayligicha nusxalanadi — faqat invoice raqam, avtomobil raqami va tovarlar tozalanadi
+      const sourceAdditionalInfo =
+        full.additionalInfo != null && typeof full.additionalInfo === 'object'
+          ? { ...(full.additionalInfo as Record<string, unknown>), vehicleNumber: '' }
+          : undefined;
+      // Shartnoma bo'yicha keyingi invoice raqamini olish
+      let invoiceNumber: string | undefined;
+      if (full.contractId) {
+        const nextRes = await apiClient.get(`/invoices/next-number?contractId=${full.contractId}`);
+        invoiceNumber = (nextRes.data as { nextNumber: string }).nextNumber;
+      }
+      const postRes = await apiClient.post('/invoices', {
         taskId: newTask.id,
         clientId,
         contractId: full.contractId,
         contractNumber: full.contractNumber,
+        ...(invoiceNumber ? { invoiceNumber } : {}),
         date: full.date,
         currency: full.currency,
-        totalAmount: full.totalAmount,
+        totalAmount: 0,
         notes: full.notes,
-        additionalInfo: full.additionalInfo,
+        additionalInfo: sourceAdditionalInfo,
         items,
       });
+      if (postRes.status >= 400) {
+        const errData = postRes.data as { error?: string | { formErrors?: string[]; fieldErrors?: Record<string, string[]> } };
+        const msg = typeof errData?.error === 'string' ? errData.error : (errData?.error as any)?.formErrors?.[0] || JSON.stringify(errData?.error) || 'Invoice dublikat qilishda xatolik';
+        throw new Error(msg);
+      }
       loadInvoices();
-      navigate(`/invoices/task/${newTask.id}`);
+      const contractQuery = full.contractId ? `?contractId=${full.contractId}` : '';
+      navigate(`/invoices/task/${newTask.id}${contractQuery}`);
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } };
-      alert(e.response?.data?.error || 'Invoice dublikat qilishda xatolik');
+      const msg = err instanceof Error ? err.message : (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Invoice dublikat qilishda xatolik';
+      alert(msg);
     } finally {
       setDuplicatingInvoiceId(null);
     }
@@ -779,13 +792,13 @@ const Invoices = () => {
                   Invoice №
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Shartnoma №
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Task
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Mijoz
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Avtomobil raqami
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Sotuvchi/sotib oluvchi/Yukni qabul qiluvchi
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Sana
@@ -805,22 +818,15 @@ const Invoices = () => {
                     #{invoice.invoiceNumber}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {invoice.contractNumber || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {invoice.task ? (
-                      <button
-                        onClick={() => navigate(`/tasks/${invoice.taskId}`)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        {invoice.task.title}
-                      </button>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {invoice.client?.name || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {invoice.additionalInfo?.vehicleNumber || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
+                      .filter(Boolean)
+                      .join(' / ') || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatDate(invoice.date)}

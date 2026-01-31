@@ -684,7 +684,7 @@ model WorkerPayment {
 
 model Invoice {
   id                 Int             @id @default(autoincrement())
-  invoiceNumber      String          @unique
+  invoiceNumber      String
   contractNumber     String?
   taskId             Int             @unique
   clientId           Int

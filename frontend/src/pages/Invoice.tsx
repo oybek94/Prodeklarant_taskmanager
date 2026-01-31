@@ -162,6 +162,8 @@ interface Contract {
 
   deliveryTerms?: string;
 
+  customsAddress?: string;
+
   paymentMethod?: string;
 
   supplierDirector?: string; // Руководитель Поставщика
@@ -442,18 +444,21 @@ const Invoice = () => {
     vehicleNumber: '', // Номер автотранспорта
     loaderWeight: '', // Yuk tortuvchi og'irligi
     trailerWeight: '', // Pritsep og'irligi
-    palletWeight: '500', // Poddon og'irligi
-    shipmentPlace: 'Ферганская область, Алтыарыкский р-н.', // Место отгрузки груза
-    destination: 'Россия', // Место назначения
-    origin: 'Республика Узбекистан', // Происхождение товара (har doim shu)
-    manufacturer: 'OOO "FERGANA EXIM AGRO"', // Производитель
+    palletWeight: '', // Poddon og'irligi
+    shipmentPlace: '', // Место отгрузки груза
+    destination: '', // Место назначения
+    origin: 'Республика Узбекистан', // Происхождение товара
+    manufacturer: '', // Производитель
     orderNumber: '', // Номер заказа
     gln: '', // Глобальный идентификационный номер GS1 (GLN)
-    harvestYear: new Date().getFullYear().toString(), // Урожай года
+    harvestYear: '', // Урожай года
+    customsAddress: '', // Место таможки (shartnomadan tanlash)
   });
 
   const [showAdditionalInfoModal, setShowAdditionalInfoModal] = useState(false);
   const [additionalInfoError, setAdditionalInfoError] = useState<string | null>(null);
+  const [invoiceNumberWarning, setInvoiceNumberWarning] = useState<string | null>(null);
+  const invoiceNumberCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [customFields, setCustomFields] = useState<Array<{ id: string; label: string; value: string }>>([]);
   const [showAddFieldModal, setShowAddFieldModal] = useState(false);
   const [newFieldLabel, setNewFieldLabel] = useState('');
@@ -473,6 +478,36 @@ const Invoice = () => {
     setTnvedProducts(getTnvedProducts());
     setPackagingTypes(getPackagingTypes());
   }, []);
+
+  // Invoice raqam takroriy yoki yo'qligini tekshirish (debounce 300ms)
+  useEffect(() => {
+    const invNum = form.invoiceNumber?.trim();
+    if (!invNum) {
+      setInvoiceNumberWarning(null);
+      return;
+    }
+    if (invoiceNumberCheckTimeoutRef.current) {
+      clearTimeout(invoiceNumberCheckTimeoutRef.current);
+    }
+    invoiceNumberCheckTimeoutRef.current = setTimeout(async () => {
+      invoiceNumberCheckTimeoutRef.current = null;
+      try {
+        const params = new URLSearchParams({ invoiceNumber: invNum });
+        if (selectedContractId) params.set('contractId', selectedContractId);
+        if (invoice?.id) params.set('excludeId', String(invoice.id));
+        const res = await apiClient.get(`/invoices/check-number?${params}`);
+        const { available } = res.data as { available: boolean };
+        setInvoiceNumberWarning(available ? null : 'Bu raqam allaqachon mavjud. Ozgartirish kerak');
+      } catch {
+        setInvoiceNumberWarning(null);
+      }
+    }, 300);
+    return () => {
+      if (invoiceNumberCheckTimeoutRef.current) {
+        clearTimeout(invoiceNumberCheckTimeoutRef.current);
+      }
+    };
+  }, [form.invoiceNumber, selectedContractId, invoice?.id]);
 
   const normalizeItem = (item: InvoiceItem): InvoiceItem => ({
     ...item,
@@ -587,7 +622,7 @@ const Invoice = () => {
 
             setSelectedContractId(contractIdFromQuery);
 
-            // Contract ma'lumotlarini yuklash va form'ga to'ldirish
+            // Contract ma'lumotlarini yuklash — form faqat invoice yo'q bo'lsa to'ldiriladi (pastda)
 
             try {
 
@@ -606,9 +641,7 @@ const Invoice = () => {
 
               }));
 
-              // Shartnoma ma'lumotlarini avtomatik to'ldirish
-
-              handleContractSelect(contractIdFromQuery);
+              // handleContractSelect faqat invoice yo'q bo'lganda chaqiriladi (saqlangan ma'lumotlarni ustidan yozmaslik uchun)
 
             } catch (error) {
 
@@ -649,6 +682,14 @@ const Invoice = () => {
 
             }
 
+            // Yangi invoice — shartnoma ma'lumotlari bilan form'ni to'ldirish
+
+            if (contractIdFromQuery) {
+
+              handleContractSelect(contractIdFromQuery);
+
+            }
+
           } else {
 
             setInvoice(inv);
@@ -659,26 +700,27 @@ const Invoice = () => {
               date: inv.date ? inv.date.split('T')[0] : new Date().toISOString().split('T')[0],
               currency: inv.currency || 'USD',
               contractNumber: inv.contractNumber || '',
-              paymentTerms: inv.additionalInfo?.paymentTerms || '',
-              dueDate: inv.additionalInfo?.dueDate || '',
-              poNumber: inv.additionalInfo?.poNumber || '',
-              notes: inv.notes || '',
-              terms: inv.additionalInfo?.terms || '',
-              tax: inv.additionalInfo?.tax || 0,
-              discount: inv.additionalInfo?.discount || 0,
-              shipping: inv.additionalInfo?.shipping || 0,
-              amountPaid: inv.additionalInfo?.amountPaid || 0,
-              deliveryTerms: inv.additionalInfo?.deliveryTerms || prev.deliveryTerms,
-              vehicleNumber: inv.additionalInfo?.vehicleNumber || prev.vehicleNumber,
-              loaderWeight: inv.additionalInfo?.loaderWeight || prev.loaderWeight,
-              trailerWeight: inv.additionalInfo?.trailerWeight || prev.trailerWeight,
-              palletWeight: inv.additionalInfo?.palletWeight || prev.palletWeight,
-              shipmentPlace: inv.additionalInfo?.shipmentPlace || prev.shipmentPlace,
-              destination: inv.additionalInfo?.destination || prev.destination,
-              manufacturer: inv.additionalInfo?.manufacturer || prev.manufacturer,
-              orderNumber: inv.additionalInfo?.orderNumber || prev.orderNumber,
-              gln: inv.additionalInfo?.gln || prev.gln,
-              harvestYear: inv.additionalInfo?.harvestYear || prev.harvestYear,
+              paymentTerms: inv.additionalInfo?.paymentTerms ?? prev.paymentTerms,
+              dueDate: inv.additionalInfo?.dueDate ?? prev.dueDate,
+              poNumber: inv.additionalInfo?.poNumber ?? prev.poNumber,
+              notes: inv.notes ?? prev.notes,
+              terms: inv.additionalInfo?.terms ?? prev.terms,
+              tax: inv.additionalInfo?.tax ?? prev.tax,
+              discount: inv.additionalInfo?.discount ?? prev.discount,
+              shipping: inv.additionalInfo?.shipping ?? prev.shipping,
+              amountPaid: inv.additionalInfo?.amountPaid ?? prev.amountPaid,
+              deliveryTerms: inv.additionalInfo?.deliveryTerms ?? prev.deliveryTerms,
+              vehicleNumber: inv.additionalInfo?.vehicleNumber ?? prev.vehicleNumber,
+              loaderWeight: inv.additionalInfo?.loaderWeight ?? prev.loaderWeight,
+              trailerWeight: inv.additionalInfo?.trailerWeight ?? prev.trailerWeight,
+              palletWeight: inv.additionalInfo?.palletWeight ?? prev.palletWeight,
+              shipmentPlace: inv.additionalInfo?.shipmentPlace ?? prev.shipmentPlace,
+              customsAddress: inv.additionalInfo?.customsAddress ?? prev.customsAddress,
+              destination: inv.additionalInfo?.destination ?? prev.destination,
+              manufacturer: inv.additionalInfo?.manufacturer ?? prev.manufacturer,
+              orderNumber: inv.additionalInfo?.orderNumber ?? prev.orderNumber,
+              gln: inv.additionalInfo?.gln ?? prev.gln,
+              harvestYear: inv.additionalInfo?.harvestYear ?? prev.harvestYear,
             }));
             setItems((inv.items || []).map(normalizeItem));
             setCustomFields(inv.additionalInfo?.customFields || []);
@@ -696,12 +738,21 @@ const Invoice = () => {
                   }
                 }
                 setSelectedContractSpec(spec);
+                // Faqat contractNumber — paymentTerms/gln saqlangan inv.additionalInfo dan qoladi
                 setForm(prev => ({
                   ...prev,
                   contractNumber: contract.contractNumber,
-                  paymentTerms: contract.deliveryTerms || prev.paymentTerms,
-                  gln: contract.gln || prev.gln,
                 }));
+                // Modal uchun delivery terms ro'yxati
+                const deliveryTermsList = String(contract.deliveryTerms || '')
+                  .split('\n')
+                  .map((item: string) => item.trim())
+                  .filter(Boolean);
+                setContractDeliveryTerms(deliveryTermsList);
+                const deliveryTermsKey = inv.contractId.toString();
+                const merged = mergeDeliveryTerms(deliveryTermsList, loadDeliveryTerms(deliveryTermsKey));
+                setDeliveryTermsOptions(merged);
+                localStorage.setItem(getDeliveryTermsKey(deliveryTermsKey), JSON.stringify(merged));
               } catch (error) {
                 console.error('Error loading contract:', error);
               }
@@ -1094,6 +1145,11 @@ const Invoice = () => {
       setAdditionalInfoError(null);
     }
 
+    if (invoiceNumberWarning) {
+      alert('Invoice raqamini ozgartiring. ' + invoiceNumberWarning);
+      return;
+    }
+
     
 
     if (items.length === 0 || items.some(item => !item.name || item.quantity <= 0 || item.unitPrice <= 0)) {
@@ -1129,7 +1185,7 @@ const Invoice = () => {
 
         taskId: taskId ? Number(taskId) : undefined, // taskId ixtiyoriy bo'lishi mumkin
 
-        clientId: clientId ? Number(clientId) : (task?.clientId || undefined),
+        clientId: clientId ? Number(clientId) : (task?.client?.id || undefined),
 
         invoiceNumber: form.invoiceNumber && form.invoiceNumber.trim() !== '' ? form.invoiceNumber.trim() : undefined, // Agar bo'sh bo'lsa, backend avtomatik yaratadi
 
@@ -1173,6 +1229,7 @@ const Invoice = () => {
           trailerWeight: form.trailerWeight,
           palletWeight: form.palletWeight,
           shipmentPlace: form.shipmentPlace,
+          customsAddress: form.customsAddress ?? undefined,
           destination: form.destination,
           origin: form.origin,
           manufacturer: form.manufacturer,
@@ -1226,7 +1283,11 @@ const Invoice = () => {
 
       console.error('Error saving invoice:', error);
 
-      alert(error.response?.data?.error || 'Invoice saqlashda xatolik yuz berdi');
+      const errMsg = error.response?.data?.error || 'Invoice saqlashda xatolik yuz berdi';
+      if (typeof errMsg === 'string' && errMsg.includes('invoice raqami allaqachon mavjud')) {
+        setInvoiceNumberWarning('Bu raqam allaqachon mavjud. Ozgartirish kerak');
+      }
+      alert(errMsg);
 
     } finally {
 
@@ -1452,7 +1513,7 @@ const Invoice = () => {
 
             {/* Invoice Header */}
 
-            <div className="grid grid-cols-2 gap-8 mb-8">
+            <div className="grid grid-cols-2 gap-8 mb-0">
 
               {/* Left: Invoice raqami va sana */}
 
@@ -1467,13 +1528,18 @@ const Invoice = () => {
                     ) : (
                       <>
                         <span className="text-base font-bold text-gray-700">Инвойс №:</span>
-                        <input
-                          type="text"
-                          value={form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')}
-                          onChange={(e) => setForm({ ...form, invoiceNumber: e.target.value })}
-                          className="w-16 px-2 py-1 border border-gray-300 rounded text-base font-semibold"
-                          placeholder="Avtomatik"
-                        />
+                        <div className="flex flex-col">
+                          <input
+                            type="text"
+                            value={form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')}
+                            onChange={(e) => setForm({ ...form, invoiceNumber: e.target.value })}
+                            className={`w-24 px-2 py-1 border rounded text-base font-semibold ${invoiceNumberWarning ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="Avtomatik"
+                          />
+                          {invoiceNumberWarning && (
+                            <span className="text-xs text-red-500 mt-0.5">{invoiceNumberWarning}</span>
+                          )}
+                        </div>
 
                         <span className="text-base text-gray-700">от</span>
                         <DateInput
@@ -1535,7 +1601,7 @@ const Invoice = () => {
 
             {/* Sotuvchi va Sotib oluvchi Info */}
 
-            <div className="mb-8 grid grid-cols-2 gap-8">
+            <div className="mb-2.5 grid grid-cols-2 gap-8">
 
               <div>
 
@@ -1669,7 +1735,7 @@ const Invoice = () => {
               <div>
 
                 <h3 className="font-semibold text-gray-800 mb-2">
-                  {isBuyerConsignee ? 'Покупатель/Грузополучатель' : 'Sotib oluvchi'}
+                  {isBuyerConsignee ? 'Покупатель/Грузополучатель' : 'Покупатель'}
                 </h3>
 
                 <div className="text-[15px] text-black space-y-1">
@@ -1763,6 +1829,34 @@ const Invoice = () => {
 
                 </div>
 
+                {/* Грузополучатель — sotib oluvchi va yukni qabul qiluvchi boshqa bo'lsa */}
+                {!isBuyerConsignee && selectedContract?.consigneeName && (
+                  <div className="mt-6">
+                    <h3 className="font-semibold text-gray-800 mb-2">Грузополучатель</h3>
+                    <div className="text-[15px] text-black space-y-1">
+                      <div className="text-base font-bold text-black">{selectedContract.consigneeName}</div>
+                      {selectedContract.consigneeAddress && <div>{selectedContract.consigneeAddress}</div>}
+                      {selectedContract.consigneeInn && <div>ИНН: {selectedContract.consigneeInn}</div>}
+                      {selectedContract.consigneeOgrn && <div>ОГРН: {selectedContract.consigneeOgrn}</div>}
+                      {selectedContract.consigneeDetails ? (
+                        <div className="mt-2">
+                          <div className="whitespace-pre-line text-black">{selectedContract.consigneeDetails}</div>
+                        </div>
+                      ) : (selectedContract.consigneeBankName && (
+                        <div className="mt-2">
+                          <div className="text-base font-bold text-black">Платежные реквизиты:</div>
+                          <div>
+                            Банк: {selectedContract.consigneeBankName}
+                            {selectedContract.consigneeBankSwift && <span>, SWIFT: {selectedContract.consigneeBankSwift}</span>}
+                          </div>
+                          {selectedContract.consigneeBankAddress && <div>Адрес: {selectedContract.consigneeBankAddress}</div>}
+                          {selectedContract.consigneeBankAccount && <div>Расчётный счёт: {selectedContract.consigneeBankAccount}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               </div>
 
             </div>
@@ -1787,6 +1881,7 @@ const Invoice = () => {
                 {form.deliveryTerms && <div><strong>Условия поставки:</strong> {form.deliveryTerms}</div>}
                 {form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
                 {form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
+                {form.customsAddress && <div><strong>Место таможки:</strong> {form.customsAddress}</div>}
                 {form.destination && <div><strong>Место назначения:</strong> {form.destination}</div>}
                 <div><strong>Происхождение товара:</strong> {form.origin}</div>
                 {form.manufacturer && <div><strong>Производитель:</strong> {form.manufacturer}</div>}
@@ -2254,7 +2349,7 @@ const Invoice = () => {
               <label className="block text-sm font-semibold text-gray-700 mb-2">Особые примечания</label>
 
               {isPdfMode ? (
-                <div className="w-full min-h-[90px] px-4 py-2 text-sm text-gray-900 whitespace-pre-wrap border border-gray-300 rounded-lg flex items-center text-left">
+                <div className="w-full min-h-[48px] px-4 py-3 flex items-center text-left text-sm text-gray-900 whitespace-pre-wrap border border-gray-300 rounded-lg">
                   {form.notes || ''}
                 </div>
               ) : (
@@ -2279,29 +2374,20 @@ const Invoice = () => {
                   return (
                     <>
                       {contract?.supplierDirector && (
-              <div>
-
-                          <label className="block text-base font-semibold text-gray-700 mb-1">
+                        <div className="flex items-baseline gap-2">
+                          <label className="text-base font-semibold text-gray-700 shrink-0">
                             Руководитель Поставщика:
                           </label>
-                          <div className="text-base text-gray-800">
-                            {contract.supplierDirector}
-              </div>
-
-                </div>
-
+                          <span className="text-base text-gray-800">{contract.supplierDirector}</span>
+                        </div>
                       )}
                       {contract?.goodsReleasedBy && (
-                        <div>
-                          <label className="block text-base font-semibold text-gray-700 mb-1">
+                        <div className="flex items-baseline gap-2">
+                          <label className="text-base font-semibold text-gray-700 shrink-0">
                             Товар отпустил:
                           </label>
-                          <div className="text-base text-gray-800">
-                            {contract.goodsReleasedBy}
-                  </div>
-
-                </div>
-
+                          <span className="text-base text-gray-800">{contract.goodsReleasedBy}</span>
+                        </div>
                       )}
                     </>
                   );
@@ -2434,6 +2520,32 @@ const Invoice = () => {
                   )}
                 </div>
               </div>
+
+              {/* Место таможки — shartnomadagi ro'yxatdan tanlash */}
+              {selectedContract?.customsAddress && (() => {
+                const options = (selectedContract.customsAddress || '')
+                  .split('\n')
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                if (options.length === 0) return null;
+                return (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Место таможки:
+                    </label>
+                    <select
+                      value={form.customsAddress ?? ''}
+                      onChange={(e) => setForm({ ...form, customsAddress: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    >
+                      <option value="">Shartnomadan tanlang...</option>
+                      {options.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
 
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
                 <div className="md:col-span-2">

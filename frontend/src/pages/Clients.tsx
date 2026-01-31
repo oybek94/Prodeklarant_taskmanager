@@ -380,6 +380,7 @@ const Clients = () => {
     consigneeAddress: string;
     consigneeDetails: string;
     supplierDirector: string;
+    goodsReleasedBy: string;
     specification: SpecRow[];
   }>({
     contractNumber: '',
@@ -401,10 +402,23 @@ const Clients = () => {
     consigneeAddress: '',
     consigneeDetails: '',
     supplierDirector: '',
+    goodsReleasedBy: '',
     specification: [],
   });
   const contractFormRef = useRef(contractForm);
   contractFormRef.current = contractForm;
+  const setContractFormAndRef = (update: React.SetStateAction<typeof contractForm>) => {
+    if (typeof update === 'function') {
+      setContractForm((prev) => {
+        const next = (update as (prev: typeof contractForm) => typeof contractForm)(prev);
+        contractFormRef.current = next;
+        return next;
+      });
+    } else {
+      contractFormRef.current = update;
+      setContractForm(update);
+    }
+  };
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -452,7 +466,7 @@ const Clients = () => {
   }, [showForm, showClientModal, showContractModal, showEditModal, isMobile, isNewClientRoute, editClientId, navigate]);
 
   const resetContractForm = () => {
-    setContractForm({
+    const empty = {
       contractNumber: '',
       contractDate: '',
       sellerName: '',
@@ -472,8 +486,10 @@ const Clients = () => {
       consigneeAddress: '',
       consigneeDetails: '',
       supplierDirector: '',
+      goodsReleasedBy: '',
       specification: [],
-    });
+    };
+    setContractFormAndRef(empty);
     setHasShipper(false);
     setHasConsignee(false);
     setEditingContractId(null);
@@ -601,18 +617,27 @@ const Clients = () => {
         deliveryTerms: deliveryTermsValue || undefined,
         customsAddress: customsAddressValue || undefined,
         supplierDirector: form.supplierDirector,
+        goodsReleasedBy: form.goodsReleasedBy || undefined,
       };
 
       if (hasShipper) {
         payload.shipperName = form.shipperName || undefined;
         payload.shipperAddress = form.shipperAddress || undefined;
         payload.shipperDetails = form.shipperDetails || undefined;
+      } else {
+        payload.shipperName = '';
+        payload.shipperAddress = '';
+        payload.shipperDetails = '';
       }
 
       if (hasConsignee) {
         payload.consigneeName = form.consigneeName || undefined;
         payload.consigneeAddress = form.consigneeAddress || undefined;
         payload.consigneeDetails = form.consigneeDetails || undefined;
+      } else {
+        payload.consigneeName = '';
+        payload.consigneeAddress = '';
+        payload.consigneeDetails = '';
       }
 
       payload.specification = (form.specification || []).map((row) => ({
@@ -671,7 +696,7 @@ const Clients = () => {
           try { spec = JSON.parse(c.specification); } catch { spec = []; }
         }
       }
-      setContractForm({
+      setContractFormAndRef({
         contractNumber: c.contractNumber || '',
         contractDate: c.contractDate ? String(c.contractDate).split('T')[0] : '',
         sellerName: c.sellerName || '',
@@ -691,6 +716,7 @@ const Clients = () => {
         consigneeAddress: c.consigneeAddress || '',
         consigneeDetails: c.consigneeDetails || '',
         supplierDirector: c.supplierDirector || '',
+        goodsReleasedBy: c.goodsReleasedBy || '',
         specification: spec,
       });
       setHasShipper(!!c.shipperName);
@@ -704,7 +730,7 @@ const Clients = () => {
           try { spec = JSON.parse(contract.specification); } catch { spec = []; }
         }
       }
-      setContractForm({
+      setContractFormAndRef({
         contractNumber: contract.contractNumber || '',
         contractDate: contract.contractDate ? contract.contractDate.split('T')[0] : '',
         sellerName: contract.sellerName || '',
@@ -724,6 +750,7 @@ const Clients = () => {
         consigneeAddress: contract.consigneeAddress || '',
         consigneeDetails: contract.consigneeDetails || '',
         supplierDirector: contract.supplierDirector || '',
+        goodsReleasedBy: contract.goodsReleasedBy || '',
         specification: spec,
       });
       setHasShipper(!!contract.shipperName);
@@ -1903,9 +1930,9 @@ const Clients = () => {
                   setContractModalTab('spec');
                   const spec = contractForm.specification || [];
                   if (spec.length === 0) {
-                    setContractForm((prev) => ({ ...prev, specification: getDefaultSpecFromTnved() }));
+                    setContractFormAndRef((prev) => ({ ...prev, specification: getDefaultSpecFromTnved() }));
                   } else {
-                    setContractForm((prev) => ({ ...prev, specification: ensureSpecHasTnvedProducts(prev.specification || []) }));
+                    setContractFormAndRef((prev) => ({ ...prev, specification: ensureSpecHasTnvedProducts(prev.specification || []) }));
                   }
                 }}
                 className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'spec' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -1940,7 +1967,7 @@ const Clients = () => {
                     <input
                       type="text"
                       value={contractForm.contractNumber}
-                      onChange={(e) => setContractForm({ ...contractForm, contractNumber: e.target.value })}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, contractNumber: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />
@@ -1949,7 +1976,7 @@ const Clients = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma sanasi *</label>
                     <DateInput
                       value={contractForm.contractDate}
-                      onChange={(value) => setContractForm({ ...contractForm, contractDate: value })}
+                      onChange={(value) => setContractFormAndRef({ ...contractForm, contractDate: value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />
@@ -1966,7 +1993,7 @@ const Clients = () => {
                     <input
                       type="text"
                       value={contractForm.sellerName}
-                      onChange={(e) => setContractForm({ ...contractForm, sellerName: e.target.value })}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, sellerName: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />
@@ -1976,7 +2003,7 @@ const Clients = () => {
                     <textarea
                       rows={2}
                       value={contractForm.sellerLegalAddress}
-                      onChange={(e) => setContractForm({ ...contractForm, sellerLegalAddress: e.target.value })}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, sellerLegalAddress: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />
@@ -1986,7 +2013,7 @@ const Clients = () => {
                     <textarea
                       rows={3}
                       value={contractForm.sellerDetails}
-                      onChange={(e) => setContractForm({ ...contractForm, sellerDetails: e.target.value })}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, sellerDetails: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       placeholder="INN, MFO, bank, hisob raqam va h.k."
                     />
@@ -1996,7 +2023,7 @@ const Clients = () => {
                     <input
                       type="text"
                       value={contractForm.gln}
-                      onChange={(e) => setContractForm({ ...contractForm, gln: e.target.value })}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, gln: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       placeholder="GLN kodini kiriting"
                     />
@@ -2013,7 +2040,7 @@ const Clients = () => {
                     <input
                       type="text"
                       value={contractForm.buyerName}
-                      onChange={(e) => setContractForm({ ...contractForm, buyerName: e.target.value })}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, buyerName: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />
@@ -2024,7 +2051,7 @@ const Clients = () => {
                       type="text"
                       list="destination-countries"
                       value={contractForm.destinationCountry}
-                      onChange={(e) => setContractForm({ ...contractForm, destinationCountry: e.target.value })}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, destinationCountry: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       placeholder="Davlatni tanlang..."
                       required
@@ -2040,7 +2067,7 @@ const Clients = () => {
                     <textarea
                       rows={2}
                       value={contractForm.buyerAddress}
-                      onChange={(e) => setContractForm({ ...contractForm, buyerAddress: e.target.value })}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, buyerAddress: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />
@@ -2050,7 +2077,7 @@ const Clients = () => {
                     <textarea
                       rows={3}
                       value={contractForm.buyerDetails}
-                      onChange={(e) => setContractForm({ ...contractForm, buyerDetails: e.target.value })}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, buyerDetails: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       placeholder="INN, MFO, bank, hisob raqam va h.k."
                     />
@@ -2078,7 +2105,7 @@ const Clients = () => {
                       <input
                         type="text"
                         value={contractForm.shipperName}
-                        onChange={(e) => setContractForm({ ...contractForm, shipperName: e.target.value })}
+                        onChange={(e) => setContractFormAndRef({ ...contractForm, shipperName: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       />
                     </div>
@@ -2087,7 +2114,7 @@ const Clients = () => {
                       <textarea
                         rows={2}
                         value={contractForm.shipperAddress}
-                        onChange={(e) => setContractForm({ ...contractForm, shipperAddress: e.target.value })}
+                        onChange={(e) => setContractFormAndRef({ ...contractForm, shipperAddress: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       />
                     </div>
@@ -2096,7 +2123,7 @@ const Clients = () => {
                       <textarea
                         rows={3}
                         value={contractForm.shipperDetails}
-                        onChange={(e) => setContractForm({ ...contractForm, shipperDetails: e.target.value })}
+                        onChange={(e) => setContractFormAndRef({ ...contractForm, shipperDetails: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         placeholder="INN, MFO, bank, hisob raqam va h.k."
                       />
@@ -2125,7 +2152,7 @@ const Clients = () => {
                       <input
                         type="text"
                         value={contractForm.consigneeName}
-                        onChange={(e) => setContractForm({ ...contractForm, consigneeName: e.target.value })}
+                        onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeName: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       />
                     </div>
@@ -2134,7 +2161,7 @@ const Clients = () => {
                       <textarea
                         rows={2}
                         value={contractForm.consigneeAddress}
-                        onChange={(e) => setContractForm({ ...contractForm, consigneeAddress: e.target.value })}
+                        onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeAddress: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       />
                     </div>
@@ -2143,7 +2170,7 @@ const Clients = () => {
                       <textarea
                         rows={3}
                         value={contractForm.consigneeDetails}
-                        onChange={(e) => setContractForm({ ...contractForm, consigneeDetails: e.target.value })}
+                        onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeDetails: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         placeholder="INN, MFO, bank, hisob raqam va h.k."
                       />
@@ -2155,15 +2182,27 @@ const Clients = () => {
               {/* Direktor */}
               <div>
                 <h4 className="font-semibold text-gray-700 mb-3">Direktor ma'lumotlari</h4>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Direktor F.I.O. *</label>
-                  <input
-                    type="text"
-                    value={contractForm.supplierDirector}
-                    onChange={(e) => setContractForm({ ...contractForm, supplierDirector: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    required
-                  />
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Direktor F.I.O. *</label>
+                    <input
+                      type="text"
+                      value={contractForm.supplierDirector}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, supplierDirector: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Товар отпустил:</label>
+                    <input
+                      type="text"
+                      value={contractForm.goodsReleasedBy}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, goodsReleasedBy: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="Товар отпустил"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -2183,7 +2222,7 @@ const Clients = () => {
                         onChange={(e) => {
                           const next = [...contractForm.deliveryTerms];
                           next[index] = e.target.value;
-                          setContractForm({ ...contractForm, deliveryTerms: next });
+                          setContractFormAndRef({ ...contractForm, deliveryTerms: next });
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         placeholder="Условия поставки"
@@ -2192,11 +2231,11 @@ const Clients = () => {
                         type="button"
                         onClick={() => {
                           if (contractForm.deliveryTerms.length === 1) {
-                            setContractForm({ ...contractForm, deliveryTerms: [''] });
+                            setContractFormAndRef({ ...contractForm, deliveryTerms: [''] });
                             return;
                           }
                           const next = contractForm.deliveryTerms.filter((_, i) => i !== index);
-                          setContractForm({ ...contractForm, deliveryTerms: next.length ? next : [''] });
+                          setContractFormAndRef({ ...contractForm, deliveryTerms: next.length ? next : [''] });
                         }}
                         className="px-2 py-2 text-sm text-red-600 hover:text-red-700"
                         title="O'chirish"
@@ -2207,7 +2246,7 @@ const Clients = () => {
                   ))}
                   <button
                     type="button"
-                    onClick={() => setContractForm({ ...contractForm, deliveryTerms: [...contractForm.deliveryTerms, ''] })}
+                    onClick={() => setContractFormAndRef({ ...contractForm, deliveryTerms: [...contractForm.deliveryTerms, ''] })}
                     className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                   >
                     + Qator qo'shish
@@ -2230,7 +2269,7 @@ const Clients = () => {
                         onChange={(e) => {
                           const next = [...contractForm.customsAddress];
                           next[index] = e.target.value;
-                          setContractForm({ ...contractForm, customsAddress: next });
+                          setContractFormAndRef({ ...contractForm, customsAddress: next });
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         placeholder="Адрес растаможки"
@@ -2239,11 +2278,11 @@ const Clients = () => {
                         type="button"
                         onClick={() => {
                           if (contractForm.customsAddress.length === 1) {
-                            setContractForm({ ...contractForm, customsAddress: [''] });
+                            setContractFormAndRef({ ...contractForm, customsAddress: [''] });
                             return;
                           }
                           const next = contractForm.customsAddress.filter((_, i) => i !== index);
-                          setContractForm({ ...contractForm, customsAddress: next.length ? next : [''] });
+                          setContractFormAndRef({ ...contractForm, customsAddress: next.length ? next : [''] });
                         }}
                         className="px-2 py-2 text-sm text-red-600 hover:text-red-700"
                         title="O'chirish"
@@ -2254,7 +2293,7 @@ const Clients = () => {
                   ))}
                   <button
                     type="button"
-                    onClick={() => setContractForm({ ...contractForm, customsAddress: [...contractForm.customsAddress, ''] })}
+                    onClick={() => setContractFormAndRef({ ...contractForm, customsAddress: [...contractForm.customsAddress, ''] })}
                     className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                   >
                     + Qator qo'shish
@@ -2287,12 +2326,10 @@ const Clients = () => {
                               type="text"
                               value={row.productNumber ?? ''}
                               onChange={(e) => {
-                                setContractForm((prev) => {
+                                setContractFormAndRef((prev) => {
                                   const next = [...(prev.specification || [])];
                                   next[idx] = { ...next[idx], productNumber: e.target.value };
-                                  const newState = { ...prev, specification: next };
-                                  contractFormRef.current = newState;
-                                  return newState;
+                                  return { ...prev, specification: next };
                                 });
                               }}
                               className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
@@ -2304,12 +2341,10 @@ const Clients = () => {
                               type="text"
                               value={row.specNumber ?? ''}
                               onChange={(e) => {
-                                setContractForm((prev) => {
+                                setContractFormAndRef((prev) => {
                                   const next = [...(prev.specification || [])];
                                   next[idx] = { ...next[idx], specNumber: e.target.value };
-                                  const newState = { ...prev, specification: next };
-                                  contractFormRef.current = newState;
-                                  return newState;
+                                  return { ...prev, specification: next };
                                 });
                               }}
                               className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
@@ -2321,12 +2356,10 @@ const Clients = () => {
                               type="text"
                               value={row.productName}
                               onChange={(e) => {
-                                setContractForm((prev) => {
+                                setContractFormAndRef((prev) => {
                                   const next = [...(prev.specification || [])];
                                   next[idx] = { ...next[idx], productName: e.target.value };
-                                  const newState = { ...prev, specification: next };
-                                  contractFormRef.current = newState;
-                                  return newState;
+                                  return { ...prev, specification: next };
                                 });
                               }}
                               className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
@@ -2343,12 +2376,10 @@ const Clients = () => {
                                 const raw = e.target.value;
                                 const p = raw === '' ? 0 : parseFloat(raw);
                                 const num = typeof p === 'number' && !Number.isNaN(p) ? p : 0;
-                                setContractForm((prev) => {
+                                setContractFormAndRef((prev) => {
                                   const next = [...(prev.specification || [])];
                                   next[idx] = { ...next[idx], unitPrice: num, totalPrice: (next[idx].quantity || 0) * num };
-                                  const newState = { ...prev, specification: next };
-                                  contractFormRef.current = newState;
-                                  return newState;
+                                  return { ...prev, specification: next };
                                 });
                               }}
                               className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
@@ -2359,11 +2390,10 @@ const Clients = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                setContractForm((prev) => {
-                                  const newState = { ...prev, specification: (prev.specification || []).filter((_, i) => i !== idx) };
-                                  contractFormRef.current = newState;
-                                  return newState;
-                                });
+                                setContractFormAndRef((prev) => ({
+                                  ...prev,
+                                  specification: (prev.specification || []).filter((_, i) => i !== idx),
+                                }));
                               }}
                               className="text-red-600 hover:text-red-800 text-sm"
                             >
@@ -2378,11 +2408,10 @@ const Clients = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setContractForm((prev) => {
-                      const newState = { ...prev, specification: [...(prev.specification || []), { productName: '', quantity: 0, unit: 'кг', unitPrice: 0, totalPrice: 0, specNumber: '', productNumber: '' }] };
-                      contractFormRef.current = newState;
-                      return newState;
-                    });
+                    setContractFormAndRef((prev) => ({
+                      ...prev,
+                      specification: [...(prev.specification || []), { productName: '', quantity: 0, unit: 'кг', unitPrice: 0, totalPrice: 0, specNumber: '', productNumber: '' }],
+                    }));
                   }}
                   className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                 >

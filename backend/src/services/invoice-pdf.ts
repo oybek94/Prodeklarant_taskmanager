@@ -634,7 +634,7 @@ export function generateInvoicePDF(data: InvoiceData): any {
   // Now doc.y should be updated, so we can use moveDown for subsequent text
   doc.moveDown(1);
   
-  // Особые примечания
+  // Особые примечания - matn balandligi bo'yicha, pastda bo'sh joy qolmasin
   if (data.invoice.notes) {
     // Use explicit Y coordinate if doc.y is invalid
     let notesY = doc.y;
@@ -643,9 +643,12 @@ export function generateInvoicePDF(data: InvoiceData): any {
     }
     
     doc.fontSize(8).text('Особые примечания', startX, notesY, { underline: true });
-    doc.fontSize(7).text(ensureUTF8(data.invoice.notes), startX, notesY + 10);
-    // Update doc.y for next section
-    doc.y = notesY + 25;
+    const notesText = ensureUTF8(data.invoice.notes);
+    const notesContentWidth = pageWidth - 2 * margin;
+    const notesTextHeight = doc.fontSize(7).heightOfString(notesText, { width: notesContentWidth });
+    doc.fontSize(7).text(notesText, startX, notesY + 10, { width: notesContentWidth });
+    // doc.y ni matn haqiqiy balandligi + kichik oraliq bilan yangilash
+    doc.y = notesY + 10 + notesTextHeight + 4;
   }
   
   // Imzolar

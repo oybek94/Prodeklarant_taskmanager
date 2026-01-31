@@ -95,7 +95,7 @@ const Invoices = () => {
   const [editPackagingName, setEditPackagingName] = useState('');
   const [newPackagingName, setNewPackagingName] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = 15;
   const [searchQuery, setSearchQuery] = useState('');
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [filters, setFilters] = useState<{

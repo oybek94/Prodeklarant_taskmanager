@@ -79,6 +79,12 @@ const Invoices = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [selectedContractId, setSelectedContractId] = useState<string>('');
+  const [createTaskForm, setCreateTaskForm] = useState<{
+    branchId: string;
+    hasPsr: boolean;
+    driverPhone: string;
+    comments: string;
+  }>({ branchId: '', hasPsr: false, driverPhone: '', comments: '' });
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
   const [duplicatingInvoiceId, setDuplicatingInvoiceId] = useState<number | null>(null);
@@ -247,53 +253,36 @@ const Invoices = () => {
       alert('Iltimos, shartnomani tanlang');
       return;
     }
+    if (!createTaskForm.branchId) {
+      alert('Iltimos, filialni tanlang');
+      return;
+    }
 
     try {
       setCreatingTask(true);
-      
-      // Client'ning birinchi task'idan branchId ni olish yoki default branch tanlash
-      let branchId: number | undefined = undefined;
-      
-      try {
-        // Client'ning birinchi task'ini topish
-        const tasksResponse = await apiClient.get(`/tasks?clientId=${selectedClientId}`);
-        if (Array.isArray(tasksResponse.data) && tasksResponse.data.length > 0) {
-          const firstTask = tasksResponse.data[0];
-          branchId = firstTask.branch?.id;
-        }
-      } catch (error) {
-        console.error('Error loading client tasks:', error);
-      }
-      
-      // Agar task topilmasa, default branch (Oltiariq) ni tanlash
-      if (!branchId && branches.length > 0) {
-        const oltiariqBranch = branches.find((b) => b.name === 'Oltiariq');
-        branchId = oltiariqBranch?.id || branches[0]?.id;
-      }
-      
-      if (!branchId) {
-        alert('Filial topilmadi. Iltimos, avval filial qo\'shing.');
-        setCreatingTask(false);
-        return;
-      }
 
       // Tanlangan shartnoma ma'lumotlarini olish
       const contractResponse = await apiClient.get(`/contracts/${selectedContractId}`);
       const contract = contractResponse.data;
-      
+
       // Task yaratish
       const taskTitle = `Invoice - ${contract.contractNumber}`;
+      const taskComments =
+        createTaskForm.comments.trim() ||
+        `Invoice yaratish uchun. Shartnoma: ${contract.contractNumber}`;
       const taskResponse = await apiClient.post('/tasks', {
         clientId: Number(selectedClientId),
-        branchId: branchId,
+        branchId: Number(createTaskForm.branchId),
         title: taskTitle,
-        comments: `Invoice yaratish uchun avtomatik yaratilgan task. Shartnoma: ${contract.contractNumber}`,
-        hasPsr: false,
+        comments: taskComments,
+        hasPsr: createTaskForm.hasPsr,
+        driverPhone: createTaskForm.driverPhone.trim() || undefined,
       });
       
       const createdTask = taskResponse.data;
-      
+
       setShowCreateModal(false);
+      setCreateTaskForm({ branchId: '', hasPsr: false, driverPhone: '', comments: '' });
       // Invoice yaratish sahifasiga o'tish - taskId va contractId bilan
       navigate(`/invoices/task/${createdTask.id}?contractId=${selectedContractId}`);
     } catch (error: any) {
@@ -594,10 +583,11 @@ const Invoices = () => {
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowCreateModal(false);
+              setCreateTaskForm({ branchId: '', hasPsr: false, driverPhone: '', comments: '' });
             }
           }}
         >
-          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Yangi Invoice yaratish</h2>
               <button
@@ -639,7 +629,7 @@ const Invoices = () => {
                     <div className="text-sm text-gray-500 py-2">Yuklanmoqda...</div>
                   ) : contracts.length === 0 ? (
                     <div className="text-sm text-red-500 py-2">
-                      Bu mijoz uchun shartnomalar topilmadi. Iltimos, mijoz profiliga kirib shartnoma qo'shing.
+                      Bu mijoz uchun shartnomalar topilmadi. Iltimos, mijoz profiliga kirib shartnoma qo&apos;shing.
                     </div>
                   ) : (
                     <select
@@ -658,11 +648,117 @@ const Invoices = () => {
                   )}
                 </div>
               )}
-              
+
+              {/* Filial */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
+                  Filial *
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {branches.length > 0 ? (
+                    branches.map((branch) => (
+                      <button
+                        key={branch.id}
+                        type="button"
+                        onClick={() =>
+                          setCreateTaskForm((f) => ({ ...f, branchId: branch.id.toString() }))
+                        }
+                        className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
+                          createTaskForm.branchId === branch.id.toString()
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                        }`}
+                      >
+                        {branch.name}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500 py-2">Filiallar yuklanmoqda...</div>
+                  )}
+                </div>
+              </div>
+
+              {/* PSR */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
+                  PSR *
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCreateTaskForm((f) => ({ ...f, hasPsr: true }))
+                    }
+                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
+                      createTaskForm.hasPsr === true
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                    }`}
+                  >
+                    Bor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCreateTaskForm((f) => ({ ...f, hasPsr: false }))
+                    }
+                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
+                      createTaskForm.hasPsr === false
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                    }`}
+                  >
+                    Yo&apos;q
+                  </button>
+                </div>
+              </div>
+
+              {/* Sho'pir tel raqami */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
+                  Sho&apos;pir tel raqami
+                </label>
+                <input
+                  type="tel"
+                  value={createTaskForm.driverPhone}
+                  onChange={(e) =>
+                    setCreateTaskForm((f) => ({ ...f, driverPhone: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
+                  placeholder="+998901234567"
+                />
+              </div>
+
+              {/* Comments */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
+                  Comments
+                </label>
+                <textarea
+                  value={createTaskForm.comments}
+                  onChange={(e) =>
+                    setCreateTaskForm((f) => ({ ...f, comments: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm resize-none"
+                  rows={3}
+                  placeholder="Izohlar..."
+                />
+              </div>
+
               <div className="flex gap-2">
                 <button
                   onClick={handleCreateInvoice}
-                  disabled={!selectedClientId || !selectedContractId || loadingContracts || creatingTask}
+                  disabled={
+                    !selectedClientId ||
+                    !selectedContractId ||
+                    !createTaskForm.branchId ||
+                    loadingContracts ||
+                    creatingTask
+                  }
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {creatingTask ? 'Yaratilmoqda...' : 'Yaratish'}
@@ -673,6 +769,7 @@ const Invoices = () => {
                     setSelectedClientId('');
                     setSelectedContractId('');
                     setContracts([]);
+                    setCreateTaskForm({ branchId: '', hasPsr: false, driverPhone: '', comments: '' });
                   }}
                   className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
                 >

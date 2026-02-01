@@ -245,6 +245,8 @@ const Invoice = () => {
   const [loading, setLoading] = useState(true);
 
   const [saving, setSaving] = useState(false);
+  const [markingReady, setMarkingReady] = useState(false);
+  const [invoysStageReady, setInvoysStageReady] = useState(false);
 
   const [task, setTask] = useState<Task | null>(null);
 
@@ -473,6 +475,16 @@ const Invoice = () => {
     loadData();
 
   }, [taskId, clientId, contractIdFromQuery]);
+
+  useEffect(() => {
+    const stages = (task as { stages?: Array<{ name: string; status: string }> })?.stages;
+    if (stages && Array.isArray(stages)) {
+      const invoys = stages.find((s) => s.name === 'Invoys');
+      setInvoysStageReady(!!invoys && invoys.status === 'TAYYOR');
+    } else {
+      setInvoysStageReady(false);
+    }
+  }, [task]);
 
   useEffect(() => {
     setTnvedProducts(getTnvedProducts());
@@ -1134,6 +1146,36 @@ const Invoice = () => {
 
 
 
+  const handleMarkInvoysReady = async () => {
+    const tid = taskId || invoice?.taskId;
+    if (!tid) {
+      alert('Task topilmadi');
+      return;
+    }
+    try {
+      setMarkingReady(true);
+      const stagesRes = await apiClient.get(`/tasks/${tid}/stages`);
+      const stages = stagesRes.data as Array<{ id: number; name: string; status: string }>;
+      const invoysStage = stages.find((s) => s.name === 'Invoys');
+      if (!invoysStage) {
+        alert('Invoys jarayoni topilmadi');
+        return;
+      }
+      if (invoysStage.status === 'TAYYOR') {
+        alert('Invoys jarayoni allaqachon tayyor');
+        return;
+      }
+      await apiClient.patch(`/tasks/${tid}/stages/${invoysStage.id}`, { status: 'TAYYOR' });
+      setInvoysStageReady(true);
+      alert('Invoys jarayoni tayyor qilindi');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      alert(e.response?.data?.error || 'Invoys jarayonini tayyor qilishda xatolik');
+    } finally {
+      setMarkingReady(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
 
     e.preventDefault();
@@ -1278,9 +1320,6 @@ const Invoice = () => {
       }
 
       alert(invoice ? 'Invoice muvaffaqiyatli yangilandi' : 'Invoice muvaffaqiyatli yaratildi');
-
-      await waitForPaint();
-      await generatePdf();
 
     } catch (error: any) {
 
@@ -1510,6 +1549,17 @@ const Invoice = () => {
           <h1 className="text-2xl font-bold text-gray-800">Invoice</h1>
 
           <div className="flex gap-2">
+            {!invoysStageReady && (
+              <button
+                type="button"
+                onClick={handleMarkInvoysReady}
+                disabled={markingReady || !taskId}
+                className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:bg-amber-300 disabled:opacity-50"
+                title="Invoys jarayonini tayyor qilish"
+              >
+                {markingReady ? 'Jarayon...' : 'Tayyor'}
+              </button>
+            )}
             <button
               type="button"
               onClick={generatePdf}
@@ -1519,17 +1569,11 @@ const Invoice = () => {
               PDF yuklab olish
             </button>
             <button
-
               onClick={() => navigate(-1)}
-
               className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-
             >
-
               Orqaga
-
             </button>
-
           </div>
 
         </div>
@@ -2455,17 +2499,24 @@ const Invoice = () => {
                   {additionalInfoError}
                 </div>
               )}
-                    <button
-
-                      type="button"
-
+              {!invoysStageReady && (
+                <button
+                  type="button"
+                  onClick={handleMarkInvoysReady}
+                  disabled={markingReady || !taskId}
+                  className="px-6 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:bg-amber-300 disabled:opacity-50"
+                  title="Invoys jarayonini tayyor qilish"
+                >
+                  {markingReady ? 'Jarayon...' : 'Tayyor'}
+                </button>
+              )}
+              <button
+                type="button"
                 onClick={() => navigate(-1)}
                 className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                    >
-
+              >
                 Bekor qilish
-                    </button>
-
+              </button>
               <button
                 type="submit"
                 disabled={saving}
@@ -2473,7 +2524,7 @@ const Invoice = () => {
               >
                 {saving ? 'Saqlanmoqda...' : 'Saqlash'}
               </button>
-                  </div>
+            </div>
 
           </div>
         </form>

@@ -11,6 +11,7 @@ import { ValidationService } from '../services/validation.service';
 import { getExchangeRate } from '../services/exchange-rate';
 import { calculateAmountUzs } from '../services/monetary-validation';
 import fs from 'fs/promises';
+import { ensureCmrForInvoice } from '../services/cmr-service';
 
 const router = Router();
 
@@ -1435,6 +1436,24 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     generateQrTokenIfNeeded(taskId).catch((error) => {
       // Error already logged in generateQrTokenIfNeeded
     });
+  }
+
+  const shouldGenerateCmr =
+    stage.name === 'Invoys' &&
+    parsed.data.status === 'TAYYOR' &&
+    stage.status !== 'TAYYOR';
+
+  if (shouldGenerateCmr && req.user) {
+    const invoice = await prisma.invoice.findUnique({
+      where: { taskId },
+      select: { id: true },
+    });
+    if (invoice) {
+      await ensureCmrForInvoice({
+        invoiceId: invoice.id,
+        uploadedById: req.user.id,
+      });
+    }
   }
 
     res.json(updated.updated);

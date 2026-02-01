@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { generateInvoicePDF } from '../services/invoice-pdf';
 import { Prisma } from '@prisma/client';
 import { getNextInvoiceNumber } from '../utils/invoice-number';
+import { ensureCmrForInvoice } from '../services/cmr-service';
 
 const router = Router();
 
@@ -530,10 +531,21 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       }
     });
 
+    if (!updatedInvoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    if (updatedInvoice.taskId && req.user) {
+      await ensureCmrForInvoice({
+        invoiceId: updatedInvoice.id,
+        uploadedById: req.user.id,
+      });
+    }
+
     res.json({
       ...updatedInvoice,
-      totalAmount: Number(updatedInvoice!.totalAmount),
-      items: updatedInvoice!.items.map(item => ({
+      totalAmount: Number(updatedInvoice.totalAmount),
+      items: updatedInvoice.items.map(item => ({
         ...item,
         quantity: Number(item.quantity),
         grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
@@ -756,6 +768,38 @@ router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     res.json({ message: 'Invoice va task muvaffaqiyatli o\'chirildi' });
   } catch (error: any) {
     console.error('Error deleting invoice:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/:id/cmr - CMR Excel yuklab olish
+router.get('/:id/cmr', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { fileName, outputPath } = await ensureCmrForInvoice({
+      invoiceId: id,
+      uploadedById: req.user.id,
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.sendFile(outputPath);
+  } catch (error: any) {
+    console.error('Error generating CMR Excel:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });

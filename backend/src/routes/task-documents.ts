@@ -35,7 +35,7 @@ const upload = multer({
 const uploadDocumentSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
-  documentType: z.enum(['INVOICE', 'ST', 'FITO', 'OTHER']).optional(),
+  documentType: z.enum(['INVOICE', 'ST', 'FITO', 'CMR', 'OTHER']).optional(),
 });
 
 /**

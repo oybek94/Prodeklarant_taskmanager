@@ -1,0 +1,17 @@
+{
+  "graph1Sender": "C3",
+  "graph2Receiver": "B11",
+  "graph3UnloadPlace": "B20",
+  "graph4LoadPlaceDate": "B23",
+  "graph5Documents": "B29",
+  "graph7PackagesCount": "B34",
+  "graph8PackageType": "B34",
+  "graph9GoodsDescription": "B34",
+  "graph10HsCode": "AM34",
+  "graph11GrossWeight": "AT34",
+  "graph13CustomsInstructions": "B47",
+  "graph13TirNumber": "B47",
+  "graph16Carrier": "AF11",
+  "graph25VehicleNumber": "B81",
+  "graph25TrailerNumber": "B81"
+}

@@ -447,6 +447,7 @@ const Invoice = () => {
     loaderWeight: '', // Yuk tortuvchi og'irligi
     trailerWeight: '', // Pritsep og'irligi
     palletWeight: '', // Poddon og'irligi
+    trailerNumber: '', // Pritsep raqami
     shipmentPlace: '', // Место отгрузки груза
     destination: '', // Место назначения
     origin: 'Республика Узбекистан', // Происхождение товара
@@ -455,6 +456,9 @@ const Invoice = () => {
     gln: '', // Глобальный идентификационный номер GS1 (GLN)
     harvestYear: '', // Урожай года
     customsAddress: '', // Место там. очистки (shartnomadan tanlash)
+    documents: '', // Прилагаемые документы
+    carrier: '', // Перевозчик
+    tirNumber: '', // TIR №
   });
 
   const [showAdditionalInfoModal, setShowAdditionalInfoModal] = useState(false);
@@ -726,6 +730,7 @@ const Invoice = () => {
               loaderWeight: inv.additionalInfo?.loaderWeight ?? prev.loaderWeight,
               trailerWeight: inv.additionalInfo?.trailerWeight ?? prev.trailerWeight,
               palletWeight: inv.additionalInfo?.palletWeight ?? prev.palletWeight,
+              trailerNumber: inv.additionalInfo?.trailerNumber ?? prev.trailerNumber,
               shipmentPlace: inv.additionalInfo?.shipmentPlace ?? prev.shipmentPlace,
               customsAddress: inv.additionalInfo?.customsAddress ?? prev.customsAddress,
               destination: inv.additionalInfo?.destination ?? prev.destination,
@@ -733,6 +738,9 @@ const Invoice = () => {
               orderNumber: inv.additionalInfo?.orderNumber ?? prev.orderNumber,
               gln: inv.additionalInfo?.gln ?? prev.gln,
               harvestYear: inv.additionalInfo?.harvestYear ?? prev.harvestYear,
+              documents: inv.additionalInfo?.documents ?? prev.documents,
+              carrier: inv.additionalInfo?.carrier ?? prev.carrier,
+              tirNumber: inv.additionalInfo?.tirNumber ?? prev.tirNumber,
             }));
             setItems((inv.items || []).map(normalizeItem));
             setCustomFields(inv.additionalInfo?.customFields || []);
@@ -1025,7 +1033,29 @@ const Invoice = () => {
     setIsPdfMode(false);
   };
 
-
+  const generateSmrExcel = async () => {
+    if (!invoice?.id) {
+      alert('Invoice topilmadi');
+      return;
+    }
+    try {
+      const response = await apiClient.get(`/invoices/${invoice.id}/cmr`, {
+        responseType: 'blob',
+      });
+      const fileName = `CMR_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading CMR:', error);
+      alert('CMR yuklab olishda xatolik yuz berdi');
+    }
+  };
 
   const addItem = () => {
 
@@ -1273,6 +1303,7 @@ const Invoice = () => {
           loaderWeight: form.loaderWeight,
           trailerWeight: form.trailerWeight,
           palletWeight: form.palletWeight,
+          trailerNumber: form.trailerNumber,
           shipmentPlace: form.shipmentPlace,
           customsAddress: form.customsAddress ?? undefined,
           destination: form.destination,
@@ -1281,6 +1312,9 @@ const Invoice = () => {
           orderNumber: form.orderNumber,
           gln: form.gln,
           harvestYear: form.harvestYear,
+          documents: form.documents,
+          carrier: form.carrier,
+          tirNumber: form.tirNumber,
           customFields: customFields,
         },
 
@@ -1558,6 +1592,16 @@ const Invoice = () => {
                 title="Invoys jarayonini tayyor qilish"
               >
                 {markingReady ? 'Jarayon...' : 'Tayyor'}
+              </button>
+            )}
+            {invoysStageReady && (
+              <button
+                type="button"
+                onClick={generateSmrExcel}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                title="CMR blankasini Excel formatida yuklab olish"
+              >
+                CMR yuklab olish
               </button>
             )}
             <button
@@ -1969,7 +2013,6 @@ const Invoice = () => {
                 {form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
                 {form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
                 {form.customsAddress && <div><strong>Место там. очистки:</strong> {form.customsAddress}</div>}
-                {form.destination && <div><strong>Место назначения:</strong> {form.destination}</div>}
                 <div><strong>Происхождение товара:</strong> {form.origin}</div>
                 {form.manufacturer && <div><strong>Производитель:</strong> {form.manufacturer}</div>}
                 {form.orderNumber && <div><strong>Номер заказа:</strong> {form.orderNumber}</div>}
@@ -2753,6 +2796,20 @@ const Invoice = () => {
                     }}
                     className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right"
                     placeholder="кг"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    TIR №:
+                  </label>
+                  <input
+                    type="text"
+                    value={form.tirNumber}
+                    onChange={(e) => setForm({ ...form, tirNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                 </div>
               </div>

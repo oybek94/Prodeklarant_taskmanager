@@ -930,6 +930,7 @@ enum DocumentType {
   INVOICE
   ST
   FITO
+  CMR
   OTHER
 }
 

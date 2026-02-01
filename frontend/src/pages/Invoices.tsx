@@ -1160,8 +1160,15 @@ const Invoices = () => {
             <tbody className="divide-y divide-gray-100">
               {paginatedInvoices.map((invoice) => (
                 <tr key={invoice.id} className="hover:bg-blue-50/50 transition-colors">
-                  <td className="px-6 py-2 whitespace-nowrap text-sm font-semibold text-blue-700">
-                    #{invoice.invoiceNumber}
+                  <td className="px-6 py-2 whitespace-nowrap text-sm font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
+                      className="text-blue-700 hover:text-blue-900 hover:underline cursor-pointer text-left"
+                      title="Invoysni tahrirlash"
+                    >
+                      #{invoice.invoiceNumber}
+                    </button>
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-800">
                     {invoice.client?.name || '-'}

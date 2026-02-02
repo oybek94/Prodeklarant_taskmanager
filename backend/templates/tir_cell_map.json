@@ -1,0 +1,12 @@
+{
+  "invoiceCell": "H10",
+  "smrCell": "H11",
+  "vehicleCell": "E11",
+  "tableStartRow": 17,
+  "tableEndRow": 29,
+  "placesPackCol": "B",
+  "nameTnvedCol": "D",
+  "grossCol": "I",
+  "totalGrossCell": "I30",
+  "totalPlacesCell": "D38"
+}

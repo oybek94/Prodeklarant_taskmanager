@@ -6,6 +6,8 @@ import { generateInvoicePDF } from '../services/invoice-pdf';
 import { Prisma } from '@prisma/client';
 import { getNextInvoiceNumber } from '../utils/invoice-number';
 import { ensureCmrForInvoice } from '../services/cmr-service';
+import { ensureTirForInvoice } from '../services/tir-service';
+import fs from 'fs/promises';
 
 const router = Router();
 
@@ -540,6 +542,10 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         invoiceId: updatedInvoice.id,
         uploadedById: req.user.id,
       });
+      await ensureTirForInvoice({
+        invoiceId: updatedInvoice.id,
+        uploadedById: req.user.id,
+      });
     }
 
     res.json({
@@ -797,9 +803,46 @@ router.get('/:id/cmr', requireAuth(), async (req: AuthRequest, res: Response) =>
       'Content-Disposition',
       `attachment; filename="${fileName}"`
     );
-    res.sendFile(outputPath);
+    const buffer = await fs.readFile(outputPath);
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
   } catch (error: any) {
     console.error('Error generating CMR Excel:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/:id/tir - TIR Excel yuklab olish
+router.get('/:id/tir', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { fileName, outputPath } = await ensureTirForInvoice({
+      invoiceId: id,
+      uploadedById: req.user.id,
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.setHeader('Cache-Control', 'no-store');
+    const buffer = await fs.readFile(outputPath);
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+  } catch (error: any) {
+    console.error('Error generating TIR Excel:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });

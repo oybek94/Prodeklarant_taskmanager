@@ -12,6 +12,7 @@ import { getExchangeRate } from '../services/exchange-rate';
 import { calculateAmountUzs } from '../services/monetary-validation';
 import fs from 'fs/promises';
 import { ensureCmrForInvoice } from '../services/cmr-service';
+import { ensureTirForInvoice } from '../services/tir-service';
 
 const router = Router();
 
@@ -1450,6 +1451,10 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     });
     if (invoice) {
       await ensureCmrForInvoice({
+        invoiceId: invoice.id,
+        uploadedById: req.user.id,
+      });
+      await ensureTirForInvoice({
         invoiceId: invoice.id,
         uploadedById: req.user.id,
       });

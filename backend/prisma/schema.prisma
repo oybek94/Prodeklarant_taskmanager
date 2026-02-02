@@ -931,6 +931,7 @@ enum DocumentType {
   ST
   FITO
   CMR
+  TIR
   OTHER
 }
 

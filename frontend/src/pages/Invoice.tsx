@@ -448,6 +448,7 @@ const Invoice = () => {
     trailerWeight: '', // Pritsep og'irligi
     palletWeight: '', // Poddon og'irligi
     trailerNumber: '', // Pritsep raqami
+    smrNumber: '', // SMR №
     shipmentPlace: '', // Место отгрузки груза
     destination: '', // Место назначения
     origin: 'Республика Узбекистан', // Происхождение товара
@@ -731,6 +732,7 @@ const Invoice = () => {
               trailerWeight: inv.additionalInfo?.trailerWeight ?? prev.trailerWeight,
               palletWeight: inv.additionalInfo?.palletWeight ?? prev.palletWeight,
               trailerNumber: inv.additionalInfo?.trailerNumber ?? prev.trailerNumber,
+              smrNumber: inv.additionalInfo?.smrNumber ?? prev.smrNumber,
               shipmentPlace: inv.additionalInfo?.shipmentPlace ?? prev.shipmentPlace,
               customsAddress: inv.additionalInfo?.customsAddress ?? prev.customsAddress,
               destination: inv.additionalInfo?.destination ?? prev.destination,
@@ -1057,6 +1059,30 @@ const Invoice = () => {
     }
   };
 
+  const generateTirExcel = async () => {
+    if (!invoice?.id) {
+      alert('Invoice topilmadi');
+      return;
+    }
+    try {
+      const response = await apiClient.get(`/invoices/${invoice.id}/tir`, {
+        responseType: 'blob',
+      });
+      const fileName = `TIR_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading TIR:', error);
+      alert('TIR yuklab olishda xatolik yuz berdi');
+    }
+  };
+
   const addItem = () => {
 
     setItems([...items, {
@@ -1304,6 +1330,7 @@ const Invoice = () => {
           trailerWeight: form.trailerWeight,
           palletWeight: form.palletWeight,
           trailerNumber: form.trailerNumber,
+          smrNumber: form.smrNumber,
           shipmentPlace: form.shipmentPlace,
           customsAddress: form.customsAddress ?? undefined,
           destination: form.destination,
@@ -1599,9 +1626,19 @@ const Invoice = () => {
                 type="button"
                 onClick={generateSmrExcel}
                 className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                title="CMR blankasini Excel formatida yuklab olish"
+                title="SMR blankasini Excel formatida yuklab olish"
               >
-                CMR yuklab olish
+                SMR
+              </button>
+            )}
+            {invoysStageReady && (
+              <button
+                type="button"
+                onClick={generateTirExcel}
+                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+                title="TIR blankasini Excel formatida yuklab olish"
+              >
+                TIR
               </button>
             )}
             <button
@@ -1610,7 +1647,7 @@ const Invoice = () => {
               disabled={saving}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300"
             >
-              PDF yuklab olish
+              Invoys PDF
             </button>
             <button
               onClick={() => navigate(-1)}
@@ -2809,6 +2846,17 @@ const Invoice = () => {
                     type="text"
                     value={form.tirNumber}
                     onChange={(e) => setForm({ ...form, tirNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    SMR №:
+                  </label>
+                  <input
+                    type="text"
+                    value={form.smrNumber}
+                    onChange={(e) => setForm({ ...form, smrNumber: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                 </div>

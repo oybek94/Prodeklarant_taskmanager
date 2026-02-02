@@ -2,10 +2,11 @@
   "invoiceCell": "H10",
   "smrCell": "H11",
   "vehicleCell": "E11",
+  "regionCell": "B3",
   "tableStartRow": 17,
   "tableEndRow": 29,
   "placesPackCol": "B",
-  "nameTnvedCol": "D",
+  "nameTnvedCol": "E",
   "grossCol": "I",
   "totalGrossCell": "I30",
   "totalPlacesCell": "D38"

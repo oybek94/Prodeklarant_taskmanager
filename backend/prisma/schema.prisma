@@ -725,6 +725,7 @@ model InvoiceItem {
   packageType String?
   unit        String
   quantity    Decimal  @db.Decimal(12, 2)
+  packagesCount Decimal? @db.Decimal(12, 2)
   grossWeight Decimal? @db.Decimal(12, 2)
   netWeight   Decimal? @db.Decimal(12, 2)
   unitPrice   Decimal  @db.Decimal(12, 2)

@@ -27,11 +27,13 @@ interface InvoiceItem {
 
   quantity: number;
 
+  packagesCount?: number;
+
   grossWeight?: number;
 
   netWeight?: number;
 
-  /** Netto formulasi, masalan "*1.2" — Brutto/Мест o'zgarganda shu bo'yicha qayta hisoblanadi */
+  /** Netto formulasi, masalan "*1.2" — Brutto/Кол-во упаковки o'zgarganda shu bo'yicha qayta hisoblanadi */
   netWeightFormula?: string;
 
   unitPrice: number;
@@ -271,6 +273,8 @@ const Invoice = () => {
 
       quantity: 0,
 
+      packagesCount: undefined,
+
       unitPrice: 0,
 
       totalPrice: 0,
@@ -284,6 +288,7 @@ const Invoice = () => {
     plu: true,
     name: true,
     package: true,
+    packagesCount: true,
     unit: true,
     quantity: true,
     gross: true,
@@ -304,6 +309,18 @@ const Invoice = () => {
     }
   };
   const [visibleColumns, setVisibleColumns] = useState(() => loadVisibleColumns('default'));
+  const [columnsDropdownOpen, setColumnsDropdownOpen] = useState(false);
+  const columnsDropdownRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (!columnsDropdownOpen) return;
+    const closeOnClickOutside = (e: MouseEvent) => {
+      if (columnsDropdownRef.current && !columnsDropdownRef.current.contains(e.target as Node)) {
+        setColumnsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', closeOnClickOutside);
+    return () => document.removeEventListener('mousedown', closeOnClickOutside);
+  }, [columnsDropdownOpen]);
   useEffect(() => {
     const key = String(selectedContractId || 'default');
     localStorage.setItem(getVisibleColumnsKey(key), JSON.stringify(visibleColumns));
@@ -378,6 +395,7 @@ const Invoice = () => {
     plu: 'Код PLU',
     name: 'Наименование товара',
     package: 'Вид упаковки',
+    packagesCount: 'Кол-во упаковки',
     unit: 'Ед. изм.',
     quantity: 'Мест',
     gross: 'Брутто (кг)',
@@ -531,6 +549,7 @@ const Invoice = () => {
     tnvedCode: item.tnvedCode ?? undefined,
     pluCode: item.pluCode ?? undefined,
     packageType: item.packageType ?? undefined,
+    packagesCount: item.packagesCount ?? undefined,
     grossWeight: item.grossWeight ?? undefined,
     netWeight: item.netWeight ?? undefined,
   });
@@ -831,16 +850,16 @@ const Invoice = () => {
       newItems[index].netWeightFormula = undefined;
     }
 
-    // Brutto yoki Мест o'zgarganda: agar netto formulasi bor bo'lsa, formula bo'yicha yangilash; yo'q bo'lsa nettoni tozalash
-    if (field === 'grossWeight' || field === 'quantity') {
+    // Brutto yoki Кол-во упаковки o'zgarganda: agar netto formulasi bor bo'lsa, formula bo'yicha yangilash; yo'q bo'lsa nettoni tozalash
+    if (field === 'grossWeight' || field === 'packagesCount') {
       setEditingNetWeight((prev) => (prev?.index === index ? null : prev));
       const formula = newItems[index].netWeightFormula?.trim();
       if (formula?.startsWith('*')) {
         const mult = parseFloat(formula.slice(1).trim().replace(',', '.'));
         if (!Number.isNaN(mult)) {
           const gross = field === 'grossWeight' ? (value ?? 0) : (newItems[index].grossWeight ?? 0);
-          const qty = field === 'quantity' ? (value ?? 0) : (newItems[index].quantity ?? 0);
-          newItems[index].netWeight = Math.round(gross - mult * qty);
+          const pkgCount = field === 'packagesCount' ? (value ?? 0) : (newItems[index].packagesCount ?? 0);
+          newItems[index].netWeight = Math.round(gross - mult * pkgCount);
         } else {
           newItems[index].netWeight = undefined;
         }
@@ -850,7 +869,7 @@ const Invoice = () => {
     }
 
     // Total price ni hisoblash: Нетто * Цена за ед.изм.
-    if (field === 'netWeight' || field === 'unitPrice' || field === 'grossWeight' || field === 'quantity') {
+    if (field === 'netWeight' || field === 'unitPrice' || field === 'grossWeight' || field === 'packagesCount') {
       const netWeight = newItems[index].netWeight ?? 0;
       const unitPrice = newItems[index].unitPrice ?? 0;
       newItems[index].totalPrice = netWeight * unitPrice;
@@ -913,8 +932,8 @@ const Invoice = () => {
       setEditingGrossWeight(null);
       return;
     }
-    const quantity = items[index]?.quantity ?? 0;
-    const result = Math.round(quantity * multiplier);
+    const pkgCount = items[index]?.packagesCount ?? 0;
+    const result = Math.round(pkgCount * multiplier);
     handleItemChange(index, 'grossWeight', result);
     setEditingGrossWeight(null);
   };
@@ -953,8 +972,8 @@ const Invoice = () => {
       return;
     }
     const grossWeight = items[index]?.grossWeight ?? 0;
-    const quantity = items[index]?.quantity ?? 0;
-    const result = Math.round(grossWeight - multiplier * quantity);
+    const pkgCount = items[index]?.packagesCount ?? 0;
+    const result = Math.round(grossWeight - multiplier * pkgCount);
     setItems((prev) => {
       const next = [...prev];
       next[index] = {
@@ -1092,6 +1111,8 @@ const Invoice = () => {
       unit: 'кг',
 
       quantity: 0,
+
+      packagesCount: undefined,
 
       unitPrice: 0,
 
@@ -1253,12 +1274,17 @@ const Invoice = () => {
 
     
 
-    if (items.length === 0 || items.some(item => !item.name || item.quantity <= 0 || item.unitPrice <= 0)) {
-
-      alert('Iltimos, barcha tovarlarni to\'liq to\'ldiring');
-
+    const hasValidItems =
+      items.length > 0 &&
+      items.every(
+        (item) =>
+          item.name?.trim() &&
+          (Number(item.quantity) > 0 || Number(item.packagesCount ?? 0) > 0) &&
+          Number(item.unitPrice) > 0
+      );
+    if (!hasValidItems) {
+      alert('Iltimos, barcha tovarlarni to\'liq to\'ldiring (Наименование, Мест yoki Кол-во упаковки, Цена за ед.изм.)');
       return;
-
     }
 
 
@@ -1273,9 +1299,13 @@ const Invoice = () => {
 
       const normalizedItems = items.map((item, index) => {
         const normalized = normalizeItem(item);
+        const qty = Number(normalized.quantity) || 0;
+        const pkgCount = normalized.packagesCount != null ? Number(normalized.packagesCount) : undefined;
+        const quantityForBackend = qty > 0 ? qty : (pkgCount ?? 0);
         return {
           ...normalized,
-          quantity: Number(normalized.quantity) || 0,
+          quantity: quantityForBackend,
+          packagesCount: pkgCount,
           unitPrice: Number(normalized.unitPrice) || 0,
           totalPrice: Number(normalized.totalPrice) || 0,
           orderIndex: index,
@@ -2075,13 +2105,23 @@ const Invoice = () => {
                 <h3 className="font-semibold text-gray-800">Товары</h3>
 
                 <div className="flex items-center gap-2">
-                  <details className="relative">
-                    <summary className="list-none cursor-pointer px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+                  <details
+                    ref={columnsDropdownRef}
+                    open={columnsDropdownOpen}
+                    className="relative"
+                  >
+                    <summary
+                      className="list-none cursor-pointer px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setColumnsDropdownOpen((prev) => !prev);
+                      }}
+                    >
                       Ustunlar
                     </summary>
                     <div className="absolute right-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-20">
                       <div className="grid grid-cols-1 gap-2 text-sm text-gray-700">
-                        {(['index', 'tnved', 'plu', 'name', 'package', 'unit', 'quantity', 'gross', 'net', 'unitPrice', 'total', 'actions'] as ColumnLabelKey[]).map((key) => (
+                        {(['index', 'tnved', 'plu', 'name', 'unit', 'package', 'quantity', 'packagesCount', 'gross', 'net', 'unitPrice', 'total', 'actions'] as ColumnLabelKey[]).map((key) => (
                           <div key={key} className="flex items-center gap-2">
                             <input
                               type="checkbox"
@@ -2137,14 +2177,17 @@ const Invoice = () => {
                         {effectiveColumns.name && (
                           <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.name}</th>
                         )}
-                        {effectiveColumns.package && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.package}</th>
-                        )}
                         {effectiveColumns.unit && (
                           <th className="px-2 py-3 text-center text-xs font-semibold">{columnLabels.unit}</th>
                         )}
+                        {effectiveColumns.package && (
+                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.package}</th>
+                        )}
                         {effectiveColumns.quantity && (
                           <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.quantity}</th>
+                        )}
+                        {effectiveColumns.packagesCount && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.packagesCount}</th>
                         )}
                         {effectiveColumns.gross && (
                           <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.gross}</th>
@@ -2175,14 +2218,17 @@ const Invoice = () => {
                           {effectiveColumns.name && (
                             <td className="px-2 py-3">{item.name || ''}</td>
                           )}
-                          {effectiveColumns.package && (
-                            <td className="px-2 py-3">{item.packageType || ''}</td>
-                          )}
                           {effectiveColumns.unit && (
                             <td className="px-2 py-3 text-center">{item.unit || ''}</td>
                           )}
+                          {effectiveColumns.package && (
+                            <td className="px-2 py-3">{item.packageType || ''}</td>
+                          )}
                           {effectiveColumns.quantity && (
                             <td className="px-2 py-3 text-right">{formatNumber(item.quantity)}</td>
+                          )}
+                          {effectiveColumns.packagesCount && (
+                            <td className="px-2 py-3 text-right">{formatNumber(item.packagesCount ?? 0)}</td>
                           )}
                           {effectiveColumns.gross && (
                             <td className="px-2 py-3 text-right">{formatNumber(item.grossWeight || 0)}</td>
@@ -2209,6 +2255,11 @@ const Invoice = () => {
                         {effectiveColumns.quantity && (
                           <td className="px-2 py-3 text-right">
                             {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
+                          </td>
+                        )}
+                        {effectiveColumns.packagesCount && (
+                          <td className="px-2 py-3 text-right">
+                            {formatNumber(items.reduce((sum, item) => sum + (item.packagesCount ?? 0), 0))}
                           </td>
                         )}
                         {effectiveColumns.gross && (
@@ -2251,14 +2302,17 @@ const Invoice = () => {
                         {effectiveColumns.name && (
                           <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.name}</th>
                         )}
-                        {effectiveColumns.package && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.package}</th>
-                        )}
                         {effectiveColumns.unit && (
                           <th className="px-2 py-3 text-center text-xs font-semibold">{columnLabels.unit}</th>
                         )}
+                        {effectiveColumns.package && (
+                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.package}</th>
+                        )}
                         {effectiveColumns.quantity && (
                           <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.quantity}</th>
+                        )}
+                        {effectiveColumns.packagesCount && (
+                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.packagesCount}</th>
                         )}
                         {effectiveColumns.gross && (
                           <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.gross}</th>
@@ -2318,18 +2372,6 @@ const Invoice = () => {
                               />
                             </td>
                           )}
-                          {effectiveColumns.package && (
-                            <td className="px-2 py-3">
-                              <input
-                                type="text"
-                                value={item.packageType || ''}
-                                onChange={(e) => handleItemChange(index, 'packageType', e.target.value)}
-                                list="invoice-packaging-types"
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                                placeholder="пласт. ящик."
-                              />
-                            </td>
-                          )}
                           {effectiveColumns.unit && (
                             <td className="px-2 py-3">
                               <input
@@ -2339,6 +2381,18 @@ const Invoice = () => {
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center"
                                 placeholder="кг"
                                 required
+                              />
+                            </td>
+                          )}
+                          {effectiveColumns.package && (
+                            <td className="px-2 py-3">
+                              <input
+                                type="text"
+                                value={item.packageType || ''}
+                                onChange={(e) => handleItemChange(index, 'packageType', e.target.value)}
+                                list="invoice-packaging-types"
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                placeholder="пласт. ящик."
                               />
                             </td>
                           )}
@@ -2352,6 +2406,19 @@ const Invoice = () => {
                                 min="0"
                                 step="0.01"
                                 required
+                                placeholder=""
+                              />
+                            </td>
+                          )}
+                          {effectiveColumns.packagesCount && (
+                            <td className="px-2 py-3">
+                              <input
+                                type="number"
+                                value={item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount}
+                                onChange={(e) => handleItemChange(index, 'packagesCount', parseFloat(e.target.value) || 0)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                min="0"
+                                step="0.01"
                                 placeholder=""
                               />
                             </td>
@@ -2372,7 +2439,7 @@ const Invoice = () => {
                                 onBlur={() => applyGrossWeightFormula(index)}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
                                 placeholder="7802 yoki *8 (Enter)"
-                                title="Raqam yoki *8.5 — Enter bosganda Мест ga ko'paytiriladi, natija butun son"
+                                title="Raqam yoki *8.5 — Enter bosganda Кол-во упаковки ga ko'paytiriladi, natija butun son"
                               />
                             </td>
                           )}
@@ -2392,7 +2459,7 @@ const Invoice = () => {
                                 onBlur={() => applyNetWeightFormula(index)}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
                                 placeholder="7150 yoki *1.2 (Enter)"
-                                title="Raqam yoki *1.2 — Enter: Brutto − (1.2 × Мест), natija butun son"
+                                title="Raqam yoki *1.2 — Enter: Brutto − (1.2 × Кол-во упаковки), natija butun son"
                               />
                             </td>
                           )}
@@ -2443,6 +2510,11 @@ const Invoice = () => {
                             {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
                           </td>
                         )}
+                        {effectiveColumns.packagesCount && (
+                          <td className="px-2 py-3 text-right">
+                            {formatNumber(items.reduce((sum, item) => sum + (item.packagesCount ?? 0), 0))}
+                          </td>
+                        )}
                         {effectiveColumns.gross && (
                           <td className="px-2 py-3 text-right">
                             {formatNumber(items.reduce((sum, item) => sum + (item.grossWeight || 0), 0))}
@@ -2473,12 +2545,13 @@ const Invoice = () => {
 
               {/* Maksimal og'irlik va Tekshiruv yonma-yon (PDF da ko'rinmas) */}
               {!isPdfMode && (() => {
-                const totalGross = items.reduce((sum, item) => sum + (item.grossWeight || 0), 0);
+                const goodsGross = items.reduce((sum, item) => sum + (item.grossWeight || 0), 0);
                 const loader = Number(form.loaderWeight) || 0;
                 const trailer = Number(form.trailerWeight) || 0;
                 const pallet = Number(form.palletWeight) || 0;
+                const totalGross = goodsGross + loader + trailer + pallet;
                 const maxWeight = 39950 - loader - trailer - pallet;
-                const difference = maxWeight - totalGross;
+                const difference = maxWeight - goodsGross;
                 return (
                   <div className="mt-4 flex flex-wrap gap-4">
                     <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm shrink-0">
@@ -2489,13 +2562,15 @@ const Invoice = () => {
                         <span className={difference >= 0 ? 'text-green-700' : 'text-red-700'}>
                           <strong>Farq (кг):</strong> {difference >= 0 ? '+' : ''}{formatNumber(difference)}
                         </span>
+                        <span className={totalGross > 40000 ? 'w-full text-red-700' : 'w-full'}>
+                          <strong>Umumiy og'irlik (кг):</strong> {formatNumber(totalGross)}
+                        </span>
                       </div>
                     </div>
                     <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm flex-1 min-w-0">
-                      <div className="font-semibold text-gray-800 mb-2">Tekshiruv (invoyce to‘g‘riligini tekshirish uchun)</div>
                       <ul className="space-y-1 list-none">
                         {items.map((item, index) => {
-                          const qty = item.quantity || 0;
+                          const qty = (item.packagesCount ?? item.quantity) ?? 0;
                           const gross = item.grossWeight ?? 0;
                           const net = item.netWeight ?? 0;
                           if (!qty) return null;

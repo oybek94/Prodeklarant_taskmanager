@@ -127,6 +127,16 @@ const formatDate = (value?: Date | string | null) => {
 
 const toPlain = (value?: string | null) => (value ? String(value) : '');
 
+/** Filial nomiga qarab viloyat matni (SMR E23, H67) */
+const getRegionByBranchName = (branchName?: string | null): string => {
+  if (!branchName) return '';
+  const n = String(branchName).trim().toLowerCase();
+  if (n.includes('oltiariq') || n.includes('oltariq')) return 'Ферганская область';
+  if (n.includes('toshkent')) return 'Ташкентская область';
+  if (n.includes('sirdaryo')) return 'Сурхандаринская область';
+  return '';
+};
+
 const buildGoodsDescription = (items: InvoiceItem[]) => {
   if (!items.length) return '';
   return items
@@ -363,9 +373,12 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
   if (payload.invoice.notes) {
     sheet.getCell('AF27').value = toPlain(payload.invoice.notes);
   }
-  if (additionalInfo.shipmentPlace) {
-    sheet.getCell('E23').value = toPlain(additionalInfo.shipmentPlace);
-    sheet.getCell('H67').value = toPlain(additionalInfo.shipmentPlace);
+  const branchName = (payload.invoice as { branch?: { name: string } }).branch?.name;
+  const regionByBranch = getRegionByBranchName(branchName);
+  const shipmentPlaceText = regionByBranch || toPlain(additionalInfo.shipmentPlace);
+  if (shipmentPlaceText) {
+    sheet.getCell('E23').value = shipmentPlaceText;
+    sheet.getCell('H67').value = shipmentPlaceText;
   }
 
   const tableStartRow = 34;
@@ -373,10 +386,22 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
   const writeItemCell = (row: number, col: string, value: string) => {
     sheet.getCell(`${col}${row}`).value = value;
   };
-  const formatPackage = (item: InvoiceItem) => {
-    const qty = Math.round(Number(item.quantity || 0));
+  const buildG34Text = (item?: InvoiceItem) => {
+    if (!item) return '';
+    const places = Number(item.quantity ?? 0);
+    const packages = Number(item.packagesCount ?? 0);
     const pack = item.packageType || '';
-    return [qty ? String(qty) : '', pack].filter(Boolean).join(' ').trim();
+    const base = [packages ? String(Math.round(packages)) : '', pack].filter(Boolean).join(' ').trim();
+    if (!base) return '';
+    if (places > 0) {
+      return `${base} на ${Math.round(places)} паллетах`.trim();
+    }
+    return base;
+  };
+  const formatPackage = (item: InvoiceItem) => {
+    const places = Math.round(Number(item.packagesCount ?? item.quantity ?? 0));
+    const pack = item.packageType || '';
+    return [places ? String(places) : '', pack].filter(Boolean).join(' ').trim();
   };
 
   payload.items.forEach((item, index) => {
@@ -395,6 +420,10 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
     writeItemCell(row, 'AM', '');
     writeItemCell(row, 'AT', '');
   }
+
+  // K34 ni tozalash va G34 ni format bo'yicha yozish
+  writeItemCell(34, 'K', '');
+  writeItemCell(34, 'G', buildG34Text(firstItem));
 
   return workbook;
 };

@@ -113,6 +113,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
         items: invoice.items.map(item => ({
           ...item,
           quantity: Number(item.quantity),
+          packagesCount: item.packagesCount != null ? Number(item.packagesCount) : null,
           grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
           netWeight: item.netWeight ? Number(item.netWeight) : null,
           unitPrice: Number(item.unitPrice),
@@ -146,6 +147,7 @@ const invoiceSchema = z.object({
     packageType: z.string().optional().nullable().transform(v => v ?? undefined),
     unit: z.string(),
     quantity: z.number(),
+    packagesCount: z.number().optional().nullable().transform(v => v ?? undefined),
     grossWeight: z.number().optional(),
     netWeight: z.number().optional(),
     unitPrice: z.number(),
@@ -190,6 +192,7 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res) => 
       items: invoice.items.map(item => ({
         ...item,
         quantity: Number(item.quantity),
+        packagesCount: item.packagesCount != null ? Number(item.packagesCount) : null,
         grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
         netWeight: item.netWeight ? Number(item.netWeight) : null,
         unitPrice: Number(item.unitPrice),
@@ -240,6 +243,7 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
       items: invoice.items.map(item => ({
         ...item,
         quantity: Number(item.quantity),
+        packagesCount: item.packagesCount != null ? Number(item.packagesCount) : null,
         grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
         netWeight: item.netWeight ? Number(item.netWeight) : null,
         unitPrice: Number(item.unitPrice),
@@ -293,6 +297,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       items: invoice.items.map(item => ({
         ...item,
         quantity: Number(item.quantity),
+        packagesCount: item.packagesCount != null ? Number(item.packagesCount) : null,
         grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
         netWeight: item.netWeight ? Number(item.netWeight) : null,
         unitPrice: Number(item.unitPrice),
@@ -500,6 +505,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
           packageType: item.packageType || undefined,
           unit: item.unit,
           quantity: item.quantity,
+          packagesCount: item.packagesCount ?? undefined,
           grossWeight: item.grossWeight || undefined,
           netWeight: item.netWeight || undefined,
           unitPrice: item.unitPrice,
@@ -554,6 +560,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       items: updatedInvoice.items.map(item => ({
         ...item,
         quantity: Number(item.quantity),
+        packagesCount: item.packagesCount != null ? Number(item.packagesCount) : null,
         grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
         netWeight: item.netWeight ? Number(item.netWeight) : null,
         unitPrice: Number(item.unitPrice),

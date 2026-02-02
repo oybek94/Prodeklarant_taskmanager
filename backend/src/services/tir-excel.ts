@@ -156,11 +156,9 @@ export const generateTirExcel = async (payload: TirInvoicePayload) => {
   sheet.getCell(map.totalGrossCell).value = totalGross ? `${Math.round(totalGross)}` : '';
   sheet.getCell(map.totalPlacesCell).value = totalPlaces ? `${Math.round(totalPlaces)}` : '';
 
-  // Ensure first sheet is active when file is opened
-  if (!workbook.views || workbook.views.length === 0) {
-    workbook.views = [{ activeTab: 0, firstSheet: 0, visibility: 'visible' }];
-  } else {
-    workbook.views[0] = { ...workbook.views[0], activeTab: 0, firstSheet: 0 };
+  // Ensure first sheet is active when file is opened (only mutate existing view to satisfy WorkbookView type)
+  if (workbook.views?.[0] && typeof workbook.views[0] === 'object') {
+    (workbook.views[0] as { activeTab?: number }).activeTab = 0;
   }
 
   return workbook;

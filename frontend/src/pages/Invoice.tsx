@@ -1696,15 +1696,21 @@ const Invoice = () => {
 
           <h1 className="text-2xl font-bold text-gray-800">Invoice</h1>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {!invoysStageReady && (
               <button
                 type="button"
                 onClick={handleMarkInvoysReady}
                 disabled={markingReady || !taskId}
-                className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:bg-amber-300 disabled:opacity-50"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:bg-amber-300 disabled:opacity-50"
                 title="Invoys jarayonini tayyor qilish"
               >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M7.75 13.5 4.5 10.25l1.4-1.4 1.85 1.85 6.35-6.35 1.4 1.4z"
+                  />
+                </svg>
                 {markingReady ? 'Jarayon...' : 'Tayyor'}
               </button>
             )}
@@ -1712,9 +1718,19 @@ const Invoice = () => {
               <button
                 type="button"
                 onClick={generateSmrExcel}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 title="SMR blankasini Excel formatida yuklab olish"
               >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                  />
+                </svg>
                 SMR
               </button>
             )}
@@ -1722,9 +1738,19 @@ const Invoice = () => {
               <button
                 type="button"
                 onClick={generateTirExcel}
-                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
                 title="TIR blankasini Excel formatida yuklab olish"
               >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                  />
+                </svg>
                 TIR
               </button>
             )}
@@ -1732,23 +1758,45 @@ const Invoice = () => {
               type="button"
               onClick={generatePdf}
               disabled={saving}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300"
             >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
+                />
+              </svg>
               Invoys PDF
             </button>
             <button
               type="button"
               onClick={generateInvoiceExcel}
               disabled={saving}
-              className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:bg-sky-300"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:bg-sky-300"
               title="Invoysni Excel formatida yuklab olish"
             >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                />
+                <path
+                  fill="currentColor"
+                  d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                />
+              </svg>
               Invoys Excel
             </button>
             <button
               onClick={() => navigate(-1)}
-              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
             >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M12.5 4.5 7 10l5.5 5.5-1.4 1.4L4.2 10l6.9-6.9z"
+                />
+              </svg>
               Orqaga
             </button>
           </div>

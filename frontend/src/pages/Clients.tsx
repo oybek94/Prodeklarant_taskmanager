@@ -5,9 +5,18 @@ import { Icon } from '@iconify/react';
 import MonetaryInput from '../components/MonetaryInput';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
-import { validateMonetaryFields, isValidMonetaryFields } from '../utils/validation';
+import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 import { useIsMobile } from '../utils/useIsMobile';
 import { getTnvedProducts } from '../utils/tnvedProducts';
+
+const resolveUploadUrl = (url?: string | null) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = apiClient.defaults.baseURL || '';
+  if (!base || base.startsWith('/')) return url;
+  const origin = base.replace(/\/api\/?$/, '');
+  return `${origin}${url}`;
+};
 
 interface Client {
   id: number;
@@ -27,6 +36,7 @@ interface ClientDetail {
   id: number;
   name: string;
   dealAmount?: number | string | null;
+  balanceCurrency?: 'USD' | 'UZS';
   phone?: string;
   createdAt: string;
   creditType?: string | null;
@@ -299,6 +309,7 @@ const Clients = () => {
     correspondentBank: '',
     correspondentBankAccount: '',
     correspondentBankSwift: '',
+    dealAmountExchangeRate: '',
   });
   const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
   const [editForm, setEditForm] = useState({
@@ -381,6 +392,8 @@ const Clients = () => {
     consigneeDetails: string;
     supplierDirector: string;
     goodsReleasedBy: string;
+    signatureUrl: string;
+    sealUrl: string;
     specification: SpecRow[];
   }>({
     contractNumber: '',
@@ -403,6 +416,8 @@ const Clients = () => {
     consigneeDetails: '',
     supplierDirector: '',
     goodsReleasedBy: '',
+    signatureUrl: '',
+    sealUrl: '',
     specification: [],
   });
   const contractFormRef = useRef(contractForm);
@@ -487,6 +502,8 @@ const Clients = () => {
       consigneeDetails: '',
       supplierDirector: '',
       goodsReleasedBy: '',
+      signatureUrl: '',
+      sealUrl: '',
       specification: [],
     };
     setContractFormAndRef(empty);
@@ -572,6 +589,17 @@ const Clients = () => {
     }
   };
 
+  const uploadContractImage = async (file: File, field: 'signatureUrl' | 'sealUrl') => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await apiClient.post('/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    setContractFormAndRef((prev) => ({ ...prev, [field]: response.data.fileUrl }));
+  };
+
   const handleContractSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClient) return;
@@ -618,6 +646,8 @@ const Clients = () => {
         customsAddress: customsAddressValue || undefined,
         supplierDirector: form.supplierDirector,
         goodsReleasedBy: form.goodsReleasedBy || undefined,
+        signatureUrl: form.signatureUrl || undefined,
+        sealUrl: form.sealUrl || undefined,
       };
 
       if (hasShipper) {
@@ -721,6 +751,8 @@ const Clients = () => {
         consigneeDetails: c.consigneeDetails || '',
         supplierDirector: c.supplierDirector || '',
         goodsReleasedBy: c.goodsReleasedBy || '',
+        signatureUrl: c.signatureUrl || '',
+        sealUrl: c.sealUrl || '',
         specification: spec,
       });
       setHasShipper(!!c.shipperName);
@@ -754,6 +786,8 @@ const Clients = () => {
         consigneeDetails: contract.consigneeDetails || '',
         supplierDirector: contract.supplierDirector || '',
         goodsReleasedBy: contract.goodsReleasedBy || '',
+        signatureUrl: contract.signatureUrl || '',
+        sealUrl: contract.sealUrl || '',
         specification: spec,
       });
       setHasShipper(!!contract.shipperName);
@@ -829,6 +863,7 @@ const Clients = () => {
         name: '', 
         dealAmount: '', 
         dealAmountCurrency: 'USD', 
+        dealAmountExchangeRate: '',
         phone: '', 
         creditType: '', 
         creditLimit: '', 
@@ -996,6 +1031,7 @@ const Clients = () => {
         name: '', 
         dealAmount: '', 
         dealAmountCurrency: 'USD', 
+        dealAmountExchangeRate: '',
         phone: '', 
         creditType: '', 
         creditLimit: '', 
@@ -1627,7 +1663,7 @@ const Clients = () => {
                       ? 'text-yellow-600'
                       : 'text-green-600'
                   }`}>
-                    <CurrencyDisplay amount={Number(selectedClient.stats.balance)} originalCurrency={selectedClient.stats.currency || 'USD'} />
+                    <CurrencyDisplay amount={Number(selectedClient.stats.balance)} originalCurrency={selectedClient.balanceCurrency || 'USD'} />
                   </div>
                 </div>
               </div>
@@ -1643,7 +1679,7 @@ const Clients = () => {
                 <div className="text-sm text-gray-500 mb-1">Shartnoma summasi (bitta task)</div>
                 <div className="font-medium text-gray-900">
                   {selectedClient.dealAmount ? (
-                    <CurrencyDisplay amount={Number(selectedClient.dealAmount)} originalCurrency={(selectedClient.dealAmountCurrency || 'USD') as 'USD' | 'UZS'} />
+                    <CurrencyDisplay amount={Number(selectedClient.dealAmount)} originalCurrency="USD" />
                   ) : '-'}
                 </div>
                 {selectedClient.stats?.totalDealAmount !== undefined && (
@@ -2205,6 +2241,78 @@ const Clients = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       placeholder="Товар отпустил"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          await uploadContractImage(file, 'signatureUrl');
+                        } catch (error) {
+                          console.error('Error uploading signature:', error);
+                          alert('Imzoni yuklashda xatolik yuz berdi');
+                        } finally {
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    {contractForm.signatureUrl && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <img
+                          src={resolveUploadUrl(contractForm.signatureUrl)}
+                          alt="Imzo"
+                          className="h-[90px] w-auto object-contain border border-gray-200 rounded"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setContractFormAndRef({ ...contractForm, signatureUrl: '' })}
+                          className="text-sm text-red-600 hover:text-red-800"
+                        >
+                          O'chirish
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Muhr (PNG/JPG)</label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          await uploadContractImage(file, 'sealUrl');
+                        } catch (error) {
+                          console.error('Error uploading seal:', error);
+                          alert('Muhrni yuklashda xatolik yuz berdi');
+                        } finally {
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    {contractForm.sealUrl && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <img
+                          src={resolveUploadUrl(contractForm.sealUrl)}
+                          alt="Muhr"
+                          className="h-[215px] w-auto object-contain border border-gray-200 rounded"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setContractFormAndRef({ ...contractForm, sealUrl: '' })}
+                          className="text-sm text-red-600 hover:text-red-800"
+                        >
+                          O'chirish
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

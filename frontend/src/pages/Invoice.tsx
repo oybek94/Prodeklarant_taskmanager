@@ -9,6 +9,15 @@ import { jsPDF } from 'jspdf';
 import { getTnvedProducts } from '../utils/tnvedProducts';
 import { getPackagingTypes } from '../utils/packagingTypes';
 
+const resolveUploadUrl = (url?: string | null) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = apiClient.defaults.baseURL || '';
+  if (!base || base.startsWith('/')) return url;
+  const origin = base.replace(/\/api\/?$/, '');
+  return `${origin}${url}`;
+};
+
 
 
 interface InvoiceItem {
@@ -170,6 +179,8 @@ interface Contract {
 
   supplierDirector?: string; // Руководитель Поставщика
   goodsReleasedBy?: string; // Товар отпустил
+  signatureUrl?: string;
+  sealUrl?: string;
   gln?: string; // GLN код
   specification?: Array<{ productName?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number }>;
 }
@@ -2626,19 +2637,39 @@ const Invoice = () => {
                   return (
                     <>
                       {contract?.supplierDirector && (
-                        <div className="flex items-baseline gap-2">
-                          <label className="text-base font-semibold text-gray-700 shrink-0">
-                            Руководитель Поставщика:
-                          </label>
-                          <span className="text-base text-gray-800">{contract.supplierDirector}</span>
-                        </div>
-                      )}
-                      {contract?.goodsReleasedBy && (
-                        <div className="flex items-baseline gap-2">
-                          <label className="text-base font-semibold text-gray-700 shrink-0">
-                            Товар отпустил:
-                          </label>
-                          <span className="text-base text-gray-800">{contract.goodsReleasedBy}</span>
+                        <div className="flex flex-row flex-wrap gap-4 items-start">
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <div className="text-base font-semibold text-gray-700">Руководитель Поставщика:</div>
+                              <div className="text-base text-gray-800">{contract.supplierDirector}</div>
+                            </div>
+                            {contract.goodsReleasedBy && (
+                              <div className="space-y-1">
+                                <div className="text-base font-semibold text-gray-700">Товар отпустил:</div>
+                                <div className="text-base text-gray-800">{contract.goodsReleasedBy}</div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-row items-center justify-center gap-3">
+                            {contract.signatureUrl && (
+                              <div>
+                                <img
+                                  src={resolveUploadUrl(contract.signatureUrl)}
+                                  alt="Imzo"
+                                  className="h-[90px] w-auto object-contain"
+                                />
+                              </div>
+                            )}
+                            {contract.sealUrl && (
+                              <div>
+                                <img
+                                  src={resolveUploadUrl(contract.sealUrl)}
+                                  alt="Muhr"
+                                  className="h-[215px] w-auto object-contain"
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </>

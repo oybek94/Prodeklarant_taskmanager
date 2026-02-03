@@ -5,6 +5,15 @@ import { useAuth } from '../contexts/AuthContext';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 
+const resolveUploadUrl = (url?: string | null) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = apiClient.defaults.baseURL || '';
+  if (!base || base.startsWith('/')) return url;
+  const origin = base.replace(/\/api\/?$/, '');
+  return `${origin}${url}`;
+};
+
 interface Task {
   id: number;
   title: string;
@@ -30,6 +39,8 @@ interface Contract {
   destinationCountry?: string;
   deliveryTerms?: string;
   paymentMethod?: string;
+  signatureUrl?: string;
+  sealUrl?: string;
 }
 
 interface Client {
@@ -132,6 +143,8 @@ const ClientDetail = () => {
     gln: '', // Глобальный идентификационный номер GS1 (GLN)
     supplierDirector: '', // Руководитель Поставщика
     goodsReleasedBy: '', // Товар отпустил
+    signatureUrl: '',
+    sealUrl: '',
   });
 
   useEffect(() => {
@@ -163,6 +176,17 @@ const ClientDetail = () => {
     } finally {
       setLoadingContracts(false);
     }
+  };
+
+  const uploadContractImage = async (file: File, field: 'signatureUrl' | 'sealUrl') => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await apiClient.post('/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    setContractForm((prev) => ({ ...prev, [field]: response.data.fileUrl }));
   };
 
   // Helper function to parse details textarea
@@ -351,6 +375,8 @@ const ClientDetail = () => {
         gln: contractForm.gln || undefined, // Глобальный идентификационный номер GS1 (GLN)
         supplierDirector: contractForm.supplierDirector || undefined, // Руководитель Поставщика
         goodsReleasedBy: contractForm.goodsReleasedBy || undefined, // Товар отпустил
+        signatureUrl: contractForm.signatureUrl || undefined,
+        sealUrl: contractForm.sealUrl || undefined,
       };
 
       if (editingContract) {
@@ -414,6 +440,8 @@ const ClientDetail = () => {
         gln: '',
         supplierDirector: '',
         goodsReleasedBy: '',
+        signatureUrl: '',
+        sealUrl: '',
       });
       await loadContracts();
     } catch (error: any) {
@@ -526,6 +554,8 @@ const ClientDetail = () => {
           gln: contractData.gln || '',
           supplierDirector: contractData.supplierDirector || '',
           goodsReleasedBy: contractData.goodsReleasedBy || '',
+          signatureUrl: contractData.signatureUrl || '',
+          sealUrl: contractData.sealUrl || '',
         });
         setEditingContract(contract);
         setShowContractForm(true);
@@ -1157,6 +1187,82 @@ const ClientDetail = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       placeholder="ФИО лица, отпустившего товар"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Имзо (PNG/JPG)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          await uploadContractImage(file, 'signatureUrl');
+                        } catch (error) {
+                          console.error('Error uploading signature:', error);
+                          alert('Imzoni yuklashda xatolik yuz berdi');
+                        } finally {
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    {contractForm.signatureUrl && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <img
+                          src={resolveUploadUrl(contractForm.signatureUrl)}
+                          alt="Imzo"
+                          className="h-[90px] w-auto object-contain border border-gray-200 rounded"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setContractForm({ ...contractForm, signatureUrl: '' })}
+                          className="text-sm text-red-600 hover:text-red-800"
+                        >
+                          O'chirish
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Muhr (PNG/JPG)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          await uploadContractImage(file, 'sealUrl');
+                        } catch (error) {
+                          console.error('Error uploading seal:', error);
+                          alert('Muhrni yuklashda xatolik yuz berdi');
+                        } finally {
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    {contractForm.sealUrl && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <img
+                          src={resolveUploadUrl(contractForm.sealUrl)}
+                          alt="Muhr"
+                          className="h-[215px] w-auto object-contain border border-gray-200 rounded"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setContractForm({ ...contractForm, sealUrl: '' })}
+                          className="text-sm text-red-600 hover:text-red-800"
+                        >
+                          O'chirish
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

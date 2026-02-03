@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Contract" ADD COLUMN IF NOT EXISTS "signatureUrl" TEXT;
+ALTER TABLE "Contract" ADD COLUMN IF NOT EXISTS "sealUrl" TEXT;

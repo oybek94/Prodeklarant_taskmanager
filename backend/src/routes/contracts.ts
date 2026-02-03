@@ -62,6 +62,8 @@ const contractSchema = z.object({
   gln: z.string().optional(), // Глобальный идентификационный номер GS1 (GLN)
   supplierDirector: z.string().optional(), // Руководитель Поставщика
   goodsReleasedBy: z.string().optional(), // Товар отпустил
+  signatureUrl: z.string().optional(), // Imzo (PNG/JPG)
+  sealUrl: z.string().optional(), // Muhr (PNG/JPG)
   specification: z.array(z.object({
     productName: z.string(),
     quantity: z.number(),
@@ -215,6 +217,8 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
+    if (data.signatureUrl !== undefined) contractData.signatureUrl = data.signatureUrl;
+    if (data.sealUrl !== undefined) contractData.sealUrl = data.sealUrl;
     if (data.specification !== undefined) {
       const spec = Array.isArray(data.specification) ? data.specification : [];
       const toNum = (v: any): number | undefined => {
@@ -372,6 +376,8 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
+    if (data.signatureUrl !== undefined) contractData.signatureUrl = data.signatureUrl;
+    if (data.sealUrl !== undefined) contractData.sealUrl = data.sealUrl;
     if (data.specification !== undefined) {
       const spec = Array.isArray(data.specification) ? data.specification : [];
       const toNum = (v: any): number | undefined => {

@@ -40,6 +40,16 @@ function ensureUTF8(text: any): string {
   return result;
 }
 
+const resolveUploadImagePath = (url?: string | null): string | null => {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return null;
+  const clean = url.split('?')[0];
+  if (!clean.startsWith('/uploads/')) return null;
+  const relativePath = clean.replace(/^\//, '');
+  const absolutePath = path.resolve(process.cwd(), relativePath);
+  return fs.existsSync(absolutePath) ? absolutePath : null;
+};
+
 export function generateInvoicePDF(data: InvoiceData): any {
   // Reduce margins to fit more content on one page
   // PDFKit automatically handles UTF-8 encoding, but we ensure proper text handling
@@ -666,9 +676,22 @@ export function generateInvoicePDF(data: InvoiceData): any {
   try {
     const supplierDirector = data.contract?.supplierDirector || '';
     const goodsReleasedBy = data.contract?.goodsReleasedBy || '';
+    const signaturePath = resolveUploadImagePath(data.contract?.signatureUrl);
+    const sealPath = resolveUploadImagePath(data.contract?.sealUrl);
     
     const supplierText = supplierDirector ? `Руководитель Поставщика: ${supplierDirector}` : 'Руководитель Поставщика _________________';
     doc.text(ensureUTF8(supplierText), startX, signatureY);
+
+    // Signature and seal images (to the right of director name)
+    let imageX = startX + doc.widthOfString(ensureUTF8(supplierText)) + 10;
+    const imageY = signatureY - 10;
+    if (signaturePath) {
+      doc.image(signaturePath, imageX, imageY, { height: 30 });
+      imageX += 90;
+    }
+    if (sealPath) {
+      doc.image(sealPath, imageX, imageY - 4, { height: 40 });
+    }
     
     if (goodsReleasedBy) {
       doc.text(ensureUTF8(`Товар отпустил: ${goodsReleasedBy}`), startX, signatureY + 30);

@@ -1031,29 +1031,21 @@ const Invoice = () => {
 
     const element = invoiceRef.current;
     const canvas = await html2canvas(element, {
-      scale: 2,
+      scale: 1.5,
       useCORS: true,
       backgroundColor: '#ffffff',
     });
 
-    const imgData = canvas.toDataURL('image/png');
+    const imgData = canvas.toDataURL('image/jpeg', 0.75);
     const pdf = new jsPDF('p', 'pt', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * pageWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-
-    while (heightLeft > 0) {
-      position -= pageHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-    }
+    const scale = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+    const imgWidth = canvas.width * scale;
+    const imgHeight = canvas.height * scale;
+    const x = (pageWidth - imgWidth) / 2;
+    const y = (pageHeight - imgHeight) / 2;
+    pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight, undefined, 'FAST');
 
     const taskTitle = buildTaskTitle(
       invoice?.invoiceNumber || form.invoiceNumber,
@@ -1614,6 +1606,16 @@ const Invoice = () => {
               -moz-appearance: textfield;
               appearance: textfield;
             }
+            .items-table-compact tbody td {
+              padding-top: 0;
+              padding-bottom: 0;
+            }
+            form.invoice-form,
+            #invoice-tnved-products,
+            #invoice-packaging-types,
+            .bg-white.rounded-lg.shadow-lg.p-8 {
+              vertical-align: top;
+            }
           `}
         </style>
         {isPdfMode && (
@@ -1632,6 +1634,12 @@ const Invoice = () => {
                 border: none !important;
                 vertical-align: middle !important;
               }
+              .pdf-mode .items-table-compact thead th,
+              .pdf-mode .items-table-compact tfoot td {
+                vertical-align: top !important;
+                position: relative;
+                top: -6px;
+              }
               .pdf-mode .pdf-hide-border {
                 border-top: none !important;
               }
@@ -1639,6 +1647,20 @@ const Invoice = () => {
               .pdf-mode summary,
               .pdf-mode details {
                 display: none !important;
+              }
+              .pdf-mode .items-table-compact tbody tr {
+                height: 22px;
+              }
+              .pdf-mode .items-table-compact tbody td {
+                line-height: 1.2;
+                vertical-align: top;
+                padding-top: 0;
+                padding-bottom: 0;
+                position: relative;
+                top: -6px;
+              }
+              .pdf-mode .invoice-header {
+                margin-top: -40px;
               }
             `}
           </style>
@@ -1722,7 +1744,7 @@ const Invoice = () => {
 
             {/* Invoice Header */}
 
-            <div className="grid grid-cols-2 gap-8 mb-0">
+            <div className="grid grid-cols-2 gap-8 mb-0 invoice-header">
 
               {/* Left: Invoice raqami va sana */}
 
@@ -2072,7 +2094,7 @@ const Invoice = () => {
 
 
             {/* Дополнительная информация */}
-            <div className="mb-8">
+            <div className="mb-0">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-800">Дополнительная информация</h3>
                 <button
@@ -2084,7 +2106,7 @@ const Invoice = () => {
                 </button>
               </div>
               <div
-                className="p-4 rounded-lg text-base text-black space-y-1"
+                className="p-4 pt-0 rounded-lg text-base text-black space-y-1"
                 style={{ backgroundColor: 'var(--tw-ring-offset-color)', background: 'unset' }}
               >
                 {form.deliveryTerms && <div><strong>Условия поставки:</strong> {form.deliveryTerms}</div>}
@@ -2173,44 +2195,68 @@ const Invoice = () => {
 
               <div className="overflow-x-auto">
                 {isPdfMode ? (
-                  <table className="w-full text-sm">
+                <table className="w-full text-sm items-table-compact">
                     <thead>
                       <tr className="bg-blue-700 text-white">
                         {effectiveColumns.index && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold w-12">{columnLabels.index}</th>
+                          <th className="px-2 py-2 text-center text-xs font-semibold w-12" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.index}
+                          </th>
                         )}
                         {effectiveColumns.tnved && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.tnved}</th>
+                          <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.tnved}
+                          </th>
                         )}
                         {effectiveColumns.plu && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.plu}</th>
+                          <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.plu}
+                          </th>
                         )}
                         {effectiveColumns.name && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.name}</th>
+                          <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.name}
+                          </th>
                         )}
                         {effectiveColumns.unit && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold">{columnLabels.unit}</th>
+                          <th className="px-2 py-2 text-center text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.unit}
+                          </th>
                         )}
                         {effectiveColumns.package && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.package}</th>
+                          <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.package}
+                          </th>
                         )}
                         {effectiveColumns.quantity && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.quantity}</th>
+                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.quantity}
+                          </th>
                         )}
                         {effectiveColumns.packagesCount && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.packagesCount}</th>
+                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.packagesCount}
+                          </th>
                         )}
                         {effectiveColumns.gross && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.gross}</th>
+                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.gross}
+                          </th>
                         )}
                         {effectiveColumns.net && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.net}</th>
+                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.net}
+                          </th>
                         )}
                         {effectiveColumns.unitPrice && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.unitPrice}</th>
+                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.unitPrice}
+                          </th>
                         )}
                         {effectiveColumns.total && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.total}</th>
+                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.total}
+                          </th>
                         )}
                       </tr>
                     </thead>
@@ -2218,40 +2264,40 @@ const Invoice = () => {
                       {items.map((item, index) => (
                         <tr key={index} className="border-b border-gray-200">
                           {effectiveColumns.index && (
-                            <td className="px-2 py-3 text-center">{index + 1}</td>
+                            <td className="px-2 py-2 text-center">{index + 1}</td>
                           )}
                           {effectiveColumns.tnved && (
-                            <td className="px-2 py-3">{item.tnvedCode || ''}</td>
+                            <td className="px-2 py-2">{item.tnvedCode || ''}</td>
                           )}
                           {effectiveColumns.plu && (
-                            <td className="px-2 py-3">{item.pluCode || ''}</td>
+                            <td className="px-2 py-2">{item.pluCode || ''}</td>
                           )}
                           {effectiveColumns.name && (
-                            <td className="px-2 py-3">{item.name || ''}</td>
+                            <td className="px-2 py-2">{item.name || ''}</td>
                           )}
                           {effectiveColumns.unit && (
-                            <td className="px-2 py-3 text-center">{item.unit || ''}</td>
+                            <td className="px-2 py-2 text-center">{item.unit || ''}</td>
                           )}
                           {effectiveColumns.package && (
-                            <td className="px-2 py-3">{item.packageType || ''}</td>
+                            <td className="px-2 py-2">{item.packageType || ''}</td>
                           )}
                           {effectiveColumns.quantity && (
-                            <td className="px-2 py-3 text-right">{formatNumber(item.quantity)}</td>
+                            <td className="px-2 py-2 text-right">{formatNumber(item.quantity)}</td>
                           )}
                           {effectiveColumns.packagesCount && (
-                            <td className="px-2 py-3 text-right">{formatNumber(item.packagesCount ?? 0)}</td>
+                            <td className="px-2 py-2 text-right">{formatNumber(item.packagesCount ?? 0)}</td>
                           )}
                           {effectiveColumns.gross && (
-                            <td className="px-2 py-3 text-right">{formatNumber(item.grossWeight || 0)}</td>
+                            <td className="px-2 py-2 text-right">{formatNumber(item.grossWeight || 0)}</td>
                           )}
                           {effectiveColumns.net && (
-                            <td className="px-2 py-3 text-right">{formatNumber(item.netWeight || 0)}</td>
+                            <td className="px-2 py-2 text-right">{formatNumber(item.netWeight || 0)}</td>
                           )}
                           {effectiveColumns.unitPrice && (
-                            <td className="px-2 py-3 text-right">{formatNumber(item.unitPrice)}</td>
+                            <td className="px-2 py-2 text-right">{formatNumber(item.unitPrice)}</td>
                           )}
                           {effectiveColumns.total && (
-                            <td className="px-2 py-3 text-right font-semibold">
+                            <td className="px-2 py-2 text-right font-semibold">
                               {item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}
                             </td>
                           )}
@@ -2259,86 +2305,114 @@ const Invoice = () => {
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-gray-100 font-semibold border-t-2 border-gray-400">
+                      <tr className="bg-gray-100 font-semibold border-t-2 border-gray-400 h-[35px]">
                         {leadingColumnsCount > 0 && (
-                          <td className="px-2 py-3 text-center" colSpan={leadingColumnsCount}>Всего:</td>
+                          <td className="px-2 pt-1.5 pb-2.5 text-center" colSpan={leadingColumnsCount} style={{ verticalAlign: 'top' }}>
+                            Всего:
+                          </td>
                         )}
                         {effectiveColumns.quantity && (
-                          <td className="px-2 py-3 text-right">
+                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
                             {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
                           </td>
                         )}
                         {effectiveColumns.packagesCount && (
-                          <td className="px-2 py-3 text-right">
+                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
                             {formatNumber(items.reduce((sum, item) => sum + (item.packagesCount ?? 0), 0))}
                           </td>
                         )}
                         {effectiveColumns.gross && (
-                          <td className="px-2 py-3 text-right">
+                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
                             {formatNumber(items.reduce((sum, item) => sum + (item.grossWeight || 0), 0))}
                           </td>
                         )}
                         {effectiveColumns.net && (
-                          <td className="px-2 py-3 text-right">
+                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
                             {formatNumber(items.reduce((sum, item) => sum + (item.netWeight || 0), 0))}
                           </td>
                         )}
-                        {effectiveColumns.unitPrice && <td className="px-2 py-3"></td>}
+                        {effectiveColumns.unitPrice && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
                         {effectiveColumns.total && (
-                          <td className="px-2 py-3 text-right font-bold">
+                          <td className="px-2 pt-1.5 pb-3 text-right font-bold" style={{ verticalAlign: 'top' }}>
                             {formatNumberFixed(items.reduce((sum, item) => sum + item.totalPrice, 0))}
                           </td>
                         )}
                       </tr>
-                      <tr className="bg-gray-50 border-t border-gray-200">
-                        <td className="px-2 py-3 text-left text-sm" colSpan={15}>
+                      <tr>
+                        <td className="px-2 py-1.5 text-left text-sm" colSpan={15}>
                           Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
                         </td>
                       </tr>
                     </tfoot>
                   </table>
                 ) : (
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm items-table-compact">
                     <thead>
                       <tr className="bg-blue-700 text-white">
                         {effectiveColumns.index && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold w-12">{columnLabels.index}</th>
+                          <th className="px-2 py-3 text-center text-xs font-semibold w-12" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.index}
+                          </th>
                         )}
                         {effectiveColumns.tnved && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.tnved}</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.tnved}
+                          </th>
                         )}
                         {effectiveColumns.plu && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.plu}</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.plu}
+                          </th>
                         )}
                         {effectiveColumns.name && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.name}</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.name}
+                          </th>
                         )}
                         {effectiveColumns.unit && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold">{columnLabels.unit}</th>
+                          <th className="px-2 py-3 text-center text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.unit}
+                          </th>
                         )}
                         {effectiveColumns.package && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold">{columnLabels.package}</th>
+                          <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.package}
+                          </th>
                         )}
                         {effectiveColumns.quantity && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.quantity}</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.quantity}
+                          </th>
                         )}
                         {effectiveColumns.packagesCount && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.packagesCount}</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.packagesCount}
+                          </th>
                         )}
                         {effectiveColumns.gross && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.gross}</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.gross}
+                          </th>
                         )}
                         {effectiveColumns.net && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.net}</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.net}
+                          </th>
                         )}
                         {effectiveColumns.unitPrice && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.unitPrice}</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.unitPrice}
+                          </th>
                         )}
                         {effectiveColumns.total && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold">{columnLabels.total}</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.total}
+                          </th>
                         )}
                         {effectiveColumns.actions && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold">{columnLabels.actions}</th>
+                          <th className="px-2 py-3 text-center text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                            {columnLabels.actions}
+                          </th>
                         )}
                       </tr>
                     </thead>
@@ -2346,10 +2420,10 @@ const Invoice = () => {
                       {items.map((item, index) => (
                         <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
                           {effectiveColumns.index && (
-                            <td className="px-2 py-3 text-center">{index + 1}</td>
+                            <td className="px-2 py-2 text-center">{index + 1}</td>
                           )}
                           {effectiveColumns.tnved && (
-                            <td className="px-2 py-3">
+                            <td className="px-2 py-2">
                               <input
                                 type="text"
                                 value={item.tnvedCode || ''}
@@ -2360,7 +2434,7 @@ const Invoice = () => {
                             </td>
                           )}
                           {effectiveColumns.plu && (
-                            <td className="px-2 py-3">
+                            <td className="px-2 py-2">
                               <input
                                 type="text"
                                 value={item.pluCode || ''}
@@ -2371,7 +2445,7 @@ const Invoice = () => {
                             </td>
                           )}
                           {effectiveColumns.name && (
-                            <td className="px-2 py-3">
+                            <td className="px-2 py-2">
                               <input
                                 type="text"
                                 value={item.name}
@@ -2384,7 +2458,7 @@ const Invoice = () => {
                             </td>
                           )}
                           {effectiveColumns.unit && (
-                            <td className="px-2 py-3">
+                            <td className="px-2 py-2">
                               <input
                                 type="text"
                                 value={item.unit}
@@ -2396,7 +2470,7 @@ const Invoice = () => {
                             </td>
                           )}
                           {effectiveColumns.package && (
-                            <td className="px-2 py-3">
+                            <td className="px-2 py-2">
                               <input
                                 type="text"
                                 value={item.packageType || ''}
@@ -2408,7 +2482,7 @@ const Invoice = () => {
                             </td>
                           )}
                           {effectiveColumns.quantity && (
-                            <td className="px-2 py-3">
+                            <td className="px-2 py-2">
                               <input
                                 type="number"
                                 value={item.quantity === 0 ? '' : item.quantity}
@@ -2422,7 +2496,7 @@ const Invoice = () => {
                             </td>
                           )}
                           {effectiveColumns.packagesCount && (
-                            <td className="px-2 py-3">
+                            <td className="px-2 py-2">
                               <input
                                 type="number"
                                 value={item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount}
@@ -2435,7 +2509,7 @@ const Invoice = () => {
                             </td>
                           )}
                           {effectiveColumns.gross && (
-                            <td className="px-2 py-3">
+                            <td className="px-2 py-2">
                               <input
                                 type="text"
                                 inputMode="decimal"
@@ -2455,7 +2529,7 @@ const Invoice = () => {
                             </td>
                           )}
                           {effectiveColumns.net && (
-                            <td className="px-2 py-3">
+                            <td className="px-2 py-2">
                               <input
                                 type="text"
                                 inputMode="decimal"
@@ -2475,7 +2549,7 @@ const Invoice = () => {
                             </td>
                           )}
                           {effectiveColumns.unitPrice && (
-                            <td className="px-2 py-3">
+                            <td className="px-2 py-2">
                               <input
                                 type="number"
                                 value={item.unitPrice === 0 ? '' : item.unitPrice}
@@ -2489,14 +2563,14 @@ const Invoice = () => {
                             </td>
                           )}
                           {effectiveColumns.total && (
-                            <td className="px-2 py-3">
+                            <td className="px-2 py-2">
                               <div className="text-right font-semibold text-xs">
                                 {item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}
                               </div>
                             </td>
                           )}
                           {effectiveColumns.actions && (
-                            <td className="px-2 py-3 text-center">
+                            <td className="px-2 py-2 text-center">
                               {items.length > 1 && (
                                 <button
                                   type="button"
@@ -2512,40 +2586,42 @@ const Invoice = () => {
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-gray-100 font-semibold border-t-2 border-gray-400">
+                      <tr className="bg-gray-100 font-semibold border-t-2 border-gray-400 h-[35px]">
                         {leadingColumnsCount > 0 && (
-                          <td className="px-2 py-3 text-center" colSpan={leadingColumnsCount}>Всего:</td>
+                          <td className="px-2 pt-1.5 pb-2.5 text-center" colSpan={leadingColumnsCount} style={{ verticalAlign: 'top' }}>
+                            Всего:
+                          </td>
                         )}
                         {effectiveColumns.quantity && (
-                          <td className="px-2 py-3 text-right">
+                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
                             {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
                           </td>
                         )}
                         {effectiveColumns.packagesCount && (
-                          <td className="px-2 py-3 text-right">
+                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
                             {formatNumber(items.reduce((sum, item) => sum + (item.packagesCount ?? 0), 0))}
                           </td>
                         )}
                         {effectiveColumns.gross && (
-                          <td className="px-2 py-3 text-right">
+                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
                             {formatNumber(items.reduce((sum, item) => sum + (item.grossWeight || 0), 0))}
                           </td>
                         )}
                         {effectiveColumns.net && (
-                          <td className="px-2 py-3 text-right">
+                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
                             {formatNumber(items.reduce((sum, item) => sum + (item.netWeight || 0), 0))}
                           </td>
                         )}
-                        {effectiveColumns.unitPrice && <td className="px-2 py-3"></td>}
+                        {effectiveColumns.unitPrice && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
                         {effectiveColumns.total && (
-                          <td className="px-2 py-3 text-right font-bold">
+                          <td className="px-2 pt-1.5 pb-3 text-right font-bold" style={{ verticalAlign: 'top' }}>
                             {formatNumberFixed(items.reduce((sum, item) => sum + item.totalPrice, 0))}
                           </td>
                         )}
-                        {effectiveColumns.actions && <td className="px-2 py-3"></td>}
+                        {effectiveColumns.actions && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
                       </tr>
                       <tr className="bg-gray-50 border-t border-gray-200">
-                        <td className="px-2 py-3 text-left text-sm" colSpan={15}>
+                        <td className="px-2 py-1.5 text-left text-sm bg-white" colSpan={15}>
                           Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
                         </td>
                       </tr>

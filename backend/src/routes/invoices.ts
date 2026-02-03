@@ -820,6 +820,7 @@ router.get('/:id/xlsx', requireAuth(), async (req: AuthRequest, res: Response) =
     });
 
     const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });
+    const outputBuffer = Buffer.from(buffer as ArrayBuffer);
     const fileName = `Invoice_${invoice.invoiceNumber || invoice.id}.xlsx`;
     res.setHeader(
       'Content-Type',
@@ -829,8 +830,8 @@ router.get('/:id/xlsx', requireAuth(), async (req: AuthRequest, res: Response) =
       'Content-Disposition',
       `attachment; filename="${fileName}"`
     );
-    res.setHeader('Content-Length', buffer.length);
-    res.end(Buffer.from(buffer as ArrayBuffer));
+    res.setHeader('Content-Length', outputBuffer.length);
+    res.end(outputBuffer);
   } catch (error: any) {
     console.error('Error generating Invoice Excel:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });

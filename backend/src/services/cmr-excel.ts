@@ -181,7 +181,7 @@ const getTotalGrossWeight = (items: InvoiceItem[]) =>
 const getTotalPackages = (items: InvoiceItem[]) =>
   items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 
-const getFirstItem = (items: InvoiceItem[]) => (items.length ? items[0] : null);
+const getFirstItem = (items: InvoiceItem[]) => (items.length ? items[0] : undefined);
 
 const getCellText = (value: ExcelJS.Cell['value']) => {
   if (!value) return '';

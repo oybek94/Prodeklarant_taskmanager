@@ -3,6 +3,7 @@ import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { generateInvoicePDF } from '../services/invoice-pdf';
+import { generateInvoiceExcel } from '../services/invoice-excel';
 import { Prisma } from '@prisma/client';
 import { getNextInvoiceNumber } from '../utils/invoice-number';
 import { ensureCmrForInvoice } from '../services/cmr-service';
@@ -752,6 +753,87 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
     if (!res.headersSent) {
       res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
     }
+  }
+});
+
+// GET /invoices/:id/xlsx - Invoice Excel yuklab olish
+router.get('/:id/xlsx', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        items: {
+          orderBy: { orderIndex: 'asc' }
+        },
+        client: true,
+      }
+    });
+
+    if (!invoice || !invoice.client) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    let contract: any = null;
+    if (invoice.contractId) {
+      contract = await prisma.contract.findUnique({
+        where: { id: invoice.contractId }
+      });
+    }
+
+    if (!contract && invoice.contractNumber) {
+      contract = await prisma.contract.findFirst({
+        where: {
+          clientId: invoice.clientId,
+          contractNumber: invoice.contractNumber
+        }
+      });
+    }
+
+    if (!contract) {
+      contract = await prisma.contract.findFirst({
+        where: { clientId: invoice.clientId },
+        orderBy: [
+          { contractDate: 'desc' },
+          { id: 'desc' }
+        ]
+      });
+    }
+
+    let companySettings: any = null;
+    if (!contract) {
+      companySettings = await prisma.companySettings.findFirst();
+      if (!companySettings) {
+        return res.status(400).json({ error: 'Kompaniya sozlamalari topilmadi. Iltimos, avval kompaniya ma\'lumotlarini kiriting yoki shartnoma ma\'lumotlarini to\'ldiring.' });
+      }
+    }
+
+    const workbook = await generateInvoiceExcel({
+      invoice,
+      client: invoice.client,
+      contract,
+      company: companySettings,
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });
+    const fileName = `Invoice_${invoice.invoiceNumber || invoice.id}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.setHeader('Content-Length', buffer.length);
+    res.end(Buffer.from(buffer as ArrayBuffer));
+  } catch (error: any) {
+    console.error('Error generating Invoice Excel:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });
 

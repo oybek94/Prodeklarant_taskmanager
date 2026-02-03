@@ -1105,6 +1105,30 @@ const Invoice = () => {
     }
   };
 
+  const generateInvoiceExcel = async () => {
+    if (!invoice?.id) {
+      alert('Invoice topilmadi');
+      return;
+    }
+    try {
+      const response = await apiClient.get(`/invoices/${invoice.id}/xlsx`, {
+        responseType: 'blob',
+      });
+      const fileName = `Invoice_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading Invoice Excel:', error);
+      alert('Invoys Excel yuklab olishda xatolik yuz berdi');
+    }
+  };
+
   const addItem = () => {
 
     setItems([...items, {
@@ -1711,6 +1735,15 @@ const Invoice = () => {
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300"
             >
               Invoys PDF
+            </button>
+            <button
+              type="button"
+              onClick={generateInvoiceExcel}
+              disabled={saving}
+              className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:bg-sky-300"
+              title="Invoysni Excel formatida yuklab olish"
+            >
+              Invoys Excel
             </button>
             <button
               onClick={() => navigate(-1)}

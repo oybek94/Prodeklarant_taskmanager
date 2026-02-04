@@ -4,6 +4,7 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { generateInvoicePDF } from '../services/invoice-pdf';
 import { generateInvoiceExcel } from '../services/invoice-excel';
+import { generateFssExcel } from '../services/fss-excel';
 import { Prisma } from '@prisma/client';
 import { getNextInvoiceNumber } from '../utils/invoice-number';
 import { ensureCmrForInvoice } from '../services/cmr-service';
@@ -834,6 +835,68 @@ router.get('/:id/xlsx', requireAuth(), async (req: AuthRequest, res: Response) =
     res.end(outputBuffer);
   } catch (error: any) {
     console.error('Error generating Invoice Excel:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/:id/fss - Ichki FSS Excel yuklab olish
+router.get('/:id/fss', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        items: {
+          orderBy: { orderIndex: 'asc' }
+        },
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const regionInternalCode =
+      typeof req.query.regionInternalCode === 'string'
+        ? req.query.regionInternalCode
+        : undefined;
+    const regionName =
+      typeof req.query.regionName === 'string' ? req.query.regionName : undefined;
+    const regionExternalCode =
+      typeof req.query.regionExternalCode === 'string'
+        ? req.query.regionExternalCode
+        : undefined;
+    const templateType =
+      req.query.template === 'ichki' ? 'ichki' : 'tashqi';
+
+    const workbook = await generateFssExcel({
+      invoice,
+      items: invoice.items,
+      regionInternalCode,
+      regionName,
+      regionExternalCode,
+      templateType,
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });
+    const outputBuffer = Buffer.from(buffer as ArrayBuffer);
+    const fileName = `FSS_${invoice.invoiceNumber || invoice.id}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.setHeader('Content-Length', outputBuffer.length);
+    res.end(outputBuffer);
+  } catch (error: any) {
+    console.error('Error generating FSS Excel:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });

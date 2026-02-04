@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../lib/api';
+import {
+  addTnvedProduct,
+  deleteTnvedProduct,
+  getTnvedProducts,
+  resetTnvedProductsToDefaults,
+  updateTnvedProduct,
+} from '../utils/tnvedProducts';
+import {
+  addPackagingType,
+  deletePackagingType,
+  getPackagingTypes,
+  updatePackagingType,
+} from '../utils/packagingTypes';
 
 interface BXMConfig {
   id: number;
@@ -80,6 +93,14 @@ interface KpiConfig {
   updatedAt: string;
 }
 
+interface RegionCode {
+  id: number;
+  name: string;
+  internalCode: string;
+  externalCode: string;
+  createdAt: string;
+}
+
 const STAGE_PRICE_DEFAULTS = [
   { stageName: 'Invoys', price: 3.0 },
   { stageName: 'Zayavka', price: 3.0 },
@@ -91,8 +112,57 @@ const STAGE_PRICE_DEFAULTS = [
   { stageName: 'Pochta', price: 1.0 },
 ];
 
+const iconClassName = 'h-4 w-4';
+
+const IconAdd = () => (
+  <svg viewBox="0 0 20 20" className={iconClassName} fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M10 4v12M4 10h12" strokeLinecap="round" />
+  </svg>
+);
+
+const IconEdit = () => (
+  <svg viewBox="0 0 20 20" className={iconClassName} fill="none" stroke="currentColor" strokeWidth="1.6">
+    <path d="M12.5 4.5 15.5 7.5" strokeLinecap="round" />
+    <path d="M5 15h3l7.5-7.5-3-3L5 12v3z" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconTrash = () => (
+  <svg viewBox="0 0 20 20" className={iconClassName} fill="none" stroke="currentColor" strokeWidth="1.6">
+    <path d="M4 6h12" strokeLinecap="round" />
+    <path d="M7 6V4h6v2" strokeLinejoin="round" />
+    <path d="M6 6l1 10h6l1-10" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconSave = () => (
+  <svg viewBox="0 0 20 20" className={iconClassName} fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M4 10l4 4 8-8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconCancel = () => (
+  <svg viewBox="0 0 20 20" className={iconClassName} fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+  </svg>
+);
+
 const Settings = () => {
   const { user } = useAuth();
+  const [tnvedProducts, setTnvedProducts] = useState(getTnvedProducts());
+  const [tnvedName, setTnvedName] = useState('');
+  const [tnvedCode, setTnvedCode] = useState('');
+  const [tnvedBotanical, setTnvedBotanical] = useState('');
+  const [editingTnvedId, setEditingTnvedId] = useState<string | null>(null);
+  const [editingTnvedName, setEditingTnvedName] = useState('');
+  const [editingTnvedCode, setEditingTnvedCode] = useState('');
+  const [editingTnvedBotanical, setEditingTnvedBotanical] = useState('');
+  const [packagingTypes, setPackagingTypes] = useState(getPackagingTypes());
+  const [packagingName, setPackagingName] = useState('');
+  const [packagingCode, setPackagingCode] = useState('');
+  const [editingPackagingId, setEditingPackagingId] = useState<string | null>(null);
+  const [editingPackagingName, setEditingPackagingName] = useState('');
+  const [editingPackagingCode, setEditingPackagingCode] = useState('');
   const [bxmConfigs, setBxmConfigs] = useState<BXMConfig[]>([]);
   const [currentBXM, setCurrentBXM] = useState<BXMConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,6 +221,22 @@ const Settings = () => {
   const [showBranchForm, setShowBranchForm] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
   const [deletingBranchId, setDeletingBranchId] = useState<number | null>(null);
+  const [regionCodes, setRegionCodes] = useState<RegionCode[]>([]);
+  const [loadingRegionCodes, setLoadingRegionCodes] = useState(true);
+  const [showRegionCodeForm, setShowRegionCodeForm] = useState(false);
+  const [regionCodeForm, setRegionCodeForm] = useState({
+    name: '',
+    internalCode: '',
+    externalCode: '',
+  });
+  const [deletingRegionCodeId, setDeletingRegionCodeId] = useState<number | null>(null);
+
+  const refreshTnvedProducts = () => {
+    setTnvedProducts(getTnvedProducts());
+  };
+  const refreshPackagingTypes = () => {
+    setPackagingTypes(getPackagingTypes());
+  };
 
   useEffect(() => {
     loadBXMConfigs();
@@ -161,6 +247,7 @@ const Settings = () => {
     loadCertifierFeeConfig();
     loadYearlyGoalConfig();
     loadKpiConfigs();
+    loadRegionCodes();
   }, []);
 
   const loadBXMConfigs = async () => {
@@ -255,6 +342,18 @@ const Settings = () => {
     }
   };
 
+  const loadRegionCodes = async () => {
+    try {
+      setLoadingRegionCodes(true);
+      const response = await apiClient.get('/region-codes');
+      setRegionCodes(response.data);
+    } catch (error) {
+      console.error('Error loading region codes:', error);
+    } finally {
+      setLoadingRegionCodes(false);
+    }
+  };
+
   const handleCreateBranch = async (branchName: string) => {
     try {
       await apiClient.post('/branches', { name: branchName });
@@ -277,6 +376,137 @@ const Settings = () => {
     } finally {
       setDeletingBranchId(null);
     }
+  };
+
+  const handleCreateRegionCode = async () => {
+    const payload = {
+      name: regionCodeForm.name.trim(),
+      internalCode: regionCodeForm.internalCode.trim(),
+      externalCode: regionCodeForm.externalCode.trim(),
+    };
+    if (!payload.name || !payload.internalCode || !payload.externalCode) {
+      alert('Barcha maydonlarni to\'ldiring');
+      return;
+    }
+    try {
+      await apiClient.post('/region-codes', payload);
+      setRegionCodeForm({ name: '', internalCode: '', externalCode: '' });
+      setShowRegionCodeForm(false);
+      await loadRegionCodes();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleDeleteRegionCode = async (id: number, name: string) => {
+    if (!confirm(`"${name}" hudud kodini o'chirishni xohlaysizmi?`)) return;
+    try {
+      setDeletingRegionCodeId(id);
+      await apiClient.delete(`/region-codes/${id}`);
+      await loadRegionCodes();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    } finally {
+      setDeletingRegionCodeId(null);
+    }
+  };
+
+  const handleAddTnvedProduct = () => {
+    if (!tnvedName.trim() || !tnvedCode.trim()) {
+      alert('Mahsulot nomi va TNVED kodi majburiy');
+      return;
+    }
+    addTnvedProduct(tnvedName.trim(), tnvedCode.trim(), tnvedBotanical.trim());
+    setTnvedName('');
+    setTnvedCode('');
+    setTnvedBotanical('');
+    refreshTnvedProducts();
+  };
+
+  const startEditTnved = (item: { id: string; name: string; code: string; botanicalName?: string }) => {
+    setEditingTnvedId(item.id);
+    setEditingTnvedName(item.name);
+    setEditingTnvedCode(item.code);
+    setEditingTnvedBotanical(item.botanicalName || '');
+  };
+
+  const cancelEditTnved = () => {
+    setEditingTnvedId(null);
+    setEditingTnvedName('');
+    setEditingTnvedCode('');
+    setEditingTnvedBotanical('');
+  };
+
+  const handleSaveTnved = () => {
+    if (!editingTnvedId) return;
+    if (!editingTnvedName.trim() || !editingTnvedCode.trim()) {
+      alert('Mahsulot nomi va TNVED kodi majburiy');
+      return;
+    }
+    updateTnvedProduct(
+      editingTnvedId,
+      editingTnvedName.trim(),
+      editingTnvedCode.trim(),
+      editingTnvedBotanical.trim()
+    );
+    cancelEditTnved();
+    refreshTnvedProducts();
+  };
+
+  const handleDeleteTnved = (id: string, name: string) => {
+    if (!confirm(`"${name}" mahsulotini o'chirishni xohlaysizmi?`)) return;
+    deleteTnvedProduct(id);
+    refreshTnvedProducts();
+  };
+
+  const handleResetTnved = () => {
+    if (!confirm('Standart spetsifikatsiya ro\'yxatini tiklaysizmi?')) return;
+    resetTnvedProductsToDefaults();
+    refreshTnvedProducts();
+  };
+
+  const handleAddPackagingType = () => {
+    if (!packagingName.trim() || !packagingCode.trim()) {
+      alert('Qadoq nomi va qadoq kodi majburiy');
+      return;
+    }
+    addPackagingType(packagingName.trim(), packagingCode.trim());
+    setPackagingName('');
+    setPackagingCode('');
+    refreshPackagingTypes();
+  };
+
+  const startEditPackaging = (item: { id: string; name: string; code?: string }) => {
+    setEditingPackagingId(item.id);
+    setEditingPackagingName(item.name);
+    setEditingPackagingCode(item.code || '');
+  };
+
+  const cancelEditPackaging = () => {
+    setEditingPackagingId(null);
+    setEditingPackagingName('');
+    setEditingPackagingCode('');
+  };
+
+  const handleSavePackaging = () => {
+    if (!editingPackagingId) return;
+    if (!editingPackagingName.trim() || !editingPackagingCode.trim()) {
+      alert('Qadoq nomi va qadoq kodi majburiy');
+      return;
+    }
+    updatePackagingType(
+      editingPackagingId,
+      editingPackagingName.trim(),
+      editingPackagingCode.trim()
+    );
+    cancelEditPackaging();
+    refreshPackagingTypes();
+  };
+
+  const handleDeletePackaging = (id: string, name: string) => {
+    if (!confirm(`"${name}" qadoq turini o'chirishni xohlaysizmi?`)) return;
+    deletePackagingType(id);
+    refreshPackagingTypes();
   };
 
   const handleStatePaymentSubmit = async (e: React.FormEvent) => {
@@ -495,7 +725,7 @@ const Settings = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="h-full overflow-y-auto space-y-8 pr-2">
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Sozlamalar</h1>
         <p className="text-sm text-gray-500 mt-1">
@@ -508,16 +738,20 @@ const Settings = () => {
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Asosiy</h2>
           <span className="text-sm text-gray-400">Filiallar</span>
         </div>
-        <div className="grid grid-cols-1 gap-6">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Branches Section */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-gray-800">Filiallar</h2>
               <button
                 onClick={() => setShowBranchForm(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                aria-label="Filial qo'shish"
+                title="Filial qo'shish"
               >
-                + Filial qo'shish
+                <IconAdd />
+                <span className="sr-only">Filial qo'shish</span>
               </button>
             </div>
 
@@ -534,9 +768,12 @@ const Settings = () => {
                     <button
                       onClick={() => handleDeleteBranch(branch.id, branch.name)}
                       disabled={deletingBranchId === branch.id}
-                      className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
+                      className="inline-flex items-center justify-center p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
+                      aria-label="Filialni o'chirish"
+                      title="Filialni o'chirish"
                     >
-                      {deletingBranchId === branch.id ? 'O\'chirilmoqda...' : 'O\'chirish'}
+                      <IconTrash />
+                      <span className="sr-only">{deletingBranchId === branch.id ? 'O\'chirilmoqda...' : 'O\'chirish'}</span>
                     </button>
                   </div>
                 ))}
@@ -570,22 +807,468 @@ const Settings = () => {
                         setShowBranchForm(false);
                       }
                     }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    aria-label="Qo'shish"
+                    title="Qo'shish"
                   >
-                    Qo'shish
+                    <IconAdd />
+                    <span className="sr-only">Qo'shish</span>
                   </button>
                   <button
                     onClick={() => {
                       setShowBranchForm(false);
                       setNewBranchName('');
                     }}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                    className="inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                    aria-label="Bekor qilish"
+                    title="Bekor qilish"
                   >
-                    Bekor qilish
+                    <IconCancel />
+                    <span className="sr-only">Bekor qilish</span>
                   </button>
                 </div>
               </div>
             )}
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">Standart spetsifikatsiya</h2>
+                <div className="text-sm text-gray-500">Mahsulot, TNVED va botanik nomlar</div>
+              </div>
+              <button
+                onClick={handleResetTnved}
+                className="inline-flex items-center justify-center p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                aria-label="Standartlarni tiklash"
+                title="Standartlarni tiklash"
+              >
+                <IconCancel />
+                <span className="sr-only">Standartlarni tiklash</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
+              <input
+                type="text"
+                value={tnvedName}
+                onChange={(e) => setTnvedName(e.target.value)}
+                placeholder="Mahsulot nomi"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+              <input
+                type="text"
+                value={tnvedCode}
+                onChange={(e) => setTnvedCode(e.target.value)}
+                placeholder="TNVED kod"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+              <input
+                type="text"
+                value={tnvedBotanical}
+                onChange={(e) => setTnvedBotanical(e.target.value)}
+                placeholder="Botanik nomi"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+              <button
+                onClick={handleAddTnvedProduct}
+                className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                aria-label="Qo'shish"
+                title="Qo'shish"
+              >
+                <IconAdd />
+                <span className="sr-only">Qo'shish</span>
+              </button>
+            </div>
+            <div className="max-h-[360px] overflow-auto border border-gray-100 rounded-lg">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50 sticky top-0">
+                    <th className="text-left py-2 px-3 font-semibold text-gray-700 w-12">№</th>
+                    <th className="text-left py-2 px-3 font-semibold text-gray-700">Mahsulot nomi</th>
+                    <th className="text-left py-2 px-3 font-semibold text-gray-700 w-28">TNVED</th>
+                    <th className="text-left py-2 px-3 font-semibold text-gray-700">Botanik nomi</th>
+                    <th className="text-center py-2 px-3 font-semibold text-gray-700 w-24">Amallar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tnvedProducts.map((item, idx) => {
+                    const isEditing = editingTnvedId === item.id;
+                    return (
+                      <tr key={`${item.id}-${idx}`} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-2 px-3 text-gray-600">{idx + 1}</td>
+                        <td className="py-2 px-3 text-gray-800">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={editingTnvedName}
+                              onChange={(e) => setEditingTnvedName(e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                            />
+                          ) : (
+                            item.name
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-gray-700">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={editingTnvedCode}
+                              onChange={(e) => setEditingTnvedCode(e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                            />
+                          ) : (
+                            item.code
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-gray-700">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={editingTnvedBotanical}
+                              onChange={(e) => setEditingTnvedBotanical(e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                            />
+                          ) : (
+                            item.botanicalName || '—'
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {isEditing ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={handleSaveTnved}
+                                className="inline-flex items-center justify-center p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                aria-label="Saqlash"
+                                title="Saqlash"
+                              >
+                                <IconSave />
+                                <span className="sr-only">Saqlash</span>
+                              </button>
+                              <button
+                                onClick={cancelEditTnved}
+                                className="inline-flex items-center justify-center p-1.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors"
+                                aria-label="Bekor qilish"
+                                title="Bekor qilish"
+                              >
+                                <IconCancel />
+                                <span className="sr-only">Bekor qilish</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => startEditTnved(item)}
+                                className="inline-flex items-center justify-center p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                aria-label="Tahrirlash"
+                                title="Tahrirlash"
+                              >
+                                <IconEdit />
+                                <span className="sr-only">Tahrirlash</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTnved(item.id, item.name)}
+                                className="inline-flex items-center justify-center p-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                                aria-label="O'chirish"
+                                title="O'chirish"
+                              >
+                                <IconTrash />
+                                <span className="sr-only">O'chirish</span>
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {/* Region Codes Section */}
+            <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Hudud kodlari</h2>
+              <button
+                onClick={() => setShowRegionCodeForm(true)}
+                className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                aria-label="Hudud kodi qo'shish"
+                title="Hudud kodi qo'shish"
+              >
+                <IconAdd />
+                <span className="sr-only">Qo'shish</span>
+              </button>
+            </div>
+
+            {loadingRegionCodes ? (
+              <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+            ) : regionCodes.length === 0 ? (
+              <div className="text-center py-4 text-gray-400">Hudud kodlari topilmadi</div>
+            ) : (
+              <div className="max-h-[520px] overflow-auto border border-gray-100 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50 sticky top-0">
+                      <th className="text-left py-2 px-3 font-semibold text-gray-700">Hudud</th>
+                      <th className="text-left py-2 px-3 font-semibold text-gray-700">Kod ichki</th>
+                      <th className="text-left py-2 px-3 font-semibold text-gray-700">Kod tashqi</th>
+                      <th className="text-center py-2 px-3 font-semibold text-gray-700">Amallar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {regionCodes.map((code) => (
+                      <tr key={code.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-2 px-3 text-gray-800 font-medium">{code.name}</td>
+                        <td className="py-2 px-3 text-gray-700">{code.internalCode}</td>
+                        <td className="py-2 px-3 text-gray-700">{code.externalCode}</td>
+                        <td className="py-2 px-3 text-center">
+                          <button
+                            onClick={() => handleDeleteRegionCode(code.id, code.name)}
+                            disabled={deletingRegionCodeId === code.id}
+                            className="inline-flex items-center justify-center p-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs disabled:opacity-50"
+                            aria-label="Hudud kodini o'chirish"
+                            title="O'chirish"
+                          >
+                            <IconTrash />
+                            <span className="sr-only">{deletingRegionCodeId === code.id ? 'O\'chirilmoqda...' : 'O\'chirish'}</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {showRegionCodeForm && (
+              <div className="mt-4 p-4 border-2 border-green-300 rounded-lg bg-green-50">
+                <h3 className="text-md font-semibold text-gray-800 mb-3">Yangi hudud kodi</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    value={regionCodeForm.name}
+                    onChange={(e) => setRegionCodeForm({ ...regionCodeForm, name: e.target.value })}
+                    placeholder="Hudud nomi"
+                    className="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={regionCodeForm.internalCode}
+                    onChange={(e) => setRegionCodeForm({ ...regionCodeForm, internalCode: e.target.value })}
+                    placeholder="Kod ichki"
+                    className="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={regionCodeForm.externalCode}
+                    onChange={(e) => setRegionCodeForm({ ...regionCodeForm, externalCode: e.target.value })}
+                    placeholder="Kod tashqi"
+                    className="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                  />
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={handleCreateRegionCode}
+                    className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    aria-label="Qo'shish"
+                    title="Qo'shish"
+                  >
+                    <IconAdd />
+                    <span className="sr-only">Qo'shish</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowRegionCodeForm(false);
+                      setRegionCodeForm({ name: '', internalCode: '', externalCode: '' });
+                    }}
+                    className="inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                    aria-label="Bekor qilish"
+                    title="Bekor qilish"
+                  >
+                    <IconCancel />
+                    <span className="sr-only">Bekor qilish</span>
+                  </button>
+                </div>
+              </div>
+            )}
+            </div>
+            {/* Stage fixed amounts */}
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="flex justify-between items-center mb-3">
+                <div>
+                  <h2 className="text-base font-semibold text-gray-800">Jarayonlar bo'yicha qatiy summalar</h2>
+                  <div className="text-xs text-gray-500">Barcha summalar USD da kiritiladi</div>
+                </div>
+                <button
+                  onClick={handleSaveKpiConfigs}
+                  disabled={savingKpiConfigs || loadingKpiConfigs}
+                  className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  aria-label={savingKpiConfigs ? 'Saqlanmoqda...' : 'Saqlash'}
+                  title={savingKpiConfigs ? 'Saqlanmoqda...' : 'Saqlash'}
+                >
+                  <IconSave />
+                  <span className="sr-only">{savingKpiConfigs ? 'Saqlanmoqda...' : 'Saqlash'}</span>
+                </button>
+              </div>
+              {loadingKpiConfigs ? (
+                <div className="text-center py-3 text-gray-500 text-sm">Yuklanmoqda...</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-2 px-3 font-semibold text-gray-700">Jarayon</th>
+                        <th className="text-right py-2 px-3 font-semibold text-gray-700">Summa (USD)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {STAGE_PRICE_DEFAULTS.map((stage) => (
+                        <tr key={stage.stageName} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-2 px-3 text-gray-800 font-medium">{stage.stageName}</td>
+                          <td className="py-2 px-3 text-right">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={kpiConfigEdits[stage.stageName] ?? ''}
+                              onChange={(e) =>
+                                setKpiConfigEdits({
+                                  ...kpiConfigEdits,
+                                  [stage.stageName]: e.target.value,
+                                })
+                              }
+                              className="w-24 px-2 py-1 border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              placeholder={stage.price.toString()}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">Qadoq turlari</h2>
+                <div className="text-sm text-gray-500">Qadoq nomi va qadoq kodi</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+              <input
+                type="text"
+                value={packagingName}
+                onChange={(e) => setPackagingName(e.target.value)}
+                placeholder="Qadoq nomi"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+              <input
+                type="text"
+                value={packagingCode}
+                onChange={(e) => setPackagingCode(e.target.value)}
+                placeholder="Qadoq kodi"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+              <button
+                onClick={handleAddPackagingType}
+                className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                aria-label="Qo'shish"
+                title="Qo'shish"
+              >
+                <IconAdd />
+                <span className="sr-only">Qo'shish</span>
+              </button>
+            </div>
+            <div className="max-h-[320px] overflow-auto border border-gray-100 rounded-lg">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50 sticky top-0">
+                    <th className="text-left py-2 px-3 font-semibold text-gray-700">Qadoq nomi</th>
+                    <th className="text-left py-2 px-3 font-semibold text-gray-700 w-40">Qadoq kodi</th>
+                    <th className="text-center py-2 px-3 font-semibold text-gray-700 w-24">Amallar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {packagingTypes.map((item) => {
+                    const isEditing = editingPackagingId === item.id;
+                    return (
+                      <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-2 px-3 text-gray-800">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={editingPackagingName}
+                              onChange={(e) => setEditingPackagingName(e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                            />
+                          ) : (
+                            item.name
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-gray-700">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={editingPackagingCode}
+                              onChange={(e) => setEditingPackagingCode(e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                            />
+                          ) : (
+                            item.code || '—'
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {isEditing ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={handleSavePackaging}
+                                className="inline-flex items-center justify-center p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                aria-label="Saqlash"
+                                title="Saqlash"
+                              >
+                                <IconSave />
+                                <span className="sr-only">Saqlash</span>
+                              </button>
+                              <button
+                                onClick={cancelEditPackaging}
+                                className="inline-flex items-center justify-center p-1.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors"
+                                aria-label="Bekor qilish"
+                                title="Bekor qilish"
+                              >
+                                <IconCancel />
+                                <span className="sr-only">Bekor qilish</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => startEditPackaging(item)}
+                                className="inline-flex items-center justify-center p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                aria-label="Tahrirlash"
+                                title="Tahrirlash"
+                              >
+                                <IconEdit />
+                                <span className="sr-only">Tahrirlash</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeletePackaging(item.id, item.name)}
+                                className="inline-flex items-center justify-center p-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                                aria-label="O'chirish"
+                                title="O'chirish"
+                              >
+                                <IconTrash />
+                                <span className="sr-only">O'chirish</span>
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
@@ -614,9 +1297,12 @@ const Settings = () => {
                 </div>
                 <button
                   onClick={() => handleEdit(currentBXM)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  aria-label="O'zgartirish"
+                  title="O'zgartirish"
                 >
-                  O'zgartirish
+                  <IconEdit />
+                  <span className="sr-only">O'zgartirish</span>
                 </button>
               </div>
             ) : (
@@ -630,9 +1316,12 @@ const Settings = () => {
               <h2 className="text-lg font-semibold text-gray-800">Sertifikatchi tariflari (Oltiariq)</h2>
               <button
                 onClick={() => setShowCertifierFeeForm(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                aria-label={certifierFeeConfig ? "O'zgartirish" : "Qo'shish"}
+                title={certifierFeeConfig ? "O'zgartirish" : "Qo'shish"}
               >
-                {certifierFeeConfig ? 'O\'zgartirish' : '+ Qo\'shish'}
+                {certifierFeeConfig ? <IconEdit /> : <IconAdd />}
+                <span className="sr-only">{certifierFeeConfig ? 'O\'zgartirish' : 'Qo\'shish'}</span>
               </button>
             </div>
 
@@ -657,9 +1346,12 @@ const Settings = () => {
               <h2 className="text-lg font-semibold text-gray-800">Yillik maqsad</h2>
               <button
                 onClick={() => setShowYearlyGoalForm(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                aria-label={yearlyGoalConfig ? "O'zgartirish" : "Qo'shish"}
+                title={yearlyGoalConfig ? "O'zgartirish" : "Qo'shish"}
               >
-                {yearlyGoalConfig ? 'O\'zgartirish' : '+ Qo\'shish'}
+                {yearlyGoalConfig ? <IconEdit /> : <IconAdd />}
+                <span className="sr-only">{yearlyGoalConfig ? 'O\'zgartirish' : 'Qo\'shish'}</span>
               </button>
             </div>
 
@@ -690,9 +1382,12 @@ const Settings = () => {
                   setEditAmountUsd('34.4');
                   setEditAmountUzs('412000');
                 }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                aria-label="Yangi yil qo'shish"
+                title="Yangi yil qo'shish"
               >
-                + Yangi yil qo'shish
+                <IconAdd />
+                <span className="sr-only">Yangi yil qo'shish</span>
               </button>
             </div>
             <div className="space-y-3">
@@ -722,9 +1417,12 @@ const Settings = () => {
                       />
                       <button
                         onClick={() => handleSave(config.year)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        aria-label="Saqlash"
+                        title="Saqlash"
                       >
-                        Saqlash
+                        <IconSave />
+                        <span className="sr-only">Saqlash</span>
                       </button>
                       <button
                         onClick={() => {
@@ -732,9 +1430,12 @@ const Settings = () => {
                           setEditAmountUsd('');
                           setEditAmountUzs('');
                         }}
-                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                        className="inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                        aria-label="Bekor qilish"
+                        title="Bekor qilish"
                       >
-                        Bekor qilish
+                        <IconCancel />
+                        <span className="sr-only">Bekor qilish</span>
                       </button>
                     </div>
                   ) : (
@@ -750,9 +1451,12 @@ const Settings = () => {
                       </div>
                       <button
                         onClick={() => handleEdit(config)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        aria-label="O'zgartirish"
+                        title="O'zgartirish"
                       >
-                        O'zgartirish
+                        <IconEdit />
+                        <span className="sr-only">O'zgartirish</span>
                       </button>
                     </>
                   )}
@@ -779,9 +1483,12 @@ const Settings = () => {
                   />
                   <button
                     onClick={handleAddNewYear}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    aria-label="Qo'shish"
+                    title="Qo'shish"
                   >
-                    Qo'shish
+                    <IconAdd />
+                    <span className="sr-only">Qo'shish</span>
                   </button>
                   <button
                     onClick={() => {
@@ -789,9 +1496,12 @@ const Settings = () => {
                       setEditAmountUsd('');
                       setEditAmountUzs('');
                     }}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                    className="inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                    aria-label="Bekor qilish"
+                    title="Bekor qilish"
                   >
-                    Bekor qilish
+                    <IconCancel />
+                    <span className="sr-only">Bekor qilish</span>
                   </button>
                 </div>
               )}
@@ -804,9 +1514,12 @@ const Settings = () => {
               <h2 className="text-lg font-semibold text-gray-800">Davlat to'lovlari</h2>
               <button
                 onClick={() => setShowStatePaymentForm(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                aria-label="Davlat to'lovi qo'shish"
+                title="Davlat to'lovi qo'shish"
               >
-                + Qo'shish
+                <IconAdd />
+                <span className="sr-only">Qo'shish</span>
               </button>
             </div>
 
@@ -847,9 +1560,12 @@ const Settings = () => {
                         <td className="py-3 px-4 text-center">
                           <button
                             onClick={() => handleDeleteStatePayment(payment.id)}
-                            className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                            className="inline-flex items-center justify-center p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                            aria-label="O'chirish"
+                            title="O'chirish"
                           >
-                            O'chirish
+                            <IconTrash />
+                            <span className="sr-only">O'chirish</span>
                           </button>
                         </td>
                       </tr>
@@ -862,66 +1578,6 @@ const Settings = () => {
         </div>
       </section>
 
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Jarayonlar</h2>
-          <span className="text-sm text-gray-400">Ish haqi summalari</span>
-        </div>
-        <div className="grid grid-cols-1 gap-6">
-          {/* Stage fixed amounts */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800">Jarayonlar bo'yicha qatiy summalar</h2>
-                <div className="text-sm text-gray-500">Barcha summalar USD da kiritiladi</div>
-              </div>
-              <button
-                onClick={handleSaveKpiConfigs}
-                disabled={savingKpiConfigs || loadingKpiConfigs}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {savingKpiConfigs ? 'Saqlanmoqda...' : 'Saqlash'}
-              </button>
-            </div>
-            {loadingKpiConfigs ? (
-              <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Jarayon</th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700">Summa (USD)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {STAGE_PRICE_DEFAULTS.map((stage) => (
-                      <tr key={stage.stageName} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 text-gray-800 font-medium">{stage.stageName}</td>
-                        <td className="py-3 px-4 text-right">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={kpiConfigEdits[stage.stageName] ?? ''}
-                            onChange={(e) =>
-                              setKpiConfigEdits({
-                                ...kpiConfigEdits,
-                                [stage.stageName]: e.target.value,
-                              })
-                            }
-                            className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder={stage.price.toString()}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
 
       {/* State Payment Form Modal */}
       {showStatePaymentForm && (
@@ -938,9 +1594,12 @@ const Settings = () => {
               <h3 className="text-lg font-semibold text-gray-800">Yangi davlat to'lovi</h3>
               <button
                 onClick={() => setShowStatePaymentForm(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-700"
+                aria-label="Yopish"
+                title="Yopish"
               >
-                ×
+                <IconCancel />
+                <span className="sr-only">Yopish</span>
               </button>
             </div>
             <form onSubmit={handleStatePaymentSubmit}>
@@ -1042,16 +1701,22 @@ const Settings = () => {
               <div className="flex gap-3 mt-6">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="flex-1 inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  aria-label="Saqlash"
+                  title="Saqlash"
                 >
-                  Saqlash
+                  <IconSave />
+                  <span className="sr-only">Saqlash</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowStatePaymentForm(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  className="flex-1 inline-flex items-center justify-center p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  aria-label="Bekor qilish"
+                  title="Bekor qilish"
                 >
-                  Bekor qilish
+                  <IconCancel />
+                  <span className="sr-only">Bekor qilish</span>
                 </button>
               </div>
             </form>
@@ -1074,9 +1739,12 @@ const Settings = () => {
               <h3 className="text-lg font-semibold text-gray-800">Sertifikatchi tariflari</h3>
               <button
                 onClick={() => setShowCertifierFeeForm(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-700"
+                aria-label="Yopish"
+                title="Yopish"
               >
-                ×
+                <IconCancel />
+                <span className="sr-only">Yopish</span>
               </button>
             </div>
             <form onSubmit={handleCertifierFeeSubmit}>
@@ -1118,16 +1786,22 @@ const Settings = () => {
               <div className="flex gap-3 mt-6">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  className="flex-1 inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  aria-label="Saqlash"
+                  title="Saqlash"
                 >
-                  Saqlash
+                  <IconSave />
+                  <span className="sr-only">Saqlash</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCertifierFeeForm(false)}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                  className="flex-1 inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                  aria-label="Bekor qilish"
+                  title="Bekor qilish"
                 >
-                  Bekor qilish
+                  <IconCancel />
+                  <span className="sr-only">Bekor qilish</span>
                 </button>
               </div>
             </form>
@@ -1150,9 +1824,12 @@ const Settings = () => {
               <h3 className="text-lg font-semibold text-gray-800">Yillik maqsad</h3>
               <button
                 onClick={() => setShowYearlyGoalForm(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-700"
+                aria-label="Yopish"
+                title="Yopish"
               >
-                ×
+                <IconCancel />
+                <span className="sr-only">Yopish</span>
               </button>
             </div>
             <form onSubmit={handleYearlyGoalSubmit}>
@@ -1183,16 +1860,22 @@ const Settings = () => {
               <div className="flex gap-3 mt-6">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  className="flex-1 inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  aria-label="Saqlash"
+                  title="Saqlash"
                 >
-                  Saqlash
+                  <IconSave />
+                  <span className="sr-only">Saqlash</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowYearlyGoalForm(false)}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                  className="flex-1 inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                  aria-label="Bekor qilish"
+                  title="Bekor qilish"
                 >
-                  Bekor qilish
+                  <IconCancel />
+                  <span className="sr-only">Bekor qilish</span>
                 </button>
               </div>
             </form>
@@ -1215,9 +1898,12 @@ const Settings = () => {
               <h3 className="text-lg font-semibold text-gray-800">Kompaniya ma'lumotlari</h3>
               <button
                 onClick={() => setShowCompanySettingsForm(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-700"
+                aria-label="Yopish"
+                title="Yopish"
               >
-                ×
+                <IconCancel />
+                <span className="sr-only">Yopish</span>
               </button>
             </div>
             <form onSubmit={handleCompanySettingsSubmit}>
@@ -1360,16 +2046,22 @@ const Settings = () => {
               <div className="flex gap-3 mt-6">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="flex-1 inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  aria-label="Saqlash"
+                  title="Saqlash"
                 >
-                  Saqlash
+                  <IconSave />
+                  <span className="sr-only">Saqlash</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCompanySettingsForm(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  className="flex-1 inline-flex items-center justify-center p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  aria-label="Bekor qilish"
+                  title="Bekor qilish"
                 >
-                  Bekor qilish
+                  <IconCancel />
+                  <span className="sr-only">Bekor qilish</span>
                 </button>
               </div>
             </form>

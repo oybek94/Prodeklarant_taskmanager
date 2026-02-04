@@ -48,6 +48,7 @@ const Layout = () => {
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
+  const isSettingsPage = location.pathname.startsWith('/settings');
 
   const navItems = [
     ...(user?.role === 'ADMIN' ? [{ path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' }] : []),
@@ -177,7 +178,9 @@ const Layout = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile: Sidebar yopiq bo'lganda top padding qo'shish */}
-        <main className={`flex-1 overflow-y-auto p-6 ${!isDesktop && !sidebarOpen ? 'pt-20' : ''}`}>
+        <main
+          className={`flex-1 ${isSettingsPage ? 'overflow-hidden' : 'overflow-y-auto'} p-6 ${!isDesktop && !sidebarOpen ? 'pt-20' : ''}`}
+        >
           <Outlet />
         </main>
       </div>

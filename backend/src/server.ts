@@ -25,6 +25,7 @@ import invoicesRouter from './routes/invoices';
 import companySettingsRouter from './routes/company-settings';
 import certifierFeeConfigRouter from './routes/certifier-fee-config';
 import yearlyGoalConfigRouter from './routes/yearly-goal-config';
+import regionCodesRouter from './routes/region-codes';
 import contractsRouter from './routes/contracts';
 import taskStatusRouter from './routes/task-status';
 import taskDocumentsRouter from './routes/task-documents';
@@ -168,6 +169,7 @@ app.use('/api/invoices', requireAuth(), invoicesRouter);
 app.use('/api/company-settings', companySettingsRouter);
 app.use('/api/certifier-fee-config', certifierFeeConfigRouter);
 app.use('/api/yearly-goal-config', yearlyGoalConfigRouter);
+app.use('/api/region-codes', regionCodesRouter);
 app.use('/api/contracts', requireAuth(), contractsRouter);
 // Public QR verification endpoint (no authentication required)
 app.use('/q', qrRouter);

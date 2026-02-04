@@ -81,6 +81,13 @@ interface Invoice {
 
 }
 
+interface RegionCode {
+  id: number;
+  name: string;
+  internalCode: string;
+  externalCode: string;
+}
+
 
 
 interface Contract {
@@ -225,6 +232,11 @@ interface Task {
 
     contractNumber?: string;
 
+  };
+
+  branch?: {
+    id: number;
+    name: string;
   };
 
 }
@@ -473,6 +485,9 @@ const Invoice = () => {
     // Дополнительная информация
     deliveryTerms: '', // Условия поставки
     vehicleNumber: '', // Номер автотранспорта
+    fssRegionInternalCode: '', // FSS hudud ichki kodi
+    fssRegionName: '', // FSS hudud nomi
+    fssRegionExternalCode: '', // FSS hudud tashqi kodi
     loaderWeight: '', // Yuk tortuvchi og'irligi
     trailerWeight: '', // Pritsep og'irligi
     palletWeight: '', // Poddon og'irligi
@@ -498,6 +513,12 @@ const Invoice = () => {
   const [customFields, setCustomFields] = useState<Array<{ id: string; label: string; value: string }>>([]);
   const [showAddFieldModal, setShowAddFieldModal] = useState(false);
   const [newFieldLabel, setNewFieldLabel] = useState('');
+  const [regionCodes, setRegionCodes] = useState<RegionCode[]>([]);
+  const [regionCodesLoading, setRegionCodesLoading] = useState(false);
+  const [regionSearch, setRegionSearch] = useState('');
+  const [showFssRegionModal, setShowFssRegionModal] = useState(false);
+  const [fssFilePrefix, setFssFilePrefix] = useState<'Ichki' | 'Tashqi'>('Ichki');
+  const [fssAutoDownload, setFssAutoDownload] = useState(true);
   const [tnvedProducts, setTnvedProducts] = useState<Array<{ id: string; name: string; code: string }>>([]);
   const [packagingTypes, setPackagingTypes] = useState<Array<{ id: string; name: string }>>([]);
   const [editingGrossWeight, setEditingGrossWeight] = useState<{ index: number; value: string } | null>(null);
@@ -758,6 +779,11 @@ const Invoice = () => {
               amountPaid: inv.additionalInfo?.amountPaid ?? prev.amountPaid,
               deliveryTerms: inv.additionalInfo?.deliveryTerms ?? prev.deliveryTerms,
               vehicleNumber: inv.additionalInfo?.vehicleNumber ?? prev.vehicleNumber,
+              fssRegionInternalCode:
+                inv.additionalInfo?.fssRegionInternalCode ?? prev.fssRegionInternalCode,
+              fssRegionName: inv.additionalInfo?.fssRegionName ?? prev.fssRegionName,
+              fssRegionExternalCode:
+                inv.additionalInfo?.fssRegionExternalCode ?? prev.fssRegionExternalCode,
               loaderWeight: inv.additionalInfo?.loaderWeight ?? prev.loaderWeight,
               trailerWeight: inv.additionalInfo?.trailerWeight ?? prev.trailerWeight,
               palletWeight: inv.additionalInfo?.palletWeight ?? prev.palletWeight,
@@ -1057,6 +1083,144 @@ const Invoice = () => {
     setIsPdfMode(false);
   };
 
+  const extractBlobErrorMessage = async (blob: Blob, fallback: string) => {
+    try {
+      const text = await blob.text();
+      if (!text) {
+        return fallback;
+      }
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed?.error) {
+          return String(parsed.error);
+        }
+      } catch {
+        // Not JSON, fall back to raw text
+      }
+      return text;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const downloadExcelResponse = async (
+    response: { data: Blob; status: number; headers?: Record<string, string> },
+    fileName: string,
+    fallbackError: string
+  ) => {
+    if (response.status >= 400) {
+      const message = await extractBlobErrorMessage(response.data, fallbackError);
+      throw new Error(message);
+    }
+    const contentType = response.headers?.['content-type'] || '';
+    if (!contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+      const message = await extractBlobErrorMessage(response.data, fallbackError);
+      throw new Error(message);
+    }
+    const url = window.URL.createObjectURL(response.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const loadRegionCodes = async (): Promise<RegionCode[]> => {
+    if (regionCodesLoading) return regionCodes;
+    setRegionCodesLoading(true);
+    try {
+      const response = await apiClient.get('/region-codes');
+      const data = Array.isArray(response.data) ? (response.data as RegionCode[]) : [];
+      setRegionCodes(data);
+      return data;
+    } catch (error) {
+      console.error('Error loading region codes:', error);
+      alert('Hudud kodlarini yuklashda xatolik yuz berdi');
+      return [];
+    } finally {
+      setRegionCodesLoading(false);
+    }
+  };
+
+  const findOltiariqRegion = (list: RegionCode[]) => {
+    return list.find((region) => {
+      const name = region.name.toLowerCase();
+      return name.includes('олтиарик') || name.includes('oltiariq');
+    });
+  };
+
+  const openFssRegionPicker = async (prefix: 'Ichki' | 'Tashqi' = 'Ichki') => {
+    setFssFilePrefix(prefix);
+    setFssAutoDownload(true);
+    const hasSavedRegion =
+      form.fssRegionName &&
+      (form.fssRegionInternalCode || form.fssRegionExternalCode);
+    if (hasSavedRegion) {
+      await generateFssExcel({
+        internalCode: form.fssRegionInternalCode,
+        name: form.fssRegionName,
+        externalCode: form.fssRegionExternalCode,
+        filePrefix: prefix,
+        templateType: prefix === 'Ichki' ? 'ichki' : 'tashqi',
+      });
+      return;
+    }
+    const branchName = task?.branch?.name?.toLowerCase() || '';
+    const isOltiariqBranch = branchName.includes('oltiariq');
+    if (isOltiariqBranch) {
+      const list = regionCodes.length ? regionCodes : await loadRegionCodes();
+      const match = findOltiariqRegion(list);
+      if (match) {
+        setForm(prev => ({
+          ...prev,
+          fssRegionInternalCode: match.internalCode,
+          fssRegionName: match.name,
+          fssRegionExternalCode: match.externalCode,
+        }));
+        setShowFssRegionModal(false);
+        await generateFssExcel({
+          internalCode: match.internalCode,
+          name: match.name,
+          externalCode: match.externalCode,
+          filePrefix: prefix,
+          templateType: prefix === 'Ichki' ? 'ichki' : 'tashqi',
+        });
+        return;
+      }
+    }
+    setShowFssRegionModal(true);
+    if (!regionCodes.length) {
+      await loadRegionCodes();
+    }
+  };
+
+  const openFssRegionSelector = async () => {
+    setFssAutoDownload(false);
+    setShowFssRegionModal(true);
+    if (!regionCodes.length) {
+      await loadRegionCodes();
+    }
+  };
+
+  const buildFssQuery = (override?: {
+    internalCode?: string;
+    name?: string;
+    externalCode?: string;
+    templateType?: 'ichki' | 'tashqi';
+  }) => {
+    const params = new URLSearchParams();
+    const internalCode = override?.internalCode ?? form.fssRegionInternalCode;
+    const name = override?.name ?? form.fssRegionName;
+    const externalCode = override?.externalCode ?? form.fssRegionExternalCode;
+    if (internalCode) params.set('regionInternalCode', internalCode);
+    if (name) params.set('regionName', name);
+    if (externalCode) params.set('regionExternalCode', externalCode);
+    if (override?.templateType) params.set('template', override.templateType);
+    return params.toString();
+  };
+
   const generateSmrExcel = async () => {
     if (!invoice?.id) {
       alert('Invoice topilmadi');
@@ -1067,17 +1231,10 @@ const Invoice = () => {
         responseType: 'blob',
       });
       const fileName = `CMR_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
-      const url = window.URL.createObjectURL(response.data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      await downloadExcelResponse(response, fileName, 'CMR yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading CMR:', error);
-      alert('CMR yuklab olishda xatolik yuz berdi');
+      alert(error instanceof Error ? error.message : 'CMR yuklab olishda xatolik yuz berdi');
     }
   };
 
@@ -1091,17 +1248,39 @@ const Invoice = () => {
         responseType: 'blob',
       });
       const fileName = `TIR_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
-      const url = window.URL.createObjectURL(response.data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      await downloadExcelResponse(response, fileName, 'TIR yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading TIR:', error);
-      alert('TIR yuklab olishda xatolik yuz berdi');
+      alert(error instanceof Error ? error.message : 'TIR yuklab olishda xatolik yuz berdi');
+    }
+  };
+
+  const generateFssExcel = async (override?: {
+    internalCode?: string;
+    name?: string;
+    externalCode?: string;
+    filePrefix?: 'Ichki' | 'Tashqi';
+    templateType?: 'ichki' | 'tashqi';
+  }) => {
+    if (!invoice?.id) {
+      alert('Invoice topilmadi');
+      return;
+    }
+    try {
+      const query = buildFssQuery(override);
+      const url = query ? `/invoices/${invoice.id}/fss?${query}` : `/invoices/${invoice.id}/fss`;
+      const response = await apiClient.get(url, {
+        responseType: 'blob',
+      });
+      const rawVehicleNumber = String(form.vehicleNumber || '').trim();
+      const safeVehicleNumber =
+        rawVehicleNumber.replace(/[\\/:*?"<>|]+/g, '_') || 'Vehicle';
+      const prefix = override?.filePrefix || fssFilePrefix || 'Ichki';
+      const fileName = `${prefix}_${safeVehicleNumber}.xlsx`;
+      await downloadExcelResponse(response, fileName, 'FSS yuklab olishda xatolik yuz berdi');
+    } catch (error) {
+      console.error('Error downloading FSS:', error);
+      alert(error instanceof Error ? error.message : 'FSS yuklab olishda xatolik yuz berdi');
     }
   };
 
@@ -1115,17 +1294,10 @@ const Invoice = () => {
         responseType: 'blob',
       });
       const fileName = `Invoice_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
-      const url = window.URL.createObjectURL(response.data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      await downloadExcelResponse(response, fileName, 'Invoys Excel yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading Invoice Excel:', error);
-      alert('Invoys Excel yuklab olishda xatolik yuz berdi');
+      alert(error instanceof Error ? error.message : 'Invoys Excel yuklab olishda xatolik yuz berdi');
     }
   };
 
@@ -1383,6 +1555,9 @@ const Invoice = () => {
           // Дополнительная информация
           deliveryTerms: form.deliveryTerms,
           vehicleNumber: form.vehicleNumber,
+          fssRegionInternalCode: form.fssRegionInternalCode,
+          fssRegionName: form.fssRegionName,
+          fssRegionExternalCode: form.fssRegionExternalCode,
           loaderWeight: form.loaderWeight,
           trailerWeight: form.trailerWeight,
           palletWeight: form.palletWeight,
@@ -1457,11 +1632,15 @@ const Invoice = () => {
 
   };
 
-
-
-  
-
-
+  const filteredRegionCodes = regionCodes.filter((region) => {
+    const query = regionSearch.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      region.name.toLowerCase().includes(query) ||
+      region.internalCode.toLowerCase().includes(query) ||
+      region.externalCode.toLowerCase().includes(query)
+    );
+  });
 
   if (loading) {
 
@@ -1752,6 +1931,66 @@ const Invoice = () => {
                   />
                 </svg>
                 TIR
+              </button>
+            )}
+            {invoysStageReady && (
+              <button
+                type="button"
+                onClick={() => openFssRegionPicker('Ichki')}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                title="Ichki blankasini Excel formatida yuklab olish"
+              >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                  />
+                </svg>
+                Ichki
+              </button>
+            )}
+            {invoysStageReady && (
+              <button
+                type="button"
+                onClick={() => openFssRegionPicker('Tashqi')}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                title="Tashqi blankasini Excel formatida yuklab olish"
+              >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                  />
+                </svg>
+                Tashqi
+              </button>
+            )}
+            {invoysStageReady && (
+              <button
+                type="button"
+                onClick={openFssRegionSelector}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                title="Tuman tanlashni o'zgartirish"
+              >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M4 3h7l5 5v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 1.5V7h3.5L11 4.5z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M5 11h10v2H5zm0-4h6v2H5z"
+                  />
+                </svg>
+                Tuman
               </button>
             )}
             <button
@@ -3346,6 +3585,104 @@ const Invoice = () => {
 
       </div>
 
+      )}
+
+      {/* FSS Hudud tanlash modal */}
+      {showFssRegionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-xl w-full mx-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Hudud kodini tanlang</h2>
+              <button
+                onClick={() => setShowFssRegionModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Qidirish
+                </label>
+                <input
+                  type="text"
+                  value={regionSearch}
+                  onChange={(e) => setRegionSearch(e.target.value)}
+                  placeholder="Hudud nomi yoki kod bo'yicha qidiring"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+
+              <div className="text-sm text-gray-600">
+                Tanlangan: {form.fssRegionName || '—'}
+                {form.fssRegionInternalCode ? ` (${form.fssRegionInternalCode})` : ''}
+              </div>
+
+              <div className="border border-gray-200 rounded-lg max-h-[45vh] overflow-y-auto">
+                {regionCodesLoading ? (
+                  <div className="p-4 text-sm text-gray-500">Yuklanmoqda...</div>
+                ) : filteredRegionCodes.length === 0 ? (
+                  <div className="p-4 text-sm text-gray-500">Natija topilmadi</div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {filteredRegionCodes.map((region) => (
+                      <button
+                        key={region.id}
+                        type="button"
+                        onClick={() => {
+                          setForm(prev => ({
+                            ...prev,
+                            fssRegionInternalCode: region.internalCode,
+                            fssRegionName: region.name,
+                            fssRegionExternalCode: region.externalCode,
+                          }));
+                          setShowFssRegionModal(false);
+                          setRegionSearch('');
+                          if (fssAutoDownload) {
+                            generateFssExcel({
+                              internalCode: region.internalCode,
+                              name: region.name,
+                              externalCode: region.externalCode,
+                              filePrefix: fssFilePrefix,
+                              templateType: fssFilePrefix === 'Ichki' ? 'ichki' : 'tashqi',
+                            });
+                          }
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="text-sm font-medium text-gray-800">{region.name}</div>
+                          <div className="text-xs text-gray-500 whitespace-nowrap">
+                            {region.internalCode} / {region.externalCode}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={loadRegionCodes}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                >
+                  Qayta yuklash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowFssRegionModal(false)}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                >
+                  Bekor qilish
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Yangi maydon qo'shish modal */}

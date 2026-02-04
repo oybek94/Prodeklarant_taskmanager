@@ -7,7 +7,7 @@ import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 import { useIsMobile } from '../utils/useIsMobile';
-import { getTnvedProducts } from '../utils/tnvedProducts';
+import { getDefaultTnvedProducts, getTnvedProducts } from '../utils/tnvedProducts';
 
 const resolveUploadUrl = (url?: string | null) => {
   if (!url) return '';
@@ -343,10 +343,22 @@ const Clients = () => {
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [editingContractId, setEditingContractId] = useState<number | null>(null);
   const [contractModalTab, setContractModalTab] = useState<'main' | 'spec' | 'terms' | 'customs'>('main');
-  type SpecRow = { productName: string; quantity: number; unit?: string; unitPrice?: number; totalPrice?: number; specNumber?: string; productNumber?: string };
+  type SpecRow = {
+    productName: string;
+    botanicalName?: string;
+    tnvedCode?: string;
+    quantity: number;
+    unit?: string;
+    unitPrice?: number;
+    totalPrice?: number;
+    specNumber?: string;
+    productNumber?: string;
+  };
   function getDefaultSpecFromTnved(): SpecRow[] {
-    return getTnvedProducts().map((p) => ({
+    return getDefaultTnvedProducts().map((p) => ({
       productName: p.name,
+      botanicalName: p.botanicalName || '',
+      tnvedCode: p.code || '',
       quantity: 0,
       unit: 'кг',
       unitPrice: 0,
@@ -357,19 +369,35 @@ const Clients = () => {
   }
   /** Har bir shartnoma spetsifikatsiyasida Sozlamalar (TNVED) ro'yxati bo'lishi uchun: mavjud spec ga TNVED da bor lekin spec da yo'q mahsulotlarni qo'shamiz. */
   function ensureSpecHasTnvedProducts(currentSpec: SpecRow[]): SpecRow[] {
-    const namesInSpec = new Set((currentSpec || []).map((r) => r.productName?.trim()).filter(Boolean));
-    const fromTnved = getTnvedProducts();
-    const toAdd = fromTnved.filter((p) => !namesInSpec.has(p.name?.trim())).map((p) => ({
-      productName: p.name,
-      quantity: 0,
-      unit: 'кг' as const,
-      unitPrice: 0,
-      totalPrice: 0,
-      specNumber: '',
-      productNumber: '',
-    }));
-    if (toAdd.length === 0) return currentSpec || [];
-    return [...(currentSpec || []), ...toAdd];
+    const defaults = getDefaultTnvedProducts();
+    const defaultsByName = new Map(
+      defaults.map((item) => [item.name.trim(), item])
+    );
+    const normalized = (currentSpec || []).map((row) => {
+      const key = row.productName?.trim() || '';
+      const match = defaultsByName.get(key);
+      if (!match) return row;
+      return {
+        ...row,
+        tnvedCode: row.tnvedCode || match.code || '',
+        botanicalName: row.botanicalName || match.botanicalName || '',
+      };
+    });
+    const namesInSpec = new Set(normalized.map((r) => r.productName?.trim()).filter(Boolean));
+    const toAdd = defaults
+      .filter((p) => !namesInSpec.has(p.name?.trim()))
+      .map((p) => ({
+        productName: p.name,
+        botanicalName: p.botanicalName || '',
+        tnvedCode: p.code || '',
+        quantity: 0,
+        unit: 'кг' as const,
+        unitPrice: 0,
+        totalPrice: 0,
+        specNumber: '',
+        productNumber: '',
+      }));
+    return [...normalized, ...toAdd];
   }
   const [contractForm, setContractForm] = useState<{
     contractNumber: string;
@@ -672,6 +700,8 @@ const Clients = () => {
 
       payload.specification = (form.specification || []).map((row) => ({
         productName: row.productName || '',
+        botanicalName: row.botanicalName || undefined,
+        tnvedCode: row.tnvedCode || undefined,
         quantity: Number(row.quantity) || 0,
         unit: row.unit || undefined,
         unitPrice: row.unitPrice != null ? Number(row.unitPrice) : undefined,
@@ -2455,7 +2485,9 @@ const Clients = () => {
                       <tr className="bg-gray-100">
                         <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-20">Товар №</th>
                         <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-24">Спецификация №</th>
+                        <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-28">TNVED kod</th>
                         <th className="px-2 py-2 text-left font-medium text-gray-700 border-b">Mahsulot nomi</th>
+                        <th className="px-2 py-2 text-left font-medium text-gray-700 border-b">Botanik nomi</th>
                         <th className="px-2 py-2 text-right font-medium text-gray-700 border-b w-28">ЦЕНА</th>
                         <th className="px-2 py-2 w-10 border-b"></th>
                       </tr>
@@ -2496,6 +2528,21 @@ const Clients = () => {
                           <td className="px-2 py-1">
                             <input
                               type="text"
+                              value={row.tnvedCode ?? ''}
+                              onChange={(e) => {
+                                setContractFormAndRef((prev) => {
+                                  const next = [...(prev.specification || [])];
+                                  next[idx] = { ...next[idx], tnvedCode: e.target.value };
+                                  return { ...prev, specification: next };
+                                });
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                              placeholder="TNVED kod"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="text"
                               value={row.productName}
                               onChange={(e) => {
                                 setContractFormAndRef((prev) => {
@@ -2506,6 +2553,21 @@ const Clients = () => {
                               }}
                               className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                               placeholder="Mahsulot nomi"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="text"
+                              value={row.botanicalName ?? ''}
+                              onChange={(e) => {
+                                setContractFormAndRef((prev) => {
+                                  const next = [...(prev.specification || [])];
+                                  next[idx] = { ...next[idx], botanicalName: e.target.value };
+                                  return { ...prev, specification: next };
+                                });
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                              placeholder="Botanik nomi"
                             />
                           </td>
                           <td className="px-2 py-1">
@@ -2552,7 +2614,20 @@ const Clients = () => {
                   onClick={() => {
                     setContractFormAndRef((prev) => ({
                       ...prev,
-                      specification: [...(prev.specification || []), { productName: '', quantity: 0, unit: 'кг', unitPrice: 0, totalPrice: 0, specNumber: '', productNumber: '' }],
+                      specification: [
+                        ...(prev.specification || []),
+                        {
+                          productName: '',
+                          botanicalName: '',
+                          tnvedCode: '',
+                          quantity: 0,
+                          unit: 'кг',
+                          unitPrice: 0,
+                          totalPrice: 0,
+                          specNumber: '',
+                          productNumber: '',
+                        },
+                      ],
                     }));
                   }}
                   className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"

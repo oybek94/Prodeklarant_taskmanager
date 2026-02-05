@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import fs from 'fs/promises';
 import path from 'path';
-import { Invoice, InvoiceItem } from '@prisma/client';
+import { Invoice, InvoiceItem, Prisma } from '@prisma/client';
 
 export type FssExcelPayload = {
   invoice: Invoice;
@@ -31,10 +31,17 @@ const getTemplatePath = async (templateType?: 'ichki' | 'tashqi') => {
   throw new Error(`${fileName} not found in backend/templates`);
 };
 
-const toPlain = (value?: string | number | null) =>
-  value === null || value === undefined ? '' : String(value);
+type CellValue = string | number | null | undefined | Prisma.Decimal;
 
-const setTextCell = (sheet: ExcelJS.Worksheet, address: string, value?: string | number | null) => {
+const toPlain = (value?: CellValue) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object' && value && 'toString' in value) {
+    return (value as { toString: () => string }).toString();
+  }
+  return String(value);
+};
+
+const setTextCell = (sheet: ExcelJS.Worksheet, address: string, value?: CellValue) => {
   const cell = sheet.getCell(address);
   cell.numFmt = '@';
   cell.value = toPlain(value);

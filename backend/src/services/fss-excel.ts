@@ -91,6 +91,16 @@ const getBotanicalName = (item: InvoiceItem) => {
   return '';
 };
 
+const getPackagingCode = (item: InvoiceItem, additionalInfo: Record<string, any>) => {
+  const typeName = item?.packageType ? String(item.packageType).trim() : '';
+  if (!typeName) return '';
+  const list = Array.isArray(additionalInfo.packagingTypeCodes)
+    ? (additionalInfo.packagingTypeCodes as Array<{ name?: string; code?: string }>)
+    : [];
+  const match = list.find((entry) => (entry.name || '').trim() === typeName);
+  return match?.code ? String(match.code).trim() : '';
+};
+
 export const generateFssExcel = async (payload: FssExcelPayload) => {
   const templatePath = await getTemplatePath(payload.templateType);
   const workbook = new ExcelJS.Workbook();
@@ -138,6 +148,7 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
       const row = startRow + index;
       const packageType = item?.packageType ? String(item.packageType).trim() : '';
       const isMest = packageType.toUpperCase() === 'МЕСТ';
+      const packageCode = getPackagingCode(item, additionalInfo);
       setTextCell(sheet, `A${row}`, item?.tnvedCode); // Код ТН ВЭД
       setTextCell(sheet, `B${row}`, item?.name); // Наименование товара
       setTextCell(sheet, `C${row}`, getBotanicalName(item)); // Ботаник номи
@@ -149,7 +160,7 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
       setTextCell(sheet, `I${row}`, item?.grossWeight);
       setTextCell(sheet, `J${row}`, '166');
       setTextCell(sheet, `K${row}`, item?.packagesCount ?? item?.quantity);
-      setTextCell(sheet, `L${row}`, packageType);
+      setTextCell(sheet, `L${row}`, packageCode);
       setTextCell(sheet, `M${row}`, isMest ? item?.packagesCount ?? item?.quantity : '');
       setTextCell(sheet, `N${row}`, isMest ? '017' : '');
       setTextCell(sheet, `O${row}`, '04');

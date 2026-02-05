@@ -376,6 +376,17 @@ const Invoices = () => {
         const msg = typeof errData?.error === 'string' ? errData.error : (errData?.error as any)?.formErrors?.[0] || JSON.stringify(errData?.error) || 'Invoice dublikat qilishda xatolik';
         throw new Error(msg);
       }
+      // Yangi invoys uchun ustun sozlamalarini asl invoysdan nusxalash (Invoice.tsx bilan bir xil kalit)
+      const newInvoice = postRes.data as { id: number };
+      const visibleColumnsKey = (id: number) => `invoice_visible_columns_invoice_${id}`;
+      const originalColumns = localStorage.getItem(visibleColumnsKey(invoice.id));
+      if (originalColumns) {
+        try {
+          localStorage.setItem(visibleColumnsKey(newInvoice.id), originalColumns);
+        } catch {
+          // ignore
+        }
+      }
       loadInvoices();
       const contractQuery = full.contractId ? `?contractId=${full.contractId}` : '';
       navigate(`/invoices/task/${newTask.id}${contractQuery}`);

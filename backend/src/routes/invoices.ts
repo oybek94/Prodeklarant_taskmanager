@@ -130,17 +130,18 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
-// Invoice yaratish/update uchun schema
+// Invoice yaratish/update uchun schema (null yuborilganda undefined ga aylantiramiz)
+const optionalString = () => z.string().optional().nullable().transform((v) => v ?? undefined);
 const invoiceSchema = z.object({
   taskId: z.number().optional(),
   clientId: z.number().optional(),
-  invoiceNumber: z.string().optional(),
-  contractNumber: z.string().optional(),
-  contractId: z.number().optional(),
-  date: z.string().optional(),
-  currency: z.enum(['USD', 'UZS']).optional(),
+  invoiceNumber: optionalString(),
+  contractNumber: optionalString(),
+  contractId: z.number().optional().nullable().transform((v) => v ?? undefined),
+  date: optionalString(),
+  currency: z.enum(['USD', 'UZS']).optional().nullable().transform((v) => v ?? undefined),
   totalAmount: z.number().optional(),
-  notes: z.string().optional(),
+  notes: optionalString(),
   additionalInfo: z.any().optional(),
   items: z.array(z.object({
     tnvedCode: z.string().optional().nullable().transform(v => v ?? undefined),

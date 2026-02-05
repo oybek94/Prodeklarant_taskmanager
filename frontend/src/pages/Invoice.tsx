@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -320,10 +320,12 @@ const Invoice = () => {
     total: true,
     actions: true,
   };
-  const getVisibleColumnsKey = (contractKey: string) => `invoice_visible_columns_${contractKey}`;
-  const loadVisibleColumns = (contractKey: string): typeof defaultVisibleColumns => {
+  // Ustunlar faqat invoys bo‘yicha: har bir invoys uchun alohida kalit, boshqa invoyslarga ta’sir yo‘q
+  const VISIBLE_COLUMNS_PREFIX = 'invoice_visible_columns_';
+  const getVisibleColumnsStorageKey = (invoiceId: number) => `${VISIBLE_COLUMNS_PREFIX}invoice_${invoiceId}`;
+  const loadVisibleColumnsForInvoice = (invoiceId: number): typeof defaultVisibleColumns => {
     try {
-      const raw = localStorage.getItem(getVisibleColumnsKey(contractKey));
+      const raw = localStorage.getItem(getVisibleColumnsStorageKey(invoiceId));
       if (!raw) return defaultVisibleColumns;
       const parsed = JSON.parse(raw) as Record<string, boolean>;
       return { ...defaultVisibleColumns, ...parsed };
@@ -331,7 +333,41 @@ const Invoice = () => {
       return defaultVisibleColumns;
     }
   };
-  const [visibleColumns, setVisibleColumns] = useState(() => loadVisibleColumns('default'));
+
+  const [visibleColumns, setVisibleColumns] = useState(defaultVisibleColumns);
+  const lastInvoiceIdRef = useRef<number | null>(null);
+
+  // Invoys o‘zgaganda shu invoys uchun saqlangan ustunlarni yuklash (faqat invoice.id bo‘lganda)
+  useEffect(() => {
+    const id = invoice?.id ?? null;
+    if (id === lastInvoiceIdRef.current) return;
+    lastInvoiceIdRef.current = id;
+    if (id != null) {
+      setVisibleColumns(loadVisibleColumnsForInvoice(id));
+    } else {
+      setVisibleColumns(defaultVisibleColumns);
+    }
+  }, [invoice?.id]);
+
+  // Toggle paytida faqat joriy invoys uchun saqlash (boshqa invoyslarga ta’sir qilmasin)
+  const setVisibleColumnsAndPersist = useCallback(
+    (update: React.SetStateAction<typeof defaultVisibleColumns>) => {
+      setVisibleColumns((prev) => {
+        const next = typeof update === 'function' ? (update as (p: typeof prev) => typeof prev)(prev) : update;
+        const id = invoice?.id;
+        if (id != null) {
+          try {
+            localStorage.setItem(getVisibleColumnsStorageKey(id), JSON.stringify(next));
+          } catch {
+            // ignore
+          }
+        }
+        return next;
+      });
+    },
+    [invoice?.id]
+  );
+
   const [columnsDropdownOpen, setColumnsDropdownOpen] = useState(false);
   const columnsDropdownRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -344,10 +380,6 @@ const Invoice = () => {
     document.addEventListener('mousedown', closeOnClickOutside);
     return () => document.removeEventListener('mousedown', closeOnClickOutside);
   }, [columnsDropdownOpen]);
-  useEffect(() => {
-    const key = String(selectedContractId || 'default');
-    localStorage.setItem(getVisibleColumnsKey(key), JSON.stringify(visibleColumns));
-  }, [visibleColumns, selectedContractId]);
   const getDeliveryTermsKey = (contractKey: string) => `invoice_delivery_terms_${contractKey}`;
   const getDeliveryTermsContractKey = () => String(selectedContractId || contractIdFromQuery || 'default');
   const loadDeliveryTerms = (contractKey: string): string[] => {
@@ -447,7 +479,6 @@ const Invoice = () => {
 
   useEffect(() => {
     const key = getDeliveryTermsContractKey();
-    setVisibleColumns(loadVisibleColumns(key));
     setColumnLabels(loadColumnLabels(key));
     setDeliveryTermsOptions(mergeDeliveryTerms(contractDeliveryTerms, loadDeliveryTerms(key)));
   }, [selectedContractId, contractIdFromQuery, contractDeliveryTerms]);
@@ -520,7 +551,7 @@ const Invoice = () => {
   const [fssFilePrefix, setFssFilePrefix] = useState<'Ichki' | 'Tashqi'>('Ichki');
   const [fssAutoDownload, setFssAutoDownload] = useState(true);
   const [tnvedProducts, setTnvedProducts] = useState<Array<{ id: string; name: string; code: string }>>([]);
-  const [packagingTypes, setPackagingTypes] = useState<Array<{ id: string; name: string }>>([]);
+  const [packagingTypes, setPackagingTypes] = useState<Array<{ id: string; name: string; code?: string }>>([]);
   const [editingGrossWeight, setEditingGrossWeight] = useState<{ index: number; value: string } | null>(null);
   const [editingNetWeight, setEditingNetWeight] = useState<{ index: number; value: string } | null>(null);
 
@@ -544,6 +575,14 @@ const Invoice = () => {
   useEffect(() => {
     setTnvedProducts(getTnvedProducts());
     setPackagingTypes(getPackagingTypes());
+  }, []);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      setPackagingTypes(getPackagingTypes());
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   // Invoice raqam takroriy yoki yo'qligini tekshirish (debounce 300ms)
@@ -1558,6 +1597,10 @@ const Invoice = () => {
           fssRegionInternalCode: form.fssRegionInternalCode,
           fssRegionName: form.fssRegionName,
           fssRegionExternalCode: form.fssRegionExternalCode,
+          packagingTypeCodes: packagingTypes.map((entry) => ({
+            name: entry.name,
+            code: entry.code || '',
+          })),
           loaderWeight: form.loaderWeight,
           trailerWeight: form.trailerWeight,
           palletWeight: form.palletWeight,
@@ -2479,7 +2522,7 @@ const Invoice = () => {
                             <input
                               type="checkbox"
                               checked={visibleColumns[key]}
-                              onChange={() => setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }))}
+                              onChange={() => setVisibleColumnsAndPersist((prev) => ({ ...prev, [key]: !prev[key] }))}
                               className="shrink-0"
                             />
                             <input

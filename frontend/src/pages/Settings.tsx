@@ -836,15 +836,6 @@ const Settings = () => {
                 <h2 className="text-lg font-semibold text-gray-800">Standart spetsifikatsiya</h2>
                 <div className="text-sm text-gray-500">Mahsulot, TNVED va botanik nomlar</div>
               </div>
-              <button
-                onClick={handleResetTnved}
-                className="inline-flex items-center justify-center p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                aria-label="Standartlarni tiklash"
-                title="Standartlarni tiklash"
-              >
-                <IconCancel />
-                <span className="sr-only">Standartlarni tiklash</span>
-              </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
               <input

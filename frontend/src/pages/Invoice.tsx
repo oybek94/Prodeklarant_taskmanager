@@ -2,12 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
+import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../lib/api';
 import DateInput from '../components/DateInput';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { getTnvedProducts } from '../utils/tnvedProducts';
 import { getPackagingTypes } from '../utils/packagingTypes';
+import { Icon } from '@iconify/react';
 
 const resolveUploadUrl = (url?: string | null) => {
   if (!url) return '';
@@ -243,8 +245,11 @@ interface Task {
 
 
 
-const Invoice = () => {
+const canEditInvoices = (role: string | undefined) => role === 'ADMIN' || role === 'MANAGER';
 
+const Invoice = () => {
+  const { user } = useAuth();
+  const canEdit = canEditInvoices(user?.role);
   const { taskId, clientId, contractId } = useParams<{ taskId?: string; clientId?: string; contractId?: string }>();
 
   const [searchParams] = useSearchParams();
@@ -554,7 +559,7 @@ const Invoice = () => {
   const [packagingTypes, setPackagingTypes] = useState<Array<{ id: string; name: string; code?: string }>>([]);
   const [editingGrossWeight, setEditingGrossWeight] = useState<{ index: number; value: string } | null>(null);
   const [editingNetWeight, setEditingNetWeight] = useState<{ index: number; value: string } | null>(null);
-
+  const [addressCopySuccess, setAddressCopySuccess] = useState(false);
 
   useEffect(() => {
 
@@ -1340,6 +1345,40 @@ const Invoice = () => {
     }
   };
 
+  const generateST1Excel = async () => {
+    if (!invoice?.id) {
+      alert('Invoice topilmadi');
+      return;
+    }
+    try {
+      const response = await apiClient.get(`/invoices/${invoice.id}/st1`, {
+        responseType: 'blob',
+      });
+      const fileName = `ST1_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
+      await downloadExcelResponse(response, fileName, 'ST-1 shabloni yuklab olishda xatolik yuz berdi');
+    } catch (error) {
+      console.error('Error downloading ST-1 Excel:', error);
+      alert(error instanceof Error ? error.message : 'ST-1 shabloni yuklab olishda xatolik yuz berdi');
+    }
+  };
+
+  const generateCommodityEkExcel = async () => {
+    if (!invoice?.id) {
+      alert('Invoice topilmadi');
+      return;
+    }
+    try {
+      const response = await apiClient.get(`/invoices/${invoice.id}/commodity-ek`, {
+        responseType: 'blob',
+      });
+      const fileName = `Deklaratsiya_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
+      await downloadExcelResponse(response, fileName, 'Deklaratsiya shabloni yuklab olishda xatolik yuz berdi');
+    } catch (error) {
+      console.error('Error downloading Deklaratsiya Excel:', error);
+      alert(error instanceof Error ? error.message : 'Deklaratsiya shabloni yuklab olishda xatolik yuz berdi');
+    }
+  };
+
   const addItem = () => {
 
     setItems([...items, {
@@ -1492,8 +1531,8 @@ const Invoice = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-
     e.preventDefault();
+    if (!canEdit) return;
 
     if (!form.deliveryTerms.trim() || !form.vehicleNumber.trim()) {
       setAdditionalInfoError('Iltimos, "Условия поставки" va "Номер автотранспорта" maydonlarini to‘ldiring');
@@ -1537,9 +1576,10 @@ const Invoice = () => {
 
       const normalizedItems = items.map((item, index) => {
         const normalized = normalizeItem(item);
-        const qty = Number(normalized.quantity) || 0;
+        const qty = normalized.quantity != null ? Number(normalized.quantity) : 0;
         const pkgCount = normalized.packagesCount != null ? Number(normalized.packagesCount) : undefined;
-        const quantityForBackend = qty > 0 ? qty : (pkgCount ?? 0);
+        // Мест (quantity) ni foydalanuvchi kiritgan qiymat sifatida yuboramiz; 0 bo‘lsa 0 qoladi, packagesCount ga ustunlik bermaymiz
+        const quantityForBackend = qty;
         return {
           ...normalized,
           quantity: quantityForBackend,
@@ -1979,6 +2019,26 @@ const Invoice = () => {
             {invoysStageReady && (
               <button
                 type="button"
+                onClick={openFssRegionSelector}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                title="Tuman tanlashni o'zgartirish"
+              >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M4 3h7l5 5v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 1.5V7h3.5L11 4.5z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M5 11h10v2H5zm0-4h6v2H5z"
+                  />
+                </svg>
+                Tuman
+              </button>
+            )}
+            {invoysStageReady && (
+              <button
+                type="button"
                 onClick={() => openFssRegionPicker('Ichki')}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                 title="Ichki blankasini Excel formatida yuklab olish"
@@ -2016,39 +2076,43 @@ const Invoice = () => {
                 Tashqi
               </button>
             )}
-            {invoysStageReady && (
-              <button
-                type="button"
-                onClick={openFssRegionSelector}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                title="Tuman tanlashni o'zgartirish"
-              >
-                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M4 3h7l5 5v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 1.5V7h3.5L11 4.5z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5 11h10v2H5zm0-4h6v2H5z"
-                  />
-                </svg>
-                Tuman
-              </button>
-            )}
             <button
               type="button"
-              onClick={generatePdf}
+              onClick={generateST1Excel}
               disabled={saving}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:bg-amber-300"
+              title="ST-1 shablonini invoys ma'lumotlari bilan Excel formatida yuklab olish"
             >
               <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
                 <path
                   fill="currentColor"
-                  d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
+                  d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                />
+                <path
+                  fill="currentColor"
+                  d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
                 />
               </svg>
-              Invoys PDF
+              ST-1
+            </button>
+            <button
+              type="button"
+              onClick={generateCommodityEkExcel}
+              disabled={saving}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:bg-violet-300"
+              title="Deklaratsiya (CommodityEk) shabloniga invoys ma'lumotlarini yozib Excel yuklab olish"
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                />
+                <path
+                  fill="currentColor"
+                  d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                />
+              </svg>
+              Deklaratsiya
             </button>
             <button
               type="button"
@@ -2070,6 +2134,20 @@ const Invoice = () => {
               Invoys Excel
             </button>
             <button
+              type="button"
+              onClick={generatePdf}
+              disabled={saving}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300"
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
+                />
+              </svg>
+              Invoys PDF
+            </button>
+            <button
               onClick={() => navigate(-1)}
               className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
             >
@@ -2087,7 +2165,7 @@ const Invoice = () => {
 
 
 
-        <form onSubmit={handleSubmit} className="invoice-form">
+        <form onSubmit={handleSubmit} className={`invoice-form${!canEdit ? ' invoice-form-readonly' : ''}`}>
 
           <datalist id="invoice-tnved-products">
             {tnvedProducts.map((p) => (
@@ -2460,13 +2538,58 @@ const Invoice = () => {
             <div className="mb-0">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-800">Дополнительная информация</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowAdditionalInfoModal(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                  Tahrirlash
-                </button>
+                <div className="flex items-center gap-2">
+                  {!isBuyerConsignee && selectedContract?.consigneeName && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const parts: string[] = [];
+                        if (selectedContract) {
+                          const gruzManzil = (selectedContract.consigneeAddress ?? '').trim().replace(/\n/g, ' ');
+                          if (gruzManzil) parts.push(gruzManzil);
+                          parts.push('п/п.');
+                          const buyerName = (selectedContract.buyerName ?? '').trim();
+                          if (buyerName) parts.push(buyerName);
+                          const buyerAddr = (selectedContract.buyerAddress ?? '').trim();
+                          if (buyerAddr) parts.push(buyerAddr);
+                        }
+                        const text = parts.join(' ');
+                        if (text) {
+                          try {
+                            await navigator.clipboard.writeText(text);
+                            setAddressCopySuccess(true);
+                            window.setTimeout(() => setAddressCopySuccess(false), 2000);
+                          } catch {
+                            alert('Nusxalashda xatolik');
+                          }
+                        } else {
+                          alert('Nusxalash uchun ma\'lumot yo\'q');
+                        }
+                      }}
+                      className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-300 text-sm ${
+                        addressCopySuccess
+                          ? 'bg-green-500 text-white scale-110 shadow-lg shadow-green-500/40'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      }`}
+                      title="Грузополучатель manzili + п/п. + Покупатель nomi + Покупатель manzili"
+                    >
+                      {addressCopySuccess ? (
+                        <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <Icon icon="lucide:copy" className="w-5 h-5" />
+                      )}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowAdditionalInfoModal(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    Tahrirlash
+                  </button>
+                </div>
               </div>
               <div
                 className="p-4 pt-0 rounded-lg text-base text-black space-y-1"
@@ -2848,13 +2971,16 @@ const Invoice = () => {
                             <td className="px-2 py-2">
                               <input
                                 type="number"
-                                value={item.quantity === 0 ? '' : item.quantity}
-                                onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                                value={item.quantity ?? 0}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  handleItemChange(index, 'quantity', v === '' ? 0 : (parseFloat(v) || 0));
+                                }}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
                                 min="0"
                                 step="0.01"
                                 required
-                                placeholder=""
+                                placeholder="0"
                               />
                             </td>
                           )}
@@ -3124,7 +3250,7 @@ const Invoice = () => {
                   {additionalInfoError}
                 </div>
               )}
-              {!invoysStageReady && (
+              {canEdit && !invoysStageReady && (
                 <button
                   type="button"
                   onClick={handleMarkInvoysReady}
@@ -3142,13 +3268,15 @@ const Invoice = () => {
               >
                 Bekor qilish
               </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {saving ? 'Saqlanmoqda...' : 'Saqlash'}
-              </button>
+              {canEdit && (
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+                </button>
+              )}
             </div>
 
           </div>
@@ -3161,7 +3289,7 @@ const Invoice = () => {
       {/* Дополнительная информация Modal */}
       {showAdditionalInfoModal && (
         <div className="invoice-additional-info-modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className={`bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto${!canEdit ? ' invoice-additional-info-modal-readonly' : ''}`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">Дополнительная информация</h2>
                     <button
@@ -3588,40 +3716,37 @@ const Invoice = () => {
               ))}
 
               {/* Yangi maydon qo'shish tugmasi */}
-              <div className="pt-2 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowAddFieldModal(true)}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2"
-                >
-                  <span>+</span>
-                  <span>Yangi maydon qo'shish</span>
-                </button>
-              </div>
+              {canEdit && (
+                <div className="pt-2 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddFieldModal(true)}
+                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2"
+                  >
+                    <span>+</span>
+                    <span>Yangi maydon qo'shish</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
               <button
-
                 type="button"
-
                 onClick={() => setShowAdditionalInfoModal(false)}
                 className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
               >
-
                 Yopish
               </button>
-
-              <button
-
-                type="button"
-                onClick={() => setShowAdditionalInfoModal(false)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-
-                Saqlash
-              </button>
-
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setShowAdditionalInfoModal(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Saqlash
+                </button>
+              )}
             </div>
 
           </div>

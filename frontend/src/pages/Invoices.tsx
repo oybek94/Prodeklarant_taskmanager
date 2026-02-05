@@ -68,9 +68,12 @@ interface Branch {
   name: string;
 }
 
+const canEditInvoices = (role: string | undefined) => role === 'ADMIN' || role === 'MANAGER';
+
 const Invoices = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const canEdit = canEditInvoices(user?.role);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -577,18 +580,20 @@ const Invoices = () => {
             <Icon icon="lucide:settings" className="w-4 h-4" />
             Sozlamalar
           </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-          >
-            <Icon icon="lucide:plus" className="w-4 h-4" />
-            Yangi Invoice
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              <Icon icon="lucide:plus" className="w-4 h-4" />
+              Yangi Invoice
+            </button>
+          )}
         </div>
       </div>
 
       {/* Create Invoice Modal */}
-      {showCreateModal && (
+      {canEdit && showCreateModal && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
           onClick={(e) => {
@@ -1124,16 +1129,22 @@ const Invoices = () => {
           <table className="min-w-full">
             <thead>
               <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-200">
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="w-28 px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   <span className="inline-flex items-center gap-1.5">
                     <Icon icon="lucide:hash" className="w-4 h-4 text-gray-500" />
-                    Invoice №
+                    №
                   </span>
                 </th>
                 <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   <span className="inline-flex items-center gap-1.5">
                     <Icon icon="lucide:user" className="w-4 h-4 text-gray-500" />
                     Mijoz
+                  </span>
+                </th>
+                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Icon icon="lucide:map-pin" className="w-4 h-4 text-gray-500" />
+                    Filial
                   </span>
                 </th>
                 <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -1171,7 +1182,7 @@ const Invoices = () => {
             <tbody className="divide-y divide-gray-100">
               {paginatedInvoices.map((invoice) => (
                 <tr key={invoice.id} className="hover:bg-blue-50/50 transition-colors">
-                  <td className="px-6 py-2 whitespace-nowrap text-sm font-semibold">
+                  <td className="w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold">
                     <button
                       type="button"
                       onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
@@ -1183,6 +1194,9 @@ const Invoices = () => {
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-800">
                     {invoice.client?.name || '-'}
+                  </td>
+                  <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700">
+                    {invoice.branch?.name || '-'}
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 font-mono">
                     {invoice.additionalInfo?.vehicleNumber || '-'}
@@ -1211,32 +1225,36 @@ const Invoices = () => {
                       >
                         <Icon icon="lucide:pencil" className="w-4 h-4" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDuplicateInvoice(invoice)}
-                        disabled={duplicatingInvoiceId === invoice.id}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Dublikat"
-                      >
-                        <Icon icon="lucide:copy" className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!window.confirm(`Invoice №${invoice.invoiceNumber} o'chirilsinmi?`)) return;
-                          try {
-                            await apiClient.delete(`/invoices/${invoice.id}`);
-                            loadInvoices();
-                          } catch (err: unknown) {
-                            const e = err as { response?: { data?: { error?: string } } };
-                            alert(e.response?.data?.error || 'Invoice o\'chirishda xatolik');
-                          }
-                        }}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
-                        title="O'chirish"
-                      >
-                        <Icon icon="lucide:trash-2" className="w-4 h-4" />
-                      </button>
+                      {canEdit && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicateInvoice(invoice)}
+                            disabled={duplicatingInvoiceId === invoice.id}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Dublikat"
+                          >
+                            <Icon icon="lucide:copy" className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!window.confirm(`Invoice №${invoice.invoiceNumber} o'chirilsinmi?`)) return;
+                              try {
+                                await apiClient.delete(`/invoices/${invoice.id}`);
+                                loadInvoices();
+                              } catch (err: unknown) {
+                                const e = err as { response?: { data?: { error?: string } } };
+                                alert(e.response?.data?.error || 'Invoice o\'chirishda xatolik');
+                              }
+                            }}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
+                            title="O'chirish"
+                          >
+                            <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -104,7 +104,7 @@ const AppRoutes = () => {
         <Route
           path="/invoices"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
+            <ProtectedRoute>
               <Invoices />
             </ProtectedRoute>
           }
@@ -112,7 +112,7 @@ const AppRoutes = () => {
         <Route
           path="/clients"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
               <Clients />
             </ProtectedRoute>
           }
@@ -136,7 +136,7 @@ const AppRoutes = () => {
         <Route
           path="/clients/:id"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
               <ClientDetail />
             </ProtectedRoute>
           }
@@ -144,7 +144,7 @@ const AppRoutes = () => {
         <Route
           path="/invoices/task/:taskId"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
+            <ProtectedRoute>
               <Invoice />
             </ProtectedRoute>
           }
@@ -152,7 +152,7 @@ const AppRoutes = () => {
         <Route
           path="/invoices/client/:clientId/contract/:contractId"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
+            <ProtectedRoute>
               <Invoice />
             </ProtectedRoute>
           }

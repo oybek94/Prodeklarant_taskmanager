@@ -144,10 +144,13 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
     });
   } else {
     const startRow = 3;
+    // Jami Мест (quantity) yig‘indisi — M3 va N3 uchun
+    const jamiMest = payload.items.reduce(
+      (sum, item) => sum + Number(item?.quantity ?? 0),
+      0
+    );
     payload.items.forEach((item, index) => {
       const row = startRow + index;
-      const packageType = item?.packageType ? String(item.packageType).trim() : '';
-      const isMest = packageType.toUpperCase() === 'МЕСТ';
       const packageCode = getPackagingCode(item, additionalInfo);
       setTextCell(sheet, `A${row}`, item?.tnvedCode); // Код ТН ВЭД
       setTextCell(sheet, `B${row}`, item?.name); // Наименование товара
@@ -161,11 +164,12 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
       setTextCell(sheet, `J${row}`, '166');
       setTextCell(sheet, `K${row}`, item?.packagesCount ?? item?.quantity);
       setTextCell(sheet, `L${row}`, packageCode);
-      setTextCell(sheet, `M${row}`, isMest ? item?.packagesCount ?? item?.quantity : '');
-      setTextCell(sheet, `N${row}`, isMest ? '017' : '');
       setTextCell(sheet, `O${row}`, '04');
       setTextCell(sheet, `P${row}`, additionalInfo.vehicleNumber);
     });
+    // Tovarlar sonidan qat’i nazar M3 va N3 ni bir marta to‘ldirish yetarli
+    setTextCell(sheet, 'M3', jamiMest > 0 ? jamiMest : '');
+    setTextCell(sheet, 'N3', jamiMest > 0 ? '017' : '');
   }
 
   if (workbook.views?.[0] && typeof workbook.views[0] === 'object') {

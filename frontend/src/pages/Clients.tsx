@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import { Icon } from '@iconify/react';
 import MonetaryInput from '../components/MonetaryInput';
 import CurrencyDisplay from '../components/CurrencyDisplay';
@@ -277,6 +278,8 @@ const allCountries = [
 ];
 
 const Clients = () => {
+  const { user } = useAuth();
+  const isManagerOnly = user?.role === 'MANAGER';
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -403,49 +406,69 @@ const Clients = () => {
     contractNumber: string;
     contractDate: string;
     sellerName: string;
+    sellerInn: string;
     sellerLegalAddress: string;
     sellerDetails: string;
     gln: string;
     buyerName: string;
+    buyerInn: string;
     buyerAddress: string;
     destinationCountry: string;
     buyerDetails: string;
     deliveryTerms: string[];
     customsAddress: string[];
     shipperName: string;
+    shipperInn: string;
     shipperAddress: string;
     shipperDetails: string;
     consigneeName: string;
+    consigneeInn: string;
     consigneeAddress: string;
     consigneeDetails: string;
     supplierDirector: string;
     goodsReleasedBy: string;
     signatureUrl: string;
     sealUrl: string;
+    sellerSignatureUrl: string;
+    sellerSealUrl: string;
+    buyerSignatureUrl: string;
+    buyerSealUrl: string;
+    consigneeSignatureUrl: string;
+    consigneeSealUrl: string;
     specification: SpecRow[];
   }>({
     contractNumber: '',
     contractDate: '',
     sellerName: '',
+    sellerInn: '',
     sellerLegalAddress: '',
     sellerDetails: '',
     gln: '',
     buyerName: '',
+    buyerInn: '',
     buyerAddress: '',
     destinationCountry: '',
     buyerDetails: '',
     deliveryTerms: [''],
     customsAddress: [''],
     shipperName: '',
+    shipperInn: '',
     shipperAddress: '',
     shipperDetails: '',
     consigneeName: '',
+    consigneeInn: '',
     consigneeAddress: '',
     consigneeDetails: '',
     supplierDirector: '',
     goodsReleasedBy: '',
     signatureUrl: '',
     sealUrl: '',
+    sellerSignatureUrl: '',
+    sellerSealUrl: '',
+    buyerSignatureUrl: '',
+    buyerSealUrl: '',
+    consigneeSignatureUrl: '',
+    consigneeSealUrl: '',
     specification: [],
   });
   const contractFormRef = useRef(contractForm);
@@ -475,6 +498,14 @@ const Clients = () => {
     loadClients();
     loadStats();
   }, []);
+
+  // MANAGER: faqat shartnomalar; mijoz qo'shish/tahrirlash sahifalariga kirishni taqiqlash
+  useEffect(() => {
+    if (!isManagerOnly) return;
+    if (location.pathname === '/clients/new' || /^\/clients\/\d+\/edit$/.test(location.pathname)) {
+      navigate('/clients', { replace: true });
+    }
+  }, [isManagerOnly, location.pathname, navigate]);
 
   // Handle ESC key to close modals
   useEffect(() => {
@@ -513,26 +544,36 @@ const Clients = () => {
       contractNumber: '',
       contractDate: '',
       sellerName: '',
+      sellerInn: '',
       sellerLegalAddress: '',
       sellerDetails: '',
       gln: '',
       buyerName: '',
+      buyerInn: '',
       buyerAddress: '',
       destinationCountry: '',
       buyerDetails: '',
       deliveryTerms: [''],
       customsAddress: [''],
       shipperName: '',
+      shipperInn: '',
       shipperAddress: '',
       shipperDetails: '',
       consigneeName: '',
+      consigneeInn: '',
       consigneeAddress: '',
       consigneeDetails: '',
-      supplierDirector: '',
-      goodsReleasedBy: '',
-      signatureUrl: '',
-      sealUrl: '',
-      specification: [],
+    supplierDirector: '',
+    goodsReleasedBy: '',
+    signatureUrl: '',
+    sealUrl: '',
+    sellerSignatureUrl: '',
+    sellerSealUrl: '',
+    buyerSignatureUrl: '',
+    buyerSealUrl: '',
+    consigneeSignatureUrl: '',
+    consigneeSealUrl: '',
+    specification: [],
     };
     setContractFormAndRef(empty);
     setHasShipper(false);
@@ -617,7 +658,8 @@ const Clients = () => {
     }
   };
 
-  const uploadContractImage = async (file: File, field: 'signatureUrl' | 'sealUrl') => {
+  type ContractImageField = 'signatureUrl' | 'sealUrl' | 'sellerSignatureUrl' | 'sellerSealUrl' | 'buyerSignatureUrl' | 'buyerSealUrl' | 'consigneeSignatureUrl' | 'consigneeSealUrl';
+  const uploadContractImage = async (file: File, field: ContractImageField) => {
     const formData = new FormData();
     formData.append('image', file);
     const response = await apiClient.post('/upload/image', formData, {
@@ -625,7 +667,13 @@ const Clients = () => {
         'Content-Type': 'multipart/form-data',
       },
     });
-    setContractFormAndRef((prev) => ({ ...prev, [field]: response.data.fileUrl }));
+    const fileUrl = response.data?.fileUrl ?? '';
+    if (!fileUrl) {
+      alert('Yuklash javobida URL topilmadi');
+      return;
+    }
+    contractFormRef.current = { ...contractFormRef.current, [field]: fileUrl };
+    setContractForm((prev) => ({ ...prev, [field]: fileUrl }));
   };
 
   const handleContractSubmit = async (e: React.FormEvent) => {
@@ -663,10 +711,12 @@ const Clients = () => {
         contractNumber: form.contractNumber,
         contractDate: form.contractDate,
         sellerName: form.sellerName,
+        sellerInn: form.sellerInn || undefined,
         sellerLegalAddress: form.sellerLegalAddress,
         sellerDetails: form.sellerDetails || undefined,
         gln: form.gln || undefined,
         buyerName: form.buyerName,
+        buyerInn: form.buyerInn || undefined,
         buyerAddress: form.buyerAddress,
         destinationCountry: form.destinationCountry.trim(),
         buyerDetails: form.buyerDetails || undefined,
@@ -676,24 +726,34 @@ const Clients = () => {
         goodsReleasedBy: form.goodsReleasedBy || undefined,
         signatureUrl: form.signatureUrl || undefined,
         sealUrl: form.sealUrl || undefined,
+        sellerSignatureUrl: form.sellerSignatureUrl || undefined,
+        sellerSealUrl: form.sellerSealUrl || undefined,
+        buyerSignatureUrl: form.buyerSignatureUrl || undefined,
+        buyerSealUrl: form.buyerSealUrl || undefined,
+        consigneeSignatureUrl: form.consigneeSignatureUrl || undefined,
+        consigneeSealUrl: form.consigneeSealUrl || undefined,
       };
 
       if (hasShipper) {
         payload.shipperName = form.shipperName || undefined;
+        payload.shipperInn = form.shipperInn || undefined;
         payload.shipperAddress = form.shipperAddress || undefined;
         payload.shipperDetails = form.shipperDetails || undefined;
       } else {
         payload.shipperName = '';
+        payload.shipperInn = '';
         payload.shipperAddress = '';
         payload.shipperDetails = '';
       }
 
       if (hasConsignee) {
         payload.consigneeName = form.consigneeName || undefined;
+        payload.consigneeInn = form.consigneeInn || undefined;
         payload.consigneeAddress = form.consigneeAddress || undefined;
         payload.consigneeDetails = form.consigneeDetails || undefined;
       } else {
         payload.consigneeName = '';
+        payload.consigneeInn = '';
         payload.consigneeAddress = '';
         payload.consigneeDetails = '';
       }
@@ -765,24 +825,34 @@ const Clients = () => {
         contractNumber: c.contractNumber || '',
         contractDate: c.contractDate ? String(c.contractDate).split('T')[0] : '',
         sellerName: c.sellerName || '',
+        sellerInn: c.sellerInn || '',
         sellerLegalAddress: c.sellerLegalAddress || '',
         sellerDetails: c.sellerDetails || '',
         gln: c.gln || '',
         buyerName: c.buyerName || '',
+        buyerInn: c.buyerInn || '',
         buyerAddress: c.buyerAddress || '',
         destinationCountry: c.destinationCountry || '',
         buyerDetails: c.buyerDetails || '',
         ...syncTermsAndCustoms(parseListPreservingEmpty(c.deliveryTerms), parseListPreservingEmpty(c.customsAddress)),
         shipperName: c.shipperName || '',
+        shipperInn: c.shipperInn || '',
         shipperAddress: c.shipperAddress || '',
         shipperDetails: c.shipperDetails || '',
         consigneeName: c.consigneeName || '',
+        consigneeInn: c.consigneeInn || '',
         consigneeAddress: c.consigneeAddress || '',
         consigneeDetails: c.consigneeDetails || '',
         supplierDirector: c.supplierDirector || '',
         goodsReleasedBy: c.goodsReleasedBy || '',
         signatureUrl: c.signatureUrl || '',
         sealUrl: c.sealUrl || '',
+        sellerSignatureUrl: c.sellerSignatureUrl || c.signatureUrl || '',
+        sellerSealUrl: c.sellerSealUrl || c.sealUrl || '',
+        buyerSignatureUrl: c.buyerSignatureUrl || '',
+        buyerSealUrl: c.buyerSealUrl || '',
+        consigneeSignatureUrl: c.consigneeSignatureUrl || '',
+        consigneeSealUrl: c.consigneeSealUrl || '',
         specification: spec,
       });
       setHasShipper(!!c.shipperName);
@@ -800,24 +870,34 @@ const Clients = () => {
         contractNumber: contract.contractNumber || '',
         contractDate: contract.contractDate ? contract.contractDate.split('T')[0] : '',
         sellerName: contract.sellerName || '',
+        sellerInn: contract.sellerInn || '',
         sellerLegalAddress: contract.sellerLegalAddress || '',
         sellerDetails: contract.sellerDetails || '',
         gln: contract.gln || '',
         buyerName: contract.buyerName || '',
+        buyerInn: contract.buyerInn || '',
         buyerAddress: contract.buyerAddress || '',
         destinationCountry: contract.destinationCountry || '',
         buyerDetails: contract.buyerDetails || '',
         ...syncTermsAndCustoms(parseListPreservingEmpty(contract.deliveryTerms), parseListPreservingEmpty(contract.customsAddress)),
         shipperName: contract.shipperName || '',
+        shipperInn: contract.shipperInn || '',
         shipperAddress: contract.shipperAddress || '',
         shipperDetails: contract.shipperDetails || '',
         consigneeName: contract.consigneeName || '',
+        consigneeInn: contract.consigneeInn || '',
         consigneeAddress: contract.consigneeAddress || '',
         consigneeDetails: contract.consigneeDetails || '',
         supplierDirector: contract.supplierDirector || '',
         goodsReleasedBy: contract.goodsReleasedBy || '',
         signatureUrl: contract.signatureUrl || '',
         sealUrl: contract.sealUrl || '',
+        sellerSignatureUrl: contract.sellerSignatureUrl || contract.signatureUrl || '',
+        sellerSealUrl: contract.sellerSealUrl || contract.sealUrl || '',
+        buyerSignatureUrl: contract.buyerSignatureUrl || '',
+        buyerSealUrl: contract.buyerSealUrl || '',
+        consigneeSignatureUrl: contract.consigneeSignatureUrl || '',
+        consigneeSealUrl: contract.consigneeSealUrl || '',
         specification: spec,
       });
       setHasShipper(!!contract.shipperName);
@@ -1160,23 +1240,25 @@ const Clients = () => {
           <h1 className="text-2xl font-bold text-gray-800">Clients</h1>
           <div className="text-sm text-gray-500 mt-1">Home &gt; Clients</div>
         </div>
-        <button
-          onClick={() => {
-            if (isMobile) {
-              navigate('/clients/new');
-            } else {
-              setShowForm(true);
-            }
-          }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-        >
-          <Icon icon="lucide:plus" className="w-5 h-5" />
-          Add New
-        </button>
+        {!isManagerOnly && (
+          <button
+            onClick={() => {
+              if (isMobile) {
+                navigate('/clients/new');
+              } else {
+                setShowForm(true);
+              }
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            <Icon icon="lucide:plus" className="w-5 h-5" />
+            Add New
+          </button>
+        )}
       </div>
 
-      {/* Stats Cards */}
-      {stats && (
+      {/* Stats Cards - faqat ADMIN uchun; MANAGER uchun ko'rinmasin */}
+      {!isManagerOnly && stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           {/* Total Clients */}
           <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
@@ -1450,30 +1532,34 @@ const Clients = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Client
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Deal Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Phone
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  No of Projects
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Mijoz qardorligi
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                  Actions
-                </th>
+                {!isManagerOnly && (
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Deal Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Phone
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      No of Projects
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Mijoz qardorligi
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {sortedClients.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-400">
+                  <td colSpan={isManagerOnly ? 1 : 7} className="px-6 py-4 text-center text-gray-400">
                     Ma'lumotlar yo'q
                   </td>
                 </tr>
@@ -1482,7 +1568,7 @@ const Clients = () => {
                   <tr 
                     key={client.id} 
                     className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => loadClientDetail(client.id)}
+                    onClick={() => isManagerOnly ? navigate(`/clients/${client.id}`) : loadClientDetail(client.id)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -1495,9 +1581,14 @@ const Clients = () => {
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900">{client.name}</div>
+                          {isManagerOnly && (
+                            <div className="text-xs text-gray-500 mt-0.5">Shartnomalar uchun bosing</div>
+                          )}
                         </div>
                       </div>
                     </td>
+                    {!isManagerOnly && (
+                      <>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {client.dealAmount ? (
                         <CurrencyDisplay
@@ -1564,29 +1655,33 @@ const Clients = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => {
-                            if (isMobile) {
-                              navigate(`/clients/${client.id}/edit`);
-                            } else {
-                              handleEdit(client);
-                            }
-                          }}
-                          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
-                          title="O'zgartirish"
-                        >
-                          <Icon icon="lucide:pencil" className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(client.id)}
-                          className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
-                          title="O'chirish"
-                        >
-                          <Icon icon="lucide:trash-2" className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {!isManagerOnly && (
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => {
+                              if (isMobile) {
+                                navigate(`/clients/${client.id}/edit`);
+                              } else {
+                                handleEdit(client);
+                              }
+                            }}
+                            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                            title="O'zgartirish"
+                          >
+                            <Icon icon="lucide:pencil" className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(client.id)}
+                            className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
+                            title="O'chirish"
+                          >
+                            <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </td>
+                      </>
+                    )}
                   </tr>
                 ))
               )}
@@ -1595,8 +1690,8 @@ const Clients = () => {
         </div>
       )}
 
-      {/* Client Detail Modal */}
-      {showClientModal && selectedClient && (
+      {/* Client Detail Modal - MANAGER faqat /clients/:id sahifasida shartnomalarni ko'radi */}
+      {!isManagerOnly && showClientModal && selectedClient && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
           style={{
@@ -2057,15 +2152,27 @@ const Clients = () => {
               <div className="border-b pb-4">
                 <h4 className="font-semibold text-gray-700 mb-3">Sotuvchi ma'lumotlari</h4>
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi *</label>
-                    <input
-                      type="text"
-                      value={contractForm.sellerName}
-                      onChange={(e) => setContractFormAndRef({ ...contractForm, sellerName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi *</label>
+                      <input
+                        type="text"
+                        value={contractForm.sellerName}
+                        onChange={(e) => setContractFormAndRef({ ...contractForm, sellerName: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        required
+                      />
+                    </div>
+                    <div className="sm:w-40">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">INN</label>
+                      <input
+                        type="text"
+                        value={contractForm.sellerInn}
+                        onChange={(e) => setContractFormAndRef({ ...contractForm, sellerInn: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="INN"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili *</label>
@@ -2097,6 +2204,60 @@ const Clients = () => {
                       placeholder="GLN kodini kiriting"
                     />
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          const inputEl = e.currentTarget;
+                          if (!file) return;
+                          try {
+                            await uploadContractImage(file, 'sellerSignatureUrl');
+                          } catch (err) {
+                            console.error(err);
+                            alert('Imzoni yuklashda xatolik');
+                          }
+                          if (inputEl) inputEl.value = '';
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      {contractForm.sellerSignatureUrl && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <img src={resolveUploadUrl(contractForm.sellerSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
+                          <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSignatureUrl: '' })} className="text-sm text-red-600 hover:text-red-800">O'chirish</button>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Muhr (PNG/JPG)</label>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          const inputEl = e.currentTarget;
+                          if (!file) return;
+                          try {
+                            await uploadContractImage(file, 'sellerSealUrl');
+                          } catch (err) {
+                            console.error(err);
+                            alert('Muhrni yuklashda xatolik');
+                          }
+                          if (inputEl) inputEl.value = '';
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      {contractForm.sellerSealUrl && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <img src={resolveUploadUrl(contractForm.sellerSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
+                          <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSealUrl: '' })} className="text-sm text-red-600 hover:text-red-800">O'chirish</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2104,15 +2265,27 @@ const Clients = () => {
               <div className="border-b pb-4">
                 <h4 className="font-semibold text-gray-700 mb-3">Sotib oluvchi ma'lumotlari</h4>
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi *</label>
-                    <input
-                      type="text"
-                      value={contractForm.buyerName}
-                      onChange={(e) => setContractFormAndRef({ ...contractForm, buyerName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi *</label>
+                      <input
+                        type="text"
+                        value={contractForm.buyerName}
+                        onChange={(e) => setContractFormAndRef({ ...contractForm, buyerName: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        required
+                      />
+                    </div>
+                    <div className="sm:w-40">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">INN</label>
+                      <input
+                        type="text"
+                        value={contractForm.buyerInn}
+                        onChange={(e) => setContractFormAndRef({ ...contractForm, buyerInn: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="INN"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Davlati *</label>
@@ -2151,6 +2324,60 @@ const Clients = () => {
                       placeholder="INN, MFO, bank, hisob raqam va h.k."
                     />
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          const inputEl = e.currentTarget;
+                          if (!file) return;
+                          try {
+                            await uploadContractImage(file, 'buyerSignatureUrl');
+                          } catch (err) {
+                            console.error(err);
+                            alert('Imzoni yuklashda xatolik');
+                          }
+                          if (inputEl) inputEl.value = '';
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      {contractForm.buyerSignatureUrl && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <img src={resolveUploadUrl(contractForm.buyerSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
+                          <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSignatureUrl: '' })} className="text-sm text-red-600 hover:text-red-800">O'chirish</button>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Muhr (PNG/JPG)</label>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          const inputEl = e.currentTarget;
+                          if (!file) return;
+                          try {
+                            await uploadContractImage(file, 'buyerSealUrl');
+                          } catch (err) {
+                            console.error(err);
+                            alert('Muhrni yuklashda xatolik');
+                          }
+                          if (inputEl) inputEl.value = '';
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      {contractForm.buyerSealUrl && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <img src={resolveUploadUrl(contractForm.buyerSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
+                          <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSealUrl: '' })} className="text-sm text-red-600 hover:text-red-800">O'chirish</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2169,14 +2396,26 @@ const Clients = () => {
                 </div>
                 {hasShipper && (
                   <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi</label>
-                      <input
-                        type="text"
-                        value={contractForm.shipperName}
-                        onChange={(e) => setContractFormAndRef({ ...contractForm, shipperName: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi</label>
+                        <input
+                          type="text"
+                          value={contractForm.shipperName}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, shipperName: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                      <div className="sm:w-40">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">INN</label>
+                        <input
+                          type="text"
+                          value={contractForm.shipperInn}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, shipperInn: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="INN"
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili</label>
@@ -2216,14 +2455,26 @@ const Clients = () => {
                 </div>
                 {hasConsignee && (
                   <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi</label>
-                      <input
-                        type="text"
-                        value={contractForm.consigneeName}
-                        onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeName: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi</label>
+                        <input
+                          type="text"
+                          value={contractForm.consigneeName}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeName: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                      <div className="sm:w-40">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">INN</label>
+                        <input
+                          type="text"
+                          value={contractForm.consigneeInn}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeInn: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="INN"
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili</label>
@@ -2243,6 +2494,60 @@ const Clients = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         placeholder="INN, MFO, bank, hisob raqam va h.k."
                       />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            const inputEl = e.currentTarget;
+                            if (!file) return;
+                            try {
+                              await uploadContractImage(file, 'consigneeSignatureUrl');
+                            } catch (err) {
+                              console.error(err);
+                              alert('Imzoni yuklashda xatolik');
+                            }
+                            if (inputEl) inputEl.value = '';
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                        {contractForm.consigneeSignatureUrl && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <img src={resolveUploadUrl(contractForm.consigneeSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
+                            <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSignatureUrl: '' })} className="text-sm text-red-600 hover:text-red-800">O'chirish</button>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Muhr (PNG/JPG)</label>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            const inputEl = e.currentTarget;
+                            if (!file) return;
+                            try {
+                              await uploadContractImage(file, 'consigneeSealUrl');
+                            } catch (err) {
+                              console.error(err);
+                              alert('Muhrni yuklashda xatolik');
+                            }
+                            if (inputEl) inputEl.value = '';
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                        {contractForm.consigneeSealUrl && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <img src={resolveUploadUrl(contractForm.consigneeSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
+                            <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSealUrl: '' })} className="text-sm text-red-600 hover:text-red-800">O'chirish</button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -2271,78 +2576,6 @@ const Clients = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       placeholder="Товар отпустил"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        try {
-                          await uploadContractImage(file, 'signatureUrl');
-                        } catch (error) {
-                          console.error('Error uploading signature:', error);
-                          alert('Imzoni yuklashda xatolik yuz berdi');
-                        } finally {
-                          e.currentTarget.value = '';
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                    {contractForm.signatureUrl && (
-                      <div className="mt-2 flex items-center gap-3">
-                        <img
-                          src={resolveUploadUrl(contractForm.signatureUrl)}
-                          alt="Imzo"
-                          className="h-[90px] w-auto object-contain border border-gray-200 rounded"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setContractFormAndRef({ ...contractForm, signatureUrl: '' })}
-                          className="text-sm text-red-600 hover:text-red-800"
-                        >
-                          O'chirish
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Muhr (PNG/JPG)</label>
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        try {
-                          await uploadContractImage(file, 'sealUrl');
-                        } catch (error) {
-                          console.error('Error uploading seal:', error);
-                          alert('Muhrni yuklashda xatolik yuz berdi');
-                        } finally {
-                          e.currentTarget.value = '';
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                    {contractForm.sealUrl && (
-                      <div className="mt-2 flex items-center gap-3">
-                        <img
-                          src={resolveUploadUrl(contractForm.sealUrl)}
-                          alt="Muhr"
-                          className="h-[215px] w-auto object-contain border border-gray-200 rounded"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setContractFormAndRef({ ...contractForm, sealUrl: '' })}
-                          className="text-sm text-red-600 hover:text-red-800"
-                        >
-                          O'chirish
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>

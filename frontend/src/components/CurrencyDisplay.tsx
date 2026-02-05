@@ -3,7 +3,7 @@ import { getCurrencyVisibility, formatAmount, type Role } from '../utils/currenc
 
 interface CurrencyDisplayProps {
   amount: number;
-  originalCurrency: 'USD' | 'UZS';
+  originalCurrency?: 'USD' | 'UZS' | null;
   amountUzs?: number;
   exchangeRate?: number | null;
   exchangeSource?: 'CBU' | 'MANUAL' | null;
@@ -13,13 +13,14 @@ interface CurrencyDisplayProps {
 
 const CurrencyDisplay = ({
   amount,
-  originalCurrency,
+  originalCurrency: originalCurrencyProp,
   amountUzs,
   exchangeRate,
   exchangeSource,
   showBoth = false,
   className = '',
 }: CurrencyDisplayProps) => {
+  const originalCurrency = originalCurrencyProp || 'USD';
   const { user } = useAuth();
   const role = (user?.role || 'DEKLARANT') as Role;
   const visibility = getCurrencyVisibility(role);

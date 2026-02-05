@@ -38,9 +38,18 @@ const clientSchema = z.object({
   correspondentBankSwift: z.string().optional(),
 });
 
-router.get('/', async (_req, res) => {
+router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const clients = await prisma.client.findMany({ 
+    const isManagerOnly = req.user?.role === 'MANAGER';
+    if (isManagerOnly) {
+      const clients = await prisma.client.findMany({
+        select: { id: true, name: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      return res.json(clients);
+    }
+
+    const clients = await prisma.client.findMany({
     include: {
       tasks: {
         select: {
@@ -58,9 +67,9 @@ router.get('/', async (_req, res) => {
         },
       },
     },
-    orderBy: { createdAt: 'desc' } 
+    orderBy: { createdAt: 'desc' }
   });
-  
+
   // Calculate balance for each client in deal currency
   const clientsWithBalance = await Promise.all(clients.map(async (client: any) => {
     try {
@@ -382,10 +391,20 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
-    
+    const isManagerOnly = req.user?.role === 'MANAGER';
+
+    if (isManagerOnly) {
+      const client = await prisma.client.findUnique({
+        where: { id },
+        select: { id: true, name: true },
+      });
+      if (!client) return res.status(404).json({ error: 'Not found' });
+      return res.json({ ...client, tasks: [], transactions: [], stats: null });
+    }
+
     const client = await prisma.client.findUnique({
       where: { id },
       include: {
@@ -399,13 +418,13 @@ router.get('/:id', async (req, res) => {
         },
       },
     });
-    
+
     // #region agent log
     const logAfterQuery = {location:'clients.ts:99',message:'After Prisma query',data:{clientFound:!!client,hasTasks:!!client?.tasks,hasTransactions:!!client?.transactions,tasksCount:client?.tasks?.length,transactionsCount:client?.transactions?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'};
     console.log('[DEBUG]', JSON.stringify(logAfterQuery));
     fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logAfterQuery)}).catch(()=>{});
     // #endregion
-    
+
     if (!client) return res.status(404).json({ error: 'Not found' });
 
     // Calculate stats

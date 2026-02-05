@@ -793,6 +793,12 @@ model Contract {
   goodsReleasedBy                String?
   signatureUrl                   String?
   sealUrl                        String?
+  sellerSignatureUrl             String?
+  sellerSealUrl                  String?
+  buyerSignatureUrl              String?
+  buyerSealUrl                   String?
+  consigneeSignatureUrl          String?
+  consigneeSealUrl               String?
   specification                  Json?     // Spetsifikatsiya: [{ productName, quantity, unit, unitPrice, totalPrice }]
   createdAt                      DateTime  @default(now())
   updatedAt                      DateTime  @updatedAt

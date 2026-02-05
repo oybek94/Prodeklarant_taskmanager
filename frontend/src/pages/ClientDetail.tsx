@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Icon } from '@iconify/react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import CurrencyDisplay from '../components/CurrencyDisplay';
@@ -81,6 +82,7 @@ const ClientDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isManagerOnly = user?.role === 'MANAGER';
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -605,56 +607,58 @@ const ClientDetail = () => {
         </div>
       </div>
 
-      {/* Client Info */}
-      <div className="bg-white rounded-lg shadow p-6 mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <div className="text-sm text-gray-500">Telefon</div>
-            <div className="font-medium">{client.phone || '-'}</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-500">Kelishuv summasi (bitta task)</div>
-            <CurrencyDisplay
-              amount={Number(client.stats.dealAmount)}
-              originalCurrency="USD"
-              className="font-medium"
-            />
-            {client.stats.totalDealAmount !== undefined && (
-              <>
-                <div className="text-xs text-gray-400 mt-1">Jami (PSR hisobga olingan)</div>
-                <CurrencyDisplay
-                  amount={Number(client.stats.totalDealAmount)}
-                  originalCurrency="USD"
-                  className="font-medium text-blue-600"
-                />
-                {client.stats.tasksWithPsr !== undefined && client.stats.tasksWithPsr > 0 && (
-                  <div className="text-xs text-gray-400 mt-1">
-                    (+<CurrencyDisplay amount={client.stats.tasksWithPsr * 10} originalCurrency="USD" /> PSR uchun)
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-          <div>
-            <div className="text-sm text-gray-500">Jami tushgan</div>
-            <CurrencyDisplay
-              amount={Number(client.stats.totalIncome)}
-              originalCurrency="USD"
-              className="font-medium"
-            />
-          </div>
-          <div>
-            <div className="text-sm text-gray-500">Balans</div>
-            <CurrencyDisplay
-              amount={Number(client.stats.balance)}
-              originalCurrency={client.stats.currency}
-              className={`font-medium ${
-                Number(client.stats.balance) >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}
-            />
+      {/* Client Info - faqat ADMIN uchun (Telefon, Kelishuv, Jami tushgan, Balans) */}
+      {user?.role === 'ADMIN' && client.stats && (
+        <div className="bg-white rounded-lg shadow p-6 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <div className="text-sm text-gray-500">Telefon</div>
+              <div className="font-medium">{client.phone || '-'}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Kelishuv summasi (bitta task)</div>
+              <CurrencyDisplay
+                amount={Number(client.stats.dealAmount)}
+                originalCurrency="USD"
+                className="font-medium"
+              />
+              {client.stats.totalDealAmount !== undefined && (
+                <>
+                  <div className="text-xs text-gray-400 mt-1">Jami (PSR hisobga olingan)</div>
+                  <CurrencyDisplay
+                    amount={Number(client.stats.totalDealAmount)}
+                    originalCurrency="USD"
+                    className="font-medium text-blue-600"
+                  />
+                  {client.stats.tasksWithPsr !== undefined && client.stats.tasksWithPsr > 0 && (
+                    <div className="text-xs text-gray-400 mt-1">
+                      (+<CurrencyDisplay amount={client.stats.tasksWithPsr * 10} originalCurrency="USD" /> PSR uchun)
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Jami tushgan</div>
+              <CurrencyDisplay
+                amount={Number(client.stats.totalIncome)}
+                originalCurrency="USD"
+                className="font-medium"
+              />
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Balans</div>
+              <CurrencyDisplay
+                amount={Number(client.stats.balance)}
+                originalCurrency={(client.stats.currency || 'USD') as 'USD' | 'UZS'}
+                className={`font-medium ${
+                  Number(client.stats.balance) >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Contracts Section - Shartnomalar bo'limi */}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-t-4 border-green-500">
@@ -745,18 +749,22 @@ const ClientDetail = () => {
                     <td className="px-6 py-4 text-sm text-gray-900">{contract.sellerName}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{contract.buyerName}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
                         <button
+                          type="button"
                           onClick={() => handleEditContract(contract)}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-600 hover:bg-blue-100 transition-colors"
+                          title="Tahrirlash"
                         >
-                          Tahrirlash
+                          <Icon icon="lucide:pencil" className="w-4 h-4" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDeleteContract(contract.id)}
-                          className="text-red-600 hover:text-red-800"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
+                          title="O'chirish"
                         >
-                          O'chirish
+                          <Icon icon="lucide:trash-2" className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -768,11 +776,12 @@ const ClientDetail = () => {
         )}
       </div>
 
-      {/* Stats by Branch */}
+      {/* Stats by Branch - MANAGER uchun ko'rinmasin */}
+      {client.stats && (
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Filial bo'yicha statistika</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Object.entries(client.stats.tasksByBranch).map(([branch, count]) => (
+          {Object.entries(client.stats.tasksByBranch || {}).map(([branch, count]) => (
             <div key={branch} className="text-center p-4 bg-gray-50 rounded-lg">
               <div className="text-2xl font-bold text-gray-800">{count}</div>
               <div className="text-sm text-gray-500">{branch}</div>
@@ -780,11 +789,13 @@ const ClientDetail = () => {
           ))}
         </div>
       </div>
+      )}
 
-      {/* Tasks */}
+      {/* Tasks - MANAGER uchun ko'rinmasin */}
+      {!isManagerOnly && (
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Buyurtmalar ({client.tasks.length})</h2>
-        {client.tasks.length === 0 ? (
+        <h2 className="text-lg font-semibold mb-4">Buyurtmalar ({client.tasks?.length ?? 0})</h2>
+        {(client.tasks?.length ?? 0) === 0 ? (
           <div className="text-center py-8 text-gray-400">Buyurtmalar yo'q</div>
         ) : (
           <div className="overflow-x-auto">
@@ -809,7 +820,7 @@ const ClientDetail = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {client.tasks.map((task) => (
+                {(client.tasks || []).map((task) => (
                   <tr key={task.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {task.title}
@@ -860,11 +871,13 @@ const ClientDetail = () => {
           </div>
         )}
       </div>
+      )}
 
-      {/* Transactions */}
+      {/* Transactions - MANAGER uchun ko'rinmasin */}
+      {!isManagerOnly && (
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold mb-4">To'lovlar ({client.transactions.length})</h2>
-        {client.transactions.length === 0 ? (
+        <h2 className="text-lg font-semibold mb-4">To'lovlar ({(client.transactions || []).length})</h2>
+        {(client.transactions?.length ?? 0) === 0 ? (
           <div className="text-center py-8 text-gray-400">To'lovlar yo'q</div>
         ) : (
           <div className="overflow-x-auto">
@@ -883,7 +896,7 @@ const ClientDetail = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {client.transactions.map((t) => (
+                {(client.transactions || []).map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       <CurrencyDisplay amount={Number(t.amount)} originalCurrency={t.currency as 'USD' | 'UZS'} />
@@ -899,6 +912,7 @@ const ClientDetail = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Contract Form Modal */}
       {showContractForm && (

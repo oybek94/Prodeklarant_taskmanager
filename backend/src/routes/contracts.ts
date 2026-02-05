@@ -62,10 +62,17 @@ const contractSchema = z.object({
   gln: z.string().optional(), // Глобальный идентификационный номер GS1 (GLN)
   supplierDirector: z.string().optional(), // Руководитель Поставщика
   goodsReleasedBy: z.string().optional(), // Товар отпустил
-  signatureUrl: z.string().optional(), // Imzo (PNG/JPG)
-  sealUrl: z.string().optional(), // Muhr (PNG/JPG)
+  signatureUrl: z.string().optional(),
+  sealUrl: z.string().optional(),
+  sellerSignatureUrl: z.string().optional(),
+  sellerSealUrl: z.string().optional(),
+  buyerSignatureUrl: z.string().optional(),
+  buyerSealUrl: z.string().optional(),
+  consigneeSignatureUrl: z.string().optional(),
+  consigneeSealUrl: z.string().optional(),
   specification: z.array(z.object({
     productName: z.string(),
+    tnvedCode: z.string().optional(),
     quantity: z.number(),
     unit: z.string().optional(),
     unitPrice: z.number().optional(),
@@ -121,7 +128,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
 });
 
 // POST /contracts - Yangi shartnoma yaratish
-router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) => {
+router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
   try {
     const parsed = contractSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -219,6 +226,12 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
     if (data.signatureUrl !== undefined) contractData.signatureUrl = data.signatureUrl;
     if (data.sealUrl !== undefined) contractData.sealUrl = data.sealUrl;
+    if (data.sellerSignatureUrl !== undefined) contractData.sellerSignatureUrl = data.sellerSignatureUrl;
+    if (data.sellerSealUrl !== undefined) contractData.sellerSealUrl = data.sellerSealUrl;
+    if (data.buyerSignatureUrl !== undefined) contractData.buyerSignatureUrl = data.buyerSignatureUrl;
+    if (data.buyerSealUrl !== undefined) contractData.buyerSealUrl = data.buyerSealUrl;
+    if (data.consigneeSignatureUrl !== undefined) contractData.consigneeSignatureUrl = data.consigneeSignatureUrl;
+    if (data.consigneeSealUrl !== undefined) contractData.consigneeSealUrl = data.consigneeSealUrl;
     if (data.specification !== undefined) {
       const spec = Array.isArray(data.specification) ? data.specification : [];
       const toNum = (v: any): number | undefined => {
@@ -228,6 +241,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
       };
       contractData.specification = spec.map((row: any) => ({
         productName: String(row?.productName ?? ''),
+        tnvedCode: row?.tnvedCode != null ? String(row.tnvedCode) : undefined,
         quantity: Number.isFinite(Number(row?.quantity)) ? Number(row.quantity) : 0,
         unit: row?.unit != null ? String(row.unit) : undefined,
         unitPrice: toNum(row?.unitPrice),
@@ -276,7 +290,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
 });
 
 // PUT /contracts/:id - Shartnoma yangilash
-router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) => {
+router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     const parsed = contractSchema.safeParse(req.body);
@@ -378,6 +392,12 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
     if (data.signatureUrl !== undefined) contractData.signatureUrl = data.signatureUrl;
     if (data.sealUrl !== undefined) contractData.sealUrl = data.sealUrl;
+    if (data.sellerSignatureUrl !== undefined) contractData.sellerSignatureUrl = data.sellerSignatureUrl;
+    if (data.sellerSealUrl !== undefined) contractData.sellerSealUrl = data.sellerSealUrl;
+    if (data.buyerSignatureUrl !== undefined) contractData.buyerSignatureUrl = data.buyerSignatureUrl;
+    if (data.buyerSealUrl !== undefined) contractData.buyerSealUrl = data.buyerSealUrl;
+    if (data.consigneeSignatureUrl !== undefined) contractData.consigneeSignatureUrl = data.consigneeSignatureUrl;
+    if (data.consigneeSealUrl !== undefined) contractData.consigneeSealUrl = data.consigneeSealUrl;
     if (data.specification !== undefined) {
       const spec = Array.isArray(data.specification) ? data.specification : [];
       const toNum = (v: any): number | undefined => {
@@ -387,6 +407,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
       };
       contractData.specification = spec.map((row: any) => ({
         productName: String(row?.productName ?? ''),
+        tnvedCode: row?.tnvedCode != null ? String(row.tnvedCode) : undefined,
         quantity: Number.isFinite(Number(row?.quantity)) ? Number(row.quantity) : 0,
         unit: row?.unit != null ? String(row.unit) : undefined,
         unitPrice: toNum(row?.unitPrice),
@@ -461,7 +482,7 @@ router.patch('/:id/delivery-terms', requireAuth(), async (req: AuthRequest, res:
 });
 
 // DELETE /contracts/:id - Shartnoma o'chirish
-router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) => {
+router.delete('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id);
 

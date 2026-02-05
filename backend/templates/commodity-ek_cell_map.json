@@ -1,0 +1,21 @@
+{
+  "dataStartRow": 4,
+  "columns": {
+    "sequenceNumber": "A",
+    "specificationNumber": "B",
+    "specificationOrder": "C",
+    "tnvedCode": "D",
+    "goodsName": "E",
+    "brandModel": "F",
+    "countryOfOrigin": "G",
+    "producerInn": "H",
+    "producerRegionCode": "I",
+    "graph43": "J",
+    "procedureCode": "K",
+    "packageTypeCode": "L",
+    "packagesCount": "M",
+    "netWeightN": "N",
+    "grossWeight": "O",
+    "netWeight": "P"
+  }
+}

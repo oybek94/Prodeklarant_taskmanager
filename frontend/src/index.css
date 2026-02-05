@@ -198,3 +198,20 @@ body {
   font-size: 1.125rem;
   margin-bottom: 0;
 }
+
+/* Invoice form read-only (view-only for non-ADMIN/MANAGER) */
+.invoice-form-readonly input:not([type="button"]):not([type="submit"]),
+.invoice-form-readonly select,
+.invoice-form-readonly textarea {
+  pointer-events: none;
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.invoice-additional-info-modal-readonly input,
+.invoice-additional-info-modal-readonly select,
+.invoice-additional-info-modal-readonly textarea {
+  pointer-events: none;
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}

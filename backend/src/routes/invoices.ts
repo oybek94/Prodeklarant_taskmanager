@@ -9,6 +9,8 @@ import { Prisma } from '@prisma/client';
 import { getNextInvoiceNumber } from '../utils/invoice-number';
 import { ensureCmrForInvoice } from '../services/cmr-service';
 import { ensureTirForInvoice } from '../services/tir-service';
+import { generateST1Excel } from '../services/st1-excel';
+import { generateCommodityEkExcel } from '../services/commodity-ek-excel';
 import fs from 'fs/promises';
 
 const router = Router();
@@ -259,6 +261,106 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+// GET /invoices/:id/st1 - ST1 shabloniga invoys ma'lumotlarini yozib Excel yuklab olish (/:id dan oldin bo'lishi kerak)
+router.get('/:id/st1', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        items: {
+          orderBy: { orderIndex: 'asc' }
+        },
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const workbook = await generateST1Excel({
+      invoice,
+      items: invoice.items,
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });
+    const outputBuffer = Buffer.from(buffer as ArrayBuffer);
+    const fileName = `ST1_${invoice.invoiceNumber || invoice.id}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.setHeader('Content-Length', outputBuffer.length);
+    res.end(outputBuffer);
+  } catch (error: any) {
+    console.error('Error generating ST1 Excel:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/:id/commodity-ek — CommodityEk_New2.xlsx (Deklaratsiya) shabloniga ma'lumotlarni yozib Excel yuklab olish
+router.get('/:id/commodity-ek', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        items: {
+          orderBy: { orderIndex: 'asc' }
+        },
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    let contract: { specification: unknown } | null = null;
+    if (invoice.contractId) {
+      const c = await prisma.contract.findUnique({
+        where: { id: invoice.contractId },
+        select: { specification: true },
+      });
+      if (c) contract = { specification: c.specification };
+    }
+
+    const workbook = await generateCommodityEkExcel({
+      invoice,
+      items: invoice.items,
+      contract,
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });
+    const outputBuffer = Buffer.from(buffer as ArrayBuffer);
+    const fileName = `Deklaratsiya_${invoice.invoiceNumber || invoice.id}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.setHeader('Content-Length', outputBuffer.length);
+    res.end(outputBuffer);
+  } catch (error: any) {
+    console.error('Error generating CommodityEk Excel:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
 // GET /invoices/:id - Invoice ma'lumotlari
 router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   try {
@@ -314,7 +416,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
 });
 
 // POST /invoices - Yangi invoice yaratish yoki mavjudni yangilash
-router.post('/', requireAuth(), async (req: AuthRequest, res) => {
+router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) => {
   try {
     const parsed = invoiceSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -903,7 +1005,7 @@ router.get('/:id/fss', requireAuth(), async (req: AuthRequest, res: Response) =>
 });
 
 // DELETE /invoices/:id - Invoice va unga tegishli task o'chirish
-router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+router.delete('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id);
     

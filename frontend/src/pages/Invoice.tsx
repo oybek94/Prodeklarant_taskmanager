@@ -2419,15 +2419,20 @@ const Invoice = () => {
 
                 <div className="space-y-1 mb-4">
                   <div className="flex items-center gap-1">
-                    {isPdfMode ? (
-                      <span className="text-base font-semibold text-gray-900">
-                        {viewTab === 'spec' ? 'СПЕЦИФИКАЦИЯ №:' : 'Инвойс №:'} {form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')} от {formatDate(form.date)} г.
-                      </span>
+                    {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
+                      <div className="space-y-1">
+                        <span className="text-base font-semibold text-gray-900">
+                          {viewTab === 'spec' ? 'Спецификация №:' : viewTab === 'packing' ? 'Упаковочный лист №:' : 'Инвойс №:'} {form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')} от {formatDate(form.date)} г.
+                        </span>
+                        {(viewTab === 'spec' || viewTab === 'packing') && (
+                          <div className="text-base font-semibold text-gray-900">
+                            Инвойс №: {form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')} от {formatDate(form.date)} г.
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <>
-                        <span className="text-base font-bold text-gray-700">
-                          {viewTab === 'spec' ? 'Спецификaция №:' : 'Инвойс №:'}
-                        </span>
+                        <span className="text-base font-bold text-gray-700 whitespace-nowrap shrink-0">Инвойс №:</span>
                         <div className="flex flex-col">
                           <input
                             type="text"
@@ -2456,7 +2461,7 @@ const Invoice = () => {
 
                   <div className="flex items-center gap-2">
                     <span className="text-base font-bold text-gray-700">Контракт №:</span>
-                  {isPdfMode ? (
+                  {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
                     <span className="px-2 py-1 text-base font-semibold text-gray-900">
                       {selectedContract
                         ? `${selectedContract.contractNumber} от ${formatDate(selectedContract.contractDate)}`
@@ -2493,7 +2498,7 @@ const Invoice = () => {
                     ? 'INVOICE'
                     : viewTab === 'spec'
                       ? 'Спецификaция'
-                      : 'PACKING LIST'}
+                      : 'Упаковочный лист'}
                 </h1>
 
               </div>
@@ -2868,6 +2873,7 @@ const Invoice = () => {
 
                 <h3 className="font-semibold text-gray-800">Товары</h3>
 
+                {(viewTab === 'invoice') && (
                 <div className="flex items-center gap-2">
                   <details
                     ref={columnsDropdownRef}
@@ -2917,15 +2923,16 @@ const Invoice = () => {
 
                   + Line Item
 
-                  </button>
+                </button>
                 </div>
+                )}
 
               </div>
 
               
 
               <div className="overflow-x-auto">
-                {isPdfMode ? (
+                {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
                 <table className="w-full text-sm items-table-compact">
                     <thead>
                       <tr className="bg-blue-700 text-white">
@@ -3426,7 +3433,7 @@ const Invoice = () => {
 
               <label className="block text-sm font-semibold text-gray-700 mb-2">Особые примечания</label>
 
-              {isPdfMode ? (
+              {(isPdfMode || viewTab === 'packing') ? (
                 <div className="w-full min-h-[48px] px-4 py-3 flex items-center text-left text-sm text-gray-900 whitespace-pre-wrap border border-gray-300 rounded-lg">
                   {form.notes || ''}
                 </div>

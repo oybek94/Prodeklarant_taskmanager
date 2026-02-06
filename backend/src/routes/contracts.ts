@@ -61,6 +61,8 @@ const contractSchema = z.object({
   paymentMethod: z.string().optional(),
   gln: z.string().optional(), // Глобальный идентификационный номер GS1 (GLN)
   supplierDirector: z.string().optional(), // Руководитель Поставщика
+  buyerDirector: z.string().optional(),
+  consigneeDirector: z.string().optional(),
   goodsReleasedBy: z.string().optional(), // Товар отпустил
   signatureUrl: z.string().optional(),
   sealUrl: z.string().optional(),
@@ -92,6 +94,14 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Res
       orderBy: { contractDate: 'desc' }
     });
 
+    if (contracts.length > 0) {
+      const directors = await prisma.$queryRaw<Array<{ id: number; buyerDirector: string | null; consigneeDirector: string | null }>>`
+        SELECT "id", "buyerDirector", "consigneeDirector" FROM "Contract" WHERE "clientId" = ${clientId}
+      `;
+      const byId = Object.fromEntries((directors || []).map((d: any) => [d.id, { buyerDirector: d.buyerDirector ?? null, consigneeDirector: d.consigneeDirector ?? null }]));
+      const merged = contracts.map((c: any) => ({ ...c, ...byId[c.id] }));
+      return res.json(merged);
+    }
     res.json(contracts);
   } catch (error: any) {
     console.error('Error fetching contracts:', error);
@@ -120,7 +130,13 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Shartnoma topilmadi' });
     }
 
-    res.json(contract);
+    const directors = await prisma.$queryRaw<Array<{ buyerDirector: string | null; consigneeDirector: string | null }>>`
+      SELECT "buyerDirector", "consigneeDirector" FROM "Contract" WHERE "id" = ${id}
+    `;
+    const result = directors?.[0]
+      ? { ...contract, buyerDirector: (directors[0] as any).buyerDirector, consigneeDirector: (directors[0] as any).consigneeDirector }
+      : contract;
+    res.json(result);
   } catch (error: any) {
     console.error('Error fetching contract:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
@@ -250,6 +266,8 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
         productNumber: row?.productNumber != null ? String(row.productNumber) : undefined,
       }));
     }
+    const postBuyerDirector = data.buyerDirector;
+    const postConsigneeDirector = data.consigneeDirector;
 
     const contract = await prisma.contract.create({
       data: contractData,
@@ -262,7 +280,16 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
         }
       }
     });
-    let createdContract = contract;
+    let createdContract: any = contract;
+    if (postBuyerDirector !== undefined || postConsigneeDirector !== undefined) {
+      await prisma.$executeRaw`
+        UPDATE "Contract"
+        SET "buyerDirector" = ${postBuyerDirector ?? null},
+            "consigneeDirector" = ${postConsigneeDirector ?? null}
+        WHERE "id" = ${contract.id}
+      `;
+      createdContract = { ...contract, buyerDirector: postBuyerDirector ?? null, consigneeDirector: postConsigneeDirector ?? null };
+    }
     if (contractData.specification !== undefined) {
       const specJson = JSON.stringify(contractData.specification);
       await prisma.$executeRaw`UPDATE "Contract" SET "specification" = ${specJson}::jsonb WHERE "id" = ${contract.id}`;
@@ -279,6 +306,9 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
       });
       if (refreshed) {
         createdContract = refreshed;
+        if (postBuyerDirector !== undefined || postConsigneeDirector !== undefined) {
+          createdContract = { ...createdContract, buyerDirector: postBuyerDirector ?? null, consigneeDirector: postConsigneeDirector ?? null };
+        }
       }
     }
 
@@ -336,6 +366,8 @@ router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res
       buyerAddress: data.buyerAddress,
       destinationCountry: data.destinationCountry,
     };
+    const putBuyerDirector = data.buyerDirector;
+    const putConsigneeDirector = data.consigneeDirector;
 
     // Add optional seller fields
     if (data.sellerDetails !== undefined) contractData.sellerDetails = data.sellerDetails;
@@ -431,10 +463,23 @@ router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res
       }
     });
 
+    if (putBuyerDirector !== undefined || putConsigneeDirector !== undefined) {
+      await prisma.$executeRaw`
+        UPDATE "Contract"
+        SET "buyerDirector" = ${putBuyerDirector ?? null},
+            "consigneeDirector" = ${putConsigneeDirector ?? null}
+        WHERE "id" = ${id}
+      `;
+    }
+
     if (contractData.specification !== undefined) {
       console.log('[contracts PUT] saved specification length:', Array.isArray(contract.specification) ? (contract.specification as any[]).length : 'not array');
     }
     let updatedContract = contract;
+    if (putBuyerDirector !== undefined || putConsigneeDirector !== undefined) {
+      (updatedContract as any).buyerDirector = putBuyerDirector ?? null;
+      (updatedContract as any).consigneeDirector = putConsigneeDirector ?? null;
+    }
     if (contractData.specification !== undefined) {
       const specJson = JSON.stringify(contractData.specification);
       await prisma.$executeRaw`UPDATE "Contract" SET "specification" = ${specJson}::jsonb WHERE "id" = ${id}`;

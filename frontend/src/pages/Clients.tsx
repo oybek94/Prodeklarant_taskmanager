@@ -426,6 +426,8 @@ const Clients = () => {
     consigneeAddress: string;
     consigneeDetails: string;
     supplierDirector: string;
+    buyerDirector: string;
+    consigneeDirector: string;
     goodsReleasedBy: string;
     signatureUrl: string;
     sealUrl: string;
@@ -460,6 +462,8 @@ const Clients = () => {
     consigneeAddress: '',
     consigneeDetails: '',
     supplierDirector: '',
+    buyerDirector: '',
+    consigneeDirector: '',
     goodsReleasedBy: '',
     signatureUrl: '',
     sealUrl: '',
@@ -564,6 +568,8 @@ const Clients = () => {
       consigneeAddress: '',
       consigneeDetails: '',
     supplierDirector: '',
+    buyerDirector: '',
+    consigneeDirector: '',
     goodsReleasedBy: '',
     signatureUrl: '',
     sealUrl: '',
@@ -723,7 +729,9 @@ const Clients = () => {
         buyerDetails: form.buyerDetails || undefined,
         deliveryTerms: hasAnyValue(form.deliveryTerms) ? deliveryTermsValue : undefined,
         customsAddress: hasAnyValue(form.customsAddress) ? customsAddressValue : undefined,
-        supplierDirector: form.supplierDirector,
+        supplierDirector: form.supplierDirector?.trim() || '',
+        buyerDirector: form.buyerDirector?.trim() || '',
+        consigneeDirector: form.consigneeDirector?.trim() || '',
         goodsReleasedBy: form.goodsReleasedBy || undefined,
         signatureUrl: form.signatureUrl || undefined,
         sealUrl: form.sealUrl || undefined,
@@ -838,6 +846,8 @@ const Clients = () => {
         consigneeAddress: c.consigneeAddress || '',
         consigneeDetails: c.consigneeDetails || '',
         supplierDirector: c.supplierDirector || '',
+        buyerDirector: (c as any).buyerDirector || '',
+        consigneeDirector: (c as any).consigneeDirector || '',
         goodsReleasedBy: c.goodsReleasedBy || '',
         signatureUrl: c.signatureUrl || '',
         sealUrl: c.sealUrl || '',
@@ -884,6 +894,8 @@ const Clients = () => {
         consigneeAddress: contract.consigneeAddress || '',
         consigneeDetails: contract.consigneeDetails || '',
         supplierDirector: contract.supplierDirector || '',
+        buyerDirector: (contract as any).buyerDirector || '',
+        consigneeDirector: (contract as any).consigneeDirector || '',
         goodsReleasedBy: contract.goodsReleasedBy || '',
         signatureUrl: contract.signatureUrl || '',
         sealUrl: contract.sealUrl || '',
@@ -2201,6 +2213,16 @@ const Clients = () => {
                       placeholder="GLN kodini kiriting"
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Директор</label>
+                    <input
+                      type="text"
+                      value={contractForm.supplierDirector}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, supplierDirector: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="Ism familyasi"
+                    />
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
@@ -2319,6 +2341,16 @@ const Clients = () => {
                       onChange={(e) => setContractFormAndRef({ ...contractForm, buyerDetails: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       placeholder="INN, MFO, bank, hisob raqam va h.k."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Директор</label>
+                    <input
+                      type="text"
+                      value={contractForm.buyerDirector}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, buyerDirector: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="Ism familyasi"
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
@@ -2490,6 +2522,16 @@ const Clients = () => {
                         onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeDetails: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         placeholder="INN, MFO, bank, hisob raqam va h.k."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Директор</label>
+                      <input
+                        type="text"
+                        value={contractForm.consigneeDirector}
+                        onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeDirector: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="Ism familyasi"
                       />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">

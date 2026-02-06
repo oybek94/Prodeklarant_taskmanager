@@ -190,6 +190,12 @@ interface Contract {
   goodsReleasedBy?: string; // Товар отпустил
   signatureUrl?: string;
   sealUrl?: string;
+  sellerSignatureUrl?: string;
+  sellerSealUrl?: string;
+  buyerSignatureUrl?: string;
+  buyerSealUrl?: string;
+  consigneeSignatureUrl?: string;
+  consigneeSealUrl?: string;
   gln?: string; // GLN код
   specification?: Array<{ productName?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number }>;
 }
@@ -292,6 +298,7 @@ const Invoice = () => {
 
   const invoiceRef = useRef<HTMLDivElement | null>(null);
   const [isPdfMode, setIsPdfMode] = useState(false);
+  const [viewTab, setViewTab] = useState<'invoice' | 'spec' | 'packing'>('invoice');
   const [pdfIncludeSeal, setPdfIncludeSeal] = useState(true);
   const [showPdfMenu, setShowPdfMenu] = useState(false);
   const pdfMenuRef = useRef<HTMLDivElement | null>(null);
@@ -554,6 +561,7 @@ const Invoice = () => {
   const [invoiceNumberWarning, setInvoiceNumberWarning] = useState<string | null>(null);
   const invoiceNumberCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [customFields, setCustomFields] = useState<Array<{ id: string; label: string; value: string }>>([]);
+  const [specCustomFields, setSpecCustomFields] = useState<Array<{ id: string; label: string; value: string }>>([]);
   const [showAddFieldModal, setShowAddFieldModal] = useState(false);
   const [newFieldLabel, setNewFieldLabel] = useState('');
   const [regionCodes, setRegionCodes] = useState<RegionCode[]>([]);
@@ -853,6 +861,7 @@ const Invoice = () => {
             }));
             setItems((inv.items || []).map(normalizeItem));
             setCustomFields(inv.additionalInfo?.customFields || []);
+            setSpecCustomFields(inv.additionalInfo?.specCustomFields || []);
 
             if (inv.contractId) {
               setSelectedContractId(inv.contractId.toString());
@@ -1160,7 +1169,7 @@ const Invoice = () => {
   };
 
   const downloadExcelResponse = async (
-    response: { data: Blob; status: number; headers?: Record<string, string> },
+    response: { data: Blob; status: number; headers?: any },
     fileName: string,
     fallbackError: string
   ) => {
@@ -1168,7 +1177,7 @@ const Invoice = () => {
       const message = await extractBlobErrorMessage(response.data, fallbackError);
       throw new Error(message);
     }
-    const contentType = response.headers?.['content-type'] || '';
+    const contentType = String(response.headers?.['content-type'] || response.headers?.['Content-Type'] || '');
     if (!contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
       const message = await extractBlobErrorMessage(response.data, fallbackError);
       throw new Error(message);
@@ -1294,8 +1303,8 @@ const Invoice = () => {
   };
 
   const currentSnapshot = useMemo(
-    () => JSON.stringify({ form, items, selectedContractId, customFields }),
-    [form, items, selectedContractId, customFields]
+    () => JSON.stringify({ form, items, selectedContractId, customFields, specCustomFields }),
+    [form, items, selectedContractId, customFields, specCustomFields]
   );
   const isDirty = savedSnapshot === '' ? true : currentSnapshot !== savedSnapshot;
   const templatesDisabled = saving || isDirty;
@@ -1738,6 +1747,7 @@ const Invoice = () => {
           carrier: form.carrier,
           tirNumber: form.tirNumber,
           customFields: customFields,
+          specCustomFields: specCustomFields,
         },
 
       };
@@ -1881,9 +1891,12 @@ const Invoice = () => {
     visibleColumns.package,
     visibleColumns.unit,
   ].filter(Boolean).length;
-  const effectiveColumns = isPdfMode
-    ? { ...visibleColumns, actions: false }
-    : visibleColumns;
+  const isPackingView = viewTab === 'packing';
+  const effectiveColumns = (() => {
+    const base = isPdfMode ? { ...visibleColumns, actions: false } : visibleColumns;
+    if (!isPackingView) return base;
+    return { ...base, unitPrice: false, total: false };
+  })();
   const formatNumber = (value?: number) =>
     value !== undefined && value !== null && !Number.isNaN(value)
       ? value.toLocaleString('ru-RU', {
@@ -2062,7 +2075,7 @@ const Invoice = () => {
                 {markingReady ? 'Jarayon...' : 'Tayyor'}
               </button>
             )}
-            {invoysStageReady && (
+            {invoysStageReady && viewTab === 'invoice' && (
               <button
                 type="button"
                 onClick={generateSmrExcel}
@@ -2083,7 +2096,7 @@ const Invoice = () => {
                 SMR
               </button>
             )}
-            {invoysStageReady && (
+            {invoysStageReady && viewTab === 'invoice' && (
               <button
                 type="button"
                 onClick={generateTirExcel}
@@ -2104,7 +2117,7 @@ const Invoice = () => {
                 TIR
               </button>
             )}
-            {invoysStageReady && (
+            {invoysStageReady && viewTab === 'invoice' && (
               (() => {
                 const branchName = task?.branch?.name?.toLowerCase() || '';
                 const isOltiariqBranch = branchName.includes('oltiariq');
@@ -2132,7 +2145,7 @@ const Invoice = () => {
                 );
               })()
             )}
-            {invoysStageReady && (
+            {invoysStageReady && viewTab === 'invoice' && (
               (() => {
                 const branchName = task?.branch?.name?.toLowerCase() || '';
                 const isOltiariqBranch = branchName.includes('oltiariq');
@@ -2183,7 +2196,7 @@ const Invoice = () => {
                 );
               })()
             )}
-            {invoysStageReady && (
+            {invoysStageReady && viewTab === 'invoice' && (
               (() => {
                 const branchName = task?.branch?.name?.toLowerCase() || '';
                 const isOltiariqBranch = branchName.includes('oltiariq');
@@ -2234,7 +2247,7 @@ const Invoice = () => {
                 );
               })()
             )}
-            {invoysStageReady && (
+            {invoysStageReady && viewTab === 'invoice' && (
               <>
                 <button
                   type="button"
@@ -2255,83 +2268,6 @@ const Invoice = () => {
                   </svg>
                   Invoys Excel
                 </button>
-                <div className="relative" ref={pdfMenuRef}>
-                  <button
-                    type="button"
-                    onClick={() => setShowPdfMenu((prev) => !prev)}
-                    disabled={templatesDisabled}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:bg-sky-300"
-                    aria-expanded={showPdfMenu}
-                    aria-haspopup="menu"
-                  >
-                    <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                      <path
-                        fill="currentColor"
-                        d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
-                      />
-                    </svg>
-                    Invoys PDF
-                    <svg
-                      viewBox="0 0 20 20"
-                      className={`h-4 w-4 transition-transform ${showPdfMenu ? 'rotate-180' : ''}`}
-                      aria-hidden="true"
-                    >
-                      <path
-                        fill="currentColor"
-                        d="M5.5 7.5 10 12l4.5-4.5 1.4 1.4L10 14.8 4.1 8.9z"
-                      />
-                    </svg>
-                  </button>
-                  {showPdfMenu && !templatesDisabled && (
-                    <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-gray-200 bg-white shadow-2xl z-20 overflow-hidden">
-                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
-                        PDF variantini tanlang
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowPdfMenu(false);
-                          generatePdf(false);
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-sky-50 flex items-center gap-2"
-                      >
-                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-100 text-sky-600">
-                          <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                            <path
-                              fill="currentColor"
-                              d="M4 3h8l4 4v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm8 1.5V7h2.5L12 4.5z"
-                            />
-                          </svg>
-                        </span>
-                        <div>
-                          <div className="font-medium text-gray-800">Pechatsiz PDF</div>
-                          <div className="text-xs text-gray-500">Muhrsiz va imzosiz</div>
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowPdfMenu(false);
-                          generatePdf(true);
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-50 flex items-center gap-2"
-                      >
-                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                          <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                            <path
-                              fill="currentColor"
-                              d="M10 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 0 6h-1v1a4 4 0 0 1-8 0v-1H5a3 3 0 0 1 0-6h1V6a4 4 0 0 1 4-4z"
-                            />
-                          </svg>
-                        </span>
-                        <div>
-                          <div className="font-medium text-gray-800">Pechatli PDF</div>
-                          <div className="text-xs text-gray-500">Muhr va imzo bilan</div>
-                        </div>
-                      </button>
-                    </div>
-                  )}
-                </div>
                 <button
                   onClick={() => navigate(-1)}
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
@@ -2345,6 +2281,85 @@ const Invoice = () => {
                   Orqaga
                 </button>
               </>
+            )}
+            {invoysStageReady && (
+              <div className="relative" ref={pdfMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowPdfMenu((prev) => !prev)}
+                  disabled={templatesDisabled}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:bg-sky-300"
+                  aria-expanded={showPdfMenu}
+                  aria-haspopup="menu"
+                >
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
+                    />
+                  </svg>
+                  Invoys PDF
+                  <svg
+                    viewBox="0 0 20 20"
+                    className={`h-4 w-4 transition-transform ${showPdfMenu ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M5.5 7.5 10 12l4.5-4.5 1.4 1.4L10 14.8 4.1 8.9z"
+                    />
+                  </svg>
+                </button>
+                {showPdfMenu && !templatesDisabled && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-gray-200 bg-white shadow-2xl z-20 overflow-hidden">
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+                      PDF variantini tanlang
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPdfMenu(false);
+                        generatePdf(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-sky-50 flex items-center gap-2"
+                    >
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+                        <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                          <path
+                            fill="currentColor"
+                            d="M4 3h8l4 4v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm8 1.5V7h2.5L12 4.5z"
+                          />
+                        </svg>
+                      </span>
+                      <div>
+                        <div className="font-medium text-gray-800">Pechatsiz PDF</div>
+                        <div className="text-xs text-gray-500">Muhrsiz va imzosiz</div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPdfMenu(false);
+                        generatePdf(true);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-50 flex items-center gap-2"
+                    >
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                        <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                          <path
+                            fill="currentColor"
+                            d="M10 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 0 6h-1v1a4 4 0 0 1-8 0v-1H5a3 3 0 0 1 0-6h1V6a4 4 0 0 1 4-4z"
+                          />
+                        </svg>
+                      </span>
+                      <div>
+                        <div className="font-medium text-gray-800">Pechatli PDF</div>
+                        <div className="text-xs text-gray-500">Muhr va imzo bilan</div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -2365,6 +2380,30 @@ const Invoice = () => {
             ))}
           </datalist>
 
+          <div className="mb-4 flex flex-wrap gap-2">
+            {[
+              { id: 'invoice' as const, label: 'Invoys' },
+              { id: 'spec' as const, label: 'Spetsifikatsiya' },
+              { id: 'packing' as const, label: 'Upakovochniy list' },
+            ].map((tab) => {
+              const isActive = viewTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setViewTab(tab.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    isActive
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
           <div
             ref={invoiceRef}
             className={`bg-white rounded-lg shadow-lg p-8${isPdfMode ? ' pdf-mode' : ''}`}
@@ -2382,11 +2421,13 @@ const Invoice = () => {
                   <div className="flex items-center gap-1">
                     {isPdfMode ? (
                       <span className="text-base font-semibold text-gray-900">
-                        Инвойс №: {form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')} от {formatDate(form.date)} г.
+                        {viewTab === 'spec' ? 'СПЕЦИФИКАЦИЯ №:' : 'Инвойс №:'} {form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')} от {formatDate(form.date)} г.
                       </span>
                     ) : (
                       <>
-                        <span className="text-base font-bold text-gray-700">Инвойс №:</span>
+                        <span className="text-base font-bold text-gray-700">
+                          {viewTab === 'spec' ? 'Спецификaция №:' : 'Инвойс №:'}
+                        </span>
                         <div className="flex flex-col">
                           <input
                             type="text"
@@ -2447,7 +2488,13 @@ const Invoice = () => {
 
               <div className="text-right">
 
-                <h1 className="text-5xl font-bold text-gray-800 mb-6">INVOICE</h1>
+                <h1 className="text-5xl font-bold text-gray-800 mb-6">
+                  {viewTab === 'invoice'
+                    ? 'INVOICE'
+                    : viewTab === 'spec'
+                      ? 'Спецификaция'
+                      : 'PACKING LIST'}
+                </h1>
 
               </div>
 
@@ -2786,21 +2833,29 @@ const Invoice = () => {
                 style={{ backgroundColor: 'var(--tw-ring-offset-color)', background: 'unset' }}
               >
                 {form.deliveryTerms && <div><strong>Условия поставки:</strong> {form.deliveryTerms}</div>}
-                {form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
-                {form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
-                {form.customsAddress && <div><strong>Место там. очистки:</strong> {form.customsAddress}</div>}
-                <div><strong>Происхождение товара:</strong> {form.origin}</div>
-                {form.manufacturer && <div><strong>Производитель:</strong> {form.manufacturer}</div>}
-                {form.orderNumber && <div><strong>Номер заказа:</strong> {form.orderNumber}</div>}
-                {form.gln && <div><strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}</div>}
-                {form.harvestYear && <div><strong>Урожай:</strong> {form.harvestYear} года</div>}
-                {customFields.map((field) => (
-                  field.value && (
-                    <div key={field.id}>
-                      <strong>{field.label}:</strong> {field.value}
-                    </div>
-                  )
-                ))}
+                {viewTab === 'spec' ? (
+                  specCustomFields.map((field) => (
+                    field.value ? (
+                      <div key={field.id}><strong>{field.label}:</strong> {field.value}</div>
+                    ) : null
+                  ))
+                ) : (
+                  <>
+                    {form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
+                    {form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
+                    {form.customsAddress && <div><strong>Место там. очистки:</strong> {form.customsAddress}</div>}
+                    <div><strong>Происхождение товара:</strong> {form.origin}</div>
+                    {form.manufacturer && <div><strong>Производитель:</strong> {form.manufacturer}</div>}
+                    {form.orderNumber && <div><strong>Номер заказа:</strong> {form.orderNumber}</div>}
+                    {form.gln && <div><strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}</div>}
+                    {form.harvestYear && <div><strong>Урожай:</strong> {form.harvestYear} года</div>}
+                    {customFields.map((field) => (
+                      field.value ? (
+                        <div key={field.id}><strong>{field.label}:</strong> {field.value}</div>
+                      ) : null
+                    ))}
+                  </>
+                )}
               </div>
             </div>
 
@@ -3014,11 +3069,13 @@ const Invoice = () => {
                           </td>
                         )}
                       </tr>
-                      <tr>
-                        <td className="px-2 py-1.5 text-left text-sm" colSpan={15}>
-                          Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
-                        </td>
-                      </tr>
+                      {effectiveColumns.total && (
+                        <tr>
+                          <td className="px-2 py-1.5 text-left text-sm" colSpan={15}>
+                            Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
+                          </td>
+                        </tr>
+                      )}
                     </tfoot>
                   </table>
                 ) : (
@@ -3299,18 +3356,20 @@ const Invoice = () => {
                         )}
                         {effectiveColumns.actions && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
                       </tr>
-                      <tr className="bg-gray-50 border-t border-gray-200">
-                        <td className="px-2 py-1.5 text-left text-sm bg-white" colSpan={15}>
-                          Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
-                        </td>
-                      </tr>
+                      {effectiveColumns.total && (
+                        <tr className="bg-gray-50 border-t border-gray-200">
+                          <td className="px-2 py-1.5 text-left text-sm bg-white" colSpan={15}>
+                            Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
+                          </td>
+                        </tr>
+                      )}
                     </tfoot>
                   </table>
                 )}
               </div>
 
-              {/* Maksimal og'irlik va Tekshiruv yonma-yon (PDF da ko'rinmas) */}
-              {!isPdfMode && (() => {
+              {/* Maksimal og'irlik va Tekshiruv yonma-yon (PDF da va Spetsifikatsiya tabida ko'rinmas) */}
+              {!isPdfMode && viewTab !== 'spec' && (() => {
                 const goodsGross = items.reduce((sum, item) => sum + (item.grossWeight || 0), 0);
                 const loader = Number(form.loaderWeight) || 0;
                 const trailer = Number(form.trailerWeight) || 0;
@@ -3360,8 +3419,9 @@ const Invoice = () => {
 
 
 
-            {/* Notes */}
+            {/* Notes (Spetsifikatsiya tabida ko'rinmas) */}
 
+            {viewTab !== 'spec' && (
             <div className="mb-8">
 
               <label className="block text-sm font-semibold text-gray-700 mb-2">Особые примечания</label>
@@ -3381,11 +3441,12 @@ const Invoice = () => {
               )}
 
             </div>
+            )}
 
 
 
             {/* Руководитель Поставщика va Товар отпустил */}
-            {selectedContractId && contracts.find(c => c.id.toString() === selectedContractId) && (
+            {viewTab !== 'spec' && selectedContractId && contracts.find(c => c.id.toString() === selectedContractId) && (
               <div className="mb-8 space-y-3">
                 {(() => {
                   const contract = contracts.find(c => c.id.toString() === selectedContractId);
@@ -3428,6 +3489,53 @@ const Invoice = () => {
                         </div>
                       )}
                     </>
+                  );
+                })()}
+              </div>
+            )}
+
+            {viewTab === 'spec' && selectedContractId && contracts.find(c => c.id.toString() === selectedContractId) && (
+              <div className="mb-8 w-full">
+                {(() => {
+                  const contract = contracts.find(c => c.id.toString() === selectedContractId) as (Contract & { buyerDirector?: string; consigneeDirector?: string }) | undefined;
+                  const participants = [
+                    contract?.sellerName ? { label: 'Продавец', name: contract.sellerName, director: contract.supplierDirector, signatureUrl: contract.sellerSignatureUrl, sealUrl: contract.sellerSealUrl } : null,
+                    contract?.buyerName ? { label: 'Покупатель', name: contract.buyerName, director: contract.buyerDirector, signatureUrl: contract.buyerSignatureUrl, sealUrl: contract.buyerSealUrl } : null,
+                    contract?.shipperName ? { label: 'Грузоотправитель', name: contract.shipperName, director: undefined, signatureUrl: undefined, sealUrl: undefined } : null,
+                    contract?.consigneeName ? { label: 'Грузополучатель', name: contract.consigneeName, director: contract.consigneeDirector, signatureUrl: contract.consigneeSignatureUrl, sealUrl: contract.consigneeSealUrl } : null,
+                  ].filter(Boolean) as Array<{ label: string; name: string; director?: string; signatureUrl?: string; sealUrl?: string }>;
+                  if (!participants.length) return null;
+                  return (
+                    <div className="space-y-4 w-full">
+                      <div className="text-sm font-semibold text-gray-700">Подписи сторон</div>
+                      <div className="grid gap-4 w-full" style={{ gridTemplateColumns: `repeat(${participants.length}, 1fr)` }}>
+                        {participants.map((p) => (
+                          <div key={`${p.label}-${p.name}`} className="p-3 space-y-2 min-w-0 flex flex-col">
+                            <div className="text-sm font-semibold text-gray-800">{p.label}</div>
+                            <div className="flex flex-col gap-3">
+                              <div className="grid gap-3" style={{ gridTemplateColumns: '2fr 1fr' }}>
+                                <div className="min-h-[4rem] p-2 flex flex-col justify-center text-sm text-gray-700 min-w-0">
+                                  {p.name}
+                                  {p.director != null && p.director !== '' && (
+                                    <div className="text-gray-600 mt-0.5">Директор {p.director}</div>
+                                  )}
+                                </div>
+                                {p.signatureUrl && (
+                                  <div className="h-16 flex items-center justify-center overflow-hidden">
+                                    <img src={resolveUploadUrl(p.signatureUrl)} alt="" className="h-full w-auto max-w-full object-contain" />
+                                  </div>
+                                )}
+                              </div>
+                              {p.sealUrl && (
+                                <div className="h-[215px] flex flex-col items-start justify-start overflow-hidden">
+                                  <img src={resolveUploadUrl(p.sealUrl)} alt="" className="h-full w-auto max-w-full object-contain" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   );
                 })()}
               </div>
@@ -3593,6 +3701,46 @@ const Invoice = () => {
                 </div>
               </div>
 
+              {viewTab === 'spec' ? (
+                <>
+                  {specCustomFields.map((field) => (
+                    <div key={field.id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-sm font-medium text-gray-700">{field.label}:</label>
+                        <button
+                          type="button"
+                          onClick={() => setSpecCustomFields(specCustomFields.filter(f => f.id !== field.id))}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                          title="O'chirish"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={field.value}
+                        onChange={(e) => setSpecCustomFields(specCustomFields.map(f =>
+                          f.id === field.id ? { ...f, value: e.target.value } : f
+                        ))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </div>
+                  ))}
+                  {canEdit && (
+                    <div className="pt-2 border-t">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddFieldModal(true)}
+                        className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2"
+                      >
+                        <span>+</span>
+                        <span>Yangi maydon qo'shish</span>
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+              <>
               {/* Место там. очистки — juft Растаможка avto-to'ldiriladi yoki Адрес растаможки dan tanlash */}
               {selectedContract && (() => {
                 const customsStr = selectedContract.customsAddress || '';
@@ -3918,6 +4066,9 @@ const Invoice = () => {
                   </button>
                 </div>
               )}
+            </>
+              )}
+
             </div>
 
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
@@ -4078,7 +4229,11 @@ const Invoice = () => {
                         label: newFieldLabel.trim(),
                         value: '',
                       };
-                      setCustomFields([...customFields, newField]);
+                      if (viewTab === 'spec') {
+                        setSpecCustomFields([...specCustomFields, newField]);
+                      } else {
+                        setCustomFields([...customFields, newField]);
+                      }
                       setNewFieldLabel('');
                       setShowAddFieldModal(false);
                     }
@@ -4107,7 +4262,11 @@ const Invoice = () => {
                       label: newFieldLabel.trim(),
                       value: '',
                     };
-                    setCustomFields([...customFields, newField]);
+                    if (viewTab === 'spec') {
+                      setSpecCustomFields([...specCustomFields, newField]);
+                    } else {
+                      setCustomFields([...customFields, newField]);
+                    }
                     setNewFieldLabel('');
                     setShowAddFieldModal(false);
                   }

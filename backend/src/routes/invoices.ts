@@ -327,13 +327,26 @@ router.get('/:id/commodity-ek', requireAuth(), async (req: AuthRequest, res: Res
       return res.status(404).json({ error: 'Invoice topilmadi' });
     }
 
-    let contract: { specification: unknown } | null = null;
+    let contract: { specification: unknown; sellerInn?: string | null } | null = null;
     if (invoice.contractId) {
       const c = await prisma.contract.findUnique({
         where: { id: invoice.contractId },
-        select: { specification: true },
+        select: { specification: true, sellerInn: true },
       });
-      if (c) contract = { specification: c.specification };
+      if (c) contract = { specification: c.specification, sellerInn: c.sellerInn };
+    }
+    // H4 (Продавец INN): shartnomada INN bo'lmasa mijoz INN dan foydalanamiz
+    const hasSellerInn = contract?.sellerInn != null && String(contract.sellerInn).trim() !== '';
+    if (!hasSellerInn && invoice.clientId) {
+      const client = await prisma.client.findUnique({
+        where: { id: invoice.clientId },
+        select: { inn: true },
+      });
+      const clientInn = client?.inn ? String(client.inn).trim() : null;
+      if (clientInn) {
+        if (!contract) contract = { specification: null, sellerInn: clientInn };
+        else contract = { ...contract, sellerInn: clientInn };
+      }
     }
 
     const workbook = await generateCommodityEkExcel({

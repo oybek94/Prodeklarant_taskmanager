@@ -17,8 +17,8 @@ export type ContractSpecRow = {
 export type CommodityEkExcelPayload = {
   invoice: Invoice;
   items: InvoiceItem[];
-  /** Shartnoma spetsifikatsiyasi (B va C ustunlari shu yerdan olinadi) */
-  contract?: { specification: unknown } | null;
+  /** Shartnoma spetsifikatsiyasi (B va C ustunlari) va Продавец INN (H4) */
+  contract?: { specification: unknown; sellerInn?: string | null } | null;
 };
 
 type CellMap = {
@@ -134,6 +134,41 @@ export async function generateCommodityEkExcel(
   }
 
   const additionalInfo = (invoice.additionalInfo || {}) as Record<string, unknown>;
+  // H4 — Продавец (Sotuvchi) INN; I4 — Tanlangan tuman ichki kodi
+  const sellerInn = payload.contract?.sellerInn ? toStr(payload.contract.sellerInn) : '';
+  const regionInternalCode = toStr(
+    additionalInfo.fssRegionInternalCode ??
+    additionalInfo.producerRegionCode ??
+    additionalInfo.regionCode
+  );
+
+  const setFixedCell = (sheetToUse: ExcelJS.Worksheet, cell: string, value: string) => {
+    const c = sheetToUse.getCell(cell);
+    c.value = value;
+    // Shablonda formula bo'lsa, qiymat ko'rinsin degan formula ni olib tashlaymiz
+    const cellAny = c as { formula?: unknown };
+    if (cellAny.formula !== undefined) {
+      try {
+        delete cellAny.formula;
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  setFixedCell(sheet, 'H4', sellerInn);
+  setFixedCell(sheet, 'I4', regionInternalCode);
+  // Birinchi varaqda ham yozish (shablon birinchi varaqda sarlavha bo'lsa)
+  try {
+    const firstSheet = workbook.worksheets[0];
+    if (firstSheet && firstSheet !== sheet) {
+      setFixedCell(firstSheet, 'H4', sellerInn);
+      setFixedCell(firstSheet, 'I4', regionInternalCode);
+    }
+  } catch (_) {
+    // Birinchi varaqda H4/I4 bo'lmasa e'tiborsiz qoldirish
+  }
+
   // B va C: Shartnoma spetsifikatsiyasidan (Clients -> Shartnoma -> Spetsifikatsiya bo'limi)
   const contractSpec = ((): ContractSpecRow[] => {
     if (!payload.contract?.specification) return [];
@@ -141,8 +176,17 @@ export async function generateCommodityEkExcel(
     if (!Array.isArray(s)) return [];
     return s as ContractSpecRow[];
   })();
-  const producerInn = toStr(additionalInfo.producerInn ?? additionalInfo.inn);
-  const producerRegionCode = toStr(additionalInfo.producerRegionCode ?? additionalInfo.regionCode ?? additionalInfo.fssRegionInternalCode);
+  const producerInn = toStr(
+    additionalInfo.producerInn ??
+    additionalInfo.inn ??
+    sellerInn
+  );
+  const producerRegionCode = toStr(
+    additionalInfo.producerRegionCode ??
+    additionalInfo.regionCode ??
+    additionalInfo.fssRegionInternalCode ??
+    regionInternalCode
+  );
 
   const startRow = cellMap.dataStartRow;
   const col = cellMap.columns;

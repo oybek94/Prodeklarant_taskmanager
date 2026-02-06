@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../lib/api';
@@ -251,6 +251,8 @@ const Invoice = () => {
   const { user } = useAuth();
   const canEdit = canEditInvoices(user?.role);
   const { taskId, clientId, contractId } = useParams<{ taskId?: string; clientId?: string; contractId?: string }>();
+  const location = useLocation();
+  const newInvoiceTaskForm = (location.state as { newInvoiceTaskForm?: { branchId: string; hasPsr: boolean; driverPhone?: string; comments?: string; contractNumber?: string } })?.newInvoiceTaskForm;
 
   const [searchParams] = useSearchParams();
 
@@ -1242,6 +1244,22 @@ const Invoice = () => {
 
   const openFssRegionSelector = async () => {
     setFssAutoDownload(false);
+    const branchName = task?.branch?.name?.toLowerCase() || '';
+    const isOltiariqBranch = branchName.includes('oltiariq');
+    if (isOltiariqBranch) {
+      const list = regionCodes.length ? regionCodes : await loadRegionCodes();
+      const match = findOltiariqRegion(list);
+      if (match) {
+        setForm(prev => ({
+          ...prev,
+          fssRegionInternalCode: match.internalCode,
+          fssRegionName: match.name,
+          fssRegionExternalCode: match.externalCode,
+        }));
+        setShowFssRegionModal(false);
+        return;
+      }
+    }
     setShowFssRegionModal(true);
     if (!regionCodes.length) {
       await loadRegionCodes();
@@ -1570,9 +1588,33 @@ const Invoice = () => {
 
       setSaving(true);
 
-      const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);
+      let currentTaskId = taskId ? Number(taskId) : undefined;
+      let currentTask = task;
 
-      
+      // Yangi invoys (taskId yo'q): avval task yaratamiz, keyin invoys saqlanadi
+      if (!currentTaskId && clientId && newInvoiceTaskForm?.branchId) {
+        const taskTitle = `Invoice - ${newInvoiceTaskForm.contractNumber || form.contractNumber || 'yangi'}`;
+        const taskResponse = await apiClient.post('/tasks', {
+          clientId: Number(clientId),
+          branchId: Number(newInvoiceTaskForm.branchId),
+          title: taskTitle,
+          comments: newInvoiceTaskForm.comments || `Invoice yaratish. Shartnoma: ${form.contractNumber}`,
+          hasPsr: newInvoiceTaskForm.hasPsr ?? false,
+          driverPhone: newInvoiceTaskForm.driverPhone || undefined,
+        });
+        const createdTask = taskResponse.data as { id: number; clientId?: number; branchId?: number; title?: string; client?: unknown };
+        currentTaskId = createdTask.id;
+        currentTask = createdTask as Task | null;
+        setTask(currentTask);
+      }
+
+      if (!currentTaskId) {
+        alert('Yangi invoys uchun filial tanlangan bo\'lishi kerak. Iltimos, Invoyslar sahifasidan "Yangi Invoice" orqali kirishni urinib ko\'ring.');
+        setSaving(false);
+        return;
+      }
+
+      const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);
 
       const normalizedItems = items.map((item, index) => {
         const normalized = normalizeItem(item);
@@ -1592,9 +1634,9 @@ const Invoice = () => {
 
       const invoiceData = {
 
-        taskId: taskId ? Number(taskId) : undefined, // taskId ixtiyoriy bo'lishi mumkin
+        taskId: currentTaskId,
 
-        clientId: clientId ? Number(clientId) : (task?.client?.id || undefined),
+        clientId: clientId ? Number(clientId) : (currentTask?.client?.id ?? (currentTask as { clientId?: number })?.clientId) || undefined,
 
         invoiceNumber: form.invoiceNumber && form.invoiceNumber.trim() !== '' ? form.invoiceNumber.trim() : undefined, // Agar bo'sh bo'lsa, backend avtomatik yaratadi
 
@@ -1686,9 +1728,9 @@ const Invoice = () => {
         savedInvoice?.invoiceNumber || form.invoiceNumber,
         form.vehicleNumber
       );
-      if (taskId && nextTaskTitle && task?.title !== nextTaskTitle) {
+      if (currentTaskId && nextTaskTitle && currentTask?.title !== nextTaskTitle) {
         try {
-          await apiClient.patch(`/tasks/${taskId}`, { title: nextTaskTitle });
+          await apiClient.patch(`/tasks/${currentTaskId}`, { title: nextTaskTitle });
         } catch (error: any) {
           console.error('Error updating task title:', error);
           alert(error.response?.data?.error || 'Task nomini yangilashda xatolik yuz berdi');
@@ -1696,6 +1738,11 @@ const Invoice = () => {
       }
 
       alert(invoice ? 'Invoice muvaffaqiyatli yangilandi' : 'Invoice muvaffaqiyatli yaratildi');
+
+      // Yangi task yaratilgan bo'lsa, URL ni /invoices/task/:taskId ga o'zgartirish (state tozalanadi)
+      if (!taskId && currentTaskId) {
+        navigate(`/invoices/task/${currentTaskId}${selectedContractId ? `?contractId=${selectedContractId}` : ''}`, { replace: true });
+      }
 
     } catch (error: any) {
 
@@ -1741,7 +1788,7 @@ const Invoice = () => {
 
 
 
-  if (!task) {
+  if (!task && taskId) {
 
     return (
 
@@ -2299,10 +2346,13 @@ const Invoice = () => {
 
                       )}
 
-                      {contracts.find(c => c.id.toString() === selectedContractId)?.sellerInn && (
-
-                        <div>INN: {contracts.find(c => c.id.toString() === selectedContractId)?.sellerInn}</div>
-
+                      {(contracts.find(c => c.id.toString() === selectedContractId)?.sellerInn || task?.client?.inn) && (
+                        <div>
+                          INN: {contracts.find(c => c.id.toString() === selectedContractId)?.sellerInn || task?.client?.inn}
+                          {!contracts.find(c => c.id.toString() === selectedContractId)?.sellerInn && task?.client?.inn && (
+                            <span className="text-gray-500 text-sm"> (mijoz INN, Deklaratsiya Excel da ishlatiladi)</span>
+                          )}
+                        </div>
                       )}
 
                       {contracts.find(c => c.id.toString() === selectedContractId)?.sellerOgrn && (

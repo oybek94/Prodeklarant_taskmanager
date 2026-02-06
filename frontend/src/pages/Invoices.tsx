@@ -264,33 +264,32 @@ const Invoices = () => {
     try {
       setCreatingTask(true);
 
-      // Tanlangan shartnoma ma'lumotlarini olish
+      // Tanlangan shartnoma ma'lumotlarini olish (task faqat invoys saqlanganda yaratiladi)
       const contractResponse = await apiClient.get(`/contracts/${selectedContractId}`);
       const contract = contractResponse.data;
 
-      // Task yaratish
       const taskTitle = `Invoice - ${contract.contractNumber}`;
       const taskComments =
         createTaskForm.comments.trim() ||
         `Invoice yaratish uchun. Shartnoma: ${contract.contractNumber}`;
-      const taskResponse = await apiClient.post('/tasks', {
-        clientId: Number(selectedClientId),
-        branchId: Number(createTaskForm.branchId),
-        title: taskTitle,
-        comments: taskComments,
-        hasPsr: createTaskForm.hasPsr,
-        driverPhone: createTaskForm.driverPhone.trim() || undefined,
-      });
-      
-      const createdTask = taskResponse.data;
 
       setShowCreateModal(false);
       setCreateTaskForm({ branchId: '', hasPsr: false, driverPhone: '', comments: '' });
-      // Invoice yaratish sahifasiga o'tish - taskId va contractId bilan
-      navigate(`/invoices/task/${createdTask.id}?contractId=${selectedContractId}`);
+      // Invoys sahifasiga o'tish — task yaratilmaydi; task faqat "Saqlash" bosilganda yaratiladi
+      navigate(`/invoices/client/${selectedClientId}/contract/${selectedContractId}`, {
+        state: {
+          newInvoiceTaskForm: {
+            branchId: createTaskForm.branchId,
+            hasPsr: createTaskForm.hasPsr,
+            driverPhone: createTaskForm.driverPhone.trim() || undefined,
+            comments: taskComments,
+            contractNumber: contract.contractNumber,
+          },
+        },
+      });
     } catch (error: any) {
-      console.error('Error creating task:', error);
-      alert(error.response?.data?.error || 'Task yaratishda xatolik yuz berdi');
+      console.error('Error loading contract:', error);
+      alert(error.response?.data?.error || 'Shartnoma ma\'lumotlarini yuklashda xatolik');
     } finally {
       setCreatingTask(false);
     }

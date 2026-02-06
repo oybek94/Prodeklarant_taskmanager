@@ -805,12 +805,6 @@ const Clients = () => {
         .map((item) => item.trim());
       return items.length ? items : [''];
     };
-    const syncTermsAndCustoms = (d: string[], c: string[]) => {
-      const maxLen = Math.max(d.length, c.length, 1);
-      const dd = [...d]; while (dd.length < maxLen) dd.push('');
-      const cc = [...c]; while (cc.length < maxLen) cc.push('');
-      return { deliveryTerms: dd, customsAddress: cc };
-    };
     try {
       const response = await apiClient.get(`/contracts/${contract.id}`);
       const c = response.data;
@@ -834,7 +828,8 @@ const Clients = () => {
         buyerAddress: c.buyerAddress || '',
         destinationCountry: c.destinationCountry || '',
         buyerDetails: c.buyerDetails || '',
-        ...syncTermsAndCustoms(parseListPreservingEmpty(c.deliveryTerms), parseListPreservingEmpty(c.customsAddress)),
+        deliveryTerms: parseListPreservingEmpty(c.deliveryTerms),
+        customsAddress: parseListPreservingEmpty(c.customsAddress),
         shipperName: c.shipperName || '',
         shipperInn: c.shipperInn || '',
         shipperAddress: c.shipperAddress || '',
@@ -879,7 +874,8 @@ const Clients = () => {
         buyerAddress: contract.buyerAddress || '',
         destinationCountry: contract.destinationCountry || '',
         buyerDetails: contract.buyerDetails || '',
-        ...syncTermsAndCustoms(parseListPreservingEmpty(contract.deliveryTerms), parseListPreservingEmpty(contract.customsAddress)),
+        deliveryTerms: parseListPreservingEmpty(contract.deliveryTerms),
+        customsAddress: parseListPreservingEmpty(contract.customsAddress),
         shipperName: contract.shipperName || '',
         shipperInn: contract.shipperInn || '',
         shipperAddress: contract.shipperAddress || '',
@@ -1568,7 +1564,7 @@ const Clients = () => {
                   <tr 
                     key={client.id} 
                     className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => isManagerOnly ? navigate(`/clients/${client.id}`) : loadClientDetail(client.id)}
+                    onClick={() => loadClientDetail(client.id)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -1690,8 +1686,8 @@ const Clients = () => {
         </div>
       )}
 
-      {/* Client Detail Modal - MANAGER faqat /clients/:id sahifasida shartnomalarni ko'radi */}
-      {!isManagerOnly && showClientModal && selectedClient && (
+      {/* Client Detail Modal - ADMIN va MANAGER; MANAGER uchun faqat shartnomalar bo'limi to'liq */}
+      {showClientModal && selectedClient && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
           style={{
@@ -1751,8 +1747,8 @@ const Clients = () => {
               </div>
             </div>
 
-            {/* Top Financial Summary */}
-            {selectedClient.stats && (
+            {/* Top Financial Summary - faqat ADMIN */}
+            {!isManagerOnly && selectedClient.stats && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
                   <div className="text-sm text-gray-600 mb-1">Barcha loyihalar summasi (PSR hisobga olingan)</div>
@@ -1794,7 +1790,8 @@ const Clients = () => {
               </div>
             )}
 
-            {/* Client Info */}
+            {/* Client Info - faqat ADMIN */}
+            {!isManagerOnly && (
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="text-sm text-gray-500 mb-1">Telefon</div>
@@ -1822,9 +1819,10 @@ const Clients = () => {
                 )}
               </div>
             </div>
+            )}
 
-            {/* Kelishuv shartlari (Nasiya shartlari) */}
-            {(selectedClient.creditType || selectedClient.creditLimit) && (
+            {/* Kelishuv shartlari (Nasiya shartlari) - faqat ADMIN */}
+            {!isManagerOnly && (selectedClient.creditType || selectedClient.creditLimit) && (
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
                   <Icon icon="lucide:shield-check" className="w-5 h-5 text-blue-600" />
@@ -1879,8 +1877,8 @@ const Clients = () => {
               </div>
             )}
 
-            {/* Stats Summary */}
-            {selectedClient.stats && (
+            {/* Stats Summary - faqat ADMIN */}
+            {!isManagerOnly && selectedClient.stats && (
               <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Statistika</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -2586,42 +2584,47 @@ const Clients = () => {
               {contractModalTab === 'terms' && (
               <>
               <div>
-                <h4 className="font-semibold text-gray-700 mb-3">Условия поставки / Растаможка (juft qatorlar)</h4>
+                <h4 className="font-semibold text-gray-700 mb-3">Условия поставки / Rastamojka</h4>
+                <p className="text-sm text-gray-500 mb-2">Har bir qatorda chap ustun — Условия поставки, o‘ng ustun — Rastamojka (juft, bir-biriga bog‘langan).</p>
                 <div className="space-y-2">
                   {(() => {
                     const delivery = contractForm.deliveryTerms;
                     const customs = contractForm.customsAddress;
-                    const maxLen = Math.max(delivery.length, customs.length, 1);
-                    return Array.from({ length: maxLen }, (_, index) => (
-                      <div key={`terms-pair-${index}`} className="flex items-center gap-2">
+                    const len = Math.max(delivery.length, customs.length, 1);
+                    const d = [...delivery]; while (d.length < len) d.push('');
+                    const c = [...customs]; while (c.length < len) c.push('');
+                    return d.map((_, index) => (
+                      <div key={`terms-row-${index}`} className="flex items-center gap-2">
                         <input
                           type="text"
-                          value={delivery[index] ?? ''}
+                          value={d[index] ?? ''}
                           onChange={(e) => {
-                            const next = [...delivery];
-                            while (next.length <= index) next.push('');
-                            next[index] = e.target.value;
-                            setContractFormAndRef({ ...contractForm, deliveryTerms: next });
+                            const nextD = [...d];
+                            nextD[index] = e.target.value;
+                            const nextC = [...c];
+                            while (nextC.length < nextD.length) nextC.push('');
+                            setContractFormAndRef({ ...contractForm, deliveryTerms: nextD, customsAddress: nextC });
                           }}
                           className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
                           placeholder="Условия поставки"
                         />
                         <input
                           type="text"
-                          value={customs[index] ?? ''}
+                          value={c[index] ?? ''}
                           onChange={(e) => {
-                            const next = [...customs];
-                            while (next.length <= index) next.push('');
-                            next[index] = e.target.value;
-                            setContractFormAndRef({ ...contractForm, customsAddress: next });
+                            const nextC = [...c];
+                            nextC[index] = e.target.value;
+                            const nextD = [...d];
+                            while (nextD.length < nextC.length) nextD.push('');
+                            setContractFormAndRef({ ...contractForm, deliveryTerms: nextD, customsAddress: nextC });
                           }}
                           className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
-                          placeholder="Растаможка"
+                          placeholder="Rastamojka"
                         />
                         <button
                           type="button"
                           onClick={() => {
-                            if (maxLen <= 1) {
+                            if (len <= 1) {
                               setContractFormAndRef({
                                 ...contractForm,
                                 deliveryTerms: [''],
@@ -2629,12 +2632,12 @@ const Clients = () => {
                               });
                               return;
                             }
-                            const nextDelivery = delivery.filter((_, i) => i !== index);
-                            const nextCustoms = customs.filter((_, i) => i !== index);
+                            const nextD = d.filter((_, i) => i !== index);
+                            const nextC = c.filter((_, i) => i !== index);
                             setContractFormAndRef({
                               ...contractForm,
-                              deliveryTerms: nextDelivery.length ? nextDelivery : [''],
-                              customsAddress: nextCustoms.length ? nextCustoms : [''],
+                              deliveryTerms: nextD.length ? nextD : [''],
+                              customsAddress: nextC.length ? nextC : [''],
                             });
                           }}
                           className="px-2 py-2 text-sm text-red-600 hover:text-red-700 shrink-0"
@@ -2647,11 +2650,14 @@ const Clients = () => {
                   })()}
                   <button
                     type="button"
-                    onClick={() => setContractFormAndRef({
-                      ...contractForm,
-                      deliveryTerms: [...contractForm.deliveryTerms, ''],
-                      customsAddress: [...contractForm.customsAddress, ''],
-                    })}
+                    onClick={() => {
+                      const delivery = contractForm.deliveryTerms;
+                      const customs = contractForm.customsAddress;
+                      const len = Math.max(delivery.length, customs.length, 1);
+                      const nextD = [...contractForm.deliveryTerms]; while (nextD.length < len) nextD.push(''); nextD.push('');
+                      const nextC = [...contractForm.customsAddress]; while (nextC.length < len) nextC.push(''); nextC.push('');
+                      setContractFormAndRef({ ...contractForm, deliveryTerms: nextD, customsAddress: nextC });
+                    }}
                     className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                   >
                     + Qator qo'shish
@@ -2664,19 +2670,35 @@ const Clients = () => {
               {contractModalTab === 'customs' && (
               <>
               <div>
-                <h4 className="font-semibold text-gray-700 mb-3">Адрес растаможки</h4>
+                <h4 className="font-semibold text-gray-700 mb-3">Shaxar / Адрес растаможки</h4>
                 <div className="space-y-2">
-                  {contractForm.customsAddress.map((value, index) => (
+                  {contractForm.customsAddress.map((value, index) => {
+                    const sep = '\r';
+                    const idx = value.indexOf(sep);
+                    const city = idx >= 0 ? value.slice(0, idx) : '';
+                    const address = idx >= 0 ? value.slice(idx + 1) : value;
+                    return (
                     <div key={`customs-address-${index}`} className="flex items-start gap-2">
-                      <textarea
-                        rows={2}
-                        value={value}
+                      <input
+                        type="text"
+                        value={city}
                         onChange={(e) => {
                           const next = [...contractForm.customsAddress];
-                          next[index] = e.target.value;
+                          next[index] = e.target.value + (address ? sep + address : '');
                           setContractFormAndRef({ ...contractForm, customsAddress: next });
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        className="w-40 shrink-0 px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="Shaxar"
+                      />
+                      <textarea
+                        rows={2}
+                        value={address}
+                        onChange={(e) => {
+                          const next = [...contractForm.customsAddress];
+                          next[index] = (city ? city + sep : '') + e.target.value;
+                          setContractFormAndRef({ ...contractForm, customsAddress: next });
+                        }}
+                        className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
                         placeholder="Адрес растаможки"
                       />
                       <button
@@ -2689,13 +2711,14 @@ const Clients = () => {
                           const next = contractForm.customsAddress.filter((_, i) => i !== index);
                           setContractFormAndRef({ ...contractForm, customsAddress: next.length ? next : [''] });
                         }}
-                        className="px-2 py-2 text-sm text-red-600 hover:text-red-700"
+                        className="px-2 py-2 text-sm text-red-600 hover:text-red-700 shrink-0"
                         title="O'chirish"
                       >
                         ✕
                       </button>
                     </div>
-                  ))}
+                    );
+                  })}
                   <button
                     type="button"
                     onClick={() => setContractFormAndRef({ ...contractForm, customsAddress: [...contractForm.customsAddress, ''] })}

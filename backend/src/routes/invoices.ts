@@ -349,10 +349,17 @@ router.get('/:id/commodity-ek', requireAuth(), async (req: AuthRequest, res: Res
       }
     }
 
+    const branch = await prisma.branch.findUnique({
+      where: { id: invoice.branchId },
+      select: { name: true },
+    });
+    const isOltiariqBranch = (branch?.name || '').toLowerCase().includes('oltiariq');
+
     const workbook = await generateCommodityEkExcel({
       invoice,
       items: invoice.items,
       contract,
+      forcedRegionInternalCode: isOltiariqBranch ? '1730203' : null,
     });
 
     const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });

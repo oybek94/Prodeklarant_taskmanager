@@ -19,6 +19,8 @@ export type CommodityEkExcelPayload = {
   items: InvoiceItem[];
   /** Shartnoma spetsifikatsiyasi (B va C ustunlari) va Продавец INN (H4) */
   contract?: { specification: unknown; sellerInn?: string | null } | null;
+  /** I4 uchun majburiy ichki tuman kodi (masalan Oltiariq) */
+  forcedRegionInternalCode?: string | null;
 };
 
 type CellMap = {
@@ -137,6 +139,7 @@ export async function generateCommodityEkExcel(
   // H4 — Продавец (Sotuvchi) INN; I4 — Tanlangan tuman ichki kodi
   const sellerInn = payload.contract?.sellerInn ? toStr(payload.contract.sellerInn) : '';
   const regionInternalCode = toStr(
+    payload.forcedRegionInternalCode ??
     additionalInfo.fssRegionInternalCode ??
     additionalInfo.producerRegionCode ??
     additionalInfo.regionCode

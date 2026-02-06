@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 
@@ -545,6 +545,8 @@ const Invoice = () => {
   });
 
   const [showAdditionalInfoModal, setShowAdditionalInfoModal] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState<string>('');
+  const [markSnapshotAfterSave, setMarkSnapshotAfterSave] = useState(false);
   const [additionalInfoError, setAdditionalInfoError] = useState<string | null>(null);
   const [invoiceNumberWarning, setInvoiceNumberWarning] = useState<string | null>(null);
   const invoiceNumberCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1283,6 +1285,26 @@ const Invoice = () => {
     return params.toString();
   };
 
+  const currentSnapshot = useMemo(
+    () => JSON.stringify({ form, items, selectedContractId, customFields }),
+    [form, items, selectedContractId, customFields]
+  );
+  const isDirty = savedSnapshot === '' ? true : currentSnapshot !== savedSnapshot;
+  const templatesDisabled = saving || isDirty;
+
+  useEffect(() => {
+    if (markSnapshotAfterSave) {
+      setSavedSnapshot(currentSnapshot);
+      setMarkSnapshotAfterSave(false);
+    }
+  }, [markSnapshotAfterSave, currentSnapshot]);
+
+  useEffect(() => {
+    if (invoice?.id && savedSnapshot === '' && !markSnapshotAfterSave) {
+      setSavedSnapshot(currentSnapshot);
+    }
+  }, [invoice?.id, savedSnapshot, currentSnapshot, markSnapshotAfterSave]);
+
   const generateSmrExcel = async () => {
     if (!invoice?.id) {
       alert('Invoice topilmadi');
@@ -1737,6 +1759,7 @@ const Invoice = () => {
         }
       }
 
+      setMarkSnapshotAfterSave(true);
       alert(invoice ? 'Invoice muvaffaqiyatli yangilandi' : 'Invoice muvaffaqiyatli yaratildi');
 
       // Yangi task yaratilgan bo'lsa, URL ni /invoices/task/:taskId ga o'zgartirish (state tozalanadi)
@@ -2027,7 +2050,8 @@ const Invoice = () => {
               <button
                 type="button"
                 onClick={generateSmrExcel}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                disabled={templatesDisabled}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="SMR blankasini Excel formatida yuklab olish"
               >
                 <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
@@ -2047,7 +2071,8 @@ const Invoice = () => {
               <button
                 type="button"
                 onClick={generateTirExcel}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+                disabled={templatesDisabled}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="TIR blankasini Excel formatida yuklab olish"
               >
                 <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
@@ -2064,148 +2089,184 @@ const Invoice = () => {
               </button>
             )}
             {invoysStageReady && (
-              <button
-                type="button"
-                onClick={openFssRegionSelector}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                title="Tuman tanlashni o'zgartirish"
-              >
-                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M4 3h7l5 5v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 1.5V7h3.5L11 4.5z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5 11h10v2H5zm0-4h6v2H5z"
-                  />
-                </svg>
-                Tuman
-              </button>
+              (() => {
+                const branchName = task?.branch?.name?.toLowerCase() || '';
+                const isOltiariqBranch = branchName.includes('oltiariq');
+                if (isOltiariqBranch) return null;
+                return (
+                  <button
+                    type="button"
+                    onClick={openFssRegionSelector}
+                    disabled={templatesDisabled}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Tuman tanlashni o'zgartirish"
+                  >
+                    <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                      <path
+                        fill="currentColor"
+                        d="M4 3h7l5 5v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 1.5V7h3.5L11 4.5z"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M5 11h10v2H5zm0-4h6v2H5z"
+                      />
+                    </svg>
+                    Tuman
+                  </button>
+                );
+              })()
             )}
             {invoysStageReady && (
-              <button
-                type="button"
-                onClick={() => openFssRegionPicker('Ichki')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                title="Ichki blankasini Excel formatida yuklab olish"
-              >
-                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                  />
-                </svg>
-                Ichki
-              </button>
+              (() => {
+                const branchName = task?.branch?.name?.toLowerCase() || '';
+                const isOltiariqBranch = branchName.includes('oltiariq');
+                const hasRegionSelected =
+                  Boolean(form.fssRegionInternalCode) || Boolean(form.fssRegionName);
+                if (!isOltiariqBranch && !hasRegionSelected) return null;
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => openFssRegionPicker('Ichki')}
+                      disabled={templatesDisabled}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Ichki blankasini Excel formatida yuklab olish"
+                    >
+                      <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                        <path
+                          fill="currentColor"
+                          d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                        />
+                        <path
+                          fill="currentColor"
+                          d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                        />
+                      </svg>
+                      Ichki
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openFssRegionPicker('Tashqi')}
+                      disabled={templatesDisabled}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Tashqi blankasini Excel formatida yuklab olish"
+                    >
+                      <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                        <path
+                          fill="currentColor"
+                          d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                        />
+                        <path
+                          fill="currentColor"
+                          d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                        />
+                      </svg>
+                      Tashqi
+                    </button>
+                  </>
+                );
+              })()
             )}
             {invoysStageReady && (
-              <button
-                type="button"
-                onClick={() => openFssRegionPicker('Tashqi')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                title="Tashqi blankasini Excel formatida yuklab olish"
-              >
-                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                  />
-                </svg>
-                Tashqi
-              </button>
+              (() => {
+                const branchName = task?.branch?.name?.toLowerCase() || '';
+                const isOltiariqBranch = branchName.includes('oltiariq');
+                const hasRegionSelected =
+                  Boolean(form.fssRegionInternalCode) || Boolean(form.fssRegionName);
+                if (!isOltiariqBranch && !hasRegionSelected) return null;
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={generateST1Excel}
+                      disabled={templatesDisabled}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:bg-amber-300"
+                      title="ST-1 shablonini invoys ma'lumotlari bilan Excel formatida yuklab olish"
+                    >
+                      <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                        <path
+                          fill="currentColor"
+                          d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                        />
+                        <path
+                          fill="currentColor"
+                          d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                        />
+                      </svg>
+                      ST-1
+                    </button>
+                    <button
+                      type="button"
+                      onClick={generateCommodityEkExcel}
+                      disabled={templatesDisabled}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:bg-violet-300"
+                      title="Deklaratsiya (CommodityEk) shabloniga invoys ma'lumotlarini yozib Excel yuklab olish"
+                    >
+                      <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                        <path
+                          fill="currentColor"
+                          d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                        />
+                        <path
+                          fill="currentColor"
+                          d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                        />
+                      </svg>
+                      Deklaratsiya
+                    </button>
+                  </>
+                );
+              })()
             )}
-            <button
-              type="button"
-              onClick={generateST1Excel}
-              disabled={saving}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:bg-amber-300"
-              title="ST-1 shablonini invoys ma'lumotlari bilan Excel formatida yuklab olish"
-            >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                />
-              </svg>
-              ST-1
-            </button>
-            <button
-              type="button"
-              onClick={generateCommodityEkExcel}
-              disabled={saving}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:bg-violet-300"
-              title="Deklaratsiya (CommodityEk) shabloniga invoys ma'lumotlarini yozib Excel yuklab olish"
-            >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                />
-              </svg>
-              Deklaratsiya
-            </button>
-            <button
-              type="button"
-              onClick={generateInvoiceExcel}
-              disabled={saving}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:bg-sky-300"
-              title="Invoysni Excel formatida yuklab olish"
-            >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                />
-              </svg>
-              Invoys Excel
-            </button>
-            <button
-              type="button"
-              onClick={generatePdf}
-              disabled={saving}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300"
-            >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
-                />
-              </svg>
-              Invoys PDF
-            </button>
-            <button
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-            >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M12.5 4.5 7 10l5.5 5.5-1.4 1.4L4.2 10l6.9-6.9z"
-                />
-              </svg>
-              Orqaga
-            </button>
+            {invoysStageReady && (
+              <>
+                <button
+                  type="button"
+                  onClick={generateInvoiceExcel}
+                  disabled={templatesDisabled}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:bg-sky-300"
+                  title="Invoysni Excel formatida yuklab olish"
+                >
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                    />
+                  </svg>
+                  Invoys Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={generatePdf}
+                  disabled={templatesDisabled}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300"
+                >
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
+                    />
+                  </svg>
+                  Invoys PDF
+                </button>
+                <button
+                  onClick={() => navigate(-1)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M12.5 4.5 7 10l5.5 5.5-1.4 1.4L4.2 10l6.9-6.9z"
+                    />
+                  </svg>
+                  Orqaga
+                </button>
+              </>
+            )}
           </div>
 
         </div>

@@ -292,6 +292,9 @@ const Invoice = () => {
 
   const invoiceRef = useRef<HTMLDivElement | null>(null);
   const [isPdfMode, setIsPdfMode] = useState(false);
+  const [pdfIncludeSeal, setPdfIncludeSeal] = useState(true);
+  const [showPdfMenu, setShowPdfMenu] = useState(false);
+  const pdfMenuRef = useRef<HTMLDivElement | null>(null);
 
   const [items, setItems] = useState<InvoiceItem[]>([
 
@@ -1094,12 +1097,20 @@ const Invoice = () => {
     return `${safeInvoice} АВТО ${plate}`;
   };
 
-  const generatePdf = async () => {
+  const buildDownloadBase = (type: string) => {
+    const sanitize = (value: string) => value.replace(/[\\/:*?"<>|]+/g, '_').trim();
+    const safeInvoice = sanitize(invoice?.invoiceNumber || form.invoiceNumber || 'Invoice');
+    const plate = sanitize(getVehiclePlate(form.vehicleNumber) || 'NOAUTO');
+    return `${type}-${safeInvoice}-${plate}`;
+  };
+
+  const generatePdf = async (includeSeal: boolean) => {
     if (!invoiceRef.current) {
       alert("Invoice ko'rinishi topilmadi");
       return;
     }
 
+    setPdfIncludeSeal(includeSeal);
     setIsPdfMode(true);
     await waitForPaint();
 
@@ -1121,14 +1132,11 @@ const Invoice = () => {
     const y = (pageHeight - imgHeight) / 2;
     pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight, undefined, 'FAST');
 
-    const taskTitle = buildTaskTitle(
-      invoice?.invoiceNumber || form.invoiceNumber,
-      form.vehicleNumber
-    );
-    const fileBase = taskTitle || invoice?.invoiceNumber || form.invoiceNumber || 'invoice';
+    const fileBase = buildDownloadBase(includeSeal ? 'PDF-PECHATLI' : 'PDF-PECHATSIZ');
     pdf.save(`${fileBase}.pdf`);
 
     setIsPdfMode(false);
+    setPdfIncludeSeal(true);
   };
 
   const extractBlobErrorMessage = async (blob: Blob, fallback: string) => {
@@ -1305,6 +1313,17 @@ const Invoice = () => {
     }
   }, [invoice?.id, savedSnapshot, currentSnapshot, markSnapshotAfterSave]);
 
+  useEffect(() => {
+    if (!showPdfMenu) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!pdfMenuRef.current) return;
+      if (pdfMenuRef.current.contains(event.target as Node)) return;
+      setShowPdfMenu(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showPdfMenu]);
+
   const generateSmrExcel = async () => {
     if (!invoice?.id) {
       alert('Invoice topilmadi');
@@ -1314,7 +1333,7 @@ const Invoice = () => {
       const response = await apiClient.get(`/invoices/${invoice.id}/cmr`, {
         responseType: 'blob',
       });
-      const fileName = `CMR_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
+      const fileName = `${buildDownloadBase('SMR')}.xlsx`;
       await downloadExcelResponse(response, fileName, 'CMR yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading CMR:', error);
@@ -1331,7 +1350,7 @@ const Invoice = () => {
       const response = await apiClient.get(`/invoices/${invoice.id}/tir`, {
         responseType: 'blob',
       });
-      const fileName = `TIR_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
+      const fileName = `${buildDownloadBase('TIR')}.xlsx`;
       await downloadExcelResponse(response, fileName, 'TIR yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading TIR:', error);
@@ -1356,11 +1375,8 @@ const Invoice = () => {
       const response = await apiClient.get(url, {
         responseType: 'blob',
       });
-      const rawVehicleNumber = String(form.vehicleNumber || '').trim();
-      const safeVehicleNumber =
-        rawVehicleNumber.replace(/[\\/:*?"<>|]+/g, '_') || 'Vehicle';
       const prefix = override?.filePrefix || fssFilePrefix || 'Ichki';
-      const fileName = `${prefix}_${safeVehicleNumber}.xlsx`;
+      const fileName = `${buildDownloadBase(prefix.toUpperCase())}.xlsx`;
       await downloadExcelResponse(response, fileName, 'FSS yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading FSS:', error);
@@ -1377,7 +1393,7 @@ const Invoice = () => {
       const response = await apiClient.get(`/invoices/${invoice.id}/xlsx`, {
         responseType: 'blob',
       });
-      const fileName = `Invoice_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
+      const fileName = `${buildDownloadBase('INVOYS')}.xlsx`;
       await downloadExcelResponse(response, fileName, 'Invoys Excel yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading Invoice Excel:', error);
@@ -1394,7 +1410,7 @@ const Invoice = () => {
       const response = await apiClient.get(`/invoices/${invoice.id}/st1`, {
         responseType: 'blob',
       });
-      const fileName = `ST1_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
+      const fileName = `${buildDownloadBase('ST1')}.xlsx`;
       await downloadExcelResponse(response, fileName, 'ST-1 shabloni yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading ST-1 Excel:', error);
@@ -1411,7 +1427,7 @@ const Invoice = () => {
       const response = await apiClient.get(`/invoices/${invoice.id}/commodity-ek`, {
         responseType: 'blob',
       });
-      const fileName = `Deklaratsiya_${invoice.invoiceNumber || form.invoiceNumber || 'Invoice'}.xlsx`;
+      const fileName = `${buildDownloadBase('DEKLARATSIYA')}.xlsx`;
       await downloadExcelResponse(response, fileName, 'Deklaratsiya shabloni yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading Deklaratsiya Excel:', error);
@@ -2072,7 +2088,7 @@ const Invoice = () => {
                 type="button"
                 onClick={generateTirExcel}
                 disabled={templatesDisabled}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="TIR blankasini Excel formatida yuklab olish"
               >
                 <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
@@ -2148,7 +2164,7 @@ const Invoice = () => {
                       type="button"
                       onClick={() => openFssRegionPicker('Tashqi')}
                       disabled={templatesDisabled}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Tashqi blankasini Excel formatida yuklab olish"
                     >
                       <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
@@ -2180,7 +2196,7 @@ const Invoice = () => {
                       type="button"
                       onClick={generateST1Excel}
                       disabled={templatesDisabled}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:bg-amber-300"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-300"
                       title="ST-1 shablonini invoys ma'lumotlari bilan Excel formatida yuklab olish"
                     >
                       <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
@@ -2199,7 +2215,7 @@ const Invoice = () => {
                       type="button"
                       onClick={generateCommodityEkExcel}
                       disabled={templatesDisabled}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:bg-violet-300"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:bg-amber-300"
                       title="Deklaratsiya (CommodityEk) shabloniga invoys ma'lumotlarini yozib Excel yuklab olish"
                     >
                       <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
@@ -2239,20 +2255,83 @@ const Invoice = () => {
                   </svg>
                   Invoys Excel
                 </button>
-                <button
-                  type="button"
-                  onClick={generatePdf}
-                  disabled={templatesDisabled}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300"
-                >
-                  <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                    <path
-                      fill="currentColor"
-                      d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
-                    />
-                  </svg>
-                  Invoys PDF
-                </button>
+                <div className="relative" ref={pdfMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowPdfMenu((prev) => !prev)}
+                    disabled={templatesDisabled}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:bg-sky-300"
+                    aria-expanded={showPdfMenu}
+                    aria-haspopup="menu"
+                  >
+                    <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                      <path
+                        fill="currentColor"
+                        d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
+                      />
+                    </svg>
+                    Invoys PDF
+                    <svg
+                      viewBox="0 0 20 20"
+                      className={`h-4 w-4 transition-transform ${showPdfMenu ? 'rotate-180' : ''}`}
+                      aria-hidden="true"
+                    >
+                      <path
+                        fill="currentColor"
+                        d="M5.5 7.5 10 12l4.5-4.5 1.4 1.4L10 14.8 4.1 8.9z"
+                      />
+                    </svg>
+                  </button>
+                  {showPdfMenu && !templatesDisabled && (
+                    <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-gray-200 bg-white shadow-2xl z-20 overflow-hidden">
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+                        PDF variantini tanlang
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPdfMenu(false);
+                          generatePdf(false);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-sky-50 flex items-center gap-2"
+                      >
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+                          <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                            <path
+                              fill="currentColor"
+                              d="M4 3h8l4 4v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm8 1.5V7h2.5L12 4.5z"
+                            />
+                          </svg>
+                        </span>
+                        <div>
+                          <div className="font-medium text-gray-800">Pechatsiz PDF</div>
+                          <div className="text-xs text-gray-500">Muhrsiz va imzosiz</div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPdfMenu(false);
+                          generatePdf(true);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-50 flex items-center gap-2"
+                      >
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                          <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                            <path
+                              fill="currentColor"
+                              d="M10 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 0 6h-1v1a4 4 0 0 1-8 0v-1H5a3 3 0 0 1 0-6h1V6a4 4 0 0 1 4-4z"
+                            />
+                          </svg>
+                        </span>
+                        <div>
+                          <div className="font-medium text-gray-800">Pechatli PDF</div>
+                          <div className="text-xs text-gray-500">Muhr va imzo bilan</div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => navigate(-1)}
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
@@ -3327,7 +3406,7 @@ const Invoice = () => {
                             )}
                           </div>
                           <div className="flex flex-row items-center justify-center gap-3">
-                            {contract.signatureUrl && (
+                            {contract.signatureUrl && (!isPdfMode || pdfIncludeSeal) && (
                               <div>
                                 <img
                                   src={resolveUploadUrl(contract.signatureUrl)}
@@ -3336,7 +3415,7 @@ const Invoice = () => {
                                 />
                               </div>
                             )}
-                            {contract.sealUrl && (
+                            {contract.sealUrl && (!isPdfMode || pdfIncludeSeal) && (
                               <div>
                                 <img
                                   src={resolveUploadUrl(contract.sealUrl)}

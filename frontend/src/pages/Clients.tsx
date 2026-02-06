@@ -680,9 +680,10 @@ const Clients = () => {
     e.preventDefault();
     if (!selectedClient) return;
     const form = contractFormRef.current;
-    const trimList = (values: string[]) => values.map((item) => item.trim());
-    const deliveryTermsValue = trimList(form.deliveryTerms).join('\n');
-    const customsAddressValue = trimList(form.customsAddress).join('\n');
+    const joinPreserveEmpty = (values: string[]) => values.join('\n');
+    const hasAnyValue = (values: string[]) => values.some((v) => v.trim() !== '');
+    const deliveryTermsValue = joinPreserveEmpty(form.deliveryTerms);
+    const customsAddressValue = joinPreserveEmpty(form.customsAddress);
     if (!form.contractNumber || !form.contractDate) {
       alert('Shartnoma raqami va sanasi majburiy');
       return;
@@ -720,8 +721,8 @@ const Clients = () => {
         buyerAddress: form.buyerAddress,
         destinationCountry: form.destinationCountry.trim(),
         buyerDetails: form.buyerDetails || undefined,
-        deliveryTerms: deliveryTermsValue || undefined,
-        customsAddress: customsAddressValue || undefined,
+        deliveryTerms: hasAnyValue(form.deliveryTerms) ? deliveryTermsValue : undefined,
+        customsAddress: hasAnyValue(form.customsAddress) ? customsAddressValue : undefined,
         supplierDirector: form.supplierDirector,
         goodsReleasedBy: form.goodsReleasedBy || undefined,
         signatureUrl: form.signatureUrl || undefined,
@@ -800,9 +801,7 @@ const Clients = () => {
     setEditingContractId(contract.id);
     setShowContractModal(true);
     const parseListPreservingEmpty = (value?: string | null) => {
-      const items = String(value ?? '')
-        .split('\n')
-        .map((item) => item.trim());
+      const items = String(value ?? '').split('\n');
       return items.length ? items : [''];
     };
     try {
@@ -2673,29 +2672,15 @@ const Clients = () => {
                 <h4 className="font-semibold text-gray-700 mb-3">Shaxar / Адрес растаможки</h4>
                 <div className="space-y-2">
                   {contractForm.customsAddress.map((value, index) => {
-                    const sep = '\r';
-                    const idx = value.indexOf(sep);
-                    const city = idx >= 0 ? value.slice(0, idx) : '';
-                    const address = idx >= 0 ? value.slice(idx + 1) : value;
+                    const address = value || '';
                     return (
                     <div key={`customs-address-${index}`} className="flex items-start gap-2">
-                      <input
-                        type="text"
-                        value={city}
-                        onChange={(e) => {
-                          const next = [...contractForm.customsAddress];
-                          next[index] = e.target.value + (address ? sep + address : '');
-                          setContractFormAndRef({ ...contractForm, customsAddress: next });
-                        }}
-                        className="w-40 shrink-0 px-3 py-2 border border-gray-300 rounded-lg"
-                        placeholder="Shaxar"
-                      />
                       <textarea
                         rows={2}
                         value={address}
                         onChange={(e) => {
                           const next = [...contractForm.customsAddress];
-                          next[index] = (city ? city + sep : '') + e.target.value;
+                          next[index] = e.target.value;
                           setContractFormAndRef({ ...contractForm, customsAddress: next });
                         }}
                         className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"

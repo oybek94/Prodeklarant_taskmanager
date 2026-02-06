@@ -226,6 +226,12 @@ const Tasks = () => {
 
     if (!selectedTask.qrToken) {
       try {
+        // Force QR token generation (sticker route generates qrToken if missing)
+        await apiClient.get(`/sticker/${selectedTask.id}/image`, { responseType: 'blob' });
+      } catch {
+        // ignore
+      }
+      try {
         const response = await apiClient.get(`/tasks/${selectedTask.id}`);
         taskForMessage = response.data;
         setSelectedTask(response.data);
@@ -1273,58 +1279,78 @@ const Tasks = () => {
   const getFileIcon = (fileType: string, fileName?: string) => {
     const lowerType = fileType?.toLowerCase() || '';
     const lowerName = fileName?.toLowerCase() || '';
-    
-    // PDF
+    const base = 'inline-flex h-8 w-8 items-center justify-center rounded-lg border';
+    const icon = 'w-4 h-4';
+
     if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) {
-      return <Icon icon="lucide:file-text" className="w-10 h-10 text-red-500" />;
+      return (
+        <span className={`${base} border-red-200 bg-red-50 text-red-600`}>
+          <Icon icon="lucide:file-text" className={icon} />
+        </span>
+      );
     }
-    // Excel (xls, xlsx)
-    if (lowerType.includes('excel') || lowerType.includes('spreadsheet') || 
+    if (lowerType.includes('excel') || lowerType.includes('spreadsheet') ||
         lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx')) {
-      return <Icon icon="lucide:file-spreadsheet" className="w-10 h-10 text-emerald-500" />;
+      return (
+        <span className={`${base} border-emerald-200 bg-emerald-50 text-emerald-600`}>
+          <Icon icon="lucide:file-spreadsheet" className={icon} />
+        </span>
+      );
     }
-    // Word (doc, docx)
     if (lowerType.includes('word') || lowerType.includes('document') ||
         lowerName.endsWith('.doc') || lowerName.endsWith('.docx')) {
-      return <Icon icon="lucide:file-text" className="w-10 h-10 text-blue-500" />;
+      return (
+        <span className={`${base} border-blue-200 bg-blue-50 text-blue-600`}>
+          <Icon icon="lucide:file-text" className={icon} />
+        </span>
+      );
     }
-    // JPG/JPEG
     if (lowerType.includes('jpeg') || lowerType.includes('jpg') ||
-        lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
-      return <Icon icon="lucide:image" className="w-10 h-10 text-amber-500" />;
+        lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') ||
+        lowerType.includes('png') || lowerName.endsWith('.png') ||
+        lowerType.includes('image') || lowerType.includes('gif') || lowerType.includes('webp') ||
+        lowerName.match(/\.(gif|webp|bmp|svg)$/i)) {
+      return (
+        <span className={`${base} border-amber-200 bg-amber-50 text-amber-600`}>
+          <Icon icon="lucide:image" className={icon} />
+        </span>
+      );
     }
-    // PNG
-    if (lowerType.includes('png') || lowerName.endsWith('.png')) {
-      return <Icon icon="lucide:image" className="w-10 h-10 text-amber-500" />;
-    }
-    // PPT/PPTX
     if (lowerType.includes('powerpoint') || lowerType.includes('presentation') ||
         lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx')) {
-      return <Icon icon="lucide:presentation" className="w-10 h-10 text-orange-500" />;
+      return (
+        <span className={`${base} border-orange-200 bg-orange-50 text-orange-600`}>
+          <Icon icon="lucide:presentation" className={icon} />
+        </span>
+      );
     }
-    // RAR
-    if (lowerType.includes('rar') || lowerName.endsWith('.rar')) {
-      return <Icon icon="lucide:archive" className="w-10 h-10 text-gray-500" />;
+    if (lowerType.includes('rar') || lowerName.endsWith('.rar') ||
+        lowerType.includes('zip') || lowerName.endsWith('.zip')) {
+      return (
+        <span className={`${base} border-gray-200 bg-gray-50 text-gray-600`}>
+          <Icon icon="lucide:archive" className={icon} />
+        </span>
+      );
     }
-    // ZIP
-    if (lowerType.includes('zip') || lowerName.endsWith('.zip')) {
-      return <Icon icon="lucide:archive" className="w-10 h-10 text-gray-500" />;
-    }
-    // Rasm (boshqa formatlar)
-    if (lowerType.includes('image') || lowerType.includes('gif') || lowerType.includes('webp') ||
-        lowerName.match(/\.(gif|webp|bmp|svg)$/i)) {
-      return <Icon icon="lucide:image" className="w-10 h-10 text-amber-500" />;
-    }
-    // Video
     if (lowerType.includes('video') || lowerName.match(/\.(mp4|avi|mov|wmv|flv|mkv)$/i)) {
-      return <Icon icon="lucide:video" className="w-10 h-10 text-red-500" />;
+      return (
+        <span className={`${base} border-rose-200 bg-rose-50 text-rose-600`}>
+          <Icon icon="lucide:video" className={icon} />
+        </span>
+      );
     }
-    // Audio
     if (lowerType.includes('audio') || lowerName.match(/\.(mp3|wav|ogg|m4a)$/i)) {
-      return <Icon icon="lucide:music" className="w-10 h-10 text-purple-500" />;
+      return (
+        <span className={`${base} border-purple-200 bg-purple-50 text-purple-600`}>
+          <Icon icon="lucide:music" className={icon} />
+        </span>
+      );
     }
-    // Boshqa fayllar (default)
-    return <Icon icon="lucide:file" className="w-10 h-10 text-gray-500" />;
+    return (
+      <span className={`${base} border-gray-200 bg-gray-50 text-gray-600`}>
+        <Icon icon="lucide:file" className={icon} />
+      </span>
+    );
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -3424,7 +3450,7 @@ const Tasks = () => {
               ) : !Array.isArray(taskDocuments) || taskDocuments.length === 0 ? (
                 <div className="text-center py-4 text-gray-400">Hujjatlar yo'q</div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {taskDocuments.map((doc) => {
                     const isExpanded = expandedDocuments.has(doc.id);
                     const hasOCR = canShowOCR(doc.fileType, doc.name);
@@ -3432,38 +3458,38 @@ const Tasks = () => {
                     const isLoadingText = loadingExtractedTexts.has(doc.id);
                     
                     return (
-                      <div key={doc.id} className="space-y-2">
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
-                          <div className="flex items-center gap-3 flex-1">
+                      <div key={doc.id} className="space-y-1">
+                        <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center gap-2 flex-1">
                             <div className="flex-shrink-0">
                               {getFileIcon(doc.fileType, doc.name)}
                             </div>
                             <div className="flex-1">
-                              <div className="font-medium text-gray-900">{doc.name}</div>
+                              <div className="text-sm font-medium text-gray-900">{doc.name}</div>
                               {doc.description && (
-                                <div className="text-sm text-gray-500">{doc.description}</div>
+                                <div className="text-xs text-gray-500">{doc.description}</div>
                               )}
-                              <div className="text-xs text-gray-400 mt-1">
+                              <div className="text-[11px] text-gray-400 mt-0.5">
                                 {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt).toLocaleDateString('uz-UZ')}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             {canPreview(doc.fileType) && (
                               <button
                                 onClick={() => openPreview(doc.fileUrl, doc.fileType, doc.name)}
-                                className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
                                 title="Ko'rish"
                               >
-                                <Icon icon="lucide:eye" className="w-5 h-5" />
+                                <Icon icon="lucide:eye" className="w-4 h-4" />
                               </button>
                             )}
                             <button
                               onClick={() => downloadDocument(doc.fileUrl)}
-                              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                              className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
                               title="Yuklab olish"
                             >
-                              <Icon icon="lucide:download" className="w-5 h-5" />
+                              <Icon icon="lucide:download" className="w-4 h-4" />
                             </button>
                             {(() => {
                               // Admin har doim o'chira oladi
@@ -3488,10 +3514,10 @@ const Tasks = () => {
                                 return (
                                   <button
                                     onClick={() => handleDeleteDocument(doc.id)}
-                                    className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                    className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                                     title="O'chirish (Admin)"
                                   >
-                                    <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
                                   </button>
                                 );
                               }
@@ -3503,10 +3529,10 @@ const Tasks = () => {
                                   return (
                                     <button
                                       onClick={() => handleDeleteDocument(doc.id)}
-                                      className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                      className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                                       title="O'chirish"
                                     >
-                                      <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                                      <Icon icon="lucide:trash-2" className="w-4 h-4" />
                                     </button>
                                   );
                                 } else {

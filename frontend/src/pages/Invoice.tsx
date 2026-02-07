@@ -1240,11 +1240,15 @@ const Invoice = () => {
     const pdf = new jsPDF('p', 'pt', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const scale = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+    const marginVertical = 20;
+    const marginHorizontal = 10;
+    const maxWidth = pageWidth - marginHorizontal * 2;
+    const maxHeight = pageHeight - marginVertical * 2;
+    const scale = Math.min(maxWidth / canvas.width, maxHeight / canvas.height);
     const imgWidth = canvas.width * scale;
     const imgHeight = canvas.height * scale;
-    const x = (pageWidth - imgWidth) / 2;
-    const y = (pageHeight - imgHeight) / 2;
+    const x = marginHorizontal;
+    const y = marginVertical;
     pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight, undefined, 'FAST');
 
     const fileBase = buildDownloadBase(includeSeal ? 'PDF-PECHATLI' : 'PDF-PECHATSIZ');
@@ -2109,8 +2113,8 @@ const Invoice = () => {
               appearance: textfield;
             }
             .items-table-compact tbody td {
-              padding-top: 0;
-              padding-bottom: 0;
+              padding-top: 6px;
+              padding-bottom: 6px;
             }
             form.invoice-form,
             #invoice-tnved-products,
@@ -2151,18 +2155,22 @@ const Invoice = () => {
                 display: none !important;
               }
               .pdf-mode .items-table-compact tbody tr {
-                height: 22px;
+                min-height: 28px;
               }
               .pdf-mode .items-table-compact tbody td {
                 line-height: 1.2;
                 vertical-align: top;
-                padding-top: 0;
-                padding-bottom: 0;
+                padding-top: 4px;
+                padding-bottom: 4px;
                 position: relative;
-                top: -6px;
+                top: -2px;
               }
               .pdf-mode .invoice-header {
                 margin-top: -40px;
+              }
+              .pdf-mode .flex.flex-col.bg-white {
+                align-items: flex-start;
+                justify-content: flex-start;
               }
             `}
           </style>
@@ -2485,7 +2493,7 @@ const Invoice = () => {
 
           <div
             ref={invoiceRef}
-            className={`bg-white rounded-lg shadow-lg p-8${isPdfMode ? ' pdf-mode' : ''}`}
+            className={`flex flex-col bg-white rounded-lg shadow-lg p-8${isPdfMode ? ' pdf-mode' : ''}`}
           >
 
             {/* Invoice Header */}
@@ -3000,7 +3008,7 @@ const Invoice = () => {
 
                 >
 
-                  + Line Item
+                  Qator qo'shish
 
                 </button>
                 </div>

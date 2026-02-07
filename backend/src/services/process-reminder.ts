@@ -69,6 +69,7 @@ export async function runProcessReminderJob(): Promise<void> {
       }
       // remindersSent==3: no more reminders, will escalate
 
+      // Bildirishnoma faqat yuklab olish tugmasini bosgan ishchiga (tp.userId)
       const txOps: any[] = [
         prisma.inAppNotification.create({
           data: {

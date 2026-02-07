@@ -258,7 +258,9 @@ const Invoice = () => {
   const canEdit = canEditInvoices(user?.role);
   const { taskId, clientId, contractId } = useParams<{ taskId?: string; clientId?: string; contractId?: string }>();
   const location = useLocation();
-  const newInvoiceTaskForm = (location.state as { newInvoiceTaskForm?: { branchId: string; hasPsr: boolean; driverPhone?: string; comments?: string; contractNumber?: string } })?.newInvoiceTaskForm;
+  const locationState = location.state as { newInvoiceTaskForm?: { branchId: string; hasPsr: boolean; driverPhone?: string; comments?: string; contractNumber?: string }; duplicateInvoiceId?: number };
+  const newInvoiceTaskForm = locationState?.newInvoiceTaskForm;
+  const duplicateInvoiceId = locationState?.duplicateInvoiceId;
 
   const [searchParams] = useSearchParams();
 
@@ -387,6 +389,12 @@ const Invoice = () => {
 
   const [columnsDropdownOpen, setColumnsDropdownOpen] = useState(false);
   const columnsDropdownRef = useRef<HTMLDetailsElement>(null);
+  const [tirSmrDropdownOpen, setTirSmrDropdownOpen] = useState(false);
+  const tirSmrDropdownRef = useRef<HTMLDivElement>(null);
+  const [sertifikatlarDropdownOpen, setSertifikatlarDropdownOpen] = useState(false);
+  const sertifikatlarDropdownRef = useRef<HTMLDivElement>(null);
+  const [invoysDropdownOpen, setInvoysDropdownOpen] = useState(false);
+  const invoysDropdownRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!columnsDropdownOpen) return;
     const closeOnClickOutside = (e: MouseEvent) => {
@@ -397,6 +405,36 @@ const Invoice = () => {
     document.addEventListener('mousedown', closeOnClickOutside);
     return () => document.removeEventListener('mousedown', closeOnClickOutside);
   }, [columnsDropdownOpen]);
+  useEffect(() => {
+    if (!tirSmrDropdownOpen) return;
+    const closeOnClickOutside = (e: MouseEvent) => {
+      if (tirSmrDropdownRef.current && !tirSmrDropdownRef.current.contains(e.target as Node)) {
+        setTirSmrDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', closeOnClickOutside);
+    return () => document.removeEventListener('mousedown', closeOnClickOutside);
+  }, [tirSmrDropdownOpen]);
+  useEffect(() => {
+    if (!sertifikatlarDropdownOpen) return;
+    const closeOnClickOutside = (e: MouseEvent) => {
+      if (sertifikatlarDropdownRef.current && !sertifikatlarDropdownRef.current.contains(e.target as Node)) {
+        setSertifikatlarDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', closeOnClickOutside);
+    return () => document.removeEventListener('mousedown', closeOnClickOutside);
+  }, [sertifikatlarDropdownOpen]);
+  useEffect(() => {
+    if (!invoysDropdownOpen) return;
+    const closeOnClickOutside = (e: MouseEvent) => {
+      if (invoysDropdownRef.current && !invoysDropdownRef.current.contains(e.target as Node)) {
+        setInvoysDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', closeOnClickOutside);
+    return () => document.removeEventListener('mousedown', closeOnClickOutside);
+  }, [invoysDropdownOpen]);
   const getDeliveryTermsKey = (contractKey: string) => `invoice_delivery_terms_${contractKey}`;
   const getDeliveryTermsContractKey = () => String(selectedContractId || contractIdFromQuery || 'default');
   const loadDeliveryTerms = (contractKey: string): string[] => {
@@ -704,6 +742,74 @@ const Invoice = () => {
           // Shartnoma ma'lumotlarini avtomatik to'ldirish
 
           handleContractSelect(contractIdFromQuery);
+
+          // Dublikat rejimida: asl invoys ma'lumotlarini (sana, currency, notes, additionalInfo) nusxalash; tovarlar va avtomobil raqami tozalanadi
+          if (duplicateInvoiceId) {
+            try {
+              // Keyingi invoys raqamini olish
+              let nextInvoiceNumber: string | undefined;
+              try {
+                const nextRes = await apiClient.get(`/invoices/next-number?contractId=${contractIdFromQuery}`);
+                nextInvoiceNumber = (nextRes.data as { nextNumber?: string })?.nextNumber;
+              } catch {
+                // next-number olinmasa bo'sh qoladi
+              }
+              // Asl invoys ustun sozlamalarini nusxalash
+              setVisibleColumns(loadVisibleColumnsForInvoice(duplicateInvoiceId));
+              const dupRes = await apiClient.get(`/invoices/${duplicateInvoiceId}`);
+              const dup = dupRes.data as {
+                date?: string;
+                currency?: string;
+                notes?: string;
+                additionalInfo?: Record<string, unknown>;
+              };
+              const dupDate = dup.date ? dup.date.split('T')[0] : new Date().toISOString().split('T')[0];
+              const ai = dup.additionalInfo && typeof dup.additionalInfo === 'object' ? dup.additionalInfo : {};
+              setForm(prev => ({
+                ...prev,
+                invoiceNumber: nextInvoiceNumber ?? prev.invoiceNumber,
+                date: dupDate,
+                currency: (dup.currency as 'USD' | 'UZS') || prev.currency,
+                notes: dup.notes || '',
+                vehicleNumber: '',
+                deliveryTerms: (ai.deliveryTerms as string) ?? prev.deliveryTerms,
+                paymentTerms: (ai.paymentTerms as string) ?? prev.paymentTerms,
+                dueDate: (ai.dueDate as string) ?? prev.dueDate,
+                poNumber: (ai.poNumber as string) ?? prev.poNumber,
+                terms: (ai.terms as string) ?? prev.terms,
+                tax: (ai.tax as number) ?? prev.tax,
+                discount: (ai.discount as number) ?? prev.discount,
+                shipping: (ai.shipping as number) ?? prev.shipping,
+                amountPaid: (ai.amountPaid as number) ?? prev.amountPaid,
+                fssRegionInternalCode: (ai.fssRegionInternalCode as string) ?? prev.fssRegionInternalCode,
+                fssRegionName: (ai.fssRegionName as string) ?? prev.fssRegionName,
+                fssRegionExternalCode: (ai.fssRegionExternalCode as string) ?? prev.fssRegionExternalCode,
+                loaderWeight: (ai.loaderWeight as string) ?? prev.loaderWeight,
+                trailerWeight: (ai.trailerWeight as string) ?? prev.trailerWeight,
+                palletWeight: (ai.palletWeight as string) ?? prev.palletWeight,
+                trailerNumber: (ai.trailerNumber as string) ?? prev.trailerNumber,
+                smrNumber: (ai.smrNumber as string) ?? prev.smrNumber,
+                shipmentPlace: (ai.shipmentPlace as string) ?? prev.shipmentPlace,
+                customsAddress: (ai.customsAddress as string) ?? prev.customsAddress,
+                destination: (ai.destination as string) ?? prev.destination,
+                origin: (ai.origin as string) ?? prev.origin,
+                manufacturer: (ai.manufacturer as string) ?? prev.manufacturer,
+                orderNumber: (ai.orderNumber as string) ?? prev.orderNumber,
+                gln: (ai.gln as string) ?? prev.gln,
+                harvestYear: (ai.harvestYear as string) ?? prev.harvestYear,
+                documents: (ai.documents as string) ?? prev.documents,
+                carrier: (ai.carrier as string) ?? prev.carrier,
+                tirNumber: (ai.tirNumber as string) ?? prev.tirNumber,
+              }));
+              setItems([{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 }]);
+              const cf = ai.customFields as Array<{ id: string; label: string; value: string }> | undefined;
+              const sf = ai.specCustomFields as Array<{ id: string; label: string; value: string }> | undefined;
+              if (cf?.length) setCustomFields(cf);
+              if (sf?.length) setSpecCustomFields(sf);
+            } catch {
+              // dublikat yuklanmasa oddiy yangi invoice qoldiramiz
+            }
+          }
 
         } catch (error) {
 
@@ -1192,6 +1298,12 @@ const Invoice = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  const trackProcessDownload = (processType: 'TIR' | 'CERT' | 'DECLARATION') => {
+    const tid = taskId ? Number(taskId) : invoice?.taskId;
+    if (!tid || !Number.isFinite(tid)) return;
+    apiClient.post('/process/download', { taskId: tid, processType }).catch(() => {});
+  };
+
   const loadRegionCodes = async (): Promise<RegionCode[]> => {
     if (regionCodesLoading) return regionCodes;
     setRegionCodesLoading(true);
@@ -1344,6 +1456,7 @@ const Invoice = () => {
       });
       const fileName = `${buildDownloadBase('SMR')}.xlsx`;
       await downloadExcelResponse(response, fileName, 'CMR yuklab olishda xatolik yuz berdi');
+      trackProcessDownload('TIR');
     } catch (error) {
       console.error('Error downloading CMR:', error);
       alert(error instanceof Error ? error.message : 'CMR yuklab olishda xatolik yuz berdi');
@@ -1361,6 +1474,7 @@ const Invoice = () => {
       });
       const fileName = `${buildDownloadBase('TIR')}.xlsx`;
       await downloadExcelResponse(response, fileName, 'TIR yuklab olishda xatolik yuz berdi');
+      trackProcessDownload('TIR');
     } catch (error) {
       console.error('Error downloading TIR:', error);
       alert(error instanceof Error ? error.message : 'TIR yuklab olishda xatolik yuz berdi');
@@ -1387,6 +1501,7 @@ const Invoice = () => {
       const prefix = override?.filePrefix || fssFilePrefix || 'Ichki';
       const fileName = `${buildDownloadBase(prefix.toUpperCase())}.xlsx`;
       await downloadExcelResponse(response, fileName, 'FSS yuklab olishda xatolik yuz berdi');
+      trackProcessDownload('CERT');
     } catch (error) {
       console.error('Error downloading FSS:', error);
       alert(error instanceof Error ? error.message : 'FSS yuklab olishda xatolik yuz berdi');
@@ -1421,6 +1536,7 @@ const Invoice = () => {
       });
       const fileName = `${buildDownloadBase('ST1')}.xlsx`;
       await downloadExcelResponse(response, fileName, 'ST-1 shabloni yuklab olishda xatolik yuz berdi');
+      trackProcessDownload('CERT');
     } catch (error) {
       console.error('Error downloading ST-1 Excel:', error);
       alert(error instanceof Error ? error.message : 'ST-1 shabloni yuklab olishda xatolik yuz berdi');
@@ -1438,6 +1554,7 @@ const Invoice = () => {
       });
       const fileName = `${buildDownloadBase('DEKLARATSIYA')}.xlsx`;
       await downloadExcelResponse(response, fileName, 'Deklaratsiya shabloni yuklab olishda xatolik yuz berdi');
+      trackProcessDownload('DECLARATION');
     } catch (error) {
       console.error('Error downloading Deklaratsiya Excel:', error);
       alert(error instanceof Error ? error.message : 'Deklaratsiya shabloni yuklab olishda xatolik yuz berdi');
@@ -2076,46 +2193,56 @@ const Invoice = () => {
               </button>
             )}
             {invoysStageReady && viewTab === 'invoice' && (
-              <button
-                type="button"
-                onClick={generateSmrExcel}
-                disabled={templatesDisabled}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="SMR blankasini Excel formatida yuklab olish"
-              >
-                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                  />
-                </svg>
-                SMR
-              </button>
-            )}
-            {invoysStageReady && viewTab === 'invoice' && (
-              <button
-                type="button"
-                onClick={generateTirExcel}
-                disabled={templatesDisabled}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="TIR blankasini Excel formatida yuklab olish"
-              >
-                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                  />
-                </svg>
-                TIR
-              </button>
+              <div className="relative" ref={tirSmrDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setTirSmrDropdownOpen((prev) => !prev)}
+                  disabled={templatesDisabled}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="TIR yoki SMR blankasini Excel formatida yuklab olish"
+                >
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
+                    />
+                  </svg>
+                  TIR-SMR
+                  <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 ml-0.5" aria-hidden="true">
+                    <path fill="currentColor" d="M10 12 5 7h10l-5 5z" />
+                  </svg>
+                </button>
+                {tirSmrDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-1 w-40 py-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        generateSmrExcel();
+                        setTirSmrDropdownOpen(false);
+                      }}
+                      disabled={templatesDisabled}
+                      className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      SMR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        generateTirExcel();
+                        setTirSmrDropdownOpen(false);
+                      }}
+                      disabled={templatesDisabled}
+                      className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      TIR
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
             {invoysStageReady && viewTab === 'invoice' && (
               (() => {
@@ -2145,152 +2272,14 @@ const Invoice = () => {
                 );
               })()
             )}
-            {invoysStageReady && viewTab === 'invoice' && (
-              (() => {
-                const branchName = task?.branch?.name?.toLowerCase() || '';
-                const isOltiariqBranch = branchName.includes('oltiariq');
-                const hasRegionSelected =
-                  Boolean(form.fssRegionInternalCode) || Boolean(form.fssRegionName);
-                if (!isOltiariqBranch && !hasRegionSelected) return null;
-                return (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => openFssRegionPicker('Ichki')}
-                      disabled={templatesDisabled}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Ichki blankasini Excel formatida yuklab olish"
-                    >
-                      <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                        <path
-                          fill="currentColor"
-                          d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                        />
-                        <path
-                          fill="currentColor"
-                          d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                        />
-                      </svg>
-                      Ichki
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openFssRegionPicker('Tashqi')}
-                      disabled={templatesDisabled}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Tashqi blankasini Excel formatida yuklab olish"
-                    >
-                      <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                        <path
-                          fill="currentColor"
-                          d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                        />
-                        <path
-                          fill="currentColor"
-                          d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                        />
-                      </svg>
-                      Tashqi
-                    </button>
-                  </>
-                );
-              })()
-            )}
-            {invoysStageReady && viewTab === 'invoice' && (
-              (() => {
-                const branchName = task?.branch?.name?.toLowerCase() || '';
-                const isOltiariqBranch = branchName.includes('oltiariq');
-                const hasRegionSelected =
-                  Boolean(form.fssRegionInternalCode) || Boolean(form.fssRegionName);
-                if (!isOltiariqBranch && !hasRegionSelected) return null;
-                return (
-                  <>
-                    <button
-                      type="button"
-                      onClick={generateST1Excel}
-                      disabled={templatesDisabled}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-300"
-                      title="ST-1 shablonini invoys ma'lumotlari bilan Excel formatida yuklab olish"
-                    >
-                      <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                        <path
-                          fill="currentColor"
-                          d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                        />
-                        <path
-                          fill="currentColor"
-                          d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                        />
-                      </svg>
-                      ST-1
-                    </button>
-                    <button
-                      type="button"
-                      onClick={generateCommodityEkExcel}
-                      disabled={templatesDisabled}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:bg-amber-300"
-                      title="Deklaratsiya (CommodityEk) shabloniga invoys ma'lumotlarini yozib Excel yuklab olish"
-                    >
-                      <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                        <path
-                          fill="currentColor"
-                          d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                        />
-                        <path
-                          fill="currentColor"
-                          d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                        />
-                      </svg>
-                      Deklaratsiya
-                    </button>
-                  </>
-                );
-              })()
-            )}
-            {invoysStageReady && viewTab === 'invoice' && (
-              <>
-                <button
-                  type="button"
-                  onClick={generateInvoiceExcel}
-                  disabled={templatesDisabled}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:bg-sky-300"
-                  title="Invoysni Excel formatida yuklab olish"
-                >
-                  <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                    <path
-                      fill="currentColor"
-                      d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                    />
-                  </svg>
-                  Invoys Excel
-                </button>
-                <button
-                  onClick={() => navigate(-1)}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                >
-                  <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                    <path
-                      fill="currentColor"
-                      d="M12.5 4.5 7 10l5.5 5.5-1.4 1.4L4.2 10l6.9-6.9z"
-                    />
-                  </svg>
-                  Orqaga
-                </button>
-              </>
-            )}
             {invoysStageReady && (
-              <div className="relative" ref={pdfMenuRef}>
+              <div className="relative" ref={sertifikatlarDropdownRef}>
                 <button
                   type="button"
-                  onClick={() => setShowPdfMenu((prev) => !prev)}
+                  onClick={() => setSertifikatlarDropdownOpen((prev) => !prev)}
                   disabled={templatesDisabled}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:bg-sky-300"
-                  aria-expanded={showPdfMenu}
-                  aria-haspopup="menu"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Sertifikatlar va blankalarni yuklab olish"
                 >
                   <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
                     <path
@@ -2298,68 +2287,158 @@ const Invoice = () => {
                       d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
                     />
                   </svg>
-                  Invoys PDF
-                  <svg
-                    viewBox="0 0 20 20"
-                    className={`h-4 w-4 transition-transform ${showPdfMenu ? 'rotate-180' : ''}`}
-                    aria-hidden="true"
-                  >
-                    <path
-                      fill="currentColor"
-                      d="M5.5 7.5 10 12l4.5-4.5 1.4 1.4L10 14.8 4.1 8.9z"
-                    />
+                  Sertifikatlar
+                  <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 ml-0.5" aria-hidden="true">
+                    <path fill="currentColor" d="M10 12 5 7h10l-5 5z" />
                   </svg>
                 </button>
-                {showPdfMenu && !templatesDisabled && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-gray-200 bg-white shadow-2xl z-20 overflow-hidden">
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
-                      PDF variantini tanlang
-                    </div>
+                {sertifikatlarDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-1 w-52 py-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                    {(() => {
+                      const branchName = task?.branch?.name?.toLowerCase() || '';
+                      const isOltiariqBranch = branchName.includes('oltiariq');
+                      const hasRegionSelected =
+                        Boolean(form.fssRegionInternalCode) || Boolean(form.fssRegionName);
+                      const showIchkiTashqiSt1 = isOltiariqBranch || hasRegionSelected;
+                      return (
+                        <>
+                          {showIchkiTashqiSt1 && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  openFssRegionPicker('Ichki');
+                                  setSertifikatlarDropdownOpen(false);
+                                }}
+                                disabled={templatesDisabled}
+                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Ichki
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  openFssRegionPicker('Tashqi');
+                                  setSertifikatlarDropdownOpen(false);
+                                }}
+                                disabled={templatesDisabled}
+                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Tashqi
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  generateST1Excel();
+                                  setSertifikatlarDropdownOpen(false);
+                                }}
+                                disabled={templatesDisabled}
+                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                ST-1
+                              </button>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
+            {invoysStageReady && (
+              <div className="relative" ref={invoysDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setInvoysDropdownOpen((prev) => !prev)}
+                  disabled={templatesDisabled}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Invoysni Excel yoki PDF formatida yuklab olish"
+                >
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
+                    />
+                  </svg>
+                  Invoys
+                  <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 ml-0.5" aria-hidden="true">
+                    <path fill="currentColor" d="M10 12 5 7h10l-5 5z" />
+                  </svg>
+                </button>
+                {invoysDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-1 w-52 py-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
                     <button
                       type="button"
                       onClick={() => {
-                        setShowPdfMenu(false);
-                        generatePdf(false);
+                        generateInvoiceExcel();
+                        setInvoysDropdownOpen(false);
                       }}
-                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-sky-50 flex items-center gap-2"
+                      disabled={templatesDisabled}
+                      className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-100 text-sky-600">
-                        <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                          <path
-                            fill="currentColor"
-                            d="M4 3h8l4 4v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm8 1.5V7h2.5L12 4.5z"
-                          />
-                        </svg>
-                      </span>
-                      <div>
-                        <div className="font-medium text-gray-800">Pechatsiz PDF</div>
-                        <div className="text-xs text-gray-500">Muhrsiz va imzosiz</div>
-                      </div>
+                      Invoys Excel
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        setShowPdfMenu(false);
-                        generatePdf(true);
+                        generatePdf(false);
+                        setInvoysDropdownOpen(false);
                       }}
-                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-50 flex items-center gap-2"
+                      disabled={templatesDisabled}
+                      className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                        <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                          <path
-                            fill="currentColor"
-                            d="M10 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 0 6h-1v1a4 4 0 0 1-8 0v-1H5a3 3 0 0 1 0-6h1V6a4 4 0 0 1 4-4z"
-                          />
-                        </svg>
-                      </span>
-                      <div>
-                        <div className="font-medium text-gray-800">Pechatli PDF</div>
-                        <div className="text-xs text-gray-500">Muhr va imzo bilan</div>
-                      </div>
+                      Pechatsiz PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        generatePdf(true);
+                        setInvoysDropdownOpen(false);
+                      }}
+                      disabled={templatesDisabled}
+                      className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Pechatli PDF
                     </button>
                   </div>
                 )}
               </div>
+            )}
+            {invoysStageReady && viewTab === 'invoice' && (
+              (() => {
+                const branchName = task?.branch?.name?.toLowerCase() || '';
+                const isOltiariqBranch = branchName.includes('oltiariq');
+                const hasRegionSelected =
+                  Boolean(form.fssRegionInternalCode) || Boolean(form.fssRegionName);
+                if (!isOltiariqBranch && !hasRegionSelected) return null;
+                return (
+                  <button
+                    type="button"
+                    onClick={generateCommodityEkExcel}
+                    disabled={templatesDisabled}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:bg-amber-300"
+                    title="Deklaratsiya (CommodityEk) shabloniga invoys ma'lumotlarini yozib Excel yuklab olish"
+                  >
+                    <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                      <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z" />
+                      <path fill="currentColor" d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z" />
+                    </svg>
+                    Deklaratsiya
+                  </button>
+                );
+              })()
+            )}
+            {invoysStageReady && viewTab === 'invoice' && (
+              <button
+                onClick={() => navigate(-1)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+                  <path fill="currentColor" d="M12.5 4.5 7 10l5.5 5.5-1.4 1.4L4.2 10l6.9-6.9z" />
+                </svg>
+                Orqaga
+              </button>
             )}
           </div>
 

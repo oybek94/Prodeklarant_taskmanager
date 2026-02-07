@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { PrismaClient, Role } from '@prisma/client';
+import { PrismaClient, ProcessType, Role } from '@prisma/client';
 import { hashPassword } from '../src/utils/hash';
 
 const prisma = new PrismaClient();
@@ -51,6 +51,25 @@ async function main() {
       })
     )
   );
+
+  // Seed default ProcessSettings (estimatedTime, reminder1, reminder2, reminder3 in minutes)
+  await Promise.all([
+    prisma.processSettings.upsert({
+      where: { processType: ProcessType.TIR },
+      update: {},
+      create: { processType: ProcessType.TIR, estimatedTime: 30, reminder1: 10, reminder2: 20, reminder3: 40 },
+    }),
+    prisma.processSettings.upsert({
+      where: { processType: ProcessType.CERT },
+      update: {},
+      create: { processType: ProcessType.CERT, estimatedTime: 30, reminder1: 10, reminder2: 20, reminder3: 40 },
+    }),
+    prisma.processSettings.upsert({
+      where: { processType: ProcessType.DECLARATION },
+      update: {},
+      create: { processType: ProcessType.DECLARATION, estimatedTime: 30, reminder1: 10, reminder2: 20, reminder3: 40 },
+    }),
+  ]);
 
   console.log('Seed done', { admin: admin.email, branches: [branchT.name, branchO.name] });
 }

@@ -101,6 +101,22 @@ interface RegionCode {
   createdAt: string;
 }
 
+interface ProcessSetting {
+  id: number;
+  processType: 'TIR' | 'CERT' | 'DECLARATION';
+  estimatedTime: number;
+  reminder1: number;
+  reminder2: number;
+  reminder3: number;
+  updatedAt: string;
+}
+
+const PROCESS_TYPE_LABELS: Record<string, string> = {
+  TIR: 'TIR-SMR',
+  CERT: 'Zayavka',
+  DECLARATION: 'Deklaratsiya',
+};
+
 const STAGE_PRICE_DEFAULTS = [
   { stageName: 'Invoys', price: 3.0 },
   { stageName: 'Zayavka', price: 3.0 },
@@ -230,6 +246,10 @@ const Settings = () => {
     externalCode: '',
   });
   const [deletingRegionCodeId, setDeletingRegionCodeId] = useState<number | null>(null);
+  const [processSettings, setProcessSettings] = useState<ProcessSetting[]>([]);
+  const [loadingProcessSettings, setLoadingProcessSettings] = useState(true);
+  const [processSettingsEdits, setProcessSettingsEdits] = useState<Record<string, { estimatedTime: string; reminder1: string; reminder2: string; reminder3: string }>>({});
+  const [savingProcessSettings, setSavingProcessSettings] = useState(false);
 
   const refreshTnvedProducts = () => {
     setTnvedProducts(getTnvedProducts());
@@ -248,6 +268,7 @@ const Settings = () => {
     loadYearlyGoalConfig();
     loadKpiConfigs();
     loadRegionCodes();
+    loadProcessSettings();
   }, []);
 
   const loadBXMConfigs = async () => {
@@ -408,6 +429,49 @@ const Settings = () => {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     } finally {
       setDeletingRegionCodeId(null);
+    }
+  };
+
+  const loadProcessSettings = async () => {
+    try {
+      setLoadingProcessSettings(true);
+      const response = await apiClient.get('/process/settings');
+      const data = Array.isArray(response.data) ? response.data : [];
+      setProcessSettings(data);
+      const edits: Record<string, { estimatedTime: string; reminder1: string; reminder2: string; reminder3: string }> = {};
+      data.forEach((s: ProcessSetting) => {
+        edits[s.processType] = {
+          estimatedTime: s.estimatedTime.toString(),
+          reminder1: s.reminder1.toString(),
+          reminder2: s.reminder2.toString(),
+          reminder3: s.reminder3.toString(),
+        };
+      });
+      setProcessSettingsEdits(edits);
+    } catch (error) {
+      console.error('Error loading process settings:', error);
+    } finally {
+      setLoadingProcessSettings(false);
+    }
+  };
+
+  const handleSaveProcessSettings = async () => {
+    try {
+      setSavingProcessSettings(true);
+      const settings = Object.entries(processSettingsEdits).map(([processType, vals]) => ({
+        processType: processType as 'TIR' | 'CERT' | 'DECLARATION',
+        estimatedTime: parseInt(vals.estimatedTime, 10) || 0,
+        reminder1: parseInt(vals.reminder1, 10) || 0,
+        reminder2: parseInt(vals.reminder2, 10) || 0,
+        reminder3: parseInt(vals.reminder3, 10) || 0,
+      }));
+      await apiClient.put('/process/settings', { settings });
+      await loadProcessSettings();
+      alert('Jarayon sozlamalari muvaffaqiyatli saqlandi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    } finally {
+      setSavingProcessSettings(false);
     }
   };
 
@@ -1139,6 +1203,8 @@ const Settings = () => {
               )}
             </div>
           </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* Qadoq turlari */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -1261,6 +1327,113 @@ const Settings = () => {
               </table>
             </div>
           </div>
+          {/* Jarayon eslatmalari - Qadoq turlari yonida */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h2 className="text-base font-semibold text-gray-800">Jarayon eslatmalari</h2>
+                <div className="text-xs text-gray-500">Yuklab olishdan keyin eslatma vaqtlari (daqiqa)</div>
+              </div>
+              <button
+                onClick={handleSaveProcessSettings}
+                disabled={savingProcessSettings || loadingProcessSettings}
+                className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                aria-label={savingProcessSettings ? 'Saqlanmoqda...' : 'Saqlash'}
+                title={savingProcessSettings ? 'Saqlanmoqda...' : 'Saqlash'}
+              >
+                <IconSave />
+                <span className="sr-only">{savingProcessSettings ? 'Saqlanmoqda...' : 'Saqlash'}</span>
+              </button>
+            </div>
+            {loadingProcessSettings ? (
+              <div className="text-center py-3 text-gray-500 text-sm">Yuklanmoqda...</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-2 px-3 font-semibold text-gray-700">Jarayon</th>
+                      <th className="text-right py-2 px-3 font-semibold text-gray-700">Taxminiy vaqt</th>
+                      <th className="text-right py-2 px-3 font-semibold text-gray-700">Eslatma 1</th>
+                      <th className="text-right py-2 px-3 font-semibold text-gray-700">Eslatma 2</th>
+                      <th className="text-right py-2 px-3 font-semibold text-gray-700">Eslatma 3</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(['TIR', 'CERT', 'DECLARATION'] as const).map((pt) => {
+                      const e = processSettingsEdits[pt] || { estimatedTime: '', reminder1: '', reminder2: '', reminder3: '' };
+                      return (
+                        <tr key={pt} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-2 px-3 text-gray-800 font-medium">{PROCESS_TYPE_LABELS[pt] || pt}</td>
+                          <td className="py-2 px-3 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={e.estimatedTime}
+                              onChange={(ev) =>
+                                setProcessSettingsEdits({
+                                  ...processSettingsEdits,
+                                  [pt]: { ...e, estimatedTime: ev.target.value },
+                                })
+                              }
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="py-2 px-3 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={e.reminder1}
+                              onChange={(ev) =>
+                                setProcessSettingsEdits({
+                                  ...processSettingsEdits,
+                                  [pt]: { ...e, reminder1: ev.target.value },
+                                })
+                              }
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="py-2 px-3 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={e.reminder2}
+                              onChange={(ev) =>
+                                setProcessSettingsEdits({
+                                  ...processSettingsEdits,
+                                  [pt]: { ...e, reminder2: ev.target.value },
+                                })
+                              }
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="py-2 px-3 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={e.reminder3}
+                              onChange={(ev) =>
+                                setProcessSettingsEdits({
+                                  ...processSettingsEdits,
+                                  [pt]: { ...e, reminder3: ev.target.value },
+                                })
+                              }
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              placeholder="0"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
         </div>
       </section>
 

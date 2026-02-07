@@ -12,7 +12,7 @@ interface TaskStage {
   status: 'BOSHLANMAGAN' | 'TAYYOR';
   startedAt?: string;
   completedAt?: string;
-  durationMinutes?: number;
+  durationMin?: number | null;
   assignedToId?: number;
   assignedTo?: { id: number; name: string };
 }
@@ -173,8 +173,18 @@ const TaskDetail = () => {
     if (!minutes) return '-';
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    if (hours > 0) return `${hours} soat ${mins} daqiqa`;
+    if (hours > 0) return `${hours} soat, ${mins} daqiqa`;
     return `${mins} daqiqa`;
+  };
+
+  const formatDateShort = (dateString?: string) => {
+    if (!dateString) return '-';
+    const d = new Date(dateString);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    return `${day}.${month} ${h}:${m}`;
   };
 
   if (loading) {
@@ -281,50 +291,39 @@ const TaskDetail = () => {
           </nav>
         </div>
 
-        <div className="p-6">
+        <div className="p-4">
           {activeTab === 'stages' && (
-            <div className="space-y-4">
+            <div className="overflow-x-auto w-full">
+              <div className="grid grid-cols-[2fr_1.5fr_1.5fr_1.5fr_1fr_auto] gap-x-6 py-2 px-3 text-xs font-medium text-gray-500 border-b border-gray-200 w-full">
+                <div>Bosqich</div>
+                <div>Javobgar</div>
+                <div>Boshlangan</div>
+                <div>Tugallangan</div>
+                <div>Davomiyligi</div>
+                <div className="text-right">Holat</div>
+              </div>
               {task.stages.map((stage) => (
                 <div
                   key={stage.id}
-                  className="border rounded-lg p-4 hover:bg-gray-50 transition"
+                  className="grid grid-cols-[2fr_1.5fr_1.5fr_1.5fr_1fr_auto] gap-x-6 py-2 px-3 border-b border-gray-100 last:border-0 hover:bg-gray-50/50 text-sm w-full items-center"
                 >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{stage.name}</h3>
-                      <div className="text-sm text-gray-500 mt-1">
-                        {stage.assignedTo ? `Javobgar: ${stage.assignedTo.name}` : 'Javobgar belgilanmagan'}
-                      </div>
-                    </div>
+                  <div className="font-medium text-gray-900 truncate min-w-0" title={stage.name}>{stage.name}</div>
+                  <div className="text-gray-600 truncate min-w-0" title={stage.assignedTo?.name}>{stage.assignedTo?.name ?? '-'}</div>
+                  <div className="text-gray-600 whitespace-nowrap">{formatDateShort(stage.startedAt)}</div>
+                  <div className="text-gray-600 whitespace-nowrap">{formatDateShort(stage.completedAt)}</div>
+                  <div className="text-gray-600 whitespace-nowrap" title={stage.durationMin != null ? `${stage.durationMin} daqiqa` : undefined}>{formatDuration(stage.durationMin ?? undefined)}</div>
+                  <div className="flex justify-end">
                     <button
                       onClick={() => handleStageToggle(stage.id, stage.status)}
                       disabled={updatingStage === stage.id}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                      className={`px-2 py-1 rounded text-xs font-medium transition shrink-0 whitespace-nowrap ${
                         stage.status === 'TAYYOR'
                           ? 'bg-green-100 text-green-800 hover:bg-green-200'
                           : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                       } disabled:opacity-50`}
                     >
-                      {updatingStage === stage.id
-                        ? 'Yuklanmoqda...'
-                        : stage.status === 'TAYYOR'
-                        ? 'Tayyor'
-                        : 'Boshlanmagan'}
+                      {updatingStage === stage.id ? '...' : stage.status === 'TAYYOR' ? 'Tayyor' : 'Boshlanmagan'}
                     </button>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <div className="text-gray-500">Boshlangan</div>
-                      <div className="font-medium">{formatDate(stage.startedAt)}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Tugallangan</div>
-                      <div className="font-medium">{formatDate(stage.completedAt)}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Davomiyligi</div>
-                      <div className="font-medium">{formatDuration(stage.durationMinutes)}</div>
-                    </div>
                   </div>
                 </div>
               ))}

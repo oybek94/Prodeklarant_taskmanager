@@ -91,6 +91,7 @@ const Invoices = () => {
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
   const [duplicatingInvoiceId, setDuplicatingInvoiceId] = useState<number | null>(null);
+  const [duplicateInvoiceId, setDuplicateInvoiceId] = useState<number | null>(null);
   const [showTnvedSettingsModal, setShowTnvedSettingsModal] = useState(false);
   const [tnvedProducts, setTnvedProductsState] = useState<TnvedProduct[]>([]);
   const [editingTnvedId, setEditingTnvedId] = useState<string | null>(null);
@@ -285,8 +286,10 @@ const Invoices = () => {
             comments: taskComments,
             contractNumber: contract.contractNumber,
           },
+          ...(duplicateInvoiceId ? { duplicateInvoiceId } : {}),
         },
       });
+      setDuplicateInvoiceId(null);
     } catch (error: any) {
       console.error('Error loading contract:', error);
       alert(error.response?.data?.error || 'Shartnoma ma\'lumotlarini yuklashda xatolik');
@@ -303,97 +306,14 @@ const Invoices = () => {
         clientId: number;
         contractId?: number;
         contractNumber?: string;
-        branchId: number;
-        branch?: { id: number };
-        date: string;
-        currency: string;
-        totalAmount: number;
-        notes?: string;
-        additionalInfo?: unknown;
-        items: Array<{
-          name: string;
-          unit: string;
-          quantity: number;
-          unitPrice: number;
-          totalPrice: number;
-          tnvedCode?: string;
-          pluCode?: string;
-          packageType?: string;
-          grossWeight?: number;
-          netWeight?: number;
-          orderIndex?: number;
-        }>;
       };
-      const clientId = full.clientId;
-      let branchId: number | undefined = full.branchId ?? (full.branch as { id: number } | undefined)?.id;
-      if (branchId == null) {
-        const tasksRes = await apiClient.get(`/tasks?clientId=${clientId}`);
-        const tasks = Array.isArray(tasksRes.data) ? tasksRes.data : [];
-        const first = tasks[0] as { branch?: { id: number } } | undefined;
-        branchId = first?.branch?.id;
-      }
-      if (!branchId && branches.length > 0) {
-        branchId = branches[0].id;
-      }
-      if (!branchId) {
-        alert('Filial topilmadi.');
-        return;
-      }
-      const taskRes = await apiClient.post('/tasks', {
-        clientId,
-        branchId,
-        title: `Invoice - ${full.contractNumber || invoice.contractNumber || 'nusxa'}`,
-        comments: `Invoice dublikat. Asl: №${invoice.invoiceNumber}`,
-        hasPsr: false,
-      });
-      const newTask = taskRes.data as { id: number };
-      // Dublikat qilinganda tovarlar tozalanadi — faqat shartnoma, mijoz, filial va qo'shimcha ma'lumotlar nusxalanadi
-      const items: Array<{ name: string; unit: string; quantity: number; unitPrice: number; totalPrice: number }> = [];
-      // Invoys huddi shundayligicha nusxalanadi — faqat invoice raqam, avtomobil raqami va tovarlar tozalanadi
-      const sourceAdditionalInfo =
-        full.additionalInfo != null && typeof full.additionalInfo === 'object'
-          ? { ...(full.additionalInfo as Record<string, unknown>), vehicleNumber: '' }
-          : undefined;
-      // Shartnoma bo'yicha keyingi invoice raqamini olish
-      let invoiceNumber: string | undefined;
-      if (full.contractId) {
-        const nextRes = await apiClient.get(`/invoices/next-number?contractId=${full.contractId}`);
-        invoiceNumber = (nextRes.data as { nextNumber: string }).nextNumber;
-      }
-      const postRes = await apiClient.post('/invoices', {
-        taskId: newTask.id,
-        clientId,
-        contractId: full.contractId,
-        contractNumber: full.contractNumber,
-        ...(invoiceNumber ? { invoiceNumber } : {}),
-        date: full.date,
-        currency: full.currency,
-        totalAmount: 0,
-        notes: full.notes,
-        additionalInfo: sourceAdditionalInfo,
-        items,
-      });
-      if (postRes.status >= 400) {
-        const errData = postRes.data as { error?: string | { formErrors?: string[]; fieldErrors?: Record<string, string[]> } };
-        const msg = typeof errData?.error === 'string' ? errData.error : (errData?.error as any)?.formErrors?.[0] || JSON.stringify(errData?.error) || 'Invoice dublikat qilishda xatolik';
-        throw new Error(msg);
-      }
-      // Yangi invoys uchun ustun sozlamalarini asl invoysdan nusxalash (Invoice.tsx bilan bir xil kalit)
-      const newInvoice = postRes.data as { id: number };
-      const visibleColumnsKey = (id: number) => `invoice_visible_columns_invoice_${id}`;
-      const originalColumns = localStorage.getItem(visibleColumnsKey(invoice.id));
-      if (originalColumns) {
-        try {
-          localStorage.setItem(visibleColumnsKey(newInvoice.id), originalColumns);
-        } catch {
-          // ignore
-        }
-      }
-      loadInvoices();
-      const contractQuery = full.contractId ? `?contractId=${full.contractId}` : '';
-      navigate(`/invoices/task/${newTask.id}${contractQuery}`);
+      setSelectedClientId(String(full.clientId));
+      setSelectedContractId(full.contractId ? String(full.contractId) : '');
+      setCreateTaskForm({ branchId: '', hasPsr: false, driverPhone: '', comments: '' });
+      setDuplicateInvoiceId(invoice.id);
+      setShowCreateModal(true);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Invoice dublikat qilishda xatolik';
+      const msg = err instanceof Error ? err.message : (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Invoice ma\'lumotlarini yuklashda xatolik';
       alert(msg);
     } finally {
       setDuplicatingInvoiceId(null);
@@ -581,7 +501,10 @@ const Invoices = () => {
           </button>
           {canEdit && (
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => {
+                setDuplicateInvoiceId(null);
+                setShowCreateModal(true);
+              }}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
             >
               <Icon icon="lucide:plus" className="w-4 h-4" />
@@ -591,13 +514,14 @@ const Invoices = () => {
         </div>
       </div>
 
-      {/* Create Invoice Modal */}
+      {/* Create Invoice Modal (yangi invoice yoki dublikat) */}
       {canEdit && showCreateModal && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowCreateModal(false);
+              setDuplicateInvoiceId(null);
               setCreateTaskForm({ branchId: '', hasPsr: false, driverPhone: '', comments: '' });
             }
           }}
@@ -606,7 +530,10 @@ const Invoices = () => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Yangi Invoice yaratish</h2>
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setDuplicateInvoiceId(null);
+                }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
               >
                 ×
@@ -781,6 +708,7 @@ const Invoices = () => {
                 <button
                   onClick={() => {
                     setShowCreateModal(false);
+                    setDuplicateInvoiceId(null);
                     setSelectedClientId('');
                     setSelectedContractId('');
                     setContracts([]);

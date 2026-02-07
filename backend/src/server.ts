@@ -39,6 +39,9 @@ import { auditLog } from './middleware/audit';
 import OpenAIClient from './ai/openai.client';
 import path from 'path';
 import { initializeExchangeRateScheduler } from './services/exchange-rate-scheduler';
+import { initializeProcessScheduler } from './services/process-scheduler';
+import processRouter from './routes/process';
+import notificationsRouter from './routes/notifications';
 // import { fixDatabaseRoles } from './utils/fixDatabaseRoles'; // Vaqtinchalik o'chirilgan
 
 const app = express();
@@ -176,6 +179,8 @@ app.use('/q', qrRouter);
 app.use('/api/q', qrRouter);
 // Sticker PDF generation endpoint (requires authentication)
 app.use('/api/sticker', stickerRouter);
+app.use('/api/process', requireAuth(), processRouter);
+app.use('/api/notifications', requireAuth(), notificationsRouter);
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -221,6 +226,7 @@ validateEnvironment();
 
 // Initialize exchange rate scheduler
 initializeExchangeRateScheduler();
+initializeProcessScheduler();
 
 // Server'ni darhol ishga tushirish - database ulanishini kutmasdan
 app.listen(PORT, '0.0.0.0', () => {

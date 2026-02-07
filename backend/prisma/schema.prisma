@@ -47,6 +47,9 @@ model User {
   transactions      Transaction[]            @relation("TransactionWorker")
   branch            Branch?                  @relation(fields: [branchId], references: [id])
   workerPayments    WorkerPayment[]          @relation("WorkerPayment")
+  tasksProcesses    TasksProcess[]           @relation("TasksProcessAssigned")
+  tasksProcessesDone TasksProcess[]          @relation("TasksProcessDoneBy")
+  inAppNotifications InAppNotification[]
 }
 
 model Client {
@@ -149,6 +152,7 @@ model Task {
   stages                                     TaskStage[]
   versions                                   TaskVersion[]
   transactions                               Transaction[]
+  tasksProcesses                             TasksProcess[]
 
   @@index([status])
   @@index([branchId])
@@ -790,6 +794,8 @@ model Contract {
   paymentMethod                  String?
   gln                            String?
   supplierDirector               String?
+  buyerDirector                  String?
+  consigneeDirector              String?
   goodsReleasedBy                String?
   signatureUrl                   String?
   sealUrl                        String?
@@ -856,6 +862,67 @@ model RegionCode {
   @@index([name])
   @@index([internalCode])
   @@index([externalCode])
+}
+
+model ProcessSettings {
+  id            Int         @id @default(autoincrement())
+  processType   ProcessType @unique
+  estimatedTime Int         @default(30)
+  reminder1     Int         @default(10)
+  reminder2     Int         @default(20)
+  reminder3     Int         @default(40)
+  updatedAt     DateTime    @updatedAt
+}
+
+model TasksProcess {
+  id                Int                @id @default(autoincrement())
+  taskId            Int
+  userId            Int
+  processType       ProcessType
+  status            TaskProcessStatus  @default(IN_PROGRESS)
+  downloadedAt      DateTime           @default(now())
+  doneAt            DateTime?
+  doneById          Int?
+  remindersSent     Int                @default(0)
+  nextReminderTime  DateTime?
+  createdAt         DateTime           @default(now())
+  task              Task               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user              User               @relation("TasksProcessAssigned", fields: [userId], references: [id])
+  doneBy            User?              @relation("TasksProcessDoneBy", fields: [doneById], references: [id])
+  logs              TaskProcessLog[]
+  notifications     InAppNotification[]
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([status])
+  @@index([nextReminderTime])
+}
+
+model TaskProcessLog {
+  id            Int                 @id @default(autoincrement())
+  taskProcessId Int
+  userId        Int
+  action        TaskProcessLogAction
+  createdAt     DateTime            @default(now())
+  taskProcess   TasksProcess        @relation(fields: [taskProcessId], references: [id], onDelete: Cascade)
+
+  @@index([taskProcessId])
+}
+
+model InAppNotification {
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  taskId        Int
+  taskProcessId Int
+  message       String
+  actionUrl     String?
+  read          Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskProcess   TasksProcess @relation(fields: [taskProcessId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
 }
 
 model CurrencyExchangeRate {
@@ -964,4 +1031,25 @@ enum AiCheckType {
 enum AiCheckResult {
   PASS
   FAIL
+}
+
+enum ProcessType {
+  TIR
+  CERT
+  DECLARATION
+}
+
+enum TaskProcessStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+  ESCALATED
+}
+
+enum TaskProcessLogAction {
+  DOWNLOAD
+  CONFIRM
+  REJECT
+  REMINDER_SENT
+  ESCALATED
 }

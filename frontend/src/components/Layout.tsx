@@ -1,10 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotifications } from '../hooks/useNotifications';
 
 const Layout = () => {
   const { user, logout } = useAuth();
+  const { notifications, confirmProcess, rejectProcess, refresh } = useNotifications();
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setNotificationPanelOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -177,6 +191,79 @@ const Layout = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header with notification bell */}
+        <header className="flex-shrink-0 flex items-center justify-end gap-2 px-4 py-2 bg-white border-b border-gray-200">
+          <div className="relative" ref={panelRef}>
+            <button
+              onClick={() => setNotificationPanelOpen(!notificationPanelOpen)}
+              className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Bildirishnomalar"
+              title="Bildirishnomalar"
+            >
+              <Icon icon="lucide:bell" className="w-5 h-5" />
+              {notifications.length > 0 && (
+                <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-xs font-medium text-white bg-red-500 rounded-full">
+                  {notifications.length > 9 ? '9+' : notifications.length}
+                </span>
+              )}
+            </button>
+            {notificationPanelOpen && (
+              <div className="absolute right-0 mt-1 w-80 max-h-96 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                <div className="p-2 border-b border-gray-200 font-semibold text-gray-800">Bildirishnomalar</div>
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-gray-500 text-sm">Bildirishnomalar yo'q</div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {notifications.map((n) => (
+                      <div key={n.id} className="p-3 hover:bg-gray-50">
+                        <p className="text-sm text-gray-800 mb-2">{n.message}</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await confirmProcess(n.taskProcessId);
+                                if (notifications.length <= 1) setNotificationPanelOpen(false);
+                              } catch (err: any) {
+                                alert(err.message || 'Xatolik');
+                              }
+                            }}
+                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                          >
+                            Ha
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await rejectProcess(n.taskProcessId);
+                                if (notifications.length <= 1) setNotificationPanelOpen(false);
+                              } catch (err: any) {
+                                alert(err.message || 'Xatolik');
+                              }
+                            }}
+                            className="px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                          >
+                            Yo'q
+                          </button>
+                          {n.actionUrl && (
+                            <button
+                              onClick={() => {
+                                navigate(n.actionUrl!);
+                                setNotificationPanelOpen(false);
+                              }}
+                              className="px-3 py-1 text-sm text-blue-600 hover:underline"
+                            >
+                              Vazifaga
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </header>
         {/* Mobile: Sidebar yopiq bo'lganda top padding qo'shish */}
         <main
           className={`flex-1 ${isSettingsPage ? 'overflow-hidden' : 'overflow-y-auto'} p-6 ${!isDesktop && !sidebarOpen ? 'pt-20' : ''}`}

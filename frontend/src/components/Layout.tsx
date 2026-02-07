@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useNotifications, getNotificationDisplayMessage } from '../hooks/useNotifications';
+import { useNotifications, getNotificationDisplayMessage, requestNotificationPermission } from '../hooks/useNotifications';
 
 const Layout = () => {
   const { user, logout } = useAuth();
@@ -204,7 +204,10 @@ const Layout = () => {
         <header className="flex-shrink-0 flex items-center justify-end gap-2 px-4 py-2 bg-white border-b border-gray-200">
           <div className="relative" ref={panelRef}>
             <button
-              onClick={() => setNotificationPanelOpen(!notificationPanelOpen)}
+              onClick={() => {
+                setNotificationPanelOpen(!notificationPanelOpen);
+                requestNotificationPermission();
+              }}
               className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               aria-label="Bildirishnomalar"
               title="Bildirishnomalar"

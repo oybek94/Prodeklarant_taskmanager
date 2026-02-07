@@ -1,5 +1,37 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '../lib/api';
+
+const NOTIFICATION_TAG = 'prodeklarant-notification';
+
+export function requestNotificationPermission(): Promise<NotificationPermission> {
+  if (typeof Notification === 'undefined') return Promise.resolve('denied');
+  if (Notification.permission !== 'default') return Promise.resolve(Notification.permission);
+  return Notification.requestPermission();
+}
+
+function showBrowserNotification(title: string, body: string, tag?: string) {
+  if (typeof Notification === 'undefined') return;
+  const icon = '/logo.png';
+  if (Notification.permission === 'granted') {
+    try {
+      new Notification(title, { body, tag: tag ?? NOTIFICATION_TAG, icon });
+    } catch (e) {
+      console.warn('Browser notification error:', e);
+    }
+    return;
+  }
+  if (Notification.permission === 'default') {
+    requestNotificationPermission().then((p) => {
+      if (p === 'granted') {
+        try {
+          new Notification(title, { body, tag: tag ?? NOTIFICATION_TAG, icon });
+        } catch (e) {
+          console.warn('Browser notification error:', e);
+        }
+      }
+    });
+  }
+}
 
 export interface InAppNotification {
   id: number;
@@ -43,12 +75,30 @@ export function getNotificationDisplayMessage(n: InAppNotification): string {
 export function useNotifications() {
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const prevIdsRef = useRef<Set<number>>(new Set());
+  const isFirstFetchRef = useRef(true);
 
   const fetchNotifications = useCallback(async () => {
     try {
       const response = await apiClient.get('/notifications');
       const data = Array.isArray(response.data) ? response.data : [];
+      const newOnes = data.filter((n) => !prevIdsRef.current.has(n.id));
+      const hadData = prevIdsRef.current.size > 0;
+      prevIdsRef.current = new Set(data.map((n) => n.id));
       setNotifications(data);
+
+      // Brauzer bildirishnomasi: yangi bildirishnoma kelganda (birinchi yuklashda emas)
+      if (!isFirstFetchRef.current && newOnes.length > 0 && typeof Notification !== 'undefined') {
+        const title = 'Prodeklarant';
+        if (document.visibilityState === 'hidden') {
+          if (newOnes.length === 1) {
+            showBrowserNotification(title, getNotificationDisplayMessage(newOnes[0]), `notif-${newOnes[0].id}`);
+          } else {
+            showBrowserNotification(title, `Sizda ${newOnes.length} ta yangi bildirishnoma`);
+          }
+        }
+      }
+      if (isFirstFetchRef.current) isFirstFetchRef.current = false;
     } catch (error) {
       console.error('Error fetching notifications:', error);
       setNotifications([]);

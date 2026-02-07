@@ -10,12 +10,34 @@ export interface InAppNotification {
   actionUrl: string | null;
   read: boolean;
   createdAt: string;
+  carNumber?: string;
   taskProcess?: {
     id: number;
     taskId: number;
     processType: string;
     status: string;
+    task?: { id: number; title: string };
   };
+}
+
+function getCarNumberFromTitle(title?: string): string {
+  if (!title || typeof title !== 'string') return '';
+  const parts = title.split(/\s+АВТО\s+/i);
+  if (parts.length >= 2) {
+    const plate = (parts[1].trim().split(/\s/)[0] || parts[1].trim());
+    if (plate) return plate;
+  }
+  const beforeSlash = title.split('/')[0]?.trim();
+  if (beforeSlash && beforeSlash.length <= 20) return beforeSlash;
+  return '';
+}
+
+export function getNotificationDisplayMessage(n: InAppNotification): string {
+  const carNumber = n.carNumber || getCarNumberFromTitle(n.taskProcess?.task?.title);
+  if (carNumber && n.message.startsWith('Task #')) {
+    return n.message.replace(/^Task #\d+\s*-\s*/, `${carNumber} - `);
+  }
+  return n.message;
 }
 
 export function useNotifications() {

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useNotifications } from '../hooks/useNotifications';
+import { useNotifications, getNotificationDisplayMessage } from '../hooks/useNotifications';
 
 const Layout = () => {
   const { user, logout } = useAuth();
@@ -10,15 +10,24 @@ const Layout = () => {
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Bildirishnoma kelganda oynani avtomatik ochish
+  useEffect(() => {
+    if (notifications.length > 0) {
+      setNotificationPanelOpen(true);
+    }
+  }, [notifications.length]);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      // Bildirishnoma bor bo'lsa, tashqariga bosilganda yopilmasin - tugagungacha ochiq qolsin
+      if (notifications.length > 0) return;
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         setNotificationPanelOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [notifications.length]);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -208,16 +217,32 @@ const Layout = () => {
               )}
             </button>
             {notificationPanelOpen && (
-              <div className="absolute right-0 mt-1 w-80 max-h-96 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                <div className="p-2 border-b border-gray-200 font-semibold text-gray-800">Bildirishnomalar</div>
+              <div className="absolute right-0 mt-1 w-96 max-h-[28rem] overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl z-50">
+                <div className="flex items-center gap-2 p-4 border-b border-gray-100 bg-gray-50 rounded-t-xl">
+                  <Icon icon="lucide:bell-ring" className="w-5 h-5 text-indigo-600" />
+                  <span className="font-semibold text-gray-800">Bildirishnomalar</span>
+                  {notifications.length > 0 && (
+                    <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-full">
+                      {notifications.length}
+                    </span>
+                  )}
+                </div>
                 {notifications.length === 0 ? (
-                  <div className="p-4 text-gray-500 text-sm">Bildirishnomalar yo'q</div>
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-gray-400">
+                    <Icon icon="lucide:bell-off" className="w-12 h-12 mb-3 opacity-50" />
+                    <p className="text-sm font-medium">Bildirishnomalar yo'q</p>
+                  </div>
                 ) : (
                   <div className="divide-y divide-gray-100">
                     {notifications.map((n) => (
-                      <div key={n.id} className="p-3 hover:bg-gray-50">
-                        <p className="text-sm text-gray-800 mb-2">{n.message}</p>
-                        <div className="flex gap-2">
+                      <div key={n.id} className="p-4 hover:bg-gray-50/80 transition-colors">
+                        <div className="flex gap-3 mb-3">
+                          <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center">
+                            <Icon icon="lucide:file-question" className="w-4 h-4 text-indigo-600" />
+                          </div>
+                          <p className="text-sm text-gray-800 leading-relaxed flex-1 min-w-0">{getNotificationDisplayMessage(n)}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
                           <button
                             onClick={async () => {
                               try {
@@ -227,8 +252,9 @@ const Layout = () => {
                                 alert(err.message || 'Xatolik');
                               }
                             }}
-                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                           >
+                            <Icon icon="lucide:check" className="w-4 h-4" />
                             Ha
                           </button>
                           <button
@@ -240,8 +266,9 @@ const Layout = () => {
                                 alert(err.message || 'Xatolik');
                               }
                             }}
-                            className="px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                           >
+                            <Icon icon="lucide:x" className="w-4 h-4" />
                             Yo'q
                           </button>
                           {n.actionUrl && (
@@ -250,8 +277,9 @@ const Layout = () => {
                                 navigate(n.actionUrl!);
                                 setNotificationPanelOpen(false);
                               }}
-                              className="px-3 py-1 text-sm text-blue-600 hover:underline"
+                              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                             >
+                              <Icon icon="lucide:external-link" className="w-4 h-4" />
                               Vazifaga
                             </button>
                           )}

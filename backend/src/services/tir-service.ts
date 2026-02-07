@@ -1,7 +1,5 @@
 import { prisma } from '../prisma';
-import { DocumentType } from '@prisma/client';
 import path from 'path';
-import fs from 'fs/promises';
 import { writeTirToFile } from './tir-excel';
 
 const sanitizeFileName = (value: string) =>
@@ -24,42 +22,6 @@ const getContractForInvoice = async (invoice: {
     });
   }
   return null;
-};
-
-const upsertTirTaskDocument = async (params: {
-  taskId: number;
-  fileUrl: string;
-  fileName: string;
-  fileSize?: number;
-  uploadedById: number;
-}) => {
-  const existing = await prisma.taskDocument.findFirst({
-    where: { taskId: params.taskId, documentType: DocumentType.TIR },
-  });
-  if (existing) {
-    return prisma.taskDocument.update({
-      where: { id: existing.id },
-      data: {
-        name: params.fileName,
-        fileUrl: params.fileUrl,
-        fileType: 'xlsx',
-        fileSize: params.fileSize,
-        description: 'TIR Excel',
-      },
-    });
-  }
-  return prisma.taskDocument.create({
-    data: {
-      taskId: params.taskId,
-      name: params.fileName,
-      fileUrl: params.fileUrl,
-      fileType: 'xlsx',
-      fileSize: params.fileSize,
-      description: 'TIR Excel',
-      documentType: DocumentType.TIR,
-      uploadedById: params.uploadedById,
-    },
-  });
 };
 
 export const ensureTirForInvoice = async (params: {
@@ -94,17 +56,8 @@ export const ensureTirForInvoice = async (params: {
     fileName
   );
 
-  const stat = await fs.stat(outputPath);
   const fileUrl = path.posix.join('/uploads/tir', fileName);
-  if (invoice.taskId) {
-    await upsertTirTaskDocument({
-      taskId: invoice.taskId,
-      fileUrl,
-      fileName,
-      fileSize: stat.size,
-      uploadedById: params.uploadedById,
-    });
-  }
+  // TIR shabloni Hujjatlar bo'limiga avtomatik qo'shilmaydi - faqat yuklab olish
 
   return { fileName, fileUrl, outputPath };
 };

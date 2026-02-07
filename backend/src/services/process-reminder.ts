@@ -3,9 +3,29 @@ import { TaskProcessLogAction } from '@prisma/client';
 
 const PROCESS_TYPE_LABELS: Record<string, string> = {
   TIR: 'TIR-SMR',
-  CERT: 'Sertifikat olib chiqish',
+  CERT: 'Zayavka',
   DECLARATION: 'Deklaratsiya',
 };
+
+const PROCESS_TYPE_QUESTIONS: Record<string, string> = {
+  TIR: 'Ishlar bajarildimi?',
+  CERT: 'Zayavkalar jo\'natildimi?',
+  DECLARATION: 'Ishlar bajarildimi?',
+};
+
+function getCarNumberFromTitle(title: string): string {
+  if (!title || typeof title !== 'string') return '';
+  // Format: "12345 АВТО 01A123BC" - avtomobil raqami "АВТО" dan keyin
+  const parts = title.split(/\s+АВТО\s+/i);
+  if (parts.length >= 2) {
+    const plate = parts[1].trim().split(/\s/)[0] || parts[1].trim();
+    if (plate) return plate;
+  }
+  // Fallback: "/" dan oldingi qism (vehicleNumber format)
+  const beforeSlash = title.split('/')[0]?.trim();
+  if (beforeSlash && beforeSlash.length <= 20) return beforeSlash;
+  return '';
+}
 
 /**
  * Run reminder job: find TasksProcess due for reminder, create notifications, update next reminder time
@@ -20,7 +40,7 @@ export async function runProcessReminderJob(): Promise<void> {
       nextReminderTime: { lte: now },
     },
     include: {
-      task: { select: { id: true } },
+      task: { select: { id: true, title: true } },
     },
   });
 
@@ -34,7 +54,10 @@ export async function runProcessReminderJob(): Promise<void> {
       const reminder3 = settings?.reminder3 ?? 40;
 
       const label = PROCESS_TYPE_LABELS[tp.processType] || tp.processType;
-      const message = `Task #${tp.taskId} - ${label}. Ishlar bajarildimi?`;
+      const question = PROCESS_TYPE_QUESTIONS[tp.processType] || 'Ishlar bajarildimi?';
+      const carNumber = getCarNumberFromTitle(tp.task?.title || '');
+      const prefix = carNumber ? `${carNumber} - ` : `Task #${tp.taskId} - `;
+      const message = `${prefix}${label}. ${question}`;
       const actionUrl = `/tasks/${tp.taskId}`;
 
       const newRemindersSent = tp.remindersSent + 1;
@@ -72,7 +95,8 @@ export async function runProcessReminderJob(): Promise<void> {
           where: { role: 'ADMIN', active: true },
           select: { id: true },
         });
-        const escalateMessage = `Task #${tp.taskId} - ${label}. Ish bajarilmadi, administratorlarga yuborildi.`;
+        const escalatePrefix = carNumber ? `${carNumber} - ` : `Task #${tp.taskId} - `;
+        const escalateMessage = `${escalatePrefix}${label}. Ish bajarilmadi, administratorlarga yuborildi.`;
         for (const a of admins) {
           txOps.push(
             prisma.inAppNotification.create({

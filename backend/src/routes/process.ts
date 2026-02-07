@@ -317,6 +317,18 @@ router.post('/reject', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+// POST /process/run-reminder - Qo'lda eslatma job'ini ishga tushirish (Admin only, serverda tekshirish uchun)
+router.post('/run-reminder', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
+  try {
+    const { runProcessReminderJob } = await import('../services/process-reminder');
+    const result = await runProcessReminderJob();
+    res.json({ ok: true, processed: result.processed });
+  } catch (error: any) {
+    console.error('Process run-reminder error:', error);
+    res.status(500).json({ error: error.message || 'Eslatma job ishga tushirishda xatolik' });
+  }
+});
+
 // GET /process/settings - Get process settings (Admin only)
 router.get('/settings', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
   try {

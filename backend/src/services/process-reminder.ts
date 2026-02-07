@@ -30,7 +30,7 @@ function getCarNumberFromTitle(title: string): string {
 /**
  * Run reminder job: find TasksProcess due for reminder, create notifications, update next reminder time
  */
-export async function runProcessReminderJob(): Promise<void> {
+export async function runProcessReminderJob(): Promise<{ processed: number }> {
   const now = new Date();
 
   const due = await prisma.tasksProcess.findMany({
@@ -44,6 +44,11 @@ export async function runProcessReminderJob(): Promise<void> {
     },
   });
 
+  if (due.length > 0) {
+    console.log(`[Process Reminder] ${due.length} ta vazifa eslatma vaqtiga yetdi`);
+  }
+
+  let processed = 0;
   for (const tp of due) {
     try {
       const settings = await prisma.processSettings.findUnique({
@@ -142,8 +147,12 @@ export async function runProcessReminderJob(): Promise<void> {
       }
 
       await prisma.$transaction(txOps);
+      processed++;
+      console.log(`[Process Reminder] Bildirishnoma yuborildi: userId=${tp.userId}, taskId=${tp.taskId}, processType=${tp.processType}`);
     } catch (err) {
       console.error(`[ProcessReminder] Error processing taskProcess ${tp.id}:`, err);
     }
   }
+
+  return { processed };
 }

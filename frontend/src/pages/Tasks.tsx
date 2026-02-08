@@ -805,6 +805,14 @@ const Tasks = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, editTaskId]);
 
+  // Desktop: /tasks/:id/edit dan kelganda edit modali ochish (masalan Invoices dan "Taskni tahrirlash")
+  useEffect(() => {
+    if (isMobile || !editTaskId) return;
+    if (selectedTask?.id === editTaskId && showEditModal) return;
+    loadTaskDetailForEdit(editTaskId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editTaskId]);
+
   const loadAiChecks = async (taskId: number) => {
     try {
       setLoadingAiChecks(true);

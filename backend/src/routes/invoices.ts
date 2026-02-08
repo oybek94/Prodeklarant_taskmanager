@@ -73,7 +73,9 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
             id: true,
             title: true,
             status: true,
-            branch: { select: { id: true, name: true } }
+            branch: { select: { id: true, name: true } },
+            stages: { select: { name: true, status: true } },
+            _count: { select: { errors: true } }
           }
         },
         client: {
@@ -528,6 +530,18 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
         }
       }
 
+      // O'zgarishlar hisoboti (changeLog) ni saqlash: mavjud logga yangi qo'shiladi
+      const existingAi = (existingInvoice.additionalInfo && typeof existingInvoice.additionalInfo === 'object')
+        ? (existingInvoice.additionalInfo as Record<string, unknown>)
+        : {};
+      const incomingAi = (additionalInfo && typeof additionalInfo === 'object') ? (additionalInfo as Record<string, unknown>) : {};
+      const existingLog = Array.isArray(existingAi.changeLog) ? existingAi.changeLog : [];
+      const incomingLog = Array.isArray(incomingAi.changeLog) ? incomingAi.changeLog : [];
+      const mergedAdditionalInfo = { ...existingAi, ...incomingAi } as Record<string, unknown>;
+      if (incomingLog.length > 0) {
+        mergedAdditionalInfo.changeLog = [...existingLog, ...incomingLog];
+      }
+
       // Invoice'ni yangilash
       invoice = await prisma.invoice.update({
         where: { id: existingInvoice.id },
@@ -539,7 +553,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
           currency: currency || client?.dealAmountCurrency || 'USD',
           totalAmount: totalAmount || (task ? task.snapshotDealAmount : 0) || 0,
           notes: notes || undefined,
-          additionalInfo: additionalInfo || undefined,
+          additionalInfo: mergedAdditionalInfo,
         },
         include: {
           items: true,
@@ -1031,11 +1045,20 @@ router.delete('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, 
     const id = parseInt(req.params.id);
     
     const invoice = await prisma.invoice.findUnique({
-      where: { id }
+      where: { id },
+      include: { task: { select: { status: true, stages: { select: { name: true, status: true } } } } }
     });
 
     if (!invoice) {
       return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoysStageReady = invoice.task?.stages?.some(
+      (s: { name: string; status: string }) => String(s.name).trim().toLowerCase() === 'invoys' && s.status === 'TAYYOR'
+    );
+    const taskNotBoshlanmagan = invoice.task?.status !== 'BOSHLANMAGAN';
+    if (invoysStageReady || taskNotBoshlanmagan) {
+      return res.status(400).json({ error: 'O\'chirish faqat task BOSHLANMAGAN va Invoys tayyor bo\'lmaganda mumkin' });
     }
 
     const taskId = invoice.taskId;

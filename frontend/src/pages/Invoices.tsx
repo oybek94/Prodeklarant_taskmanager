@@ -35,6 +35,8 @@ interface Invoice {
     title: string;
     status: string;
     branch?: { id: number; name: string };
+    stages?: { name: string; status: string }[];
+    _count?: { errors: number };
   };
   client?: {
     id: number;
@@ -93,6 +95,21 @@ const Invoices = () => {
   const [creatingTask, setCreatingTask] = useState(false);
   const [duplicatingInvoiceId, setDuplicatingInvoiceId] = useState<number | null>(null);
   const [duplicateInvoiceId, setDuplicateInvoiceId] = useState<number | null>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [invoiceForErrorModal, setInvoiceForErrorModal] = useState<Invoice | null>(null);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+  const [deletingInvoiceId, setDeletingInvoiceId] = useState<number | null>(null);
+  const [deleteModalAnimated, setDeleteModalAnimated] = useState(false);
+  const [deleteModalClosing, setDeleteModalClosing] = useState(false);
+  const [workers, setWorkers] = useState<{ id: number; name: string; role?: string }[]>([]);
+  const [errorForm, setErrorForm] = useState({
+    workerId: '',
+    stageName: '',
+    amount: '',
+    comment: '',
+    date: new Date().toISOString().split('T')[0],
+  });
   const [showTnvedSettingsModal, setShowTnvedSettingsModal] = useState(false);
   const [tnvedProducts, setTnvedProductsState] = useState<TnvedProduct[]>([]);
   const [editingTnvedId, setEditingTnvedId] = useState<string | null>(null);
@@ -168,7 +185,29 @@ const Invoices = () => {
     loadInvoices();
     loadClients();
     loadBranches();
+    loadWorkers();
   }, []);
+
+  useEffect(() => {
+    if (showDeleteConfirmModal && invoiceToDelete && !deleteModalClosing) {
+      const id = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setDeleteModalAnimated(true));
+      });
+      return () => cancelAnimationFrame(id);
+    }
+    if (!showDeleteConfirmModal) setDeleteModalAnimated(false);
+  }, [showDeleteConfirmModal, invoiceToDelete, deleteModalClosing]);
+
+  useEffect(() => {
+    if (!deleteModalClosing) return;
+    const t = setTimeout(() => {
+      setShowDeleteConfirmModal(false);
+      setInvoiceToDelete(null);
+      setDeleteModalClosing(false);
+      setDeleteModalAnimated(false);
+    }, 220);
+    return () => clearTimeout(t);
+  }, [deleteModalClosing]);
 
   useEffect(() => {
     if (selectedClientId) {
@@ -229,6 +268,21 @@ const Invoices = () => {
     } catch (error) {
       console.error('Error loading branches:', error);
       setBranches([]);
+    }
+  };
+
+  const loadWorkers = async () => {
+    try {
+      if (user?.role === 'ADMIN') {
+        const response = await apiClient.get('/users');
+        setWorkers(Array.isArray(response.data) ? response.data : []);
+      } else {
+        const response = await apiClient.get('/workers');
+        setWorkers(Array.isArray(response.data) ? response.data : []);
+      }
+    } catch (error) {
+      console.error('Error loading workers:', error);
+      setWorkers([]);
     }
   };
 
@@ -1054,6 +1108,7 @@ const Invoices = () => {
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="overflow-auto max-h-[calc(100vh-12rem)]">
           <table className="min-w-full">
             <thead>
               <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-200">
@@ -1095,8 +1150,8 @@ const Invoices = () => {
                 </th>
                 <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   <span className="inline-flex items-center gap-1.5">
-                    <Icon icon="lucide:dollar-sign" className="w-4 h-4 text-gray-500" />
-                    Summa
+                    <Icon icon="lucide:circle-dot" className="w-4 h-4 text-gray-500" />
+                    Status
                   </span>
                 </th>
                 <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -1108,14 +1163,19 @@ const Invoices = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {paginatedInvoices.map((invoice) => (
-                <tr key={invoice.id} className="hover:bg-blue-50/50 transition-colors">
+              {paginatedInvoices.map((invoice) => {
+                const hasErrors = (invoice.task?._count?.errors ?? 0) > 0;
+                return (
+                <tr
+                  key={invoice.id}
+                  className={`transition-colors ${hasErrors ? 'bg-red-50/80 hover:bg-red-100/80 border-l-4 border-l-red-400' : 'hover:bg-blue-50/50'}`}
+                >
                   <td className="w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold">
                     <button
                       type="button"
-                      onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
+                      onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
                       className="text-blue-700 hover:text-blue-900 hover:underline cursor-pointer text-left"
-                      title="Invoysni tahrirlash"
+                      title="Invoysni ko'rish"
                     >
                       #{invoice.invoiceNumber}
                     </button>
@@ -1137,17 +1197,44 @@ const Invoices = () => {
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700">
                     {formatDate(invoice.date)}
                   </td>
-                  <td className="px-6 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">
-                    <CurrencyDisplay
-                      amount={invoice.totalAmount}
-                      originalCurrency={invoice.currency}
-                    />
+                  <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700">
+                    {invoice.task?.status ?? '-'}
                   </td>
-                  <td className="px-6 py-2 whitespace-nowrap">
+                    <td className="px-6 py-2 whitespace-nowrap">
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
+                        onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                        title="Invoysni ko'rish"
+                      >
+                        <Icon icon="lucide:eye" className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/tasks/${invoice.taskId}/edit`)}
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+                        title="Taskni tahrirlash"
+                      >
+                        <Icon icon="lucide:clipboard-list" className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (invoice.task?.status === 'BOSHLANMAGAN') {
+                            navigate(`/invoices/task/${invoice.taskId}`);
+                          } else {
+                            setInvoiceForErrorModal(invoice);
+                            setErrorForm({
+                              workerId: '',
+                              stageName: '',
+                              amount: '',
+                              comment: '',
+                              date: new Date().toISOString().split('T')[0],
+                            });
+                            setShowErrorModal(true);
+                          }
+                        }}
                         className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-600 hover:bg-blue-100 transition-colors"
                         title="Tahrirlash"
                       >
@@ -1164,31 +1251,38 @@ const Invoices = () => {
                           >
                             <Icon icon="lucide:copy" className="w-4 h-4" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!window.confirm(`Invoice №${invoice.invoiceNumber} o'chirilsinmi?`)) return;
-                              try {
-                                await apiClient.delete(`/invoices/${invoice.id}`);
-                                loadInvoices();
-                              } catch (err: unknown) {
-                                const e = err as { response?: { data?: { error?: string } } };
-                                alert(e.response?.data?.error || 'Invoice o\'chirishda xatolik');
-                              }
-                            }}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
-                            title="O'chirish"
-                          >
-                            <Icon icon="lucide:trash-2" className="w-4 h-4" />
-                          </button>
+                          {(() => {
+                            const taskStatus = invoice.task?.status;
+                            const isEarlyTask = taskStatus === 'BOSHLANMAGAN';
+                            const invoysStageReady = invoice.task?.stages?.some(
+                              (s) => String(s.name).trim().toLowerCase() === 'invoys' && s.status === 'TAYYOR'
+                            );
+                            const canDelete = Boolean(isEarlyTask && !invoysStageReady);
+                            if (!canDelete) return null;
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setInvoiceToDelete(invoice);
+                                  setShowDeleteConfirmModal(true);
+                                }}
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
+                                title="O'chirish"
+                              >
+                                <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                              </button>
+                            );
+                          })()}
                         </>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
+              );
+              })}
             </tbody>
           </table>
+          </div>
 
           {/* Pagination */}
           {filteredInvoices.length > PAGE_SIZE && (
@@ -1241,6 +1335,214 @@ const Invoices = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Xatolik qo'shish modali — Status BOSHLANMAGAN bo'lmaganda tahrirlashdan oldin majburiy */}
+      {showErrorModal && invoiceForErrorModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowErrorModal(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">Xatolik qo&apos;shish (sorov)</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowErrorModal(false);
+                  setInvoiceForErrorModal(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Status BOSHLANMAGAN emas. Tahrirlashga o&apos;tish uchun avval xatolik (sorov) qo&apos;shing.
+            </p>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  const amountValue = errorForm.amount.trim();
+                  if (!/^\d{1,4}$/.test(amountValue)) {
+                    alert('Summa faqat USD bo\'lishi va 4 xonagacha bo\'lishi kerak');
+                    return;
+                  }
+                  const taskId = invoiceForErrorModal.taskId;
+                  await apiClient.post(`/tasks/${taskId}/errors`, {
+                    taskTitle: invoiceForErrorModal.task?.title ?? `#${invoiceForErrorModal.invoiceNumber}`,
+                    workerId: parseInt(errorForm.workerId),
+                    stageName: errorForm.stageName,
+                    amount: parseFloat(amountValue),
+                    comment: errorForm.comment || undefined,
+                    date: new Date(errorForm.date),
+                  });
+                  setShowErrorModal(false);
+                  setInvoiceForErrorModal(null);
+                  setErrorForm({ workerId: '', stageName: '', amount: '', comment: '', date: new Date().toISOString().split('T')[0] });
+                  navigate(`/invoices/task/${taskId}`);
+                } catch (err: unknown) {
+                  const e = err as { response?: { data?: { error?: string } } };
+                  alert(e.response?.data?.error || 'Xatolik yuz berdi');
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Task nomi</label>
+                <input
+                  type="text"
+                  value={invoiceForErrorModal.task?.title ?? `#${invoiceForErrorModal.invoiceNumber}`}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ishchi <span className="text-red-500">*</span></label>
+                <select
+                  required
+                  value={errorForm.workerId}
+                  onChange={(e) => setErrorForm({ ...errorForm, workerId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Ishchini tanlang</option>
+                  {workers.map((w) => (
+                    <option key={w.id} value={w.id.toString()}>{w.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bosqich <span className="text-red-500">*</span></label>
+                <select
+                  required
+                  value={errorForm.stageName}
+                  onChange={(e) => setErrorForm({ ...errorForm, stageName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Bosqichni tanlang</option>
+                  <option value="Invoys">Invoys</option>
+                  <option value="Zayavka">Zayavka</option>
+                  <option value="TIR-SMR">TIR-SMR</option>
+                  <option value="ST">ST</option>
+                  <option value="Fito">Fito</option>
+                  <option value="Deklaratsiya">Deklaratsiya</option>
+                  <option value="Tekshirish">Tekshirish</option>
+                  <option value="Topshirish">Topshirish</option>
+                  <option value="Pochta">Pochta</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Summa (USD) <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  value={errorForm.amount}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || /^\d{0,4}$/.test(v)) setErrorForm({ ...errorForm, amount: v });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tavsif</label>
+                <textarea
+                  value={errorForm.comment}
+                  onChange={(e) => setErrorForm({ ...errorForm, comment: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                  placeholder="Xato haqida qisqacha"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sana <span className="text-red-500">*</span></label>
+                <DateInput
+                  required
+                  value={errorForm.date}
+                  onChange={(value) => setErrorForm({ ...errorForm, date: value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => { setShowErrorModal(false); setInvoiceForErrorModal(null); }}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Xatolik qo&apos;shish va tahrirlashga o&apos;tish
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice o'chirish tasdiq modali */}
+      {showDeleteConfirmModal && invoiceToDelete && (
+        <div
+          className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 transition-opacity duration-200 ease-out ${
+            deleteModalClosing || !deleteModalAnimated ? 'opacity-0' : 'opacity-100'
+          }`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeleteModalClosing(true);
+          }}
+        >
+          <div
+            className={`bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 transition-all duration-200 ease-out ${
+              deleteModalClosing ? 'opacity-0 scale-95' : deleteModalAnimated ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">Invoysni o&apos;chirish</h2>
+            <p className="text-gray-600 mb-6">
+              Invoice №<strong>{invoiceToDelete.invoiceNumber}</strong> o&apos;chirilsinmi? Bu amalni qaytarib bo&apos;lmaydi.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setDeleteModalClosing(true)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!invoiceToDelete) return;
+                  setDeletingInvoiceId(invoiceToDelete.id);
+                  try {
+                    await apiClient.delete(`/invoices/${invoiceToDelete.id}`);
+                    loadInvoices();
+                    setDeleteModalClosing(true);
+                  } catch (err: unknown) {
+                    const e = err as { response?: { data?: { error?: string } } };
+                    alert(e.response?.data?.error || 'Invoice o\'chirishda xatolik');
+                  } finally {
+                    setDeletingInvoiceId(null);
+                  }
+                }}
+                disabled={deletingInvoiceId !== null}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingInvoiceId === invoiceToDelete.id ? 'O\'chirilmoqda...' : 'Ha, o\'chirish'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

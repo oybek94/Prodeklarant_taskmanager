@@ -260,9 +260,11 @@ const Invoice = () => {
   const canEdit = canEditInvoices(user?.role);
   const { taskId, clientId, contractId } = useParams<{ taskId?: string; clientId?: string; contractId?: string }>();
   const location = useLocation();
-  const locationState = location.state as { newInvoiceTaskForm?: { branchId: string; hasPsr: boolean; driverPhone?: string; comments?: string; contractNumber?: string }; duplicateInvoiceId?: number };
+  const locationState = location.state as { newInvoiceTaskForm?: { branchId: string; hasPsr: boolean; driverPhone?: string; comments?: string; contractNumber?: string }; duplicateInvoiceId?: number; viewOnly?: boolean };
   const newInvoiceTaskForm = locationState?.newInvoiceTaskForm;
   const duplicateInvoiceId = locationState?.duplicateInvoiceId;
+  const viewOnly = locationState?.viewOnly === true;
+  const canEditEffective = canEdit && !viewOnly;
 
   const [searchParams] = useSearchParams();
 
@@ -303,6 +305,8 @@ const Invoice = () => {
   const [selectedContractSpec, setSelectedContractSpec] = useState<SpecRow[]>([]);
 
   const invoiceRef = useRef<HTMLDivElement | null>(null);
+  type ChangeLogEntry = { fieldLabel: string; oldValue: string; newValue: string; changedAt?: string };
+  const initialForChangeLogRef = useRef<{ form: Record<string, unknown>; items: InvoiceItem[] } | null>(null);
   const [isPdfMode, setIsPdfMode] = useState(false);
   const [viewTab, setViewTab] = useState<'invoice' | 'spec' | 'packing'>('invoice');
   const [pdfIncludeSeal, setPdfIncludeSeal] = useState(true);
@@ -969,9 +973,38 @@ const Invoice = () => {
               carrier: inv.additionalInfo?.carrier ?? prev.carrier,
               tirNumber: inv.additionalInfo?.tirNumber ?? prev.tirNumber,
             }));
-            setItems((inv.items || []).map(normalizeItem));
+            const loadedItems = (inv.items || []).map(normalizeItem);
+            setItems(loadedItems);
             setCustomFields(inv.additionalInfo?.customFields || []);
             setSpecCustomFields(inv.additionalInfo?.specCustomFields || []);
+
+            initialForChangeLogRef.current = {
+              form: {
+                invoiceNumber: inv.invoiceNumber ?? '',
+                date: inv.date ? inv.date.split('T')[0] : '',
+                currency: inv.currency ?? 'USD',
+                contractNumber: inv.contractNumber ?? '',
+                paymentTerms: inv.additionalInfo?.paymentTerms ?? '',
+                dueDate: inv.additionalInfo?.dueDate ?? '',
+                poNumber: inv.additionalInfo?.poNumber ?? '',
+                notes: inv.notes ?? '',
+                deliveryTerms: inv.additionalInfo?.deliveryTerms ?? '',
+                vehicleNumber: inv.additionalInfo?.vehicleNumber ?? '',
+                loaderWeight: inv.additionalInfo?.loaderWeight ?? '',
+                trailerWeight: inv.additionalInfo?.trailerWeight ?? '',
+                palletWeight: inv.additionalInfo?.palletWeight ?? '',
+                trailerNumber: inv.additionalInfo?.trailerNumber ?? '',
+                smrNumber: inv.additionalInfo?.smrNumber ?? '',
+                shipmentPlace: inv.additionalInfo?.shipmentPlace ?? '',
+                destination: inv.additionalInfo?.destination ?? '',
+                origin: inv.additionalInfo?.origin ?? '',
+                manufacturer: inv.additionalInfo?.manufacturer ?? '',
+                orderNumber: inv.additionalInfo?.orderNumber ?? '',
+                gln: inv.additionalInfo?.gln ?? '',
+                customsAddress: inv.additionalInfo?.customsAddress ?? '',
+              },
+              items: loadedItems,
+            };
 
             if (inv.contractId) {
               setSelectedContractId(inv.contractId.toString());
@@ -1725,9 +1758,132 @@ const Invoice = () => {
     }
   };
 
+  const FIELD_LABELS: Record<string, string> = {
+    invoiceNumber: 'Invoice raqami',
+    date: 'Sana',
+    currency: 'Valyuta',
+    contractNumber: 'Shartnoma raqami',
+    paymentTerms: 'To\'lov shartlari',
+    dueDate: 'Muddat',
+    poNumber: 'Buyurtma raqami',
+    notes: 'Izohlar',
+    deliveryTerms: 'Yetkazib berish shartlari',
+    vehicleNumber: 'Avtomobil raqami',
+    loaderWeight: 'Yuk tortuvchi og\'irligi',
+    trailerWeight: 'Pritsep og\'irligi',
+    palletWeight: 'Poddon og\'irligi',
+    trailerNumber: 'Pritsep raqami',
+    smrNumber: 'SMR №',
+    shipmentPlace: 'Yuk tushirish joyi',
+    destination: 'Yetkazib berish manzili',
+    origin: 'Kelib chiqishi',
+    manufacturer: 'Ishlab chiqaruvchi',
+    orderNumber: 'Buyurtma raqami',
+    gln: 'GLN',
+    customsAddress: 'Bo\'jxona manzili',
+    items: 'Tovarlar ro\'yxati',
+  };
+
+  const formatChangeLogDateTime = (d: Date) => {
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const h = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${day}.${month}.${year} ${h}:${min}`;
+  };
+
+  const buildChangeLog = (): ChangeLogEntry[] => {
+    const initial = initialForChangeLogRef.current;
+    if (!initial) return [];
+    const changedAt = formatChangeLogDateTime(new Date());
+    const entries: ChangeLogEntry[] = [];
+    const curForm: Record<string, unknown> = {
+      invoiceNumber: form.invoiceNumber ?? '',
+      date: form.date ?? '',
+      currency: form.currency ?? 'USD',
+      contractNumber: form.contractNumber ?? '',
+      paymentTerms: form.paymentTerms ?? '',
+      dueDate: form.dueDate ?? '',
+      poNumber: form.poNumber ?? '',
+      notes: form.notes ?? '',
+      deliveryTerms: form.deliveryTerms ?? '',
+      vehicleNumber: form.vehicleNumber ?? '',
+      loaderWeight: form.loaderWeight ?? '',
+      trailerWeight: form.trailerWeight ?? '',
+      palletWeight: form.palletWeight ?? '',
+      trailerNumber: form.trailerNumber ?? '',
+      smrNumber: form.smrNumber ?? '',
+      shipmentPlace: form.shipmentPlace ?? '',
+      destination: form.destination ?? '',
+      origin: form.origin ?? '',
+      manufacturer: form.manufacturer ?? '',
+      orderNumber: form.orderNumber ?? '',
+      gln: form.gln ?? '',
+      customsAddress: form.customsAddress ?? '',
+    };
+    for (const key of Object.keys(FIELD_LABELS)) {
+      if (key === 'items') continue;
+      const oldV = String(initial.form[key] ?? '');
+      const newV = String(curForm[key] ?? '');
+      if (oldV !== newV) entries.push({ fieldLabel: FIELD_LABELS[key] || key, oldValue: oldV || '—', newValue: newV || '—', changedAt });
+    }
+    const ITEM_FIELD_LABELS: Record<string, string> = {
+      name: 'Наименование товара',
+      quantity: 'Мест',
+      packagesCount: 'Кол-во упаковки',
+      unit: 'Ед. изм.',
+      packageType: 'Вид упаковки',
+      grossWeight: 'Брутто (кг)',
+      netWeight: 'Нетто (кг)',
+      unitPrice: 'Цена за ед.изм.',
+      totalPrice: 'Сумма с НДС',
+    };
+    const maxRows = Math.max(initial.items.length, items.length);
+    for (let rowIdx = 0; rowIdx < maxRows; rowIdx++) {
+      const oldRow = initial.items[rowIdx];
+      const newRow = items[rowIdx];
+      const rowNum = rowIdx + 1;
+      if (!oldRow && newRow) {
+        entries.push({
+          fieldLabel: `Tovar ${rowNum}`,
+          oldValue: '—',
+          newValue: 'Qo\'shilgan',
+          changedAt,
+        });
+        continue;
+      }
+      if (oldRow && !newRow) {
+        entries.push({
+          fieldLabel: `Tovar ${rowNum}`,
+          oldValue: 'O\'chirilgan',
+          newValue: '—',
+          changedAt,
+        });
+        continue;
+      }
+      if (!oldRow || !newRow) continue;
+      for (const [key, label] of Object.entries(ITEM_FIELD_LABELS)) {
+        const oldV = oldRow[key as keyof InvoiceItem];
+        const newV = newRow[key as keyof InvoiceItem];
+        const oldStr = oldV != null ? String(oldV) : '';
+        const newStr = newV != null ? String(newV) : '';
+        if (oldStr !== newStr) {
+          entries.push({
+            fieldLabel: `Tovar ${rowNum} — ${label}`,
+            oldValue: oldStr || '—',
+            newValue: newStr || '—',
+            changedAt,
+          });
+        }
+      }
+    }
+    return entries;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canEdit) return;
+    if (!canEditEffective) return;
 
     if (!form.deliveryTerms.trim() || !form.vehicleNumber.trim()) {
       setAdditionalInfoError('Iltimos, "Условия поставки" va "Номер автотранспорта" maydonlarini to‘ldiring');
@@ -1830,56 +1986,58 @@ const Invoice = () => {
 
         notes: form.notes,
 
-        additionalInfo: {
-
-          paymentTerms: form.paymentTerms,
-
-          dueDate: form.dueDate,
-
-          poNumber: form.poNumber,
-
-          terms: form.terms,
-
-          tax: form.tax,
-
-          discount: form.discount,
-
-          shipping: form.shipping,
-
-          amountPaid: form.amountPaid,
-
-          paymentMethod: form.additionalInfo?.paymentMethod,
-
-          // Дополнительная информация
-          deliveryTerms: form.deliveryTerms,
-          vehicleNumber: form.vehicleNumber,
-          fssRegionInternalCode: form.fssRegionInternalCode,
-          fssRegionName: form.fssRegionName,
-          fssRegionExternalCode: form.fssRegionExternalCode,
-          packagingTypeCodes: packagingTypes.map((entry) => ({
-            name: entry.name,
-            code: entry.code || '',
-          })),
-          loaderWeight: form.loaderWeight,
-          trailerWeight: form.trailerWeight,
-          palletWeight: form.palletWeight,
-          trailerNumber: form.trailerNumber,
-          smrNumber: form.smrNumber,
-          shipmentPlace: form.shipmentPlace,
-          customsAddress: form.customsAddress ?? undefined,
-          destination: form.destination,
-          origin: form.origin,
-          manufacturer: form.manufacturer,
-          orderNumber: form.orderNumber,
-          gln: form.gln,
-          harvestYear: form.harvestYear,
-          documents: form.documents,
-          carrier: form.carrier,
-          tirNumber: form.tirNumber,
-          customFields: customFields,
-          specCustomFields: specCustomFields,
-        },
-
+        additionalInfo: (() => {
+          const base = {
+            paymentTerms: form.paymentTerms,
+            dueDate: form.dueDate,
+            poNumber: form.poNumber,
+            terms: form.terms,
+            tax: form.tax,
+            discount: form.discount,
+            shipping: form.shipping,
+            amountPaid: form.amountPaid,
+            paymentMethod: form.additionalInfo?.paymentMethod,
+            deliveryTerms: form.deliveryTerms,
+            vehicleNumber: form.vehicleNumber,
+            fssRegionInternalCode: form.fssRegionInternalCode,
+            fssRegionName: form.fssRegionName,
+            fssRegionExternalCode: form.fssRegionExternalCode,
+            packagingTypeCodes: packagingTypes.map((entry) => ({
+              name: entry.name,
+              code: entry.code || '',
+            })),
+            loaderWeight: form.loaderWeight,
+            trailerWeight: form.trailerWeight,
+            palletWeight: form.palletWeight,
+            trailerNumber: form.trailerNumber,
+            smrNumber: form.smrNumber,
+            shipmentPlace: form.shipmentPlace,
+            customsAddress: form.customsAddress ?? undefined,
+            destination: form.destination,
+            origin: form.origin,
+            manufacturer: form.manufacturer,
+            orderNumber: form.orderNumber,
+            gln: form.gln,
+            harvestYear: form.harvestYear,
+            documents: form.documents,
+            carrier: form.carrier,
+            tirNumber: form.tirNumber,
+            customFields: customFields,
+            specCustomFields: specCustomFields,
+          };
+          if (invoice) {
+            const newEntries = buildChangeLog();
+            const existingLog = (invoice.additionalInfo && typeof invoice.additionalInfo === 'object' && Array.isArray((invoice.additionalInfo as any).changeLog))
+              ? (invoice.additionalInfo as any).changeLog
+              : [];
+            if (newEntries.length > 0) {
+              (base as any).changeLog = [...existingLog, ...newEntries];
+            } else if (existingLog.length > 0) {
+              (base as any).changeLog = existingLog;
+            }
+          }
+          return base;
+        })(),
       };
 
 
@@ -2023,7 +2181,7 @@ const Invoice = () => {
   ].filter(Boolean).length;
   const isPackingView = viewTab === 'packing';
   const effectiveColumns = (() => {
-    const base = isPdfMode ? { ...visibleColumns, actions: false } : visibleColumns;
+    const base = (isPdfMode || viewOnly) ? { ...visibleColumns, actions: false } : visibleColumns;
     if (!isPackingView) return base;
     return { ...base, unitPrice: false, total: false };
   })();
@@ -2480,7 +2638,7 @@ const Invoice = () => {
 
 
 
-        <form onSubmit={handleSubmit} className={`invoice-form${!canEdit ? ' invoice-form-readonly' : ''}`}>
+        <form onSubmit={handleSubmit} className={`invoice-form${!canEditEffective ? ' invoice-form-readonly' : ''}`}>
 
           <datalist id="invoice-tnved-products">
             {tnvedProducts.map((p) => (
@@ -2492,6 +2650,31 @@ const Invoice = () => {
               <option key={p.id} value={p.name} />
             ))}
           </datalist>
+
+          {user?.role === 'ADMIN' && invoice?.additionalInfo && typeof invoice.additionalInfo === 'object' && Array.isArray((invoice.additionalInfo as any).changeLog) && (invoice.additionalInfo as any).changeLog.length > 0 && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <h3 className="text-sm font-semibold text-amber-900 mb-3">O&apos;zgarishlar hisoboti</h3>
+              <ul className="space-y-2 text-sm">
+                {(invoice.additionalInfo as any).changeLog
+                  .filter((entry: ChangeLogEntry) => {
+                    if (entry.fieldLabel === "Tovarlar ro'yxati" || entry.fieldLabel === 'Tovarlar') return false;
+                    if (/^\d+ ta qator, jami /.test(entry.oldValue) || /^\d+ ta qator, jami /.test(entry.newValue)) return false;
+                    return true;
+                  })
+                  .map((entry: ChangeLogEntry, idx: number) => (
+                  <li key={idx} className="text-gray-700 flex flex-wrap items-baseline gap-x-2">
+                    <span>
+                      <span className="font-medium text-amber-800">{entry.fieldLabel}:</span>{' '}
+                      Oldin <span className="text-gray-600">{entry.oldValue}</span>, hozir <span className="font-medium text-gray-900">{entry.newValue}</span>
+                    </span>
+                    {entry.changedAt && (
+                      <span className="text-xs text-gray-500 whitespace-nowrap">— {entry.changedAt}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="mb-4 flex flex-wrap gap-2">
             {[
@@ -2986,7 +3169,7 @@ const Invoice = () => {
 
                 <h3 className="font-semibold text-gray-800">Товары</h3>
 
-                {(viewTab === 'invoice') && (
+                {(viewTab === 'invoice' && canEditEffective) && (
                 <div className="flex items-center gap-2">
                   <details
                     ref={columnsDropdownRef}
@@ -3672,7 +3855,7 @@ const Invoice = () => {
                   {additionalInfoError}
                 </div>
               )}
-              {canEdit && !invoysStageReady && (
+              {canEditEffective && !invoysStageReady && (
                 <button
                   type="button"
                   onClick={handleMarkInvoysReady}
@@ -3690,7 +3873,7 @@ const Invoice = () => {
               >
                 Bekor qilish
               </button>
-              {canEdit && (
+              {canEditEffective && (
                 <button
                   type="submit"
                   disabled={saving}
@@ -3711,7 +3894,7 @@ const Invoice = () => {
       {/* Дополнительная информация Modal */}
       {showAdditionalInfoModal && (
         <div className="invoice-additional-info-modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto${!canEdit ? ' invoice-additional-info-modal-readonly' : ''}`}>
+          <div className={`bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto${!canEditEffective ? ' invoice-additional-info-modal-readonly' : ''}`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">Дополнительная информация</h2>
                     <button
@@ -3850,7 +4033,7 @@ const Invoice = () => {
                       />
                     </div>
                   ))}
-                  {canEdit && (
+                  {canEditEffective && (
                     <div className="pt-2 border-t">
                       <button
                         type="button"
@@ -4178,7 +4361,7 @@ const Invoice = () => {
               ))}
 
               {/* Yangi maydon qo'shish tugmasi */}
-              {canEdit && (
+              {canEditEffective && (
                 <div className="pt-2 border-t">
                   <button
                     type="button"
@@ -4203,7 +4386,7 @@ const Invoice = () => {
               >
                 Yopish
               </button>
-              {canEdit && (
+              {canEditEffective && (
                 <button
                   type="button"
                   onClick={() => setShowAdditionalInfoModal(false)}

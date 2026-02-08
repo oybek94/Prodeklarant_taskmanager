@@ -2140,7 +2140,13 @@ const Invoice = () => {
                 border: none !important;
                 vertical-align: middle !important;
               }
-              .pdf-mode .items-table-compact thead th,
+              .pdf-mode .items-table-compact thead th {
+                background: #fff !important;
+                color: #111 !important;
+                vertical-align: top !important;
+                position: relative;
+                top: -6px;
+              }
               .pdf-mode .items-table-compact tfoot td {
                 vertical-align: top !important;
                 position: relative;
@@ -3016,11 +3022,13 @@ const Invoice = () => {
 
               
 
-              <div className="overflow-x-auto border border-black rounded-lg invoice-table-wrap flex flex-wrap justify-start items-start">
+              <>
                 {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
+                <>
+                <div className="overflow-x-auto border border-black rounded-lg invoice-table-wrap flex flex-wrap justify-start items-start">
                 <table className="w-full text-sm items-table-compact border-0">
                     <thead className="text-left">
-                      <tr className="bg-blue-700 text-white">
+                      <tr className="bg-white text-gray-900 font-semibold border-b-2 border-gray-800">
                         {effectiveColumns.index && (
                           <th className="px-2 py-2 text-center text-xs font-semibold w-12" style={{ verticalAlign: 'top' }}>
                             {columnLabels.index}
@@ -3128,7 +3136,7 @@ const Invoice = () => {
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-gray-100 font-semibold border-t-2 border-gray-400 h-[35px]">
+                      <tr className="bg-white font-semibold border-t-2 border-gray-400 h-[35px]">
                         {leadingColumnsCount > 0 && (
                           <td className="px-2 pt-1.5 pb-2.5 text-center" colSpan={leadingColumnsCount} style={{ verticalAlign: 'top' }}>
                             Всего:
@@ -3161,19 +3169,21 @@ const Invoice = () => {
                           </td>
                         )}
                       </tr>
-                      {effectiveColumns.total && (
-                        <tr>
-                          <td className="px-2 py-1.5 text-left text-sm" colSpan={15}>
-                            Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
-                          </td>
-                        </tr>
-                      )}
                     </tfoot>
                   </table>
+                </div>
+                  {effectiveColumns.total && (
+                    <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
+                      Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
+                    </div>
+                  )}
+                </>
                 ) : (
+                <>
+                  <div className="overflow-x-auto border border-black rounded-lg invoice-table-wrap flex flex-wrap justify-start items-start">
                   <table className="w-full text-sm items-table-compact border-0">
                     <thead className="text-left">
-                      <tr className="bg-blue-700 text-white">
+                      <tr className="bg-white text-gray-900 font-semibold border-b-2 border-gray-800">
                         {effectiveColumns.index && (
                           <th className="px-2 py-3 text-center text-xs font-semibold w-12" style={{ verticalAlign: 'top' }}>
                             {columnLabels.index}
@@ -3414,7 +3424,7 @@ const Invoice = () => {
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-gray-100 font-semibold border-t-2 border-gray-400 h-[35px]">
+                      <tr className="bg-white font-semibold border-t-2 border-gray-400 h-[35px]">
                         {leadingColumnsCount > 0 && (
                           <td className="px-2 pt-1.5 pb-2.5 text-center" colSpan={leadingColumnsCount} style={{ verticalAlign: 'top' }}>
                             Всего:
@@ -3448,17 +3458,17 @@ const Invoice = () => {
                         )}
                         {effectiveColumns.actions && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
                       </tr>
-                      {effectiveColumns.total && (
-                        <tr className="bg-gray-50 border-t border-gray-200">
-                          <td className="px-2 py-1.5 text-left text-sm bg-white" colSpan={15}>
-                            Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
-                          </td>
-                        </tr>
-                      )}
                     </tfoot>
                   </table>
+                  </div>
+                  {effectiveColumns.total && (
+                    <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
+                      Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
+                    </div>
+                  )}
+                </>
                 )}
-              </div>
+              </>
 
               {/* Maksimal og'irlik va Tekshiruv yonma-yon (PDF da va Spetsifikatsiya tabida ko'rinmas) */}
               {!isPdfMode && viewTab !== 'spec' && (() => {

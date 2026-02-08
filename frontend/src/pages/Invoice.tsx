@@ -978,6 +978,8 @@ const Invoice = () => {
               try {
                 const contractResponse = await apiClient.get(`/contracts/${inv.contractId}`);
                 const contract = contractResponse.data;
+                const contractCurrency = (contract.contractCurrency && ['USD', 'RUB', 'EUR'].includes(contract.contractCurrency)) ? contract.contractCurrency : 'USD';
+                setSelectedContractCurrency(contractCurrency);
                 let spec: SpecRow[] = [];
                 if (contract.specification) {
                   if (Array.isArray(contract.specification)) spec = contract.specification;

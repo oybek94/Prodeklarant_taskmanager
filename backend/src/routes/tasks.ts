@@ -1881,6 +1881,14 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
       data: updateData,
     });
 
+    // Task filiali o'zgarganda tegishli invoysning branchId sini ham yangilash (Invoyslar jadvalida to'g'ri ko'rinsin)
+    if (parsed.data.branchId != null && parsed.data.branchId !== task.branchId) {
+      await (tx as any).invoice.updateMany({
+        where: { taskId: id },
+        data: { branchId: parsed.data.branchId },
+      });
+    }
+
     return updatedTask;
   });
 

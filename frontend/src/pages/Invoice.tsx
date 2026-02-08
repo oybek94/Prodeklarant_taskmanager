@@ -2155,18 +2155,16 @@ const Invoice = () => {
                 display: none !important;
               }
               .pdf-mode .items-table-compact tbody tr {
-                min-height: 28px;
+                min-height: 48px;
               }
               .pdf-mode .items-table-compact tbody td {
                 line-height: 1.2;
-                vertical-align: top;
-                padding-top: 4px;
-                padding-bottom: 4px;
-                position: relative;
-                top: -2px;
+                vertical-align: middle !important;
+                padding-top: 0px;
+                padding-bottom: 12px;
               }
               .pdf-mode .invoice-header {
-                margin-top: -40px;
+                margin-top: 0px;
               }
               .pdf-mode .flex.flex-col.bg-white {
                 align-items: flex-start;
@@ -3018,10 +3016,10 @@ const Invoice = () => {
 
               
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto border border-black rounded-lg invoice-table-wrap flex flex-wrap justify-start items-start">
                 {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
-                <table className="w-full text-sm items-table-compact">
-                    <thead>
+                <table className="w-full text-sm items-table-compact border-0">
+                    <thead className="text-left">
                       <tr className="bg-blue-700 text-white">
                         {effectiveColumns.index && (
                           <th className="px-2 py-2 text-center text-xs font-semibold w-12" style={{ verticalAlign: 'top' }}>
@@ -3173,8 +3171,8 @@ const Invoice = () => {
                     </tfoot>
                   </table>
                 ) : (
-                  <table className="w-full text-sm items-table-compact">
-                    <thead>
+                  <table className="w-full text-sm items-table-compact border-0">
+                    <thead className="text-left">
                       <tr className="bg-blue-700 text-white">
                         {effectiveColumns.index && (
                           <th className="px-2 py-3 text-center text-xs font-semibold w-12" style={{ verticalAlign: 'top' }}>

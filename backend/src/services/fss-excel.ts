@@ -47,6 +47,18 @@ const setTextCell = (sheet: ExcelJS.Worksheet, address: string, value?: CellValu
   cell.value = toPlain(value);
 };
 
+/** C ustunida raqamlar yoziladi — format General (Общий) */
+const setGeneralCell = (sheet: ExcelJS.Worksheet, address: string, value?: CellValue) => {
+  const cell = sheet.getCell(address);
+  cell.numFmt = 'General';
+  if (value === null || value === undefined) {
+    cell.value = null;
+    return;
+  }
+  const num = Number(value);
+  cell.value = Number.isFinite(num) ? num : toPlain(value);
+};
+
 const BOTANICAL_BY_TNVED: Record<string, string> = {
   '0809290001': 'Prunus avium',
   '0809301001': 'Prunus persica var.nucipersica',
@@ -136,7 +148,7 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
       const row = startRow + index;
       setTextCell(sheet, `A${row}`, item?.tnvedCode);
       setTextCell(sheet, `B${row}`, item?.name);
-      setTextCell(sheet, `C${row}`, item?.netWeight);
+      setGeneralCell(sheet, `C${row}`, item?.netWeight);
       setTextCell(sheet, `D${row}`, '166');
       setTextCell(sheet, `E${row}`, additionalInfo.vehicleNumber);
       setTextCell(sheet, `I${row}`, regionInternalCode);

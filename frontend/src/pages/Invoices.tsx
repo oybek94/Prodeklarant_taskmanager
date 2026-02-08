@@ -34,6 +34,7 @@ interface Invoice {
     id: number;
     title: string;
     status: string;
+    branch?: { id: number; name: string };
   };
   client?: {
     id: number;
@@ -1123,7 +1124,7 @@ const Invoices = () => {
                     {invoice.client?.name || '-'}
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700">
-                    {invoice.branch?.name || '-'}
+                    {invoice.task?.branch?.name ?? invoice.branch?.name ?? '-'}
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 font-mono">
                     {invoice.additionalInfo?.vehicleNumber || '-'}

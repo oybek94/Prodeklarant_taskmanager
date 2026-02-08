@@ -59,6 +59,7 @@ const contractSchema = z.object({
   deliveryTerms: z.string().optional(),
   customsAddress: z.string().optional(),
   paymentMethod: z.string().optional(),
+  contractCurrency: z.string().optional(), // Shartnoma valyutasi (USD, RUB va boshqalar)
   gln: z.string().optional(), // Глобальный идентификационный номер GS1 (GLN)
   supplierDirector: z.string().optional(), // Руководитель Поставщика
   buyerDirector: z.string().optional(),
@@ -237,6 +238,8 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
     if (data.deliveryTerms !== undefined) contractData.deliveryTerms = data.deliveryTerms;
     if (data.customsAddress !== undefined) contractData.customsAddress = data.customsAddress;
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
+    // Shartnoma valyutasi — yaratishda har doim saqlash
+    contractData.contractCurrency = (data.contractCurrency && String(data.contractCurrency).trim()) ? String(data.contractCurrency).trim() : 'USD';
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
@@ -419,6 +422,7 @@ router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res
     if (data.deliveryTerms !== undefined) contractData.deliveryTerms = data.deliveryTerms;
     if (data.customsAddress !== undefined) contractData.customsAddress = data.customsAddress;
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
+    contractData.contractCurrency = (data.contractCurrency != null && String(data.contractCurrency).trim()) ? String(data.contractCurrency).trim() : 'USD';
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;

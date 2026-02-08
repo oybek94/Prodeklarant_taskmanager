@@ -186,6 +186,8 @@ interface Contract {
 
   paymentMethod?: string;
 
+  contractCurrency?: string; // Shartnoma valyutasi (USD, RUB, EUR)
+
   supplierDirector?: string; // Руководитель Поставщика
   goodsReleasedBy?: string; // Товар отпустил
   signatureUrl?: string;
@@ -295,6 +297,8 @@ const Invoice = () => {
   const [contracts, setContracts] = useState<Contract[]>([]);
 
   const [selectedContractId, setSelectedContractId] = useState<string>('');
+
+  const [selectedContractCurrency, setSelectedContractCurrency] = useState<string>('USD');
   type SpecRow = { productName?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number };
   const [selectedContractSpec, setSelectedContractSpec] = useState<SpecRow[]>([]);
 
@@ -1610,6 +1614,7 @@ const Invoice = () => {
 
     if (!contractId) {
       setSelectedContractSpec([]);
+      setSelectedContractCurrency('USD');
       return;
     }
 
@@ -1640,6 +1645,8 @@ const Invoice = () => {
       const firstDt = deliveryTermsList[0] || dtArr[0] || '';
       const pairedCustoms = firstDt ? (() => { const i = dtArr.indexOf(firstDt); return i >= 0 && caArr[i]?.trim() ? caArr[i].trim() : ''; })() : '';
       setContractDeliveryTerms(deliveryTermsList.length ? deliveryTermsList : (firstDt ? [firstDt] : []));
+      const contractCurrency = (contract.contractCurrency && ['USD', 'RUB', 'EUR'].includes(contract.contractCurrency)) ? contract.contractCurrency : 'USD';
+      setSelectedContractCurrency(contractCurrency);
       setForm(prev => ({
         ...prev,
         contractNumber: contract.contractNumber,
@@ -2068,7 +2075,8 @@ const Invoice = () => {
       if (o > 0) r += ones[o];
       return r.trim();
     };
-    if (num === 0) return currency === 'USD' ? 'ноль долларов США' : 'ноль сумов';
+    const zeroPhrase = currency === 'USD' ? 'ноль долларов США' : currency === 'RUB' ? 'ноль рублей РФ' : currency === 'EUR' ? 'ноль евро' : 'ноль сумов';
+    if (num === 0) return zeroPhrase;
     const whole = Math.floor(num);
     const dec = Math.round((num - whole) * 100);
     let result = '';
@@ -2084,14 +2092,26 @@ const Invoice = () => {
       if (whole === 1) result += ' доллар США';
       else if (whole < 5) result += ' доллара США';
       else result += ' долларов США';
+    } else if (currency === 'RUB') {
+      if (whole === 1) result += ' рубль РФ';
+      else if (whole >= 2 && whole <= 4) result += ' рубля РФ';
+      else result += ' рублей РФ';
+    } else if (currency === 'EUR') {
+      if (whole === 1) result += ' евро';
+      else if (whole >= 2 && whole <= 4) result += ' евро';
+      else result += ' евро';
     } else {
       if (whole === 1) result += ' сум';
       else if (whole < 5) result += ' сума';
       else result += ' сумов';
     }
-    if (dec > 0) result += ` ${dec} ${currency === 'USD' ? 'центов' : 'тиин'}`;
+    const fracWord = currency === 'USD' ? 'центов' : currency === 'RUB' ? 'копеек' : currency === 'EUR' ? 'евроцентов' : 'тиин';
+    if (dec > 0) result += ` ${dec} ${fracWord}`;
     return result.charAt(0).toUpperCase() + result.slice(1);
   };
+
+  const invoiceCurrency = selectedContractCurrency || form.currency || 'USD';
+  const totalColumnLabel = invoiceCurrency === 'USD' ? 'Общая сумма в Долл. США' : invoiceCurrency === 'RUB' ? 'Общая сумма Рубли РФ' : invoiceCurrency === 'EUR' ? 'Общая сумма в Евро' : columnLabels.total;
 
   return (
 
@@ -3086,7 +3106,7 @@ const Invoice = () => {
                         )}
                         {effectiveColumns.total && (
                           <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.total}
+                            {totalColumnLabel}
                           </th>
                         )}
                       </tr>
@@ -3174,7 +3194,7 @@ const Invoice = () => {
                 </div>
                   {effectiveColumns.total && (
                     <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
-                      Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
+                      Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), invoiceCurrency)}
                     </div>
                   )}
                 </>
@@ -3241,7 +3261,7 @@ const Invoice = () => {
                         )}
                         {effectiveColumns.total && (
                           <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.total}
+                            {totalColumnLabel}
                           </th>
                         )}
                         {effectiveColumns.actions && (
@@ -3463,7 +3483,7 @@ const Invoice = () => {
                   </div>
                   {effectiveColumns.total && (
                     <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
-                      Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), form.currency)}
+                      Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), invoiceCurrency)}
                     </div>
                   )}
                 </>
@@ -3623,7 +3643,7 @@ const Invoice = () => {
                                   )}
                                 </div>
                                 {p.signatureUrl && (
-                                  <div className="h-16 flex items-center justify-center overflow-hidden">
+                                  <div className="h-16 flex items-start justify-start overflow-hidden">
                                     <img src={resolveUploadUrl(p.signatureUrl)} alt="" className="h-full w-auto max-w-full object-contain" />
                                   </div>
                                 )}

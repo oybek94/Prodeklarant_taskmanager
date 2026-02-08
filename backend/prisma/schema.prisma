@@ -792,6 +792,7 @@ model Contract {
   deliveryTerms                  String?
   customsAddress                 String?
   paymentMethod                  String?
+  contractCurrency               String?   // Shartnoma valyutasi (USD, RUB va boshqalar)
   gln                            String?
   supplierDirector               String?
   buyerDirector                  String?

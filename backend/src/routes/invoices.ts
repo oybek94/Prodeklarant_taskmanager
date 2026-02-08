@@ -73,6 +73,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
             id: true,
             title: true,
             status: true,
+            branch: { select: { id: true, name: true } }
           }
         },
         client: {

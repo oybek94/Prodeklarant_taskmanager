@@ -405,6 +405,7 @@ const Clients = () => {
   const [contractForm, setContractForm] = useState<{
     contractNumber: string;
     contractDate: string;
+    contractCurrency: string;
     sellerName: string;
     sellerInn: string;
     sellerLegalAddress: string;
@@ -441,6 +442,7 @@ const Clients = () => {
   }>({
     contractNumber: '',
     contractDate: '',
+    contractCurrency: 'USD',
     sellerName: '',
     sellerInn: '',
     sellerLegalAddress: '',
@@ -547,6 +549,7 @@ const Clients = () => {
     const empty = {
       contractNumber: '',
       contractDate: '',
+      contractCurrency: 'USD',
       sellerName: '',
       sellerInn: '',
       sellerLegalAddress: '',
@@ -717,6 +720,7 @@ const Clients = () => {
         clientId: selectedClient.id,
         contractNumber: form.contractNumber,
         contractDate: form.contractDate,
+        contractCurrency: (form.contractCurrency?.trim() || 'USD'),
         sellerName: form.sellerName,
         sellerInn: form.sellerInn || undefined,
         sellerLegalAddress: form.sellerLegalAddress,
@@ -825,6 +829,7 @@ const Clients = () => {
       setContractFormAndRef({
         contractNumber: c.contractNumber || '',
         contractDate: c.contractDate ? String(c.contractDate).split('T')[0] : '',
+        contractCurrency: (c as any).contractCurrency || 'USD',
         sellerName: c.sellerName || '',
         sellerInn: c.sellerInn || '',
         sellerLegalAddress: c.sellerLegalAddress || '',
@@ -873,6 +878,7 @@ const Clients = () => {
       setContractFormAndRef({
         contractNumber: contract.contractNumber || '',
         contractDate: contract.contractDate ? contract.contractDate.split('T')[0] : '',
+        contractCurrency: (contract as any).contractCurrency || 'USD',
         sellerName: contract.sellerName || '',
         sellerInn: contract.sellerInn || '',
         sellerLegalAddress: contract.sellerLegalAddress || '',
@@ -2153,6 +2159,18 @@ const Clients = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma valyutasi</label>
+                    <select
+                      value={contractForm.contractCurrency || 'USD'}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, contractCurrency: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg min-w-[120px]"
+                    >
+                      <option value="USD">USD</option>
+                      <option value="RUB">RUB</option>
+                      <option value="EUR">EUR</option>
+                    </select>
                   </div>
                 </div>
               </div>

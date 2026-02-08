@@ -40,7 +40,7 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
       nextReminderTime: { lte: now },
     },
     include: {
-      task: { select: { id: true, title: true } },
+      task: { select: { id: true, title: true, branchId: true } },
     },
   });
 
@@ -74,18 +74,28 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
       }
       // remindersSent==3: no more reminders, will escalate
 
-      // Bildirishnoma faqat yuklab olish tugmasini bosgan ishchiga (tp.userId)
+      // Bildirishnoma: yuklab olgan ishchi (tp.userId) + vazifa filialidagi barcha faol ishchilar
+      const recipientIds = new Set<number>([tp.userId]);
+      if (tp.task?.branchId != null) {
+        const branchUsers = await prisma.user.findMany({
+          where: { branchId: tp.task.branchId, active: true },
+          select: { id: true },
+        });
+        branchUsers.forEach((u) => recipientIds.add(u.id));
+      }
       const txOps: any[] = [
-        prisma.inAppNotification.create({
-          data: {
-            userId: tp.userId,
-            taskId: tp.taskId,
-            taskProcessId: tp.id,
-            message,
-            actionUrl,
-            read: false,
-          },
-        }),
+        ...Array.from(recipientIds).map((userId) =>
+          prisma.inAppNotification.create({
+            data: {
+              userId,
+              taskId: tp.taskId,
+              taskProcessId: tp.id,
+              message,
+              actionUrl,
+              read: false,
+            },
+          })
+        ),
         prisma.taskProcessLog.create({
           data: {
             taskProcessId: tp.id,
@@ -148,7 +158,7 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
 
       await prisma.$transaction(txOps);
       processed++;
-      console.log(`[Process Reminder] Bildirishnoma yuborildi: userId=${tp.userId}, taskId=${tp.taskId}, processType=${tp.processType}`);
+      console.log(`[Process Reminder] Bildirishnoma yuborildi: ${recipientIds.size} kishiga, taskId=${tp.taskId}, processType=${tp.processType}`);
     } catch (err) {
       console.error(`[ProcessReminder] Error processing taskProcess ${tp.id}:`, err);
     }

@@ -136,7 +136,7 @@ export async function generateCommodityEkExcel(
   }
 
   const additionalInfo = (invoice.additionalInfo || {}) as Record<string, unknown>;
-  // H4 — Продавец (Sotuvchi) INN; I4 — Tanlangan tuman ichki kodi
+  // H4 — Продавец (Sotuvchi) INN; I4 — Tanlangan tuman kodi (Oltiariq filialida 1730203, route da forcedRegionInternalCode orqali beriladi)
   const sellerInn = payload.contract?.sellerInn ? toStr(payload.contract.sellerInn) : '';
   const regionInternalCode = toStr(
     payload.forcedRegionInternalCode ??
@@ -228,7 +228,9 @@ export async function generateCommodityEkExcel(
     set('netWeightN', netWeight === '' ? '' : netWeight);
     set('grossWeight', grossWeight === '' ? '' : grossWeight);
     set('netWeight', netWeight === '' ? '' : netWeight);
-    // Q, R, S, T, U, V, W, X — to'ldirilmaydi
+    // R4, R5, ... — ushbu tovarning faktura qiymati (Сумма с НДС)
+    const fakturaValue = toNum(item.totalPrice);
+    set('fakturaValue', fakturaValue === '' ? '' : fakturaValue);
   });
 
   return workbook;

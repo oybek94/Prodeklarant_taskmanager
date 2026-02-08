@@ -97,9 +97,58 @@ const BOTANICAL_BY_TNVED: Record<string, string> = {
   '0709996000': 'Zea mays',
 };
 
-const getBotanicalName = (item: InvoiceItem) => {
-  const code = item?.tnvedCode ? String(item.tnvedCode).trim() : '';
-  if (code && BOTANICAL_BY_TNVED[code]) return BOTANICAL_BY_TNVED[code];
+/** Tovar nomini qidiruv uchun normalizatsiya (kichik harf, bo'shliq birlashtirish) */
+const normalizeNameForLookup = (name: string): string => {
+  return (name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+};
+
+/**
+ * Botanik nomni "Наименование товара" (tovar nomi) bo'yicha topish.
+ */
+const BOTANICAL_BY_PRODUCT_NAME: { keys: string[]; botanical: string }[] = [
+  { keys: ['вишня', 'черешня', 'cherry'], botanical: 'Prunus avium' },
+  { keys: ['нектарин', 'nectarine'], botanical: 'Prunus persica var.nucipersica' },
+  { keys: ['персик', 'peach', 'shaftoli'], botanical: 'Prunus persica' },
+  { keys: ['абрикос', 'apricot', "o'rik", 'orik'], botanical: 'Prunus armeniaca' },
+  { keys: ['гранат', 'pomegranate', 'anor'], botanical: 'Punica granatum' },
+  { keys: ['помидор', 'томат', 'tomat', 'tomato', 'pomidor'], botanical: 'Solanum lycopersicum' },
+  { keys: ['чеснок', 'garlic', 'sarimsoq'], botanical: 'Allium sativum' },
+  { keys: ['цветная капуста', 'cauliflower'], botanical: 'Brassica oleracea var. botrytis' },
+  { keys: ['морковь', 'carrot', 'sabzi'], botanical: 'Daucus carota subsp.sativus' },
+  { keys: ['свекла', 'beet', 'lavlagi'], botanical: 'Beta vulgaris' },
+  { keys: ['лимон', 'lemon', 'limon'], botanical: 'Citrus limon' },
+  { keys: ['петрушка', 'parsley'], botanical: 'Petroselinum sativum' },
+  { keys: ['пекинская капуста', 'pekin', 'peking'], botanical: 'Brassica rapa subsp. Pekinensis' },
+  { keys: ['огурец', 'cucumber', 'bodring'], botanical: 'Cucumis sativus' },
+  { keys: ['перец', 'pepper', 'qalampir', 'capsicum'], botanical: 'Capsicum annuum' },
+  { keys: ['лук репчатый', 'onion', 'piyoz'], botanical: 'Allium cepa' },
+  { keys: ['лук-порей', 'порей', 'leek'], botanical: 'Allium fistulosum' },
+  { keys: ['баклажан', 'eggplant', 'baqlajon'], botanical: 'Solanum melongena' },
+  { keys: ['яблоко', 'apple', 'olma'], botanical: 'Malus domestica' },
+  { keys: ['дыня', 'melon', 'qovun'], botanical: 'Cucumis melo' },
+  { keys: ['арбуз', 'watermelon', 'tarvuz'], botanical: 'Citrullus lanatus' },
+  { keys: ['редис', 'radish', 'turp'], botanical: 'Raphanus sativus' },
+  { keys: ['капуста белокочанная', 'cabbage', 'karam'], botanical: 'Brassica oleracea' },
+  { keys: ['брюква', 'репа', 'turnip', 'napus'], botanical: 'Brassika napus' },
+  { keys: ['слива', 'plum', "olxo'ri", 'olxori'], botanical: 'Prunus domestica' },
+  { keys: ['виноград', 'grape', 'uzum'], botanical: 'Vitis vinifera' },
+  { keys: ['инжир', 'fig', 'anjir'], botanical: 'Ficus carica' },
+  { keys: ['груша', 'pear', 'nok'], botanical: 'Pyrus communis' },
+  { keys: ['хурма', 'persimmon', 'behi'], botanical: 'Diospyros kaki' },
+  { keys: ['айва', 'quince'], botanical: 'Cydonia oblonga' },
+  { keys: ['лайм', 'lime', 'laim'], botanical: 'Citrus aurantiifolia' },
+  { keys: ['кукуруза', 'corn', "makkajo'xori", 'makkajoxori'], botanical: 'Zea mays' },
+];
+
+const getBotanicalName = (item: InvoiceItem): string => {
+  const name = item?.name ? String(item.name).trim() : '';
+  if (!name) return '';
+  const normalized = normalizeNameForLookup(name);
+  for (const { keys, botanical } of BOTANICAL_BY_PRODUCT_NAME) {
+    for (const key of keys) {
+      if (normalized.includes(normalizeNameForLookup(key))) return botanical;
+    }
+  }
   return '';
 };
 
@@ -156,6 +205,11 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
     });
   } else {
     const startRow = 3;
+    // C3 — ushbu tovarning Botanik nomi (birinchi tovar yoki yagona tovar)
+    const firstItem = payload.items[0];
+    if (firstItem) {
+      setTextCell(sheet, 'C3', getBotanicalName(firstItem));
+    }
     // Jami Мест (quantity) yig‘indisi — M3 va N3 uchun
     const jamiMest = payload.items.reduce(
       (sum, item) => sum + Number(item?.quantity ?? 0),
@@ -166,7 +220,7 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
       const packageCode = getPackagingCode(item, additionalInfo);
       setTextCell(sheet, `A${row}`, item?.tnvedCode); // Код ТН ВЭД
       setTextCell(sheet, `B${row}`, item?.name); // Наименование товара
-      setTextCell(sheet, `C${row}`, getBotanicalName(item)); // Ботаник номи
+      setTextCell(sheet, `C${row}`, getBotanicalName(item)); // Ботаник номи (har qator uchun)
       setTextCell(sheet, `D${row}`, 'UZ');
       setTextCell(sheet, `E${row}`, regionExternalPrefix);
       setTextCell(sheet, `F${row}`, regionExternalCode);

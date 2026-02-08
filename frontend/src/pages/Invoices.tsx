@@ -379,6 +379,17 @@ const Invoices = () => {
     return new Date(dateString).toLocaleDateString('uz-UZ');
   };
 
+  const getStatusBadgeClass = (status: string | undefined): string => {
+    if (!status) return 'bg-gray-100 text-gray-500';
+    const s = status.toUpperCase();
+    if (s === 'BOSHLANMAGAN') return 'bg-slate-100 text-slate-700';
+    if (s === 'JARAYONDA') return 'bg-amber-100 text-amber-800';
+    if (s === 'TAYYOR') return 'bg-emerald-100 text-emerald-800';
+    if (s === 'TEKSHIRILGAN') return 'bg-blue-100 text-blue-800';
+    if (s === 'TOPSHIRILDI') return 'bg-green-100 text-green-800';
+    return 'bg-gray-100 text-gray-600';
+  };
+
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
   const paginatedInvoices = filteredInvoices.slice(
     (currentPage - 1) * PAGE_SIZE,
@@ -1197,8 +1208,10 @@ const Invoices = () => {
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700">
                     {formatDate(invoice.date)}
                   </td>
-                  <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700">
-                    {invoice.task?.status ?? '-'}
+                  <td className="px-6 py-2 whitespace-nowrap text-sm">
+                    <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${getStatusBadgeClass(invoice.task?.status)}`}>
+                      {invoice.task?.status ?? '—'}
+                    </span>
                   </td>
                     <td className="px-6 py-2 whitespace-nowrap">
                     <div className="flex items-center gap-1">

@@ -60,10 +60,15 @@ router.get('/check-number', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
-// GET /invoices - Barcha invoice'lar
+// GET /invoices - Barcha invoice'lar (filialga bog'langan ishchilar faqat o'z filiali invoyslarini ko'radi)
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
+    const isAdminOrManager = req.user?.role === 'ADMIN' || req.user?.role === 'MANAGER';
+    const userBranchId = req.user?.branchId ?? null;
+    const onlyOwnBranch = !isAdminOrManager && userBranchId != null;
+
     const invoices = await prisma.invoice.findMany({
+      where: onlyOwnBranch ? { branchId: userBranchId } : undefined,
       include: {
         items: {
           orderBy: { orderIndex: 'asc' }
@@ -230,6 +235,7 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
             id: true,
             title: true,
             status: true,
+            _count: { select: { errors: true } },
           }
         },
         branch: {
@@ -668,6 +674,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
             id: true,
             title: true,
             status: true,
+            _count: { select: { errors: true } },
           }
         },
         branch: {

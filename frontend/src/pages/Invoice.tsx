@@ -363,13 +363,27 @@ const Invoice = () => {
 
   const [visibleColumns, setVisibleColumns] = useState(defaultVisibleColumns);
   const lastInvoiceIdRef = useRef<number | null>(null);
+  const latestVisibleColumnsRef = useRef<typeof defaultVisibleColumns>(defaultVisibleColumns);
+  latestVisibleColumnsRef.current = visibleColumns;
 
   // Invoys o‘zgaganda shu invoys uchun saqlangan ustunlarni yuklash (faqat invoice.id bo‘lganda)
   useEffect(() => {
     const id = invoice?.id ?? null;
-    if (id === lastInvoiceIdRef.current) return;
+    const prevId = lastInvoiceIdRef.current;
+    if (id === prevId) return;
     lastInvoiceIdRef.current = id;
     if (id != null) {
+      // Yangi invoys saqlanganda: avvalgi id null edi — joriy ustunlar tanlovini shu id ga yozib qo‘yamiz
+      if (prevId === null) {
+        try {
+          localStorage.setItem(
+            getVisibleColumnsStorageKey(id),
+            JSON.stringify(latestVisibleColumnsRef.current)
+          );
+        } catch {
+          // ignore
+        }
+      }
       setVisibleColumns(loadVisibleColumnsForInvoice(id));
     } else {
       setVisibleColumns(defaultVisibleColumns);
@@ -2026,7 +2040,9 @@ const Invoice = () => {
             specCustomFields: specCustomFields,
           };
           if (invoice) {
-            const newEntries = buildChangeLog();
+            const taskErrorsCount = (invoice as any).task?._count?.errors ?? 0;
+            const onlyLogAfterError = taskErrorsCount > 0;
+            const newEntries = onlyLogAfterError ? buildChangeLog() : [];
             const existingLog = (invoice.additionalInfo && typeof invoice.additionalInfo === 'object' && Array.isArray((invoice.additionalInfo as any).changeLog))
               ? (invoice.additionalInfo as any).changeLog
               : [];

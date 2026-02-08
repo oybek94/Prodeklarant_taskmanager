@@ -3569,19 +3569,19 @@ const Invoice = () => {
                             )}
                           </div>
                           <div className="flex flex-row items-center justify-center gap-3">
-                            {contract.signatureUrl && (!isPdfMode || pdfIncludeSeal) && (
+                            {(contract.sellerSignatureUrl || contract.signatureUrl) && (!isPdfMode || pdfIncludeSeal) && (
                               <div>
                                 <img
-                                  src={resolveUploadUrl(contract.signatureUrl)}
+                                  src={resolveUploadUrl(contract.sellerSignatureUrl || contract.signatureUrl)}
                                   alt="Imzo"
                                   className="h-[90px] w-auto object-contain"
                                 />
                               </div>
                             )}
-                            {contract.sealUrl && (!isPdfMode || pdfIncludeSeal) && (
+                            {(contract.sellerSealUrl || contract.sealUrl) && (!isPdfMode || pdfIncludeSeal) && (
                               <div>
                                 <img
-                                  src={resolveUploadUrl(contract.sealUrl)}
+                                  src={resolveUploadUrl(contract.sellerSealUrl || contract.sealUrl)}
                                   alt="Muhr"
                                   className="h-[215px] w-auto object-contain"
                                 />

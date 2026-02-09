@@ -560,7 +560,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
           currency: currency || client?.dealAmountCurrency || 'USD',
           totalAmount: totalAmount || (task ? task.snapshotDealAmount : 0) || 0,
           notes: notes || undefined,
-          additionalInfo: mergedAdditionalInfo,
+          additionalInfo: mergedAdditionalInfo as Prisma.InputJsonValue,
         },
         include: {
           items: true,

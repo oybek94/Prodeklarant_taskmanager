@@ -2495,7 +2495,7 @@ const Invoice = () => {
                 );
               })()
             )}
-            {invoysStageReady && (
+            {invoysStageReady && viewTab === 'invoice' && (
               <div className="relative" ref={sertifikatlarDropdownRef}>
                 <button
                   type="button"
@@ -3870,7 +3870,9 @@ const Invoice = () => {
                                 <div className="min-h-[4rem] p-2 flex flex-col justify-center text-sm text-gray-700 min-w-0">
                                   {p.name}
                                   {p.director != null && p.director !== '' && (
-                                    <div className="text-gray-600 mt-0.5">Директор {p.director}</div>
+                                    <div className="text-gray-600 mt-0.5">
+                                      {p.label === 'Покупатель' || p.label === 'Грузополучатель' ? p.director : `Директор ${p.director}`}
+                                    </div>
                                   )}
                                 </div>
                                 {p.signatureUrl && (

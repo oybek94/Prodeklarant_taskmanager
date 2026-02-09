@@ -1019,6 +1019,30 @@ router.get('/:id/fss', requireAuth(), async (req: AuthRequest, res: Response) =>
     const templateType =
       req.query.template === 'ichki' ? 'ichki' : 'tashqi';
 
+    let contractForFss: { specification: unknown } | null = null;
+    if (invoice.contractId) {
+      const c = await prisma.contract.findUnique({
+        where: { id: invoice.contractId },
+        select: { specification: true },
+      });
+      if (c) contractForFss = { specification: c.specification };
+    }
+    if (!contractForFss && invoice.contractNumber && invoice.clientId) {
+      const c = await prisma.contract.findFirst({
+        where: { clientId: invoice.clientId, contractNumber: invoice.contractNumber },
+        select: { specification: true },
+      });
+      if (c) contractForFss = { specification: c.specification };
+    }
+    if (!contractForFss && invoice.clientId) {
+      const c = await prisma.contract.findFirst({
+        where: { clientId: invoice.clientId },
+        orderBy: [{ contractDate: 'desc' }, { id: 'desc' }],
+        select: { specification: true },
+      });
+      if (c) contractForFss = { specification: c.specification };
+    }
+
     const workbook = await generateFssExcel({
       invoice,
       items: invoice.items,
@@ -1026,6 +1050,7 @@ router.get('/:id/fss', requireAuth(), async (req: AuthRequest, res: Response) =>
       regionName,
       regionExternalCode,
       templateType,
+      contract: contractForFss,
     });
 
     const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });

@@ -75,6 +75,7 @@ const contractSchema = z.object({
   consigneeSealUrl: z.string().optional(),
   specification: z.array(z.object({
     productName: z.string(),
+    botanicalName: z.string().optional(),
     tnvedCode: z.string().optional(),
     quantity: z.number(),
     unit: z.string().optional(),
@@ -260,6 +261,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
       };
       contractData.specification = spec.map((row: any) => ({
         productName: String(row?.productName ?? ''),
+        botanicalName: row?.botanicalName != null ? String(row.botanicalName) : undefined,
         tnvedCode: row?.tnvedCode != null ? String(row.tnvedCode) : undefined,
         quantity: Number.isFinite(Number(row?.quantity)) ? Number(row.quantity) : 0,
         unit: row?.unit != null ? String(row.unit) : undefined,
@@ -443,6 +445,7 @@ router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res
       };
       contractData.specification = spec.map((row: any) => ({
         productName: String(row?.productName ?? ''),
+        botanicalName: row?.botanicalName != null ? String(row.botanicalName) : undefined,
         tnvedCode: row?.tnvedCode != null ? String(row.tnvedCode) : undefined,
         quantity: Number.isFinite(Number(row?.quantity)) ? Number(row.quantity) : 0,
         unit: row?.unit != null ? String(row.unit) : undefined,

@@ -410,6 +410,23 @@ const Invoices = () => {
     return 'bg-gray-100 text-gray-600';
   };
 
+  /** Filial bo'yicha qator fon rangi — qizil, sariq, yashil; juda och, sal ko'rinadi */
+  const FILIAL_ROW_COLORS = [
+    'bg-red-50/70 hover:bg-red-50',
+    'bg-yellow-50/70 hover:bg-yellow-50',
+    'bg-green-50/70 hover:bg-green-50',
+    'bg-red-50/50 hover:bg-red-50/80',
+    'bg-yellow-50/50 hover:bg-yellow-50/80',
+    'bg-green-50/50 hover:bg-green-50/80',
+  ];
+  const getBranchRowClass = (branchId: number | undefined): string => {
+    if (branchId == null) return 'bg-gray-50/50 hover:bg-gray-50';
+    const sorted = [...branches].sort((a, b) => a.id - b.id);
+    const idx = sorted.findIndex((b) => b.id === branchId);
+    if (idx < 0) return 'bg-gray-50/50 hover:bg-gray-50';
+    return FILIAL_ROW_COLORS[idx % FILIAL_ROW_COLORS.length];
+  };
+
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
   const paginatedInvoices = filteredInvoices.slice(
     (currentPage - 1) * PAGE_SIZE,
@@ -1196,10 +1213,12 @@ const Invoices = () => {
             <tbody className="divide-y divide-gray-100">
               {paginatedInvoices.map((invoice) => {
                 const hasErrors = (invoice.task?._count?.errors ?? 0) > 0;
+                const branchId = invoice.task?.branch?.id ?? invoice.branch?.id;
+                const rowClass = getBranchRowClass(branchId);
                 return (
                 <tr
                   key={invoice.id}
-                  className={`transition-colors ${hasErrors ? 'bg-red-50/80 hover:bg-red-100/80 border-l-4 border-l-red-400' : 'hover:bg-blue-50/50'}`}
+                  className={`transition-colors ${rowClass} ${hasErrors ? 'border-l-4 border-l-red-500' : ''}`}
                 >
                   <td className="w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold">
                     <button

@@ -3,6 +3,9 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Invoice, InvoiceItem, Prisma } from '@prisma/client';
 
+/** Shartnoma spetsifikatsiyasi qatori (Tovar nomi bo'yicha qidirish uchun) */
+type SpecRow = { productName?: string; botanicalName?: string };
+
 export type FssExcelPayload = {
   invoice: Invoice;
   items: InvoiceItem[];
@@ -10,6 +13,8 @@ export type FssExcelPayload = {
   regionName?: string;
   regionExternalCode?: string;
   templateType?: 'ichki' | 'tashqi';
+  /** Tashqi shablon C3: spetsifikatsiyadan tovar nomi bo'yicha botanik nom qidirish uchun */
+  contract?: { specification: unknown } | null;
 };
 
 const getTemplatePath = async (templateType?: 'ichki' | 'tashqi') => {
@@ -140,6 +145,27 @@ const BOTANICAL_BY_PRODUCT_NAME: { keys: string[]; botanical: string }[] = [
   { keys: ['кукуруза', 'corn', "makkajo'xori", 'makkajoxori'], botanical: 'Zea mays' },
 ];
 
+/** Shartnoma spetsifikatsiyasidan faqat Tovar nomi (productName) bo'yicha botanik nomni topadi. */
+function getBotanicalNameFromSpec(
+  productName: string,
+  contractSpec: unknown
+): string {
+  if (!productName || !contractSpec || !Array.isArray(contractSpec)) return '';
+  const normalizedSearch = normalizeNameForLookup(productName);
+  if (!normalizedSearch) return '';
+  const rows = contractSpec as SpecRow[];
+  for (const row of rows) {
+    const specName = row?.productName ? String(row.productName).trim() : '';
+    if (!specName) continue;
+    const normalizedRow = normalizeNameForLookup(specName);
+    if (normalizedRow === normalizedSearch || normalizedRow.includes(normalizedSearch) || normalizedSearch.includes(normalizedRow)) {
+      const botanical = row?.botanicalName ? String(row.botanicalName).trim() : '';
+      if (botanical) return botanical;
+    }
+  }
+  return '';
+}
+
 const getBotanicalName = (item: InvoiceItem): string => {
   const name = item?.name ? String(item.name).trim() : '';
   if (!name) return '';
@@ -151,6 +177,13 @@ const getBotanicalName = (item: InvoiceItem): string => {
   }
   return '';
 };
+
+/** TN VED kodini 10 xonali formatga keltiradi (oldingi nollar bilan) — BOTANICAL_BY_TNVED kalitlari bilan moslashish uchun */
+function normalizeTnvedCode(code: string): string {
+  const digits = (code || '').replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.length <= 10 ? digits.padStart(10, '0') : digits.slice(0, 10);
+}
 
 const getPackagingCode = (item: InvoiceItem, additionalInfo: Record<string, any>) => {
   const typeName = item?.packageType ? String(item.packageType).trim() : '';
@@ -204,11 +237,24 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
       setTextCell(sheet, `J${row}`, regionName);
     });
   } else {
-    const startRow = 3;
-    // C3 — ushbu tovarning Botanik nomi (birinchi tovar yoki yagona tovar)
+    // Shablon ma'lumot qatori 2-qatordan boshlanadi (dimensions A1:P2)
+    const startRow = 2;
+    const contractSpec = payload.contract?.specification;
+    // Botanik nom: spetsifikatsiya → kalit-so'z → TN VED kodi (C ustuni har doim to'ldirilishi uchun)
+    const resolveBotanical = (item: InvoiceItem): string => {
+      const name = item?.name ? String(item.name).trim() : '';
+      if (name) {
+        const fromSpec = getBotanicalNameFromSpec(name, contractSpec);
+        if (fromSpec) return fromSpec;
+      }
+      const fromKeyword = getBotanicalName(item);
+      if (fromKeyword) return fromKeyword;
+      const normalizedCode = normalizeTnvedCode(String(item?.tnvedCode ?? ''));
+      return normalizedCode ? (BOTANICAL_BY_TNVED[normalizedCode] ?? '') : '';
+    };
     const firstItem = payload.items[0];
     if (firstItem) {
-      setTextCell(sheet, 'C3', getBotanicalName(firstItem));
+      setTextCell(sheet, `C${startRow}`, resolveBotanical(firstItem));
     }
     // Jami Мест (quantity) yig‘indisi — M3 va N3 uchun
     const jamiMest = payload.items.reduce(
@@ -220,7 +266,7 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
       const packageCode = getPackagingCode(item, additionalInfo);
       setTextCell(sheet, `A${row}`, item?.tnvedCode); // Код ТН ВЭД
       setTextCell(sheet, `B${row}`, item?.name); // Наименование товара
-      setTextCell(sheet, `C${row}`, getBotanicalName(item)); // Ботаник номи (har qator uchun)
+      setTextCell(sheet, `C${row}`, resolveBotanical(item)); // Ботаник номи: spetsifikatsiyadan tovar nomi bo'yicha, keyin fallback
       setTextCell(sheet, `D${row}`, 'UZ');
       setTextCell(sheet, `E${row}`, regionExternalPrefix);
       setTextCell(sheet, `F${row}`, regionExternalCode);
@@ -234,8 +280,8 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
       setTextCell(sheet, `P${row}`, additionalInfo.vehicleNumber);
     });
     // Tovarlar sonidan qat’i nazar M3 va N3 ni bir marta to‘ldirish yetarli
-    setTextCell(sheet, 'M3', jamiMest > 0 ? jamiMest : '');
-    setTextCell(sheet, 'N3', jamiMest > 0 ? '017' : '');
+    setTextCell(sheet, `M${startRow}`, jamiMest > 0 ? jamiMest : '');
+    setTextCell(sheet, `N${startRow}`, jamiMest > 0 ? '017' : '');
   }
 
   if (workbook.views?.[0] && typeof workbook.views[0] === 'object') {

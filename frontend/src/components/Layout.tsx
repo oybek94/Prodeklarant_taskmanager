@@ -76,8 +76,8 @@ const Layout = () => {
   const navItems = [
     ...(user?.role === 'ADMIN' ? [{ path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' }] : []),
     { path: '/tasks', label: 'Vazifalar', icon: 'lucide:clipboard-list' },
-    { path: '/transactions', label: 'Tranzaksiyalar', icon: 'lucide:receipt' },
     { path: '/invoices', label: 'Invoyslar', icon: 'lucide:file-text' },
+    { path: '/transactions', label: 'Tranzaksiyalar', icon: 'lucide:receipt' },
     ...((user?.role === 'ADMIN' || user?.role === 'MANAGER') ? [{ path: '/clients', label: 'Mijozlar', icon: 'lucide:users' }] : []),
     { path: '/training', label: 'O\'qitish', icon: 'lucide:graduation-cap' },
     ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'lucide:user-cog' }] : []),

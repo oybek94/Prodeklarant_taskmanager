@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../lib/api';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
@@ -76,6 +76,7 @@ const canEditInvoices = (role: string | undefined) => role === 'ADMIN' || role =
 const Invoices = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const canEdit = canEditInvoices(user?.role);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,6 +189,24 @@ const Invoices = () => {
     loadWorkers();
   }, []);
 
+  const openErrorModalForTaskId = (location.state as { openErrorModalForTaskId?: number })?.openErrorModalForTaskId;
+  useEffect(() => {
+    if (!openErrorModalForTaskId || invoices.length === 0) return;
+    const inv = invoices.find((i) => i.taskId === openErrorModalForTaskId);
+    if (inv) {
+      setInvoiceForErrorModal(inv);
+      setErrorForm({
+        workerId: '',
+        stageName: '',
+        amount: '',
+        comment: '',
+        date: new Date().toISOString().split('T')[0],
+      });
+      setShowErrorModal(true);
+    }
+    navigate('/invoices', { replace: true, state: {} });
+  }, [openErrorModalForTaskId, invoices]);
+
   useEffect(() => {
     if (showDeleteConfirmModal && invoiceToDelete && !deleteModalClosing) {
       const id = requestAnimationFrame(() => {
@@ -246,6 +265,7 @@ const Invoices = () => {
       setLoading(false);
     }
   };
+
 
   const loadClients = async () => {
     try {
@@ -1209,9 +1229,14 @@ const Invoices = () => {
                     {formatDate(invoice.date)}
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap text-sm">
-                    <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${getStatusBadgeClass(invoice.task?.status)}`}>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/tasks', { state: { openTaskId: invoice.taskId } })}
+                      className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-300 transition-shadow ${getStatusBadgeClass(invoice.task?.status)}`}
+                      title="Jarayonlar (task tafsilotlari)"
+                    >
                       {invoice.task?.status ?? '—'}
-                    </span>
+                    </button>
                   </td>
                     <td className="px-6 py-2 whitespace-nowrap">
                     <div className="flex items-center gap-1">
@@ -1233,21 +1258,7 @@ const Invoices = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (invoice.task?.status === 'BOSHLANMAGAN') {
-                            navigate(`/invoices/task/${invoice.taskId}`);
-                          } else {
-                            setInvoiceForErrorModal(invoice);
-                            setErrorForm({
-                              workerId: '',
-                              stageName: '',
-                              amount: '',
-                              comment: '',
-                              date: new Date().toISOString().split('T')[0],
-                            });
-                            setShowErrorModal(true);
-                          }
-                        }}
+                        onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
                         className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-600 hover:bg-blue-100 transition-colors"
                         title="Tahrirlash"
                       >
@@ -1351,7 +1362,7 @@ const Invoices = () => {
         </div>
       )}
 
-      {/* Xatolik qo'shish modali — Status BOSHLANMAGAN bo'lmaganda tahrirlashdan oldin majburiy */}
+      {/* Xatolik qo'shish modali — Status BOSHLANMAGAN emas yoki Sertifikat olib chiqish TAYYOR bo'lganda tahrirlashdan oldin majburiy */}
       {showErrorModal && invoiceForErrorModal && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
@@ -1377,7 +1388,7 @@ const Invoices = () => {
               </button>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              Status BOSHLANMAGAN emas. Tahrirlashga o&apos;tish uchun avval xatolik (sorov) qo&apos;shing.
+              Status BOSHLANMAGAN emas yoki Sertifikat olib chiqish yakunlangan. Tahrirlashga o&apos;tish uchun avval xatolik (sorov) qo&apos;shing.
             </p>
             <form
               onSubmit={async (e) => {

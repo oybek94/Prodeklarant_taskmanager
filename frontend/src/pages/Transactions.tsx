@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -65,6 +65,8 @@ const Transactions = () => {
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const TRANSACTIONS_PAGE_SIZE = 15;
+  const [transactionsPage, setTransactionsPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPreviousYearDebtForm, setShowPreviousYearDebtForm] = useState(false);
@@ -478,6 +480,22 @@ const Transactions = () => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('uz-UZ');
   };
+
+  const transactionsTotalPages = Math.max(1, Math.ceil(transactions.length / TRANSACTIONS_PAGE_SIZE));
+  const paginatedTransactions = useMemo(
+    () =>
+      transactions.slice(
+        (transactionsPage - 1) * TRANSACTIONS_PAGE_SIZE,
+        transactionsPage * TRANSACTIONS_PAGE_SIZE
+      ),
+    [transactions, transactionsPage]
+  );
+
+  useEffect(() => {
+    if (transactionsPage > transactionsTotalPages) {
+      setTransactionsPage(transactionsTotalPages);
+    }
+  }, [transactionsTotalPages, transactionsPage]);
 
   const formatCurrency = (amount: number, currency: string = 'UZS') => {
     if (currency === 'UZS') {
@@ -1164,25 +1182,25 @@ const Transactions = () => {
           <table className="min-w-full divide-y divide-blue-100">
             <thead className="bg-gradient-to-r from-blue-600 to-indigo-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Client/Worker/Category
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Amount
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   To'lov usuli
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Comment
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
                   Actions
                 </th>
               </tr>
@@ -1190,18 +1208,18 @@ const Transactions = () => {
             <tbody className="bg-white divide-y divide-blue-100">
               {transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500 bg-blue-50">
+                  <td colSpan={7} className="px-4 py-3 text-center text-sm text-gray-500 bg-blue-50">
                     Ma'lumotlar yo'q
                   </td>
                 </tr>
               ) : (
-                transactions.map((t, index) => (
+                paginatedTransactions.map((t, index) => (
                   <tr key={t.id} className={`hover:bg-blue-100 transition-colors ${
                     index % 2 === 0 ? 'bg-blue-50' : 'bg-white'
                   }`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 text-xs rounded-full ${
+                        className={`px-1.5 py-0.5 text-xs rounded-full ${
                           t.type === 'INCOME'
                             ? 'bg-green-100 text-green-800'
                             : t.type === 'EXPENSE'
@@ -1212,19 +1230,19 @@ const Transactions = () => {
                         {t.type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                       {t.type === 'INCOME' && t.client
                         ? t.client.name
                         : t.type === 'SALARY' && t.worker
                         ? t.worker.name
                         : t.expenseCategory || '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
                       {t.amount} {t.currency}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                       {t.paymentMethod ? (
-                        <span className={`px-2 py-1 text-xs rounded-full ${
+                        <span className={`px-1.5 py-0.5 text-xs rounded-full ${
                           t.paymentMethod === 'CASH'
                             ? 'bg-blue-100 text-blue-800'
                             : 'bg-purple-100 text-purple-800'
@@ -1235,17 +1253,17 @@ const Transactions = () => {
                         '-'
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(t.date)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                    <td className="px-3 py-2 text-sm text-gray-900">
                       <div className="max-w-xs truncate" title={t.comment || undefined}>
                         {t.comment || '-'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
                       {user?.role === 'ADMIN' ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => {
                               if (isMobile) {
@@ -1254,17 +1272,17 @@ const Transactions = () => {
                                 handleEdit(t);
                               }
                             }}
-                            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                            className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                             title="O'zgartirish"
                           >
-                          <Icon icon="lucide:pencil" className="w-4 h-4" />
+                            <Icon icon="lucide:pencil" className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleDelete(t.id)}
-                            className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
+                            className="p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
                             title="O'chirish"
                           >
-                          <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                            <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       ) : (
@@ -1276,6 +1294,35 @@ const Transactions = () => {
               )}
             </tbody>
           </table>
+          {transactions.length > TRANSACTIONS_PAGE_SIZE && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-blue-200 bg-blue-50/50">
+              <p className="text-sm text-gray-600">
+                {((transactionsPage - 1) * TRANSACTIONS_PAGE_SIZE) + 1}–
+                {Math.min(transactionsPage * TRANSACTIONS_PAGE_SIZE, transactions.length)} / {transactions.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTransactionsPage((p) => Math.max(1, p - 1))}
+                  disabled={transactionsPage <= 1}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Icon icon="lucide:chevron-left" className="w-5 h-5" />
+                </button>
+                <span className="px-2 text-sm font-medium text-gray-700">
+                  {transactionsPage} / {transactionsTotalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setTransactionsPage((p) => Math.min(transactionsTotalPages, p + 1))}
+                  disabled={transactionsPage >= transactionsTotalPages}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Icon icon="lucide:chevron-right" className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

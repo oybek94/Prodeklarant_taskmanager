@@ -19,8 +19,10 @@ export type CommodityEkExcelPayload = {
   items: InvoiceItem[];
   /** Shartnoma spetsifikatsiyasi (B va C ustunlari) va Продавец INN (H4) */
   contract?: { specification: unknown; sellerInn?: string | null } | null;
-  /** I4 uchun majburiy ichki tuman kodi (masalan Oltiariq) */
+  /** I ustuni (4-qatordan): Oltiariq bo'lsa 1730203, boshqa filiallarda tanlangan tuman kodi */
   forcedRegionInternalCode?: string | null;
+  /** Filial nomi — Oltiariq bo'lsa I ustuniga 1730203 yoziladi */
+  branchName?: string | null;
 };
 
 type CellMap = {
@@ -85,6 +87,14 @@ const toNum = (v: unknown): number | '' => {
   return Number.isFinite(n) ? n : '';
 };
 
+/** Matnni raqamga aylantiradi; raqam bo‘lmasa bo‘sh qator */
+const toNumFromStr = (s: string): number | '' => {
+  const t = toStr(s);
+  if (!t) return '';
+  const n = Number(t.replace(/\s/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : '';
+};
+
 const getPackageTypeCode = (item: InvoiceItem, additionalInfo: Record<string, unknown>): string => {
   const typeName = toStr(item?.packageType);
   if (!typeName) return '';
@@ -136,19 +146,27 @@ export async function generateCommodityEkExcel(
   }
 
   const additionalInfo = (invoice.additionalInfo || {}) as Record<string, unknown>;
-  // H4 — Продавец (Sotuvchi) INN; I4 — Tanlangan tuman kodi (Oltiariq filialida 1730203, route da forcedRegionInternalCode orqali beriladi)
   const sellerInn = payload.contract?.sellerInn ? toStr(payload.contract.sellerInn) : '';
-  const regionInternalCode = toStr(
+  const branchName = toStr(payload.branchName);
+  const isOltiariq = branchName.toLowerCase().includes('oltiariq');
+  const tanlanganTumanKodi = toStr(
     payload.forcedRegionInternalCode ??
     additionalInfo.fssRegionInternalCode ??
     additionalInfo.producerRegionCode ??
     additionalInfo.regionCode
   );
+  /** I ustuni (4-qatordan boshlab): Oltiariq filialida 1730203, qolgan filiallarda tanlangan tuman kodi */
+  const valueForIColumn = isOltiariq ? '1730203' : tanlanganTumanKodi;
 
-  const setFixedCell = (sheetToUse: ExcelJS.Worksheet, cell: string, value: string) => {
+  const setFixedCell = (sheetToUse: ExcelJS.Worksheet, cell: string, value: string, asNumber?: boolean) => {
     const c = sheetToUse.getCell(cell);
-    c.value = value;
-    // Shablonda formula bo'lsa, qiymat ko'rinsin degan formula ni olib tashlaymiz
+    if (asNumber) {
+      const n = toNumFromStr(value);
+      c.value = n === '' ? '' : (n as number);
+      c.numFmt = '0';
+    } else {
+      c.value = value;
+    }
     const cellAny = c as { formula?: unknown };
     if (cellAny.formula !== undefined) {
       try {
@@ -159,14 +177,13 @@ export async function generateCommodityEkExcel(
     }
   };
 
-  setFixedCell(sheet, 'H4', sellerInn);
-  setFixedCell(sheet, 'I4', regionInternalCode);
-  // Birinchi varaqda ham yozish (shablon birinchi varaqda sarlavha bo'lsa)
+  setFixedCell(sheet, 'H4', sellerInn, true);
+  setFixedCell(sheet, 'I4', valueForIColumn, true);
   try {
     const firstSheet = workbook.worksheets[0];
     if (firstSheet && firstSheet !== sheet) {
-      setFixedCell(firstSheet, 'H4', sellerInn);
-      setFixedCell(firstSheet, 'I4', regionInternalCode);
+      setFixedCell(firstSheet, 'H4', sellerInn, true);
+      setFixedCell(firstSheet, 'I4', valueForIColumn, true);
     }
   } catch (_) {
     // Birinchi varaqda H4/I4 bo'lmasa e'tiborsiz qoldirish
@@ -184,15 +201,39 @@ export async function generateCommodityEkExcel(
     additionalInfo.inn ??
     sellerInn
   );
-  const producerRegionCode = toStr(
-    additionalInfo.producerRegionCode ??
-    additionalInfo.regionCode ??
-    additionalInfo.fssRegionInternalCode ??
-    regionInternalCode
-  );
+  const producerRegionCode = valueForIColumn;
 
   const startRow = cellMap.dataStartRow;
   const col = cellMap.columns;
+
+  const NUMERIC_COL_KEYS: (keyof typeof col)[] = [
+    'sequenceNumber',   // A
+    'specificationNumber', // B
+    'specificationOrder',   // C
+    'producerInn',         // H
+    'producerRegionCode',  // I
+    'packagesCount',       // M
+    'netWeightN',          // N
+    'grossWeight',         // O
+    'netWeight',           // P
+    'fakturaValue',        // R
+  ];
+
+  const DECIMAL_COL_KEYS: (keyof typeof col)[] = ['netWeightN', 'grossWeight', 'netWeight', 'fakturaValue'];
+
+  const setCell = (rowIndex: number, key: keyof typeof col, value: string | number) => {
+    const letter = col[key];
+    if (!letter) return;
+    const cell = sheet.getCell(`${letter}${rowIndex}`);
+    const isNumCol = NUMERIC_COL_KEYS.includes(key);
+    if (isNumCol) {
+      const numVal = typeof value === 'number' ? value : toNumFromStr(String(value));
+      cell.value = numVal === '' ? '' : (numVal as number);
+      cell.numFmt = DECIMAL_COL_KEYS.includes(key) ? '0.00' : '0';
+    } else {
+      cell.value = value === '' ? '' : value;
+    }
+  };
 
   items.forEach((item, index) => {
     const row = startRow + index;
@@ -206,10 +247,7 @@ export async function generateCommodityEkExcel(
     const productNumberFromContract = specRow != null ? toStr(specRow.productNumber) : '';
 
     const set = (key: keyof typeof col, value: string | number) => {
-      const letter = col[key];
-      if (!letter) return;
-      const cell = sheet.getCell(`${letter}${row}`);
-      cell.value = value === '' ? '' : value;
+      setCell(row, key, value);
     };
 
     set('sequenceNumber', index + 1);
@@ -228,7 +266,6 @@ export async function generateCommodityEkExcel(
     set('netWeightN', netWeight === '' ? '' : netWeight);
     set('grossWeight', grossWeight === '' ? '' : grossWeight);
     set('netWeight', netWeight === '' ? '' : netWeight);
-    // R4, R5, ... — ushbu tovarning faktura qiymati (Сумма с НДС)
     const fakturaValue = toNum(item.totalPrice);
     set('fakturaValue', fakturaValue === '' ? '' : fakturaValue);
   });

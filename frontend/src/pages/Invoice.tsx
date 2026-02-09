@@ -264,7 +264,10 @@ const Invoice = () => {
   const newInvoiceTaskForm = locationState?.newInvoiceTaskForm;
   const duplicateInvoiceId = locationState?.duplicateInvoiceId;
   const viewOnly = locationState?.viewOnly === true;
-  const canEditEffective = canEdit && !viewOnly;
+  const [invoysStageReady, setInvoysStageReady] = useState(false);
+  const [sertifikatStageCompleted, setSertifikatStageCompleted] = useState(false);
+  const [taskHasErrors, setTaskHasErrors] = useState(false);
+  const canEditEffective = canEdit && !viewOnly && (!sertifikatStageCompleted || taskHasErrors);
 
   const [searchParams] = useSearchParams();
 
@@ -290,7 +293,6 @@ const Invoice = () => {
 
   const [saving, setSaving] = useState(false);
   const [markingReady, setMarkingReady] = useState(false);
-  const [invoysStageReady, setInvoysStageReady] = useState(false);
 
   const [task, setTask] = useState<Task | null>(null);
 
@@ -301,7 +303,7 @@ const Invoice = () => {
   const [selectedContractId, setSelectedContractId] = useState<string>('');
 
   const [selectedContractCurrency, setSelectedContractCurrency] = useState<string>('USD');
-  type SpecRow = { productName?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number };
+  type SpecRow = { productName?: string; tnvedCode?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number };
   const [selectedContractSpec, setSelectedContractSpec] = useState<SpecRow[]>([]);
 
   const invoiceRef = useRef<HTMLDivElement | null>(null);
@@ -347,66 +349,54 @@ const Invoice = () => {
     total: true,
     actions: true,
   };
-  // Ustunlar faqat invoys bo‘yicha: har bir invoys uchun alohida kalit, boshqa invoyslarga ta’sir yo‘q
-  const VISIBLE_COLUMNS_PREFIX = 'invoice_visible_columns_';
-  const getVisibleColumnsStorageKey = (invoiceId: number) => `${VISIBLE_COLUMNS_PREFIX}invoice_${invoiceId}`;
-  const loadVisibleColumnsForInvoice = (invoiceId: number): typeof defaultVisibleColumns => {
-    try {
-      const raw = localStorage.getItem(getVisibleColumnsStorageKey(invoiceId));
-      if (!raw) return defaultVisibleColumns;
-      const parsed = JSON.parse(raw) as Record<string, boolean>;
-      return { ...defaultVisibleColumns, ...parsed };
-    } catch {
-      return defaultVisibleColumns;
-    }
+  // Ustunlar tanlovi backendda (additionalInfo.visibleColumns / columnLabels) saqlanadi — invoysni har safar ochganda serverdan yuklanadi
+  const getVisibleColumnsFromPayload = (payload: Record<string, unknown> | null | undefined): typeof defaultVisibleColumns | null => {
+    if (!payload || typeof payload !== 'object' || !payload.visibleColumns || typeof payload.visibleColumns !== 'object') return null;
+    const v = payload.visibleColumns as Record<string, boolean>;
+    return { ...defaultVisibleColumns, ...v };
   };
-
   const [visibleColumns, setVisibleColumns] = useState(defaultVisibleColumns);
   const lastInvoiceIdRef = useRef<number | null>(null);
   const latestVisibleColumnsRef = useRef<typeof defaultVisibleColumns>(defaultVisibleColumns);
   latestVisibleColumnsRef.current = visibleColumns;
 
-  // Invoys o‘zgaganda shu invoys uchun saqlangan ustunlarni yuklash (faqat invoice.id bo‘lganda)
+  const duplicateInvoiceIdFromState = (location.state as { duplicateInvoiceId?: number })?.duplicateInvoiceId ?? null;
   useEffect(() => {
     const id = invoice?.id ?? null;
     const prevId = lastInvoiceIdRef.current;
-    if (id === prevId) return;
+    if (id === prevId && (id != null || duplicateInvoiceIdFromState == null)) return;
     lastInvoiceIdRef.current = id;
-    if (id != null) {
-      // Yangi invoys saqlanganda: avvalgi id null edi — joriy ustunlar tanlovini shu id ga yozib qo‘yamiz
-      if (prevId === null) {
-        try {
-          localStorage.setItem(
-            getVisibleColumnsStorageKey(id),
-            JSON.stringify(latestVisibleColumnsRef.current)
-          );
-        } catch {
-          // ignore
-        }
+    if (id != null && invoice?.additionalInfo && typeof invoice.additionalInfo === 'object') {
+      const fromServer = getVisibleColumnsFromPayload(invoice.additionalInfo as Record<string, unknown>);
+      if (fromServer) {
+        setVisibleColumns(fromServer);
+        return;
       }
-      setVisibleColumns(loadVisibleColumnsForInvoice(id));
-    } else {
-      setVisibleColumns(defaultVisibleColumns);
     }
-  }, [invoice?.id]);
+    if (id != null) {
+      if (prevId === null) {
+        // Yangi saqlangan invoys: joriy ustunlar keyingi save da serverga yoziladi
+      }
+      setVisibleColumns(defaultVisibleColumns);
+    } else {
+      if (duplicateInvoiceIdFromState != null) {
+        // Dublikat: asl invoys ma'lumotlari keyinroq yuklanadi (setInvoice(inv) da visibleColumns o‘rnatiladi)
+        setVisibleColumns(defaultVisibleColumns);
+      } else {
+        setVisibleColumns(defaultVisibleColumns);
+      }
+    }
+  }, [invoice?.id, invoice?.additionalInfo, duplicateInvoiceIdFromState]);
 
-  // Toggle paytida faqat joriy invoys uchun saqlash (boshqa invoyslarga ta’sir qilmasin)
+  // Toggle paytida faqat state yangilanadi; saqlashda additionalInfo.visibleColumns serverga yuboriladi
   const setVisibleColumnsAndPersist = useCallback(
     (update: React.SetStateAction<typeof defaultVisibleColumns>) => {
       setVisibleColumns((prev) => {
         const next = typeof update === 'function' ? (update as (p: typeof prev) => typeof prev)(prev) : update;
-        const id = invoice?.id;
-        if (id != null) {
-          try {
-            localStorage.setItem(getVisibleColumnsStorageKey(id), JSON.stringify(next));
-          } catch {
-            // ignore
-          }
-        }
         return next;
       });
     },
-    [invoice?.id]
+    []
   );
 
   const [columnsDropdownOpen, setColumnsDropdownOpen] = useState(false);
@@ -644,12 +634,17 @@ const Invoice = () => {
 
   useEffect(() => {
     const stages = (task as { stages?: Array<{ name: string; status: string }> })?.stages;
+    const errors = (task as { errors?: unknown[] })?.errors;
     if (stages && Array.isArray(stages)) {
       const invoys = stages.find((s) => s.name === 'Invoys');
       setInvoysStageReady(!!invoys && invoys.status === 'TAYYOR');
+      const sertifikat = stages.find((s) => String(s.name).trim() === 'Sertifikat olib chiqish');
+      setSertifikatStageCompleted(!!sertifikat && sertifikat.status === 'TAYYOR');
     } else {
       setInvoysStageReady(false);
+      setSertifikatStageCompleted(false);
     }
+    setTaskHasErrors(Array.isArray(errors) && errors.length > 0);
   }, [task]);
 
   useEffect(() => {
@@ -776,8 +771,6 @@ const Invoice = () => {
               } catch {
                 // next-number olinmasa bo'sh qoladi
               }
-              // Asl invoys ustun sozlamalarini nusxalash
-              setVisibleColumns(loadVisibleColumnsForInvoice(duplicateInvoiceId));
               const dupRes = await apiClient.get(`/invoices/${duplicateInvoiceId}`);
               const dup = dupRes.data as {
                 date?: string;
@@ -785,49 +778,52 @@ const Invoice = () => {
                 notes?: string;
                 additionalInfo?: Record<string, unknown>;
               };
-              const dupDate = dup.date ? dup.date.split('T')[0] : new Date().toISOString().split('T')[0];
-              const ai = dup.additionalInfo && typeof dup.additionalInfo === 'object' ? dup.additionalInfo : {};
+              const dupAi = dup.additionalInfo && typeof dup.additionalInfo === 'object' ? dup.additionalInfo : null;
+              const dupVisible = getVisibleColumnsFromPayload(dupAi ?? undefined);
+              if (dupVisible) setVisibleColumns(dupVisible);
+              if (dupAi?.columnLabels && typeof dupAi.columnLabels === 'object') {
+                setColumnLabels((prev) => ({ ...prev, ...(dupAi.columnLabels as Record<string, string>) }));
+              }
+              const todayIso = new Date().toISOString().split('T')[0];
               setForm(prev => ({
                 ...prev,
                 invoiceNumber: nextInvoiceNumber ?? prev.invoiceNumber,
-                date: dupDate,
+                date: todayIso,
                 currency: (dup.currency as 'USD' | 'UZS') || prev.currency,
                 notes: dup.notes || '',
                 vehicleNumber: '',
-                deliveryTerms: (ai.deliveryTerms as string) ?? prev.deliveryTerms,
-                paymentTerms: (ai.paymentTerms as string) ?? prev.paymentTerms,
-                dueDate: (ai.dueDate as string) ?? prev.dueDate,
-                poNumber: (ai.poNumber as string) ?? prev.poNumber,
-                terms: (ai.terms as string) ?? prev.terms,
-                tax: (ai.tax as number) ?? prev.tax,
-                discount: (ai.discount as number) ?? prev.discount,
-                shipping: (ai.shipping as number) ?? prev.shipping,
-                amountPaid: (ai.amountPaid as number) ?? prev.amountPaid,
-                fssRegionInternalCode: (ai.fssRegionInternalCode as string) ?? prev.fssRegionInternalCode,
-                fssRegionName: (ai.fssRegionName as string) ?? prev.fssRegionName,
-                fssRegionExternalCode: (ai.fssRegionExternalCode as string) ?? prev.fssRegionExternalCode,
-                loaderWeight: (ai.loaderWeight as string) ?? prev.loaderWeight,
-                trailerWeight: (ai.trailerWeight as string) ?? prev.trailerWeight,
-                palletWeight: (ai.palletWeight as string) ?? prev.palletWeight,
-                trailerNumber: (ai.trailerNumber as string) ?? prev.trailerNumber,
-                smrNumber: (ai.smrNumber as string) ?? prev.smrNumber,
-                shipmentPlace: (ai.shipmentPlace as string) ?? prev.shipmentPlace,
-                customsAddress: (ai.customsAddress as string) ?? prev.customsAddress,
-                destination: (ai.destination as string) ?? prev.destination,
-                origin: (ai.origin as string) ?? prev.origin,
-                manufacturer: (ai.manufacturer as string) ?? prev.manufacturer,
-                orderNumber: (ai.orderNumber as string) ?? prev.orderNumber,
-                gln: (ai.gln as string) ?? prev.gln,
-                harvestYear: (ai.harvestYear as string) ?? prev.harvestYear,
-                documents: (ai.documents as string) ?? prev.documents,
-                carrier: (ai.carrier as string) ?? prev.carrier,
-                tirNumber: (ai.tirNumber as string) ?? prev.tirNumber,
+                deliveryTerms: '',
+                paymentTerms: '',
+                dueDate: '',
+                poNumber: '',
+                terms: '',
+                tax: undefined,
+                discount: undefined,
+                shipping: undefined,
+                amountPaid: undefined,
+                fssRegionInternalCode: '',
+                fssRegionName: '',
+                fssRegionExternalCode: '',
+                loaderWeight: '',
+                trailerWeight: '',
+                palletWeight: '',
+                trailerNumber: '',
+                smrNumber: '',
+                shipmentPlace: '',
+                customsAddress: '',
+                destination: '',
+                origin: 'Республика Узбекистан',
+                manufacturer: '',
+                orderNumber: '',
+                gln: '',
+                harvestYear: '',
+                documents: '',
+                carrier: '',
+                tirNumber: '',
               }));
               setItems([{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 }]);
-              const cf = ai.customFields as Array<{ id: string; label: string; value: string }> | undefined;
-              const sf = ai.specCustomFields as Array<{ id: string; label: string; value: string }> | undefined;
-              if (cf?.length) setCustomFields(cf);
-              if (sf?.length) setSpecCustomFields(sf);
+              setCustomFields([]);
+              setSpecCustomFields([]);
             } catch {
               // dublikat yuklanmasa oddiy yangi invoice qoldiramiz
             }
@@ -991,6 +987,12 @@ const Invoice = () => {
             setItems(loadedItems);
             setCustomFields(inv.additionalInfo?.customFields || []);
             setSpecCustomFields(inv.additionalInfo?.specCustomFields || []);
+            const ai = inv.additionalInfo && typeof inv.additionalInfo === 'object' ? inv.additionalInfo as Record<string, unknown> : null;
+            const savedVisible = getVisibleColumnsFromPayload(ai);
+            if (savedVisible) setVisibleColumns(savedVisible);
+            if (ai?.columnLabels && typeof ai.columnLabels === 'object') {
+              setColumnLabels((prev) => ({ ...prev, ...(ai.columnLabels as Record<string, string>) }));
+            }
 
             initialForChangeLogRef.current = {
               form: {
@@ -1011,7 +1013,7 @@ const Invoice = () => {
                 smrNumber: inv.additionalInfo?.smrNumber ?? '',
                 shipmentPlace: inv.additionalInfo?.shipmentPlace ?? '',
                 destination: inv.additionalInfo?.destination ?? '',
-                origin: inv.additionalInfo?.origin ?? '',
+                origin: inv.additionalInfo?.origin ?? 'Республика Узбекистан',
                 manufacturer: inv.additionalInfo?.manufacturer ?? '',
                 orderNumber: inv.additionalInfo?.orderNumber ?? '',
                 gln: inv.additionalInfo?.gln ?? '',
@@ -1138,16 +1140,15 @@ const Invoice = () => {
   const handleNameChange = (index: number, value: string) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], name: value };
-    const match = tnvedProducts.find((p) => p.name === value.trim());
-    if (match) {
-      newItems[index].tnvedCode = match.code;
-    }
     const nameTrim = value.trim();
     if (nameTrim && selectedContractSpec.length > 0) {
       const specRow = selectedContractSpec.find(
         (r) => (r.productName || '').trim().toLowerCase() === nameTrim.toLowerCase()
       );
       if (specRow) {
+        if (specRow.tnvedCode != null && specRow.tnvedCode.trim() !== '') {
+          newItems[index].tnvedCode = specRow.tnvedCode.trim();
+        }
         const up = specRow.unitPrice != null ? Number(specRow.unitPrice) : 0;
         const tp = specRow.totalPrice != null ? Number(specRow.totalPrice) : up * (newItems[index].netWeight || 0);
         newItems[index].unitPrice = up;
@@ -1155,7 +1156,12 @@ const Invoice = () => {
       } else {
         newItems[index].unitPrice = 0;
         newItems[index].totalPrice = 0;
+        const match = tnvedProducts.find((p) => p.name === nameTrim);
+        if (match) newItems[index].tnvedCode = match.code;
       }
+    } else {
+      const match = tnvedProducts.find((p) => p.name === nameTrim);
+      if (match) newItems[index].tnvedCode = match.code;
     }
     setItems(newItems);
   };
@@ -1267,9 +1273,16 @@ const Invoice = () => {
 
   const buildDownloadBase = (type: string) => {
     const sanitize = (value: string) => value.replace(/[\\/:*?"<>|]+/g, '_').trim();
-    const safeInvoice = sanitize(invoice?.invoiceNumber || form.invoiceNumber || 'Invoice');
-    const plate = sanitize(getVehiclePlate(form.vehicleNumber) || 'NOAUTO');
-    return `${type}-${safeInvoice}-${plate}`;
+    const plate = sanitize(getVehiclePlate(form.vehicleNumber) || (invoice?.invoiceNumber || form.invoiceNumber || 'N')).replace(/\s+/g, '_');
+    return `${type}_${plate}`;
+  };
+
+  /** Invoys PDF va Invoys Excel uchun: "DZA-157 АВТО 40232BAA" ko'rinishi */
+  const buildInvoiceDownloadBase = () => {
+    const sanitize = (value: string) => value.replace(/[\\/:*?"<>|]+/g, '_').trim();
+    const inv = sanitize(invoice?.invoiceNumber || form.invoiceNumber || 'Invoice');
+    const plate = getVehiclePlate(form.vehicleNumber)?.trim() || '';
+    return plate ? `${inv} АВТО ${plate}` : inv;
   };
 
   const generatePdf = async (includeSeal: boolean) => {
@@ -1304,7 +1317,7 @@ const Invoice = () => {
     const y = marginVertical;
     pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight, undefined, 'FAST');
 
-    const fileBase = buildDownloadBase(includeSeal ? 'PDF-PECHATLI' : 'PDF-PECHATSIZ');
+    const fileBase = buildInvoiceDownloadBase();
     pdf.save(`${fileBase}.pdf`);
 
     setIsPdfMode(false);
@@ -1574,7 +1587,7 @@ const Invoice = () => {
       const response = await apiClient.get(`/invoices/${invoice.id}/xlsx`, {
         responseType: 'blob',
       });
-      const fileName = `${buildDownloadBase('INVOYS')}.xlsx`;
+      const fileName = `${buildInvoiceDownloadBase()}.xlsx`;
       await downloadExcelResponse(response, fileName, 'Invoys Excel yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading Invoice Excel:', error);
@@ -1609,7 +1622,7 @@ const Invoice = () => {
       const response = await apiClient.get(`/invoices/${invoice.id}/commodity-ek`, {
         responseType: 'blob',
       });
-      const fileName = `${buildDownloadBase('DEKLARATSIYA')}.xlsx`;
+      const fileName = 'CommodityEk_New.xlsx';
       await downloadExcelResponse(response, fileName, 'Deklaratsiya shabloni yuklab olishda xatolik yuz berdi');
       trackProcessDownload('DECLARATION');
     } catch (error) {
@@ -1830,7 +1843,7 @@ const Invoice = () => {
       smrNumber: form.smrNumber ?? '',
       shipmentPlace: form.shipmentPlace ?? '',
       destination: form.destination ?? '',
-      origin: form.origin ?? '',
+      origin: form.origin || 'Республика Узбекистан',
       manufacturer: form.manufacturer ?? '',
       orderNumber: form.orderNumber ?? '',
       gln: form.gln ?? '',
@@ -2028,7 +2041,7 @@ const Invoice = () => {
             shipmentPlace: form.shipmentPlace,
             customsAddress: form.customsAddress ?? undefined,
             destination: form.destination,
-            origin: form.origin,
+            origin: form.origin || 'Республика Узбекистан',
             manufacturer: form.manufacturer,
             orderNumber: form.orderNumber,
             gln: form.gln,
@@ -2038,6 +2051,8 @@ const Invoice = () => {
             tirNumber: form.tirNumber,
             customFields: customFields,
             specCustomFields: specCustomFields,
+            visibleColumns,
+            columnLabels,
           };
           if (invoice) {
             const taskErrorsCount = (invoice as any).task?._count?.errors ?? 0;
@@ -2692,6 +2707,21 @@ const Invoice = () => {
             </div>
           )}
 
+          {sertifikatStageCompleted && canEdit && !taskHasErrors && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-lg flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-amber-900">
+                Sertifikatlar tayyor bo&apos;lgani sababli, invoysga o&apos;zgartirish kiritishdan oldin, iltimos, aniqlangan xatoliklar haqida to&apos;liq ma&apos;lumotlarni kiriting.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/invoices', { state: { openErrorModalForTaskId: task?.id } })}
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
+              >
+                Xatolik qo&apos;shish
+              </button>
+            </div>
+          )}
+
           <div className="mb-4 flex flex-wrap gap-2">
             {[
               { id: 'invoice' as const, label: 'Invoys' },
@@ -3161,7 +3191,7 @@ const Invoice = () => {
                     {form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
                     {form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
                     {form.customsAddress && <div><strong>Место там. очистки:</strong> {form.customsAddress}</div>}
-                    <div><strong>Происхождение товара:</strong> {form.origin}</div>
+                    <div><strong>Происхождение товара:</strong> {form.origin || 'Республика Узбекистан'}</div>
                     {form.manufacturer && <div><strong>Производитель:</strong> {form.manufacturer}</div>}
                     {form.orderNumber && <div><strong>Номер заказа:</strong> {form.orderNumber}</div>}
                     {form.gln && <div><strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}</div>}
@@ -4251,8 +4281,8 @@ const Invoice = () => {
                 </div>
                 <input
                   type="text"
-                  value={form.origin}
-                  disabled
+                  value={form.origin || 'Республика Узбекистан'}
+                  readOnly
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-100"
                 />
                   </div>

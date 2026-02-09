@@ -369,6 +369,7 @@ router.get('/:id/commodity-ek', requireAuth(), async (req: AuthRequest, res: Res
       items: invoice.items,
       contract,
       forcedRegionInternalCode: isOltiariqBranch ? '1730203' : null,
+      branchName: branch?.name ?? null,
     });
 
     const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });

@@ -6,6 +6,8 @@ import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
 import { updateTaskStatus, calculateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
 import { TaskStatus, Currency, ExchangeSource } from '@prisma/client';
+
+type AfterHoursPayerType = 'CLIENT' | 'COMPANY';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ValidationService } from '../services/validation.service';
 import { getExchangeRate } from '../services/exchange-rate';
@@ -114,6 +116,8 @@ const createTaskSchema = z.object({
   comments: z.string().optional(),
   hasPsr: z.boolean(),
   driverPhone: z.string().optional(),
+  afterHoursDeclaration: z.boolean().optional().default(false),
+  afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional().default('CLIENT'),
   customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
 });
 
@@ -169,6 +173,8 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
         status: true,
         comments: true,
         hasPsr: true,
+        afterHoursDeclaration: true,
+        afterHoursPayer: true,
         driverPhone: true,
         customsPaymentMultiplier: true,
         createdAt: true,
@@ -477,6 +483,8 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       branchId: parsed.data.branchId,
       title: parsed.data.title,
       hasPsr: parsed.data.hasPsr,
+      afterHoursDeclaration: parsed.data.afterHoursDeclaration,
+      afterHoursPayer: parsed.data.afterHoursPayer as AfterHoursPayerType,
       createdById: req.user?.id,
     };
 
@@ -1111,6 +1119,8 @@ router.get('/:id/versions', async (req, res) => {
 const updateStageSchema = z.object({
   status: z.enum(['BOSHLANMAGAN', 'TAYYOR']),
   customsPaymentMultiplier: z.coerce.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
+  afterHoursDeclaration: z.boolean().optional(),
+  afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional(),
   skipValidation: z.boolean().optional(), // Skip document validation for ST stage
 });
 
@@ -1226,38 +1236,29 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         include: { client: true },
       });
       
-      // Calculate additional payment based on multiplier changes
-      // Note: client.dealAmount should NOT be changed - it's the base contract amount
-      // Only task.snapshotDealAmount should be updated for this specific task
       const clientCurrency = task?.client
         ? (task.client as any).dealAmount_currency || (task.client as any).dealAmountCurrency || 'USD'
         : 'USD';
+      const afterHoursDeclaration = parsed.data.afterHoursDeclaration ?? task?.afterHoursDeclaration ?? false;
+      const afterHoursPayer = (parsed.data.afterHoursPayer ?? task?.afterHoursPayer ?? 'CLIENT') as AfterHoursPayerType;
+      const afterHoursExtraOriginal = afterHoursDeclaration
+        ? (clientCurrency === 'USD' ? 8.5 : 103000)
+        : 0;
+      const afterHoursExtraUzs = afterHoursDeclaration ? 103000 : 0;
       const bxmAmountForClient = clientCurrency === 'USD' ? bxmAmountUsd : bxmAmountUzs;
-      const calculatedCustomsPayment = bxmAmountForClient * parsed.data.customsPaymentMultiplier;
-      const calculatedCustomsPaymentUzs = clientCurrency === 'USD'
+      const calculatedCustomsBasePayment = bxmAmountForClient * parsed.data.customsPaymentMultiplier;
+      const calculatedCustomsBasePaymentUzs = clientCurrency === 'USD'
         ? bxmAmountUzs * parsed.data.customsPaymentMultiplier
-        : calculatedCustomsPayment;
+        : calculatedCustomsBasePayment;
+      const calculatedCustomsPayment = calculatedCustomsBasePayment + afterHoursExtraOriginal;
+      const calculatedCustomsPaymentUzs = calculatedCustomsBasePaymentUzs + afterHoursExtraUzs;
       const calculatedCustomsExchangeRate = clientCurrency === 'USD' && calculatedCustomsPayment > 0
         ? new Decimal(calculatedCustomsPaymentUzs / calculatedCustomsPayment)
         : new Decimal(1);
 
       if (task?.client) {
-        
-        // Get previous multiplier (if exists)
-        const previousMultiplier = task.customsPaymentMultiplier ? Number(task.customsPaymentMultiplier) : 1;
         const newMultiplier = Number(parsed.data.customsPaymentMultiplier);
-        
-        // Calculate previous additional payment (if previous multiplier > 1)
-        // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
-        let previousAdditionalPayment = 0;
-        if (previousMultiplier > 1) {
-          if (clientCurrency === 'USD') {
-            previousAdditionalPayment = (previousMultiplier - 1) * bxmAmountUsd;
-          } else {
-            previousAdditionalPayment = (previousMultiplier - 1) * bxmAmountUzs;
-          }
-        }
-        
+
         // Calculate new additional payment (if new multiplier > 1)
         // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
         let newAdditionalPayment = 0;
@@ -1268,35 +1269,30 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
             newAdditionalPayment = (newMultiplier - 1) * bxmAmountUzs;
           }
         }
-        
-        // Calculate the difference (can be positive or negative)
-        const paymentDifference = newAdditionalPayment - previousAdditionalPayment;
+
+        const dealExtraFromAfterHours = afterHoursDeclaration && afterHoursPayer === 'CLIENT'
+          ? afterHoursExtraOriginal
+          : 0;
         
         // Get base deal amount (from client or current snapshot)
         const baseDealAmount = task.client.dealAmount ? Number(task.client.dealAmount) : 0;
-        const baseDealAmountUzs = task.snapshotDealAmount_amount_uzs
-          ? Number(task.snapshotDealAmount_amount_uzs)
-          : clientCurrency === 'USD'
-            ? baseDealAmount * Number(task.snapshotDealAmount_exchange_rate || task.snapshotDealAmountExchangeRate || 1)
-            : baseDealAmount;
-        
-        // Get current snapshotDealAmount (or use base dealAmount if snapshot is null)
-        const currentSnapshotDealAmount = task.snapshotDealAmount 
-          ? Number(task.snapshotDealAmount) 
-          : baseDealAmount;
-        
+        const baseDealAmountUzs = clientCurrency === 'USD'
+          ? Number((task.client as any).dealAmount_amount_uzs
+            ?? (baseDealAmount * Number((task.client as any).dealAmount_exchange_rate || (task.client as any).dealAmountExchangeRate || task.snapshotDealAmount_exchange_rate || task.snapshotDealAmountExchangeRate || 1)))
+          : Number((task.client as any).dealAmount_amount_uzs ?? baseDealAmount);
+
         // Calculate new snapshotDealAmount by removing previous additional payment and adding new one
-        // Or simply: baseDealAmount + newAdditionalPayment
-        const newSnapshotDealAmount = baseDealAmount + newAdditionalPayment;
-        const newSnapshotDealAmountUzs = baseDealAmountUzs + (clientCurrency === 'USD'
-          ? (newMultiplier - 1) * bxmAmountUzs
-          : (newMultiplier - 1) * bxmAmountUzs);
+        // Or simply: baseDealAmount + newAdditionalPayment (+ after-hours if payer is client)
+        const newSnapshotDealAmount = baseDealAmount + newAdditionalPayment + dealExtraFromAfterHours;
+        const newSnapshotDealAmountUzs = baseDealAmountUzs + (newMultiplier - 1) * bxmAmountUzs + (afterHoursDeclaration && afterHoursPayer === 'CLIENT' ? 103000 : 0);
         
         // Update task's snapshotDealAmount
         await (tx as any).task.update({
           where: { id: taskId },
           data: {
             customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
+            afterHoursDeclaration,
+            afterHoursPayer,
             snapshotCustomsPayment: calculatedCustomsPayment,
             snapshotCustomsPaymentExchangeRate: calculatedCustomsExchangeRate,
             snapshotCustomsPayment_amount_original: calculatedCustomsPayment,
@@ -1314,6 +1310,8 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
           where: { id: taskId },
           data: {
             customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
+            afterHoursDeclaration,
+            afterHoursPayer,
             snapshotCustomsPayment: calculatedCustomsPayment,
             snapshotCustomsPaymentExchangeRate: calculatedCustomsExchangeRate,
             snapshotCustomsPayment_amount_original: calculatedCustomsPayment,
@@ -1335,15 +1333,15 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         : 'USD';
 
       const baseDealAmount = task?.client?.dealAmount ? Number(task.client.dealAmount) : 0;
-      const baseDealAmountUzs = task?.snapshotDealAmount_amount_uzs
-        ? Number(task.snapshotDealAmount_amount_uzs)
-        : clientCurrency === 'USD'
-          ? baseDealAmount * Number(task?.snapshotDealAmount_exchange_rate || task?.snapshotDealAmountExchangeRate || 1)
-          : baseDealAmount;
+      const baseDealAmountUzs = clientCurrency === 'USD'
+        ? Number((task?.client as any)?.dealAmount_amount_uzs
+          ?? (baseDealAmount * Number((task?.client as any)?.dealAmount_exchange_rate || (task?.client as any)?.dealAmountExchangeRate || task?.snapshotDealAmount_exchange_rate || task?.snapshotDealAmountExchangeRate || 1)))
+        : Number((task?.client as any)?.dealAmount_amount_uzs ?? baseDealAmount);
 
       await (tx as any).task.update({
         where: { id: taskId },
         data: {
+          afterHoursDeclaration: false,
           customsPaymentMultiplier: null,
           snapshotCustomsPayment: 0,
           snapshotCustomsPaymentExchangeRate: new Decimal(1),
@@ -1644,6 +1642,8 @@ const updateTaskSchema = z.object({
   branchId: z.number().optional(),
   comments: z.string().optional(),
   hasPsr: z.boolean().optional(),
+  afterHoursDeclaration: z.boolean().optional(),
+  afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional(),
   driverPhone: z.string().optional(),
 });
 
@@ -1687,6 +1687,8 @@ async function createTaskVersion(tx: any, taskId: number, changedBy: number, cha
     if (task.status) changes.status = task.status;
     if (task.comments) changes.comments = task.comments;
     if (task.hasPsr !== undefined) changes.hasPsr = task.hasPsr;
+    if (task.afterHoursDeclaration !== undefined) changes.afterHoursDeclaration = task.afterHoursDeclaration;
+    if (task.afterHoursPayer) changes.afterHoursPayer = task.afterHoursPayer;
     if (task.driverPhone) changes.driverPhone = task.driverPhone;
   } else if (changeType === 'STAGE' && stageInfo) {
     // Stage changes
@@ -1755,6 +1757,8 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
       branchId: true,
       comments: true,
       hasPsr: true,
+      afterHoursDeclaration: true,
+      afterHoursPayer: true,
       driverPhone: true,
       createdById: true,
       createdAt: true,
@@ -1765,10 +1769,18 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
   });
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  // Faqat task yaratgan ishchi taskni o'zgartira oladi
-  if (task.createdById !== user.id) {
-    return res.status(403).json({ 
-      error: 'Faqat task yaratgan ishchi taskni o\'zgartirishi mumkin' 
+  const hasOtherFields = parsed.data.title !== undefined || parsed.data.clientId !== undefined ||
+    parsed.data.branchId !== undefined || parsed.data.comments !== undefined ||
+    parsed.data.hasPsr !== undefined || parsed.data.driverPhone !== undefined;
+  const isOnlyAfterHoursUpdate = !hasOtherFields && (parsed.data.afterHoursDeclaration !== undefined || parsed.data.afterHoursPayer !== undefined);
+
+  const isCreator = task.createdById === user.id;
+  const isAdmin = user.role === 'ADMIN';
+
+  // Faqat "ish vaqtidan tashqari" maydonlarini yangilashda har qanday avtorizatsiyalangan foydalanuvchi ruxsat etiladi
+  if (!isAdmin && !isCreator && !isOnlyAfterHoursUpdate) {
+    return res.status(403).json({
+      error: 'Faqat task yaratgan ishchi taskni o\'zgartirishi mumkin'
     });
   }
 
@@ -1779,6 +1791,8 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
     (parsed.data.branchId && parsed.data.branchId !== task.branchId) ||
     (parsed.data.comments !== undefined && parsed.data.comments !== task.comments) ||
     (parsed.data.hasPsr !== undefined && parsed.data.hasPsr !== task.hasPsr) ||
+    (parsed.data.afterHoursDeclaration !== undefined && parsed.data.afterHoursDeclaration !== (task as any).afterHoursDeclaration) ||
+    (parsed.data.afterHoursPayer !== undefined && parsed.data.afterHoursPayer !== (task as any).afterHoursPayer) ||
     (parsed.data.driverPhone !== undefined && parsed.data.driverPhone !== task.driverPhone);
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -1793,6 +1807,8 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
       ...(parsed.data.branchId && { branchId: parsed.data.branchId }),
       ...(parsed.data.comments !== undefined && { comments: parsed.data.comments || null }),
       ...(parsed.data.hasPsr !== undefined && { hasPsr: parsed.data.hasPsr }),
+      ...(parsed.data.afterHoursDeclaration !== undefined && { afterHoursDeclaration: parsed.data.afterHoursDeclaration }),
+      ...(parsed.data.afterHoursPayer !== undefined && { afterHoursPayer: parsed.data.afterHoursPayer as AfterHoursPayerType }),
       ...(parsed.data.driverPhone !== undefined && { driverPhone: parsed.data.driverPhone || null }),
       ...(hasChanges && req.user && { updatedById: req.user.id }),
     };

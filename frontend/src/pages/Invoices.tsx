@@ -410,21 +410,20 @@ const Invoices = () => {
     return 'bg-gray-100 text-gray-600';
   };
 
-  /** Filial bo'yicha qator fon rangi — qizil, sariq, yashil; juda och, sal ko'rinadi */
-  const FILIAL_ROW_COLORS = [
-    'bg-red-50/70 hover:bg-red-50',
-    'bg-yellow-50/70 hover:bg-yellow-50',
-    'bg-green-50/70 hover:bg-green-50',
-    'bg-red-50/50 hover:bg-red-50/80',
-    'bg-yellow-50/50 hover:bg-yellow-50/80',
-    'bg-green-50/50 hover:bg-green-50/80',
+  /** Filial ustunidagi rang — Tasks kartochkalaridagi kabi (faqat filial katagida) */
+  const FILIAL_CELL_COLORS = [
+    'bg-blue-100 text-blue-800',
+    'bg-emerald-100 text-emerald-800',
+    'bg-violet-100 text-violet-800',
   ];
-  const getBranchRowClass = (branchId: number | undefined): string => {
-    if (branchId == null) return 'bg-gray-50/50 hover:bg-gray-50';
-    const sorted = [...branches].sort((a, b) => a.id - b.id);
-    const idx = sorted.findIndex((b) => b.id === branchId);
-    if (idx < 0) return 'bg-gray-50/50 hover:bg-gray-50';
-    return FILIAL_ROW_COLORS[idx % FILIAL_ROW_COLORS.length];
+  const getBranchCellClass = (branchName: string | undefined, branchId: number | undefined): string => {
+    if (!branchName) return 'bg-gray-100 text-gray-600';
+    if (branchName === 'Oltiariq') return 'bg-yellow-100 text-yellow-800';
+    if (branchName === 'Toshkent') return 'bg-indigo-100 text-indigo-800';
+    const sorted = [...(branches || [])].sort((a, b) => a.id - b.id);
+    const idx = branchId != null ? sorted.findIndex((b) => b.id === branchId) : -1;
+    if (idx >= 0) return FILIAL_CELL_COLORS[idx % FILIAL_CELL_COLORS.length];
+    return 'bg-gray-100 text-gray-600';
   };
 
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
@@ -1160,49 +1159,49 @@ const Invoices = () => {
           <table className="min-w-full">
             <thead>
               <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-200">
-                <th className="w-28 px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="w-28 px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
                   <span className="inline-flex items-center gap-1.5">
                     <Icon icon="lucide:hash" className="w-4 h-4 text-gray-500" />
                     №
                   </span>
                 </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
                   <span className="inline-flex items-center gap-1.5">
                     <Icon icon="lucide:user" className="w-4 h-4 text-gray-500" />
                     Mijoz
                   </span>
                 </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
                   <span className="inline-flex items-center gap-1.5">
                     <Icon icon="lucide:map-pin" className="w-4 h-4 text-gray-500" />
                     Filial
                   </span>
                 </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
                   <span className="inline-flex items-center gap-1.5">
                     <Icon icon="lucide:car" className="w-4 h-4 text-gray-500" />
                     Avtomobil raqami
                   </span>
                 </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
                   <span className="inline-flex items-center gap-1.5">
                     <Icon icon="lucide:building-2" className="w-4 h-4 text-gray-500" />
                     Sotuvchi/sotib oluvchi/Yukni qabul qiluvchi
                   </span>
                 </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
                   <span className="inline-flex items-center gap-1.5">
                     <Icon icon="lucide:calendar" className="w-4 h-4 text-gray-500" />
                     Sana
                   </span>
                 </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
                   <span className="inline-flex items-center gap-1.5">
                     <Icon icon="lucide:circle-dot" className="w-4 h-4 text-gray-500" />
                     Status
                   </span>
                 </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
                   <span className="inline-flex items-center gap-1.5">
                     <Icon icon="lucide:sliders-horizontal" className="w-4 h-4 text-gray-500" />
                     Amallar
@@ -1214,11 +1213,12 @@ const Invoices = () => {
               {paginatedInvoices.map((invoice) => {
                 const hasErrors = (invoice.task?._count?.errors ?? 0) > 0;
                 const branchId = invoice.task?.branch?.id ?? invoice.branch?.id;
-                const rowClass = getBranchRowClass(branchId);
+                const branchName = invoice.task?.branch?.name ?? invoice.branch?.name ?? undefined;
+                const filialCellClass = getBranchCellClass(branchName, branchId);
                 return (
                 <tr
                   key={invoice.id}
-                  className={`transition-colors ${rowClass} ${hasErrors ? 'border-l-4 border-l-red-500' : ''}`}
+                  className={`transition-colors hover:bg-gray-200/80 ${hasErrors ? 'border-l-4 border-l-red-500' : ''}`}
                 >
                   <td className="w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold">
                     <button
@@ -1231,18 +1231,44 @@ const Invoices = () => {
                     </button>
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-800">
-                    {invoice.client?.name || '-'}
+                    {invoice.clientId ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate('/clients', { state: { openClientId: invoice.clientId } })}
+                        className="text-left w-full hover:text-indigo-600 hover:underline focus:outline-none focus:ring-0"
+                      >
+                        {invoice.client?.name || '-'}
+                      </button>
+                    ) : (
+                      (invoice.client?.name || '-')
+                    )}
                   </td>
-                  <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700">
-                    {invoice.task?.branch?.name ?? invoice.branch?.name ?? '-'}
+                  <td className="px-6 py-2 whitespace-nowrap text-sm">
+                    <span className={`inline-block px-2.5 py-1 rounded-md font-medium ${filialCellClass}`}>
+                      {invoice.task?.branch?.name ?? invoice.branch?.name ?? '-'}
+                    </span>
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 font-mono">
                     {invoice.additionalInfo?.vehicleNumber || '-'}
                   </td>
                   <td className="px-6 py-2 text-sm text-gray-700 max-w-xs truncate" title={[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName].filter(Boolean).join(' / ') || undefined}>
-                    {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
-                      .filter(Boolean)
-                      .join(' / ') || '-'}
+                    {invoice.clientId ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate('/clients', { state: { openClientId: invoice.clientId, ...(invoice.contractId != null ? { openContractId: invoice.contractId } : {}) } })}
+                        className="text-left w-full hover:text-indigo-600 hover:underline focus:outline-none focus:ring-0 truncate block"
+                      >
+                        {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
+                          .filter(Boolean)
+                          .join(' / ') || '-'}
+                      </button>
+                    ) : (
+                      <span>
+                        {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
+                          .filter(Boolean)
+                          .join(' / ') || '-'}
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700">
                     {formatDate(invoice.date)}
@@ -1262,7 +1288,7 @@ const Invoices = () => {
                       <button
                         type="button"
                         onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-200 transition-colors"
                         title="Invoysni ko'rish"
                       >
                         <Icon icon="lucide:eye" className="w-4 h-4" />

@@ -40,6 +40,7 @@ interface ClientDetail {
   balanceCurrency?: 'USD' | 'UZS';
   phone?: string;
   createdAt: string;
+  defaultAfterHoursPayer?: 'CLIENT' | 'COMPANY' | null;
   creditType?: string | null;
   creditLimit?: number | string | null;
   creditStartDate?: string | null;
@@ -321,6 +322,7 @@ const Clients = () => {
     dealAmountCurrency: 'USD' as 'USD' | 'UZS',
     dealAmountExchangeRate: '',
     phone: '',
+    defaultAfterHoursPayer: 'CLIENT' as 'CLIENT' | 'COMPANY',
     creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
     creditLimit: '',
     creditStartDate: '',
@@ -504,6 +506,21 @@ const Clients = () => {
     loadClients();
     loadStats();
   }, []);
+
+  // Invoices sahifasidan Mijoz yoki Shartnoma ustiga bosilganda ochilgan oynalarni ochish
+  useEffect(() => {
+    const state = location.state as { openClientId?: number; openContractId?: number } | null;
+    const openClientId = state?.openClientId;
+    const openContractId = state?.openContractId;
+    if (openClientId != null && Number.isFinite(openClientId)) {
+      loadClientDetail(Number(openClientId)).then(() => {
+        if (openContractId != null && Number.isFinite(openContractId)) {
+          openContractEditById(Number(openContractId));
+        }
+      });
+      navigate('/clients', { replace: true, state: {} });
+    }
+  }, [location.state]);
 
   // MANAGER: faqat shartnomalar; mijoz qo'shish/tahrirlash sahifalariga kirishni taqiqlash
   useEffect(() => {
@@ -918,6 +935,69 @@ const Clients = () => {
     }
   };
 
+  const openContractEditById = async (contractId: number) => {
+    setEditingContractId(contractId);
+    setShowContractModal(true);
+    const parseListPreservingEmpty = (value?: string | null) => {
+      const items = String(value ?? '').split('\n');
+      return items.length ? items : [''];
+    };
+    try {
+      const response = await apiClient.get(`/contracts/${contractId}`);
+      const c = response.data;
+      let spec: SpecRow[] = [];
+      if (c.specification) {
+        if (Array.isArray(c.specification)) spec = c.specification;
+        else if (typeof c.specification === 'string') {
+          try { spec = JSON.parse(c.specification); } catch { spec = []; }
+        }
+      }
+      setContractFormAndRef({
+        contractNumber: c.contractNumber || '',
+        contractDate: c.contractDate ? String(c.contractDate).split('T')[0] : '',
+        contractCurrency: (c as any).contractCurrency || 'USD',
+        sellerName: c.sellerName || '',
+        sellerInn: c.sellerInn || '',
+        sellerLegalAddress: c.sellerLegalAddress || '',
+        sellerDetails: c.sellerDetails || '',
+        gln: c.gln || '',
+        buyerName: c.buyerName || '',
+        buyerInn: c.buyerInn || '',
+        buyerAddress: c.buyerAddress || '',
+        destinationCountry: c.destinationCountry || '',
+        buyerDetails: c.buyerDetails || '',
+        deliveryTerms: parseListPreservingEmpty(c.deliveryTerms),
+        customsAddress: parseListPreservingEmpty(c.customsAddress),
+        shipperName: c.shipperName || '',
+        shipperInn: c.shipperInn || '',
+        shipperAddress: c.shipperAddress || '',
+        shipperDetails: c.shipperDetails || '',
+        consigneeName: c.consigneeName || '',
+        consigneeInn: c.consigneeInn || '',
+        consigneeAddress: c.consigneeAddress || '',
+        consigneeDetails: c.consigneeDetails || '',
+        supplierDirector: c.supplierDirector || '',
+        buyerDirector: (c as any).buyerDirector || '',
+        consigneeDirector: (c as any).consigneeDirector || '',
+        goodsReleasedBy: c.goodsReleasedBy || '',
+        signatureUrl: c.signatureUrl ?? '',
+        sealUrl: c.sealUrl ?? '',
+        sellerSignatureUrl: c.sellerSignatureUrl ?? '',
+        sellerSealUrl: c.sellerSealUrl ?? '',
+        buyerSignatureUrl: c.buyerSignatureUrl ?? '',
+        buyerSealUrl: c.buyerSealUrl ?? '',
+        consigneeSignatureUrl: c.consigneeSignatureUrl ?? '',
+        consigneeSealUrl: c.consigneeSealUrl ?? '',
+        specification: spec,
+      });
+      setHasShipper(!!c.shipperName);
+      setHasConsignee(!!c.consigneeName);
+    } catch (err) {
+      console.error('Error loading contract for edit:', err);
+      alert('Shartnoma yuklanmadi');
+    }
+  };
+
   const handleDeleteContract = async (contractId: number) => {
     if (!confirm('Shartnomani o\'chirishni tasdiqlaysizmi?')) {
       return;
@@ -1020,6 +1100,7 @@ const Clients = () => {
       dealAmountCurrency: (client.dealAmountCurrency || 'USD') as 'USD' | 'UZS',
       dealAmountExchangeRate: (client as any).dealAmountExchangeRate ? (client as any).dealAmountExchangeRate.toString() : '',
       phone: client.phone || '',
+      defaultAfterHoursPayer: (client.defaultAfterHoursPayer === 'COMPANY' ? 'COMPANY' : 'CLIENT') as 'CLIENT' | 'COMPANY',
       creditType: client.creditType || '',
       creditLimit: client.creditLimit ? client.creditLimit.toString() : '',
       creditStartDate: client.creditStartDate ? new Date(client.creditStartDate).toISOString().split('T')[0] : '',
@@ -1090,6 +1171,7 @@ const Clients = () => {
         dealAmountCurrency: editForm.dealAmountCurrency,
         dealAmountExchangeRate: editForm.dealAmount && editForm.dealAmountExchangeRate ? parseFloat(editForm.dealAmountExchangeRate) : undefined,
         phone: editForm.phone || undefined,
+        defaultAfterHoursPayer: editForm.defaultAfterHoursPayer,
         // Shartnoma maydonlari
         contractNumber: editForm.contractNumber || undefined,
         address: editForm.address || undefined,
@@ -1156,6 +1238,7 @@ const Clients = () => {
         dealAmountCurrency: 'USD', 
         dealAmountExchangeRate: '',
         phone: '', 
+        defaultAfterHoursPayer: 'CLIENT',
         creditType: '', 
         creditLimit: '', 
         creditStartDate: '',
@@ -1766,6 +1849,7 @@ const Clients = () => {
 
             {/* Top Financial Summary - faqat ADMIN */}
             {!isManagerOnly && selectedClient.stats && (
+              <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
                   <div className="text-sm text-gray-600 mb-1">Barcha loyihalar summasi (PSR hisobga olingan)</div>
@@ -1805,6 +1889,13 @@ const Clients = () => {
                   </div>
                 </div>
               </div>
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm text-gray-600 mb-1">Qo'shimcha to'lovni kim to'laydi</div>
+                <div className="text-sm font-medium text-gray-800">
+                  {(selectedClient as any).defaultAfterHoursPayer === 'COMPANY' ? 'Men to\'layman (kompaniya)' : 'Mijoz to\'laydi'}
+                </div>
+              </div>
+              </>
             )}
 
             {/* Client Info - faqat ADMIN */}
@@ -3027,6 +3118,34 @@ const Clients = () => {
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Qo'shimcha to'lovni kim to'laydi</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, defaultAfterHoursPayer: 'CLIENT' })}
+                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
+                      editForm.defaultAfterHoursPayer === 'CLIENT'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                    }`}
+                  >
+                    Mijoz to'laydi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, defaultAfterHoursPayer: 'COMPANY' })}
+                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
+                      editForm.defaultAfterHoursPayer === 'COMPANY'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                    }`}
+                  >
+                    Men to'layman
+                  </button>
+                </div>
               </div>
 
               {/* Nasiya shartlari */}

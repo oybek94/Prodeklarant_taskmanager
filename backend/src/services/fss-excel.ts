@@ -237,8 +237,8 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
       setTextCell(sheet, `J${row}`, regionName);
     });
   } else {
-    // Shablon ma'lumot qatori 2-qatordan boshlanadi (dimensions A1:P2)
-    const startRow = 2;
+    // FSS_template.xlsx: barcha ma'lumotlar 3-qatordan boshlanadi
+    const startRow = 3;
     const contractSpec = payload.contract?.specification;
     // Botanik nom: spetsifikatsiya → kalit-so'z → TN VED kodi (C ustuni har doim to'ldirilishi uchun)
     const resolveBotanical = (item: InvoiceItem): string => {

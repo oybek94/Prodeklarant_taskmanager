@@ -334,6 +334,7 @@ const Invoice = () => {
     }
 
   ]);
+  const UNIT_OPTIONS = ['кг', 'шт', 'л', 'м', 'т', 'упак.', 'ящ.', 'кор.', 'меш.', 'бут.', 'банк.'];
   const defaultVisibleColumns = {
     index: true,
     tnved: true,
@@ -797,10 +798,10 @@ const Invoice = () => {
                 dueDate: '',
                 poNumber: '',
                 terms: '',
-                tax: undefined,
-                discount: undefined,
-                shipping: undefined,
-                amountPaid: undefined,
+                tax: 0,
+                discount: 0,
+                shipping: 0,
+                amountPaid: 0,
                 fssRegionInternalCode: '',
                 fssRegionName: '',
                 fssRegionExternalCode: '',
@@ -824,8 +825,10 @@ const Invoice = () => {
               setItems([{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 }]);
               setCustomFields([]);
               setSpecCustomFields([]);
-            } catch {
               // dublikat yuklanmasa oddiy yangi invoice qoldiramiz
+              // dublikat yuklanmasa oddiy yangi invoice qoldiramiz
+            } catch (e) {
+              console.error('Error loading duplicate invoice:', e);
             }
           }
 
@@ -2246,7 +2249,8 @@ const Invoice = () => {
     const range = getTareRange(packageType);
     if (!range) return true;
     if (range.min === 0 && range.max === 0) return Math.abs(tareKg) < 1e-6;
-    return tareKg >= range.min && tareKg <= range.max;
+    const eps = 1e-9;
+    return tareKg >= range.min - eps && tareKg <= range.max + eps;
   };
 
   const numberToWordsRu = (num: number, currency: string): string => {
@@ -3545,26 +3549,30 @@ const Invoice = () => {
                           )}
                           {effectiveColumns.unit && (
                             <td className="px-2 py-2">
-                              <input
-                                type="text"
-                                value={item.unit}
+                              <select
+                                value={item.unit || 'кг'}
                                 onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center"
-                                placeholder="кг"
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center bg-white"
                                 required
-                              />
+                              >
+                                {UNIT_OPTIONS.map((u) => (
+                                  <option key={u} value={u}>{u}</option>
+                                ))}
+                              </select>
                             </td>
                           )}
                           {effectiveColumns.package && (
                             <td className="px-2 py-2">
-                              <input
-                                type="text"
+                              <select
                                 value={item.packageType || ''}
                                 onChange={(e) => handleItemChange(index, 'packageType', e.target.value)}
-                                list="invoice-packaging-types"
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                                placeholder="пласт. ящик."
-                              />
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                              >
+                                <option value="">— Вид упаковки —</option>
+                                {packagingTypes.map((p) => (
+                                  <option key={p.id} value={p.name}>{p.name}</option>
+                                ))}
+                              </select>
                             </td>
                           )}
                           {effectiveColumns.quantity && (

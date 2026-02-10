@@ -13,6 +13,8 @@ interface Task {
   status: string;
   comments?: string;
   hasPsr?: boolean;
+  afterHoursPayer?: 'CLIENT' | 'COMPANY';
+  afterHoursDeclaration?: boolean;
   driverPhone?: string;
   createdAt: string;
   client: { id: number; name: string };
@@ -57,11 +59,13 @@ interface TaskDetail {
   status: string;
   comments?: string;
   hasPsr?: boolean;
+  afterHoursPayer?: 'CLIENT' | 'COMPANY';
+  afterHoursDeclaration?: boolean;
   driverPhone?: string;
   qrToken?: string | null;
   createdAt: string;
   updatedAt?: string;
-  client: { id: number; name: string; dealAmount?: number; dealAmountCurrency?: 'USD' | 'UZS'; dealAmount_currency?: 'USD' | 'UZS' };
+  client: { id: number; name: string; dealAmount?: number; dealAmountCurrency?: 'USD' | 'UZS'; dealAmount_currency?: 'USD' | 'UZS'; defaultAfterHoursPayer?: 'CLIENT' | 'COMPANY' | null };
   branch: { id: number; name: string };
   createdBy?: { id: number; name: string; email: string };
   updatedBy?: { id: number; name: string; email: string };
@@ -132,6 +136,7 @@ const Tasks = () => {
   const [bxmMultiplier, setBxmMultiplier] = useState<string>('1.5');
   const [currentBxmUsd, setCurrentBxmUsd] = useState<number>(34.4);
   const [currentBxmUzs, setCurrentBxmUzs] = useState<number>(412000);
+  const [afterHoursDeclaration, setAfterHoursDeclaration] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [editingErrorId, setEditingErrorId] = useState<number | null>(null);
   const [errorForm, setErrorForm] = useState({
@@ -270,6 +275,7 @@ const Tasks = () => {
     branchId: '',
     comments: '',
     hasPsr: false,
+    afterHoursPayer: 'CLIENT' as 'CLIENT' | 'COMPANY',
     driverPhone: '',
   });
   const [editForm, setEditForm] = useState({
@@ -278,6 +284,7 @@ const Tasks = () => {
     branchId: '',
     comments: '',
     hasPsr: false,
+    afterHoursPayer: 'CLIENT' as 'CLIENT' | 'COMPANY',
     driverPhone: '',
   });
   const [filters] = useState({
@@ -753,6 +760,7 @@ const Tasks = () => {
       }
       
       setSelectedTask(taskData);
+      setAfterHoursDeclaration(Boolean(taskData.afterHoursDeclaration));
       setShowTaskModal(true);
       
       // Load stages lazily (parallel)
@@ -781,12 +789,14 @@ const Tasks = () => {
         taskData.stages = [];
       }
       setSelectedTask(taskData);
+      setAfterHoursDeclaration(Boolean(taskData.afterHoursDeclaration));
       setEditForm({
         title: taskData.title,
         clientId: taskData.client.id.toString(),
         branchId: taskData.branch.id.toString(),
         comments: taskData.comments || '',
         hasPsr: taskData.hasPsr || false,
+        afterHoursPayer: taskData.afterHoursPayer || 'CLIENT',
         driverPhone: taskData.driverPhone || '',
       });
       setShowEditModal(true);
@@ -1418,12 +1428,14 @@ const Tasks = () => {
             setCurrentBxmUsd(amountUsd);
             setCurrentBxmUzs(amountUzs);
             setBxmMultiplier('1.5');
+            setAfterHoursDeclaration(false);
             setShowBXMModal(true);
           } catch (error) {
             console.error('Error loading BXM:', error);
             setCurrentBxmUsd(34.4);
             setCurrentBxmUzs(412000);
             setBxmMultiplier('1.5');
+            setAfterHoursDeclaration(false);
             setShowBXMModal(true);
           }
         } else {
@@ -1437,7 +1449,12 @@ const Tasks = () => {
   };
 
 
-  const updateStageToReady = async (stage: TaskStage, customsPaymentMultiplier?: number, skipValidation?: boolean) => {
+  const updateStageToReady = async (
+    stage: TaskStage,
+    customsPaymentMultiplier?: number,
+    skipValidation?: boolean,
+    afterHoursDeclarationValue?: boolean
+  ) => {
       // Debug logging removed (CSP violation)
     if (!stage || !selectedTask) {
         // Debug logging removed (CSP violation)
@@ -1450,6 +1467,8 @@ const Tasks = () => {
       const response = await apiClient.patch(`/tasks/${selectedTask.id}/stages/${stage.id}`, {
         status: 'TAYYOR',
         ...(customsPaymentMultiplier && { customsPaymentMultiplier }),
+        ...(afterHoursDeclarationValue !== undefined && { afterHoursDeclaration: afterHoursDeclarationValue }),
+        ...((customsPaymentMultiplier || afterHoursDeclarationValue) && { afterHoursPayer: selectedTask.afterHoursPayer || 'CLIENT' }),
         ...(skipValidation && { skipValidation: true }),
       });
       
@@ -1464,6 +1483,7 @@ const Tasks = () => {
       await loadTaskDetail(selectedTask.id);
       await loadTasks();
       setShowBXMModal(false);
+      setAfterHoursDeclaration(false);
       setShowFileUploadModal(false);
       setFileUploadFile(null);
       setFileUploadName('');
@@ -1522,9 +1542,10 @@ const Tasks = () => {
         }).format(additionalPayment).replace(/,/g, ' ');
       }
       
+      const payerLabel = (selectedTask.afterHoursPayer || 'CLIENT') === 'CLIENT' ? 'mijoz' : 'kompaniya';
       const confirmMessage = `Deklaratsiya to'lovi BXMning 1 barobaridan oshib ketdi.\n\n` +
         `Qo'shimcha to'lov: ${formattedAdditional}\n\n` +
-        `Bu summa mijozning shartnoma summasiga qo'shiladi.\n\n` +
+        `Bu summa ${payerLabel} hisobiga yoziladi.\n\n` +
         `Davom etasizmi?`;
       
       if (!confirm(confirmMessage)) {
@@ -1533,7 +1554,23 @@ const Tasks = () => {
     }
     
     if (selectedStageForReminder) {
-      await updateStageToReady(selectedStageForReminder, multiplier);
+      await updateStageToReady(selectedStageForReminder, multiplier, false, afterHoursDeclaration);
+    }
+  };
+
+  const handleAfterHoursDeclarationChange = async (checked: boolean) => {
+    if (!selectedTask) return;
+    const previous = afterHoursDeclaration;
+    setAfterHoursDeclaration(checked);
+    try {
+      await apiClient.patch(`/tasks/${selectedTask.id}`, {
+        afterHoursDeclaration: checked,
+      });
+      await loadTaskDetail(selectedTask.id);
+      await loadTasks();
+    } catch (error: any) {
+      setAfterHoursDeclaration(previous);
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
   };
 
@@ -1555,6 +1592,7 @@ const Tasks = () => {
         branchId: parseInt(editForm.branchId),
         comments: editForm.comments || undefined,
         hasPsr: editForm.hasPsr,
+        afterHoursPayer: editForm.afterHoursPayer,
         driverPhone: editForm.driverPhone || undefined,
       });
       if (isMobile && editTaskId) {
@@ -1626,6 +1664,7 @@ const Tasks = () => {
         branchId: parseInt(form.branchId),
         comments: form.comments || undefined,
         hasPsr: form.hasPsr,
+        afterHoursPayer: form.afterHoursPayer,
         driverPhone: form.driverPhone || undefined,
       });
       if (isMobile && isNewTaskRoute) {
@@ -1640,6 +1679,7 @@ const Tasks = () => {
         branchId: oltiariqBranch?.id.toString() || '', 
         comments: '', 
         hasPsr: false, 
+        afterHoursPayer: 'CLIENT',
         driverPhone: '' 
       });
       await loadTasks();
@@ -1786,6 +1826,69 @@ const Tasks = () => {
   const getPsrAmount = (task?: { hasPsr?: boolean; snapshotPsrPrice?: number | null }) =>
     task?.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
 
+  /** Ish vaqtidan tashqari qo'shimcha to'lov (backend bilan bir xil) */
+  const AFTER_HOURS_EXTRA_USD = 8.5;
+  const AFTER_HOURS_EXTRA_UZS = 103000;
+
+  /**
+   * Kelishuv summasi (ko'rsatish uchun): asosiy + PSR + (agar ish vaqtidan tashqari va mijoz to'lasa) qo'shimcha to'lov.
+   * Mijoz valyutasiga qarab: USD bo'lsa 8.5, UZS bo'lsa 103000.
+   */
+  const getDealAmountDisplay = (
+    task: TaskDetail | null | undefined,
+    afterHoursDeclarationCurrent?: boolean
+  ): number => {
+    if (!task) return 0;
+    const base = Number(task.snapshotDealAmount ?? task.client?.dealAmount ?? 0);
+    const psr = getPsrAmount(task);
+    const currency = getClientCurrency(task.client);
+    const showAfterHours = afterHoursDeclarationCurrent ?? task.afterHoursDeclaration ?? false;
+    const payer = String((task.client as any)?.defaultAfterHoursPayer ?? task.afterHoursPayer ?? 'CLIENT').toUpperCase();
+    const extra = showAfterHours && payer === 'CLIENT'
+      ? (currency === 'USD' ? AFTER_HOURS_EXTRA_USD : AFTER_HOURS_EXTRA_UZS)
+      : 0;
+    return base + psr + extra;
+  };
+
+  /** Asosiy kelishuv (PSR siz), ish vaqtidan tashqari qo'shimcha bilan agar bo'lsa */
+  const getDealAmountBaseDisplay = (
+    task: TaskDetail | null | undefined,
+    afterHoursDeclarationCurrent?: boolean
+  ): number => {
+    if (!task) return 0;
+    const base = Number(task.snapshotDealAmount ?? task.client?.dealAmount ?? 0);
+    const currency = getClientCurrency(task.client);
+    const showAfterHours = afterHoursDeclarationCurrent ?? task.afterHoursDeclaration ?? false;
+    const payer = String((task.client as any)?.defaultAfterHoursPayer ?? task.afterHoursPayer ?? 'CLIENT').toUpperCase();
+    const extra = showAfterHours && payer === 'CLIENT'
+      ? (currency === 'USD' ? AFTER_HOURS_EXTRA_USD : AFTER_HOURS_EXTRA_UZS)
+      : 0;
+    return base + extra;
+  };
+
+  /**
+   * Filial bo'yicha to'lovlar (ko'rsatish uchun): sertifikat + ishchi + PSR + bojxona
+   * + (agar ish vaqtidan tashqari va "Men to'layman" bo'lsa) qo'shimcha to'lov.
+   */
+  const getBranchPaymentsDisplay = (
+    task: TaskDetail | null | undefined,
+    afterHoursDeclarationCurrent?: boolean
+  ): number => {
+    if (!task) return 0;
+    const certificatePayment = Number(task.snapshotCertificatePayment || 0);
+    const workerPrice = Number(task.snapshotWorkerPrice || 0);
+    const psrPrice = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+    const customsPayment = Number(task.snapshotCustomsPayment || 0);
+    const base = certificatePayment + workerPrice + psrPrice + customsPayment;
+    const currency = getClientCurrency(task.client);
+    const showAfterHours = afterHoursDeclarationCurrent ?? task.afterHoursDeclaration ?? false;
+    const payer = String((task.client as any)?.defaultAfterHoursPayer ?? task.afterHoursPayer ?? 'CLIENT').toUpperCase();
+    const extra = showAfterHours && payer === 'COMPANY'
+      ? (currency === 'USD' ? AFTER_HOURS_EXTRA_USD : AFTER_HOURS_EXTRA_UZS)
+      : 0;
+    return base + extra;
+  };
+
   const canEditError = (error: TaskError) => {
     if (!user) return false;
     if (user.role === 'ADMIN') return true;
@@ -1799,6 +1902,12 @@ const Tasks = () => {
     const baseAmount = currency === 'USD' ? currentBxmUsd : currentBxmUzs;
     const amount = baseAmount * multiplier;
     return formatMoney(amount, currency);
+  };
+
+  /** Qavs ichidagi summani har doim so'mda (UZS) ko'rsatish uchun; hisob-kitoblar o'zgarmaydi */
+  const formatBxmAmountInSum = (multiplier: number) => {
+    const amount = currentBxmUzs * multiplier;
+    return formatMoney(amount, 'UZS');
   };
 
   // Jarayon vaqtini baholash
@@ -1952,15 +2061,21 @@ const Tasks = () => {
   const branchCardColors = [
     { card: 'from-blue-50 to-indigo-50 border-blue-200', header: 'from-blue-500 via-blue-600 to-indigo-700', thead: 'from-blue-600 to-indigo-700', row: 'hover:bg-blue-100', rowEven: 'bg-blue-50', rowOdd: 'bg-white', divide: 'divide-blue-100', border: 'border-blue-500', borderCell: 'border-blue-100', empty: 'bg-blue-50' },
     { card: 'from-emerald-50 to-teal-50 border-emerald-200', header: 'from-emerald-500 via-emerald-600 to-teal-700', thead: 'from-emerald-600 to-teal-700', row: 'hover:bg-emerald-100', rowEven: 'bg-emerald-50', rowOdd: 'bg-white', divide: 'divide-emerald-100', border: 'border-emerald-500', borderCell: 'border-emerald-100', empty: 'bg-emerald-50' },
-    { card: 'from-sky-50 to-cyan-50 border-sky-200', header: 'from-sky-500 via-sky-600 to-cyan-700', thead: 'from-sky-600 to-cyan-700', row: 'hover:bg-sky-100', rowEven: 'bg-sky-50', rowOdd: 'bg-white', divide: 'divide-sky-100', border: 'border-sky-500', borderCell: 'border-sky-100', empty: 'bg-sky-50' },
     { card: 'from-violet-50 to-purple-50 border-violet-200', header: 'from-violet-500 via-violet-600 to-purple-700', thead: 'from-violet-600 to-purple-700', row: 'hover:bg-violet-100', rowEven: 'bg-violet-50', rowOdd: 'bg-white', divide: 'divide-violet-100', border: 'border-violet-500', borderCell: 'border-violet-100', empty: 'bg-violet-50' },
   ];
+
+  const oltiariqTheme = { card: 'from-yellow-50 to-amber-50 border-yellow-200', header: 'from-yellow-500 via-yellow-600 to-amber-700', thead: 'from-yellow-600 to-amber-700', row: 'hover:bg-yellow-100', rowEven: 'bg-yellow-50', rowOdd: 'bg-white', divide: 'divide-yellow-100', border: 'border-yellow-500', borderCell: 'border-yellow-100', empty: 'bg-yellow-50' };
+  const toshkentTheme = { card: 'from-indigo-50 to-blue-50 border-indigo-200', header: 'from-indigo-500 via-indigo-600 to-blue-700', thead: 'from-indigo-600 to-blue-700', row: 'hover:bg-indigo-100', rowEven: 'bg-indigo-50', rowOdd: 'bg-white', divide: 'divide-indigo-100', border: 'border-indigo-500', borderCell: 'border-indigo-100', empty: 'bg-indigo-50' };
 
   const renderTaskTable = (branchTasks: Task[], branchName: string, branchColorIndex: number = 0) => {
     const isArchive = branchName === 'Arxiv';
     const colors = isArchive
       ? { card: 'from-gray-50 to-slate-50 border-gray-200', header: 'from-gray-600 via-gray-700 to-gray-800', thead: 'from-gray-600 to-gray-700', row: 'hover:bg-gray-100', rowEven: 'bg-gray-50', rowOdd: 'bg-white', divide: 'divide-gray-100', border: 'border-gray-500', borderCell: 'border-gray-200', empty: 'bg-gray-50' }
-      : branchCardColors[branchColorIndex % branchCardColors.length];
+      : branchName === 'Oltiariq'
+        ? oltiariqTheme
+        : branchName === 'Toshkent'
+          ? toshkentTheme
+          : branchCardColors[branchColorIndex % branchCardColors.length];
     return (
       <div className={`bg-gradient-to-br ${colors.card} rounded-lg shadow-xl overflow-hidden border-2`}>
         <div className={`px-4 py-2 relative overflow-hidden bg-gradient-to-r ${colors.header}`}>
@@ -2688,7 +2803,39 @@ const Tasks = () => {
                   </div>
                 </div>
 
-                {/* 5. Sho'pir telefon raqami */}
+                {/* 5. Qo'shimcha to'lov kelishuvi */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <Icon icon="lucide:handshake" className="w-4 h-4 text-blue-600" />
+                    Qo'shimcha to'lov kelishuvi
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, afterHoursPayer: 'CLIENT' })}
+                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
+                        form.afterHoursPayer === 'CLIENT'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
+                    >
+                      Mijoz to'laydi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, afterHoursPayer: 'COMPANY' })}
+                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
+                        form.afterHoursPayer === 'COMPANY'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
+                    >
+                      Men to'layman
+                    </button>
+                  </div>
+                </div>
+
+                {/* 6. Sho'pir telefon raqami */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                     <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
@@ -2703,7 +2850,7 @@ const Tasks = () => {
                   />
                 </div>
 
-                {/* 6. Comments */}
+                {/* 7. Comments */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                     <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
@@ -2794,6 +2941,7 @@ const Tasks = () => {
                             branchId: selectedTask.branch.id.toString(),
                             comments: selectedTask.comments || '',
                             hasPsr: selectedTask.hasPsr || false,
+                            afterHoursPayer: selectedTask.afterHoursPayer || 'CLIENT',
                             driverPhone: selectedTask.driverPhone || '',
                           });
                           setShowEditModal(true);
@@ -2916,6 +3064,33 @@ const Tasks = () => {
                     {selectedTask.hasPsr ? 'Bor' : 'Yo\'q'}
                   </span>
                 </div>
+                {user?.role === 'ADMIN' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Qo'shimcha to'lov kelishuvi:</span>
+                    <span className={`px-2 py-1 text-xs font-medium rounded ${
+                      String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY' ? 'Men to\'layman' : 'Mijoz to\'laydi'}
+                    </span>
+                  </div>
+                )}
+                {selectedTask.afterHoursDeclaration && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Ish vaqtidan tashqari rasmiylashtiruv:</span>
+                    <span className="px-2 py-1 text-xs font-medium rounded bg-amber-100 text-amber-800">Ha</span>
+                  </div>
+                )}
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={afterHoursDeclaration}
+                    onChange={(e) => handleAfterHoursDeclarationChange(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Ish vaqtidan tashqari rasmiylashtiruv</span>
+                </label>
                 {selectedTask.driverPhone && (
                   <div className="flex items-center gap-2">
                     <Icon icon="lucide:phone" className="w-4 h-4 text-gray-500" />
@@ -2939,14 +3114,8 @@ const Tasks = () => {
             {selectedTask.netProfit !== null && selectedTask.netProfit !== undefined && (
               <div className={`mb-6 p-4 border rounded-lg ${
                 (() => {
-                  const currency = getClientCurrency(selectedTask.client);
-                  const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
-                    + getPsrAmount(selectedTask);
-                  const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
-                  const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
-                  const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
-                  const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
-                  const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                  const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                  const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                   const netProfitDisplay = dealAmount - branchPayments;
                   return netProfitDisplay >= 0;
                 })()
@@ -2955,34 +3124,19 @@ const Tasks = () => {
               }`}>
                 <div className="flex items-center gap-2 mb-2">
                   <Icon icon={(() => {
-                    const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
-                      + getPsrAmount(selectedTask);
-                    const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
-                    const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
-                    const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
-                    const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
-                    const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                    const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                    const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                     const netProfitDisplay = dealAmount - branchPayments;
                     return netProfitDisplay >= 0 ? 'lucide:dollar-sign' : 'lucide:alert-circle';
                   })()} className={`w-5 h-5 ${(() => {
-                    const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
-                      + getPsrAmount(selectedTask);
-                    const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
-                    const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
-                    const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
-                    const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
-                    const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                    const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                    const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                     const netProfitDisplay = dealAmount - branchPayments;
                     return netProfitDisplay >= 0 ? 'text-green-600' : 'text-orange-600';
                   })()}`} />
                   <div className={`text-sm font-semibold ${(() => {
-                    const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
-                      + getPsrAmount(selectedTask);
-                    const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
-                    const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
-                    const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
-                    const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
-                    const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                    const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                    const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                     const netProfitDisplay = dealAmount - branchPayments;
                     return netProfitDisplay >= 0 ? 'text-green-800' : 'text-orange-800';
                   })()}`}>
@@ -2997,13 +3151,13 @@ const Tasks = () => {
                         <span className="text-sm text-gray-600">Kelishuv summasi:</span>
                         <span className="text-sm font-medium text-gray-800">
                           {formatMoney(
-                            (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0)) + getPsrAmount(selectedTask),
+                            getDealAmountDisplay(selectedTask, afterHoursDeclaration),
                             getClientCurrency(selectedTask.client)
                           )}
                           {selectedTask.hasPsr && (
                             <span className="text-xs text-gray-500 ml-1">
                               (asosiy: {formatMoney(
-                                selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0),
+                                getDealAmountBaseDisplay(selectedTask, afterHoursDeclaration),
                                 getClientCurrency(selectedTask.client)
                               )} + {formatMoney(getPsrAmount(selectedTask), getClientCurrency(selectedTask.client))})
                             </span>
@@ -3013,52 +3167,28 @@ const Tasks = () => {
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Filial bo'yicha to'lovlar:</span>
                         <span className="text-sm font-medium text-red-600">
-                          {(() => {
-                            const currency = getClientCurrency(selectedTask.client);
-                            const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
-                            const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
-                            const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
-                            const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
-                            const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
-
-                            return formatMoney(branchPayments, currency);
-                          })()}
+                          {formatMoney(getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration), getClientCurrency(selectedTask.client))}
                         </span>
                       </div>
                       <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
                         <span className={`text-sm font-semibold ${(() => {
-                          const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
-                            + getPsrAmount(selectedTask);
-                          const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
-                          const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
-                          const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
-                          const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
-                          const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                          const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                          const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                           const netProfitDisplay = dealAmount - branchPayments;
                           return netProfitDisplay >= 0 ? 'text-green-800' : 'text-orange-800';
                         })()}`}>
                           Sof foyda:
                         </span>
                         <span className={`text-sm font-bold ${(() => {
-                          const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
-                            + getPsrAmount(selectedTask);
-                          const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
-                          const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
-                          const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
-                          const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
-                          const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                          const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                          const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                           const netProfitDisplay = dealAmount - branchPayments;
                           return netProfitDisplay >= 0 ? 'text-green-600' : 'text-orange-600';
                         })()}`}>
                           {(() => {
                             const currency = getClientCurrency(selectedTask.client);
-                            const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
-                              + getPsrAmount(selectedTask);
-                            const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
-                            const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
-                            const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
-                            const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
-                            const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                            const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                            const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                             const netProfitDisplay = dealAmount - branchPayments;
                             return formatMoney(netProfitDisplay, currency);
                           })()}
@@ -3082,13 +3212,8 @@ const Tasks = () => {
                           <span className="text-lg font-bold text-purple-600">
                             {(() => {
                               const currency = getClientCurrency(selectedTask.client);
-                              const dealAmount = (selectedTask.snapshotDealAmount ? Number(selectedTask.snapshotDealAmount) : Number(selectedTask.client.dealAmount || 0))
-                                + getPsrAmount(selectedTask);
-                              const certificatePayment = Number(selectedTask.snapshotCertificatePayment || 0);
-                              const workerPrice = Number(selectedTask.snapshotWorkerPrice || 0);
-                              const psrPrice = selectedTask.hasPsr ? Number(selectedTask.snapshotPsrPrice || 0) : 0;
-                              const customsPayment = Number(selectedTask.snapshotCustomsPayment || 0);
-                              const branchPayments = certificatePayment + workerPrice + psrPrice + customsPayment;
+                              const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                              const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                               const netProfitDisplay = dealAmount - branchPayments;
                               const totalProfitDisplay = netProfitDisplay + Number(selectedTask.adminEarnedAmount || 0);
                               return formatMoney(totalProfitDisplay, currency);
@@ -3868,6 +3993,7 @@ const Tasks = () => {
                 onClick={(e) => {
                   if (e.target === e.currentTarget) {
                     setShowBXMModal(false);
+                    setAfterHoursDeclaration(false);
                     setSelectedStageForReminder(null);
                   }
                 }}
@@ -3885,44 +4011,21 @@ const Tasks = () => {
                       onChange={(e) => setBxmMultiplier(e.target.value)}
                       className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
                     >
-                      <option value="1">BXM 1 barobari ({formatBxmAmount(1)})</option>
-                      <option value="1.5">BXM 1.5 barobari ({formatBxmAmount(1.5)})</option>
-                      <option value="2.5">BXM 2.5 barobari ({formatBxmAmount(2.5)})</option>
-                      <option value="4">BXM 4 barobari ({formatBxmAmount(4)})</option>
+                      <option value="1">BXM 1 barobari ({formatBxmAmountInSum(1)})</option>
+                      <option value="1.5">BXM 1.5 barobari ({formatBxmAmountInSum(1.5)})</option>
+                      <option value="2.5">BXM 2.5 barobari ({formatBxmAmountInSum(2.5)})</option>
+                      <option value="4">BXM 4 barobari ({formatBxmAmountInSum(4)})</option>
                     </select>
                   </div>
-                  {parseFloat(bxmMultiplier) > 1 && selectedTask && (
-                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="text-sm text-yellow-800">
-                        <div className="font-medium mb-1">⚠️ Qo'shimcha to'lov:</div>
-                        <div>
-                          {(() => {
-                            const clientCurrency = getClientCurrency(selectedTask.client);
-                            let additionalPayment: number;
-                            
-                            if (clientCurrency === 'USD') {
-                              // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
-                              additionalPayment = (parseFloat(bxmMultiplier) - 1) * currentBxmUsd;
-                              return new Intl.NumberFormat('uz-UZ', {
-                                style: 'currency',
-                                currency: 'USD',
-                                minimumFractionDigits: 2,
-                              }).format(additionalPayment).replace(/,/g, ' ');
-                            } else {
-                              // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
-                              additionalPayment = (parseFloat(bxmMultiplier) - 1) * currentBxmUzs;
-                              return new Intl.NumberFormat('uz-UZ', {
-                                style: 'currency',
-                                currency: 'UZS',
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0,
-                              }).format(additionalPayment).replace(/,/g, ' ');
-                            }
-                          })()} mijozning shartnoma summasiga qo'shiladi.
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={afterHoursDeclaration}
+                      onChange={(e) => setAfterHoursDeclaration(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    Ish vaqtidan tashqari rasmiylashtiruv
+                  </label>
                   <div className="flex gap-3">
                     <button
                       onClick={handleBXMConfirm}
@@ -3933,6 +4036,7 @@ const Tasks = () => {
                     <button
                       onClick={() => {
                         setShowBXMModal(false);
+                        setAfterHoursDeclaration(false);
                         setSelectedStageForReminder(null);
                       }}
                       className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
@@ -4316,7 +4420,39 @@ const Tasks = () => {
                   </div>
                 </div>
 
-                {/* 5. Sho'pir telefon raqami */}
+                {/* 5. Qo'shimcha to'lov kelishuvi */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <Icon icon="lucide:handshake" className="w-4 h-4 text-blue-600" />
+                    Qo'shimcha to'lov kelishuvi
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'CLIENT' })}
+                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
+                        editForm.afterHoursPayer === 'CLIENT'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
+                    >
+                      Mijoz to'laydi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'COMPANY' })}
+                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
+                        editForm.afterHoursPayer === 'COMPANY'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
+                    >
+                      Men to'layman
+                    </button>
+                  </div>
+                </div>
+
+                {/* 6. Sho'pir telefon raqami */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                     <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
@@ -4331,7 +4467,7 @@ const Tasks = () => {
                   />
                 </div>
 
-                {/* 6. Comments */}
+                {/* 7. Comments */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                     <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />

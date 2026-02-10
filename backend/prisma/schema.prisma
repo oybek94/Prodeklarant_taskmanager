@@ -57,6 +57,7 @@ model Client {
   name                       String
   dealAmount                 Decimal?        @db.Decimal(12, 2)
   dealAmountCurrency         Currency?       @default(USD)
+  defaultAfterHoursPayer     AfterHoursPayer? @default(CLIENT)
   phone                      String?
   passwordHash               String?
   creditType                 String?
@@ -99,6 +100,8 @@ model Task {
   updatedById                                Int?
   comments                                   String?
   hasPsr                                     Boolean              @default(false)
+  afterHoursDeclaration                      Boolean              @default(false)
+  afterHoursPayer                            AfterHoursPayer      @default(CLIENT)
   driverPhone                                String?
   snapshotDealAmount                         Decimal?             @db.Decimal(12, 2)
   snapshotCertificatePayment                 Decimal?             @db.Decimal(12, 2)
@@ -964,6 +967,11 @@ enum TaskStatus {
 enum StageStatus {
   BOSHLANMAGAN
   TAYYOR
+}
+
+enum AfterHoursPayer {
+  CLIENT
+  COMPANY
 }
 
 enum TransactionType {

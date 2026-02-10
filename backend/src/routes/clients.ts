@@ -686,6 +686,12 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         ? null
         : new Date(req.body.creditStartDate);
     }
+
+    if (req.body.defaultAfterHoursPayer !== undefined) {
+      updateData.defaultAfterHoursPayer = (req.body.defaultAfterHoursPayer === 'CLIENT' || req.body.defaultAfterHoursPayer === 'COMPANY')
+        ? req.body.defaultAfterHoursPayer
+        : 'CLIENT';
+    }
     
     // Hash password if provided
     if (req.body.password) {
@@ -718,6 +724,7 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       creditType: (updatedClient as any).creditType,
       creditLimit: (updatedClient as any).creditLimit,
       creditStartDate: (updatedClient as any).creditStartDate,
+      defaultAfterHoursPayer: (updatedClient as any).defaultAfterHoursPayer,
       createdAt: updatedClient.createdAt,
       updatedAt: updatedClient.updatedAt,
     });

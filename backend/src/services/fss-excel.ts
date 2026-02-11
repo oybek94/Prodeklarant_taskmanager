@@ -15,6 +15,8 @@ export type FssExcelPayload = {
   templateType?: 'ichki' | 'tashqi';
   /** Tashqi shablon C3: spetsifikatsiyadan tovar nomi bo'yicha botanik nom qidirish uchun */
   contract?: { specification: unknown } | null;
+  /** Sozlamalar bo'limidagi qadoq turlari — har doim shu ro'yxatdan L3 to'ldiriladi */
+  packagingTypeCodesFromSettings?: Array<{ name: string; code: string }>;
 };
 
 const getTemplatePath = async (templateType?: 'ichki' | 'tashqi') => {
@@ -185,41 +187,22 @@ function normalizeTnvedCode(code: string): string {
   return digits.length <= 10 ? digits.padStart(10, '0') : digits.slice(0, 10);
 }
 
-/** Qadoq turi nomi → UN kodi. Barcha foydalanuvchilar uchun L3 to'ldirilishi uchun (invoyda packagingTypeCodes bo'lmasa ham) */
-const PACKAGING_CODE_FALLBACK: { keys: string[]; code: string }[] = [
-  { keys: ['дер.ящик', 'деревянный ящик', 'ящик деревянный', 'derevyanniy'], code: '4A' },
-  { keys: ['пласт.ящик', 'пластиковый ящик', 'пласт ящик'], code: '4H2' },
-  { keys: ['мешки', 'мешок', 'meshok'], code: '21' },
-  { keys: ['картон.короб.', 'картон', 'коробка', 'картонная коробка'], code: '4C1' },
-  { keys: ['навалом', 'bulk'], code: '13' },
-  { keys: ['палет', 'паллет', 'pallet', 'поддон'], code: '20' },
-  { keys: ['короб', 'box', 'ящик'], code: '4A' },
-  { keys: ['бутыл', 'bottle', 'shisha'], code: '11' },
-  { keys: ['контейнер', 'container'], code: '22' },
-];
-
-const normalizeForPackagingMatch = (s: string) =>
-  (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
-
-const getPackagingCode = (item: InvoiceItem, additionalInfo: Record<string, any>) => {
+/** Qadoq kodi: avval Sozlamalar (packagingList) dan, keyin invoydagi additionalInfo dan qidiriladi */
+const getPackagingCode = (
+  item: InvoiceItem,
+  additionalInfo: Record<string, any>,
+  packagingListFromSettings?: Array<{ name: string; code: string }>
+) => {
   const typeName = item?.packageType ? String(item.packageType).trim() : '';
   if (!typeName) return '';
-  const list = Array.isArray(additionalInfo.packagingTypeCodes)
-    ? (additionalInfo.packagingTypeCodes as Array<{ name?: string; code?: string }>)
-    : [];
+  const list =
+    Array.isArray(packagingListFromSettings) && packagingListFromSettings.length > 0
+      ? packagingListFromSettings
+      : Array.isArray(additionalInfo.packagingTypeCodes)
+        ? (additionalInfo.packagingTypeCodes as Array<{ name?: string; code?: string }>)
+        : [];
   const match = list.find((entry) => (entry.name || '').trim() === typeName);
-  if (match?.code) return String(match.code).trim();
-  // Invoyda packagingTypeCodes yo'q yoki kod bo'sh bo'lsa (boshqa userlar) — umumiy jadvaldan qidirish
-  const normalized = normalizeForPackagingMatch(typeName);
-  if (!normalized) return '';
-  for (const { keys, code } of PACKAGING_CODE_FALLBACK) {
-    for (const key of keys) {
-      if (normalized.includes(normalizeForPackagingMatch(key)) || normalizeForPackagingMatch(key) === normalized) {
-        return code;
-      }
-    }
-  }
-  return '';
+  return match?.code ? String(match.code).trim() : '';
 };
 
 export const generateFssExcel = async (payload: FssExcelPayload) => {
@@ -244,6 +227,7 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
   }
 
   const additionalInfo = (payload.invoice.additionalInfo || {}) as Record<string, any>;
+  const packagingListFromSettings = payload.packagingTypeCodesFromSettings;
   const regionInternalCode =
     payload.regionInternalCode || toPlain(additionalInfo.fssRegionInternalCode);
   const regionName = payload.regionName || toPlain(additionalInfo.fssRegionName);
@@ -290,7 +274,7 @@ export const generateFssExcel = async (payload: FssExcelPayload) => {
     );
     payload.items.forEach((item, index) => {
       const row = startRow + index;
-      const packageCode = getPackagingCode(item, additionalInfo);
+      const packageCode = getPackagingCode(item, additionalInfo, packagingListFromSettings);
       setTextCell(sheet, `A${row}`, item?.tnvedCode); // Код ТН ВЭД
       setTextCell(sheet, `B${row}`, item?.name); // Наименование товара
       setTextCell(sheet, `C${row}`, resolveBotanical(item)); // Ботаник номи: spetsifikatsiyadan tovar nomi bo'yicha, keyin fallback

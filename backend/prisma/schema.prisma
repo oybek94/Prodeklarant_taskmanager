@@ -241,6 +241,15 @@ model KpiConfig {
   updatedAt DateTime @updatedAt
 }
 
+model PackagingType {
+  id        Int      @id @default(autoincrement())
+  name      String
+  code      String   @default("")
+  orderIndex Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model KpiLog {
   id                 Int             @id @default(autoincrement())
   userId             Int

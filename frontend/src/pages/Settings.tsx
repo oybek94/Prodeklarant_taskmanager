@@ -8,12 +8,11 @@ import {
   resetTnvedProductsToDefaults,
   updateTnvedProduct,
 } from '../utils/tnvedProducts';
-import {
-  addPackagingType,
-  deletePackagingType,
-  getPackagingTypes,
-  updatePackagingType,
-} from '../utils/packagingTypes';
+interface PackagingTypeItem {
+  id: string;
+  name: string;
+  code?: string;
+}
 
 interface BXMConfig {
   id: number;
@@ -173,7 +172,8 @@ const Settings = () => {
   const [editingTnvedName, setEditingTnvedName] = useState('');
   const [editingTnvedCode, setEditingTnvedCode] = useState('');
   const [editingTnvedBotanical, setEditingTnvedBotanical] = useState('');
-  const [packagingTypes, setPackagingTypes] = useState(getPackagingTypes());
+  const [packagingTypes, setPackagingTypes] = useState<PackagingTypeItem[]>([]);
+  const [loadingPackagingTypes, setLoadingPackagingTypes] = useState(true);
   const [packagingName, setPackagingName] = useState('');
   const [packagingCode, setPackagingCode] = useState('');
   const [editingPackagingId, setEditingPackagingId] = useState<string | null>(null);
@@ -254,8 +254,17 @@ const Settings = () => {
   const refreshTnvedProducts = () => {
     setTnvedProducts(getTnvedProducts());
   };
-  const refreshPackagingTypes = () => {
-    setPackagingTypes(getPackagingTypes());
+  const loadPackagingTypes = async () => {
+    try {
+      setLoadingPackagingTypes(true);
+      const res = await apiClient.get<PackagingTypeItem[]>('/packaging-types');
+      setPackagingTypes(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.error('Qadoq turlarini yuklash:', e);
+      setPackagingTypes([]);
+    } finally {
+      setLoadingPackagingTypes(false);
+    }
   };
 
   useEffect(() => {
@@ -269,6 +278,7 @@ const Settings = () => {
     loadKpiConfigs();
     loadRegionCodes();
     loadProcessSettings();
+    loadPackagingTypes();
   }, []);
 
   const loadBXMConfigs = async () => {
@@ -529,15 +539,19 @@ const Settings = () => {
     refreshTnvedProducts();
   };
 
-  const handleAddPackagingType = () => {
+  const handleAddPackagingType = async () => {
     if (!packagingName.trim() || !packagingCode.trim()) {
       alert('Qadoq nomi va qadoq kodi majburiy');
       return;
     }
-    addPackagingType(packagingName.trim(), packagingCode.trim());
-    setPackagingName('');
-    setPackagingCode('');
-    refreshPackagingTypes();
+    try {
+      await apiClient.post('/packaging-types', { name: packagingName.trim(), code: packagingCode.trim() });
+      setPackagingName('');
+      setPackagingCode('');
+      await loadPackagingTypes();
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Qo‘shishda xatolik');
+    }
   };
 
   const startEditPackaging = (item: { id: string; name: string; code?: string }) => {
@@ -552,25 +566,32 @@ const Settings = () => {
     setEditingPackagingCode('');
   };
 
-  const handleSavePackaging = () => {
+  const handleSavePackaging = async () => {
     if (!editingPackagingId) return;
     if (!editingPackagingName.trim() || !editingPackagingCode.trim()) {
       alert('Qadoq nomi va qadoq kodi majburiy');
       return;
     }
-    updatePackagingType(
-      editingPackagingId,
-      editingPackagingName.trim(),
-      editingPackagingCode.trim()
-    );
-    cancelEditPackaging();
-    refreshPackagingTypes();
+    try {
+      await apiClient.put(`/packaging-types/${editingPackagingId}`, {
+        name: editingPackagingName.trim(),
+        code: editingPackagingCode.trim(),
+      });
+      cancelEditPackaging();
+      await loadPackagingTypes();
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Saqlashda xatolik');
+    }
   };
 
-  const handleDeletePackaging = (id: string, name: string) => {
+  const handleDeletePackaging = async (id: string, name: string) => {
     if (!confirm(`"${name}" qadoq turini o'chirishni xohlaysizmi?`)) return;
-    deletePackagingType(id);
-    refreshPackagingTypes();
+    try {
+      await apiClient.delete(`/packaging-types/${id}`);
+      await loadPackagingTypes();
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'O‘chirishda xatolik');
+    }
   };
 
   const handleStatePaymentSubmit = async (e: React.FormEvent) => {
@@ -1241,6 +1262,9 @@ const Settings = () => {
               </button>
             </div>
             <div className="max-h-[320px] overflow-auto border border-gray-100 rounded-lg">
+              {loadingPackagingTypes ? (
+                <div className="py-6 text-center text-gray-500 text-sm">Yuklanmoqda...</div>
+              ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50 sticky top-0">
@@ -1328,6 +1352,7 @@ const Settings = () => {
                   })}
                 </tbody>
               </table>
+              )}
             </div>
           </div>
           {/* Jarayon eslatmalari - Qadoq turlari yonida */}

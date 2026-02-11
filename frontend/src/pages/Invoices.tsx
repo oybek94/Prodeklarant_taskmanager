@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../lib/api';
 import CurrencyDisplay from '../components/CurrencyDisplay';
@@ -12,13 +12,7 @@ import {
   deleteTnvedProduct,
   type TnvedProduct,
 } from '../utils/tnvedProducts';
-import {
-  getPackagingTypes,
-  addPackagingType,
-  updatePackagingType,
-  deletePackagingType,
-  type PackagingType,
-} from '../utils/packagingTypes';
+import type { PackagingType } from '../utils/packagingTypes';
 
 interface Invoice {
   id: number;
@@ -187,7 +181,8 @@ const Invoices = () => {
     loadClients();
     loadBranches();
     loadWorkers();
-  }, []);
+    loadPackagingTypes();
+  }, [loadPackagingTypes]);
 
   const openErrorModalForTaskId = (location.state as { openErrorModalForTaskId?: number })?.openErrorModalForTaskId;
   useEffect(() => {
@@ -237,17 +232,26 @@ const Invoices = () => {
     }
   }, [selectedClientId]);
 
+  const loadPackagingTypes = useCallback(async () => {
+    try {
+      const res = await apiClient.get<PackagingType[]>('/packaging-types');
+      setPackagingTypesState(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setPackagingTypesState([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (showTnvedSettingsModal) {
       setTnvedProductsState(getTnvedProducts());
-      setPackagingTypesState(getPackagingTypes());
+      loadPackagingTypes();
       setEditingTnvedId(null);
       setNewTnvedName('');
       setNewTnvedCode('');
       setEditingPackagingId(null);
       setNewPackagingName('');
     }
-  }, [showTnvedSettingsModal]);
+  }, [showTnvedSettingsModal, loadPackagingTypes]);
 
   const loadInvoices = async () => {
     try {
@@ -1028,11 +1032,15 @@ const Invoices = () => {
               <div className="sm:col-span-2">
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     if (newPackagingName.trim()) {
-                      addPackagingType(newPackagingName);
-                      setPackagingTypesState(getPackagingTypes());
-                      setNewPackagingName('');
+                      try {
+                        await apiClient.post('/packaging-types', { name: newPackagingName.trim(), code: '' });
+                        await loadPackagingTypes();
+                        setNewPackagingName('');
+                      } catch (e) {
+                        console.error(e);
+                      }
                     }
                   }}
                   disabled={!newPackagingName.trim()}
@@ -1071,10 +1079,14 @@ const Invoices = () => {
                           <div className="flex items-center justify-end gap-2">
                             <button
                               type="button"
-                              onClick={() => {
-                                updatePackagingType(p.id, editPackagingName);
-                                setPackagingTypesState(getPackagingTypes());
-                                setEditingPackagingId(null);
+                              onClick={async () => {
+                                try {
+                                  await apiClient.put(`/packaging-types/${p.id}`, { name: editPackagingName.trim(), code: p.code || '' });
+                                  await loadPackagingTypes();
+                                  setEditingPackagingId(null);
+                                } catch (e) {
+                                  console.error(e);
+                                }
                               }}
                               className="text-blue-600 hover:text-blue-800 p-1"
                               title="Saqlash"
@@ -1105,10 +1117,14 @@ const Invoices = () => {
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={async () => {
                                 if (window.confirm(`"${p.name}" o'chirilsinmi?`)) {
-                                  deletePackagingType(p.id);
-                                  setPackagingTypesState(getPackagingTypes());
+                                  try {
+                                    await apiClient.delete(`/packaging-types/${p.id}`);
+                                    await loadPackagingTypes();
+                                  } catch (e) {
+                                    console.error(e);
+                                  }
                                 }
                               }}
                               className="text-red-600 hover:text-red-800 p-1"

@@ -1052,6 +1052,15 @@ router.get('/:id/fss', requireAuth(), async (req: AuthRequest, res: Response) =>
       if (c) contractForFss = { specification: c.specification };
     }
 
+    // Sozlamalar bo'limidagi qadoq turlari — har doim shu ro'yxatdan L3 to'ldiriladi (barcha userlar uchun bir xil)
+    const packagingTypes = await prisma.packagingType.findMany({
+      orderBy: { orderIndex: 'asc', id: 'asc' },
+    });
+    const packagingTypeCodesFromSettings = packagingTypes.map((p) => ({
+      name: p.name,
+      code: p.code || '',
+    }));
+
     const workbook = await generateFssExcel({
       invoice,
       items: invoice.items,
@@ -1060,6 +1069,7 @@ router.get('/:id/fss', requireAuth(), async (req: AuthRequest, res: Response) =>
       regionExternalCode,
       templateType,
       contract: contractForFss,
+      packagingTypeCodesFromSettings,
     });
 
     const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });

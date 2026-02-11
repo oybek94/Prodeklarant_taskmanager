@@ -8,7 +8,6 @@ import DateInput from '../components/DateInput';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { getTnvedProducts } from '../utils/tnvedProducts';
-import { getPackagingTypes } from '../utils/packagingTypes';
 import { Icon } from '@iconify/react';
 
 const resolveUploadUrl = (url?: string | null) => {
@@ -648,18 +647,24 @@ const Invoice = () => {
     setTaskHasErrors(Array.isArray(errors) && errors.length > 0);
   }, [task]);
 
-  useEffect(() => {
-    setTnvedProducts(getTnvedProducts());
-    setPackagingTypes(getPackagingTypes());
+  const loadPackagingTypes = useCallback(async () => {
+    try {
+      const res = await apiClient.get<Array<{ id: string; name: string; code?: string }>>('/packaging-types');
+      setPackagingTypes(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setPackagingTypes([]);
+    }
   }, []);
 
   useEffect(() => {
-    const handleFocus = () => {
-      setPackagingTypes(getPackagingTypes());
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+    setTnvedProducts(getTnvedProducts());
+    loadPackagingTypes();
+  }, [loadPackagingTypes]);
+
+  useEffect(() => {
+    window.addEventListener('focus', loadPackagingTypes);
+    return () => window.removeEventListener('focus', loadPackagingTypes);
+  }, [loadPackagingTypes]);
 
   // Invoice raqam takroriy yoki yo'qligini tekshirish (debounce 300ms)
   useEffect(() => {

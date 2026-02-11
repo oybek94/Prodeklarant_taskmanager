@@ -62,7 +62,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
     if (!parsed.success) {
       const first = parsed.error.flatten().fieldErrors;
       const msg = Object.values(first).flat().join(' ') || 'Validation failed';
-      return res.status(400).json({ success: false, error: msg });
+      return res.status(400).json({ success: false, error: msg, errorCode: 'VALIDATION_FAILED' });
     }
 
     const { task_id, subject, body, recipients, cc, bcc } = parsed.data;
@@ -83,13 +83,6 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
 
     if (!task) {
       return res.status(404).json({ success: false, error: 'Task not found' });
-    }
-
-    if (task.status !== 'YAKUNLANDI') {
-      return res.status(400).json({
-        success: false,
-        error: 'Only completed tasks (YAKUNLANDI) can be sent by email',
-      });
     }
 
     const validationService = new ValidationService(prisma);
@@ -117,6 +110,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'At least one valid recipient email is required',
+        errorCode: 'NO_VALID_RECIPIENTS',
       });
     }
 
@@ -137,6 +131,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
         return res.status(400).json({
           success: false,
           error: `Invalid file path for document: ${doc.name}`,
+          errorCode: 'INVALID_DOCUMENT_PATH',
         });
       }
 
@@ -184,6 +179,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
           return res.status(400).json({
             success: false,
             error: `Could not read file for document: ${doc.name}`,
+            errorCode: 'DOCUMENT_FILE_NOT_FOUND',
           });
         }
       }
@@ -191,7 +187,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
       const ext = path.extname(doc.fileUrl) || path.extname(doc.name || '') || '';
       const baseName = (doc.name || 'document').replace(/[^\w\s.-]/gi, '_');
       const filename = baseName + (ext || path.extname(safePath) || '');
-      attachments.push({ filename, content });
+      attachments.push({ filename, content: content! });
     }
 
     await sendMail({
@@ -209,9 +205,17 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
     });
   } catch (err: any) {
     console.error('Send task email error:', err);
+    const raw = err?.message || String(err);
+    const isAuth = /invalid login|authentication failed|credentials/i.test(raw);
+    const isConfig = /smtp|config|env|MAILRU/i.test(raw);
+    const safeMessage =
+      isAuth || isConfig
+        ? raw.slice(0, 200)
+        : 'Failed to send email. Please try again later.';
     return res.status(500).json({
       success: false,
-      error: 'Failed to send email. Please try again later.',
+      error: safeMessage,
+      errorCode: 'SEND_FAILED',
     });
   }
 });

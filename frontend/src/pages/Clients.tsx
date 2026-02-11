@@ -408,6 +408,7 @@ const Clients = () => {
     contractNumber: string;
     contractDate: string;
     contractCurrency: string;
+    emails: string;
     sellerName: string;
     sellerInn: string;
     sellerLegalAddress: string;
@@ -445,6 +446,7 @@ const Clients = () => {
     contractNumber: '',
     contractDate: '',
     contractCurrency: 'USD',
+    emails: '',
     sellerName: '',
     sellerInn: '',
     sellerLegalAddress: '',
@@ -567,6 +569,7 @@ const Clients = () => {
       contractNumber: '',
       contractDate: '',
       contractCurrency: 'USD',
+      emails: '',
       sellerName: '',
       sellerInn: '',
       sellerLegalAddress: '',
@@ -738,6 +741,7 @@ const Clients = () => {
         contractNumber: form.contractNumber,
         contractDate: form.contractDate,
         contractCurrency: (form.contractCurrency?.trim() || 'USD'),
+        emails: form.emails?.trim() || undefined,
         sellerName: form.sellerName,
         sellerInn: form.sellerInn || undefined,
         sellerLegalAddress: form.sellerLegalAddress,
@@ -847,6 +851,7 @@ const Clients = () => {
         contractNumber: c.contractNumber || '',
         contractDate: c.contractDate ? String(c.contractDate).split('T')[0] : '',
         contractCurrency: (c as any).contractCurrency || 'USD',
+        emails: (c as any).emails || '',
         sellerName: c.sellerName || '',
         sellerInn: c.sellerInn || '',
         sellerLegalAddress: c.sellerLegalAddress || '',
@@ -896,6 +901,7 @@ const Clients = () => {
         contractNumber: contract.contractNumber || '',
         contractDate: contract.contractDate ? contract.contractDate.split('T')[0] : '',
         contractCurrency: (contract as any).contractCurrency || 'USD',
+        emails: (contract as any).emails || '',
         sellerName: contract.sellerName || '',
         sellerInn: contract.sellerInn || '',
         sellerLegalAddress: contract.sellerLegalAddress || '',
@@ -956,6 +962,7 @@ const Clients = () => {
         contractNumber: c.contractNumber || '',
         contractDate: c.contractDate ? String(c.contractDate).split('T')[0] : '',
         contractCurrency: (c as any).contractCurrency || 'USD',
+        emails: (c as any).emails || '',
         sellerName: c.sellerName || '',
         sellerInn: c.sellerInn || '',
         sellerLegalAddress: c.sellerLegalAddress || '',
@@ -2262,6 +2269,17 @@ const Clients = () => {
                       <option value="RUB">RUB</option>
                       <option value="EUR">EUR</option>
                     </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email manzillar</label>
+                    <input
+                      type="text"
+                      value={contractForm.emails}
+                      onChange={(e) => setContractFormAndRef({ ...contractForm, emails: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="email1@example.com, email2@example.com"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Email bir nechta bo&apos;lishi mumkin. Agar email lar ko&apos;p bo&apos;lsa, vergul (,) bilan ajratib yozing.</p>
                   </div>
                 </div>
               </div>

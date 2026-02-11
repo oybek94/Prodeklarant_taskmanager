@@ -699,6 +699,18 @@ router.get('/:id', async (req, res) => {
     include: {
       client: true,
       branch: true,
+      invoice: {
+        select: {
+          contractNumber: true,
+          contract: {
+            select: {
+              contractNumber: true,
+              contractDate: true,
+              emails: true,
+            },
+          },
+        },
+      },
       createdBy: {
         select: {
           id: true,

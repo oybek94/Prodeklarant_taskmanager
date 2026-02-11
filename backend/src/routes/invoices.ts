@@ -495,6 +495,17 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
       return res.status(400).json({ error: 'taskId yoki clientId bo\'lishi kerak' });
     }
 
+    // Shartnoma: contractId bo'lmasa lekin contractNumber bo'lsa, mijoz bo'yicha shartnomani topib contractId ni o'rnatamiz (task modalda "Shartnoma" ko'rinishi uchun)
+    const currentClientId = task?.clientId || clientId;
+    let resolvedContractId: number | undefined = contractId ?? undefined;
+    if (resolvedContractId == null && contractNumber && String(contractNumber).trim() && currentClientId) {
+      const contractByNumber = await prisma.contract.findFirst({
+        where: { clientId: currentClientId, contractNumber: String(contractNumber).trim() },
+        select: { id: true },
+      });
+      if (contractByNumber) resolvedContractId = contractByNumber.id;
+    }
+
     // Mavjud invoice'ni tekshirish
     const existingInvoice = taskId 
       ? await prisma.invoice.findUnique({
@@ -510,8 +521,8 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
       
       // Invoice raqami o'zgargan bo'lsa, shartnoma bo'yicha unique tekshirish
       if (invoiceNumber && invoiceNumber !== existingInvoice.invoiceNumber) {
-        const dupWhere = contractId
-          ? { contractId, invoiceNumber: invoiceNumber }
+        const dupWhere = resolvedContractId
+          ? { contractId: resolvedContractId, invoiceNumber: invoiceNumber }
           : { contractId: null, invoiceNumber: invoiceNumber };
         const duplicateInvoice = await prisma.invoice.findFirst({
           where: dupWhere,
@@ -527,11 +538,10 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
       });
 
       // Contract mavjudligini tekshirish
-      if (contractId) {
+      if (resolvedContractId) {
         const contract = await prisma.contract.findUnique({
-          where: { id: contractId }
+          where: { id: resolvedContractId }
         });
-        const currentClientId = task?.clientId || clientId;
         if (!contract || contract.clientId !== currentClientId) {
           return res.status(400).json({ error: 'Shartnoma topilmadi yoki bu mijozga tegishli emas' });
         }
@@ -555,7 +565,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
         data: {
           invoiceNumber: finalInvoiceNumber,
           contractNumber: contractNumber || client?.contractNumber || undefined,
-          contractId: contractId || undefined,
+          contractId: resolvedContractId || undefined,
           date: date ? new Date(date) : undefined,
           currency: currency || client?.dealAmountCurrency || 'USD',
           totalAmount: totalAmount || (task ? task.snapshotDealAmount : 0) || 0,
@@ -575,8 +585,8 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
       
       if (invoiceNumber) {
         // Foydalanuvchi invoice raqamini kiritgan — shartnoma bo'yicha unique tekshirish
-        const dupWhere = contractId
-          ? { contractId, invoiceNumber: invoiceNumber }
+        const dupWhere = resolvedContractId
+          ? { contractId: resolvedContractId, invoiceNumber: invoiceNumber }
           : { contractId: null, invoiceNumber: invoiceNumber };
         const duplicateInvoice = await prisma.invoice.findFirst({
           where: dupWhere,
@@ -587,9 +597,9 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
         finalInvoiceNumber = invoiceNumber;
       } else {
         // Avtomatik invoice raqami: contractId bor bo'lsa shartnoma bo'yicha, yo'q bo'lsa global
-        if (contractId) {
+        if (resolvedContractId) {
           const lastInvoice = await prisma.invoice.findFirst({
-            where: { contractId },
+            where: { contractId: resolvedContractId },
             orderBy: { createdAt: 'desc' },
           });
           finalInvoiceNumber = lastInvoice ? getNextInvoiceNumber(lastInvoice.invoiceNumber) : '1';
@@ -602,12 +612,11 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
         }
       }
 
-      // Contract mavjudligini tekshirish
-      if (contractId) {
+      // Contract mavjudligini tekshirish (create path)
+      if (resolvedContractId) {
         const contract = await prisma.contract.findUnique({
-          where: { id: contractId }
+          where: { id: resolvedContractId }
         });
-        const currentClientId = task?.clientId || clientId;
         if (!contract || contract.clientId !== currentClientId) {
           return res.status(400).json({ error: 'Shartnoma topilmadi yoki bu mijozga tegishli emas' });
         }
@@ -616,7 +625,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
       const invoiceData: any = {
         invoiceNumber: finalInvoiceNumber,
         contractNumber: contractNumber || client?.contractNumber || undefined,
-        contractId: contractId || undefined,
+        contractId: resolvedContractId || undefined,
         taskId: task?.id || undefined,
         clientId: task?.clientId || clientId!,
         date: date ? new Date(date) : new Date(),

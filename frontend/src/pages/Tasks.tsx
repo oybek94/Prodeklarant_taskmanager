@@ -80,6 +80,10 @@ interface TaskDetail {
   customsPaymentMultiplier?: number | null; // BXM multiplikator (Deklaratsiya)
   kpiLogs?: KpiLog[]; // KPI log'lar (jarayonlar bo'yicha pul ma'lumotlari)
   errors?: TaskError[];
+  invoice?: {
+    contractNumber?: string | null;
+    contract?: { contractNumber: string; contractDate: string; emails?: string | null } | null;
+  } | null;
 }
 
 interface TaskVersion {
@@ -281,11 +285,14 @@ const Tasks = () => {
 
   const handleOpenSendEmailModal = () => {
     setSendEmailError(null);
+    const contractEmails = selectedTask?.invoice?.contract?.emails?.trim() || '';
+    const clientEmail = (selectedTask?.client as { email?: string })?.email?.trim() || '';
+    const defaultRecipients = [clientEmail, contractEmails].filter(Boolean).join(', ');
     setSendEmailForm({
-      subject: selectedTask ? `Documents: ${selectedTask.title}` : '',
-      body: '',
-      recipients: '',
-      cc: '',
+      subject: selectedTask?.title ?? '',
+      body: 'КОМАНДА PRODEKLARANT | Ваш надёжный представитель на таможне',
+      recipients: defaultRecipients,
+      cc: 'arxiv.prodeklarant@mail.ru',
       bcc: '',
     });
     setShowSendEmailModal(true);
@@ -296,6 +303,22 @@ const Tasks = () => {
       .split(/[,;\s]+/)
       .map((e) => e.trim())
       .filter(Boolean);
+
+  const sendTaskEmailErrorToMessage = (data: { errorCode?: string; error?: string } | undefined, fallback: string): string => {
+    const code = data?.errorCode;
+    const en = data?.error;
+    const uz: Record<string, string> = {
+      TASK_NOT_COMPLETED: "Email jonatib bo'lmadi. Faqat tugallangan ishlar (YAKUNLANDI) email orqali yuboriladi. Iltimos, ishni avval tugallang.",
+      NO_VALID_RECIPIENTS: "Email jonatib bo'lmadi. Kamida bitta to'g'ri email manzil kiritilishi shart (yoki mijozda email bo'lishi kerak).",
+      VALIDATION_FAILED: en || "Email jonatib bo'lmadi. Mavzu va kamida bitta qabul qiluvchi kerak.",
+      INVALID_DOCUMENT_PATH: en ? `Hujjat fayli yo'li noto'g'ri. ${en}` : "Hujjat fayli yo'li noto'g'ri. Iltimos, administrator bilan bog'laning.",
+      DOCUMENT_FILE_NOT_FOUND: en ? `Hujjat faylini o'qib bo'lmadi. ${en} Fayl serverda yo'q; iltimos, boshqa usul bilan yuboring.` : "Hujjat faylini o'qib bo'lmadi. Iltimos, boshqa usul bilan yuboring yoki administrator bilan bog'laning.",
+      SEND_FAILED: en ? `Email yuborish xatosi. ${en}` : "Email jonatib yuborib bo'lmadi. Iltimos, keyinroq qayta urinib ko'ring yoki SMTP sozlamalarini (MAILRU_USER, MAILRU_PASSWORD) tekshiring.",
+    };
+    if (code && uz[code]) return uz[code];
+    if (en && en.length > 0 && en.length < 200) return en;
+    return fallback;
+  };
 
   const handleSendTaskEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -322,7 +345,10 @@ const Tasks = () => {
       });
       // API client does not throw on 4xx (validateStatus), so check explicitly
       if (response.status < 200 || response.status >= 300) {
-        const msg = response.data?.error || `Request failed (${response.status})`;
+        const msg = sendTaskEmailErrorToMessage(
+          response.data,
+          response.data?.error || `So'rov muvaffaqiyatsiz (${response.status}).`
+        );
         setSendEmailError(msg);
         return;
       }
@@ -332,7 +358,10 @@ const Tasks = () => {
       await loadTasks();
       alert('Email sent successfully.');
     } catch (err: any) {
-      const msg = err.response?.data?.error || err.message || 'Failed to send email';
+      const msg = sendTaskEmailErrorToMessage(
+        err.response?.data,
+        err.response?.data?.error || err.message || "Email jonatib yuborib bo'lmadi. Iltimos, keyinroq qayta urinib ko'ring."
+      );
       setSendEmailError(msg);
     } finally {
       setSendingEmail(false);
@@ -3091,6 +3120,16 @@ const Tasks = () => {
                   <div className="text-xs text-gray-400 mt-1">by {selectedTask.createdBy.name}</div>
                 )}
               </div>
+              <div className="md:col-span-2">
+                <div className="text-sm text-gray-500">Shartnoma (invoice qaysi shartnomaga asosan)</div>
+                <div className="font-medium text-sm">
+                  {selectedTask.invoice?.contract?.contractNumber
+                    ? `№ ${selectedTask.invoice.contract.contractNumber}${selectedTask.invoice.contract.contractDate ? `, ${new Date(selectedTask.invoice.contract.contractDate).toLocaleDateString('uz-UZ')}` : ''}`
+                    : selectedTask.invoice?.contractNumber
+                      ? `№ ${selectedTask.invoice.contractNumber}`
+                      : '—'}
+                </div>
+              </div>
             </div>
             {selectedTask.updatedBy && (
               <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -3177,16 +3216,14 @@ const Tasks = () => {
                     <span>Telegram orqali xabar yuborish</span>
                   </button>
                 )}
-                {selectedTask.status === 'YAKUNLANDI' && (
-                  <button
-                    type="button"
-                    onClick={handleOpenSendEmailModal}
-                    className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium text-sm shadow-sm hover:shadow-md"
-                  >
-                    <Icon icon="lucide:mail" className="w-4 h-4" />
-                    <span>Send Documents by Email</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleOpenSendEmailModal}
+                  className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium text-sm shadow-sm hover:shadow-md"
+                >
+                  <Icon icon="lucide:mail" className="w-4 h-4" />
+                  <span>Send Documents by Email</span>
+                </button>
               </div>
             </div>
 
@@ -4429,14 +4466,16 @@ const Tasks = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">BCC (optional)</label>
-                <input
-                  type="text"
-                  value={sendEmailForm.bcc}
-                  onChange={(e) => setSendEmailForm((f) => ({ ...f, bcc: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                  placeholder="bcc@example.com"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ilova qilinadigan fayllar</label>
+                <ul className="mt-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700 list-disc list-inside">
+                  {taskDocuments.length > 0 ? (
+                    taskDocuments.map((doc: { id: number; name?: string }) => (
+                      <li key={doc.id}>{doc.name || `Hujjat #${doc.id}`}</li>
+                    ))
+                  ) : (
+                    <li className="list-none text-gray-500">Hujjatlar yo&apos;q</li>
+                  )}
+                </ul>
               </div>
               {sendEmailError && (
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">

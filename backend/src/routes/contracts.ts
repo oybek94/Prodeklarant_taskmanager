@@ -60,6 +60,7 @@ const contractSchema = z.object({
   customsAddress: z.string().optional(),
   paymentMethod: z.string().optional(),
   contractCurrency: z.string().optional(), // Shartnoma valyutasi (USD, RUB va boshqalar)
+  emails: z.string().optional(), // Email manzillar (vergul bilan ajratilgan)
   gln: z.string().optional(), // Глобальный идентификационный номер GS1 (GLN)
   supplierDirector: z.string().optional(), // Руководитель Поставщика
   buyerDirector: z.string().optional(),
@@ -241,6 +242,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
     // Shartnoma valyutasi — yaratishda har doim saqlash
     contractData.contractCurrency = (data.contractCurrency && String(data.contractCurrency).trim()) ? String(data.contractCurrency).trim() : 'USD';
+    if (data.emails !== undefined) contractData.emails = data.emails && String(data.emails).trim() ? String(data.emails).trim() : null;
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
@@ -425,6 +427,7 @@ router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res
     if (data.customsAddress !== undefined) contractData.customsAddress = data.customsAddress;
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
     contractData.contractCurrency = (data.contractCurrency != null && String(data.contractCurrency).trim()) ? String(data.contractCurrency).trim() : 'USD';
+    if (data.emails !== undefined) contractData.emails = data.emails && String(data.emails).trim() ? String(data.emails).trim() : null;
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;

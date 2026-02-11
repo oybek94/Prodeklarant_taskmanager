@@ -777,8 +777,16 @@ const Invoice = () => {
                 date?: string;
                 currency?: string;
                 notes?: string;
+                contractId?: number | null;
+                contractNumber?: string | null;
                 additionalInfo?: Record<string, unknown>;
               };
+              if (dup.contractId != null) {
+                setSelectedContractId(String(dup.contractId));
+              }
+              if (dup.contractNumber != null && dup.contractNumber.trim() !== '') {
+                setForm((prev) => ({ ...prev, contractNumber: dup.contractNumber!.trim() }));
+              }
               const dupAi = dup.additionalInfo && typeof dup.additionalInfo === 'object' ? dup.additionalInfo : null;
               const dupVisible = getVisibleColumnsFromPayload(dupAi ?? undefined);
               if (dupVisible) setVisibleColumns(dupVisible);

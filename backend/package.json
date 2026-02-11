@@ -41,6 +41,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
     "node-cron": "^3.0.3",
+    "nodemailer": "^8.0.1",
     "openai": "^6.15.0",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.17.2",
@@ -55,6 +56,7 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.10.2",
+    "@types/nodemailer": "^7.0.9",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

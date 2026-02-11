@@ -175,6 +175,16 @@ const Tasks = () => {
     }>;
   } | null>(null);
   const [previewDocument, setPreviewDocument] = useState<{ url: string; type: string; name: string } | null>(null);
+  const [showSendEmailModal, setShowSendEmailModal] = useState(false);
+  const [sendEmailForm, setSendEmailForm] = useState({
+    subject: '',
+    body: '',
+    recipients: '',
+    cc: '',
+    bcc: '',
+  });
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendEmailError, setSendEmailError] = useState<string | null>(null);
   const [workers, setWorkers] = useState<{ id: number; name: string; role: string }[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -267,6 +277,66 @@ const Tasks = () => {
     
     // Open Telegram web version (works better and opens desktop app if installed)
     window.open(telegramUrl, '_blank');
+  };
+
+  const handleOpenSendEmailModal = () => {
+    setSendEmailError(null);
+    setSendEmailForm({
+      subject: selectedTask ? `Documents: ${selectedTask.title}` : '',
+      body: '',
+      recipients: '',
+      cc: '',
+      bcc: '',
+    });
+    setShowSendEmailModal(true);
+  };
+
+  const parseEmailList = (s: string): string[] =>
+    s
+      .split(/[,;\s]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+
+  const handleSendTaskEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTask) return;
+    const recipients = parseEmailList(sendEmailForm.recipients);
+    if (!recipients.length) {
+      setSendEmailError('At least one recipient is required');
+      return;
+    }
+    if (!sendEmailForm.subject.trim()) {
+      setSendEmailError('Subject is required');
+      return;
+    }
+    setSendingEmail(true);
+    setSendEmailError(null);
+    try {
+      const response = await apiClient.post('/send-task-email', {
+        task_id: selectedTask.id,
+        subject: sendEmailForm.subject.trim(),
+        body: sendEmailForm.body.trim() || undefined,
+        recipients,
+        cc: parseEmailList(sendEmailForm.cc).length ? parseEmailList(sendEmailForm.cc) : undefined,
+        bcc: parseEmailList(sendEmailForm.bcc).length ? parseEmailList(sendEmailForm.bcc) : undefined,
+      });
+      // API client does not throw on 4xx (validateStatus), so check explicitly
+      if (response.status < 200 || response.status >= 300) {
+        const msg = response.data?.error || `Request failed (${response.status})`;
+        setSendEmailError(msg);
+        return;
+      }
+      setShowSendEmailModal(false);
+      setShowTaskModal(false);
+      setSelectedTask(null);
+      await loadTasks();
+      alert('Email sent successfully.');
+    } catch (err: any) {
+      const msg = err.response?.data?.error || err.message || 'Failed to send email';
+      setSendEmailError(msg);
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   const [form, setForm] = useState({
@@ -3107,6 +3177,16 @@ const Tasks = () => {
                     <span>Telegram orqali xabar yuborish</span>
                   </button>
                 )}
+                {selectedTask.status === 'YAKUNLANDI' && (
+                  <button
+                    type="button"
+                    onClick={handleOpenSendEmailModal}
+                    className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium text-sm shadow-sm hover:shadow-md"
+                  >
+                    <Icon icon="lucide:mail" className="w-4 h-4" />
+                    <span>Send Documents by Email</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -4277,6 +4357,110 @@ const Tasks = () => {
             )}
 
 
+          </div>
+        </div>
+      )}
+
+      {/* Send Documents by Email Modal */}
+      {showSendEmailModal && selectedTask && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] backdrop-blur-sm"
+          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !sendingEmail) {
+              setShowSendEmailModal(false);
+              setSendEmailError(null);
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
+            style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+          >
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Send Documents by Email</h3>
+            <form onSubmit={handleSendTaskEmail} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Subject <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={sendEmailForm.subject}
+                  onChange={(e) => setSendEmailForm((f) => ({ ...f, subject: e.target.value }))}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                  placeholder="Email subject"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Message (optional)</label>
+                <textarea
+                  value={sendEmailForm.body}
+                  onChange={(e) => setSendEmailForm((f) => ({ ...f, body: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none"
+                  placeholder="Message body"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Recipients <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={sendEmailForm.recipients}
+                  onChange={(e) => setSendEmailForm((f) => ({ ...f, recipients: e.target.value }))}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                  placeholder="email1@example.com, email2@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">CC (optional)</label>
+                <input
+                  type="text"
+                  value={sendEmailForm.cc}
+                  onChange={(e) => setSendEmailForm((f) => ({ ...f, cc: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                  placeholder="cc@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">BCC (optional)</label>
+                <input
+                  type="text"
+                  value={sendEmailForm.bcc}
+                  onChange={(e) => setSendEmailForm((f) => ({ ...f, bcc: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                  placeholder="bcc@example.com"
+                />
+              </div>
+              {sendEmailError && (
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                  {sendEmailError}
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={sendingEmail}
+                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sendingEmail ? 'Sending...' : 'Send'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSendEmailModal(false);
+                    setSendEmailError(null);
+                  }}
+                  disabled={sendingEmail}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

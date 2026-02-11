@@ -88,6 +88,10 @@ console.log(response.data);
 
 **Eslatma:** My.gov.uz ning ochiq API mavjudligi aniq emas. Rasmiy API hujjatlari uchun portalning qo'llab-quvvatlash xizmatiga murojaat qiling.
 
+## Email (Send Task Documents by Mail.ru)
+
+Completed tasks can send their documents by email via Mail.ru SMTP. See [SETUP_EMAIL.md](SETUP_EMAIL.md) for environment variables (e.g. `MAILRU_USER`, `MAILRU_PASSWORD`) and usage.
+
 ## Texnologiyalar
 
 - **Backend**: Node.js, Express, TypeScript, SQLite

@@ -46,9 +46,13 @@ function resolveSafePath(fileUrl: string, uploadsRoot: string): string | null {
   return resolved;
 }
 
-/** Use cwd so we read from the same place multer writes (uploads/ is relative to cwd). */
+/**
+ * Uploads root: same as server.ts static (__dirname relative) so serverda fayllar topiladi.
+ * Fallback: process.cwd()/uploads (local dev).
+ */
 function getUploadsRoot(): string {
-  return path.join(process.cwd(), 'uploads');
+  const fromDirname = path.resolve(__dirname, '..', '..', 'uploads');
+  return fromDirname;
 }
 
 router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
@@ -118,7 +122,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
     const bccList = bcc?.length ? normalizeEmails(bcc) : undefined;
 
     const uploadsRoot = getUploadsRoot();
-    const uploadsRootFallback = path.resolve(__dirname, '..', '..', 'uploads');
+    const uploadsRootFallback = path.join(process.cwd(), 'uploads');
     const documents = await prisma.taskDocument.findMany({
       where: { taskId: task_id },
       select: { id: true, name: true, fileUrl: true },
@@ -204,12 +208,14 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
       message: 'Email sent successfully',
     });
   } catch (err: any) {
-    console.error('Send task email error:', err);
     const raw = err?.message || String(err);
+    console.error('Send task email error:', raw);
+    console.error('Full error (server log):', err);
     const isAuth = /invalid login|authentication failed|credentials/i.test(raw);
     const isConfig = /smtp|config|env|MAILRU/i.test(raw);
+    const isNetwork = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network/i.test(raw);
     const safeMessage =
-      isAuth || isConfig
+      isAuth || isConfig || isNetwork
         ? raw.slice(0, 200)
         : 'Failed to send email. Please try again later.';
     return res.status(500).json({

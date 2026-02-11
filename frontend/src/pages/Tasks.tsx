@@ -352,6 +352,16 @@ const Tasks = () => {
         setSendEmailError(msg);
         return;
       }
+      // Barcha hujjatlar muvaffaqiyatli yuborilgach Pochta jarayonini avtomatik Tayyor qilamiz
+      const pochtStage = selectedTask.stages?.find((s: TaskStage) => s.name === 'Pochta');
+      if (pochtStage && pochtStage.status === 'BOSHLANMAGAN') {
+        try {
+          await apiClient.patch(`/tasks/${selectedTask.id}/stages/${pochtStage.id}`, { status: 'TAYYOR' });
+          await loadTaskDetail(selectedTask.id);
+        } catch (_) {
+          // Pochta yangilash xatosi bo'lsa ham email yuborildi, modalni yopamiz
+        }
+      }
       setShowSendEmailModal(false);
       setShowTaskModal(false);
       setSelectedTask(null);
@@ -1508,18 +1518,11 @@ const Tasks = () => {
       return;
     }
     if (stage.status === 'BOSHLANMAGAN') {
-      // Pochta jarayoni uchun hujjat yuklash modalini ochamiz
+      // Pochta bosilganda modal ochilmasin — boshqa bosqichlar kabi to'g'ridan-to'g'ri Tayyor qilamiz
+      setSelectedStageForReminder(stage);
       if (stage.name === 'Pochta') {
-        setSelectedStageForReminder(stage);
-        setShowDocumentUpload(true);
-        setUploadFiles([]);
-        setDocumentNames([]);
-        setDocumentDescriptions([]);
-      } else {
-        // Boshqa stage'lar uchun to'g'ridan-to'g'ri stage'ni yangilash
-        setSelectedStageForReminder(stage);
-        // If Deklaratsiya stage, show BXM multiplier modal
-        if (stage.name === 'Deklaratsiya') {
+        await updateStageToReady(stage);
+      } else if (stage.name === 'Deklaratsiya') {
           try {
             const bxmResponse = await apiClient.get('/bxm/current');
             const amountUsd = Number(bxmResponse.data.amountUsd ?? bxmResponse.data.amount ?? 34.4);
@@ -1537,9 +1540,8 @@ const Tasks = () => {
             setAfterHoursDeclaration(false);
             setShowBXMModal(true);
           }
-        } else {
-          await updateStageToReady(stage);
-        }
+      } else {
+        await updateStageToReady(stage);
       }
     } else {
       // If already completed, allow unchecking

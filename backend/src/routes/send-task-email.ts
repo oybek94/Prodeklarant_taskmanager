@@ -30,8 +30,8 @@ const sendTaskEmailSchema = z.object({
 });
 
 /**
- * Resolve fileUrl (e.g. /uploads/tasks/filename) to absolute path and validate it stays under uploads.
- * Returns null if invalid (path traversal or not under uploads).
+ * Resolve fileUrl (e.g. /uploads/tasks/filename or /uploads/documents/filename) to absolute path.
+ * Validates path stays under uploadsRoot. Returns null if invalid.
  */
 function resolveSafePath(fileUrl: string, uploadsRoot: string): string | null {
   if (!fileUrl.startsWith('/uploads/')) return null;
@@ -44,6 +44,11 @@ function resolveSafePath(fileUrl: string, uploadsRoot: string): string | null {
     return null;
   }
   return resolved;
+}
+
+/** Use cwd so we read from the same place multer writes (uploads/ is relative to cwd). */
+function getUploadsRoot(): string {
+  return path.join(process.cwd(), 'uploads');
 }
 
 router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
@@ -118,7 +123,8 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
     const ccList = cc?.length ? normalizeEmails(cc) : undefined;
     const bccList = bcc?.length ? normalizeEmails(bcc) : undefined;
 
-    const uploadsRoot = path.resolve(__dirname, '..', 'uploads');
+    const uploadsRoot = getUploadsRoot();
+    const uploadsRootFallback = path.resolve(__dirname, '..', '..', 'uploads');
     const documents = await prisma.taskDocument.findMany({
       where: { taskId: task_id },
       select: { id: true, name: true, fileUrl: true },
@@ -126,26 +132,66 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
 
     const attachments: Array<{ filename: string; content: Buffer }> = [];
     for (const doc of documents) {
-      const safePath = resolveSafePath(doc.fileUrl, uploadsRoot);
+      let safePath = resolveSafePath(doc.fileUrl, uploadsRoot);
       if (!safePath) {
         return res.status(400).json({
           success: false,
           error: `Invalid file path for document: ${doc.name}`,
         });
       }
+
+      let content: Buffer;
       try {
-        const content = await fs.readFile(safePath);
-        const ext = path.extname(doc.fileUrl) || '';
-        const baseName = (doc.name || 'document').replace(/[^\w\s.-]/gi, '_');
-        const filename = baseName + (ext || path.extname(safePath) || '');
-        attachments.push({ filename, content });
+        content = await fs.readFile(safePath);
       } catch (err) {
-        console.error('Error reading task document file:', err);
-        return res.status(400).json({
-          success: false,
-          error: `Could not read file for document: ${doc.name}`,
+        const pathFromDb = doc.fileUrl.startsWith('/uploads/')
+          ? doc.fileUrl.slice('/uploads/'.length).replace(/\\/g, '/')
+          : '';
+        const documentsSub = path.join(uploadsRoot, 'documents');
+        const tasksSub = path.join(uploadsRoot, 'tasks');
+        const safeBaseName = path.basename(pathFromDb) || path.basename((doc.name || '').replace(/[^\w\s.-]/gi, '_')) || 'file';
+        const candidates = [
+          safePath,
+          path.join(documentsSub, safeBaseName),
+          path.join(tasksSub, safeBaseName),
+        ].filter((p) => {
+          const rel = path.relative(uploadsRoot, path.resolve(p));
+          return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
         });
+        let read = false;
+        for (const candidate of candidates) {
+          try {
+            content = await fs.readFile(candidate);
+            read = true;
+            break;
+          } catch {
+            continue;
+          }
+        }
+        if (!read) {
+          const fallbackPath = resolveSafePath(doc.fileUrl, uploadsRootFallback);
+          if (fallbackPath) {
+            try {
+              content = await fs.readFile(fallbackPath);
+              read = true;
+            } catch {
+              // continue to error
+            }
+          }
+        }
+        if (!read) {
+          console.error('Error reading task document file:', doc.fileUrl, doc.name, 'attempted roots:', uploadsRoot, uploadsRootFallback, err);
+          return res.status(400).json({
+            success: false,
+            error: `Could not read file for document: ${doc.name}`,
+          });
+        }
       }
+
+      const ext = path.extname(doc.fileUrl) || path.extname(doc.name || '') || '';
+      const baseName = (doc.name || 'document').replace(/[^\w\s.-]/gi, '_');
+      const filename = baseName + (ext || path.extname(safePath) || '');
+      attachments.push({ filename, content });
     }
 
     await sendMail({

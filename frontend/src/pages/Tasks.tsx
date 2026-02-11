@@ -3496,7 +3496,10 @@ const Tasks = () => {
             {/* Documents Section */}
             <div className="mt-6 border-t border-gray-200 pt-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">Hujjatlar</h3>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Hujjatlar</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Emailga ilova qilinadigan fayllar manashu yerdan olinadi.</p>
+                </div>
                 <div className="flex items-center gap-2">
                   {taskDocuments.length > 0 && (
                     <button

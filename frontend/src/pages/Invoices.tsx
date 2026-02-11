@@ -176,6 +176,15 @@ const Invoices = () => {
     filters.startDate ||
     filters.endDate;
 
+  const loadPackagingTypes = useCallback(async () => {
+    try {
+      const res = await apiClient.get<PackagingType[]>('/packaging-types');
+      setPackagingTypesState(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setPackagingTypesState([]);
+    }
+  }, []);
+
   useEffect(() => {
     loadInvoices();
     loadClients();
@@ -231,15 +240,6 @@ const Invoices = () => {
       setSelectedContractId('');
     }
   }, [selectedClientId]);
-
-  const loadPackagingTypes = useCallback(async () => {
-    try {
-      const res = await apiClient.get<PackagingType[]>('/packaging-types');
-      setPackagingTypesState(Array.isArray(res.data) ? res.data : []);
-    } catch {
-      setPackagingTypesState([]);
-    }
-  }, []);
 
   useEffect(() => {
     if (showTnvedSettingsModal) {

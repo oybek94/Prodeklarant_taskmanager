@@ -7,10 +7,16 @@ const router = Router();
 
 /** Barcha foydalanuvchilar o‘qishi mumkin (invoyda qadoq turi kodini tanlash, FSS backendda shu ro‘yxatdan foydalanadi) */
 router.get('/', requireAuth(), async (_req, res) => {
-  const list = await prisma.packagingType.findMany({
-    orderBy: { orderIndex: 'asc', id: 'asc' },
-  });
-  res.json(list.map((p) => ({ id: String(p.id), name: p.name, code: p.code || '' })));
+  try {
+    const list = await prisma.packagingType.findMany({
+      orderBy: [{ orderIndex: 'asc' }, { id: 'asc' }],
+    });
+    res.json(list.map((p) => ({ id: String(p.id), name: p.name, code: p.code || '' })));
+  } catch (err: any) {
+    // Jadval mavjud emas bo‘lsa (migration ishlamagan) bo‘sh ro‘yxat qaytaramiz, 500 emas
+    console.error('[packaging-types] GET error:', err?.message || err);
+    res.json([]);
+  }
 });
 
 const createSchema = z.object({ name: z.string().min(1), code: z.string().optional() });

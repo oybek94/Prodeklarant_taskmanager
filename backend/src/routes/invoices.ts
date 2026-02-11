@@ -1053,13 +1053,18 @@ router.get('/:id/fss', requireAuth(), async (req: AuthRequest, res: Response) =>
     }
 
     // Sozlamalar bo'limidagi qadoq turlari — har doim shu ro'yxatdan L3 to'ldiriladi (barcha userlar uchun bir xil)
-    const packagingTypes = await prisma.packagingType.findMany({
-      orderBy: { orderIndex: 'asc', id: 'asc' },
-    });
-    const packagingTypeCodesFromSettings = packagingTypes.map((p) => ({
-      name: p.name,
-      code: p.code || '',
-    }));
+    let packagingTypeCodesFromSettings: Array<{ name: string; code: string }> = [];
+    try {
+      const packagingTypes = await prisma.packagingType.findMany({
+        orderBy: [{ orderIndex: 'asc' }, { id: 'asc' }],
+      });
+      packagingTypeCodesFromSettings = packagingTypes.map((p) => ({
+        name: p.name,
+        code: p.code || '',
+      }));
+    } catch (e) {
+      console.error('[invoices/fss] packagingType findMany failed:', (e as Error)?.message);
+    }
 
     const workbook = await generateFssExcel({
       invoice,

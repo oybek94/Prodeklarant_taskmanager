@@ -185,6 +185,22 @@ function normalizeTnvedCode(code: string): string {
   return digits.length <= 10 ? digits.padStart(10, '0') : digits.slice(0, 10);
 }
 
+/** Qadoq turi nomi → UN kodi. Barcha foydalanuvchilar uchun L3 to'ldirilishi uchun (invoyda packagingTypeCodes bo'lmasa ham) */
+const PACKAGING_CODE_FALLBACK: { keys: string[]; code: string }[] = [
+  { keys: ['дер.ящик', 'деревянный ящик', 'ящик деревянный', 'derevyanniy'], code: '4A' },
+  { keys: ['пласт.ящик', 'пластиковый ящик', 'пласт ящик'], code: '4H2' },
+  { keys: ['мешки', 'мешок', 'meshok'], code: '21' },
+  { keys: ['картон.короб.', 'картон', 'коробка', 'картонная коробка'], code: '4C1' },
+  { keys: ['навалом', 'bulk'], code: '13' },
+  { keys: ['палет', 'паллет', 'pallet', 'поддон'], code: '20' },
+  { keys: ['короб', 'box', 'ящик'], code: '4A' },
+  { keys: ['бутыл', 'bottle', 'shisha'], code: '11' },
+  { keys: ['контейнер', 'container'], code: '22' },
+];
+
+const normalizeForPackagingMatch = (s: string) =>
+  (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
 const getPackagingCode = (item: InvoiceItem, additionalInfo: Record<string, any>) => {
   const typeName = item?.packageType ? String(item.packageType).trim() : '';
   if (!typeName) return '';
@@ -192,7 +208,18 @@ const getPackagingCode = (item: InvoiceItem, additionalInfo: Record<string, any>
     ? (additionalInfo.packagingTypeCodes as Array<{ name?: string; code?: string }>)
     : [];
   const match = list.find((entry) => (entry.name || '').trim() === typeName);
-  return match?.code ? String(match.code).trim() : '';
+  if (match?.code) return String(match.code).trim();
+  // Invoyda packagingTypeCodes yo'q yoki kod bo'sh bo'lsa (boshqa userlar) — umumiy jadvaldan qidirish
+  const normalized = normalizeForPackagingMatch(typeName);
+  if (!normalized) return '';
+  for (const { keys, code } of PACKAGING_CODE_FALLBACK) {
+    for (const key of keys) {
+      if (normalized.includes(normalizeForPackagingMatch(key)) || normalizeForPackagingMatch(key) === normalized) {
+        return code;
+      }
+    }
+  }
+  return '';
 };
 
 export const generateFssExcel = async (payload: FssExcelPayload) => {

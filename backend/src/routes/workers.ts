@@ -149,13 +149,6 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
   if (startDate) dateFilter.gte = new Date(startDate as string);
   if (endDate) dateFilter.lte = new Date(endDate as string);
 
-  // KPI stats - use fixed stage prices (USD)
-  const kpiConfigs = await prisma.kpiConfig.findMany();
-  const stagePriceMap = new Map<string, number>();
-  kpiConfigs.forEach((config) => {
-    stagePriceMap.set(config.stageName, Number(config.price));
-  });
-
   const completedStagesData = await prisma.taskStage.findMany({
     where: {
       assignedToId: workerId,
@@ -167,23 +160,9 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
       completedAt: true,
     },
   });
-
-  const totalKPI = completedStagesData.reduce((sum: number, stage: any) => {
-    let normalizedStageName = stage.name;
-    if (stage.name === 'Xujjat_tekshirish' || stage.name === 'Xujjat tekshirish' || stage.name === 'Tekshirish') {
-      normalizedStageName = 'Tekshirish';
-    } else if (stage.name === 'Xujjat_topshirish' || stage.name === 'Xujjat topshirish' || stage.name === 'Topshirish') {
-      normalizedStageName = 'Topshirish';
-    } else if (stage.name === 'ST' || stage.name === 'Fito' || stage.name === 'FITO' || stage.name === 'Sertifikat olib chiqish') {
-      normalizedStageName = 'Sertifikat olib chiqish';
-    }
-
-    const basePrice = stagePriceMap.get(normalizedStageName) ?? STAGE_FIXED_PRICES[normalizedStageName] ?? 0;
-    return sum + basePrice;
-  }, 0);
   const completedStages = completedStagesData.length;
 
-  // Keep KPI logs for backward compatibility
+  // KPI summasini KpiLog'dan olamiz (o'sha paytdagi tarif); yangi tariflar eski ishtiroklarga ta'sir qilmasin
   const kpiLogs = await prisma.kpiLog.findMany({
     where: {
       userId: workerId,
@@ -197,6 +176,7 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
       createdAt: true,
     },
   });
+  const totalKPI = kpiLogs.reduce((sum, log) => sum + Number((log as any).amount_original ?? (log as any).amount ?? 0), 0);
 
   // Get worker payment report - USD values only
   const paymentReport = await getWorkerPaymentReport(workerId, {
@@ -226,7 +206,7 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
     tasksAssigned,
     kpiLogs: kpiLogs.map((log: any) => ({
       id: log.id,
-      amount: Number(log.amount_original), // USD only
+      amount: Number(log.amount_original ?? log.amount ?? 0), // USD only
       stageName: log.stageName,
       createdAt: log.createdAt,
     })),
@@ -271,7 +251,7 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
   if (startDate) dateFilter.gte = new Date(startDate as string);
   if (endDate) dateFilter.lte = new Date(endDate as string);
 
-  // Load fixed stage prices from KPI configs
+  // Load fixed stage prices from KPI configs (fallback when KpiLog is missing for old data)
   const kpiConfigs = await prisma.kpiConfig.findMany();
   const stagePriceMap = new Map<string, number>();
   kpiConfigs.forEach((config) => {
@@ -295,6 +275,26 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
         },
       },
     },
+  });
+
+  // Eski jarayonlar uchun summa KpiLog'dan (o'sha paytdagi tarif), yangi tariflar ta'sir qilmasin
+  const kpiLogs = await prisma.kpiLog.findMany({
+    where: {
+      userId: workerId,
+      ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
+    },
+    select: { taskId: true, stageName: true, amount: true },
+  });
+  const normalizeKpiStageName = (name: string): string => {
+    if (name === 'Xujjat_tekshirish' || name === 'Xujjat tekshirish' || name === 'Tekshirish') return 'Tekshirish';
+    if (name === 'Xujjat_topshirish' || name === 'Xujjat topshirish' || name === 'Topshirish') return 'Topshirish';
+    if (name === 'ST' || name === 'Fito' || name === 'FITO' || name === 'Sertifikat olib chiqish') return 'Sertifikat olib chiqish';
+    return name;
+  };
+  const kpiLogAmountByTaskAndStage = new Map<string, number>();
+  kpiLogs.forEach((log) => {
+    const key = `${log.taskId}-${normalizeKpiStageName(log.stageName)}`;
+    kpiLogAmountByTaskAndStage.set(key, Number(log.amount));
   });
 
   // Get all SALARY transactions for this worker (money received)
@@ -399,8 +399,13 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
 
     stageStats[targetStageName].participationCount += 1;
 
-    const basePrice = stagePriceMap.get(targetStageName) ?? STAGE_FIXED_PRICES[targetStageName] ?? 0;
-    const earnedForStage = basePrice;
+    // Bosqich tugaganda KpiLog'da saqlangan summa (o'sha paytdagi tarif); yangi tariflar eski ishtiroklarga ta'sir qilmasin
+    const logKey = `${stage.task.id}-${targetStageName}`;
+    const earnedForStage =
+      kpiLogAmountByTaskAndStage.get(logKey) ??
+      stagePriceMap.get(targetStageName) ??
+      STAGE_FIXED_PRICES[targetStageName] ??
+      0;
     stageStats[targetStageName].earnedAmount += earnedForStage;
   }
 
@@ -419,15 +424,21 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
     // Keep percentage at 0 since fixed pricing is used
   });
 
-  // Convert to array and sort by participation count
+  // Convert to array and sort by participation count; har bir bosqich uchun joriy tarifni (Sozlamalar) qo'shamiz
   const stageStatsArray = Object.values(stageStats)
     .filter(stats => stats.participationCount > 0)
-    .sort((a, b) => b.participationCount - a.participationCount);
+    .sort((a, b) => b.participationCount - a.participationCount)
+    .map(stats => ({
+      ...stats,
+      tariffUsd: stagePriceMap.get(stats.stageName) ?? STAGE_FIXED_PRICES[stats.stageName] ?? 0,
+    }));
 
-  // Calculate totals - all amounts in USD
+  // Calculate totals - all amounts in USD; jami tasklar soni (bir xil taskda bir necha bosqich bo‘lsa ham 1 task)
   const totalEarned = stageStatsArray.reduce((sum, s) => sum + s.earnedAmount, 0);
+  const uniqueTaskIds = new Set(completedStages.map((s) => s.task.id));
   const totals = {
     totalParticipation: stageStatsArray.reduce((sum, s) => sum + s.participationCount, 0),
+    totalTasks: uniqueTaskIds.size,
     totalEarned, // USD
     totalReceived: totalReceivedFromSalary, // USD equivalent from WorkerPayment
     totalPending: totalEarned - totalReceivedFromSalary, // USD

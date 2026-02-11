@@ -1153,6 +1153,9 @@ const Settings = () => {
                 <div>
                   <h2 className="text-base font-semibold text-gray-800">Jarayonlar bo'yicha qatiy summalar</h2>
                   <div className="text-xs text-gray-500">Barcha summalar USD da kiritiladi</div>
+                  <p className="text-xs text-amber-700 mt-1.5 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                    Agar jarayonlarga o‘zgartirish kiritilsa, o‘zgartirish kiritilgunga qadar bo‘lgan vaqtdagi tasklar hisob-kitoblari eski bo‘yicha qoladi. Yangilangan ma’lumotlar yangilangan paytdan keyingi ishlar uchun ta’sir qiladi.
+                  </p>
                 </div>
                 <button
                   onClick={handleSaveKpiConfigs}

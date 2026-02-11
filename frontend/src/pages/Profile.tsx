@@ -33,6 +33,8 @@ interface StageStat {
   receivedAmount: number;
   pendingAmount: number;
   percentage: number;
+  /** Har bir bosqich uchun amalda qo‘llanadigan to‘lov summasi (USD) — Sozlamalar tarifi */
+  tariffUsd?: number;
 }
 
 interface StageStats {
@@ -40,6 +42,7 @@ interface StageStats {
   stageStats: StageStat[];
   totals: {
     totalParticipation: number;
+    totalTasks?: number;
     totalEarned: number;
     totalReceived: number;
     totalPending: number;
@@ -337,20 +340,24 @@ const Profile = () => {
             {/* Summary Cards - Always show, even if no stage stats */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
               <div className="bg-blue-50 rounded-lg p-3">
-                <div className="text-xs text-blue-600 mb-1">Jami ishtirok</div>
+                <div className="text-xs text-blue-600 mb-1">Jami tasklarda ishtirok</div>
                 <div className="text-xl font-bold text-blue-800">
-                  {stageStats?.totals?.totalParticipation || 0}
+                  {stageStats?.totals?.totalTasks ?? stageStats?.totals?.totalParticipation ?? 0}
                 </div>
               </div>
               <div className="bg-green-50 rounded-lg p-3">
-                <div className="text-xs text-green-600 mb-1">Ishlab topilgan (KPI)</div>
+                <div className="text-xs text-green-600 mb-1">Jami ishlab topilgan</div>
                 <div className="text-xl font-bold text-green-800">
                   {loading ? (
                     <span className="text-gray-400">Yuklanmoqda...</span>
                   ) : (() => {
-                    const currentEarned = stats 
-                      ? Number(stats.totalKPI)
-                      : (stageStats?.totals?.totalEarned || 0);
+                    // Jadvaldagi "Ishlab topilgan (summa)" ustunidagi qatorlar yig‘indisi — jami shu yig‘indiga teng
+                    const sumFromTable = stageStats?.stageStats?.length
+                      ? stageStats.stageStats.reduce((s, stat) => s + Number(stat.earnedAmount), 0)
+                      : 0;
+                    const currentEarned = stageStats?.stageStats?.length
+                      ? sumFromTable
+                      : (stats ? Number(stats.totalKPI) : (stageStats?.totals?.totalEarned || 0));
                     const previousYearEarned = previousYearDebt?.totalEarned || 0;
                     const totalEarned = currentEarned + previousYearEarned;
                     return (
@@ -396,13 +403,16 @@ const Profile = () => {
                 </div>
               </div>
               {(() => {
-                const currentEarned = stats 
-                  ? Number(stats.totalKPI)
-                  : (stageStats?.totals?.totalEarned || 0);
+                const sumFromTable = stageStats?.stageStats?.length
+                  ? stageStats.stageStats.reduce((s, stat) => s + Number(stat.earnedAmount), 0)
+                  : 0;
+                const currentEarned = stageStats?.stageStats?.length
+                  ? sumFromTable
+                  : (stats ? Number(stats.totalKPI) : (stageStats?.totals?.totalEarned || 0));
                 const previousYearEarned = previousYearDebt?.totalEarned || 0;
                 const totalEarned = currentEarned + previousYearEarned;
 
-                const currentReceived = stats 
+                const currentReceived = stats
                   ? Number(stats.totalSalary)
                   : (stageStats?.totals?.totalReceived || 0);
                 const previousYearPaid = previousYearDebt?.totalPaid || 0;
@@ -451,15 +461,15 @@ const Profile = () => {
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Jarayon</th>
                     <th className="text-center py-3 px-4 font-semibold text-gray-700">Bosqich to'lovi</th>
                     <th className="text-center py-3 px-4 font-semibold text-gray-700">Ishtirok</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishlab topilgan</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishlab topilgan (summa)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {stageStats.stageStats.map((stat, idx) => {
-                      // Calculate stage payment per participation
-                      const stagePayment = stat.participationCount > 0 
-                        ? (Number(stat.earnedAmount) / stat.participationCount) 
-                        : 0;
+                      // Bosqich to'lovi — amalda qo‘llanadigan tarif (Sozlamalar), yoki o‘rtacha (eski API uchun)
+                      const stagePayment = stat.tariffUsd ?? (stat.participationCount > 0
+                        ? Number(stat.earnedAmount) / stat.participationCount
+                        : 0);
                       
                       return (
                       <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">

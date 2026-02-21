@@ -318,6 +318,20 @@ const Invoice = () => {
       return next;
     });
 
+  /** "Наименование товара" uchun takliflar: shartnoma tanlanganida shu shartnoma spetsifikatsiyasidagi mahsulotlar, aks holda global TNVED ro'yxati. */
+  const invoiceProductOptions = useMemo(() => {
+    if (selectedContractSpec.length > 0) {
+      return selectedContractSpec
+        .map((r, i) => ({
+          id: `spec-${i}`,
+          name: (r.productName || '').trim(),
+          code: (r.tnvedCode || '').trim(),
+        }))
+        .filter((p) => p.name !== '');
+    }
+    return tnvedProducts;
+  }, [selectedContractSpec, tnvedProducts]);
+
   const invoiceRef = useRef<HTMLDivElement | null>(null);
   type ChangeLogEntry = { fieldLabel: string; oldValue: string; newValue: string; changedAt?: string };
   const initialForChangeLogRef = useRef<{ form: Record<string, unknown>; items: InvoiceItem[] } | null>(null);
@@ -1186,11 +1200,11 @@ const Invoice = () => {
       } else {
         newItems[index].unitPrice = 0;
         newItems[index].totalPrice = 0;
-        const match = tnvedProducts.find((p) => p.name === nameTrim);
+        const match = invoiceProductOptions.find((p) => p.name === nameTrim);
         if (match) newItems[index].tnvedCode = match.code;
       }
     } else {
-      const match = tnvedProducts.find((p) => p.name === nameTrim);
+      const match = invoiceProductOptions.find((p) => p.name === nameTrim);
       if (match) newItems[index].tnvedCode = match.code;
     }
     setItems(newItems);
@@ -2704,7 +2718,7 @@ const Invoice = () => {
         <form onSubmit={handleSubmit} className={`invoice-form${!canEditEffective ? ' invoice-form-readonly' : ''}`}>
 
           <datalist id="invoice-tnved-products">
-            {tnvedProducts.map((p) => (
+            {invoiceProductOptions.map((p) => (
               <option key={p.id} value={p.name} />
             ))}
           </datalist>

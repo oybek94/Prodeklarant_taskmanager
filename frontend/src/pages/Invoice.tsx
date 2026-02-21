@@ -641,6 +641,12 @@ const Invoice = () => {
   const invoiceNumberCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [customFields, setCustomFields] = useState<Array<{ id: string; label: string; value: string }>>([]);
   const [specCustomFields, setSpecCustomFields] = useState<Array<{ id: string; label: string; value: string }>>([]);
+  /** Har bir "Дополнительная информация" maydonining invoysda ko‘rinishi: true = ko‘rinadi, false = yashirin. */
+  const [additionalInfoVisible, setAdditionalInfoVisible] = useState<Record<string, boolean>>({});
+  const toggleAdditionalInfoVisible = useCallback((key: string) => {
+    setAdditionalInfoVisible((prev) => ({ ...prev, [key]: prev[key] === false }));
+  }, []);
+  const isAdditionalInfoVisible = useCallback((key: string) => additionalInfoVisible[key] !== false, [additionalInfoVisible]);
   const [showAddFieldModal, setShowAddFieldModal] = useState(false);
   const [newFieldLabel, setNewFieldLabel] = useState('');
   const [regionCodes, setRegionCodes] = useState<RegionCode[]>([]);
@@ -744,9 +750,12 @@ const Invoice = () => {
     tnvedCode: item.tnvedCode ?? undefined,
     pluCode: item.pluCode ?? undefined,
     packageType: item.packageType ?? undefined,
-    packagesCount: item.packagesCount ?? undefined,
-    grossWeight: item.grossWeight ?? undefined,
-    netWeight: item.netWeight ?? undefined,
+    quantity: item.quantity != null ? Number(item.quantity) : 0,
+    packagesCount: item.packagesCount != null && item.packagesCount !== '' ? Number(item.packagesCount) : undefined,
+    grossWeight: item.grossWeight != null && item.grossWeight !== '' ? Number(item.grossWeight) : undefined,
+    netWeight: item.netWeight != null && item.netWeight !== '' ? Number(item.netWeight) : undefined,
+    unitPrice: item.unitPrice != null ? Number(item.unitPrice) : 0,
+    totalPrice: item.totalPrice != null ? Number(item.totalPrice) : 0,
   });
 
   const loadData = async () => {
@@ -1051,6 +1060,9 @@ const Invoice = () => {
             if (savedVisible) setVisibleColumns(savedVisible);
             if (ai?.columnLabels && typeof ai.columnLabels === 'object') {
               setColumnLabels((prev) => ({ ...prev, ...(ai.columnLabels as Record<string, string>) }));
+            }
+            if (ai?.visibleAdditionalInfoFields && typeof ai.visibleAdditionalInfoFields === 'object') {
+              setAdditionalInfoVisible(ai.visibleAdditionalInfoFields as Record<string, boolean>);
             }
 
             initialForChangeLogRef.current = {
@@ -2114,6 +2126,7 @@ const Invoice = () => {
             specCustomFields: specCustomFields,
             visibleColumns,
             columnLabels,
+            visibleAdditionalInfoFields: additionalInfoVisible,
           };
           if (invoice) {
             const taskErrorsCount = (invoice as any).task?._count?.errors ?? 0;
@@ -3241,7 +3254,7 @@ const Invoice = () => {
                 className="p-4 pt-0 rounded-lg text-base text-black space-y-1"
                 style={{ backgroundColor: 'var(--tw-ring-offset-color)', background: 'unset' }}
               >
-                {form.deliveryTerms && <div><strong>Условия поставки:</strong> {form.deliveryTerms}</div>}
+                {isAdditionalInfoVisible('deliveryTerms') && form.deliveryTerms && <div><strong>Условия поставки:</strong> {form.deliveryTerms}</div>}
                 {viewTab === 'spec' ? (
                   specCustomFields.map((field) => (
                     field.value ? (
@@ -3250,16 +3263,16 @@ const Invoice = () => {
                   ))
                 ) : (
                   <>
-                    {form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
-                    {form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
-                    {form.customsAddress && <div><strong>Место там. очистки:</strong> {form.customsAddress}</div>}
-                    <div><strong>Происхождение товара:</strong> {form.origin || 'Республика Узбекистан'}</div>
-                    {form.manufacturer && <div><strong>Производитель:</strong> {form.manufacturer}</div>}
-                    {form.orderNumber && <div><strong>Номер заказа:</strong> {form.orderNumber}</div>}
-                    {form.gln && <div><strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}</div>}
-                    {form.harvestYear && <div><strong>Урожай:</strong> {form.harvestYear} года</div>}
+                    {isAdditionalInfoVisible('vehicleNumber') && form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
+                    {isAdditionalInfoVisible('shipmentPlace') && form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
+                    {isAdditionalInfoVisible('customsAddress') && form.customsAddress && <div><strong>Место там. очистки:</strong> {form.customsAddress}</div>}
+                    {isAdditionalInfoVisible('origin') && <div><strong>Происхождение товара:</strong> {form.origin || 'Республика Узбекистан'}</div>}
+                    {isAdditionalInfoVisible('manufacturer') && form.manufacturer && <div><strong>Производитель:</strong> {form.manufacturer}</div>}
+                    {isAdditionalInfoVisible('orderNumber') && form.orderNumber && <div><strong>Номер заказа:</strong> {form.orderNumber}</div>}
+                    {isAdditionalInfoVisible('gln') && form.gln && <div><strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}</div>}
+                    {isAdditionalInfoVisible('harvestYear') && form.harvestYear && <div><strong>Урожай:</strong> {form.harvestYear} года</div>}
                     {customFields.map((field) => (
-                      field.value ? (
+                      isAdditionalInfoVisible(`custom_${field.id}`) && field.value ? (
                         <div key={field.id}><strong>{field.label}:</strong> {field.value}</div>
                       ) : null
                     ))}
@@ -3655,7 +3668,11 @@ const Invoice = () => {
                               <input
                                 type="number"
                                 value={item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount}
-                                onChange={(e) => handleItemChange(index, 'packagesCount', parseFloat(e.target.value) || 0)}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const num = raw === '' ? undefined : (parseFloat(String(raw).replace(',', '.')) || 0);
+                                  handleItemChange(index, 'packagesCount', num ?? 0);
+                                }}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
                                 min="0"
                                 step="0.01"
@@ -3708,7 +3725,11 @@ const Invoice = () => {
                               <input
                                 type="number"
                                 value={item.unitPrice === 0 ? '' : item.unitPrice}
-                                onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const num = parseFloat(String(raw).replace(',', '.'));
+                                  handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0);
+                                }}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
                                 min="0"
                                 step="0.01"
@@ -4025,9 +4046,14 @@ const Invoice = () => {
             <div className="space-y-4">
               {/* Majburiy maydonlar */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Условия поставки:<span className="text-red-500 ml-1">*</span>
-                </label>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Условия поставки:<span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <button type="button" onClick={() => toggleAdditionalInfoVisible('deliveryTerms')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('deliveryTerms') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                    <Icon icon={isAdditionalInfoVisible('deliveryTerms') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                  </button>
+                </div>
                 <div className="space-y-2">
                   {contractDeliveryTerms.length > 1 ? (
                     <>
@@ -4170,9 +4196,14 @@ const Invoice = () => {
                 )];
                 return (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Место там. очистки:
-                    </label>
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Место там. очистки:
+                      </label>
+                      <button type="button" onClick={() => toggleAdditionalInfoVisible('customsAddress')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('customsAddress') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                        <Icon icon={isAdditionalInfoVisible('customsAddress') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                      </button>
+                    </div>
                     {options.length > 0 ? (
                       <select
                         value={form.customsAddress ?? ''}
@@ -4199,9 +4230,14 @@ const Invoice = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Номер автотранспорта:<span className="text-red-500 ml-1">*</span>
-                  </label>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Номер автотранспорта:<span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <button type="button" onClick={() => toggleAdditionalInfoVisible('vehicleNumber')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('vehicleNumber') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                      <Icon icon={isAdditionalInfoVisible('vehicleNumber') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={form.vehicleNumber}
@@ -4342,10 +4378,13 @@ const Invoice = () => {
                   </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2 mb-1">
                   <label className="block text-sm font-medium text-gray-700">
                     Происхождение товара:
                   </label>
+                  <button type="button" onClick={() => toggleAdditionalInfoVisible('origin')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('origin') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                    <Icon icon={isAdditionalInfoVisible('origin') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                  </button>
                 </div>
                 <input
                   type="text"
@@ -4357,9 +4396,14 @@ const Invoice = () => {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Производитель:
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Производитель:
+                    </label>
+                    <button type="button" onClick={() => toggleAdditionalInfoVisible('manufacturer')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('manufacturer') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                      <Icon icon={isAdditionalInfoVisible('manufacturer') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, manufacturer: '' })}
@@ -4379,9 +4423,14 @@ const Invoice = () => {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Номер заказа:
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Номер заказа:
+                    </label>
+                    <button type="button" onClick={() => toggleAdditionalInfoVisible('orderNumber')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('orderNumber') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                      <Icon icon={isAdditionalInfoVisible('orderNumber') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, orderNumber: '' })}
@@ -4401,9 +4450,14 @@ const Invoice = () => {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Глобальный идентификационный номер GS1 (GLN):
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Глобальный идентификационный номер GS1 (GLN):
+                    </label>
+                    <button type="button" onClick={() => toggleAdditionalInfoVisible('gln')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('gln') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                      <Icon icon={isAdditionalInfoVisible('gln') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, gln: '' })}
@@ -4424,9 +4478,14 @@ const Invoice = () => {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Урожай:
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Урожай:
+                    </label>
+                    <button type="button" onClick={() => toggleAdditionalInfoVisible('harvestYear')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('harvestYear') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                      <Icon icon={isAdditionalInfoVisible('harvestYear') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })}
@@ -4449,9 +4508,14 @@ const Invoice = () => {
               {customFields.map((field) => (
                 <div key={field.id}>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-sm font-medium text-gray-700">
-                      {field.label}:
-                    </label>
+                    <div className="flex items-center gap-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        {field.label}:
+                      </label>
+                      <button type="button" onClick={() => toggleAdditionalInfoVisible(`custom_${field.id}`)} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible(`custom_${field.id}`) ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                        <Icon icon={isAdditionalInfoVisible(`custom_${field.id}`) ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setCustomFields(customFields.filter(f => f.id !== field.id))}

@@ -619,21 +619,6 @@ const Invoice = () => {
 
   const [showAdditionalInfoModal, setShowAdditionalInfoModal] = useState(false);
 
-  /** Modal ochilganda: shartnomada 1 ta Условия поставки bo'lsa va form bo'sh bo'lsa, shartnomadagi qiymatni yozib qo'yish. */
-  useEffect(() => {
-    if (!showAdditionalInfoModal || contractDeliveryTerms.length !== 1 || (form.deliveryTerms || '').trim() !== '') return;
-    const term = contractDeliveryTerms[0];
-    let newCustomsAddress = form.customsAddress || '';
-    const selectedContract = selectedContractId ? contracts.find((c) => c.id.toString() === selectedContractId) : null;
-    if (selectedContract && term) {
-      const dtArr = (selectedContract.deliveryTerms || '').split('\n').map((s: string) => s.trim());
-      const caArr = (selectedContract.customsAddress || '').split('\n').map((s: string) => s.trim());
-      const idx = dtArr.indexOf(term);
-      if (idx >= 0 && caArr[idx]?.trim()) newCustomsAddress = caArr[idx].trim();
-    }
-    setForm((prev) => ({ ...prev, deliveryTerms: term, customsAddress: newCustomsAddress }));
-  }, [showAdditionalInfoModal, contractDeliveryTerms, selectedContractId, contracts]);
-
   const [savedSnapshot, setSavedSnapshot] = useState<string>('');
   const [markSnapshotAfterSave, setMarkSnapshotAfterSave] = useState(false);
   const [additionalInfoError, setAdditionalInfoError] = useState<string | null>(null);
@@ -4056,7 +4041,7 @@ const Invoice = () => {
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {contractDeliveryTerms.length > 1 ? (
+                  {contractDeliveryTerms.length > 0 ? (
                     <>
                       <select
                         value={contractDeliveryTerms.includes(form.deliveryTerms) ? form.deliveryTerms : '__other__'}
@@ -4100,28 +4085,30 @@ const Invoice = () => {
                                 setAdditionalInfoError(null);
                               }
                             }}
-                            placeholder="Yangi Условия поставки kiriting"
+                            placeholder="Условия поставки ni qo&apos;lda kiriting"
                             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                           />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const trimmed = form.deliveryTerms.trim();
-                              if (!trimmed) return;
-                              addDeliveryTermOption(trimmed);
-                              setForm({ ...form, deliveryTerms: trimmed });
-                            }}
-                            className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
-                          >
-                            Shartnomaga qo&apos;shish
-                          </button>
+                          {canEditEffective && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const trimmed = form.deliveryTerms.trim();
+                                if (!trimmed) return;
+                                addDeliveryTermOption(trimmed);
+                                setForm({ ...form, deliveryTerms: trimmed });
+                              }}
+                              className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
+                            >
+                              Shartnomaga qo&apos;shish
+                            </button>
+                          )}
                         </div>
                       )}
                     </>
                   ) : (
                     <input
                       type="text"
-                      value={form.deliveryTerms || (contractDeliveryTerms.length === 1 ? contractDeliveryTerms[0] : '')}
+                      value={form.deliveryTerms}
                       onChange={(e) => {
                         const value = e.target.value;
                         let newCustomsAddress = '';
@@ -4143,7 +4130,7 @@ const Invoice = () => {
                       }}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      placeholder="Shartnomadan olinadi"
+                      placeholder="Условия поставки ni qo&apos;lda kiriting (shartnomada kiritilmagan)"
                     />
                   )}
                 </div>

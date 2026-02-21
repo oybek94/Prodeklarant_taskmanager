@@ -618,6 +618,22 @@ const Invoice = () => {
   });
 
   const [showAdditionalInfoModal, setShowAdditionalInfoModal] = useState(false);
+
+  /** Modal ochilganda: shartnomada 1 ta Условия поставки bo'lsa va form bo'sh bo'lsa, shartnomadagi qiymatni yozib qo'yish. */
+  useEffect(() => {
+    if (!showAdditionalInfoModal || contractDeliveryTerms.length !== 1 || (form.deliveryTerms || '').trim() !== '') return;
+    const term = contractDeliveryTerms[0];
+    let newCustomsAddress = form.customsAddress || '';
+    const selectedContract = selectedContractId ? contracts.find((c) => c.id.toString() === selectedContractId) : null;
+    if (selectedContract && term) {
+      const dtArr = (selectedContract.deliveryTerms || '').split('\n').map((s: string) => s.trim());
+      const caArr = (selectedContract.customsAddress || '').split('\n').map((s: string) => s.trim());
+      const idx = dtArr.indexOf(term);
+      if (idx >= 0 && caArr[idx]?.trim()) newCustomsAddress = caArr[idx].trim();
+    }
+    setForm((prev) => ({ ...prev, deliveryTerms: term, customsAddress: newCustomsAddress }));
+  }, [showAdditionalInfoModal, contractDeliveryTerms, selectedContractId, contracts]);
+
   const [savedSnapshot, setSavedSnapshot] = useState<string>('');
   const [markSnapshotAfterSave, setMarkSnapshotAfterSave] = useState(false);
   const [additionalInfoError, setAdditionalInfoError] = useState<string | null>(null);
@@ -4078,7 +4094,7 @@ const Invoice = () => {
                   ) : (
                     <input
                       type="text"
-                      value={form.deliveryTerms}
+                      value={form.deliveryTerms || (contractDeliveryTerms.length === 1 ? contractDeliveryTerms[0] : '')}
                       onChange={(e) => {
                         const value = e.target.value;
                         let newCustomsAddress = '';

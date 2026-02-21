@@ -1108,7 +1108,8 @@ const Invoice = () => {
                   }
                 }
                 setSelectedContractSpec(spec);
-                setItems(syncItemsFromSpec(loadedItems, spec));
+                // Saqlangan invoysda foydalanuvchi kiritgan narx (unitPrice/totalPrice) ni spetsifikatsiya bilan ustidan yozmaymiz — faqat nom/TNVED sinxron qilinadi
+                // setItems(loadedItems) allaqachon yuqorida chaqirilgan; syncItemsFromSpec faqat shartnoma tanlanganda (handleContractSelect) ishlatiladi
                 // Faqat contractNumber — paymentTerms/gln saqlangan inv.additionalInfo dan qoladi
                 setForm(prev => ({
                   ...prev,

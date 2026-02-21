@@ -318,20 +318,6 @@ const Invoice = () => {
       return next;
     });
 
-  /** "Наименование товара" uchun takliflar: shartnoma tanlanganida shu shartnoma spetsifikatsiyasidagi mahsulotlar, aks holda global TNVED ro'yxati. */
-  const invoiceProductOptions = useMemo(() => {
-    if (selectedContractSpec.length > 0) {
-      return selectedContractSpec
-        .map((r, i) => ({
-          id: `spec-${i}`,
-          name: (r.productName || '').trim(),
-          code: (r.tnvedCode || '').trim(),
-        }))
-        .filter((p) => p.name !== '');
-    }
-    return tnvedProducts;
-  }, [selectedContractSpec, tnvedProducts]);
-
   const invoiceRef = useRef<HTMLDivElement | null>(null);
   type ChangeLogEntry = { fieldLabel: string; oldValue: string; newValue: string; changedAt?: string };
   const initialForChangeLogRef = useRef<{ form: Record<string, unknown>; items: InvoiceItem[] } | null>(null);
@@ -687,6 +673,20 @@ const Invoice = () => {
     setTnvedProducts(getTnvedProducts());
     loadPackagingTypes();
   }, [loadPackagingTypes]);
+
+  /** "Наименование товара" uchun takliflar: shartnoma tanlanganida shu shartnoma spetsifikatsiyasidagi mahsulotlar, aks holda global TNVED ro'yxati. */
+  const invoiceProductOptions = useMemo(() => {
+    if (selectedContractSpec.length > 0) {
+      return selectedContractSpec
+        .map((r, i) => ({
+          id: `spec-${i}`,
+          name: (r.productName || '').trim(),
+          code: (r.tnvedCode || '').trim(),
+        }))
+        .filter((p) => p.name !== '');
+    }
+    return tnvedProducts;
+  }, [selectedContractSpec, tnvedProducts]);
 
   useEffect(() => {
     window.addEventListener('focus', loadPackagingTypes);

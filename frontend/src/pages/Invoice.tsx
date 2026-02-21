@@ -874,7 +874,17 @@ const Invoice = () => {
               }));
               setItems([{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 }]);
               setCustomFields([]);
-              setSpecCustomFields([]);
+              // Spetsifikatsiyadagi Дополнительная информация qo'shimcha maydonlari va ma'lumotlari dublikatda saqlanadi
+              const dupSpecFields = dupAi?.specCustomFields;
+              setSpecCustomFields(
+                Array.isArray(dupSpecFields)
+                  ? dupSpecFields.map((f: { id?: string; label?: string; value?: string }) => ({
+                      id: String(f?.id ?? ''),
+                      label: String(f?.label ?? ''),
+                      value: String(f?.value ?? ''),
+                    }))
+                  : []
+              );
               // dublikat yuklanmasa oddiy yangi invoice qoldiramiz
               // dublikat yuklanmasa oddiy yangi invoice qoldiramiz
             } catch (e) {

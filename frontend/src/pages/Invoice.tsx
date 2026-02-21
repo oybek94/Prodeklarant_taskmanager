@@ -2321,15 +2321,17 @@ const Invoice = () => {
   };
 
   const numberToWordsRu = (num: number, currency: string): string => {
+    const cur = currency && String(currency).trim() ? String(currency).trim().toUpperCase() : 'USD';
     const ones = ['', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять'];
     const tens = ['', '', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто'];
     const teens = ['десять', 'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать'];
     const hundreds = ['', 'сто', 'двести', 'триста', 'четыреста', 'пятьсот', 'шестьсот', 'семьсот', 'восемьсот', 'девятьсот'];
-    const convertHundreds = (n: number): string => {
+    /** 0–999 oralig'ini so'zda ifodalaydi */
+    const convertBlock = (n: number): string => {
       if (n === 0) return '';
       let r = '';
       const h = Math.floor(n / 100);
-      if (h > 0) r += hundreds[h] + ' ';
+      if (h > 0 && h <= 9) r += hundreds[h] + ' ';
       const rem = n % 100;
       if (rem >= 10 && rem < 20) return (r + teens[rem - 10]).trim();
       const t = Math.floor(rem / 10), o = rem % 10;
@@ -2337,28 +2339,48 @@ const Invoice = () => {
       if (o > 0) r += ones[o];
       return r.trim();
     };
-    const zeroPhrase = currency === 'USD' ? 'ноль долларов США' : currency === 'RUB' ? 'ноль рублей РФ' : currency === 'EUR' ? 'ноль евро' : 'ноль сумов';
+    const zeroPhrase = cur === 'USD' ? 'ноль долларов США' : cur === 'RUB' ? 'ноль рублей РФ' : cur === 'EUR' ? 'ноль евро' : 'ноль сумов';
+    if (!Number.isFinite(num) || num < 0) return zeroPhrase;
     if (num === 0) return zeroPhrase;
     const whole = Math.floor(num);
     const dec = Math.round((num - whole) * 100);
     let result = '';
-    const th = Math.floor(whole / 1000);
+    const millions = Math.floor(whole / 1_000_000);
+    const restAfterMillions = whole % 1_000_000;
+    const th = Math.floor(restAfterMillions / 1000);
+    const rem = whole % 1000;
+    if (millions > 0) {
+      if (millions === 1) result += 'один миллион ';
+      else if (millions >= 2 && millions <= 4) result += convertBlock(millions) + ' миллиона ';
+      else if (millions >= 5 && millions <= 20) result += convertBlock(millions) + ' миллионов ';
+      else {
+        const mMod = millions % 100;
+        if (mMod === 1 && millions % 10 === 1 && (millions % 100) !== 11) result += convertBlock(millions) + ' миллион ';
+        else if ((mMod >= 2 && mMod <= 4) && (mMod < 10 || mMod >= 20)) result += convertBlock(millions) + ' миллиона ';
+        else result += convertBlock(millions) + ' миллионов ';
+      }
+    }
     if (th > 0) {
       if (th === 1) result += 'одна тысяча ';
-      else if (th < 5) result += convertHundreds(th) + ' тысячи ';
-      else result += convertHundreds(th) + ' тысяч ';
+      else if (th >= 2 && th <= 4) result += convertBlock(th) + ' тысячи ';
+      else if (th >= 5 && th <= 20) result += convertBlock(th) + ' тысяч ';
+      else {
+        const tMod = th % 100;
+        if (tMod === 1 && th % 10 === 1 && tMod !== 11) result += convertBlock(th) + ' тысяча ';
+        else if ((tMod >= 2 && tMod <= 4) && (tMod < 10 || tMod >= 20)) result += convertBlock(th) + ' тысячи ';
+        else result += convertBlock(th) + ' тысяч ';
+      }
     }
-    const rem = whole % 1000;
-    if (rem > 0) result += convertHundreds(rem);
-    if (currency === 'USD') {
+    if (rem > 0) result += convertBlock(rem);
+    if (cur === 'USD') {
       if (whole === 1) result += ' доллар США';
       else if (whole < 5) result += ' доллара США';
       else result += ' долларов США';
-    } else if (currency === 'RUB') {
+    } else if (cur === 'RUB') {
       if (whole === 1) result += ' рубль РФ';
       else if (whole >= 2 && whole <= 4) result += ' рубля РФ';
       else result += ' рублей РФ';
-    } else if (currency === 'EUR') {
+    } else if (cur === 'EUR') {
       if (whole === 1) result += ' евро';
       else if (whole >= 2 && whole <= 4) result += ' евро';
       else result += ' евро';
@@ -2367,7 +2389,7 @@ const Invoice = () => {
       else if (whole < 5) result += ' сума';
       else result += ' сумов';
     }
-    const fracWord = currency === 'USD' ? 'центов' : currency === 'RUB' ? 'копеек' : currency === 'EUR' ? 'евроцентов' : 'тиин';
+    const fracWord = cur === 'USD' ? 'центов' : cur === 'RUB' ? 'копеек' : cur === 'EUR' ? 'евроцентов' : 'тиин';
     if (dec > 0) result += ` ${dec} ${fracWord}`;
     return result.charAt(0).toUpperCase() + result.slice(1);
   };

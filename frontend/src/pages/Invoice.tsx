@@ -305,6 +305,19 @@ const Invoice = () => {
   type SpecRow = { productName?: string; tnvedCode?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number };
   const [selectedContractSpec, setSelectedContractSpec] = useState<SpecRow[]>([]);
 
+  /** Shartnoma spetsifikatsiyasidagi nom va boshqa maydonlarni invoys qatorlariga (indeks bo‘yicha) yozadi. */
+  const syncItemsFromSpec = (currentItems: InvoiceItem[], spec: SpecRow[]): InvoiceItem[] =>
+    currentItems.map((item, i) => {
+      const row = spec[i];
+      if (!row) return item;
+      const next = { ...item };
+      if (row.productName != null && String(row.productName).trim() !== '') next.name = String(row.productName).trim();
+      if (row.tnvedCode != null && String(row.tnvedCode).trim() !== '') next.tnvedCode = String(row.tnvedCode).trim();
+      if (row.unitPrice != null) next.unitPrice = Number(row.unitPrice);
+      if (row.totalPrice != null) next.totalPrice = Number(row.totalPrice);
+      return next;
+    });
+
   const invoiceRef = useRef<HTMLDivElement | null>(null);
   type ChangeLogEntry = { fieldLabel: string; oldValue: string; newValue: string; changedAt?: string };
   const initialForChangeLogRef = useRef<{ form: Record<string, unknown>; items: InvoiceItem[] } | null>(null);
@@ -1053,6 +1066,7 @@ const Invoice = () => {
                   }
                 }
                 setSelectedContractSpec(spec);
+                setItems(syncItemsFromSpec(loadedItems, spec));
                 // Faqat contractNumber — paymentTerms/gln saqlangan inv.additionalInfo dan qoladi
                 setForm(prev => ({
                   ...prev,
@@ -1712,6 +1726,7 @@ const Invoice = () => {
         }
       }
       setSelectedContractSpec(spec);
+      setItems((prev) => syncItemsFromSpec(prev, spec));
 
       // Shartnoma ma'lumotlarini invoice form'ga to'ldirish
       const dtArr = String(contract.deliveryTerms || '').split('\n').map((s: string) => s.trim());

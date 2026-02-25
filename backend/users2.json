@@ -1,0 +1,44 @@
+[
+  {
+    "id": 2,
+    "name": "Abdukamol",
+    "email": "user_1766672140611_cyj2p@local.test",
+    "active": true,
+    "passwordHash": "$2b$10$mIpgXh6r6d.uOpFbYMeaBOJbNWBV6wa9JYJnt6RHPfR/NCXJvsFrG"
+  },
+  {
+    "id": 3,
+    "name": "Hakimjon",
+    "email": "user_1766672163960_ljd7um@local.test",
+    "active": true,
+    "passwordHash": "$2b$10$ECqEpCjDDCuuDEbjcGpOauyvSh1jp9Hhz1Id8fs8cL81eVe1AmNXW"
+  },
+  {
+    "id": 4,
+    "name": "Ahadbek",
+    "email": "user_1766672174304_wfzirz@local.test",
+    "active": true,
+    "passwordHash": "$2b$10$HrclqttDAbBLAi8dkm.dAeHP7geWMI.RRpKYj2B4krVtrxjMqS37y"
+  },
+  {
+    "id": 6,
+    "name": "Sardorbek",
+    "email": "user_1766672221535_173st4@local.test",
+    "active": true,
+    "passwordHash": "$2b$10$3ejkJZi1/2DvyziRZF7R7.HI0/XvXmSXULVKF7BtUH4HaBB8.TcWi"
+  },
+  {
+    "id": 5,
+    "name": "Oybek",
+    "email": "user_1766672200763_d5axga@local.test",
+    "active": true,
+    "passwordHash": "$2b$10$PavCM8muyBPOZrM802g.GePtEF3lG3s.QUYSrLC//07NgVN8dBDgq"
+  },
+  {
+    "id": 1,
+    "name": "Admin",
+    "email": "admin@local.test",
+    "active": true,
+    "passwordHash": "$2b$10$Fti/SX5lg4alMcksnMU4OuxA0qygt/YerzThK/JCx6iecWYRIflQ2"
+  }
+]

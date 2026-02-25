@@ -17,6 +17,7 @@ interface Task {
   afterHoursDeclaration?: boolean;
   driverPhone?: string;
   createdAt: string;
+  customsPaymentMultiplier?: number | null;
   client: { id: number; name: string };
   branch: { id: number; name: string };
   createdBy?: { id: number; name: string; email: string };
@@ -137,6 +138,7 @@ const Tasks = () => {
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [selectedStageForReminder, setSelectedStageForReminder] = useState<TaskStage | null>(null);
   const [showBXMModal, setShowBXMModal] = useState(false);
+  const [showFinancialReport, setShowFinancialReport] = useState(false);
   const [bxmMultiplier, setBxmMultiplier] = useState<string>('1.5');
   const [currentBxmUsd, setCurrentBxmUsd] = useState<number>(34.4);
   const [currentBxmUzs, setCurrentBxmUzs] = useState<number>(412000);
@@ -213,7 +215,7 @@ const Tasks = () => {
       import.meta.env.VITE_FRONTEND_URL ||
       window.location.origin;
     const documentsUrl = task.qrToken ? `${baseUrl}/q/${task.qrToken}` : null;
-    
+
     // Branch information mapping
     const branchInfo: Record<string, { address: string; phones: string[] }> = {
       'Oltiariq': {
@@ -225,10 +227,10 @@ const Tasks = () => {
         phones: ['+998976616121', '+998939079017', '+998339077778']
       }
     };
-    
+
     // Get branch info (default to Oltiariq if branch not found)
     const branch = branchInfo[branchName] || branchInfo['Oltiariq'];
-    
+
     const phoneLines = branch.phones.map((phone) => `📞 Tel: ${phone}`).join('\n');
 
     return `📄 *HUJJATINGIZ TAYYOR* ✅\n━━━━━━━━━━━━━━━━━━\n🆔 *Hujjat raqami:*\n${taskName}\n\n${phoneLines}\n📌 Xarita: ${branch.address}\n\n📎 *Elektron hujjatlar*\n👇 Yuklab olish / ko‘rish:\n🔗 ${documentsUrl || ''}\n\n🤝 Savollaringiz bo‘lsa — bemalol murojaat qiling!`;
@@ -238,7 +240,7 @@ const Tasks = () => {
   // URL format: https://t.me/+PHONE?text=ENCODED_MESSAGE
   const handleTelegramClick = async () => {
     if (!selectedTask?.driverPhone) return;
-    
+
     // Clean phone number: remove spaces only (keep + sign)
     const cleanedPhone = cleanPhoneNumber(selectedTask.driverPhone);
     let taskForMessage = selectedTask;
@@ -258,19 +260,19 @@ const Tasks = () => {
         // If refresh fails, fallback to existing task data
       }
     }
-    
+
     // Generate message
     const message = generateTelegramMessage(taskForMessage);
-    
+
     // Encode message for URL
     const encodedMessage = encodeURIComponent(message);
-    
+
     // URL format: https://t.me/+PHONE?text=MESSAGE
     // Phone number should include + sign in the URL
     // Ensure phone starts with + sign
     const phoneWithPlus = cleanedPhone.startsWith('+') ? cleanedPhone : `+${cleanedPhone}`;
     const telegramUrl = `https://t.me/${phoneWithPlus}?text=${encodedMessage}`;
-    
+
     console.log('Opening Telegram:', {
       original: selectedTask.driverPhone,
       cleaned: cleanedPhone,
@@ -278,7 +280,7 @@ const Tasks = () => {
       telegramUrl: telegramUrl.substring(0, 200) + '...',
       messagePreview: message.substring(0, 100) + '...'
     });
-    
+
     // Open Telegram web version (works better and opens desktop app if installed)
     window.open(telegramUrl, '_blank');
   };
@@ -426,18 +428,18 @@ const Tasks = () => {
       const response = await apiClient.get(`/sticker/${taskId}/image`, {
         responseType: 'blob',
       });
-      
+
       // Blob'ni tekshirish - agar xatolik bo'lsa, JSON bo'lishi mumkin
       if (response.data.type === 'application/json') {
         const text = await response.data.text();
         const errorData = JSON.parse(text);
         throw new Error(errorData.error || errorData.message || 'Stiker yuklab olishda xatolik yuz berdi');
       }
-      
+
       // Blob type'ni tekshirish va to'g'rilash
       const blobType = response.data.type || 'image/png';
       const blob = new Blob([response.data], { type: blobType });
-      
+
       // PNG faylining to'g'riligini tekshirish
       if (!blobType.includes('image') && !blobType.includes('png')) {
         // Agar type to'g'ri bo'lmasa, uni PNG sifatida belgilash
@@ -463,7 +465,7 @@ const Tasks = () => {
     } catch (error: any) {
       console.error('Error downloading sticker:', error);
       let errorMessage = 'Stiker yuklab olishda xatolik yuz berdi';
-      
+
       // Blob response'da xatolik bo'lsa, uni JSON sifatida parse qilish
       if (error.response?.data instanceof Blob) {
         try {
@@ -477,7 +479,7 @@ const Tasks = () => {
       } else {
         errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || errorMessage;
       }
-      
+
       alert(errorMessage);
     }
   };
@@ -488,7 +490,7 @@ const Tasks = () => {
       setPage(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  // Remove filters.branchId because it does not exist on filters; fix lint error
+    // Remove filters.branchId because it does not exist on filters; fix lint error
   }, [filters.status, filters.clientId, showArchive]);
 
   // Reset page when archive filters change
@@ -664,12 +666,12 @@ const Tasks = () => {
       if (filters.branchId) params.branchId = filters.branchId;
 
       const response = await apiClient.get('/tasks', { params });
-      
+
       // Backward compatibility: agar pagination bor bo'lsa
       if (response.data.pagination) {
         const { tasks: tasksData, pagination } = response.data;
         let filteredTasks = tasksData;
-        
+
         // Agar arxiv bo'lsa, faqat YAKUNLANDI statusidagilarni ko'rsatish
         // Agar barcha ishlar bo'lsa, YAKUNLANDI dan tashqarilarini ko'rsatish
         if (showArchive) {
@@ -677,11 +679,11 @@ const Tasks = () => {
         } else {
           filteredTasks = tasksData.filter((task: Task) => task.status !== 'YAKUNLANDI');
         }
-        
+
         setTasks(filteredTasks);
         setTotalPages(1);
         setTotalTasks(filteredTasks.length);
-        
+
         // Stats faqat barcha ishlar bo'limida hisoblanadi
         if (!showArchive) {
           calculateStats(tasksData);
@@ -697,7 +699,7 @@ const Tasks = () => {
         setTasks(filteredTasks);
         setTotalPages(1);
         setTotalTasks(filteredTasks.length);
-        
+
         if (!showArchive) {
           calculateStats(response.data);
         }
@@ -857,7 +859,7 @@ const Tasks = () => {
       setLoadingTask(true);
       const response = await apiClient.get(`/tasks/${taskId}`);
       const taskData = { ...response.data };
-      
+
       // Stages'ni lazy load qilish uchun, avval stages'ni bo'sh qilamiz
       // Lekin agar backend'dan stages kelgan bo'lsa, ularni saqlab qolamiz
       // (backward compatibility uchun)
@@ -867,11 +869,11 @@ const Tasks = () => {
         // Agar stages bor bo'lsa, ularni saqlab qolamiz (eski format)
         // Lekin lazy load ham qilamiz (yangilanish uchun)
       }
-      
+
       setSelectedTask(taskData);
       setAfterHoursDeclaration(Boolean(taskData.afterHoursDeclaration));
       setShowTaskModal(true);
-      
+
       // Load stages lazily (parallel)
       Promise.all([
         loadTaskStages(taskId),
@@ -970,7 +972,7 @@ const Tasks = () => {
       // Avval task'ning statusini tekshiramiz
       const taskResponse = await apiClient.get(`/tasks/${taskId}`);
       const task = taskResponse.data;
-      
+
       // Agar task yakunlangan bo'lsa, arxiv hujjatlarini yuklaymiz
       // Hujjatlar doim TaskDocument'dan olinadi, arxivga o'tgunga qadar
       const response = await apiClient.get(`/documents/task/${taskId}`);
@@ -986,7 +988,7 @@ const Tasks = () => {
   // Load extracted text for a document
   const loadExtractedText = async (documentId: number) => {
     if (!selectedTask) return;
-    
+
     // Check if already loaded
     if (documentExtractedTexts.has(documentId)) {
       return;
@@ -994,11 +996,11 @@ const Tasks = () => {
 
     try {
       setLoadingExtractedTexts((prev) => new Set(prev).add(documentId));
-      
+
       const response = await apiClient.get(
         `/tasks/${selectedTask.id}/documents/${documentId}/extracted-text`
       );
-      
+
       const extractedText = response.data.extractedText || '';
       setDocumentExtractedTexts((prev) => {
         const newMap = new Map(prev);
@@ -1025,7 +1027,7 @@ const Tasks = () => {
   // Toggle document expansion
   const toggleDocumentExpansion = async (documentId: number) => {
     const isExpanded = expandedDocuments.has(documentId);
-    
+
     if (isExpanded) {
       // Collapse
       setExpandedDocuments((prev) => {
@@ -1040,7 +1042,7 @@ const Tasks = () => {
         newSet.add(documentId);
         return newSet;
       });
-      
+
       if (!documentExtractedTexts.has(documentId)) {
         await loadExtractedText(documentId);
       }
@@ -1057,11 +1059,11 @@ const Tasks = () => {
     try {
       setUploadingFile(true);
       setAiCheckResult(null);
-      
+
       const formData = new FormData();
       formData.append('file', fileUploadFile);
       formData.append('name', fileUploadName);
-      
+
       // Document type'ni stage nomiga qarab aniqlaymiz
       // "Sertifikat olib chiqish" stage'i uchun fileUploadName'dan document type'ni aniqlaymiz
       let documentType = 'OTHER';
@@ -1132,12 +1134,12 @@ const Tasks = () => {
 
     try {
       const formData = new FormData();
-      
+
       // Barcha fayllarni qo'shamiz
       uploadFiles.forEach((file) => {
         formData.append('files', file);
       });
-      
+
       // Nomlar va tavsiflar
       formData.append('names', JSON.stringify(documentNames));
       formData.append('descriptions', JSON.stringify(documentDescriptions));
@@ -1174,7 +1176,7 @@ const Tasks = () => {
     // Hujjat nomi avtomatik fayl nomidan olinadi
     setDocumentNames(prevNames => [...prevNames, ...newFiles.map(f => f.name)]);
     setDocumentDescriptions(prevDescriptions => [...prevDescriptions, ...newFiles.map(() => '')]);
-    
+
     // Input'ni tozalash, qayta bir xil faylni tanlash imkoniyati uchun
     e.target.value = '';
   };
@@ -1183,11 +1185,11 @@ const Tasks = () => {
     // URL'ni to'g'ri qurish - baseURL'dan /api ni olib tashlaymiz
     const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
     const serverBaseUrl = baseUrl.replace('/api', '') || (import.meta.env.PROD ? '' : 'http://localhost:3001');
-    
+
     const urlParts = fileUrl.split('/');
     const fileNamePart = urlParts[urlParts.length - 1];
     const path = urlParts.slice(0, -1).join('/');
-    
+
     // Fayl nomini encode qilamiz
     const encodedFileName = encodeURIComponent(decodeURIComponent(fileNamePart));
     const url = `${serverBaseUrl}${path}/${encodedFileName}`;
@@ -1214,24 +1216,24 @@ const Tasks = () => {
     // URL'ni to'g'ri qurish - baseURL'dan /api ni olib tashlaymiz
     const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
     const serverBaseUrl = baseUrl.replace('/api', '') || (import.meta.env.PROD ? '' : 'http://localhost:3001');
-    
+
     // Fayl URL'i /uploads/documents/... ko'rinishida
     const urlParts = fileUrl.split('/');
     const fileName = urlParts[urlParts.length - 1];
     const path = urlParts.slice(0, -1).join('/');
-    
+
     // Fayl nomini encode qilamiz
     const encodedFileName = encodeURIComponent(decodeURIComponent(fileName));
     const url = `${serverBaseUrl}${path}/${encodedFileName}`;
-    
+
     window.open(url, '_blank');
   };
 
   const canPreview = (fileType: string) => {
-    return fileType?.includes('image') || 
-           fileType?.includes('pdf') || 
-           fileType?.includes('video') ||
-           fileType?.includes('audio');
+    return fileType?.includes('image') ||
+      fileType?.includes('pdf') ||
+      fileType?.includes('video') ||
+      fileType?.includes('audio');
   };
 
   // Check if document supports OCR (PDF or JPG)
@@ -1264,8 +1266,8 @@ const Tasks = () => {
       const lowerLine = line.toLowerCase();
 
       // Detect table header
-      if (lowerLine.includes('№') && 
-          (lowerLine.includes('код тн вэд') || lowerLine.includes('наименование товара'))) {
+      if (lowerLine.includes('№') &&
+        (lowerLine.includes('код тн вэд') || lowerLine.includes('наименование товара'))) {
         inProductTable = true;
         headerLineIndex = i;
         // Skip header line
@@ -1286,7 +1288,7 @@ const Tasks = () => {
           // Split by multiple spaces or tabs
           parts = line.split(/\s{2,}|\t/).filter(p => p.trim().length > 0);
         }
-        
+
         // Expected columns:
         // 0: № (tartib raqami)
         // 1: Код ТН ВЭД
@@ -1297,20 +1299,20 @@ const Tasks = () => {
         // 6: Нетто
         // 7: Цена за кг (skip this)
         // 8: Общая сумма
-        
+
         if (parts.length >= 6) {
           const formattedProduct: string[] = [];
-          
+
           // 1-ustun: № (index 0)
           if (parts[0] && /^\d+$/.test(parts[0].trim())) {
             formattedProduct.push(`№: ${parts[0].trim()}`);
           }
-          
+
           // 2-ustun: Код ТН ВЭД (index 1)
           if (parts[1] && /^\d{10}$/.test(parts[1].trim())) {
             formattedProduct.push(`Код ТН ВЭД: ${parts[1].trim()}`);
           }
-          
+
           // 3-ustun: Наименование товара (index 2)
           // May span multiple parts if product name is long
           let nameIndex = 2;
@@ -1327,55 +1329,55 @@ const Tasks = () => {
           if (nameParts.length > 0) {
             formattedProduct.push(`Наименование товара: ${nameParts.join(' ').trim()}`);
           }
-          
+
           // 4-ustun: Вид упаковки (after product name)
           let packagingIndex = nameIndex;
           if (packagingIndex < parts.length) {
             const packaging = parts[packagingIndex].trim();
-            if (packaging.match(/^[а-яё]+\.[а-яё]+$|^[а-яё]+$|^[a-z]+$/i) && 
-                !/^\d+[,.]?\d*$/.test(packaging) && packaging.length < 20) {
+            if (packaging.match(/^[а-яё]+\.[а-яё]+$|^[а-яё]+$|^[a-z]+$/i) &&
+              !/^\d+[,.]?\d*$/.test(packaging) && packaging.length < 20) {
               formattedProduct.push(`Вид упаковки: ${packaging}`);
               packagingIndex++;
             }
           }
-          
+
           // Now find numbers starting from packagingIndex
           // 5-ustun: Мест (first number after packaging)
           // 6-ustun: Брутто (second number)
           // 7-ustun: Нетто (third number)
           // 8-ustun: Цена за кг (skip this - fourth number)
           // 9-ustun: Общая сумма (fifth number, may have spaces)
-          
+
           const numbers: string[] = [];
           for (let j = packagingIndex; j < parts.length; j++) {
             const part = parts[j].trim();
             // Match numbers with optional spaces/commas
             const cleanedPart = part.replace(/\s/g, '');
-            if (/^\d+$/.test(cleanedPart) || 
-                /^\d+,\d+$/.test(cleanedPart) ||
-                /^\d+\.\d+$/.test(cleanedPart) ||
-                /^\d+\s+\d+,\d+$/.test(part)) {
+            if (/^\d+$/.test(cleanedPart) ||
+              /^\d+,\d+$/.test(cleanedPart) ||
+              /^\d+\.\d+$/.test(cleanedPart) ||
+              /^\d+\s+\d+,\d+$/.test(part)) {
               numbers.push(part);
             }
           }
-          
+
           // 5-ustun: Мест (1st number)
           if (numbers.length >= 1) {
             formattedProduct.push(`Мест: ${numbers[0]}`);
           }
-          
+
           // 6-ustun: Брутто (2nd number)
           if (numbers.length >= 2) {
             formattedProduct.push(`Брутто: ${numbers[1]}`);
           }
-          
+
           // 7-ustun: Нетто (3rd number)
           if (numbers.length >= 3) {
             formattedProduct.push(`Нетто: ${numbers[2]}`);
           }
-          
+
           // 8-ustun: Цена за кг - SKIP (4th number, index 3)
-          
+
           // 9-ustun: Общая сумма (5th number, index 4, may have spaces like "13 232,80")
           if (numbers.length >= 5) {
             formattedProduct.push(`Общая сумма: ${numbers[4]}`);
@@ -1385,7 +1387,7 @@ const Tasks = () => {
               formattedProduct.push(`Общая сумма: ${numbers[3]}`);
             }
           }
-          
+
           formattedLines.push(...formattedProduct);
           formattedLines.push(''); // Empty line between products
           continue;
@@ -1401,7 +1403,7 @@ const Tasks = () => {
         }
         // Exit if empty line after table or new section
         if ((line.trim().length === 0 && i > headerLineIndex + 5) ||
-            (/^[А-ЯЁ]/.test(line) && !lowerLine.includes('№'))) {
+          (/^[А-ЯЁ]/.test(line) && !lowerLine.includes('№'))) {
           inProductTable = false;
         }
       }
@@ -1429,7 +1431,7 @@ const Tasks = () => {
       );
     }
     if (lowerType.includes('excel') || lowerType.includes('spreadsheet') ||
-        lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx')) {
+      lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx')) {
       return (
         <span className={`${base} border-emerald-200 bg-emerald-50 text-emerald-600`}>
           <Icon icon="lucide:file-spreadsheet" className={icon} />
@@ -1437,7 +1439,7 @@ const Tasks = () => {
       );
     }
     if (lowerType.includes('word') || lowerType.includes('document') ||
-        lowerName.endsWith('.doc') || lowerName.endsWith('.docx')) {
+      lowerName.endsWith('.doc') || lowerName.endsWith('.docx')) {
       return (
         <span className={`${base} border-blue-200 bg-blue-50 text-blue-600`}>
           <Icon icon="lucide:file-text" className={icon} />
@@ -1445,10 +1447,10 @@ const Tasks = () => {
       );
     }
     if (lowerType.includes('jpeg') || lowerType.includes('jpg') ||
-        lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') ||
-        lowerType.includes('png') || lowerName.endsWith('.png') ||
-        lowerType.includes('image') || lowerType.includes('gif') || lowerType.includes('webp') ||
-        lowerName.match(/\.(gif|webp|bmp|svg)$/i)) {
+      lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') ||
+      lowerType.includes('png') || lowerName.endsWith('.png') ||
+      lowerType.includes('image') || lowerType.includes('gif') || lowerType.includes('webp') ||
+      lowerName.match(/\.(gif|webp|bmp|svg)$/i)) {
       return (
         <span className={`${base} border-amber-200 bg-amber-50 text-amber-600`}>
           <Icon icon="lucide:image" className={icon} />
@@ -1456,7 +1458,7 @@ const Tasks = () => {
       );
     }
     if (lowerType.includes('powerpoint') || lowerType.includes('presentation') ||
-        lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx')) {
+      lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx')) {
       return (
         <span className={`${base} border-orange-200 bg-orange-50 text-orange-600`}>
           <Icon icon="lucide:presentation" className={icon} />
@@ -1464,7 +1466,7 @@ const Tasks = () => {
       );
     }
     if (lowerType.includes('rar') || lowerName.endsWith('.rar') ||
-        lowerType.includes('zip') || lowerName.endsWith('.zip')) {
+      lowerType.includes('zip') || lowerName.endsWith('.zip')) {
       return (
         <span className={`${base} border-gray-200 bg-gray-50 text-gray-600`}>
           <Icon icon="lucide:archive" className={icon} />
@@ -1523,23 +1525,23 @@ const Tasks = () => {
       if (stage.name === 'Pochta') {
         await updateStageToReady(stage);
       } else if (stage.name === 'Deklaratsiya') {
-          try {
-            const bxmResponse = await apiClient.get('/bxm/current');
-            const amountUsd = Number(bxmResponse.data.amountUsd ?? bxmResponse.data.amount ?? 34.4);
-            const amountUzs = Number(bxmResponse.data.amountUzs ?? 412000);
-            setCurrentBxmUsd(amountUsd);
-            setCurrentBxmUzs(amountUzs);
-            setBxmMultiplier('1.5');
-            setAfterHoursDeclaration(false);
-            setShowBXMModal(true);
-          } catch (error) {
-            console.error('Error loading BXM:', error);
-            setCurrentBxmUsd(34.4);
-            setCurrentBxmUzs(412000);
-            setBxmMultiplier('1.5');
-            setAfterHoursDeclaration(false);
-            setShowBXMModal(true);
-          }
+        try {
+          const bxmResponse = await apiClient.get('/bxm/current');
+          const amountUsd = Number(bxmResponse.data.amountUsd ?? bxmResponse.data.amount ?? 34.4);
+          const amountUzs = Number(bxmResponse.data.amountUzs ?? 412000);
+          setCurrentBxmUsd(amountUsd);
+          setCurrentBxmUzs(amountUzs);
+          setBxmMultiplier('1.5');
+          setAfterHoursDeclaration(false);
+          setShowBXMModal(true);
+        } catch (error) {
+          console.error('Error loading BXM:', error);
+          setCurrentBxmUsd(34.4);
+          setCurrentBxmUzs(412000);
+          setBxmMultiplier('1.5');
+          setAfterHoursDeclaration(false);
+          setShowBXMModal(true);
+        }
       } else {
         await updateStageToReady(stage);
       }
@@ -1556,12 +1558,12 @@ const Tasks = () => {
     skipValidation?: boolean,
     afterHoursDeclarationValue?: boolean
   ) => {
-      // Debug logging removed (CSP violation)
+    // Debug logging removed (CSP violation)
     if (!stage || !selectedTask) {
-        // Debug logging removed (CSP violation)
+      // Debug logging removed (CSP violation)
       return;
     }
-    
+
     try {
       setUpdatingStage(stage.id);
       // Debug logging removed (CSP violation)
@@ -1572,7 +1574,7 @@ const Tasks = () => {
         ...((customsPaymentMultiplier || afterHoursDeclarationValue) && { afterHoursPayer: selectedTask.afterHoursPayer || 'CLIENT' }),
         ...(skipValidation && { skipValidation: true }),
       });
-      
+
       // Check if response status indicates an error (4xx or 5xx)
       if (response.status >= 400) {
         const errorMessage = response.data?.error || 'Xatolik yuz berdi';
@@ -1580,7 +1582,7 @@ const Tasks = () => {
         setUpdatingStage(null);
         return;
       }
-      
+
       await loadTaskDetail(selectedTask.id);
       await loadTasks();
       setShowBXMModal(false);
@@ -1615,13 +1617,13 @@ const Tasks = () => {
       alert('Multiplier 0.5 dan 4 gacha bo\'lishi kerak');
       return;
     }
-    
+
     // If multiplier > 1, show warning about additional payment
     if (multiplier > 1 && selectedTask) {
       const clientCurrency = getClientCurrency(selectedTask.client);
       let additionalPayment: number;
       let formattedAdditional: string;
-      
+
       if (clientCurrency === 'USD') {
         // If client's contract is in USD, calculate in USD
         // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
@@ -1642,18 +1644,18 @@ const Tasks = () => {
           maximumFractionDigits: 0,
         }).format(additionalPayment).replace(/,/g, ' ');
       }
-      
+
       const payerLabel = (selectedTask.afterHoursPayer || 'CLIENT') === 'CLIENT' ? 'mijoz' : 'kompaniya';
       const confirmMessage = `Deklaratsiya to'lovi BXMning 1 barobaridan oshib ketdi.\n\n` +
         `Qo'shimcha to'lov: ${formattedAdditional}\n\n` +
         `Bu summa ${payerLabel} hisobiga yoziladi.\n\n` +
         `Davom etasizmi?`;
-      
+
       if (!confirm(confirmMessage)) {
         return;
       }
     }
-    
+
     if (selectedStageForReminder) {
       await updateStageToReady(selectedStageForReminder, multiplier, false, afterHoursDeclaration);
     }
@@ -1677,15 +1679,15 @@ const Tasks = () => {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedTask) return;
-    
+
     // Validation
     if (!editForm.branchId) {
       alert('Filialni tanlang');
       return;
     }
-    
+
     try {
       await apiClient.patch(`/tasks/${selectedTask.id}`, {
         title: editForm.title,
@@ -1719,7 +1721,7 @@ const Tasks = () => {
       const response = await apiClient.patch(`/tasks/${selectedTask.id}/stages/${stageId}`, {
         status: newStatus,
       });
-      
+
       // Check if response status indicates an error (4xx or 5xx)
       if (response.status >= 400) {
         const errorMessage = response.data?.error || 'Xatolik yuz berdi';
@@ -1727,7 +1729,7 @@ const Tasks = () => {
         setUpdatingStage(null);
         return;
       }
-      
+
       await loadTaskDetail(selectedTask.id);
       await loadTasks();
     } catch (error: any) {
@@ -1751,13 +1753,13 @@ const Tasks = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (!form.branchId) {
       alert('Filialni tanlang');
       return;
     }
-    
+
     try {
       await apiClient.post('/tasks', {
         title: form.title,
@@ -1774,14 +1776,14 @@ const Tasks = () => {
         setShowForm(false);
       }
       const oltiariqBranch = branches.find((b) => b.name === 'Oltiariq');
-      setForm({ 
-        title: '', 
-        clientId: '', 
-        branchId: oltiariqBranch?.id.toString() || '', 
-        comments: '', 
-        hasPsr: false, 
+      setForm({
+        title: '',
+        clientId: '',
+        branchId: oltiariqBranch?.id.toString() || '',
+        comments: '',
+        hasPsr: false,
         afterHoursPayer: 'CLIENT',
-        driverPhone: '' 
+        driverPhone: ''
       });
       await loadTasks();
     } catch (error: any) {
@@ -1838,8 +1840,8 @@ const Tasks = () => {
         }
         break;
       case 'Deklaratsiya':
-        const sertifikatStage = allStages.find(s => 
-          (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO') 
+        const sertifikatStage = allStages.find(s =>
+          (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO')
           && s.status === 'TAYYOR'
         );
         if (sertifikatStage?.completedAt) {
@@ -1853,8 +1855,8 @@ const Tasks = () => {
         if (deklaratsiyaStage?.completedAt) {
           startTime = new Date(deklaratsiyaStage.completedAt);
         } else {
-          const sertifikatStage2 = allStages.find(s => 
-            (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO') 
+          const sertifikatStage2 = allStages.find(s =>
+            (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO')
             && s.status === 'TAYYOR'
           );
           if (sertifikatStage2?.completedAt) {
@@ -1871,8 +1873,8 @@ const Tasks = () => {
         if (deklaratsiyaStage2?.completedAt) {
           startTime = new Date(deklaratsiyaStage2.completedAt);
         } else {
-          const sertifikatStage3 = allStages.find(s => 
-            (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO') 
+          const sertifikatStage3 = allStages.find(s =>
+            (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO')
             && s.status === 'TAYYOR'
           );
           if (sertifikatStage3?.completedAt) {
@@ -2112,24 +2114,24 @@ const Tasks = () => {
   // Calculate total duration for a task: Sum of all stages' durationMin
   const calculateTotalDuration = (task: Task): { text: string; color: string } => {
     if (!task.stages || task.stages.length === 0) return { text: '-', color: 'text-gray-500' };
-    
+
     // Sum all durationMin from stages
     const totalMinutes = task.stages.reduce((sum, stage) => {
       return sum + (stage.durationMin || 0);
     }, 0);
-    
+
     if (totalMinutes <= 0) return { text: '-', color: 'text-gray-500' };
-    
+
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    
+
     let text = '';
     if (hours > 0) {
       text = `${hours} soat ${minutes} daqiqa`;
     } else {
       text = `${minutes} daqiqa`;
     }
-    
+
     // Determine color based on hours
     let color = 'text-gray-500';
     if (hours < 2) {
@@ -2139,14 +2141,14 @@ const Tasks = () => {
     } else {
       color = 'text-red-600'; // Qizil - 3 soatdan ko'p
     }
-    
+
     return { text, color };
   };
 
   // Get BXM color based on multiplier value
   const getBXMColor = (multiplier: number | null | undefined): string => {
     if (!multiplier) return 'bg-gray-100 text-gray-800';
-    
+
     const value = Number(multiplier);
     if (value === 1) return 'bg-green-100 text-green-800';
     if (value === 1.5) return 'bg-blue-100 text-blue-800';
@@ -2154,74 +2156,75 @@ const Tasks = () => {
     if (value === 2.5) return 'bg-orange-100 text-orange-800';
     if (value === 3) return 'bg-red-100 text-red-800';
     if (value === 4) return 'bg-purple-100 text-purple-800';
-    
+
     // Default for other values
     return 'bg-gray-100 text-gray-800';
   };
 
   const branchCardColors = [
-    { card: 'from-blue-50 to-indigo-50 border-blue-200', header: 'from-blue-500 via-blue-600 to-indigo-700', thead: 'from-blue-600 to-indigo-700', row: 'hover:bg-blue-100', rowEven: 'bg-blue-50', rowOdd: 'bg-white', divide: 'divide-blue-100', border: 'border-blue-500', borderCell: 'border-blue-100', empty: 'bg-blue-50' },
-    { card: 'from-emerald-50 to-teal-50 border-emerald-200', header: 'from-emerald-500 via-emerald-600 to-teal-700', thead: 'from-emerald-600 to-teal-700', row: 'hover:bg-emerald-100', rowEven: 'bg-emerald-50', rowOdd: 'bg-white', divide: 'divide-emerald-100', border: 'border-emerald-500', borderCell: 'border-emerald-100', empty: 'bg-emerald-50' },
-    { card: 'from-violet-50 to-purple-50 border-violet-200', header: 'from-violet-500 via-violet-600 to-purple-700', thead: 'from-violet-600 to-purple-700', row: 'hover:bg-violet-100', rowEven: 'bg-violet-50', rowOdd: 'bg-white', divide: 'divide-violet-100', border: 'border-violet-500', borderCell: 'border-violet-100', empty: 'bg-violet-50' },
+    { card: 'bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl border border-indigo-50', header: 'bg-gradient-to-r from-indigo-500 to-indigo-600', textTitle: 'text-white font-bold drop-shadow-sm', thead: 'bg-indigo-50/50 backdrop-blur-sm', textTh: 'text-indigo-900', row: 'hover:bg-indigo-50/40 transition-all duration-200', rowEven: 'bg-white', rowOdd: 'bg-indigo-50/10', divide: 'divide-indigo-50/50', border: 'border-transparent', borderCell: 'border-indigo-50/50', empty: 'bg-white' },
+    { card: 'bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl border border-emerald-50', header: 'bg-gradient-to-r from-emerald-500 to-emerald-600', textTitle: 'text-white font-bold drop-shadow-sm', thead: 'bg-emerald-50/50 backdrop-blur-sm', textTh: 'text-emerald-900', row: 'hover:bg-emerald-50/40 transition-all duration-200', rowEven: 'bg-white', rowOdd: 'bg-emerald-50/10', divide: 'divide-emerald-50/50', border: 'border-transparent', borderCell: 'border-emerald-50/50', empty: 'bg-white' },
+    { card: 'bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl border border-violet-50', header: 'bg-gradient-to-r from-violet-500 to-violet-600', textTitle: 'text-white font-bold drop-shadow-sm', thead: 'bg-violet-50/50 backdrop-blur-sm', textTh: 'text-violet-900', row: 'hover:bg-violet-50/40 transition-all duration-200', rowEven: 'bg-white', rowOdd: 'bg-violet-50/10', divide: 'divide-violet-50/50', border: 'border-transparent', borderCell: 'border-violet-50/50', empty: 'bg-white' },
   ];
 
-  const oltiariqTheme = { card: 'from-yellow-50 to-amber-50 border-yellow-200', header: 'from-yellow-500 via-yellow-600 to-amber-700', thead: 'from-yellow-600 to-amber-700', row: 'hover:bg-yellow-100', rowEven: 'bg-yellow-50', rowOdd: 'bg-white', divide: 'divide-yellow-100', border: 'border-yellow-500', borderCell: 'border-yellow-100', empty: 'bg-yellow-50' };
-  const toshkentTheme = { card: 'from-indigo-50 to-blue-50 border-indigo-200', header: 'from-indigo-500 via-indigo-600 to-blue-700', thead: 'from-indigo-600 to-blue-700', row: 'hover:bg-indigo-100', rowEven: 'bg-indigo-50', rowOdd: 'bg-white', divide: 'divide-indigo-100', border: 'border-indigo-500', borderCell: 'border-indigo-100', empty: 'bg-indigo-50' };
+  const oltiariqTheme = { card: 'bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl border border-amber-50', header: 'bg-gradient-to-r from-amber-500 to-orange-500', textTitle: 'text-white font-bold drop-shadow-sm', thead: 'bg-amber-50/50 backdrop-blur-sm', textTh: 'text-amber-900', row: 'hover:bg-amber-50/40 transition-all duration-200', rowEven: 'bg-white', rowOdd: 'bg-amber-50/10', divide: 'divide-amber-50/50', border: 'border-transparent', borderCell: 'border-amber-50/50', empty: 'bg-white' };
+  const toshkentTheme = { card: 'bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl border border-blue-50', header: 'bg-gradient-to-r from-blue-500 to-blue-600', textTitle: 'text-white font-bold drop-shadow-sm', thead: 'bg-blue-50/50 backdrop-blur-sm', textTh: 'text-blue-900', row: 'hover:bg-blue-50/40 transition-all duration-200', rowEven: 'bg-white', rowOdd: 'bg-blue-50/10', divide: 'divide-blue-50/50', border: 'border-transparent', borderCell: 'border-blue-50/50', empty: 'bg-white' };
 
   const renderTaskTable = (branchTasks: Task[], branchName: string, branchColorIndex: number = 0) => {
     const isArchive = branchName === 'Arxiv';
     const colors = isArchive
-      ? { card: 'from-gray-50 to-slate-50 border-gray-200', header: 'from-gray-600 via-gray-700 to-gray-800', thead: 'from-gray-600 to-gray-700', row: 'hover:bg-gray-100', rowEven: 'bg-gray-50', rowOdd: 'bg-white', divide: 'divide-gray-100', border: 'border-gray-500', borderCell: 'border-gray-200', empty: 'bg-gray-50' }
+      ? { card: 'bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl border border-slate-100', header: 'bg-gradient-to-r from-slate-700 to-slate-800', textTitle: 'text-white font-bold drop-shadow-sm', thead: 'bg-slate-50 text-slate-700 backdrop-blur-sm', textTh: 'text-slate-700', row: 'hover:bg-slate-50/80 transition-all duration-200', rowEven: 'bg-white', rowOdd: 'bg-slate-50/30', divide: 'divide-slate-100/50', border: 'border-transparent', borderCell: 'border-slate-100/50', empty: 'bg-white' }
       : branchName === 'Oltiariq'
         ? oltiariqTheme
         : branchName === 'Toshkent'
           ? toshkentTheme
           : branchCardColors[branchColorIndex % branchCardColors.length];
     return (
-      <div className={`bg-gradient-to-br ${colors.card} rounded-lg shadow-xl overflow-hidden border-2`}>
-        <div className={`px-4 py-2 relative overflow-hidden bg-gradient-to-r ${colors.header}`}>
-          <div className="absolute top-0 right-0 w-20 h-20 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
-          <h2 className="text-base font-semibold text-white relative z-10">
+      <div className={`${colors.card} overflow-hidden font-sans`}>
+        <div className={`px-5 py-3.5 relative overflow-hidden ${colors.header}`}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/5 rounded-full blur-xl -ml-10 -mb-10 pointer-events-none"></div>
+          <h2 className={`text-lg tracking-wide relative z-10 ${colors.textTitle}`}>
             {isArchive ? 'Arxiv' : `${branchName} filiali`}
           </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full">
-            <thead className={`bg-gradient-to-r ${colors.thead}`}>
+            <thead className={`${colors.thead}`}>
               <tr>
-                <th className={`px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b ${colors.border}`}>
+                <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                   Task
                 </th>
-                <th className={`px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b ${colors.border}`}>
+                <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                   Klient
                 </th>
                 {isArchive && (
-                  <th className={`px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b ${colors.border}`}>
+                  <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                     Filial
                   </th>
                 )}
                 {isArchive && (
-                  <th className={`px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b ${colors.border}`}>
+                  <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                     PSR
                   </th>
                 )}
                 {isArchive && (
-                  <th className={`px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b ${colors.border}`}>
+                  <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                     BXM
                   </th>
                 )}
-                <th className={`px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b ${colors.border}`}>
+                <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                   Start Date
                 </th>
                 {isArchive && (
-                  <th className={`px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b ${colors.border}`}>
+                  <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                     Vaqt
                   </th>
                 )}
-                <th className={`px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b ${colors.border}`}>
+                <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                   Status
                 </th>
-                <th className={`px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b ${colors.border}`}>
+                <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                   Comments
                 </th>
               </tr>
@@ -2241,9 +2244,8 @@ const Tasks = () => {
                     <tr
                       key={task.id}
                       onClick={() => loadTaskDetail(task.id)}
-                      className={`${colors.row} transition-colors cursor-pointer ${
-                        index % 2 === 0 ? colors.rowEven : colors.rowOdd
-                      }`}
+                      className={`${colors.row} transition-colors cursor-pointer ${index % 2 === 0 ? colors.rowEven : colors.rowOdd
+                        }`}
                     >
                       <td className={`px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 border-b ${colors.borderCell}`}>
                         {task.title}
@@ -2269,9 +2271,8 @@ const Tasks = () => {
                       )}
                       {isArchive && (
                         <td className={`px-3 py-2 whitespace-nowrap text-xs text-gray-900 border-b ${colors.borderCell}`}>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            task.hasPsr ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${task.hasPsr ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
                             {task.hasPsr ? 'Bor' : 'Yo\'q'}
                           </span>
                         </td>
@@ -2320,21 +2321,21 @@ const Tasks = () => {
   // Filter archive tasks
   const getFilteredArchiveTasks = () => {
     if (!showArchive || !Array.isArray(tasks)) return [];
-    
+
     let filtered = tasks;
-    
+
     // Search filter
     if (archiveSearchQuery.trim()) {
       const query = archiveSearchQuery.toLowerCase().trim();
-      filtered = filtered.filter((task) => 
+      filtered = filtered.filter((task) =>
         task.title.toLowerCase().includes(query) ||
         task.client.name.toLowerCase().includes(query)
       );
     }
-    
+
     // Branch filter
     if (archiveFilters.branchId) {
-      filtered = filtered.filter((task) => 
+      filtered = filtered.filter((task) =>
         task.branch.id.toString() === archiveFilters.branchId
       );
     }
@@ -2345,7 +2346,7 @@ const Tasks = () => {
         task.client.id.toString() === archiveFilters.clientId
       );
     }
-    
+
     // Date range filter
     if (archiveFilters.startDate) {
       const startDate = new Date(archiveFilters.startDate);
@@ -2356,7 +2357,7 @@ const Tasks = () => {
         return taskDate >= startDate;
       });
     }
-    
+
     if (archiveFilters.endDate) {
       const endDate = new Date(archiveFilters.endDate);
       endDate.setHours(23, 59, 59, 999);
@@ -2365,7 +2366,7 @@ const Tasks = () => {
         return taskDate <= endDate;
       });
     }
-    
+
     // PSR filter
     if (archiveFilters.hasPsr !== '') {
       const hasPsr = archiveFilters.hasPsr === 'true';
@@ -2373,14 +2374,14 @@ const Tasks = () => {
         return task.hasPsr === hasPsr;
       });
     }
-    
+
     return filtered;
   };
 
   // Export to Excel function
   const exportToExcel = () => {
     const tasksToExport = showArchive ? filteredArchiveTasks : (Array.isArray(tasks) ? tasks : []);
-    
+
     if (tasksToExport.length === 0) {
       alert('Eksport qilish uchun ma\'lumotlar yo\'q');
       return;
@@ -2426,7 +2427,7 @@ const Tasks = () => {
     // Generate filename with date
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
-    const filename = showArchive 
+    const filename = showArchive
       ? `Arxiv_Tasks_${dateStr}.xlsx`
       : `Tasks_${dateStr}.xlsx`;
 
@@ -2441,12 +2442,12 @@ const Tasks = () => {
     }
 
     const grouped = new Map<string, Task[]>();
-    
+
     // Initialize all branches with empty arrays
     branches.forEach(branch => {
       grouped.set(branch.name, []);
     });
-    
+
     // Group tasks by branch name
     tasks.forEach(task => {
       const branchName = task.branch?.name;
@@ -2468,22 +2469,27 @@ const Tasks = () => {
 
   // Check if user is DEKLARANT with a branch assigned
   const isDeklarantWithBranch = user?.role === 'DEKLARANT' && user?.branchId;
-  const userBranch = isDeklarantWithBranch 
+  const userBranch = isDeklarantWithBranch
     ? branches.find((b) => b.id === user.branchId)
     : null;
-  
+
   // Filter tasks for DEKLARANT - only show their branch
   const userBranchTasks = isDeklarantWithBranch && userBranch
     ? (Array.isArray(tasks) ? tasks.filter((task) => task.branch.id === user.branchId) : [])
     : [];
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-gray-800">Tasks</h1>
+    <div className="max-w-[1920px] mx-auto px-2 sm:px-4 space-y-6 sm:space-y-8 font-sans pb-10">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mt-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+              <Icon icon="lucide:layout-list" className="w-5 h-5" />
+            </div>
+            <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 tracking-tight">Vazifalar</h1>
+          </div>
           {/* Tab buttons */}
-          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+          <div className="flex gap-1.5 bg-gray-100/80 backdrop-blur-md p-1.5 rounded-xl border border-gray-200/50 shadow-inner">
             <button
               onClick={() => {
                 if (isMobile) {
@@ -2493,11 +2499,10 @@ const Tasks = () => {
                   setShowArchive(false);
                 }
               }}
-              className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
-                !showArchive
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
+              className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-300 ${!showArchive
+                ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-900/5 scale-100'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 scale-95 hover:scale-100'
+                }`}
             >
               Barcha ishlar
             </button>
@@ -2511,11 +2516,10 @@ const Tasks = () => {
                   setPage(1);
                 }
               }}
-              className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
-                showArchive
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
+              className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-300 ${showArchive
+                ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-900/5 scale-100'
+                : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 scale-95 hover:scale-100'
+                }`}
             >
               Arxiv
             </button>
@@ -2541,9 +2545,8 @@ const Tasks = () => {
                     setShowArchiveFilters(!showArchiveFilters);
                   }
                 }}
-                className={`relative p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all shadow-sm hover:shadow z-10 ${
-                  showArchiveFilters ? 'opacity-0 pointer-events-none' : ''
-                }`}
+                className={`relative p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all shadow-sm hover:shadow z-10 ${showArchiveFilters ? 'opacity-0 pointer-events-none' : ''
+                  }`}
                 title="Qidirish va filtrlash"
               >
                 <Icon icon="lucide:search" className="w-4 h-4" />
@@ -2551,7 +2554,7 @@ const Tasks = () => {
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
                 )}
               </button>
-              
+
               {/* Expandable Search and Filter Panel */}
               {showArchiveFiltersPanel && (
                 <div
@@ -2765,1220 +2768,1037 @@ const Tasks = () => {
       </div>
 
       <div className="flex flex-col">
-      {/* Modal for Add Task */}
-      {showTaskForm && (
-        <div 
-          className={isMobile && isNewTaskRoute
-            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
-            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
-          style={isMobile && isNewTaskRoute ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              if (isMobile && isNewTaskRoute) {
-                navigate('/tasks');
-              } else {
-                setShowForm(false);
-              }
-            }
-          }}
-        >
-          <div 
+        {/* Modal for Add Task */}
+        {showTaskForm && (
+          <div
             className={isMobile && isNewTaskRoute
-              ? 'bg-white w-full h-full px-6 py-6 overflow-y-auto'
-              : 'bg-white rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto'}
-            style={isMobile && isNewTaskRoute ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Yangi task</h2>
-              <button
-                onClick={() => {
-                  if (isMobile && isNewTaskRoute) {
-                    navigate('/tasks');
-                  } else {
-                    setShowForm(false);
-                  }
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
-              >
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-3">
-                {/* 1. Task name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
-                    Task name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
-                    placeholder="Type here"
-                  />
-                </div>
-
-                {/* 2. Mijoz */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:user" className="w-4 h-4 text-blue-600" />
-                    Mijoz <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={form.clientId}
-                    onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 pr-10 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none appearance-none bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.5rem_center] bg-[length:12px_12px] text-sm"
-                  >
-                    <option value="">Tanlang...</option>
-                    {Array.isArray(clients) && clients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 3. Filial - Button style */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
-                    Filial <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.isArray(branches) && branches.length > 0 ? (
-                      branches.map((branch) => (
-                        <button
-                          key={branch.id}
-                          type="button"
-                          onClick={() => {
-                            setForm({ ...form, branchId: branch.id.toString() });
-                          }}
-                          className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                            form.branchId === branch.id.toString()
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                          }`}
-                        >
-                          {branch.name}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="text-sm text-gray-500 py-2">Filiallar yuklanmoqda...</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 4. PSR - Button style */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
-                    PSR <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, hasPsr: true })}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        form.hasPsr === true
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                      }`}
-                    >
-                      Bor
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, hasPsr: false })}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        form.hasPsr === false
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                      }`}
-                    >
-                      Yo'q
-                    </button>
-                  </div>
-                </div>
-
-                {/* 5. Qo'shimcha to'lov kelishuvi */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:handshake" className="w-4 h-4 text-blue-600" />
-                    Qo'shimcha to'lov kelishuvi
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, afterHoursPayer: 'CLIENT' })}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        form.afterHoursPayer === 'CLIENT'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                      }`}
-                    >
-                      Mijoz to'laydi
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, afterHoursPayer: 'COMPANY' })}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        form.afterHoursPayer === 'COMPANY'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                      }`}
-                    >
-                      Men to'layman
-                    </button>
-                  </div>
-                </div>
-
-                {/* 6. Sho'pir telefon raqami */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
-                    Sho'pir tel raqami
-                  </label>
-                  <input
-                    type="tel"
-                    value={form.driverPhone}
-                    onChange={(e) => setForm({ ...form, driverPhone: e.target.value })}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
-                    placeholder="+998901234567"
-                  />
-                </div>
-
-                {/* 7. Comments */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
-                    Comments
-                  </label>
-                  <textarea
-                    value={form.comments}
-                    onChange={(e) => setForm({ ...form, comments: e.target.value })}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm resize-none"
-                    rows={4}
-                    placeholder="Type here"
-                  />
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-                >
-                  Saqlash
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
-                >
-                  Bekor
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal for Task Detail */}
-      {showTaskModal && selectedTask && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowTaskModal(false);
-              setSelectedTask(null);
-            }
-          }}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
+              ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+              : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+            style={isMobile && isNewTaskRoute ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                if (isMobile && isNewTaskRoute) {
+                  navigate('/tasks');
+                } else {
+                  setShowForm(false);
+                }
+              }
             }}
           >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">{selectedTask.title}</h2>
-              <div className="flex items-center gap-2">
+            <div
+              className={isMobile && isNewTaskRoute
+                ? 'bg-white w-full h-full px-6 py-6 overflow-y-auto'
+                : 'bg-white rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto'}
+              style={isMobile && isNewTaskRoute ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">Yangi task</h2>
                 <button
                   onClick={() => {
-                    setErrorForm({
-                      workerId: '',
-                      stageName: '',
-                      amount: '',
-                      comment: '',
-                      date: new Date().toISOString().split('T')[0],
-                    });
-                    setEditingErrorId(null);
-                    setShowErrorModal(true);
+                    if (isMobile && isNewTaskRoute) {
+                      navigate('/tasks');
+                    } else {
+                      setShowForm(false);
+                    }
                   }}
-                  className="p-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                  title="Xato"
-                >
-                  <Icon icon="lucide:alert-circle" className="w-5 h-5" />
-                </button>
-                {/* Faqat task yaratgan ishchi o'zgartira oladi */}
-                {selectedTask.createdBy && user && selectedTask.createdBy.id === user.id && (
-                  <button
-                    onClick={() => {
-                      if (selectedTask) {
-                        if (isMobile) {
-                          navigate(`/tasks/${selectedTask.id}/edit`);
-                        } else {
-                          setEditForm({
-                            title: selectedTask.title,
-                            clientId: selectedTask.client.id.toString(),
-                            branchId: selectedTask.branch.id.toString(),
-                            comments: selectedTask.comments || '',
-                            hasPsr: selectedTask.hasPsr || false,
-                            afterHoursPayer: selectedTask.afterHoursPayer || 'CLIENT',
-                            driverPhone: selectedTask.driverPhone || '',
-                          });
-                          setShowEditModal(true);
-                        }
-                      }
-                    }}
-                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    title="O'zgartirish"
-                  >
-                    <Icon icon="lucide:pencil" className="w-5 h-5" />
-                  </button>
-                )}
-                {/* Task o'chirish: faqat barcha jarayonlar BOSHLANMAGAN bo'lsa va task Jarayonda bo'lmasa */}
-                {selectedTask.stages && 
-                 selectedTask.status !== 'JARAYONDA' &&
-                 selectedTask.stages.every((stage: any) => stage.status === 'BOSHLANMAGAN') && (
-                  <button
-                    onClick={async () => {
-                      if (confirm('Bu taskni o\'chirishni xohlaysizmi?')) {
-                        try {
-                          await apiClient.delete(`/tasks/${selectedTask.id}`);
-                          setShowTaskModal(false);
-                          setSelectedTask(null);
-                          await loadTasks();
-                        } catch (error: any) {
-                          alert(error.response?.data?.error || 'Xatolik yuz berdi');
-                        }
-                      }
-                    }}
-                    className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    title="O'chirish"
-                  >
-                    <Icon icon="lucide:trash-2" className="w-5 h-5" />
-                  </button>
-                )}
-                <button
-                  onClick={() => downloadStickerPng(selectedTask.id)}
-                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1.5"
-                >
-                  <Icon icon="lucide:download" className="w-4 h-4" />
-                  Stiker
-                </button>
-                <button
-                  onClick={() => {
-                    setShowTaskModal(false);
-                    setSelectedTask(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
                 >
                   ×
                 </button>
               </div>
-            </div>
-
-            {/* Task Info */}
-            <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <div className="text-sm text-gray-500">Mijoz</div>
-                <div className="font-medium">{selectedTask.client.name}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Filial</div>
-                <div className="font-medium">{selectedTask.branch.name}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Status</div>
-                <div className="font-medium">
-                  <span className={`px-2 py-1 text-xs rounded-full ${getStatusInfo(selectedTask.status).color}`}>
-                    {getStatusInfo(selectedTask.status).label}
-                  </span>
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Yaratilgan</div>
-                <div className="font-medium text-sm">{formatDate(selectedTask.createdAt)}</div>
-                {selectedTask.createdBy && (
-                  <div className="text-xs text-gray-400 mt-1">by {selectedTask.createdBy.name}</div>
-                )}
-              </div>
-              <div className="md:col-span-2">
-                <div className="text-sm text-gray-500">Shartnoma (invoice qaysi shartnomaga asosan)</div>
-                <div className="font-medium text-sm">
-                  {selectedTask.invoice?.contract?.contractNumber
-                    ? `№ ${selectedTask.invoice.contract.contractNumber}${selectedTask.invoice.contract.contractDate ? `, ${new Date(selectedTask.invoice.contract.contractDate).toLocaleDateString('uz-UZ')}` : ''}`
-                    : selectedTask.invoice?.contractNumber
-                      ? `№ ${selectedTask.invoice.contractNumber}`
-                      : '—'}
-                </div>
-              </div>
-            </div>
-            {selectedTask.updatedBy && (
-              <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center justify-between text-sm text-gray-600">
+              <form onSubmit={handleSubmit}>
+                <div className="space-y-3">
+                  {/* 1. Task name */}
                   <div>
-                    <span className="font-medium">Oxirgi o'zgartirilgan:</span> {selectedTask.updatedAt ? formatDate(selectedTask.updatedAt) : ''} 
-                    {selectedTask.updatedBy && <span className="ml-2">by {selectedTask.updatedBy.name}</span>}
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
+                      Task name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={form.title}
+                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
+                      placeholder="Type here"
+                    />
                   </div>
-                  {selectedTask.stages && selectedTask.stages.length > 0 && (() => {
-                    const totalMinutes = selectedTask.stages
-                      .filter(stage => stage.status === 'TAYYOR')
-                      .reduce((total, stage) => {
-                        const duration = calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt);
-                        return total + (duration || 0);
-                      }, 0);
-                    const totalDuration = formatDuration(totalMinutes);
-                    return totalDuration ? (
-                      <div className="text-sm font-medium text-gray-700">
-                        Umumiy vaqt: {totalDuration}
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
-              </div>
-            )}
 
-            {/* PSR Information */}
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Icon icon="lucide:file-text" className="w-5 h-5 text-blue-600" />
-                <div className="text-sm font-semibold text-blue-800">PSR Ma'lumotlari</div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">PSR:</span>
-                  <span className={`px-2 py-1 text-xs font-medium rounded ${
-                    selectedTask.hasPsr 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {selectedTask.hasPsr ? 'Bor' : 'Yo\'q'}
-                  </span>
+                  {/* 2. Mijoz */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:user" className="w-4 h-4 text-blue-600" />
+                      Mijoz <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={form.clientId}
+                      onChange={(e) => setForm({ ...form, clientId: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 pr-10 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none appearance-none bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.5rem_center] bg-[length:12px_12px] text-sm"
+                    >
+                      <option value="">Tanlang...</option>
+                      {Array.isArray(clients) && clients.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 3. Filial - Button style */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
+                      Filial <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.isArray(branches) && branches.length > 0 ? (
+                        branches.map((branch) => (
+                          <button
+                            key={branch.id}
+                            type="button"
+                            onClick={() => {
+                              setForm({ ...form, branchId: branch.id.toString() });
+                            }}
+                            className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${form.branchId === branch.id.toString()
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                              }`}
+                          >
+                            {branch.name}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="text-sm text-gray-500 py-2">Filiallar yuklanmoqda...</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 4. PSR - Button style */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
+                      PSR <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, hasPsr: true })}
+                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${form.hasPsr === true
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          }`}
+                      >
+                        Bor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, hasPsr: false })}
+                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${form.hasPsr === false
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          }`}
+                      >
+                        Yo'q
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 5. Qo'shimcha to'lov kelishuvi */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:handshake" className="w-4 h-4 text-blue-600" />
+                      Qo'shimcha to'lov kelishuvi
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, afterHoursPayer: 'CLIENT' })}
+                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${form.afterHoursPayer === 'CLIENT'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          }`}
+                      >
+                        Mijoz to'laydi
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, afterHoursPayer: 'COMPANY' })}
+                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${form.afterHoursPayer === 'COMPANY'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          }`}
+                      >
+                        Men to'layman
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 6. Sho'pir telefon raqami */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
+                      Sho'pir tel raqami
+                    </label>
+                    <input
+                      type="tel"
+                      value={form.driverPhone}
+                      onChange={(e) => setForm({ ...form, driverPhone: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
+                      placeholder="+998901234567"
+                    />
+                  </div>
+
+                  {/* 7. Comments */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
+                      Comments
+                    </label>
+                    <textarea
+                      value={form.comments}
+                      onChange={(e) => setForm({ ...form, comments: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm resize-none"
+                      rows={4}
+                      placeholder="Type here"
+                    />
+                  </div>
                 </div>
-                {user?.role === 'ADMIN' && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Qo'shimcha to'lov kelishuvi:</span>
-                    <span className={`px-2 py-1 text-xs font-medium rounded ${
-                      String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY'
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY' ? 'Men to\'layman' : 'Mijoz to\'laydi'}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                  >
+                    Saqlash
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(false)}
+                    className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                  >
+                    Bekor
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal for Task Detail */}
+        {showTaskModal && selectedTask && (
+          <div
+            className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-[100] backdrop-blur-md p-4 sm:p-6"
+            style={{
+              animation: 'backdropFadeIn 0.3s ease-out'
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowTaskModal(false);
+                setSelectedTask(null);
+                setShowFinancialReport(false);
+              }
+            }}
+          >
+            <div
+              className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/50 p-6 md:p-8 max-w-5xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar relative overflow-hidden"
+              style={{
+                animation: 'modalFadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
+              }}
+            >
+              {/* Decorative top gradient bar */}
+              <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+
+              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none"></div>
+
+              <div className="relative z-10 flex justify-between items-start mb-8 gap-4">
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight leading-tight">{selectedTask.title}</h2>
+                  {selectedTask.createdBy && (
+                    <p className="text-sm text-gray-500 mt-1.5 flex items-center gap-1.5">
+                      <Icon icon="lucide:user" className="w-4 h-4" />
+                      Yaratdi: <span className="font-medium text-gray-700">{selectedTask.createdBy.name}</span>
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+                  <button
+                    onClick={() => {
+                      setErrorForm({
+                        workerId: '',
+                        stageName: '',
+                        amount: '',
+                        comment: '',
+                        date: new Date().toISOString().split('T')[0],
+                      });
+                      setEditingErrorId(null);
+                      setShowErrorModal(true);
+                    }}
+                    className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-600 hover:text-white transition-all shadow-sm ring-1 ring-orange-200"
+                    title="Xato"
+                  >
+                    <Icon icon="lucide:alert-circle" className="w-5 h-5" />
+                  </button>
+                  {selectedTask.createdBy && user && selectedTask.createdBy.id === user.id && (
+                    <button
+                      onClick={() => {
+                        if (selectedTask) {
+                          if (isMobile) {
+                            navigate(`/tasks/${selectedTask.id}/edit`);
+                          } else {
+                            setEditForm({
+                              title: selectedTask.title,
+                              clientId: selectedTask.client.id.toString(),
+                              branchId: selectedTask.branch.id.toString(),
+                              comments: selectedTask.comments || '',
+                              hasPsr: selectedTask.hasPsr || false,
+                              afterHoursPayer: selectedTask.afterHoursPayer || 'CLIENT',
+                              driverPhone: selectedTask.driverPhone || '',
+                            });
+                            setShowEditModal(true);
+                          }
+                        }
+                      }}
+                      className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm ring-1 ring-blue-200"
+                      title="O'zgartirish"
+                    >
+                      <Icon icon="lucide:pencil" className="w-5 h-5" />
+                    </button>
+                  )}
+                  {/* Task o'chirish: faqat barcha jarayonlar BOSHLANMAGAN bo'lsa va task Jarayonda bo'lmasa */}
+                  {selectedTask.stages &&
+                    selectedTask.status !== 'JARAYONDA' &&
+                    selectedTask.stages.every((stage: any) => stage.status === 'BOSHLANMAGAN') && (
+                      <button
+                        onClick={async () => {
+                          if (confirm('Bu taskni o\'chirishni xohlaysizmi?')) {
+                            try {
+                              await apiClient.delete(`/tasks/${selectedTask.id}`);
+                              setShowTaskModal(false);
+                              setSelectedTask(null);
+                              await loadTasks();
+                            } catch (error: any) {
+                              alert(error.response?.data?.error || 'Xatolik yuz berdi');
+                            }
+                          }
+                        }}
+                        className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm ring-1 ring-red-200"
+                        title="O'chirish"
+                      >
+                        <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                      </button>
+                    )}
+                  <button
+                    onClick={() => downloadStickerPng(selectedTask.id)}
+                    className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-semibold flex items-center gap-2 shadow-sm shadow-indigo-200"
+                  >
+                    <Icon icon="lucide:download" className="w-4.5 h-4.5" />
+                    Stiker
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowTaskModal(false);
+                      setSelectedTask(null);
+                      setShowFinancialReport(false);
+                    }}
+                    className="p-2 bg-gray-100 text-gray-500 rounded-full hover:bg-gray-200 hover:text-gray-900 transition-all ml-1"
+                  >
+                    <Icon icon="lucide:x" className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Task Info Grid Elements */}
+              <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 relative z-10">
+                <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Mijoz</div>
+                  <div className="font-bold text-gray-800 break-words">{selectedTask.client.name}</div>
+                </div>
+                <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Filial</div>
+                  <div className="font-bold text-gray-800 break-words">{selectedTask.branch.name}</div>
+                </div>
+                <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Status</div>
+                  <div className="font-medium mt-1">
+                    <span className={`px-3 py-1.5 text-xs font-bold rounded-full border ${getStatusInfo(selectedTask.status).color.replace('bg-', 'bg-opacity-20 border-').replace('text-', 'text-')}`}>
+                      {getStatusInfo(selectedTask.status).label}
                     </span>
                   </div>
-                )}
-                {selectedTask.afterHoursDeclaration && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Ish vaqtidan tashqari rasmiylashtiruv:</span>
-                    <span className="px-2 py-1 text-xs font-medium rounded bg-amber-100 text-amber-800">Ha</span>
+                </div>
+                <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Yaratilgan</div>
+                  <div className="font-bold text-gray-800">{formatDate(selectedTask.createdAt)}</div>
+                </div>
+                <div className="md:col-span-4 bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Shartnoma</div>
+                  <div className="font-bold text-gray-800 font-mono">
+                    {selectedTask.invoice?.contract?.contractNumber
+                      ? `№ ${selectedTask.invoice.contract.contractNumber}${selectedTask.invoice.contract.contractDate ? `, kun: ${new Date(selectedTask.invoice.contract.contractDate).toLocaleDateString('uz-UZ')}` : ''}`
+                      : selectedTask.invoice?.contractNumber
+                        ? `№ ${selectedTask.invoice.contractNumber}`
+                        : 'Biriktirilmagan'}
                   </div>
-                )}
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={afterHoursDeclaration}
-                    onChange={(e) => handleAfterHoursDeclarationChange(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">Ish vaqtidan tashqari rasmiylashtiruv</span>
-                </label>
-                {selectedTask.driverPhone && (
-                  <div className="flex items-center gap-2">
-                    <Icon icon="lucide:phone" className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">Sho'pir tel raqami:</span>
-                    <span className="text-sm font-medium text-gray-800">{selectedTask.driverPhone}</span>
-                  </div>
-                )}
-                {selectedTask.driverPhone && (
-                  <button
-                    onClick={handleTelegramClick}
-                    className="mt-3 w-full bg-[#0088cc] hover:bg-[#0077b5] text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium text-sm shadow-sm hover:shadow-md"
-                  >
-                    <span className="text-lg">📨</span>
-                    <span>Telegram orqali xabar yuborish</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleOpenSendEmailModal}
-                  className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium text-sm shadow-sm hover:shadow-md"
-                >
-                  <Icon icon="lucide:mail" className="w-4 h-4" />
-                  <span>Send Documents by Email</span>
-                </button>
+                </div>
               </div>
-            </div>
+              {selectedTask.updatedBy && (
+                <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center justify-between text-sm text-gray-600">
+                    <div>
+                      <span className="font-medium">Oxirgi o'zgartirilgan:</span> {selectedTask.updatedAt ? formatDate(selectedTask.updatedAt) : ''}
+                      {selectedTask.updatedBy && <span className="ml-2">by {selectedTask.updatedBy.name}</span>}
+                    </div>
+                    {selectedTask.stages && selectedTask.stages.length > 0 && (() => {
+                      const totalMinutes = selectedTask.stages
+                        .filter(stage => stage.status === 'TAYYOR')
+                        .reduce((total, stage) => {
+                          const duration = calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt);
+                          return total + (duration || 0);
+                        }, 0);
+                      const totalDuration = formatDuration(totalMinutes);
+                      return totalDuration ? (
+                        <div className="text-sm font-medium text-gray-700">
+                          Umumiy vaqt: {totalDuration}
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                </div>
+              )}
 
-            {/* Foyda hisoboti - barcha foydalanuvchilar uchun */}
-            {selectedTask.netProfit !== null && selectedTask.netProfit !== undefined && (
-              <div className={`mb-6 p-4 border rounded-lg ${
-                (() => {
+              {/* PSR Information */}
+              <div className="mb-8 relative z-10 overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 p-5 md:p-6 shadow-[inset_0_0_20px_rgba(255,255,255,0.8)]">
+                <div className="flex items-center gap-3 mb-5 border-b border-blue-100/60 pb-3">
+                  <div className="p-2 bg-blue-100 rounded-lg text-blue-700 shadow-sm">
+                    <Icon icon="lucide:file-text" className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-base font-bold text-blue-900 tracking-tight">PSR Ma'lumotlari</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl border border-blue-50">
+                    <span className="text-sm font-semibold text-gray-600">PSR mavjudligi:</span>
+                    <span className={`px-3 py-1 text-xs font-bold rounded-full border shadow-sm ${selectedTask.hasPsr
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-gray-50 text-gray-600 border-gray-200'
+                      }`}>
+                      {selectedTask.hasPsr ? 'Bor' : 'Yo\'q'}
+                    </span>
+                  </div>
+
+                  {user?.role === 'ADMIN' && (
+                    <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl border border-blue-50">
+                      <span className="text-sm font-semibold text-gray-600">Qo'shimcha to'lov kelishuvi:</span>
+                      <span className={`px-3 py-1 text-xs font-bold rounded-full border shadow-sm ${String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY'
+                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                        }`}>
+                        {String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY' ? 'Kompaniya' : 'Mijoz'}
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedTask.afterHoursDeclaration && (
+                    <div className="flex items-center justify-between p-3 bg-amber-50/80 rounded-xl border border-amber-100 md:col-span-2">
+                      <span className="text-sm font-bold text-amber-800 flex items-center gap-2">
+                        <Icon icon="lucide:moon" className="w-4 h-4 text-amber-600" />
+                        Ish vaqtidan tashqari rasmiylashtiruv tasdiqlangan
+                      </span>
+                      <span className="px-3 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800 shadow-sm border border-amber-200">Ha</span>
+                    </div>
+                  )}
+
+                  <label className="flex items-center p-3 bg-white/60 rounded-xl border border-blue-50 gap-3 cursor-pointer group md:col-span-2 hover:bg-white transition-colors">
+                    <div className="relative flex items-center justify-center">
+                      <input
+                        type="checkbox"
+                        checked={afterHoursDeclaration}
+                        onChange={(e) => handleAfterHoursDeclarationChange(e.target.checked)}
+                        className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-slate-300 checked:border-blue-600 checked:bg-blue-600 transition-all focus:ring-0 focus:ring-offset-0"
+                      />
+                      <Icon icon="lucide:check" className="absolute w-3.5 h-3.5 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
+                    </div>
+                    <span className="text-sm font-semibold text-gray-700 group-hover:text-gray-900 transition-colors">Ish vaqtidan tashqari rasmiylashtiruv</span>
+                  </label>
+
+                  {selectedTask.driverPhone && (
+                    <div className="md:col-span-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 bg-white/80 rounded-xl border border-slate-100 shadow-sm">
+                      <div className="flex-1 flex items-center justify-between sm:justify-start sm:gap-4">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-slate-100 rounded-md">
+                            <Icon icon="lucide:phone" className="w-4 h-4 text-slate-600" />
+                          </div>
+                          <span className="text-sm font-semibold text-gray-600">Sho'pir raqami:</span>
+                        </div>
+                        <span className="text-lg font-bold text-gray-900 font-mono tracking-tight">{selectedTask.driverPhone}</span>
+                      </div>
+                      <button
+                        onClick={handleTelegramClick}
+                        className="w-full sm:w-auto bg-gradient-to-r from-[#0088cc] to-[#0099e6] hover:from-[#0077b5] hover:to-[#0088cc] text-white px-5 py-2.5 rounded-lg flex items-center justify-center gap-2.5 transition-all font-semibold text-sm shadow-md shadow-[#0088cc]/20 active:scale-[0.98]"
+                      >
+                        <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.19-.08-.05-.19-.02-.27 0-.12.03-1.95 1.25-5.5 3.65-.52.36-.99.53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.29-.48.79-.74 3.08-1.34 5.15-2.23 6.19-2.66 2.95-1.23 3.56-1.44 3.96-1.45.09 0 .28.02.41.11.11.08.14.19.16.27-.01.07.01.2 0 .26z" /></svg>
+                        <span>Telegramga o'tish</span>
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="md:col-span-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={handleOpenSendEmailModal}
+                      className="w-full bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 text-emerald-700 px-5 py-3 rounded-xl flex items-center justify-center gap-2.5 transition-all font-bold text-sm shadow-sm active:scale-[0.99]"
+                    >
+                      <Icon icon="lucide:mail" className="w-5 h-5" />
+                      <span>Hujjatlarni Email orqali yuborish</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Foyda hisoboti - barcha foydalanuvchilar uchun */}
+              {selectedTask.netProfit !== null && selectedTask.netProfit !== undefined && (
+                <div className={`mb-8 relative z-10 p-5 md:p-6 rounded-2xl border-2 shadow-sm ${(() => {
                   const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
                   const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                   const netProfitDisplay = dealAmount - branchPayments;
                   return netProfitDisplay >= 0;
                 })()
-                  ? 'bg-green-50 border-green-200' 
-                  : 'bg-orange-50 border-orange-200'
-              }`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <Icon icon={(() => {
-                    const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                    const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                    const netProfitDisplay = dealAmount - branchPayments;
-                    return netProfitDisplay >= 0 ? 'lucide:dollar-sign' : 'lucide:alert-circle';
-                  })()} className={`w-5 h-5 ${(() => {
-                    const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                    const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                    const netProfitDisplay = dealAmount - branchPayments;
-                    return netProfitDisplay >= 0 ? 'text-green-600' : 'text-orange-600';
-                  })()}`} />
-                  <div className={`text-sm font-semibold ${(() => {
-                    const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                    const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                    const netProfitDisplay = dealAmount - branchPayments;
-                    return netProfitDisplay >= 0 ? 'text-green-800' : 'text-orange-800';
-                  })()}`}>
-                    Foyda hisoboti
+                  ? 'bg-emerald-50/50 border-emerald-100/80 shadow-emerald-100/30'
+                  : 'bg-rose-50/50 border-rose-100/80 shadow-rose-100/30'
+                  }`}>
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg shadow-sm ${(() => {
+                        const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                        const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
+                        const netProfitDisplay = dealAmount - branchPayments;
+                        return netProfitDisplay >= 0 ? 'bg-emerald-100/80 text-emerald-600' : 'bg-rose-100/80 text-rose-600';
+                      })()}`}>
+                        <Icon icon={(() => {
+                          const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                          const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
+                          const netProfitDisplay = dealAmount - branchPayments;
+                          return netProfitDisplay >= 0 ? 'lucide:badge-dollar-sign' : 'lucide:trending-down';
+                        })()} className="w-5 h-5" />
+                      </div>
+                      <div className={`text-base font-bold tracking-tight ${(() => {
+                        const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                        const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
+                        const netProfitDisplay = dealAmount - branchPayments;
+                        return netProfitDisplay >= 0 ? 'text-emerald-900' : 'text-rose-900';
+                      })()}`}>
+                        Moliyaviy hisobot
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowFinancialReport(!showFinancialReport)}
+                      className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-sm font-semibold ${(() => {
+                        const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                        const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
+                        const netProfitDisplay = dealAmount - branchPayments;
+                        return netProfitDisplay >= 0
+                          ? 'text-emerald-700 hover:bg-emerald-100/80 bg-emerald-50'
+                          : 'text-rose-700 hover:bg-rose-100/80 bg-rose-50';
+                      })()}`}
+                    >
+                      <Icon icon={showFinancialReport ? "lucide:eye-off" : "lucide:eye"} className="w-4 h-4" />
+                      <span className="hidden sm:inline">{showFinancialReport ? "Yashirish" : "Ko'rsatish"}</span>
+                    </button>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  {/* Admin uchun to'liq ma'lumot */}
-                  {user?.role === 'ADMIN' && (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Kelishuv summasi:</span>
-                        <span className="text-sm font-medium text-gray-800">
-                          {formatMoney(
-                            getDealAmountDisplay(selectedTask, afterHoursDeclaration),
-                            getClientCurrency(selectedTask.client)
-                          )}
-                          {selectedTask.hasPsr && (
-                            <span className="text-xs text-gray-500 ml-1">
-                              (asosiy: {formatMoney(
-                                getDealAmountBaseDisplay(selectedTask, afterHoursDeclaration),
+
+                  {showFinancialReport && (
+                    <div className="space-y-3.5 mt-5 pt-4 border-t border-gray-200/50">
+                      {/* Admin uchun to'liq ma'lumot */}
+                      {user?.role === 'ADMIN' && (
+                        <div className="bg-white/60 rounded-xl p-4 border border-gray-100 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-500">Kelishuv summasi:</span>
+                            <span className="text-sm font-bold text-gray-900">
+                              {formatMoney(
+                                getDealAmountDisplay(selectedTask, afterHoursDeclaration),
                                 getClientCurrency(selectedTask.client)
-                              )} + {formatMoney(getPsrAmount(selectedTask), getClientCurrency(selectedTask.client))})
+                              )}
+                              {selectedTask.hasPsr && (
+                                <span className="text-xs font-semibold text-gray-400 ml-1.5">
+                                  (asosiy: {formatMoney(
+                                    getDealAmountBaseDisplay(selectedTask, afterHoursDeclaration),
+                                    getClientCurrency(selectedTask.client)
+                                  )} + {formatMoney(getPsrAmount(selectedTask), getClientCurrency(selectedTask.client))})
+                                </span>
+                              )}
                             </span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Filial bo'yicha to'lovlar:</span>
-                        <span className="text-sm font-medium text-red-600">
-                          {formatMoney(getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration), getClientCurrency(selectedTask.client))}
-                        </span>
-                      </div>
-                      <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
-                        <span className={`text-sm font-semibold ${(() => {
-                          const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                          const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                          const netProfitDisplay = dealAmount - branchPayments;
-                          return netProfitDisplay >= 0 ? 'text-green-800' : 'text-orange-800';
-                        })()}`}>
-                          Sof foyda:
-                        </span>
-                        <span className={`text-sm font-bold ${(() => {
-                          const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                          const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                          const netProfitDisplay = dealAmount - branchPayments;
-                          return netProfitDisplay >= 0 ? 'text-green-600' : 'text-orange-600';
-                        })()}`}>
-                          {(() => {
-                            const currency = getClientCurrency(selectedTask.client);
-                            const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                            const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                            const netProfitDisplay = dealAmount - branchPayments;
-                            return formatMoney(netProfitDisplay, currency);
-                          })()}
-                        </span>
-                      </div>
-                      {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
-                        <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
-                          <span className="text-sm font-semibold text-blue-800">
-                            Admin ishlab topgan pul:
-                          </span>
-                          <span className="text-sm font-bold text-blue-600">
-                            {formatMoney(Number(selectedTask.adminEarnedAmount), getClientCurrency(selectedTask.client))}
-                          </span>
-                        </div>
-                      )}
-                      {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
-                        <div className="pt-2 border-t-2 border-gray-300 flex items-center justify-between">
-                          <span className="text-sm font-bold text-gray-800">
-                            Jami foyda:
-                          </span>
-                          <span className="text-lg font-bold text-purple-600">
-                            {(() => {
-                              const currency = getClientCurrency(selectedTask.client);
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-500">Filial to'lovlari:</span>
+                            <span className="text-sm font-bold text-rose-500 px-2 py-0.5 bg-rose-50 rounded-md ring-1 ring-rose-100">
+                              - {formatMoney(getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration), getClientCurrency(selectedTask.client))}
+                            </span>
+                          </div>
+                          <div className="pt-3 border-t border-gray-200/60 flex items-center justify-between">
+                            <span className={`text-sm font-bold uppercase tracking-wider ${(() => {
                               const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
                               const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                               const netProfitDisplay = dealAmount - branchPayments;
-                              const totalProfitDisplay = netProfitDisplay + Number(selectedTask.adminEarnedAmount || 0);
-                              return formatMoney(totalProfitDisplay, currency);
-                            })()}
-                          </span>
+                              return netProfitDisplay >= 0 ? 'text-emerald-700' : 'text-rose-700';
+                            })()}`}>
+                              Sof foyda:
+                            </span>
+                            <span className={`text-lg font-black tracking-tight ${(() => {
+                              const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                              const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
+                              const netProfitDisplay = dealAmount - branchPayments;
+                              return netProfitDisplay >= 0 ? 'text-emerald-600' : 'text-rose-600';
+                            })()}`}>
+                              {(() => {
+                                const currency = getClientCurrency(selectedTask.client);
+                                const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                                const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
+                                const netProfitDisplay = dealAmount - branchPayments;
+                                return formatMoney(netProfitDisplay, currency);
+                              })()}
+                            </span>
+                          </div>
+                          {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
+                            <div className="pt-3 border-t border-gray-200/60 flex items-center justify-between">
+                              <span className="text-sm font-bold text-indigo-700 uppercase tracking-wider">
+                                Shaxsiy daromad:
+                              </span>
+                              <span className="text-lg font-black text-indigo-600">
+                                + {formatMoney(Number(selectedTask.adminEarnedAmount), getClientCurrency(selectedTask.client))}
+                              </span>
+                            </div>
+                          )}
+                          {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
+                            <div className="pt-3 border-t-2 border-indigo-100 flex items-center justify-between">
+                              <span className="text-sm font-black text-gray-900 uppercase tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                                Jami foyda:
+                              </span>
+                              <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 tracking-tight">
+                                {(() => {
+                                  const currency = getClientCurrency(selectedTask.client);
+                                  const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+                                  const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
+                                  const netProfitDisplay = dealAmount - branchPayments;
+                                  const totalProfitDisplay = netProfitDisplay + Number(selectedTask.adminEarnedAmount || 0);
+                                  return formatMoney(totalProfitDisplay, currency);
+                                })()}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
-                    </>
-                  )}
-                  
-                  {/* Admin'dan boshqa foydalanuvchilar uchun jarayonlar bo'yicha pul ma'lumotlari */}
-                  {user?.role !== 'ADMIN' && selectedTask.kpiLogs && selectedTask.kpiLogs.length > 0 && (() => {
-                    // Faqat joriy foydalanuvchining shu taskdan ishlab topgan pullarini filter qilamiz
-                    const userKpiLogs = selectedTask.kpiLogs.filter(log => log.userId === user?.id);
-                    
-                    if (userKpiLogs.length === 0) {
-                      return (
-                        <div className="text-sm text-gray-500 italic">
-                          Siz bu taskdan hozircha pul ishlab topmadingiz
-                        </div>
-                      );
-                    }
-                    
-                    const totalAmount = userKpiLogs.reduce((sum, log) => sum + Number(log.amount), 0);
-                    
-                    return (
-                      <div className="pt-2 border-t border-gray-200">
-                        <div className="text-xs font-semibold text-gray-700 mb-2">Bu taskdan ishlab topilgan pul:</div>
-                        <div className="space-y-1.5">
-                          {userKpiLogs.map((log) => (
-                            <div key={log.id} className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600">
-                                {log.stageName}:
+
+                      {/* Admin'dan boshqa foydalanuvchilar uchun jarayonlar bo'yicha pul ma'lumotlari */}
+                      {user?.role !== 'ADMIN' && selectedTask.kpiLogs && selectedTask.kpiLogs.length > 0 && (() => {
+                        // Faqat joriy foydalanuvchining shu taskdan ishlab topgan pullarini filter qilamiz
+                        const userKpiLogs = selectedTask.kpiLogs.filter(log => log.userId === user?.id);
+
+                        if (userKpiLogs.length === 0) {
+                          return (
+                            <div className="p-4 bg-gray-50/80 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 text-center">
+                              <Icon icon="lucide:coins" className="w-6 h-6 text-gray-400" />
+                              <div className="text-sm font-medium text-gray-500">
+                                Siz bu taskdan hozircha pul ishlab topmadingiz
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        const totalAmount = userKpiLogs.reduce((sum, log) => sum + Number(log.amount), 0);
+
+                        return (
+                          <div className="bg-white/60 rounded-xl p-4 border border-gray-100">
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Jarayonlardan topilgan mablag':</div>
+                            <div className="space-y-2">
+                              {userKpiLogs.map((log) => (
+                                <div key={log.id} className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded-lg">
+                                  <span className="font-semibold text-gray-700">
+                                    {log.stageName}:
+                                  </span>
+                                  <span className="font-bold text-gray-900 px-2.5 py-1 bg-white rounded-md shadow-sm border border-gray-100">
+                                    {new Intl.NumberFormat('uz-UZ', {
+                                      style: 'currency',
+                                      currency: 'USD',
+                                      minimumFractionDigits: 2,
+                                    }).format(log.amount).replace(/,/g, ' ')}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="pt-3 mt-3 border-t-2 border-emerald-100/50 flex items-center justify-between">
+                              <span className="text-sm font-black text-gray-900 uppercase tracking-wider">
+                                Jami tushum:
                               </span>
-                              <span className="font-medium text-gray-800">
+                              <span className="text-xl font-black text-emerald-600 tracking-tight">
                                 {new Intl.NumberFormat('uz-UZ', {
                                   style: 'currency',
                                   currency: 'USD',
                                   minimumFractionDigits: 2,
-                                }).format(log.amount).replace(/,/g, ' ')}
+                                }).format(totalAmount).replace(/,/g, ' ')}
                               </span>
                             </div>
-                          ))}
-                        </div>
-                        <div className="pt-2 mt-2 border-t border-gray-200 flex items-center justify-between">
-                          <span className="text-sm font-semibold text-gray-800">
-                            Jami pul:
-                          </span>
-                          <span className="text-sm font-bold text-green-600">
-                            {new Intl.NumberFormat('uz-UZ', {
-                              style: 'currency',
-                              currency: 'USD',
-                              minimumFractionDigits: 2,
-                            }).format(totalAmount).replace(/,/g, ' ')}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  
-                  {/* Agar KPI log'lar bo'lmasa */}
-                  {user?.role !== 'ADMIN' && (!selectedTask.kpiLogs || selectedTask.kpiLogs.length === 0) && (
-                    <div className="text-sm text-gray-500 italic">
-                      Hozircha jarayonlar bo'yicha pul ma'lumotlari yo'q
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {selectedTask.comments && (
-              <div className="mb-6">
-                <div className="text-sm text-gray-500 mb-1 flex items-center gap-2">
-                  <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
-                  Izohlar
-                </div>
-                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
-                  <p className="text-sm text-gray-800 leading-relaxed">{selectedTask.comments}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Stages - Checklist */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Jarayonlar</h3>
-              <div className="space-y-2">
-                {selectedTask.stages && selectedTask.stages.length > 0 ? (
-                  selectedTask.stages.map((stage) => {
-                    // Vaqtni hisoblash va baholash
-                    const durationMinutes = stage.status === 'TAYYOR' 
-                      ? calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt)
-                      : null;
-                    const evaluation = stage.status === 'TAYYOR' 
-                      ? evaluateStageTime(stage.name, durationMinutes)
-                      : null;
-                    
-                    // Rangni aniqlash
-                    let borderColor = 'border-gray-200';
-                    let bgColor = '';
-                    if (stage.status === 'TAYYOR' && evaluation) {
-                      if (evaluation.rating === 'alo') {
-                        borderColor = 'border-green-300';
-                        bgColor = 'bg-green-50';
-                      } else if (evaluation.rating === 'ortacha') {
-                        borderColor = 'border-yellow-300';
-                        bgColor = 'bg-yellow-50';
-                      } else {
-                        borderColor = 'border-red-300';
-                        bgColor = 'bg-red-50';
-                      }
-                    } else if (stage.status === 'TAYYOR') {
-                      bgColor = 'bg-gray-50';
-                    }
-                    
-                    return (
-                    <div
-                      key={stage.id}
-                      onClick={() => {
-                        if (!updatingStage) {
-                          handleStageClick(stage);
-                        }
-                      }}
-                      className={`flex items-center justify-between p-3 border ${borderColor} rounded-lg hover:bg-gray-50 transition ${bgColor} ${updatingStage === stage.id ? 'cursor-wait' : 'cursor-pointer'}`}
-                    >
-                      <div className="flex items-center flex-1">
-                        <div
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                            stage.status === 'TAYYOR'
-                              ? 'bg-green-500 border-green-500'
-                              : 'border-gray-300 bg-white hover:border-green-400'
-                          } ${updatingStage === stage.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          style={{
-                            transition: stage.status === 'TAYYOR' 
-                              ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' 
-                              : 'all 0.3s ease-in-out',
-                            transform: stage.status === 'TAYYOR' ? 'scale(1.1)' : 'scale(1)',
-                            boxShadow: stage.status === 'TAYYOR' 
-                              ? '0 4px 12px rgba(34, 197, 94, 0.4)' 
-                              : 'none',
-                            animation: stage.status === 'TAYYOR' && updatingStage !== stage.id
-                              ? 'checkboxPulse 0.6s ease-out'
-                              : 'none'
-                          }}
-                        >
-                          {stage.status === 'TAYYOR' && (
-                            <Icon icon="lucide:check" className="w-4 h-4 text-white" />
-                          )}
-                        </div>
-                        <label
-                          className={`ml-3 text-sm font-medium flex-1 transition-all duration-300 ${
-                            stage.status === 'TAYYOR'
-                              ? 'line-through text-gray-400 opacity-60'
-                              : 'text-gray-900'
-                          }`}
-                        >
-                          {stage.name}
-                        </label>
-                      </div>
-                      {stage.status === 'TAYYOR' && (() => {
-                        const durationText = formatDuration(durationMinutes);
-                        const deklarMultiplier =
-                          stage.name === 'Deklaratsiya' && selectedTask?.customsPaymentMultiplier != null
-                            ? Number(selectedTask.customsPaymentMultiplier)
-                            : null;
-                        
-                        return (
-                          <div className="text-xs text-gray-500 ml-4 flex items-center gap-2 flex-wrap">
-                            {stage.assignedTo && (
-                              <span className="font-medium text-gray-700">
-                                ({stage.assignedTo.name})
-                              </span>
-                            )}
-                            {deklarMultiplier != null && (
-                              <span className="text-gray-700">
-                                BXM {deklarMultiplier} barobari
-                              </span>
-                            )}
-                            {durationText && <span>{durationText}</span>}
-                            {durationText && evaluation && (
-                              <i className={`fas ${evaluation.icon} ${evaluation.color}`} title={
-                                evaluation.rating === 'alo' ? 'A\'lo' : 
-                                evaluation.rating === 'ortacha' ? 'Ortacha' : 
-                                'Yomon'
-                              }></i>
-                            )}
                           </div>
                         );
                       })()}
+
+                      {/* Agar KPI log'lar bo'lmasa */}
+                      {user?.role !== 'ADMIN' && (!selectedTask.kpiLogs || selectedTask.kpiLogs.length === 0) && (
+                        <div className="p-4 bg-gray-50/80 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 text-center">
+                          <Icon icon="lucide:coins" className="w-6 h-6 text-gray-400" />
+                          <div className="text-sm font-medium text-gray-500">
+                            Siz bu taskdan hozircha pul ishlab topmadingiz
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  );
-                  })
-                ) : (
-                  <div className="text-center py-4 text-gray-400">
-                    {loadingTask ? 'Jarayonlar yuklanmoqda...' : 'Jarayonlar topilmadi'}
+                  )}
+                </div>
+              )}
+
+              {selectedTask.comments && (
+                <div className="mb-6">
+                  <div className="text-sm text-gray-500 mb-1 flex items-center gap-2">
+                    <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
+                    Izohlar
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Documents Section */}
-            <div className="mt-6 border-t border-gray-200 pt-6">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">Hujjatlar</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Emailga ilova qilinadigan fayllar manashu yerdan olinadi.</p>
+                  <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <p className="text-sm text-gray-800 leading-relaxed">{selectedTask.comments}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {taskDocuments.length > 0 && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          if (!selectedTask?.id) {
-                            throw new Error('Task topilmadi');
-                          }
+              )}
 
-                          const response = await apiClient.get(`/documents/task/${selectedTask.id}/download-all`, {
-                            responseType: 'blob',
-                          });
+              {/* Stages - Checklist */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Jarayonlar</h3>
+                <div className="space-y-2">
+                  {selectedTask.stages && selectedTask.stages.length > 0 ? (
+                    selectedTask.stages.map((stage) => {
+                      // Vaqtni hisoblash va baholash
+                      const durationMinutes = stage.status === 'TAYYOR'
+                        ? calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt)
+                        : null;
+                      const evaluation = stage.status === 'TAYYOR'
+                        ? evaluateStageTime(stage.name, durationMinutes)
+                        : null;
 
-                          // Agar backend JSON xatolik yuborsa, uni parse qilish
-                          if (response.data?.type === 'application/json') {
-                            const text = await response.data.text();
-                            const errorData = JSON.parse(text);
-                            throw new Error(errorData.error || errorData.message || 'Yuklab olishda xatolik');
-                          }
-
-                          const blobType = response.data?.type || 'application/zip';
-                          const blob = new Blob([response.data], { type: blobType });
-                          const downloadUrl = window.URL.createObjectURL(blob);
-                          const link = document.createElement('a');
-                          link.href = downloadUrl;
-                          link.download = `${selectedTask?.title || 'task'}.zip`;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                          window.URL.revokeObjectURL(downloadUrl);
-                        } catch (error: any) {
-                          console.error('Error downloading ZIP:', error);
-                          let message = error?.message || 'Yuklab olishda xatolik';
-                          if (error?.response?.data instanceof Blob) {
-                            try {
-                              const text = await error.response.data.text();
-                              const data = JSON.parse(text);
-                              message = data.error || data.message || message;
-                            } catch {
-                              // ignore
-                            }
-                          }
-                          alert(message);
+                      // Rangni aniqlash
+                      let borderColor = 'border-gray-200';
+                      let bgColor = '';
+                      if (stage.status === 'TAYYOR' && evaluation) {
+                        if (evaluation.rating === 'alo') {
+                          borderColor = 'border-green-300';
+                          bgColor = 'bg-green-50';
+                        } else if (evaluation.rating === 'ortacha') {
+                          borderColor = 'border-yellow-300';
+                          bgColor = 'bg-yellow-50';
+                        } else {
+                          borderColor = 'border-red-300';
+                          bgColor = 'bg-red-50';
                         }
-                      }}
-                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center gap-1.5"
-                      title="Barcha hujjatlarni ZIP qilib yuklab olish"
-                    >
-                      <Icon icon="lucide:download" className="w-4 h-4" />
-                      Barchasini yuklab olish
-                    </button>
-                  )}
-                  {(selectedTask.status !== 'YAKUNLANDI' || user?.role === 'ADMIN') && (
-                    <button
-                      onClick={() => {
-                        setShowDocumentUpload(true);
-                        setUploadFiles([]);
-                        setDocumentNames([]);
-                        setDocumentDescriptions([]);
-                      }}
-                      className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1.5"
-                    >
-                      <Icon icon="lucide:plus" className="w-4 h-4" />
-                      Hujjat qo'shish
-                    </button>
+                      } else if (stage.status === 'TAYYOR') {
+                        bgColor = 'bg-gray-50';
+                      }
+
+                      return (
+                        <div
+                          key={stage.id}
+                          onClick={() => {
+                            if (!updatingStage) {
+                              handleStageClick(stage);
+                            }
+                          }}
+                          className={`flex items-center justify-between p-3 border ${borderColor} rounded-lg hover:bg-gray-50 transition ${bgColor} ${updatingStage === stage.id ? 'cursor-wait' : 'cursor-pointer'}`}
+                        >
+                          <div className="flex items-center flex-1">
+                            <div
+                              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${stage.status === 'TAYYOR'
+                                ? 'bg-green-500 border-green-500'
+                                : 'border-gray-300 bg-white hover:border-green-400'
+                                } ${updatingStage === stage.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              style={{
+                                transition: stage.status === 'TAYYOR'
+                                  ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                  : 'all 0.3s ease-in-out',
+                                transform: stage.status === 'TAYYOR' ? 'scale(1.1)' : 'scale(1)',
+                                boxShadow: stage.status === 'TAYYOR'
+                                  ? '0 4px 12px rgba(34, 197, 94, 0.4)'
+                                  : 'none',
+                                animation: stage.status === 'TAYYOR' && updatingStage !== stage.id
+                                  ? 'checkboxPulse 0.6s ease-out'
+                                  : 'none'
+                              }}
+                            >
+                              {stage.status === 'TAYYOR' && (
+                                <Icon icon="lucide:check" className="w-4 h-4 text-white" />
+                              )}
+                            </div>
+                            <label
+                              className={`ml-3 text-sm font-medium flex-1 transition-all duration-300 ${stage.status === 'TAYYOR'
+                                ? 'line-through text-gray-400 opacity-60'
+                                : 'text-gray-900'
+                                }`}
+                            >
+                              {stage.name}
+                            </label>
+                          </div>
+                          {stage.status === 'TAYYOR' && (() => {
+                            const durationText = formatDuration(durationMinutes);
+                            const deklarMultiplier =
+                              stage.name === 'Deklaratsiya' && selectedTask?.customsPaymentMultiplier != null
+                                ? Number(selectedTask.customsPaymentMultiplier)
+                                : null;
+
+                            return (
+                              <div className="text-xs text-gray-500 ml-4 flex items-center gap-2 flex-wrap">
+                                {stage.assignedTo && (
+                                  <span className="font-medium text-gray-700">
+                                    ({stage.assignedTo.name})
+                                  </span>
+                                )}
+                                {deklarMultiplier != null && (
+                                  <span className="text-gray-700">
+                                    BXM {deklarMultiplier} barobari
+                                  </span>
+                                )}
+                                {durationText && <span>{durationText}</span>}
+                                {durationText && evaluation && (
+                                  <i className={`fas ${evaluation.icon} ${evaluation.color}`} title={
+                                    evaluation.rating === 'alo' ? 'A\'lo' :
+                                      evaluation.rating === 'ortacha' ? 'Ortacha' :
+                                        'Yomon'
+                                  }></i>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-4 text-gray-400">
+                      {loadingTask ? 'Jarayonlar yuklanmoqda...' : 'Jarayonlar topilmadi'}
+                    </div>
                   )}
                 </div>
               </div>
-              {loadingDocuments ? (
-                <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-              ) : !Array.isArray(taskDocuments) || taskDocuments.length === 0 ? (
-                <div className="text-center py-4 text-gray-400">Hujjatlar yo'q</div>
-              ) : (
-                <div className="space-y-1">
-                  {taskDocuments.map((doc) => {
-                    const isExpanded = expandedDocuments.has(doc.id);
-                    const hasOCR = canShowOCR(doc.fileType, doc.name);
-                    const extractedText = documentExtractedTexts.get(doc.id) || '';
-                    const isLoadingText = loadingExtractedTexts.has(doc.id);
-                    
-                    return (
-                      <div key={doc.id} className="space-y-1">
-                        <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
-                          <div className="flex items-center gap-2 flex-1">
-                            <div className="flex-shrink-0">
-                              {getFileIcon(doc.fileType, doc.name)}
-                            </div>
-                            <div className="flex-1">
-                              <div className="text-sm font-medium text-gray-900">{doc.name}</div>
-                              {doc.description && (
-                                <div className="text-xs text-gray-500">{doc.description}</div>
-                              )}
-                              <div className="text-[11px] text-gray-400 mt-0.5">
-                                {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt).toLocaleDateString('uz-UZ')}
+
+              {/* Documents Section */}
+              <div className="mt-6 border-t border-gray-200 pt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800">Hujjatlar</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Emailga ilova qilinadigan fayllar manashu yerdan olinadi.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {taskDocuments.length > 0 && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            if (!selectedTask?.id) {
+                              throw new Error('Task topilmadi');
+                            }
+
+                            const response = await apiClient.get(`/documents/task/${selectedTask.id}/download-all`, {
+                              responseType: 'blob',
+                            });
+
+                            // Agar backend JSON xatolik yuborsa, uni parse qilish
+                            if (response.data?.type === 'application/json') {
+                              const text = await response.data.text();
+                              const errorData = JSON.parse(text);
+                              throw new Error(errorData.error || errorData.message || 'Yuklab olishda xatolik');
+                            }
+
+                            const blobType = response.data?.type || 'application/zip';
+                            const blob = new Blob([response.data], { type: blobType });
+                            const downloadUrl = window.URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = downloadUrl;
+                            link.download = `${selectedTask?.title || 'task'}.zip`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(downloadUrl);
+                          } catch (error: any) {
+                            console.error('Error downloading ZIP:', error);
+                            let message = error?.message || 'Yuklab olishda xatolik';
+                            if (error?.response?.data instanceof Blob) {
+                              try {
+                                const text = await error.response.data.text();
+                                const data = JSON.parse(text);
+                                message = data.error || data.message || message;
+                              } catch {
+                                // ignore
+                              }
+                            }
+                            alert(message);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                        title="Barcha hujjatlarni ZIP qilib yuklab olish"
+                      >
+                        <Icon icon="lucide:download" className="w-4 h-4" />
+                        Barchasini yuklab olish
+                      </button>
+                    )}
+                    {(selectedTask.status !== 'YAKUNLANDI' || user?.role === 'ADMIN') && (
+                      <button
+                        onClick={() => {
+                          setShowDocumentUpload(true);
+                          setUploadFiles([]);
+                          setDocumentNames([]);
+                          setDocumentDescriptions([]);
+                        }}
+                        className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                      >
+                        <Icon icon="lucide:plus" className="w-4 h-4" />
+                        Hujjat qo'shish
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {loadingDocuments ? (
+                  <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+                ) : !Array.isArray(taskDocuments) || taskDocuments.length === 0 ? (
+                  <div className="text-center py-4 text-gray-400">Hujjatlar yo'q</div>
+                ) : (
+                  <div className="space-y-1">
+                    {taskDocuments.map((doc) => {
+                      const isExpanded = expandedDocuments.has(doc.id);
+                      const hasOCR = canShowOCR(doc.fileType, doc.name);
+                      const extractedText = documentExtractedTexts.get(doc.id) || '';
+                      const isLoadingText = loadingExtractedTexts.has(doc.id);
+
+                      return (
+                        <div key={doc.id} className="space-y-1">
+                          <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                            <div className="flex items-center gap-2 flex-1">
+                              <div className="flex-shrink-0">
+                                {getFileIcon(doc.fileType, doc.name)}
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-gray-900">{doc.name}</div>
+                                {doc.description && (
+                                  <div className="text-xs text-gray-500">{doc.description}</div>
+                                )}
+                                <div className="text-[11px] text-gray-400 mt-0.5">
+                                  {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt).toLocaleDateString('uz-UZ')}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {canPreview(doc.fileType) && (
+                            <div className="flex items-center gap-1.5">
+                              {canPreview(doc.fileType) && (
+                                <button
+                                  onClick={() => openPreview(doc.fileUrl, doc.fileType, doc.name)}
+                                  className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
+                                  title="Ko'rish"
+                                >
+                                  <Icon icon="lucide:eye" className="w-4 h-4" />
+                                </button>
+                              )}
                               <button
-                                onClick={() => openPreview(doc.fileUrl, doc.fileType, doc.name)}
-                                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
-                                title="Ko'rish"
+                                onClick={() => downloadDocument(doc.fileUrl)}
+                                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                title="Yuklab olish"
                               >
-                                <Icon icon="lucide:eye" className="w-4 h-4" />
+                                <Icon icon="lucide:download" className="w-4 h-4" />
                               </button>
-                            )}
-                            <button
-                              onClick={() => downloadDocument(doc.fileUrl)}
-                              className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                              title="Yuklab olish"
-                            >
-                              <Icon icon="lucide:download" className="w-4 h-4" />
-                            </button>
-                            {(() => {
-                              // Admin har doim o'chira oladi
-                              const isAdmin = user?.role === 'ADMIN';
-                              
-                              // Faqat yuklagan foydalanuvchi o'chira oladi
-                              const isOwner = doc.uploadedById === user?.id;
-                              
-                              // Agar admin yoki yuklagan foydalanuvchi bo'lmasa, hech narsa ko'rsatilmaydi
-                              if (!isAdmin && !isOwner) {
-                                return null;
-                              }
-                              
-                              // Vaqtni hisoblash (2 kungacha o'chirish mumkin)
-                              const uploadTime = new Date(doc.createdAt || doc.archivedAt);
-                              const now = new Date();
-                              const diffInMs = now.getTime() - uploadTime.getTime();
-                              const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
-                              
-                              // Admin har doim o'chira oladi
-                              if (isAdmin) {
-                                return (
-                                  <button
-                                    onClick={() => handleDeleteDocument(doc.id)}
-                                    className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                                    title="O'chirish (Admin)"
-                                  >
-                                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
-                                  </button>
-                                );
-                              }
-                              
-                              // Yuklagan foydalanuvchi uchun: 2 kungacha o'chira oladi
-                              if (isOwner) {
-                                if (diffInDays <= 2) {
-                                  // 2 kungacha o'chirish mumkin
+                              {(() => {
+                                // Admin har doim o'chira oladi
+                                const isAdmin = user?.role === 'ADMIN';
+
+                                // Faqat yuklagan foydalanuvchi o'chira oladi
+                                const isOwner = doc.uploadedById === user?.id;
+
+                                // Agar admin yoki yuklagan foydalanuvchi bo'lmasa, hech narsa ko'rsatilmaydi
+                                if (!isAdmin && !isOwner) {
+                                  return null;
+                                }
+
+                                // Vaqtni hisoblash (2 kungacha o'chirish mumkin)
+                                const uploadTime = new Date(doc.createdAt || doc.archivedAt);
+                                const now = new Date();
+                                const diffInMs = now.getTime() - uploadTime.getTime();
+                                const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
+
+                                // Admin har doim o'chira oladi
+                                if (isAdmin) {
                                   return (
                                     <button
                                       onClick={() => handleDeleteDocument(doc.id)}
                                       className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                                      title="O'chirish"
+                                      title="O'chirish (Admin)"
                                     >
                                       <Icon icon="lucide:trash-2" className="w-4 h-4" />
                                     </button>
                                   );
-                                } else {
-                                  // 2 kundan ko'p vaqt o'tgan, o'chirish mumkin emas
-                                  const daysPassed = Math.floor(diffInDays);
-                                  return (
-                                    <span 
-                                      className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"
-                                      title="2 kundan keyin o'chirish mumkin emas"
-                                    >
-                                      O'chirish mumkin emas ({daysPassed} kun o'tdi)
-                                    </span>
-                                  );
                                 }
-                              }
-                              
-                              return null;
-                            })()}
-                          </div>
-                        </div>
-                        {isExpanded && hasOCR && (
-                          <div className="ml-4 mr-4 mb-2 p-4 bg-white rounded-lg border border-gray-300 shadow-sm">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-sm font-semibold text-gray-700">OCR Natijasi (O'qilgan matn)</h4>
-                              <button
-                                onClick={() => {
-                                  if (extractedText) {
-                                    navigator.clipboard.writeText(extractedText);
-                                    alert('Matn nusxalandi!');
-                                  }
-                                }}
-                                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                title="Nusxalash"
-                              >
-                                <Icon icon="lucide:copy" className="w-4 h-4" />
-                                Nusxalash
-                              </button>
-                            </div>
-                            {isLoadingText ? (
-                              <div className="text-center py-8 text-gray-500">
-                                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                                <p className="mt-2 text-sm">Matn yuklanmoqda...</p>
-                              </div>
-                            ) : extractedText ? (
-                              <pre className="text-xs text-gray-800 bg-gray-50 p-3 rounded border border-gray-200 max-h-96 overflow-y-auto whitespace-pre-wrap break-words font-mono">
-                                {formatInvoiceExtractedText(extractedText, doc.documentType)}
-                              </pre>
-                            ) : (
-                              <div className="text-center py-4 text-gray-400 text-sm">
-                                OCR natijasi topilmadi. Hujjat hali qayta ishlanmagan yoki matn o'qilmagan.
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
 
-            {/* AI Tekshiruv Natijalari Section - Temporarily hidden */}
-            {false && (
-              <div className="mt-6 border-t border-gray-200 pt-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">AI Tekshiruv Natijalari</h3>
-                  <button
-                    onClick={() => {
-                      if (selectedTask) {
-                        loadAiChecks(selectedTask.id);
-                      }
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                    title="Yangilash"
-                  >
-                    <Icon icon="lucide:refresh-cw" className="w-4 h-4" />
-                    Yangilash
-                  </button>
-                </div>
-                {loadingAiChecks ? (
-                  <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-                ) : !Array.isArray(aiChecks) || aiChecks.length === 0 ? (
-                  <div className="text-center py-4 text-gray-400">
-                    <p className="mb-2">AI tekshiruv natijalari yo'q</p>
-                    <p className="text-xs text-gray-500">
-                      Invoice va ST hujjatlarini yuklaganingizdan keyin AI tekshiruvi avtomatik bajariladi
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {aiChecks.map((check: any) => {
-                      // Parse details if it's a JSON string
-                      let details = check.details;
-                      if (typeof details === 'string') {
-                        try {
-                          details = JSON.parse(details);
-                        } catch (e) {
-                          console.error('Error parsing AI check details:', e, 'Raw details:', details);
-                          details = {};
-                        }
-                      }
-                      
-                      // Debug log
-                      console.log('[AI Check] Processing check:', {
-                        id: check.id,
-                        checkType: check.checkType,
-                        result: check.result,
-                        details: details,
-                        detailsType: typeof details,
-                      });
-                      
-                      // Handle new format: {status: "OK"|"ERROR"|"XATO", errors: []}
-                      // or legacy format: {findings: []}
-                      const errors = details?.errors || [];
-                      const status = details?.status || (check.result === 'PASS' ? 'OK' : 'ERROR');
-                      const isPass = status === 'OK' || check.result === 'PASS';
-                      
-                      // For backward compatibility with old format
-                      const legacyFindings = details?.findings || [];
-                      
-                      // Determine if there are errors (handle both new and legacy formats)
-                      const hasErrors = 
-                        status === 'ERROR' || 
-                        status === 'XATO' || 
-                        errors.length > 0 || 
-                        (legacyFindings.length > 0 && !isPass);
-                      
-                      console.log('[AI Check] Parsed result:', {
-                        status,
-                        isPass,
-                        hasErrors,
-                        errorsCount: errors.length,
-                        legacyFindingsCount: legacyFindings.length,
-                      });
-                      
-                      return (
-                        <div
-                          key={check.id}
-                          className={`p-4 rounded-lg border-2 ${
-                            isPass
-                              ? 'bg-green-50 border-green-200'
-                              : 'bg-red-50 border-red-200'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-lg font-semibold ${
-                                isPass ? 'text-green-700' : 'text-red-700'
-                              }`}>
-                                {isPass ? '✓' : '✗'}
-                              </span>
-                              <div>
-                                <div className={`font-semibold ${
-                                  isPass ? 'text-green-700' : 'text-red-700'
-                                }`}>
-                                  {check.checkType === 'INVOICE_ST' ? 'Invoice-ST Tekshiruvi' : check.checkType}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {new Date(check.createdAt).toLocaleString('uz-UZ', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </div>
-                              </div>
+                                // Yuklagan foydalanuvchi uchun: 2 kungacha o'chira oladi
+                                if (isOwner) {
+                                  if (diffInDays <= 2) {
+                                    // 2 kungacha o'chirish mumkin
+                                    return (
+                                      <button
+                                        onClick={() => handleDeleteDocument(doc.id)}
+                                        className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                        title="O'chirish"
+                                      >
+                                        <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                      </button>
+                                    );
+                                  } else {
+                                    // 2 kundan ko'p vaqt o'tgan, o'chirish mumkin emas
+                                    const daysPassed = Math.floor(diffInDays);
+                                    return (
+                                      <span
+                                        className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"
+                                        title="2 kundan keyin o'chirish mumkin emas"
+                                      >
+                                        O'chirish mumkin emas ({daysPassed} kun o'tdi)
+                                      </span>
+                                    );
+                                  }
+                                }
+
+                                return null;
+                              })()}
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              isPass
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {isPass ? 'TO\'G\'RI' : (status === 'XATO' ? 'XATO' : 'XATO')}
-                            </span>
                           </div>
-                          
-                          {hasErrors ? (
-                            <div className="mt-3 space-y-2">
-                              <div className="text-sm font-medium text-gray-700 mb-2">
-                                Topilgan muammolar ({errors.length || legacyFindings.length}):
+                          {isExpanded && hasOCR && (
+                            <div className="ml-4 mr-4 mb-2 p-4 bg-white rounded-lg border border-gray-300 shadow-sm">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-sm font-semibold text-gray-700">OCR Natijasi (O'qilgan matn)</h4>
+                                <button
+                                  onClick={() => {
+                                    if (extractedText) {
+                                      navigator.clipboard.writeText(extractedText);
+                                      alert('Matn nusxalandi!');
+                                    }
+                                  }}
+                                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                  title="Nusxalash"
+                                >
+                                  <Icon icon="lucide:copy" className="w-4 h-4" />
+                                  Nusxalash
+                                </button>
                               </div>
-                              {/* New format: errors array */}
-                              {errors.map((error: any, idx: number) => (
-                                <div
-                                  key={idx}
-                                  className="p-3 rounded bg-red-100 border border-red-300"
-                                >
-                                  <div className="font-medium text-sm mb-2 text-red-700">
-                                    🔴 {error.field || 'Noma\'lum maydon'}
-                                  </div>
-                                  {error.description && (
-                                    <div className="text-sm text-gray-700 mb-2">
-                                      {error.description}
-                                    </div>
-                                  )}
-                                  <div className="text-xs text-gray-600 space-y-1 mt-2 pt-2 border-t border-gray-300">
-                                    {error.invoice && (
-                                      <div>
-                                        <span className="font-medium">Invoice:</span>{' '}
-                                        <span className="font-mono bg-gray-100 px-1 rounded">
-                                          {error.invoice}
-                                        </span>
-                                      </div>
-                                    )}
-                                    {(error.st1 || error.st) && (
-                                      <div>
-                                        <span className="font-medium">ST:</span>{' '}
-                                        <span className="font-mono bg-gray-100 px-1 rounded">
-                                          {error.st1 || error.st}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
+                              {isLoadingText ? (
+                                <div className="text-center py-8 text-gray-500">
+                                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                  <p className="mt-2 text-sm">Matn yuklanmoqda...</p>
                                 </div>
-                              ))}
-                              {/* Legacy format: findings array (for backward compatibility) */}
-                              {legacyFindings.length > 0 && errors.length === 0 && legacyFindings.map((finding: any, idx: number) => (
-                                <div
-                                  key={idx}
-                                  className={`p-3 rounded ${
-                                    finding.severity === 'critical'
-                                      ? 'bg-red-100 border border-red-300'
-                                      : 'bg-yellow-100 border border-yellow-300'
-                                  }`}
-                                >
-                                  <div className="font-medium text-sm mb-2">
-                                    <span className={finding.severity === 'critical' ? 'text-red-700' : 'text-yellow-700'}>
-                                      {finding.severity === 'critical' ? '🔴 Kritik:' : '⚠️ Ogohlantirish:'}
-                                    </span>
-                                    <span className="ml-1 font-semibold">{finding.field || 'Noma\'lum maydon'}</span>
-                                  </div>
-                                  {finding.explanation && (
-                                    <div className="text-sm text-gray-700 mb-2">
-                                      {finding.explanation}
-                                    </div>
-                                  )}
-                                  <div className="text-xs text-gray-600 space-y-1 mt-2 pt-2 border-t border-gray-300">
-                                    {finding.invoice_value !== undefined && finding.invoice_value !== null && (
-                                      <div>
-                                        <span className="font-medium">Invoice:</span>{' '}
-                                        <span className="font-mono bg-gray-100 px-1 rounded">
-                                          {typeof finding.invoice_value === 'object' 
-                                            ? JSON.stringify(finding.invoice_value, null, 2)
-                                            : String(finding.invoice_value)}
-                                        </span>
-                                      </div>
-                                    )}
-                                    {finding.st_value !== undefined && finding.st_value !== null && (
-                                      <div>
-                                        <span className="font-medium">ST:</span>{' '}
-                                        <span className="font-mono bg-gray-100 px-1 rounded">
-                                          {typeof finding.st_value === 'object'
-                                            ? JSON.stringify(finding.st_value, null, 2)
-                                            : String(finding.st_value)}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
+                              ) : extractedText ? (
+                                <pre className="text-xs text-gray-800 bg-gray-50 p-3 rounded border border-gray-200 max-h-96 overflow-y-auto whitespace-pre-wrap break-words font-mono">
+                                  {formatInvoiceExtractedText(extractedText, doc.documentType)}
+                                </pre>
+                              ) : (
+                                <div className="text-center py-4 text-gray-400 text-sm">
+                                  OCR natijasi topilmadi. Hujjat hali qayta ishlanmagan yoki matn o'qilmagan.
                                 </div>
-                              ))}
+                              )}
                             </div>
-                          ) : (
-                            <div className={`text-sm mt-2 p-3 rounded ${
-                              isPass 
-                                ? 'bg-green-100 text-green-800 border border-green-200' 
-                                : 'bg-gray-100 text-gray-700 border border-gray-200'
-                            }`}>
-                              {isPass 
-                                ? '✅ Barcha ma\'lumotlar to\'g\'ri keladi. Xatolik topilmadi.'
-                                : 'ℹ️ AI tekshiruvi bajarildi, lekin batafsil natijalar mavjud emas.'}
-                            </div>
-                          )}
-                          
-                          {/* Show raw details if available for debugging */}
-                          {import.meta.env.MODE === 'development' && details && Object.keys(details).length > 0 && (
-                            <details className="mt-3 text-xs">
-                              <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
-                                Batafsil ma'lumot (debug)
-                              </summary>
-                              <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto max-h-40">
-                                {JSON.stringify(details, null, 2)}
-                              </pre>
-                            </details>
                           )}
                         </div>
                       );
@@ -3986,1297 +3806,1508 @@ const Tasks = () => {
                   </div>
                 )}
               </div>
-            )}
 
-            {/* Versions Section */}
-            <div className="mt-6 border-t border-gray-200 pt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">Versiyalar</h3>
-                <button
-                  onClick={() => {
-                    setShowVersions(!showVersions);
-                    if (!showVersions && selectedTask) {
-                      loadTaskVersions(selectedTask.id);
-                    }
-                  }}
-                  className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                >
-                  <Icon icon={showVersions ? "lucide:chevron-up" : "lucide:chevron-down"} className="w-4 h-4" />
-                  {showVersions ? 'Yashirish' : 'Ko\'rsatish'}
-                </button>
-              </div>
-              {showVersions && (
-                <div>
-                  {loadingVersions ? (
+              {/* AI Tekshiruv Natijalari Section - Temporarily hidden */}
+              {false && (
+                <div className="mt-6 border-t border-gray-200 pt-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">AI Tekshiruv Natijalari</h3>
+                    <button
+                      onClick={() => {
+                        if (selectedTask) {
+                          loadAiChecks(selectedTask.id);
+                        }
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      title="Yangilash"
+                    >
+                      <Icon icon="lucide:refresh-cw" className="w-4 h-4" />
+                      Yangilash
+                    </button>
+                  </div>
+                  {loadingAiChecks ? (
                     <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-                  ) : taskVersions.length === 0 ? (
-                    <div className="text-center py-4 text-gray-400">Versiyalar yo'q</div>
+                  ) : !Array.isArray(aiChecks) || aiChecks.length === 0 ? (
+                    <div className="text-center py-4 text-gray-400">
+                      <p className="mb-2">AI tekshiruv natijalari yo'q</p>
+                      <p className="text-xs text-gray-500">
+                        Invoice va ST hujjatlarini yuklaganingizdan keyin AI tekshiruvi avtomatik bajariladi
+                      </p>
+                    </div>
                   ) : (
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {taskVersions.map((version) => (
-                        <div
-                          key={version.id}
-                          className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200"
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="px-2 py-1 bg-blue-600 text-white text-xs font-semibold rounded">
-                                V{version.version}
+                    <div className="space-y-4">
+                      {aiChecks.map((check: any) => {
+                        // Parse details if it's a JSON string
+                        let details = check.details;
+                        if (typeof details === 'string') {
+                          try {
+                            details = JSON.parse(details);
+                          } catch (e) {
+                            console.error('Error parsing AI check details:', e, 'Raw details:', details);
+                            details = {};
+                          }
+                        }
+
+                        // Debug log
+                        console.log('[AI Check] Processing check:', {
+                          id: check.id,
+                          checkType: check.checkType,
+                          result: check.result,
+                          details: details,
+                          detailsType: typeof details,
+                        });
+
+                        // Handle new format: {status: "OK"|"ERROR"|"XATO", errors: []}
+                        // or legacy format: {findings: []}
+                        const errors = details?.errors || [];
+                        const status = details?.status || (check.result === 'PASS' ? 'OK' : 'ERROR');
+                        const isPass = status === 'OK' || check.result === 'PASS';
+
+                        // For backward compatibility with old format
+                        const legacyFindings = details?.findings || [];
+
+                        // Determine if there are errors (handle both new and legacy formats)
+                        const hasErrors =
+                          status === 'ERROR' ||
+                          status === 'XATO' ||
+                          errors.length > 0 ||
+                          (legacyFindings.length > 0 && !isPass);
+
+                        console.log('[AI Check] Parsed result:', {
+                          status,
+                          isPass,
+                          hasErrors,
+                          errorsCount: errors.length,
+                          legacyFindingsCount: legacyFindings.length,
+                        });
+
+                        return (
+                          <div
+                            key={check.id}
+                            className={`p-4 rounded-lg border-2 ${isPass
+                              ? 'bg-green-50 border-green-200'
+                              : 'bg-red-50 border-red-200'
+                              }`}
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-lg font-semibold ${isPass ? 'text-green-700' : 'text-red-700'
+                                  }`}>
+                                  {isPass ? '✓' : '✗'}
+                                </span>
+                                <div>
+                                  <div className={`font-semibold ${isPass ? 'text-green-700' : 'text-red-700'
+                                    }`}>
+                                    {check.checkType === 'INVOICE_ST' ? 'Invoice-ST Tekshiruvi' : check.checkType}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {new Date(check.createdAt).toLocaleString('uz-UZ', {
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${isPass
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                                }`}>
+                                {isPass ? 'TO\'G\'RI' : (status === 'XATO' ? 'XATO' : 'XATO')}
                               </span>
-                              <span className="text-sm font-medium text-gray-700">{version.title}</span>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {formatDate(version.createdAt)}
-                            </div>
-                          </div>
-                          <div className="text-xs text-gray-600 mb-2">
-                            <span className="font-medium">O'zgartirgan:</span> {version.changedByUser.name}
-                          </div>
-                          {version.changes && (
-                            <div className="mt-2 pt-2 border-t border-blue-200">
-                              <div className="text-xs text-gray-600">
-                                <span className="font-medium">O'zgarishlar:</span>
-                                {version.changes.changeType === 'STAGE' && version.changes.stage ? (
-                                  <div className="mt-1 bg-white p-2 rounded border border-blue-100">
-                                    <div className="font-medium text-blue-700 mb-1">Jarayon o'zgarishi:</div>
-                                    <div className="space-y-1">
-                                      <div><span className="font-medium">Jarayon:</span> {version.changes.stage.name}</div>
-                                      <div><span className="font-medium">Status:</span> {version.changes.stage.status === 'TAYYOR' ? 'Tugallandi' : 'Boshlanmagan'}</div>
-                                      {version.changes.stage.assignedTo && (
-                                        <div><span className="font-medium">Javobgar:</span> {version.changes.stage.assignedTo.name}</div>
+
+                            {hasErrors ? (
+                              <div className="mt-3 space-y-2">
+                                <div className="text-sm font-medium text-gray-700 mb-2">
+                                  Topilgan muammolar ({errors.length || legacyFindings.length}):
+                                </div>
+                                {/* New format: errors array */}
+                                {errors.map((error: any, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className="p-3 rounded bg-red-100 border border-red-300"
+                                  >
+                                    <div className="font-medium text-sm mb-2 text-red-700">
+                                      🔴 {error.field || 'Noma\'lum maydon'}
+                                    </div>
+                                    {error.description && (
+                                      <div className="text-sm text-gray-700 mb-2">
+                                        {error.description}
+                                      </div>
+                                    )}
+                                    <div className="text-xs text-gray-600 space-y-1 mt-2 pt-2 border-t border-gray-300">
+                                      {error.invoice && (
+                                        <div>
+                                          <span className="font-medium">Invoice:</span>{' '}
+                                          <span className="font-mono bg-gray-100 px-1 rounded">
+                                            {error.invoice}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {(error.st1 || error.st) && (
+                                        <div>
+                                          <span className="font-medium">ST:</span>{' '}
+                                          <span className="font-mono bg-gray-100 px-1 rounded">
+                                            {error.st1 || error.st}
+                                          </span>
+                                        </div>
                                       )}
                                     </div>
                                   </div>
-                                ) : (
-                                  <div className="mt-1 space-y-1">
-                                    {version.changes.title && (
-                                      <div><span className="font-medium">Title:</span> {version.changes.title}</div>
+                                ))}
+                                {/* Legacy format: findings array (for backward compatibility) */}
+                                {legacyFindings.length > 0 && errors.length === 0 && legacyFindings.map((finding: any, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className={`p-3 rounded ${finding.severity === 'critical'
+                                      ? 'bg-red-100 border border-red-300'
+                                      : 'bg-yellow-100 border border-yellow-300'
+                                      }`}
+                                  >
+                                    <div className="font-medium text-sm mb-2">
+                                      <span className={finding.severity === 'critical' ? 'text-red-700' : 'text-yellow-700'}>
+                                        {finding.severity === 'critical' ? '🔴 Kritik:' : '⚠️ Ogohlantirish:'}
+                                      </span>
+                                      <span className="ml-1 font-semibold">{finding.field || 'Noma\'lum maydon'}</span>
+                                    </div>
+                                    {finding.explanation && (
+                                      <div className="text-sm text-gray-700 mb-2">
+                                        {finding.explanation}
+                                      </div>
                                     )}
-                                    {version.changes.status && (
-                                      <div><span className="font-medium">Status:</span> {version.changes.status}</div>
-                                    )}
-                                    {version.changes.comments && (
-                                      <div><span className="font-medium">Comments:</span> {version.changes.comments}</div>
-                                    )}
-                                    {version.changes.hasPsr !== undefined && (
-                                      <div><span className="font-medium">PSR:</span> {version.changes.hasPsr ? 'Bor' : 'Yo\'q'}</div>
-                                    )}
-                                    {version.changes.driverPhone && (
-                                      <div><span className="font-medium">Driver Phone:</span> {version.changes.driverPhone}</div>
-                                    )}
-                                  </div>
-                                )}
-                                {version.changes.stages && Array.isArray(version.changes.stages) && (
-                                  <div className="mt-2 pt-2 border-t border-blue-100">
-                                    <div className="font-medium text-blue-700 mb-1">Barcha jarayonlar holati:</div>
-                                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                                      {version.changes.stages.map((s: any, idx: number) => (
-                                        <div key={idx} className="text-xs flex items-center gap-2">
-                                          <span className={`w-2 h-2 rounded-full ${
-                                            s.status === 'TAYYOR' ? 'bg-green-500' : 'bg-gray-300'
-                                          }`}></span>
-                                          <span>{s.name}</span>
-                                          {s.assignedTo && (
-                                            <span className="text-gray-500">({s.assignedTo.name})</span>
-                                          )}
+                                    <div className="text-xs text-gray-600 space-y-1 mt-2 pt-2 border-t border-gray-300">
+                                      {finding.invoice_value !== undefined && finding.invoice_value !== null && (
+                                        <div>
+                                          <span className="font-medium">Invoice:</span>{' '}
+                                          <span className="font-mono bg-gray-100 px-1 rounded">
+                                            {typeof finding.invoice_value === 'object'
+                                              ? JSON.stringify(finding.invoice_value, null, 2)
+                                              : String(finding.invoice_value)}
+                                          </span>
                                         </div>
-                                      ))}
+                                      )}
+                                      {finding.st_value !== undefined && finding.st_value !== null && (
+                                        <div>
+                                          <span className="font-medium">ST:</span>{' '}
+                                          <span className="font-mono bg-gray-100 px-1 rounded">
+                                            {typeof finding.st_value === 'object'
+                                              ? JSON.stringify(finding.st_value, null, 2)
+                                              : String(finding.st_value)}
+                                          </span>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
-                                )}
+                                ))}
                               </div>
-                            </div>
-                          )}
-                          <div className="mt-2 flex gap-2 text-xs">
-                            <span className={`px-2 py-1 rounded ${getStatusInfo(version.status).color}`}>
-                              {getStatusInfo(version.status).label}
-                            </span>
-                            {version.comments && (
-                              <span className="text-gray-500 truncate" title={version.comments}>
-                                {version.comments}
-                              </span>
+                            ) : (
+                              <div className={`text-sm mt-2 p-3 rounded ${isPass
+                                ? 'bg-green-100 text-green-800 border border-green-200'
+                                : 'bg-gray-100 text-gray-700 border border-gray-200'
+                                }`}>
+                                {isPass
+                                  ? '✅ Barcha ma\'lumotlar to\'g\'ri keladi. Xatolik topilmadi.'
+                                  : 'ℹ️ AI tekshiruvi bajarildi, lekin batafsil natijalar mavjud emas.'}
+                              </div>
+                            )}
+
+                            {/* Show raw details if available for debugging */}
+                            {import.meta.env.MODE === 'development' && details && Object.keys(details).length > 0 && (
+                              <details className="mt-3 text-xs">
+                                <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+                                  Batafsil ma'lumot (debug)
+                                </summary>
+                                <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto max-h-40">
+                                  {JSON.stringify(details, null, 2)}
+                                </pre>
+                              </details>
                             )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
               )}
-            </div>
 
-            {/* BXM Multiplier Modal */}
-            {showBXMModal && selectedStageForReminder && (
-              <div 
-                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] backdrop-blur-sm"
-                style={{
-                  animation: 'backdropFadeIn 0.3s ease-out'
-                }}
-                onClick={(e) => {
-                  if (e.target === e.currentTarget) {
-                    setShowBXMModal(false);
-                    setAfterHoursDeclaration(false);
-                    setSelectedStageForReminder(null);
-                  }
-                }}
-              >
-                <div 
-                  className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
-                  style={{
-                    animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                  }}
-                >
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Deklaratsiya To'lovi</h3>
-                  <div className="mb-4">
-                    <select
-                      value={bxmMultiplier}
-                      onChange={(e) => setBxmMultiplier(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    >
-                      <option value="1">BXM 1 barobari ({formatBxmAmountInSum(1)})</option>
-                      <option value="1.5">BXM 1.5 barobari ({formatBxmAmountInSum(1.5)})</option>
-                      <option value="2.5">BXM 2.5 barobari ({formatBxmAmountInSum(2.5)})</option>
-                      <option value="4">BXM 4 barobari ({formatBxmAmountInSum(4)})</option>
-                    </select>
-                  </div>
-                  <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={afterHoursDeclaration}
-                      onChange={(e) => setAfterHoursDeclaration(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    Ish vaqtidan tashqari rasmiylashtiruv
-                  </label>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleBXMConfirm}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                    >
-                      Tasdiqlash
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowBXMModal(false);
-                        setAfterHoursDeclaration(false);
-                        setSelectedStageForReminder(null);
-                      }}
-                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                    >
-                      Bekor qilish
-                    </button>
-                  </div>
+              {/* Versions Section */}
+              <div className="mt-6 border-t border-gray-200 pt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">Versiyalar</h3>
+                  <button
+                    onClick={() => {
+                      setShowVersions(!showVersions);
+                      if (!showVersions && selectedTask) {
+                        loadTaskVersions(selectedTask.id);
+                      }
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                  >
+                    <Icon icon={showVersions ? "lucide:chevron-up" : "lucide:chevron-down"} className="w-4 h-4" />
+                    {showVersions ? 'Yashirish' : 'Ko\'rsatish'}
+                  </button>
                 </div>
-              </div>
-            )}
-
-            {/* Umumiy file upload modali (Invoice, ST, Fito uchun) */}
-            {showFileUploadModal && selectedTask && fileUploadStageName && (
-              <div 
-                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] backdrop-blur-sm"
-                style={{
-                  animation: 'fadeIn 0.2s ease-out'
-                }}
-                onClick={(e) => {
-                  if (e.target === e.currentTarget && !aiCheckResult) {
-                    setShowFileUploadModal(false);
-                    setFileUploadFile(null);
-                    setFileUploadName('');
-                    setFileUploadStageName('');
-                    setAiCheckResult(null);
-                  }
-                }}
-              >
-                <div
-                  className={`bg-white rounded-lg shadow-2xl p-6 w-full mx-4 ${
-                    fileUploadStageName === 'ST' && aiCheckResult 
-                      ? 'max-w-2xl max-h-[90vh] overflow-y-auto' 
-                      : 'max-w-md'
-                  }`}
-                  style={{
-                    animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                  }}
-                >
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                    {fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName === 'Sertifikat olib chiqish' ? fileUploadName : fileUploadStageName} PDF/JPG yuklash
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    {fileUploadStageName === 'Sertifikat olib chiqish' ? 'Sertifikat olib chiqish' : fileUploadStageName} stage'ini tayyor qilish uchun hujjat yuklanishi shart.
-                    {(fileUploadStageName === 'ST' || (fileUploadStageName === 'Sertifikat olib chiqish' && fileUploadName === 'ST')) && <span> Yuklangandan keyin AI tekshiruvdan o'tkaziladi.</span>}
-                  </p>
-                  
-                  {!aiCheckResult ? (
-                    <>
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {fileUploadStageName === 'Sertifikat olib chiqish' ? 'Sertifikat turi' : 'Hujjat nomi'}
-                        </label>
-                        {fileUploadStageName === 'Sertifikat olib chiqish' ? (
-                          <select
-                            value={fileUploadName}
-                            onChange={(e) => setFileUploadName(e.target.value)}
-                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                {showVersions && (
+                  <div>
+                    {loadingVersions ? (
+                      <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+                    ) : taskVersions.length === 0 ? (
+                      <div className="text-center py-4 text-gray-400">Versiyalar yo'q</div>
+                    ) : (
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {taskVersions.map((version) => (
+                          <div
+                            key={version.id}
+                            className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200"
                           >
-                            <option value="ST">ST</option>
-                            <option value="Fito">Fito</option>
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            value={fileUploadName}
-                            onChange={(e) => setFileUploadName(e.target.value)}
-                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                            placeholder={fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName}
-                          />
-                        )}
-                      </div>
-
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          PDF yoki JPG fayl
-                        </label>
-                        <input
-                          type="file"
-                          accept=".pdf,application/pdf,.jpg,.jpeg,image/jpeg,image/jpg"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              // Fayl nomi va MIME type'ni tekshiramiz
-                              const fileName = file.name.toLowerCase();
-                              const fileType = file.type.toLowerCase();
-                              const validExtensions = ['.pdf', '.jpg', '.jpeg'];
-                              const validMimeTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/pjpeg'];
-                              
-                              const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
-                              const hasValidMimeType = validMimeTypes.includes(fileType) || fileType === '';
-                              
-                              if (!hasValidExtension && !hasValidMimeType) {
-                                alert('Faqat PDF va JPG fayllar qabul qilinadi');
-                                e.target.value = ''; // Input'ni tozalaymiz
-                                return;
-                              }
-                              
-                              setFileUploadFile(file);
-                              // Auto-fill file name if empty or default
-                              const defaultName = fileUploadStageName === 'Invoys' 
-                                ? 'Invoice' 
-                                : fileUploadStageName === 'Sertifikat olib chiqish'
-                                  ? fileUploadName || 'ST'
-                                  : fileUploadStageName;
-                              // Pochtaga yuborishda yuklangan fayl nomi saqlansin: to'liq asl fayl nomini (kengaytma bilan) yuboramiz
-                              if (!fileUploadName || fileUploadName === fileUploadStageName || fileUploadName === defaultName) {
-                                setFileUploadName(file.name);
-                              }
-                            }
-                          }}
-                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                        />
-                        {fileUploadFile && (
-                          <p className="mt-2 text-sm text-gray-600">
-                            Tanlangan: {fileUploadFile.name}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col gap-3">
-                        <div className="flex gap-3">
-                          <button
-                            onClick={handleFileUpload}
-                            disabled={!fileUploadFile || uploadingFile}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {uploadingFile ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setShowFileUploadModal(false);
-                              setFileUploadFile(null);
-                              setFileUploadName('');
-                              setFileUploadStageName('');
-                              setSelectedStageForReminder(null);
-                              setAiCheckResult(null);
-                            }}
-                            className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                          >
-                            Bekor qilish
-                          </button>
-                        </div>
-                        {selectedStageForReminder && (
-                          <button
-                            onClick={async () => {
-                              try {
-                                if (selectedStageForReminder) {
-                                  await updateStageToReady(selectedStageForReminder, undefined, true);
-                                }
-                                setShowFileUploadModal(false);
-                                setFileUploadFile(null);
-                                setFileUploadName('');
-                                setFileUploadStageName('');
-                              } catch (error) {
-                                console.error('Error skipping validation:', error);
-                              }
-                            }}
-                            className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
-                          >
-                            O'tkazib yuborish va tayyor qilish
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <div>
-                      <div className={`mb-4 p-4 rounded-lg ${
-                        aiCheckResult.result === 'PASS' 
-                          ? 'bg-green-50 border-2 border-green-200' 
-                          : 'bg-red-50 border-2 border-red-200'
-                      }`}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`text-lg font-semibold ${
-                            aiCheckResult.result === 'PASS' ? 'text-green-700' : 'text-red-700'
-                          }`}>
-                            {aiCheckResult.result === 'PASS' ? '✓' : '✗'}
-                          </span>
-                          <h4 className={`text-lg font-semibold ${
-                            aiCheckResult.result === 'PASS' ? 'text-green-700' : 'text-red-700'
-                          }`}>
-                            AI Tekshiruv Natijasi: {aiCheckResult.result === 'PASS' ? 'TO\'G\'RI' : 'XATO'}
-                          </h4>
-                        </div>
-                        {aiCheckResult.findings.length > 0 && (
-                          <div className="mt-3 space-y-2">
-                            {aiCheckResult.findings.map((finding, idx) => (
-                              <div 
-                                key={idx}
-                                className={`p-3 rounded ${
-                                  finding.severity === 'critical' 
-                                    ? 'bg-red-100 border border-red-300' 
-                                    : 'bg-yellow-100 border border-yellow-300'
-                                }`}
-                              >
-                                <div className="font-medium text-sm mb-1">
-                                  {finding.severity === 'critical' ? '🔴 Kritik:' : '⚠️ Ogohlantirish:'} {finding.field}
-                                </div>
-                                <div className="text-xs text-gray-700">
-                                  {finding.explanation}
-                                </div>
-                                <div className="text-xs text-gray-600 mt-1">
-                                  Invoice: {JSON.stringify(finding.invoice_value)} | ST: {JSON.stringify(finding.st_value)}
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-1 bg-blue-600 text-white text-xs font-semibold rounded">
+                                  V{version.version}
+                                </span>
+                                <span className="text-sm font-medium text-gray-700">{version.title}</span>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {formatDate(version.createdAt)}
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-600 mb-2">
+                              <span className="font-medium">O'zgartirgan:</span> {version.changedByUser.name}
+                            </div>
+                            {version.changes && (
+                              <div className="mt-2 pt-2 border-t border-blue-200">
+                                <div className="text-xs text-gray-600">
+                                  <span className="font-medium">O'zgarishlar:</span>
+                                  {version.changes.changeType === 'STAGE' && version.changes.stage ? (
+                                    <div className="mt-1 bg-white p-2 rounded border border-blue-100">
+                                      <div className="font-medium text-blue-700 mb-1">Jarayon o'zgarishi:</div>
+                                      <div className="space-y-1">
+                                        <div><span className="font-medium">Jarayon:</span> {version.changes.stage.name}</div>
+                                        <div><span className="font-medium">Status:</span> {version.changes.stage.status === 'TAYYOR' ? 'Tugallandi' : 'Boshlanmagan'}</div>
+                                        {version.changes.stage.assignedTo && (
+                                          <div><span className="font-medium">Javobgar:</span> {version.changes.stage.assignedTo.name}</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-1 space-y-1">
+                                      {version.changes.title && (
+                                        <div><span className="font-medium">Title:</span> {version.changes.title}</div>
+                                      )}
+                                      {version.changes.status && (
+                                        <div><span className="font-medium">Status:</span> {version.changes.status}</div>
+                                      )}
+                                      {version.changes.comments && (
+                                        <div><span className="font-medium">Comments:</span> {version.changes.comments}</div>
+                                      )}
+                                      {version.changes.hasPsr !== undefined && (
+                                        <div><span className="font-medium">PSR:</span> {version.changes.hasPsr ? 'Bor' : 'Yo\'q'}</div>
+                                      )}
+                                      {version.changes.driverPhone && (
+                                        <div><span className="font-medium">Driver Phone:</span> {version.changes.driverPhone}</div>
+                                      )}
+                                    </div>
+                                  )}
+                                  {version.changes.stages && Array.isArray(version.changes.stages) && (
+                                    <div className="mt-2 pt-2 border-t border-blue-100">
+                                      <div className="font-medium text-blue-700 mb-1">Barcha jarayonlar holati:</div>
+                                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                                        {version.changes.stages.map((s: any, idx: number) => (
+                                          <div key={idx} className="text-xs flex items-center gap-2">
+                                            <span className={`w-2 h-2 rounded-full ${s.status === 'TAYYOR' ? 'bg-green-500' : 'bg-gray-300'
+                                              }`}></span>
+                                            <span>{s.name}</span>
+                                            {s.assignedTo && (
+                                              <span className="text-gray-500">({s.assignedTo.name})</span>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                            ))}
+                            )}
+                            <div className="mt-2 flex gap-2 text-xs">
+                              <span className={`px-2 py-1 rounded ${getStatusInfo(version.status).color}`}>
+                                {getStatusInfo(version.status).label}
+                              </span>
+                              {version.comments && (
+                                <span className="text-gray-500 truncate" title={version.comments}>
+                                  {version.comments}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        )}
-                        {aiCheckResult.findings.length === 0 && (
-                          <p className="text-sm text-green-700">
-                            Barcha ma'lumotlar to'g'ri keladi. Xatolik topilmadi.
-                          </p>
-                        )}
+                        ))}
                       </div>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={async () => {
-                            setShowFileUploadModal(false);
-                            setFileUploadFile(null);
-                            setFileUploadName('');
-                            setFileUploadStageName('');
-                            setAiCheckResult(null);
-                            if (selectedStageForReminder) {
-                              await updateStageToReady(selectedStageForReminder);
-                            } else {
-                              await loadTaskDetail(selectedTask.id);
-                              await loadTaskDocuments(selectedTask.id);
-                            }
-                          }}
-                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                        >
-                          Yopish
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-
-          </div>
-        </div>
-      )}
-
-      {/* Send Documents by Email Modal */}
-      {showSendEmailModal && selectedTask && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] backdrop-blur-sm"
-          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !sendingEmail) {
-              setShowSendEmailModal(false);
-              setSendEmailError(null);
-            }
-          }}
-        >
-          <div
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
-            style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-          >
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Send Documents by Email</h3>
-            <form onSubmit={handleSendTaskEmail} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Subject <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={sendEmailForm.subject}
-                  onChange={(e) => setSendEmailForm((f) => ({ ...f, subject: e.target.value }))}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                  placeholder="Email subject"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Message (optional)</label>
-                <textarea
-                  value={sendEmailForm.body}
-                  onChange={(e) => setSendEmailForm((f) => ({ ...f, body: e.target.value }))}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none"
-                  placeholder="Message body"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Recipients <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={sendEmailForm.recipients}
-                  onChange={(e) => setSendEmailForm((f) => ({ ...f, recipients: e.target.value }))}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                  placeholder="email1@example.com, email2@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">CC (optional)</label>
-                <input
-                  type="text"
-                  value={sendEmailForm.cc}
-                  onChange={(e) => setSendEmailForm((f) => ({ ...f, cc: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                  placeholder="cc@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ilova qilinadigan fayllar</label>
-                <ul className="mt-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700 list-disc list-inside">
-                  {taskDocuments.length > 0 ? (
-                    taskDocuments.map((doc: { id: number; name?: string }) => (
-                      <li key={doc.id}>{doc.name || `Hujjat #${doc.id}`}</li>
-                    ))
-                  ) : (
-                    <li className="list-none text-gray-500">Hujjatlar yo&apos;q</li>
-                  )}
-                </ul>
-              </div>
-              {sendEmailError && (
-                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-                  {sendEmailError}
-                </div>
-              )}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="submit"
-                  disabled={sendingEmail}
-                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {sendingEmail ? 'Sending...' : 'Send'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSendEmailModal(false);
-                    setSendEmailError(null);
-                  }}
-                  disabled={sendingEmail}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal for Edit Task */}
-      {showEditTaskForm && selectedTask && (
-        <div 
-          className={isMobile && editTaskId
-            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
-            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
-          style={isMobile && editTaskId ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              if (isMobile && editTaskId) {
-                navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
-              } else {
-                setShowEditModal(false);
-              }
-            }
-          }}
-        >
-          <div 
-            className={isMobile && editTaskId
-              ? 'bg-white w-full h-full px-6 py-6 overflow-y-auto'
-              : 'bg-white rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto'}
-            style={isMobile && editTaskId ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Taskni tahrirlash</h2>
-              <button
-                onClick={() => {
-                  if (isMobile && editTaskId) {
-                    navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
-                  } else {
-                    setShowEditModal(false);
-                  }
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
-              >
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleEditSubmit}>
-              <div className="space-y-3">
-                {/* 1. Task name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
-                    Task name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.title}
-                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
-                    placeholder="Type here"
-                  />
-                </div>
-
-                {/* 2. Mijoz */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:user" className="w-4 h-4 text-blue-600" />
-                    Mijoz <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={editForm.clientId}
-                    onChange={(e) => setEditForm({ ...editForm, clientId: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 pr-10 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none appearance-none bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.5rem_center] bg-[length:12px_12px] text-sm"
-                  >
-                    <option value="">Tanlang...</option>
-                    {Array.isArray(clients) && clients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 3. Filial - Button style */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
-                    Filial <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.isArray(branches) && branches.length > 0 ? (
-                      branches.map((branch) => (
-                        <button
-                          key={branch.id}
-                          type="button"
-                          onClick={() => {
-                            setEditForm({ ...editForm, branchId: branch.id.toString() });
-                          }}
-                          className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                            editForm.branchId === branch.id.toString()
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                          }`}
-                        >
-                          {branch.name}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="text-sm text-gray-500 py-2">Filiallar yuklanmoqda...</div>
                     )}
-                  </div>
-                </div>
-
-                {/* 4. PSR - Button style */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
-                    PSR <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditForm({ ...editForm, hasPsr: true })}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        editForm.hasPsr === true
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                      }`}
-                    >
-                      Bor
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditForm({ ...editForm, hasPsr: false })}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        editForm.hasPsr === false
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                      }`}
-                    >
-                      Yo'q
-                    </button>
-                  </div>
-                </div>
-
-                {/* 5. Qo'shimcha to'lov kelishuvi */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:handshake" className="w-4 h-4 text-blue-600" />
-                    Qo'shimcha to'lov kelishuvi
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'CLIENT' })}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        editForm.afterHoursPayer === 'CLIENT'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                      }`}
-                    >
-                      Mijoz to'laydi
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'COMPANY' })}
-                      className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                        editForm.afterHoursPayer === 'COMPANY'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                      }`}
-                    >
-                      Men to'layman
-                    </button>
-                  </div>
-                </div>
-
-                {/* 6. Sho'pir telefon raqami */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
-                    Sho'pir tel raqami
-                  </label>
-                  <input
-                    type="tel"
-                    value={editForm.driverPhone}
-                    onChange={(e) => setEditForm({ ...editForm, driverPhone: e.target.value })}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
-                    placeholder="+998901234567"
-                  />
-                </div>
-
-                {/* 7. Comments */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
-                    Comments
-                  </label>
-                  <textarea
-                    value={editForm.comments}
-                    onChange={(e) => setEditForm({ ...editForm, comments: e.target.value })}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm resize-none"
-                    rows={4}
-                    placeholder="Type here"
-                  />
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-                >
-                  Saqlash
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
-                >
-                  Bekor
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Document Upload Modal */}
-      {showDocumentUpload && selectedTask && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowDocumentUpload(false);
-            }
-          }}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {selectedStageForReminder && selectedStageForReminder.name === 'Pochta' 
-                  ? 'Pochta jarayoni uchun hujjatlar yuklash' 
-                  : 'Hujjat yuklash (bir nechta fayl)'}
-              </h2>
-              <button
-                onClick={() => {
-                  setShowDocumentUpload(false);
-                  setUploadFiles([]);
-                  setDocumentNames([]);
-                  setDocumentDescriptions([]);
-                  if (selectedStageForReminder && selectedStageForReminder.name === 'Pochta') {
-                    setSelectedStageForReminder(null);
-                  }
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-              >
-                ×
-              </button>
-            </div>
-            {selectedStageForReminder && selectedStageForReminder.name === 'Pochta' && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Eslatma:</strong> Pochta jarayonini tayyor qilish uchun hujjatlarni yuklang. 
-                  Hujjatlar yuklangandan keyin Pochta jarayoni avtomatik tayyor bo'ladi.
-                </p>
-              </div>
-            )}
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                // Validation - fayllar mavjudligini tekshiramiz
-                if (uploadFiles.length === 0) {
-                  alert('Kamida bitta faylni tanlang');
-                  return;
-                }
-                handleDocumentUpload();
-              }}
-              className="space-y-4"
-              noValidate
-            >
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fayllar (bir nechta tanlash mumkin)
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileSelect}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {uploadFiles.length > 0 && (
-                  <div className="mt-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                      {uploadFiles.map((file, index) => (
-                        <div key={index} className="relative flex flex-col items-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
-                          <button
-                            onClick={() => {
-                              const newFiles = uploadFiles.filter((_, i) => i !== index);
-                              const newNames = documentNames.filter((_, i) => i !== index);
-                              const newDescriptions = documentDescriptions.filter((_, i) => i !== index);
-                              setUploadFiles(newFiles);
-                              setDocumentNames(newNames);
-                              setDocumentDescriptions(newDescriptions);
-                            }}
-                            className="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 z-10"
-                            title="O&#39;chirish"
-                          >
-                            <Icon icon="lucide:x" className="w-3.5 h-3.5" />
-                          </button>
-                          <div className="flex-shrink-0 mb-2">
-                            {getFileIcon(file.type || '', file.name)}
-                          </div>
-                          <div className="text-center w-full">
-                            <p className="text-xs font-medium text-gray-700 truncate px-1" title={file.name}>
-                              {file.name}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">{formatFileSize(file.size)}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
+              {/* BXM Multiplier Modal */}
+              {showBXMModal && selectedStageForReminder && (
+                <div
+                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] backdrop-blur-sm"
+                  style={{
+                    animation: 'backdropFadeIn 0.3s ease-out'
+                  }}
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) {
+                      setShowBXMModal(false);
+                      setAfterHoursDeclaration(false);
+                      setSelectedStageForReminder(null);
+                    }
+                  }}
                 >
-                  Yuklash ({uploadFiles.length} fayl)
-                </button>
+                  <div
+                    className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+                    style={{
+                      animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                    }}
+                  >
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Deklaratsiya To'lovi</h3>
+                    <div className="mb-4">
+                      <select
+                        value={bxmMultiplier}
+                        onChange={(e) => setBxmMultiplier(e.target.value)}
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      >
+                        <option value="1">BXM 1 barobari ({formatBxmAmountInSum(1)})</option>
+                        <option value="1.5">BXM 1.5 barobari ({formatBxmAmountInSum(1.5)})</option>
+                        <option value="2.5">BXM 2.5 barobari ({formatBxmAmountInSum(2.5)})</option>
+                        <option value="4">BXM 4 barobari ({formatBxmAmountInSum(4)})</option>
+                      </select>
+                    </div>
+                    <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={afterHoursDeclaration}
+                        onChange={(e) => setAfterHoursDeclaration(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Ish vaqtidan tashqari rasmiylashtiruv
+                    </label>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleBXMConfirm}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        Tasdiqlash
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowBXMModal(false);
+                          setAfterHoursDeclaration(false);
+                          setSelectedStageForReminder(null);
+                        }}
+                        className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                      >
+                        Bekor qilish
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Umumiy file upload modali (Invoice, ST, Fito uchun) */}
+              {showFileUploadModal && selectedTask && fileUploadStageName && (
+                <div
+                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] backdrop-blur-sm"
+                  style={{
+                    animation: 'fadeIn 0.2s ease-out'
+                  }}
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget && !aiCheckResult) {
+                      setShowFileUploadModal(false);
+                      setFileUploadFile(null);
+                      setFileUploadName('');
+                      setFileUploadStageName('');
+                      setAiCheckResult(null);
+                    }
+                  }}
+                >
+                  <div
+                    className={`bg-white rounded-lg shadow-2xl p-6 w-full mx-4 ${fileUploadStageName === 'ST' && aiCheckResult
+                      ? 'max-w-2xl max-h-[90vh] overflow-y-auto'
+                      : 'max-w-md'
+                      }`}
+                    style={{
+                      animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                    }}
+                  >
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                      {fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName === 'Sertifikat olib chiqish' ? fileUploadName : fileUploadStageName} PDF/JPG yuklash
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      {fileUploadStageName === 'Sertifikat olib chiqish' ? 'Sertifikat olib chiqish' : fileUploadStageName} stage'ini tayyor qilish uchun hujjat yuklanishi shart.
+                      {(fileUploadStageName === 'ST' || (fileUploadStageName === 'Sertifikat olib chiqish' && fileUploadName === 'ST')) && <span> Yuklangandan keyin AI tekshiruvdan o'tkaziladi.</span>}
+                    </p>
+
+                    {!aiCheckResult ? (
+                      <>
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {fileUploadStageName === 'Sertifikat olib chiqish' ? 'Sertifikat turi' : 'Hujjat nomi'}
+                          </label>
+                          {fileUploadStageName === 'Sertifikat olib chiqish' ? (
+                            <select
+                              value={fileUploadName}
+                              onChange={(e) => setFileUploadName(e.target.value)}
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                            >
+                              <option value="ST">ST</option>
+                              <option value="Fito">Fito</option>
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              value={fileUploadName}
+                              onChange={(e) => setFileUploadName(e.target.value)}
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                              placeholder={fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName}
+                            />
+                          )}
+                        </div>
+
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            PDF yoki JPG fayl
+                          </label>
+                          <input
+                            type="file"
+                            accept=".pdf,application/pdf,.jpg,.jpeg,image/jpeg,image/jpg"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                // Fayl nomi va MIME type'ni tekshiramiz
+                                const fileName = file.name.toLowerCase();
+                                const fileType = file.type.toLowerCase();
+                                const validExtensions = ['.pdf', '.jpg', '.jpeg'];
+                                const validMimeTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/pjpeg'];
+
+                                const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+                                const hasValidMimeType = validMimeTypes.includes(fileType) || fileType === '';
+
+                                if (!hasValidExtension && !hasValidMimeType) {
+                                  alert('Faqat PDF va JPG fayllar qabul qilinadi');
+                                  e.target.value = ''; // Input'ni tozalaymiz
+                                  return;
+                                }
+
+                                setFileUploadFile(file);
+                                // Auto-fill file name if empty or default
+                                const defaultName = fileUploadStageName === 'Invoys'
+                                  ? 'Invoice'
+                                  : fileUploadStageName === 'Sertifikat olib chiqish'
+                                    ? fileUploadName || 'ST'
+                                    : fileUploadStageName;
+                                // Pochtaga yuborishda yuklangan fayl nomi saqlansin: to'liq asl fayl nomini (kengaytma bilan) yuboramiz
+                                if (!fileUploadName || fileUploadName === fileUploadStageName || fileUploadName === defaultName) {
+                                  setFileUploadName(file.name);
+                                }
+                              }
+                            }}
+                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          {fileUploadFile && (
+                            <p className="mt-2 text-sm text-gray-600">
+                              Tanlangan: {fileUploadFile.name}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                          <div className="flex gap-3">
+                            <button
+                              onClick={handleFileUpload}
+                              disabled={!fileUploadFile || uploadingFile}
+                              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {uploadingFile ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowFileUploadModal(false);
+                                setFileUploadFile(null);
+                                setFileUploadName('');
+                                setFileUploadStageName('');
+                                setSelectedStageForReminder(null);
+                                setAiCheckResult(null);
+                              }}
+                              className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                            >
+                              Bekor qilish
+                            </button>
+                          </div>
+                          {selectedStageForReminder && (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  if (selectedStageForReminder) {
+                                    await updateStageToReady(selectedStageForReminder, undefined, true);
+                                  }
+                                  setShowFileUploadModal(false);
+                                  setFileUploadFile(null);
+                                  setFileUploadName('');
+                                  setFileUploadStageName('');
+                                } catch (error) {
+                                  console.error('Error skipping validation:', error);
+                                }
+                              }}
+                              className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                            >
+                              O'tkazib yuborish va tayyor qilish
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <div className={`mb-4 p-4 rounded-lg ${aiCheckResult.result === 'PASS'
+                          ? 'bg-green-50 border-2 border-green-200'
+                          : 'bg-red-50 border-2 border-red-200'
+                          }`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`text-lg font-semibold ${aiCheckResult.result === 'PASS' ? 'text-green-700' : 'text-red-700'
+                              }`}>
+                              {aiCheckResult.result === 'PASS' ? '✓' : '✗'}
+                            </span>
+                            <h4 className={`text-lg font-semibold ${aiCheckResult.result === 'PASS' ? 'text-green-700' : 'text-red-700'
+                              }`}>
+                              AI Tekshiruv Natijasi: {aiCheckResult.result === 'PASS' ? 'TO\'G\'RI' : 'XATO'}
+                            </h4>
+                          </div>
+                          {aiCheckResult.findings.length > 0 && (
+                            <div className="mt-3 space-y-2">
+                              {aiCheckResult.findings.map((finding, idx) => (
+                                <div
+                                  key={idx}
+                                  className={`p-3 rounded ${finding.severity === 'critical'
+                                    ? 'bg-red-100 border border-red-300'
+                                    : 'bg-yellow-100 border border-yellow-300'
+                                    }`}
+                                >
+                                  <div className="font-medium text-sm mb-1">
+                                    {finding.severity === 'critical' ? '🔴 Kritik:' : '⚠️ Ogohlantirish:'} {finding.field}
+                                  </div>
+                                  <div className="text-xs text-gray-700">
+                                    {finding.explanation}
+                                  </div>
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    Invoice: {JSON.stringify(finding.invoice_value)} | ST: {JSON.stringify(finding.st_value)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {aiCheckResult.findings.length === 0 && (
+                            <p className="text-sm text-green-700">
+                              Barcha ma'lumotlar to'g'ri keladi. Xatolik topilmadi.
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={async () => {
+                              setShowFileUploadModal(false);
+                              setFileUploadFile(null);
+                              setFileUploadName('');
+                              setFileUploadStageName('');
+                              setAiCheckResult(null);
+                              if (selectedStageForReminder) {
+                                await updateStageToReady(selectedStageForReminder);
+                              } else {
+                                await loadTaskDetail(selectedTask.id);
+                                await loadTaskDocuments(selectedTask.id);
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                          >
+                            Yopish
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+
+            </div>
+          </div>
+        )}
+
+        {/* Send Documents by Email Modal */}
+        {showSendEmailModal && selectedTask && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm"
+            style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !sendingEmail) {
+                setShowSendEmailModal(false);
+                setSendEmailError(null);
+              }
+            }}
+          >
+            <div
+              className="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
+              style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+            >
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Send Documents by Email</h3>
+              <form onSubmit={handleSendTaskEmail} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Subject <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={sendEmailForm.subject}
+                    onChange={(e) => setSendEmailForm((f) => ({ ...f, subject: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="Email subject"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Message (optional)</label>
+                  <textarea
+                    value={sendEmailForm.body}
+                    onChange={(e) => setSendEmailForm((f) => ({ ...f, body: e.target.value }))}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none"
+                    placeholder="Message body"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Recipients <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={sendEmailForm.recipients}
+                    onChange={(e) => setSendEmailForm((f) => ({ ...f, recipients: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="email1@example.com, email2@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CC (optional)</label>
+                  <input
+                    type="text"
+                    value={sendEmailForm.cc}
+                    onChange={(e) => setSendEmailForm((f) => ({ ...f, cc: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="cc@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ilova qilinadigan fayllar</label>
+                  <ul className="mt-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700 list-disc list-inside">
+                    {taskDocuments.length > 0 ? (
+                      taskDocuments.map((doc: { id: number; name?: string }) => (
+                        <li key={doc.id}>{doc.name || `Hujjat #${doc.id}`}</li>
+                      ))
+                    ) : (
+                      <li className="list-none text-gray-500">Hujjatlar yo&apos;q</li>
+                    )}
+                  </ul>
+                </div>
+                {sendEmailError && (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                    {sendEmailError}
+                  </div>
+                )}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={sendingEmail}
+                    className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {sendingEmail ? 'Sending...' : 'Send'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSendEmailModal(false);
+                      setSendEmailError(null);
+                    }}
+                    disabled={sendingEmail}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal for Edit Task */}
+        {showEditTaskForm && selectedTask && (
+          <div
+            className={isMobile && editTaskId
+              ? 'fixed inset-0 bg-white flex items-start justify-center z-[110]'
+              : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm'}
+            style={isMobile && editTaskId ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                if (isMobile && editTaskId) {
+                  navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
+                } else {
+                  setShowEditModal(false);
+                }
+              }
+            }}
+          >
+            <div
+              className={isMobile && editTaskId
+                ? 'bg-white w-full h-full px-6 py-6 overflow-y-auto'
+                : 'bg-white rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto'}
+              style={isMobile && editTaskId ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">Taskni tahrirlash</h2>
                 <button
-                  type="button"
+                  onClick={() => {
+                    if (isMobile && editTaskId) {
+                      navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
+                    } else {
+                      setShowEditModal(false);
+                    }
+                  }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
+                >
+                  ×
+                </button>
+              </div>
+              <form onSubmit={handleEditSubmit}>
+                <div className="space-y-3">
+                  {/* 1. Task name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
+                      Task name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.title}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
+                      placeholder="Type here"
+                    />
+                  </div>
+
+                  {/* 2. Mijoz */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:user" className="w-4 h-4 text-blue-600" />
+                      Mijoz <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={editForm.clientId}
+                      onChange={(e) => setEditForm({ ...editForm, clientId: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 pr-10 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none appearance-none bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.5rem_center] bg-[length:12px_12px] text-sm"
+                    >
+                      <option value="">Tanlang...</option>
+                      {Array.isArray(clients) && clients.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 3. Filial - Button style */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
+                      Filial <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.isArray(branches) && branches.length > 0 ? (
+                        branches.map((branch) => (
+                          <button
+                            key={branch.id}
+                            type="button"
+                            onClick={() => {
+                              setEditForm({ ...editForm, branchId: branch.id.toString() });
+                            }}
+                            className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.branchId === branch.id.toString()
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                              }`}
+                          >
+                            {branch.name}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="text-sm text-gray-500 py-2">Filiallar yuklanmoqda...</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 4. PSR - Button style */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
+                      PSR <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, hasPsr: true })}
+                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.hasPsr === true
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          }`}
+                      >
+                        Bor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, hasPsr: false })}
+                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.hasPsr === false
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          }`}
+                      >
+                        Yo'q
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 5. Qo'shimcha to'lov kelishuvi */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:handshake" className="w-4 h-4 text-blue-600" />
+                      Qo'shimcha to'lov kelishuvi
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'CLIENT' })}
+                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.afterHoursPayer === 'CLIENT'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          }`}
+                      >
+                        Mijoz to'laydi
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'COMPANY' })}
+                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.afterHoursPayer === 'COMPANY'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          }`}
+                      >
+                        Men to'layman
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 6. Sho'pir telefon raqami */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
+                      Sho'pir tel raqami
+                    </label>
+                    <input
+                      type="tel"
+                      value={editForm.driverPhone}
+                      onChange={(e) => setEditForm({ ...editForm, driverPhone: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
+                      placeholder="+998901234567"
+                    />
+                  </div>
+
+                  {/* 7. Comments */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                      <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
+                      Comments
+                    </label>
+                    <textarea
+                      value={editForm.comments}
+                      onChange={(e) => setEditForm({ ...editForm, comments: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm resize-none"
+                      rows={4}
+                      placeholder="Type here"
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                  >
+                    Saqlash
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                  >
+                    Bekor
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Document Upload Modal */}
+        {showDocumentUpload && selectedTask && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowDocumentUpload(false);
+              }
+            }}
+          >
+            <div
+              className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  {selectedStageForReminder && selectedStageForReminder.name === 'Pochta'
+                    ? 'Pochta jarayoni uchun hujjatlar yuklash'
+                    : 'Hujjat yuklash (bir nechta fayl)'}
+                </h2>
+                <button
                   onClick={() => {
                     setShowDocumentUpload(false);
                     setUploadFiles([]);
                     setDocumentNames([]);
                     setDocumentDescriptions([]);
+                    if (selectedStageForReminder && selectedStageForReminder.name === 'Pochta') {
+                      setSelectedStageForReminder(null);
+                    }
                   }}
-                  className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
                 >
-                  Bekor
+                  ×
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+              {selectedStageForReminder && selectedStageForReminder.name === 'Pochta' && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Eslatma:</strong> Pochta jarayonini tayyor qilish uchun hujjatlarni yuklang.
+                    Hujjatlar yuklangandan keyin Pochta jarayoni avtomatik tayyor bo'ladi.
+                  </p>
+                </div>
+              )}
 
-      {/* Document Preview Modal */}
-      {previewDocument && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] backdrop-blur-sm"
-          onClick={() => setPreviewDocument(null)}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">{previewDocument.name}</h2>
-              <button
-                onClick={() => setPreviewDocument(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  // Validation - fayllar mavjudligini tekshiramiz
+                  if (uploadFiles.length === 0) {
+                    alert('Kamida bitta faylni tanlang');
+                    return;
+                  }
+                  handleDocumentUpload();
+                }}
+                className="space-y-4"
+                noValidate
               >
-                ×
-              </button>
-            </div>
-            <div className="flex justify-center items-center min-h-[400px]">
-              {previewDocument.type?.includes('image') ? (
-                <img 
-                  src={previewDocument.url} 
-                  alt={previewDocument.name}
-                  className="max-w-full max-h-[70vh] object-contain"
-                />
-              ) : previewDocument.type?.includes('pdf') ? (
-                <iframe
-                  src={previewDocument.url}
-                  className="w-full h-[70vh] border-0"
-                  title={previewDocument.name}
-                />
-              ) : previewDocument.type?.includes('video') ? (
-                <video
-                  src={previewDocument.url}
-                  controls
-                  className="max-w-full max-h-[70vh]"
-                >
-                  Sizning brauzeringiz video elementini qo'llab-quvvatlamaydi.
-                </video>
-              ) : previewDocument.type?.includes('audio') ? (
-                <audio
-                  src={previewDocument.url}
-                  controls
-                  className="w-full"
-                >
-                  Sizning brauzeringiz audio elementini qo'llab-quvvatlamaydi.
-                </audio>
-              ) : (
-                <div className="text-center text-gray-500">
-                  <p className="mb-4">Bu fayl turini dasturdan ko'rish mumkin emas.</p>
-                  <a
-                    href={previewDocument.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 underline"
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fayllar (bir nechta tanlash mumkin)
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {uploadFiles.length > 0 && (
+                    <div className="mt-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        {uploadFiles.map((file, index) => (
+                          <div key={index} className="relative flex flex-col items-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                            <button
+                              onClick={() => {
+                                const newFiles = uploadFiles.filter((_, i) => i !== index);
+                                const newNames = documentNames.filter((_, i) => i !== index);
+                                const newDescriptions = documentDescriptions.filter((_, i) => i !== index);
+                                setUploadFiles(newFiles);
+                                setDocumentNames(newNames);
+                                setDocumentDescriptions(newDescriptions);
+                              }}
+                              className="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 z-10"
+                              title="O&#39;chirish"
+                            >
+                              <Icon icon="lucide:x" className="w-3.5 h-3.5" />
+                            </button>
+                            <div className="flex-shrink-0 mb-2">
+                              {getFileIcon(file.type || '', file.name)}
+                            </div>
+                            <div className="text-center w-full">
+                              <p className="text-xs font-medium text-gray-700 truncate px-1" title={file.name}>
+                                {file.name}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">{formatFileSize(file.size)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
                   >
-                    Yuklab olish
-                  </a>
+                    Yuklash ({uploadFiles.length} fayl)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDocumentUpload(false);
+                      setUploadFiles([]);
+                      setDocumentNames([]);
+                      setDocumentDescriptions([]);
+                    }}
+                    className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                  >
+                    Bekor
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Document Preview Modal */}
+        {previewDocument && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[120] backdrop-blur-sm"
+            onClick={() => setPreviewDocument(null)}
+          >
+            <div
+              className="bg-white rounded-lg shadow-2xl p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">{previewDocument.name}</h2>
+                <button
+                  onClick={() => setPreviewDocument(null)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="flex justify-center items-center min-h-[400px]">
+                {previewDocument.type?.includes('image') ? (
+                  <img
+                    src={previewDocument.url}
+                    alt={previewDocument.name}
+                    className="max-w-full max-h-[70vh] object-contain"
+                  />
+                ) : previewDocument.type?.includes('pdf') ? (
+                  <iframe
+                    src={previewDocument.url}
+                    className="w-full h-[70vh] border-0"
+                    title={previewDocument.name}
+                  />
+                ) : previewDocument.type?.includes('video') ? (
+                  <video
+                    src={previewDocument.url}
+                    controls
+                    className="max-w-full max-h-[70vh]"
+                  >
+                    Sizning brauzeringiz video elementini qo'llab-quvvatlamaydi.
+                  </video>
+                ) : previewDocument.type?.includes('audio') ? (
+                  <audio
+                    src={previewDocument.url}
+                    controls
+                    className="w-full"
+                  >
+                    Sizning brauzeringiz audio elementini qo'llab-quvvatlamaydi.
+                  </audio>
+                ) : (
+                  <div className="text-center text-gray-500">
+                    <p className="mb-4">Bu fayl turini dasturdan ko'rish mumkin emas.</p>
+                    <a
+                      href={previewDocument.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Yuklab olish
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error Modal */}
+        {showErrorModal && selectedTask && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowErrorModal(false);
+              }
+            }}
+          >
+            <div
+              className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">Xatolar</h2>
+                <button
+                  onClick={() => {
+                    setEditingErrorId(null);
+                    setShowErrorModal(false);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+
+              {selectedTask.errors && selectedTask.errors.length > 0 ? (
+                <div className="mb-4 space-y-2">
+                  {selectedTask.errors.map((error) => {
+                    const workerName = workers.find((w) => w.id === error.workerId)?.name || `#${error.workerId}`;
+                    return (
+                      <div key={error.id} className="p-3 border rounded-lg bg-gray-50 flex items-start justify-between">
+                        <div>
+                          <div className="text-sm font-medium text-gray-800">
+                            {error.stageName} — {formatMoney(Number(error.amount), 'USD')}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Xato qildi: {workerName} • Sana: {new Date(error.date).toLocaleDateString('uz-UZ')}
+                          </div>
+                          {error.comment && (
+                            <div className="text-xs text-gray-600 mt-2">{error.comment}</div>
+                          )}
+                        </div>
+                        {canEditError(error) && (
+                          <div className="ml-4 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingErrorId(error.id);
+                                setErrorForm({
+                                  workerId: error.workerId.toString(),
+                                  stageName: error.stageName,
+                                  amount: String(error.amount),
+                                  comment: error.comment || '',
+                                  date: new Date(error.date).toISOString().split('T')[0],
+                                });
+                              }}
+                              className="text-blue-600 hover:text-blue-800 text-sm"
+                              title="Tahrirlash"
+                            >
+                              <i className="fas fa-pen"></i>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!confirm('Xatoni o\'chirishni xohlaysizmi?')) return;
+                                try {
+                                  await apiClient.delete(`/tasks/${selectedTask.id}/errors/${error.id}`);
+                                  const response = await apiClient.get(`/tasks/${selectedTask.id}`);
+                                  setSelectedTask(response.data);
+                                  await loadTasks();
+                                } catch (error: any) {
+                                  alert(error.response?.data?.error || 'Xatolik yuz berdi');
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-800 text-sm"
+                              title="O'chirish"
+                            >
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mb-4 text-sm text-gray-500">Xatolar yo'q</div>
+              )}
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    const amountValue = errorForm.amount.trim();
+
+                    if (!/^\d{1,4}$/.test(amountValue)) {
+                      alert('Summa faqat USD bo\'lishi va 4 xonagacha bo\'lishi kerak');
+                      return;
+                    }
+
+                    if (editingErrorId) {
+                      await apiClient.patch(`/tasks/${selectedTask.id}/errors/${editingErrorId}`, {
+                        workerId: parseInt(errorForm.workerId),
+                        stageName: errorForm.stageName,
+                        amount: parseFloat(amountValue),
+                        comment: errorForm.comment,
+                        date: new Date(errorForm.date),
+                      });
+                    } else {
+                      await apiClient.post(`/tasks/${selectedTask.id}/errors`, {
+                        taskTitle: selectedTask.title,
+                        workerId: parseInt(errorForm.workerId),
+                        stageName: errorForm.stageName,
+                        amount: parseFloat(amountValue),
+                        comment: errorForm.comment,
+                        date: new Date(errorForm.date),
+                      });
+                    }
+                    setShowErrorModal(false);
+                    setEditingErrorId(null);
+                    setErrorForm({
+                      workerId: '',
+                      stageName: '',
+                      amount: '',
+                      comment: '',
+                      date: new Date().toISOString().split('T')[0],
+                    });
+                    // Reload task to show updated data
+                    if (selectedTask) {
+                      const response = await apiClient.get(`/tasks/${selectedTask.id}`);
+                      setSelectedTask(response.data);
+                    }
+                    await loadTasks();
+                    alert('Xato muvaffaqiyatli qo\'shildi');
+                  } catch (error: any) {
+                    alert(error.response?.data?.error || 'Xatolik yuz berdi');
+                  }
+                }}
+                className="space-y-4"
+              >
+                {/* Task nomi (read-only) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Task nomi
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedTask.title}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                  />
+                </div>
+
+                {/* Ishchi */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ishchi <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={errorForm.workerId}
+                    onChange={(e) => setErrorForm({ ...errorForm, workerId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">Ishchini tanlang</option>
+                    {workers.map((worker) => (
+                      <option key={worker.id} value={worker.id.toString()}>
+                        {worker.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Bosqich */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bosqich <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={errorForm.stageName}
+                    onChange={(e) => setErrorForm({ ...errorForm, stageName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">Bosqichni tanlang</option>
+                    <option value="Invoys">Invoys</option>
+                    <option value="Zayavka">Zayavka</option>
+                    <option value="TIR-SMR">TIR-SMR</option>
+                    <option value="ST">ST</option>
+                    <option value="Fito">Fito</option>
+                    <option value="Deklaratsiya">Deklaratsiya</option>
+                    <option value="Tekshirish">Tekshirish</option>
+                    <option value="Topshirish">Topshirish</option>
+                    <option value="Pochta">Pochta</option>
+                  </select>
+                </div>
+
+                {/* Summa */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Summa <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    value={errorForm.amount}
+                    onChange={(e) => {
+                      const nextValue = e.target.value;
+
+                      if (nextValue === '') {
+                        setErrorForm({ ...errorForm, amount: '' });
+                        return;
+                      }
+
+                      if (/^\d{0,4}$/.test(nextValue)) {
+                        setErrorForm({ ...errorForm, amount: nextValue });
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    placeholder="0"
+                  />
+                </div>
+
+                {/* Tavsif */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tavsif
+                  </label>
+                  <textarea
+                    value={errorForm.comment}
+                    onChange={(e) => setErrorForm({ ...errorForm, comment: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    rows={3}
+                    placeholder="Xato haqida batafsil ma'lumot"
+                  />
+                </div>
+
+                {/* Sana */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sana <span className="text-red-500">*</span>
+                  </label>
+                  <DateInput
+                    required
+                    value={errorForm.date}
+                    onChange={(value) => setErrorForm({ ...errorForm, date: value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowErrorModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                  >
+                    Saqlash
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Tasklar jadvali - Mobil versiyada tepada */}
+        <div className="order-1 md:order-2">
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
+          ) : showArchive ? (
+            // Arxiv bo'limida barcha tasklar bitta jadvalda, har sahifada 20 ta (pagination)
+            <div>
+              {renderTaskTable(archivePageTasks, 'Arxiv')}
+              {!loading && archiveTotalPages > 1 && (
+                <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200">
+                  <div className="text-sm text-gray-600">
+                    Jami <span className="font-semibold">{archiveTotalTasks}</span> ta task,{' '}
+                    <span className="font-semibold">{page}</span>/{archiveTotalPages} sahifa
+                  </div>
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${page === 1
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                        }`}
+                    >
+                      Oldingi
+                    </button>
+                    {getPageNumbers(page, archiveTotalPages).map((p) => (
+                      <button
+                        key={`archive-page-${p}`}
+                        type="button"
+                        onClick={() => setPage(p)}
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${p === page
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.min(archiveTotalPages, p + 1))}
+                      disabled={page === archiveTotalPages}
+                      className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${page === archiveTotalPages
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                        }`}
+                    >
+                      Keyingi
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Error Modal */}
-      {showErrorModal && selectedTask && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowErrorModal(false);
-            }
-          }}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Xatolar</h2>
-              <button
-                onClick={() => {
-                  setEditingErrorId(null);
-                  setShowErrorModal(false);
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-              >
-                ×
-              </button>
-            </div>
-
-            {selectedTask.errors && selectedTask.errors.length > 0 ? (
-              <div className="mb-4 space-y-2">
-                {selectedTask.errors.map((error) => {
-                  const workerName = workers.find((w) => w.id === error.workerId)?.name || `#${error.workerId}`;
+          ) : (
+            // Barcha ishlar bo'limida filiallarga bo'lingan
+            isDeklarantWithBranch && userBranch ? (
+              // DEKLARANT uchun faqat o'zining filiali to'liq kenglikda
+              <div className="w-full">
+                {renderTaskTable(userBranchTasks, userBranch.name)}
+              </div>
+            ) : (
+              // ADMIN/MANAGER uchun barcha filiallar - dinamik
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-[30px]">
+                {Array.isArray(branches) && branches.map((branch, index) => {
+                  const branchTasks = tasksByBranch.get(branch.name) || [];
                   return (
-                    <div key={error.id} className="p-3 border rounded-lg bg-gray-50 flex items-start justify-between">
-                      <div>
-                        <div className="text-sm font-medium text-gray-800">
-                          {error.stageName} — {formatMoney(Number(error.amount), 'USD')}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Xato qildi: {workerName} • Sana: {new Date(error.date).toLocaleDateString('uz-UZ')}
-                        </div>
-                        {error.comment && (
-                          <div className="text-xs text-gray-600 mt-2">{error.comment}</div>
-                        )}
-                      </div>
-                      {canEditError(error) && (
-                        <div className="ml-4 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingErrorId(error.id);
-                              setErrorForm({
-                                workerId: error.workerId.toString(),
-                                stageName: error.stageName,
-                                amount: String(error.amount),
-                                comment: error.comment || '',
-                                date: new Date(error.date).toISOString().split('T')[0],
-                              });
-                            }}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                            title="Tahrirlash"
-                          >
-                            <i className="fas fa-pen"></i>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!confirm('Xatoni o\'chirishni xohlaysizmi?')) return;
-                              try {
-                                await apiClient.delete(`/tasks/${selectedTask.id}/errors/${error.id}`);
-                                const response = await apiClient.get(`/tasks/${selectedTask.id}`);
-                                setSelectedTask(response.data);
-                                await loadTasks();
-                              } catch (error: any) {
-                                alert(error.response?.data?.error || 'Xatolik yuz berdi');
-                              }
-                            }}
-                            className="text-red-600 hover:text-red-800 text-sm"
-                            title="O'chirish"
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
-                        </div>
-                      )}
+                    <div key={branch.id}>
+                      {renderTaskTable(branchTasks, branch.name, index)}
                     </div>
                   );
                 })}
               </div>
-            ) : (
-              <div className="mb-4 text-sm text-gray-500">Xatolar yo'q</div>
-            )}
-
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  const amountValue = errorForm.amount.trim();
-
-                  if (!/^\d{1,4}$/.test(amountValue)) {
-                    alert('Summa faqat USD bo\'lishi va 4 xonagacha bo\'lishi kerak');
-                    return;
-                  }
-
-                  if (editingErrorId) {
-                    await apiClient.patch(`/tasks/${selectedTask.id}/errors/${editingErrorId}`, {
-                      workerId: parseInt(errorForm.workerId),
-                      stageName: errorForm.stageName,
-                      amount: parseFloat(amountValue),
-                      comment: errorForm.comment,
-                      date: new Date(errorForm.date),
-                    });
-                  } else {
-                    await apiClient.post(`/tasks/${selectedTask.id}/errors`, {
-                      taskTitle: selectedTask.title,
-                      workerId: parseInt(errorForm.workerId),
-                      stageName: errorForm.stageName,
-                      amount: parseFloat(amountValue),
-                      comment: errorForm.comment,
-                      date: new Date(errorForm.date),
-                    });
-                  }
-                  setShowErrorModal(false);
-                  setEditingErrorId(null);
-                  setErrorForm({
-                    workerId: '',
-                    stageName: '',
-                    amount: '',
-                    comment: '',
-                    date: new Date().toISOString().split('T')[0],
-                  });
-                  // Reload task to show updated data
-                  if (selectedTask) {
-                    const response = await apiClient.get(`/tasks/${selectedTask.id}`);
-                    setSelectedTask(response.data);
-                  }
-                  await loadTasks();
-                  alert('Xato muvaffaqiyatli qo\'shildi');
-                } catch (error: any) {
-                  alert(error.response?.data?.error || 'Xatolik yuz berdi');
-                }
-              }}
-              className="space-y-4"
-            >
-              {/* Task nomi (read-only) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Task nomi
-                </label>
-                <input
-                  type="text"
-                  value={selectedTask.title}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
-                />
-              </div>
-
-              {/* Ishchi */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ishchi <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={errorForm.workerId}
-                  onChange={(e) => setErrorForm({ ...errorForm, workerId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="">Ishchini tanlang</option>
-                  {workers.map((worker) => (
-                    <option key={worker.id} value={worker.id.toString()}>
-                      {worker.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Bosqich */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bosqich <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={errorForm.stageName}
-                  onChange={(e) => setErrorForm({ ...errorForm, stageName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="">Bosqichni tanlang</option>
-                  <option value="Invoys">Invoys</option>
-                  <option value="Zayavka">Zayavka</option>
-                  <option value="TIR-SMR">TIR-SMR</option>
-                  <option value="ST">ST</option>
-                  <option value="Fito">Fito</option>
-                  <option value="Deklaratsiya">Deklaratsiya</option>
-                  <option value="Tekshirish">Tekshirish</option>
-                  <option value="Topshirish">Topshirish</option>
-                  <option value="Pochta">Pochta</option>
-                </select>
-              </div>
-
-              {/* Summa */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Summa <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  required
-                  value={errorForm.amount}
-                  onChange={(e) => {
-                    const nextValue = e.target.value;
-
-                    if (nextValue === '') {
-                      setErrorForm({ ...errorForm, amount: '' });
-                      return;
-                    }
-
-                    if (/^\d{0,4}$/.test(nextValue)) {
-                      setErrorForm({ ...errorForm, amount: nextValue });
-                    }
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="0"
-                />
-              </div>
-
-              {/* Tavsif */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tavsif
-                </label>
-                <textarea
-                  value={errorForm.comment}
-                  onChange={(e) => setErrorForm({ ...errorForm, comment: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  rows={3}
-                  placeholder="Xato haqida batafsil ma'lumot"
-                />
-              </div>
-
-              {/* Sana */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Sana <span className="text-red-500">*</span>
-                </label>
-                <DateInput
-                  required
-                  value={errorForm.date}
-                  onChange={(value) => setErrorForm({ ...errorForm, date: value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowErrorModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                >
-                  Saqlash
-                </button>
-              </div>
-            </form>
-          </div>
+            )
+          )}
         </div>
-      )}
-
-      {/* Tasklar jadvali - Mobil versiyada tepada */}
-      <div className="order-1 md:order-2">
-        {loading ? (
-          <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
-        ) : showArchive ? (
-          // Arxiv bo'limida barcha tasklar bitta jadvalda, har sahifada 20 ta (pagination)
-          <div>
-            {renderTaskTable(archivePageTasks, 'Arxiv')}
-            {!loading && archiveTotalPages > 1 && (
-              <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200">
-                <div className="text-sm text-gray-600">
-                  Jami <span className="font-semibold">{archiveTotalTasks}</span> ta task,{' '}
-                  <span className="font-semibold">{page}</span>/{archiveTotalPages} sahifa
-                </div>
-                <div className="flex gap-2 items-center flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
-                      page === 1
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-blue-500 text-white hover:bg-blue-600'
-                    }`}
-                  >
-                    Oldingi
-                  </button>
-                  {getPageNumbers(page, archiveTotalPages).map((p) => (
-                    <button
-                      key={`archive-page-${p}`}
-                      type="button"
-                      onClick={() => setPage(p)}
-                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        p === page
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.min(archiveTotalPages, p + 1))}
-                    disabled={page === archiveTotalPages}
-                    className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
-                      page === archiveTotalPages
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-blue-500 text-white hover:bg-blue-600'
-                    }`}
-                  >
-                    Keyingi
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          // Barcha ishlar bo'limida filiallarga bo'lingan
-          isDeklarantWithBranch && userBranch ? (
-            // DEKLARANT uchun faqat o'zining filiali to'liq kenglikda
-            <div className="w-full">
-              {renderTaskTable(userBranchTasks, userBranch.name)}
-            </div>
-          ) : (
-            // ADMIN/MANAGER uchun barcha filiallar - dinamik
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-[30px]">
-              {Array.isArray(branches) && branches.map((branch, index) => {
-                const branchTasks = tasksByBranch.get(branch.name) || [];
-                return (
-                  <div key={branch.id}>
-                    {renderTaskTable(branchTasks, branch.name, index)}
-                  </div>
-                );
-              })}
-            </div>
-          )
-        )}
-      </div>
       </div>
 
     </div>

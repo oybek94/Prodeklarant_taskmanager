@@ -188,10 +188,15 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
         }
       }
 
-      const ext = path.extname(doc.fileUrl) || path.extname(doc.name || '') || '';
-      const baseName = (doc.name || 'document').replace(/[^\w\s.-]/gi, '_');
-      const filename = baseName + (ext || path.extname(safePath) || '');
-      attachments.push({ filename, content: content! });
+      // Yuklangan holatidagi fayl nomi saqlanadi: doc.name asl fayl nomi bo'lsa shuni ishlatamiz
+      const extFromName = path.extname(doc.name || '');
+      const extFromPath = path.extname(doc.fileUrl) || path.extname(safePath) || '';
+      const ext = extFromName || extFromPath;
+      const baseFromName = (doc.name || 'document').replace(/[^\w\s.\-]/gi, '_').trim();
+      const filename = extFromName
+        ? baseFromName
+        : (baseFromName + (ext || ''));
+      attachments.push({ filename: filename || 'document', content: content! });
     }
 
     await sendMail({

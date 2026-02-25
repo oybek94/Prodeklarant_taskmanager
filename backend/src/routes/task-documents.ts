@@ -118,9 +118,11 @@ router.post(
                           (fileExtension === '.jpg' || fileExtension === '.jpeg') ? 'jpg' : 
                           'other';
           
+          // Pochtaga yuborishda yuklangan fayl nomi saqlansin: asl fayl nomi (originalname) ni saqlaymiz
+          const originalFileName = (req.file!.originalname || '').trim() || parsed.data.name || 'document';
           const documentData: any = {
             taskId,
-            name: parsed.data.name,
+            name: originalFileName,
             fileUrl: `/uploads/tasks/${req.file!.filename}`,
             fileType: fileType,
             fileSize: req.file!.size,

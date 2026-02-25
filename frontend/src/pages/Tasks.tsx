@@ -4263,9 +4263,9 @@ const Tasks = () => {
                                 : fileUploadStageName === 'Sertifikat olib chiqish'
                                   ? fileUploadName || 'ST'
                                   : fileUploadStageName;
+                              // Pochtaga yuborishda yuklangan fayl nomi saqlansin: to'liq asl fayl nomini (kengaytma bilan) yuboramiz
                               if (!fileUploadName || fileUploadName === fileUploadStageName || fileUploadName === defaultName) {
-                                const nameWithoutExt = file.name.replace(/\.(pdf|jpg|jpeg)$/i, '');
-                                setFileUploadName(nameWithoutExt);
+                                setFileUploadName(file.name);
                               }
                             }
                           }}

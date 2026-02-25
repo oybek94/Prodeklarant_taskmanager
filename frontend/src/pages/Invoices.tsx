@@ -18,12 +18,13 @@ interface Invoice {
   id: number;
   invoiceNumber: string;
   contractNumber?: string;
+  contractId?: number;
   taskId: number;
   clientId: number;
   date: string;
   currency: 'USD' | 'UZS';
   totalAmount: number;
-  additionalInfo?: { vehicleNumber?: string; [k: string]: unknown };
+  additionalInfo?: { vehicleNumber?: string;[k: string]: unknown };
   task?: {
     id: number;
     title: string;
@@ -450,23 +451,30 @@ const Invoices = () => {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Icon icon="lucide:file-text" className="w-8 h-8 text-blue-600" />
-          Invoice'lar
-        </h1>
+    <div className="p-6 min-h-screen bg-gray-50/50">
+      <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white/60 backdrop-blur-xl p-5 rounded-2xl shadow-sm border border-white/80 shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="p-3.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/30">
+            <Icon icon="lucide:file-text" className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 tracking-tight">
+              Invoice'lar
+            </h1>
+            <p className="text-sm text-gray-500 font-medium mt-0.5">Barcha schyot-fakturalarni boshqarish</p>
+          </div>
+        </div>
         <div className="flex items-center gap-2 relative">
           {/* Qidiruv va filtrlash */}
           <button
             type="button"
             onClick={() => setShowFiltersPanel(!showFiltersPanel)}
-            className="relative p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all shadow-sm hover:shadow z-10"
+            className="relative p-2.5 bg-white/80 text-gray-700 hover:text-blue-600 border border-gray-200/50 rounded-xl hover:bg-blue-50 transition-all shadow-sm ring-1 ring-black/5 z-10"
             title="Qidirish va filtrlash"
           >
-            <Icon icon="lucide:search" className="w-4 h-4" />
+            <Icon icon="lucide:filter" className="w-4.5 h-4.5" />
             {hasActiveFilters && (
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white" />
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-sm ring-2 ring-white" />
             )}
           </button>
           {showFiltersPanel && (
@@ -600,10 +608,10 @@ const Invoices = () => {
           )}
           <button
             onClick={() => setShowTnvedSettingsModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/80 text-gray-700 border border-gray-200/50 rounded-xl hover:bg-gray-50 hover:text-gray-900 transition-all shadow-sm ring-1 ring-black/5"
           >
-            <Icon icon="lucide:settings" className="w-4 h-4" />
-            Sozlamalar
+            <Icon icon="lucide:settings-2" className="w-4 h-4" />
+            <span className="font-semibold text-sm">Sozlamalar</span>
           </button>
           {canEdit && (
             <button
@@ -611,10 +619,10 @@ const Invoices = () => {
                 setDuplicateInvoiceId(null);
                 setShowCreateModal(true);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-500 hover:to-indigo-500 transition-all shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30"
             >
-              <Icon icon="lucide:plus" className="w-4 h-4" />
-              Yangi Invoice
+              <Icon icon="lucide:plus-circle" className="w-4 h-4" />
+              <span className="font-semibold text-sm">Yangi Invoice</span>
             </button>
           )}
         </div>
@@ -622,7 +630,7 @@ const Invoices = () => {
 
       {/* Create Invoice Modal (yangi invoice yoki dublikat) */}
       {canEdit && showCreateModal && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -667,7 +675,7 @@ const Invoices = () => {
                   ))}
                 </select>
               </div>
-              
+
               {selectedClientId && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -712,11 +720,10 @@ const Invoices = () => {
                         onClick={() =>
                           setCreateTaskForm((f) => ({ ...f, branchId: branch.id.toString() }))
                         }
-                        className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                          createTaskForm.branchId === branch.id.toString()
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                        }`}
+                        className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${createTaskForm.branchId === branch.id.toString()
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                          }`}
                       >
                         {branch.name}
                       </button>
@@ -739,11 +746,10 @@ const Invoices = () => {
                     onClick={() =>
                       setCreateTaskForm((f) => ({ ...f, hasPsr: true }))
                     }
-                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                      createTaskForm.hasPsr === true
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                    }`}
+                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${createTaskForm.hasPsr === true
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
                   >
                     Bor
                   </button>
@@ -752,11 +758,10 @@ const Invoices = () => {
                     onClick={() =>
                       setCreateTaskForm((f) => ({ ...f, hasPsr: false }))
                     }
-                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${
-                      createTaskForm.hasPsr === false
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                    }`}
+                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${createTaskForm.hasPsr === false
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
                   >
                     Yo&apos;q
                   </button>
@@ -854,293 +859,291 @@ const Invoices = () => {
               <button
                 type="button"
                 onClick={() => setSettingsTab('tnved')}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-                  settingsTab === 'tnved'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${settingsTab === 'tnved'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
               >
                 TNVED mahsulotlar
               </button>
               <button
                 type="button"
                 onClick={() => setSettingsTab('packaging')}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-                  settingsTab === 'packaging'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${settingsTab === 'packaging'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
               >
                 Qadoq turlari
               </button>
             </div>
 
             {settingsTab === 'tnved' && (
-            <>
-            {/* Yangi mahsulot qo'shish */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-4 pb-4 border-b">
-              <div className="sm:col-span-6">
-                <input
-                  type="text"
-                  value={newTnvedName}
-                  onChange={(e) => setNewTnvedName(e.target.value)}
-                  placeholder="Наименование товара"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-              <div className="sm:col-span-4">
-                <input
-                  type="text"
-                  value={newTnvedCode}
-                  onChange={(e) => setNewTnvedCode(e.target.value)}
-                  placeholder="Код ТН ВЭД"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  maxLength={10}
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (newTnvedName.trim() && newTnvedCode.trim()) {
-                      addTnvedProduct(newTnvedName, newTnvedCode);
-                      setTnvedProductsState(getTnvedProducts());
-                      setNewTnvedName('');
-                      setNewTnvedCode('');
-                    }
-                  }}
-                  disabled={!newTnvedName.trim() || !newTnvedCode.trim()}
-                  className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
-                >
-                  Qo&apos;shish
-                </button>
-              </div>
-            </div>
+              <>
+                {/* Yangi mahsulot qo'shish */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-4 pb-4 border-b">
+                  <div className="sm:col-span-6">
+                    <input
+                      type="text"
+                      value={newTnvedName}
+                      onChange={(e) => setNewTnvedName(e.target.value)}
+                      placeholder="Наименование товара"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div className="sm:col-span-4">
+                    <input
+                      type="text"
+                      value={newTnvedCode}
+                      onChange={(e) => setNewTnvedCode(e.target.value)}
+                      placeholder="Код ТН ВЭД"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      maxLength={10}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newTnvedName.trim() && newTnvedCode.trim()) {
+                          addTnvedProduct(newTnvedName, newTnvedCode);
+                          setTnvedProductsState(getTnvedProducts());
+                          setNewTnvedName('');
+                          setNewTnvedCode('');
+                        }
+                      }}
+                      disabled={!newTnvedName.trim() || !newTnvedCode.trim()}
+                      className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
+                    >
+                      Qo&apos;shish
+                    </button>
+                  </div>
+                </div>
 
-            <div className="flex-1 overflow-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="px-4 py-2 text-left font-medium text-gray-700">Наименование товара</th>
-                    <th className="px-4 py-2 text-left font-medium text-gray-700 w-32">Код ТН ВЭД</th>
-                    <th className="px-4 py-2 text-right font-medium text-gray-700 w-28">Amallar</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {tnvedProducts.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2">
-                        {editingTnvedId === p.id ? (
-                          <input
-                            type="text"
-                            value={editTnvedName}
-                            onChange={(e) => setEditTnvedName(e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                            autoFocus
-                          />
-                        ) : (
-                          <span>{p.name}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">
-                        {editingTnvedId === p.id ? (
-                          <input
-                            type="text"
-                            value={editTnvedCode}
-                            onChange={(e) => setEditTnvedCode(e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                            maxLength={10}
-                          />
-                        ) : (
-                          <span>{p.code}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {editingTnvedId === p.id ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                updateTnvedProduct(p.id, editTnvedName, editTnvedCode);
-                                setTnvedProductsState(getTnvedProducts());
-                                setEditingTnvedId(null);
-                              }}
-                              className="text-blue-600 hover:text-blue-800 p-1"
-                              title="Saqlash"
-                            >
-                              <Icon icon="lucide:check" className="w-5 h-5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingTnvedId(null)}
-                              className="text-gray-500 hover:text-gray-700 p-1"
-                              title="Bekor"
-                            >
-                              <Icon icon="lucide:x" className="w-5 h-5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingTnvedId(p.id);
-                                setEditTnvedName(p.name);
-                                setEditTnvedCode(p.code);
-                              }}
-                              className="text-blue-600 hover:text-blue-800 p-1"
-                              title="Tahrirlash"
-                            >
-                              <Icon icon="lucide:pencil" className="w-5 h-5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm(`"${p.name}" o'chirilsinmi?`)) {
-                                  deleteTnvedProduct(p.id);
-                                  setTnvedProductsState(getTnvedProducts());
-                                }
-                              }}
-                              className="text-red-600 hover:text-red-800 p-1"
-                              title="O'chirish"
-                            >
-                              <Icon icon="lucide:trash-2" className="w-5 h-5" />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            </>
+                <div className="flex-1 overflow-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700">Наименование товара</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700 w-32">Код ТН ВЭД</th>
+                        <th className="px-4 py-2 text-right font-medium text-gray-700 w-28">Amallar</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {tnvedProducts.map((p) => (
+                        <tr key={p.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2">
+                            {editingTnvedId === p.id ? (
+                              <input
+                                type="text"
+                                value={editTnvedName}
+                                onChange={(e) => setEditTnvedName(e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                autoFocus
+                              />
+                            ) : (
+                              <span>{p.name}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2">
+                            {editingTnvedId === p.id ? (
+                              <input
+                                type="text"
+                                value={editTnvedCode}
+                                onChange={(e) => setEditTnvedCode(e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                maxLength={10}
+                              />
+                            ) : (
+                              <span>{p.code}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            {editingTnvedId === p.id ? (
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateTnvedProduct(p.id, editTnvedName, editTnvedCode);
+                                    setTnvedProductsState(getTnvedProducts());
+                                    setEditingTnvedId(null);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 p-1"
+                                  title="Saqlash"
+                                >
+                                  <Icon icon="lucide:check" className="w-5 h-5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingTnvedId(null)}
+                                  className="text-gray-500 hover:text-gray-700 p-1"
+                                  title="Bekor"
+                                >
+                                  <Icon icon="lucide:x" className="w-5 h-5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingTnvedId(p.id);
+                                    setEditTnvedName(p.name);
+                                    setEditTnvedCode(p.code);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 p-1"
+                                  title="Tahrirlash"
+                                >
+                                  <Icon icon="lucide:pencil" className="w-5 h-5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(`"${p.name}" o'chirilsinmi?`)) {
+                                      deleteTnvedProduct(p.id);
+                                      setTnvedProductsState(getTnvedProducts());
+                                    }
+                                  }}
+                                  className="text-red-600 hover:text-red-800 p-1"
+                                  title="O'chirish"
+                                >
+                                  <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
 
             {settingsTab === 'packaging' && (
-            <>
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-4 pb-4 border-b">
-              <div className="sm:col-span-10">
-                <input
-                  type="text"
-                  value={newPackagingName}
-                  onChange={(e) => setNewPackagingName(e.target.value)}
-                  placeholder="Qadoq turi nomi"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (newPackagingName.trim()) {
-                      try {
-                        await apiClient.post('/packaging-types', { name: newPackagingName.trim(), code: '' });
-                        await loadPackagingTypes();
-                        setNewPackagingName('');
-                      } catch (e) {
-                        console.error(e);
-                      }
-                    }
-                  }}
-                  disabled={!newPackagingName.trim()}
-                  className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
-                >
-                  Qo&apos;shish
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="px-4 py-2 text-left font-medium text-gray-700">Вид упаковки</th>
-                    <th className="px-4 py-2 text-right font-medium text-gray-700 w-28">Amallar</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {packagingTypes.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2">
-                        {editingPackagingId === p.id ? (
-                          <input
-                            type="text"
-                            value={editPackagingName}
-                            onChange={(e) => setEditPackagingName(e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm max-w-xs"
-                            autoFocus
-                          />
-                        ) : (
-                          <span>{p.name}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {editingPackagingId === p.id ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  await apiClient.put(`/packaging-types/${p.id}`, { name: editPackagingName.trim(), code: p.code || '' });
-                                  await loadPackagingTypes();
-                                  setEditingPackagingId(null);
-                                } catch (e) {
-                                  console.error(e);
-                                }
-                              }}
-                              className="text-blue-600 hover:text-blue-800 p-1"
-                              title="Saqlash"
-                            >
-                              <Icon icon="lucide:check" className="w-5 h-5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingPackagingId(null)}
-                              className="text-gray-500 hover:text-gray-700 p-1"
-                              title="Bekor"
-                            >
-                              <Icon icon="lucide:x" className="w-5 h-5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingPackagingId(p.id);
-                                setEditPackagingName(p.name);
-                              }}
-                              className="text-blue-600 hover:text-blue-800 p-1"
-                              title="Tahrirlash"
-                            >
-                              <Icon icon="lucide:pencil" className="w-5 h-5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (window.confirm(`"${p.name}" o'chirilsinmi?`)) {
-                                  try {
-                                    await apiClient.delete(`/packaging-types/${p.id}`);
-                                    await loadPackagingTypes();
-                                  } catch (e) {
-                                    console.error(e);
-                                  }
-                                }
-                              }}
-                              className="text-red-600 hover:text-red-800 p-1"
-                              title="O'chirish"
-                            >
-                              <Icon icon="lucide:trash-2" className="w-5 h-5" />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            </>
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-4 pb-4 border-b">
+                  <div className="sm:col-span-10">
+                    <input
+                      type="text"
+                      value={newPackagingName}
+                      onChange={(e) => setNewPackagingName(e.target.value)}
+                      placeholder="Qadoq turi nomi"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (newPackagingName.trim()) {
+                          try {
+                            await apiClient.post('/packaging-types', { name: newPackagingName.trim(), code: '' });
+                            await loadPackagingTypes();
+                            setNewPackagingName('');
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }
+                      }}
+                      disabled={!newPackagingName.trim()}
+                      className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
+                    >
+                      Qo&apos;shish
+                    </button>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700">Вид упаковки</th>
+                        <th className="px-4 py-2 text-right font-medium text-gray-700 w-28">Amallar</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {packagingTypes.map((p) => (
+                        <tr key={p.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2">
+                            {editingPackagingId === p.id ? (
+                              <input
+                                type="text"
+                                value={editPackagingName}
+                                onChange={(e) => setEditPackagingName(e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm max-w-xs"
+                                autoFocus
+                              />
+                            ) : (
+                              <span>{p.name}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            {editingPackagingId === p.id ? (
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await apiClient.put(`/packaging-types/${p.id}`, { name: editPackagingName.trim(), code: p.code || '' });
+                                      await loadPackagingTypes();
+                                      setEditingPackagingId(null);
+                                    } catch (e) {
+                                      console.error(e);
+                                    }
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 p-1"
+                                  title="Saqlash"
+                                >
+                                  <Icon icon="lucide:check" className="w-5 h-5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingPackagingId(null)}
+                                  className="text-gray-500 hover:text-gray-700 p-1"
+                                  title="Bekor"
+                                >
+                                  <Icon icon="lucide:x" className="w-5 h-5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingPackagingId(p.id);
+                                    setEditPackagingName(p.name);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 p-1"
+                                  title="Tahrirlash"
+                                >
+                                  <Icon icon="lucide:pencil" className="w-5 h-5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (window.confirm(`"${p.name}" o'chirilsinmi?`)) {
+                                      try {
+                                        await apiClient.delete(`/packaging-types/${p.id}`);
+                                        await loadPackagingTypes();
+                                      } catch (e) {
+                                        console.error(e);
+                                      }
+                                    }
+                                  }}
+                                  className="text-red-600 hover:text-red-800 p-1"
+                                  title="O'chirish"
+                                >
+                                  <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
 
             <div className="flex justify-end items-center gap-2 mt-4 pt-4 border-t">
@@ -1158,220 +1161,223 @@ const Invoices = () => {
 
       {/* Invoices Table */}
       {invoices.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-          <Icon icon="lucide:file-text" className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <p className="text-gray-500 mb-1">Invoice&apos;lar topilmadi.</p>
-          <p className="text-sm text-gray-400">Yangi invoice yaratish uchun &quot;Yangi Invoice&quot; tugmasini bosing.</p>
+        <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 p-16 text-center lg:py-24 ring-1 ring-black/5">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+            <Icon icon="lucide:file-text" className="w-10 h-10 text-blue-500" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">Invoice'lar hozircha yo&apos;q</h3>
+          <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Yangi invoice yaratish uchun yuqoridagi &quot;Yangi Invoice&quot; tugmasini bosing va jarayonni boshlang.</p>
         </div>
       ) : filteredInvoices.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-          <Icon icon="lucide:search" className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <p className="text-gray-500 mb-1">Filtrlarga mos natija topilmadi.</p>
-          <p className="text-sm text-gray-400">Qidiruv yoki filtrlarni o&apos;zgartiring.</p>
+        <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 p-16 text-center ring-1 ring-black/5">
+          <div className="bg-gradient-to-br from-gray-50 to-slate-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-gray-200/50">
+            <Icon icon="lucide:search" className="w-10 h-10 text-gray-400" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">Natija topilmadi</h3>
+          <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Siz qidirayotgan qidiruv so&apos;rovi yoki filtrlarga mos keluvchi invoice topilmadi.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="overflow-auto max-h-[calc(100vh-12rem)]">
-          <table className="min-w-full">
-            <thead>
-              <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-200">
-                <th className="w-28 px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Icon icon="lucide:hash" className="w-4 h-4 text-gray-500" />
-                    №
-                  </span>
-                </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Icon icon="lucide:user" className="w-4 h-4 text-gray-500" />
-                    Mijoz
-                  </span>
-                </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Icon icon="lucide:map-pin" className="w-4 h-4 text-gray-500" />
-                    Filial
-                  </span>
-                </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Icon icon="lucide:car" className="w-4 h-4 text-gray-500" />
-                    Avtomobil raqami
-                  </span>
-                </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Icon icon="lucide:building-2" className="w-4 h-4 text-gray-500" />
-                    Sotuvchi/sotib oluvchi/Yukni qabul qiluvchi
-                  </span>
-                </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Icon icon="lucide:calendar" className="w-4 h-4 text-gray-500" />
-                    Sana
-                  </span>
-                </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Icon icon="lucide:circle-dot" className="w-4 h-4 text-gray-500" />
-                    Status
-                  </span>
-                </th>
-                <th className="px-6 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200 transition-colors">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Icon icon="lucide:sliders-horizontal" className="w-4 h-4 text-gray-500" />
-                    Amallar
-                  </span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {paginatedInvoices.map((invoice) => {
-                const hasErrors = (invoice.task?._count?.errors ?? 0) > 0;
-                const branchId = invoice.task?.branch?.id ?? invoice.branch?.id;
-                const branchName = invoice.task?.branch?.name ?? invoice.branch?.name ?? undefined;
-                const filialCellClass = getBranchCellClass(branchName, branchId);
-                return (
-                <tr
-                  key={invoice.id}
-                  className={`transition-colors hover:bg-gray-200/80 ${hasErrors ? 'border-l-4 border-l-red-500' : ''}`}
-                >
-                  <td className="w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                      className="text-blue-700 hover:text-blue-900 hover:underline cursor-pointer text-left"
-                      title="Invoysni ko'rish"
-                    >
-                      #{invoice.invoiceNumber}
-                    </button>
-                  </td>
-                  <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-800">
-                    {invoice.clientId ? (
-                      <button
-                        type="button"
-                        onClick={() => navigate('/clients', { state: { openClientId: invoice.clientId } })}
-                        className="text-left w-full hover:text-indigo-600 hover:underline focus:outline-none focus:ring-0"
-                      >
-                        {invoice.client?.name || '-'}
-                      </button>
-                    ) : (
-                      (invoice.client?.name || '-')
-                    )}
-                  </td>
-                  <td className="px-6 py-2 whitespace-nowrap text-sm">
-                    <span className={`inline-block px-2.5 py-1 rounded-md font-medium ${filialCellClass}`}>
-                      {invoice.task?.branch?.name ?? invoice.branch?.name ?? '-'}
+        <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 overflow-hidden ring-1 ring-black/5">
+          <div className="overflow-auto max-h-[calc(100vh-18rem)]">
+            <table className="min-w-full">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-white/80 backdrop-blur-md border-b border-gray-100/80">
+                  <th className="w-28 px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:hash" className="w-4 h-4 text-blue-500" />
+                      №
                     </span>
-                  </td>
-                  <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 font-mono">
-                    {invoice.additionalInfo?.vehicleNumber || '-'}
-                  </td>
-                  <td className="px-6 py-2 text-sm text-gray-700 max-w-xs truncate" title={[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName].filter(Boolean).join(' / ') || undefined}>
-                    {invoice.clientId ? (
-                      <button
-                        type="button"
-                        onClick={() => navigate('/clients', { state: { openClientId: invoice.clientId, ...(invoice.contractId != null ? { openContractId: invoice.contractId } : {}) } })}
-                        className="text-left w-full hover:text-indigo-600 hover:underline focus:outline-none focus:ring-0 truncate block"
-                      >
-                        {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
-                          .filter(Boolean)
-                          .join(' / ') || '-'}
-                      </button>
-                    ) : (
-                      <span>
-                        {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
-                          .filter(Boolean)
-                          .join(' / ') || '-'}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700">
-                    {formatDate(invoice.date)}
-                  </td>
-                  <td className="px-6 py-2 whitespace-nowrap text-sm">
-                    <button
-                      type="button"
-                      onClick={() => navigate('/tasks', { state: { openTaskId: invoice.taskId } })}
-                      className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-300 transition-shadow ${getStatusBadgeClass(invoice.task?.status)}`}
-                      title="Jarayonlar (task tafsilotlari)"
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:user" className="w-4 h-4 text-emerald-500" />
+                      Mijoz
+                    </span>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:map-pin" className="w-4 h-4 text-indigo-500" />
+                      Filial
+                    </span>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:car" className="w-4 h-4 text-amber-500" />
+                      Avtomobil
+                    </span>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:building-2" className="w-4 h-4 text-purple-500" />
+                      Sotuvchi / Qabul qiluvchi
+                    </span>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:calendar" className="w-4 h-4 text-cyan-500" />
+                      Sana
+                    </span>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:circle-dot" className="w-4 h-4 text-rose-500" />
+                      Status
+                    </span>
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors pr-8">
+                    <span className="inline-flex items-center gap-1.5 justify-end w-full">
+                      <Icon icon="lucide:sliders-horizontal" className="w-4 h-4 text-slate-500" />
+                      Amallar
+                    </span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100/60 bg-white/40">
+                {paginatedInvoices.map((invoice) => {
+                  const hasErrors = (invoice.task?._count?.errors ?? 0) > 0;
+                  const branchId = invoice.task?.branch?.id ?? invoice.branch?.id;
+                  const branchName = invoice.task?.branch?.name ?? invoice.branch?.name ?? undefined;
+                  const filialCellClass = getBranchCellClass(branchName, branchId);
+                  return (
+                    <tr
+                      key={invoice.id}
+                      className={`group transition-all duration-200 hover:bg-white/80 hover:shadow-sm ${hasErrors ? 'border-l-4 border-l-red-500' : ''}`}
                     >
-                      {invoice.task?.status ?? '—'}
-                    </button>
-                  </td>
-                    <td className="px-6 py-2 whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-600 hover:bg-gray-200 transition-colors"
-                        title="Invoysni ko'rish"
-                      >
-                        <Icon icon="lucide:eye" className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/tasks/${invoice.taskId}/edit`)}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
-                        title="Taskni tahrirlash"
-                      >
-                        <Icon icon="lucide:clipboard-list" className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-600 hover:bg-blue-100 transition-colors"
-                        title="Tahrirlash"
-                      >
-                        <Icon icon="lucide:pencil" className="w-4 h-4" />
-                      </button>
-                      {canEdit && (
-                        <>
+                      <td className="w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
+                          className="text-blue-700 hover:text-blue-900 hover:underline cursor-pointer text-left"
+                        >
+                          #{invoice.invoiceNumber}
+                        </button>
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-800">
+                        {invoice.clientId ? (
                           <button
                             type="button"
-                            onClick={() => handleDuplicateInvoice(invoice)}
-                            disabled={duplicatingInvoiceId === invoice.id}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Dublikat"
+                            onClick={() => navigate('/clients', { state: { openClientId: invoice.clientId } })}
+                            className="text-left w-full hover:text-indigo-600 hover:underline focus:outline-none focus:ring-0"
                           >
-                            <Icon icon="lucide:copy" className="w-4 h-4" />
+                            {invoice.client?.name || '-'}
                           </button>
-                          {(() => {
-                            const taskStatus = invoice.task?.status;
-                            const isEarlyTask = taskStatus === 'BOSHLANMAGAN';
-                            const invoysStageReady = invoice.task?.stages?.some(
-                              (s) => String(s.name).trim().toLowerCase() === 'invoys' && s.status === 'TAYYOR'
-                            );
-                            const canDelete = Boolean(isEarlyTask && !invoysStageReady);
-                            if (!canDelete) return null;
-                            return (
+                        ) : (
+                          (invoice.client?.name || '-')
+                        )}
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm">
+                        <span className={`inline-block px-2.5 py-1 rounded-md font-medium ${filialCellClass}`}>
+                          {invoice.task?.branch?.name ?? invoice.branch?.name ?? '-'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 font-mono">
+                        {invoice.additionalInfo?.vehicleNumber || '-'}
+                      </td>
+                      <td className="px-6 py-2 text-sm text-gray-700 max-w-xs truncate" title={[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName].filter(Boolean).join(' / ') || undefined}>
+                        {invoice.clientId ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate('/clients', { state: { openClientId: invoice.clientId, ...(invoice.contractId != null ? { openContractId: invoice.contractId } : {}) } })}
+                            className="text-left w-full hover:text-indigo-600 hover:underline focus:outline-none focus:ring-0 truncate block"
+                          >
+                            {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
+                              .filter(Boolean)
+                              .join(' / ') || '-'}
+                          </button>
+                        ) : (
+                          <span>
+                            {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
+                              .filter(Boolean)
+                              .join(' / ') || '-'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700">
+                        {formatDate(invoice.date)}
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/tasks', { state: { openTaskId: invoice.taskId } })}
+                          className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-300 transition-shadow ${getStatusBadgeClass(invoice.task?.status)}`}
+                          title="Jarayonlar (task tafsilotlari)"
+                        >
+                          {invoice.task?.status ?? '—'}
+                        </button>
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-white shadow-sm ring-1 ring-gray-200 transition-all hover:shadow"
+                            title="Invoysni ko'rish"
+                          >
+                            <Icon icon="lucide:eye" className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/tasks/${invoice.taskId}/edit`)}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white shadow-sm ring-1 ring-slate-200 transition-all hover:shadow"
+                            title="Taskni tahrirlash"
+                          >
+                            <Icon icon="lucide:clipboard-list" className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 shadow-sm ring-1 ring-blue-200/60 transition-all hover:shadow-blue-500/20 hover:shadow"
+                            title="Tahrirlash"
+                          >
+                            <Icon icon="lucide:pencil" className="w-4 h-4" />
+                          </button>
+                          {canEdit && (
+                            <>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setInvoiceToDelete(invoice);
-                                  setShowDeleteConfirmModal(true);
-                                }}
-                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
-                                title="O'chirish"
+                                onClick={() => handleDuplicateInvoice(invoice)}
+                                disabled={duplicatingInvoiceId === invoice.id}
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 shadow-sm ring-1 ring-emerald-200/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-emerald-500/20 hover:shadow"
+                                title="Dublikat"
                               >
-                                <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                <Icon icon="lucide:copy" className="w-4 h-4" />
                               </button>
-                            );
-                          })()}
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-              })}
-            </tbody>
-          </table>
+                              {(() => {
+                                const taskStatus = invoice.task?.status;
+                                const isEarlyTask = taskStatus === 'BOSHLANMAGAN';
+                                const invoysStageReady = invoice.task?.stages?.some(
+                                  (s) => String(s.name).trim().toLowerCase() === 'invoys' && s.status === 'TAYYOR'
+                                );
+                                const canDelete = Boolean(isEarlyTask && !invoysStageReady);
+                                if (!canDelete) return null;
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setInvoiceToDelete(invoice);
+                                      setShowDeleteConfirmModal(true);
+                                    }}
+                                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 shadow-sm ring-1 ring-rose-200/60 transition-all hover:shadow-rose-500/20 hover:shadow"
+                                    title="O'chirish"
+                                  >
+                                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                  </button>
+                                );
+                              })()}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
 
           {/* Pagination */}
           {filteredInvoices.length > PAGE_SIZE && (
-            <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50/50">
+            <div className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100/60 bg-white/50 backdrop-blur-sm">
               <p className="text-sm text-gray-600">
                 {startItem}-{endItem} / {filteredInvoices.length} invoice
               </p>
@@ -1397,11 +1403,10 @@ const Invoices = () => {
                         key={pageNum}
                         type="button"
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-colors ${
-                          currentPage === pageNum
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-200'
-                        }`}
+                        className={`min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-600 hover:bg-gray-200'
+                          }`}
                       >
                         {pageNum}
                       </button>
@@ -1580,17 +1585,15 @@ const Invoices = () => {
       {/* Invoice o'chirish tasdiq modali */}
       {showDeleteConfirmModal && invoiceToDelete && (
         <div
-          className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 transition-opacity duration-200 ease-out ${
-            deleteModalClosing || !deleteModalAnimated ? 'opacity-0' : 'opacity-100'
-          }`}
+          className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 transition-opacity duration-200 ease-out ${deleteModalClosing || !deleteModalAnimated ? 'opacity-0' : 'opacity-100'
+            }`}
           onClick={(e) => {
             if (e.target === e.currentTarget) setDeleteModalClosing(true);
           }}
         >
           <div
-            className={`bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 transition-all duration-200 ease-out ${
-              deleteModalClosing ? 'opacity-0 scale-95' : deleteModalAnimated ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-            }`}
+            className={`bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 transition-all duration-200 ease-out ${deleteModalClosing ? 'opacity-0 scale-95' : deleteModalAnimated ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+              }`}
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-semibold text-gray-800 mb-2">Invoysni o&apos;chirish</h2>

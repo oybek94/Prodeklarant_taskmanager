@@ -2173,7 +2173,7 @@ const Tasks = () => {
   const renderTaskTable = (branchTasks: Task[], branchName: string, branchColorIndex: number = 0) => {
     const isArchive = branchName === 'Arxiv';
     const colors = isArchive
-      ? { card: 'bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl border border-slate-100', header: 'bg-gradient-to-r from-slate-700 to-slate-800', textTitle: 'text-white font-bold drop-shadow-sm', thead: 'bg-slate-50 text-slate-700 backdrop-blur-sm', textTh: 'text-slate-700', row: 'hover:bg-slate-50/80 transition-all duration-200', rowEven: 'bg-white', rowOdd: 'bg-slate-50/30', divide: 'divide-slate-100/50', border: 'border-transparent', borderCell: 'border-slate-100/50', empty: 'bg-white' }
+      ? { card: 'bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl border border-slate-100', header: 'bg-gradient-to-r from-slate-700 to-slate-800', textTitle: 'text-white font-bold drop-shadow-sm', thead: 'bg-slate-50 text-slate-700 backdrop-blur-sm', textTh: 'text-slate-700', row: 'hover:bg-slate-200 cursor-pointer transition-all duration-200 hover:shadow-sm', rowEven: 'bg-white', rowOdd: 'bg-slate-50/30', divide: 'divide-slate-100/50', border: 'border-transparent', borderCell: 'border-slate-100/50', empty: 'bg-white' }
       : branchName === 'Oltiariq'
         ? oltiariqTheme
         : branchName === 'Toshkent'

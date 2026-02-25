@@ -14,7 +14,7 @@ import { useIsMobile } from '../utils/useIsMobile';
 const useEscKey = (isOpen: boolean, onClose: () => void) => {
   useEffect(() => {
     if (!isOpen) return;
-    
+
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
@@ -184,7 +184,7 @@ const Transactions = () => {
     try {
       const response = await apiClient.get('/transactions/worker-stats');
       setWorkerStats(response.data);
-      
+
       // O'tgan yil qarzlarini yuklash (admin uchun)
       const previousYear = new Date().getFullYear() - 1;
       try {
@@ -204,11 +204,11 @@ const Transactions = () => {
       // KPI loglar yig'indisini olish (ishlab topgan jami ish xaqi)
       const statsResponse = await apiClient.get(`/workers/${workerId}/stats?period=all`);
       const totalKPI = statsResponse.data.totalKPI || 0;
-      
+
       // To'langan ish xaqi va to'lanmagan ish xaqi uchun stage-stats dan foydalanamiz
       const stageStatsResponse = await apiClient.get(`/workers/${workerId}/stage-stats?period=all`);
       const totals = stageStatsResponse.data.totals;
-      
+
       // O'tgan yil qarzini yuklash
       const previousYear = new Date().getFullYear() - 1;
       let previousYearDebtData = null;
@@ -228,10 +228,10 @@ const Transactions = () => {
         // O'tgan yil qarzi yo'q bo'lishi mumkin
         setPreviousYearDebt(null);
       }
-      
+
       // O'tgan yil qarzini hisob-kitoblarga qo'shish
       const previousYearBalance = previousYearDebtData?.balance || 0;
-      
+
       setWorkerStats({
         totalEarned: totalKPI + (previousYearDebtData?.totalEarned || 0), // Joriy + o'tgan yil ish haqi
         totalPaid: totals.totalReceived + (previousYearDebtData?.totalPaid || 0), // Joriy + o'tgan yil to'langan
@@ -531,33 +531,44 @@ const Transactions = () => {
     const totalIncome = transactions
       .filter(t => t.type === 'INCOME')
       .reduce((sum, t) => sum + Number(t.amount), 0);
-    
+
     const totalExpense = transactions
       .filter(t => t.type === 'EXPENSE')
       .reduce((sum, t) => sum + Number(t.amount), 0);
-    
+
     const totalSalary = transactions
       .filter(t => t.type === 'SALARY')
       .reduce((sum, t) => sum + Number(t.amount), 0);
-    
+
     const netBalance = totalIncome - totalExpense - totalSalary;
-    
+
     return { totalIncome, totalExpense, totalSalary, netBalance };
   };
 
   const totals = calculateTotals();
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Transactions</h1>
+    <div className="p-6 min-h-screen bg-gray-50/50">
+      <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white/60 backdrop-blur-xl p-5 rounded-2xl shadow-sm border border-white/80 shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="p-3.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/30">
+            <Icon icon="lucide:arrow-right-left" className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 tracking-tight">
+              Tranzaksiyalar
+            </h1>
+            <p className="text-sm text-gray-500 font-medium mt-0.5">Kirim, chiqim va ish haqi bo'yicha to'lovlar</p>
+          </div>
+        </div>
         {user?.role === 'ADMIN' && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setShowPreviousYearDebtForm(true)}
-              className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/80 text-gray-700 border border-gray-200/50 rounded-xl hover:bg-orange-50 hover:text-orange-700 transition-all shadow-sm ring-1 ring-black/5"
             >
-              O'tgan yil qarzlarini yozish
+              <Icon icon="lucide:history" className="w-4 h-4" />
+              <span className="font-semibold text-sm">O'tgan yil qarzlarini yozish</span>
             </button>
             <button
               onClick={() => {
@@ -567,9 +578,10 @@ const Transactions = () => {
                   setShowForm(true);
                 }
               }}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl hover:from-emerald-500 hover:to-teal-500 transition-all shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30"
             >
-              + Add Transaction
+              <Icon icon="lucide:plus-circle" className="w-4 h-4" />
+              <span className="font-semibold text-sm">Yangi Tranzaksiya</span>
             </button>
           </div>
         )}
@@ -577,78 +589,75 @@ const Transactions = () => {
 
       {/* Monthly Stats Cards */}
       {user?.role === 'ADMIN' && monthlyStats && monthlyStats.income && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
           {/* Income Card */}
-          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-lg p-4 relative border border-blue-400 overflow-hidden">
-            <div className="absolute top-2 right-2">
-              <div className={`px-2 py-0.5 rounded text-xs font-medium ${
-                monthlyStats.income?.change >= 0
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
-              }`}>
-                <span className="inline-flex items-center">
-                  <span className="mr-1">{monthlyStats.income?.change >= 0 ? '↑' : '↓'}</span>
+          <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-5 relative overflow-hidden ring-1 ring-black/5 group hover:bg-white/80 transition-all duration-300">
+            <div className="absolute top-4 right-4">
+              <div className={`px-2.5 py-1 rounded-full text-xs font-bold shadow-sm ${monthlyStats.income?.change >= 0
+                ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
+                : 'bg-rose-100 text-rose-700 ring-1 ring-rose-200'
+                }`}>
+                <span className="inline-flex items-center gap-1">
+                  <Icon icon={monthlyStats.income?.change >= 0 ? "lucide:trending-up" : "lucide:trending-down"} className="w-3.5 h-3.5" />
                   {formatChange(monthlyStats.income?.change || 0)}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
-                <Icon icon="lucide:dollar-sign" className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform duration-300">
+                <Icon icon="lucide:arrow-down-left" className="w-5 h-5 text-emerald-600" />
               </div>
-              <div className="text-sm text-blue-100 font-medium">Oylik Kirim</div>
+              <div className="text-sm text-gray-500 font-semibold tracking-wide">OYLIK KIRIM</div>
             </div>
-            <div className="text-2xl font-bold text-white drop-shadow-lg">
+            <div className="text-2xl font-black text-gray-800 tracking-tight">
               {formatCurrency(monthlyStats.income?.current || 0, monthlyStats.currency || 'UZS')}
             </div>
           </div>
 
           {/* Expense Card */}
-          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-lg p-4 relative border border-blue-400 overflow-hidden">
-            <div className="absolute top-2 right-2">
-              <div className={`px-2 py-0.5 rounded text-xs font-medium ${
-                monthlyStats.expense?.change >= 0
-                  ? 'bg-red-100 text-red-800'
-                  : 'bg-green-100 text-green-800'
-              }`}>
-                <span className="inline-flex items-center">
-                  <span className="mr-1">{monthlyStats.expense?.change >= 0 ? '↑' : '↓'}</span>
+          <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-5 relative overflow-hidden ring-1 ring-black/5 group hover:bg-white/80 transition-all duration-300">
+            <div className="absolute top-4 right-4">
+              <div className={`px-2.5 py-1 rounded-full text-xs font-bold shadow-sm ${monthlyStats.expense?.change >= 0
+                ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-200'
+                : 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
+                }`}>
+                <span className="inline-flex items-center gap-1">
+                  <Icon icon={monthlyStats.expense?.change >= 0 ? "lucide:trending-up" : "lucide:trending-down"} className="w-3.5 h-3.5" />
                   {formatChange(monthlyStats.expense?.change || 0)}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
-                <Icon icon="lucide:credit-card" className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center border border-rose-500/20 group-hover:scale-110 transition-transform duration-300">
+                <Icon icon="lucide:arrow-up-right" className="w-5 h-5 text-rose-600" />
               </div>
-              <div className="text-sm text-blue-100 font-medium">Oylik Chiqim</div>
+              <div className="text-sm text-gray-500 font-semibold tracking-wide">OYLIK CHIQIM</div>
             </div>
-            <div className="text-2xl font-bold text-white drop-shadow-lg">
+            <div className="text-2xl font-black text-gray-800 tracking-tight">
               {formatCurrency(monthlyStats.expense?.current || 0, monthlyStats.currency || 'UZS')}
             </div>
           </div>
 
           {/* Net Card */}
-          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-lg p-4 relative border border-blue-400 overflow-hidden">
-            <div className="absolute top-2 right-2">
-              <div className={`px-2 py-0.5 rounded text-xs font-medium ${
-                monthlyStats.net?.change >= 0
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
-              }`}>
-                <span className="inline-flex items-center">
-                  <span className="mr-1">{monthlyStats.net?.change >= 0 ? '↑' : '↓'}</span>
+          <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-5 relative overflow-hidden ring-1 ring-black/5 group hover:bg-white/80 transition-all duration-300">
+            <div className="absolute top-4 right-4">
+              <div className={`px-2.5 py-1 rounded-full text-xs font-bold shadow-sm ${monthlyStats.net?.change >= 0
+                ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200'
+                : 'bg-rose-100 text-rose-700 ring-1 ring-rose-200'
+                }`}>
+                <span className="inline-flex items-center gap-1">
+                  <Icon icon={monthlyStats.net?.change >= 0 ? "lucide:trending-up" : "lucide:trending-down"} className="w-3.5 h-3.5" />
                   {formatChange(monthlyStats.net?.change || 0)}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 bg-white bg-opacity-25 rounded flex items-center justify-center">
-                <Icon icon="lucide:trending-up" className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform duration-300">
+                <Icon icon="lucide:briefcase" className="w-5 h-5 text-blue-600" />
               </div>
-              <div className="text-sm text-blue-100 font-medium">Foyda</div>
+              <div className="text-sm text-gray-500 font-semibold tracking-wide">SOF FOYDA</div>
             </div>
-            <div className="text-2xl font-bold text-white drop-shadow-lg">
+            <div className="text-2xl font-black text-gray-800 tracking-tight">
               {formatCurrency(monthlyStats.net?.current || 0, monthlyStats.currency || 'UZS')}
             </div>
           </div>
@@ -656,7 +665,7 @@ const Transactions = () => {
       )}
 
       {showTransactionForm && (
-        <div 
+        <div
           className={isMobile && isNewTransactionRoute
             ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
             : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
@@ -671,7 +680,7 @@ const Transactions = () => {
             }
           }}
         >
-          <div 
+          <div
             className={isMobile && isNewTransactionRoute
               ? 'bg-white w-full h-full p-6 overflow-y-auto'
               : 'bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
@@ -693,302 +702,36 @@ const Transactions = () => {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, type: 'INCOME' })}
-                  className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${
-                    form.type === 'INCOME'
-                      ? 'bg-green-600 border-green-600 text-white'
-                      : 'bg-white border-gray-300 text-gray-700 hover:border-green-500'
-                  }`}
-                >
-                  INCOME
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, type: 'EXPENSE' })}
-                  className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${
-                    form.type === 'EXPENSE'
-                      ? 'bg-red-600 border-red-600 text-white'
-                      : 'bg-white border-gray-300 text-gray-700 hover:border-red-500'
-                  }`}
-                >
-                  EXPENSE
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, type: 'SALARY' })}
-                  className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${
-                    form.type === 'SALARY'
-                      ? 'bg-yellow-500 border-yellow-500 text-white'
-                      : 'bg-white border-gray-300 text-gray-700 hover:border-yellow-500'
-                  }`}
-                >
-                  SALARY
-                </button>
-              </div>
-            </div>
-
-            {form.type === 'INCOME' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mijoz</label>
-                <select
-                  value={form.clientId}
-                  onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                >
-                    <option value="">Tanlang...</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id.toString()}>
-                        {c.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-            )}
-
-            {form.type === 'EXPENSE' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Xarajat kategoriyasi
-                </label>
-                <div className="space-y-2">
-                  <select
-                    value={form.expenseCategory}
-                    onChange={(e) => setForm({ ...form, expenseCategory: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="">Tanlang...</option>
-                    {expenseCategories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newExpenseCategory}
-                      onChange={(e) => setNewExpenseCategory(e.target.value)}
-                      placeholder="Yangi kategoriya"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddExpenseCategory}
-                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                      Qo'shish
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {form.type === 'SALARY' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ishchi</label>
-                <select
-                  value={form.workerId}
-                  onChange={(e) => setForm({ ...form, workerId: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="">Tanlang...</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
-              <DateInput
-                value={form.date}
-                onChange={(value) => setForm({ ...form, date: value })}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              />
-            </div>
-
-            <MonetaryInput
-              amount={form.amount}
-              currency={form.currency}
-              exchangeRate={form.exchangeRate}
-              date={form.date}
-              onAmountChange={(value) => {
-                setForm({ ...form, amount: value });
-                setMonetaryErrors({ ...monetaryErrors, amount: undefined });
-              }}
-              onCurrencyChange={(value) => {
-                setForm({ ...form, currency: value });
-                setMonetaryErrors({ ...monetaryErrors, currency: undefined });
-              }}
-              onExchangeRateChange={(value) => {
-                setForm({ ...form, exchangeRate: value });
-                setMonetaryErrors({ ...monetaryErrors, exchangeRate: undefined });
-              }}
-              label="Summa"
-              required
-              showLabels={true}
-              currencyRules={{
-                allowed: form.paymentMethod === 'CARD' ? ['UZS'] : undefined,
-                exchangeRateRequired: true,
-              }}
-              errors={monetaryErrors}
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                To'lov usuli
-              </label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, paymentMethod: 'CASH' })}
-                  className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${
-                    form.paymentMethod === 'CASH'
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                  }`}
-                >
-                  Naqt
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Karta tanlansa, currency avtomatik UZS bo'ladi
-                    setForm({ ...form, paymentMethod: 'CARD', currency: 'UZS' });
-                  }}
-                  className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${
-                    form.paymentMethod === 'CARD'
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                  }`}
-                >
-                  Karta
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Comment</label>
-              <textarea
-                value={form.comment}
-                onChange={(e) => setForm({ ...form, comment: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                rows={3}
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-              >
-                Saqlash
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (isMobile && isNewTransactionRoute) {
-                    navigate('/transactions');
-                  } else {
-                    setShowForm(false);
-                  }
-                }}
-                className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
-              >
-                Bekor
-              </button>
-            </div>
-          </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Modal */}
-      {showEditTransactionForm && editingTransaction && (
-        <div 
-          className={isMobile && editTransactionId
-            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
-            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
-          style={isMobile && editTransactionId ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              if (isMobile && editTransactionId) {
-                navigate('/transactions');
-              } else {
-                setShowEditModal(false);
-                setEditingTransaction(null);
-              }
-            }
-          }}
-        >
-          <div 
-            className={isMobile && editTransactionId
-              ? 'bg-white w-full h-full p-6 overflow-y-auto'
-              : 'bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
-            style={isMobile && editTransactionId ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Transactionni tahrirlash</h2>
-              <button
-                onClick={() => {
-                  if (isMobile && editTransactionId) {
-                    navigate('/transactions');
-                  } else {
-                    setShowEditModal(false);
-                    setEditingTransaction(null);
-                  }
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
-              >
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleUpdate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, type: 'INCOME' })}
-                    className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${
-                      form.type === 'INCOME'
-                        ? 'bg-green-600 border-green-600 text-white'
-                        : 'bg-white border-gray-300 text-gray-700 hover:border-green-500'
-                    }`}
+                    className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${form.type === 'INCOME'
+                      ? 'bg-green-600 border-green-600 text-white'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-green-500'
+                      }`}
                   >
                     INCOME
                   </button>
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, type: 'EXPENSE' })}
-                    className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${
-                      form.type === 'EXPENSE'
-                        ? 'bg-red-600 border-red-600 text-white'
-                        : 'bg-white border-gray-300 text-gray-700 hover:border-red-500'
-                    }`}
+                    className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${form.type === 'EXPENSE'
+                      ? 'bg-red-600 border-red-600 text-white'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-red-500'
+                      }`}
                   >
                     EXPENSE
                   </button>
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, type: 'SALARY' })}
-                    className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${
-                      form.type === 'SALARY'
-                        ? 'bg-yellow-500 border-yellow-500 text-white'
-                        : 'bg-white border-gray-300 text-gray-700 hover:border-yellow-500'
-                    }`}
+                    className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${form.type === 'SALARY'
+                      ? 'bg-yellow-500 border-yellow-500 text-white'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-yellow-500'
+                      }`}
                   >
                     SALARY
                   </button>
@@ -1019,37 +762,295 @@ const Transactions = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Xarajat kategoriyasi
                   </label>
-                <div className="space-y-2">
+                  <div className="space-y-2">
+                    <select
+                      value={form.expenseCategory}
+                      onChange={(e) => setForm({ ...form, expenseCategory: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Tanlang...</option>
+                      {expenseCategories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newExpenseCategory}
+                        onChange={(e) => setNewExpenseCategory(e.target.value)}
+                        placeholder="Yangi kategoriya"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddExpenseCategory}
+                        className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Qo'shish
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {form.type === 'SALARY' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ishchi</label>
                   <select
-                    value={form.expenseCategory}
-                    onChange={(e) => setForm({ ...form, expenseCategory: e.target.value })}
+                    value={form.workerId}
+                    onChange={(e) => setForm({ ...form, workerId: e.target.value })}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   >
                     <option value="">Tanlang...</option>
-                    {expenseCategories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
+                    {workers.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
                       </option>
                     ))}
                   </select>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newExpenseCategory}
-                      onChange={(e) => setNewExpenseCategory(e.target.value)}
-                      placeholder="Yangi kategoriya"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddExpenseCategory}
-                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                      Qo'shish
-                    </button>
-                  </div>
                 </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
+                <DateInput
+                  value={form.date}
+                  onChange={(value) => setForm({ ...form, date: value })}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+
+              <MonetaryInput
+                amount={form.amount}
+                currency={form.currency}
+                exchangeRate={form.exchangeRate}
+                date={form.date}
+                onAmountChange={(value) => {
+                  setForm({ ...form, amount: value });
+                  setMonetaryErrors({ ...monetaryErrors, amount: undefined });
+                }}
+                onCurrencyChange={(value) => {
+                  setForm({ ...form, currency: value });
+                  setMonetaryErrors({ ...monetaryErrors, currency: undefined });
+                }}
+                onExchangeRateChange={(value) => {
+                  setForm({ ...form, exchangeRate: value });
+                  setMonetaryErrors({ ...monetaryErrors, exchangeRate: undefined });
+                }}
+                label="Summa"
+                required
+                showLabels={true}
+                currencyRules={{
+                  allowed: form.paymentMethod === 'CARD' ? ['UZS'] : undefined,
+                  exchangeRateRequired: true,
+                }}
+                errors={monetaryErrors}
+              />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  To'lov usuli
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, paymentMethod: 'CASH' })}
+                    className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${form.paymentMethod === 'CASH'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
+                  >
+                    Naqt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Karta tanlansa, currency avtomatik UZS bo'ladi
+                      setForm({ ...form, paymentMethod: 'CARD', currency: 'UZS' });
+                    }}
+                    className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${form.paymentMethod === 'CARD'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
+                  >
+                    Karta
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Comment</label>
+                <textarea
+                  value={form.comment}
+                  onChange={(e) => setForm({ ...form, comment: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                >
+                  Saqlash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isMobile && isNewTransactionRoute) {
+                      navigate('/transactions');
+                    } else {
+                      setShowForm(false);
+                    }
+                  }}
+                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
+                >
+                  Bekor
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditTransactionForm && editingTransaction && (
+        <div
+          className={isMobile && editTransactionId
+            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+          style={isMobile && editTransactionId ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              if (isMobile && editTransactionId) {
+                navigate('/transactions');
+              } else {
+                setShowEditModal(false);
+                setEditingTransaction(null);
+              }
+            }
+          }}
+        >
+          <div
+            className={isMobile && editTransactionId
+              ? 'bg-white w-full h-full p-6 overflow-y-auto'
+              : 'bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
+            style={isMobile && editTransactionId ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">Transactionni tahrirlash</h2>
+              <button
+                onClick={() => {
+                  if (isMobile && editTransactionId) {
+                    navigate('/transactions');
+                  } else {
+                    setShowEditModal(false);
+                    setEditingTransaction(null);
+                  }
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleUpdate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, type: 'INCOME' })}
+                    className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${form.type === 'INCOME'
+                      ? 'bg-green-600 border-green-600 text-white'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-green-500'
+                      }`}
+                  >
+                    INCOME
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, type: 'EXPENSE' })}
+                    className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${form.type === 'EXPENSE'
+                      ? 'bg-red-600 border-red-600 text-white'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-red-500'
+                      }`}
+                  >
+                    EXPENSE
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, type: 'SALARY' })}
+                    className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${form.type === 'SALARY'
+                      ? 'bg-yellow-500 border-yellow-500 text-white'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-yellow-500'
+                      }`}
+                  >
+                    SALARY
+                  </button>
+                </div>
+              </div>
+
+              {form.type === 'INCOME' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mijoz</label>
+                  <select
+                    value={form.clientId}
+                    onChange={(e) => setForm({ ...form, clientId: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Tanlang...</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id.toString()}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {form.type === 'EXPENSE' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Xarajat kategoriyasi
+                  </label>
+                  <div className="space-y-2">
+                    <select
+                      value={form.expenseCategory}
+                      onChange={(e) => setForm({ ...form, expenseCategory: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Tanlang...</option>
+                      {expenseCategories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newExpenseCategory}
+                        onChange={(e) => setNewExpenseCategory(e.target.value)}
+                        placeholder="Yangi kategoriya"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddExpenseCategory}
+                        className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Qo'shish
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1117,11 +1118,10 @@ const Transactions = () => {
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, paymentMethod: 'CASH' })}
-                    className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${
-                      form.paymentMethod === 'CASH'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                    }`}
+                    className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${form.paymentMethod === 'CASH'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
                   >
                     Naqt
                   </button>
@@ -1131,11 +1131,10 @@ const Transactions = () => {
                       // Karta tanlansa, currency avtomatik UZS bo'ladi
                       setForm({ ...form, paymentMethod: 'CARD', currency: 'UZS' });
                     }}
-                    className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${
-                      form.paymentMethod === 'CARD'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                    }`}
+                    className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${form.paymentMethod === 'CARD'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
                   >
                     Karta
                   </button>
@@ -1176,126 +1175,151 @@ const Transactions = () => {
       )}
 
       {loading ? (
-        <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
+        <div className="text-center py-12 text-gray-500 font-medium bg-white/50 backdrop-blur-sm rounded-2xl border border-white/60 shadow-sm">Yuklanmoqda...</div>
       ) : (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-xl overflow-hidden border-2 border-blue-200">
-          <table className="min-w-full divide-y divide-blue-100">
-            <thead className="bg-gradient-to-r from-blue-600 to-indigo-700">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
-                  Type
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
-                  Client/Worker/Category
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
-                  Amount
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
-                  To'lov usuli
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
-                  Date
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
-                  Comment
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-b border-blue-500">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-blue-100">
-              {transactions.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-3 text-center text-sm text-gray-500 bg-blue-50">
-                    Ma'lumotlar yo'q
-                  </td>
+        <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 overflow-hidden ring-1 ring-black/5">
+          <div className="overflow-auto max-h-[calc(100vh-18rem)]">
+            <table className="min-w-full">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-white/80 backdrop-blur-md border-b border-gray-100/80">
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:hash" className="w-4 h-4 text-blue-500" />
+                      Type
+                    </span>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:user" className="w-4 h-4 text-emerald-500" />
+                      Client/Worker/Category
+                    </span>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:coins" className="w-4 h-4 text-amber-500" />
+                      Amount
+                    </span>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:credit-card" className="w-4 h-4 text-indigo-500" />
+                      To'lov usuli
+                    </span>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:calendar" className="w-4 h-4 text-cyan-500" />
+                      Date
+                    </span>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon icon="lucide:message-square" className="w-4 h-4 text-purple-500" />
+                      Comment
+                    </span>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5 justify-end w-full">
+                      <Icon icon="lucide:sliders-horizontal" className="w-4 h-4 text-slate-500" />
+                      Actions
+                    </span>
+                  </th>
                 </tr>
-              ) : (
-                paginatedTransactions.map((t, index) => (
-                  <tr key={t.id} className={`hover:bg-blue-100 transition-colors ${
-                    index % 2 === 0 ? 'bg-blue-50' : 'bg-white'
-                  }`}>
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <span
-                        className={`px-1.5 py-0.5 text-xs rounded-full ${
-                          t.type === 'INCOME'
-                            ? 'bg-green-100 text-green-800'
-                            : t.type === 'EXPENSE'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}
-                      >
-                        {t.type}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {t.type === 'INCOME' && t.client
-                        ? t.client.name
-                        : t.type === 'SALARY' && t.worker
-                        ? t.worker.name
-                        : t.expenseCategory || '-'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {t.amount} {t.currency}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {t.paymentMethod ? (
-                        <span className={`px-1.5 py-0.5 text-xs rounded-full ${
-                          t.paymentMethod === 'CASH'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-purple-100 text-purple-800'
-                        }`}>
-                          {t.paymentMethod === 'CASH' ? 'Naqt' : 'Karta'}
-                        </span>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(t.date)}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-gray-900">
-                      <div className="max-w-xs truncate" title={t.comment || undefined}>
-                        {t.comment || '-'}
+              </thead>
+              <tbody className="divide-y divide-gray-100/60 bg-white/40">
+                {transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-16 text-center">
+                      <div className="flex flex-col items-center justify-center text-gray-500">
+                        <div className="bg-gradient-to-br from-gray-50 to-slate-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-gray-200/50">
+                          <Icon icon="lucide:search" className="w-10 h-10 text-gray-400" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-800 mb-2">Ma'lumotlar yo'q</h3>
+                        <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Siz qidirayotgan qidiruv so'rovi yoki filtrlarga mos keluvchi tranzaksiya topilmadi.</p>
                       </div>
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
-                      {user?.role === 'ADMIN' ? (
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => {
-                              if (isMobile) {
-                                navigate(`/transactions/${t.id}/edit`);
-                              } else {
-                                handleEdit(t);
-                              }
-                            }}
-                            className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
-                            title="O'zgartirish"
-                          >
-                            <Icon icon="lucide:pencil" className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(t.id)}
-                            className="p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
-                            title="O'chirish"
-                          >
-                            <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  paginatedTransactions.map((t, index) => (
+                    <tr key={t.id} className="group transition-all duration-200 hover:bg-white/80 hover:shadow-sm">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 text-xs font-semibold rounded-full ${t.type === 'INCOME'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : t.type === 'EXPENSE'
+                                ? 'bg-rose-100 text-rose-800'
+                                : 'bg-indigo-100 text-indigo-800'
+                            }`}
+                        >
+                          {t.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 font-medium">
+                        {t.type === 'INCOME' && t.client
+                          ? t.client.name
+                          : t.type === 'SALARY' && t.worker
+                            ? t.worker.name
+                            : t.expenseCategory || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-800">
+                        {t.amount} {t.currency}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
+                        {t.paymentMethod ? (
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${t.paymentMethod === 'CASH'
+                              ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-200'
+                              : 'bg-purple-100 text-purple-800 ring-1 ring-purple-200'
+                            }`}>
+                            {t.paymentMethod === 'CASH' ? 'Naqt' : 'Karta'}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {formatDate(t.date)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        <div className="max-w-xs truncate" title={t.comment || undefined}>
+                          {t.comment || '-'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                        {user?.role === 'ADMIN' ? (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                if (isMobile) {
+                                  navigate(`/transactions/${t.id}/edit`);
+                                } else {
+                                  handleEdit(t);
+                                }
+                              }}
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 shadow-sm ring-1 ring-blue-200/60 transition-all hover:shadow hover:shadow-blue-500/20"
+                              title="O'zgartirish"
+                            >
+                              <Icon icon="lucide:pencil" className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(t.id)}
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 shadow-sm ring-1 ring-rose-200/60 transition-all hover:shadow hover:shadow-rose-500/20"
+                              title="O'chirish"
+                            >
+                              <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
           {transactions.length > TRANSACTIONS_PAGE_SIZE && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-blue-200 bg-blue-50/50">
+            <div className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100/60 bg-white/50 backdrop-blur-sm">
               <p className="text-sm text-gray-600">
                 {((transactionsPage - 1) * TRANSACTIONS_PAGE_SIZE) + 1}–
                 {Math.min(transactionsPage * TRANSACTIONS_PAGE_SIZE, transactions.length)} / {transactions.length}
@@ -1305,18 +1329,20 @@ const Transactions = () => {
                   type="button"
                   onClick={() => setTransactionsPage((p) => Math.max(1, p - 1))}
                   disabled={transactionsPage <= 1}
-                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-white shadow-sm ring-1 ring-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow"
                 >
                   <Icon icon="lucide:chevron-left" className="w-5 h-5" />
                 </button>
-                <span className="px-2 text-sm font-medium text-gray-700">
-                  {transactionsPage} / {transactionsTotalPages}
-                </span>
+                <div className="flex items-center gap-0.5 mx-2">
+                  <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg text-sm font-semibold border border-blue-200">
+                    {transactionsPage} / {transactionsTotalPages}
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => setTransactionsPage((p) => Math.min(transactionsTotalPages, p + 1))}
                   disabled={transactionsPage >= transactionsTotalPages}
-                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-white shadow-sm ring-1 ring-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow"
                 >
                   <Icon icon="lucide:chevron-right" className="w-5 h-5" />
                 </button>
@@ -1328,7 +1354,7 @@ const Transactions = () => {
 
       {/* Previous Year Debt Form Modal */}
       {showPreviousYearDebtForm && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -1438,8 +1464,8 @@ const Transactions = () => {
                         <div>
                           <div className="font-medium text-gray-900">{debt.worker.name}</div>
                           <div className="text-sm text-gray-600">
-                            Ish haqi: <CurrencyDisplay amount={Number(debt.totalEarned)} originalCurrency="USD" /> | 
-                            To'langan: <CurrencyDisplay amount={Number(debt.totalPaid)} originalCurrency="USD" /> | 
+                            Ish haqi: <CurrencyDisplay amount={Number(debt.totalEarned)} originalCurrency="USD" /> |
+                            To'langan: <CurrencyDisplay amount={Number(debt.totalPaid)} originalCurrency="USD" /> |
                             Qarz: <CurrencyDisplay amount={Number(debt.balance)} originalCurrency="USD" />
                           </div>
                         </div>

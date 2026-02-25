@@ -148,7 +148,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
           : '';
         const documentsSub = path.join(uploadsRoot, 'documents');
         const tasksSub = path.join(uploadsRoot, 'tasks');
-        const safeBaseName = path.basename(pathFromDb) || path.basename((doc.name || '').replace(/[^\w\s.-]/gi, '_')) || 'file';
+        const safeBaseName = path.basename(pathFromDb) || path.basename((doc.name || '').replace(/[\\/:*?"<>|\x00-\x1f]/g, '_')) || 'file';
         const candidates = [
           safePath,
           path.join(documentsSub, safeBaseName),
@@ -188,11 +188,13 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
         }
       }
 
-      // Yuklangan holatidagi fayl nomi saqlanadi: doc.name asl fayl nomi bo'lsa shuni ishlatamiz
+      // Yuklangan holatidagi fayl nomi saqlanadi; kirill va boshqa yozuvlar saqlanadi, faqat xavfli belgilar almashtiriladi
+      const sanitizeFileName = (s: string) =>
+        s.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').trim() || 'document';
       const extFromName = path.extname(doc.name || '');
       const extFromPath = path.extname(doc.fileUrl) || path.extname(safePath) || '';
       const ext = extFromName || extFromPath;
-      const baseFromName = (doc.name || 'document').replace(/[^\w\s.\-]/gi, '_').trim();
+      const baseFromName = sanitizeFileName(doc.name || 'document');
       const filename = extFromName
         ? baseFromName
         : (baseFromName + (ext || ''));

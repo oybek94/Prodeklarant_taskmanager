@@ -119,7 +119,7 @@ const Invoices = () => {
   const [editPackagingName, setEditPackagingName] = useState('');
   const [newPackagingName, setNewPackagingName] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 15;
+  const PAGE_SIZE = 20;
   const [searchQuery, setSearchQuery] = useState('');
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [filters, setFilters] = useState<{
@@ -451,8 +451,8 @@ const Invoices = () => {
   }
 
   return (
-    <div className="p-6 min-h-screen bg-gray-50/50">
-      <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white/60 backdrop-blur-xl p-5 rounded-2xl shadow-sm border border-white/80 shrink-0">
+    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
+      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl p-5 rounded-2xl shadow-sm border border-white/80 dark:border-gray-700/50 shrink-0">
         <div className="flex items-center gap-4">
           <div className="p-3.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/30">
             <Icon icon="lucide:file-text" className="w-6 h-6 text-white" />
@@ -1177,54 +1177,54 @@ const Invoices = () => {
           <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Siz qidirayotgan qidiruv so&apos;rovi yoki filtrlarga mos keluvchi invoice topilmadi.</p>
         </div>
       ) : (
-        <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 overflow-hidden ring-1 ring-black/5">
-          <div className="overflow-auto max-h-[calc(100vh-18rem)]">
+        <div className="flex-1 flex flex-col min-h-0 bg-white/70 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 dark:border-gray-700/50 overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
+          <div className="flex-1 overflow-auto bg-transparent">
             <table className="min-w-full">
               <thead className="sticky top-0 z-10">
-                <tr className="bg-white/80 backdrop-blur-md border-b border-gray-100/80">
-                  <th className="w-28 px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                <tr className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-100/80 dark:border-gray-700/80">
+                  <th className="w-28 px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center gap-1.5">
                       <Icon icon="lucide:hash" className="w-4 h-4 text-blue-500" />
                       №
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center gap-1.5">
                       <Icon icon="lucide:user" className="w-4 h-4 text-emerald-500" />
                       Mijoz
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center gap-1.5">
                       <Icon icon="lucide:map-pin" className="w-4 h-4 text-indigo-500" />
                       Filial
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center gap-1.5">
                       <Icon icon="lucide:car" className="w-4 h-4 text-amber-500" />
                       Avtomobil
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center gap-1.5">
                       <Icon icon="lucide:building-2" className="w-4 h-4 text-purple-500" />
                       Sotuvchi / Qabul qiluvchi
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center gap-1.5">
                       <Icon icon="lucide:calendar" className="w-4 h-4 text-cyan-500" />
                       Sana
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center gap-1.5">
                       <Icon icon="lucide:circle-dot" className="w-4 h-4 text-rose-500" />
                       Status
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors pr-8">
+                  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors pr-8">
                     <span className="inline-flex items-center gap-1.5 justify-end w-full">
                       <Icon icon="lucide:sliders-horizontal" className="w-4 h-4 text-slate-500" />
                       Amallar
@@ -1232,7 +1232,7 @@ const Invoices = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100/60 bg-white/40">
+              <tbody className="divide-y divide-gray-100/60 dark:divide-gray-700/60 bg-white/40 dark:bg-gray-800/40">
                 {paginatedInvoices.map((invoice) => {
                   const hasErrors = (invoice.task?._count?.errors ?? 0) > 0;
                   const branchId = invoice.task?.branch?.id ?? invoice.branch?.id;
@@ -1241,23 +1241,23 @@ const Invoices = () => {
                   return (
                     <tr
                       key={invoice.id}
-                      className={`group transition-all duration-200 hover:bg-white/80 hover:shadow-sm ${hasErrors ? 'border-l-4 border-l-red-500' : ''}`}
+                      className={`group transition-all duration-200 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:shadow-sm ${hasErrors ? 'border-l-4 border-l-red-500' : ''}`}
                     >
                       <td className="w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold">
                         <button
                           type="button"
                           onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                          className="text-blue-700 hover:text-blue-900 hover:underline cursor-pointer text-left"
+                          className="text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline cursor-pointer text-left"
                         >
                           #{invoice.invoiceNumber}
                         </button>
                       </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-800">
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
                         {invoice.clientId ? (
                           <button
                             type="button"
                             onClick={() => navigate('/clients', { state: { openClientId: invoice.clientId } })}
-                            className="text-left w-full hover:text-indigo-600 hover:underline focus:outline-none focus:ring-0"
+                            className="text-left w-full hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline focus:outline-none focus:ring-0"
                           >
                             {invoice.client?.name || '-'}
                           </button>
@@ -1270,15 +1270,15 @@ const Invoices = () => {
                           {invoice.task?.branch?.name ?? invoice.branch?.name ?? '-'}
                         </span>
                       </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 font-mono">
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 font-mono">
                         {invoice.additionalInfo?.vehicleNumber || '-'}
                       </td>
-                      <td className="px-6 py-2 text-sm text-gray-700 max-w-xs truncate" title={[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName].filter(Boolean).join(' / ') || undefined}>
+                      <td className="px-6 py-2 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName].filter(Boolean).join(' / ') || undefined}>
                         {invoice.clientId ? (
                           <button
                             type="button"
                             onClick={() => navigate('/clients', { state: { openClientId: invoice.clientId, ...(invoice.contractId != null ? { openContractId: invoice.contractId } : {}) } })}
-                            className="text-left w-full hover:text-indigo-600 hover:underline focus:outline-none focus:ring-0 truncate block"
+                            className="text-left w-full hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline focus:outline-none focus:ring-0 truncate block"
                           >
                             {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
                               .filter(Boolean)
@@ -1292,7 +1292,7 @@ const Invoices = () => {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700">
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {formatDate(invoice.date)}
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm">

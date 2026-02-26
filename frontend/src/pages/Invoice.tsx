@@ -272,7 +272,7 @@ const Invoice = () => {
 
   const navigate = useNavigate();
 
-  
+
 
   // URL'dan contractId ni olish (query parameter sifatida)
 
@@ -749,7 +749,7 @@ const Invoice = () => {
 
       setLoading(true);
 
-      
+
 
       // Agar clientId va contractId bo'lsa, yangi invoice yaratish
 
@@ -768,13 +768,13 @@ const Invoice = () => {
 
         }
 
-        
+
 
         // Tanlangan shartnomani o'rnatish
 
         setSelectedContractId(contractIdFromQuery);
 
-        
+
 
         // Shartnoma ma'lumotlarini yuklash va form'ga to'ldirish
 
@@ -797,7 +797,7 @@ const Invoice = () => {
 
           }));
 
-          
+
 
           // Shartnoma ma'lumotlarini avtomatik to'ldirish
 
@@ -879,10 +879,10 @@ const Invoice = () => {
               setSpecCustomFields(
                 Array.isArray(dupSpecFields)
                   ? dupSpecFields.map((f: { id?: string; label?: string; value?: string }) => ({
-                      id: String(f?.id ?? ''),
-                      label: String(f?.label ?? ''),
-                      value: String(f?.value ?? ''),
-                    }))
+                    id: String(f?.id ?? ''),
+                    label: String(f?.label ?? ''),
+                    value: String(f?.value ?? ''),
+                  }))
                   : []
               );
               // dublikat yuklanmasa oddiy yangi invoice qoldiramiz
@@ -898,7 +898,7 @@ const Invoice = () => {
 
         }
 
-        
+
 
         setLoading(false);
 
@@ -906,7 +906,7 @@ const Invoice = () => {
 
       }
 
-      
+
 
       // Eski usul: taskId orqali
 
@@ -918,7 +918,7 @@ const Invoice = () => {
 
         setTask(taskResponse.data);
 
-        
+
 
         // Mijozning shartnomalarini olish
 
@@ -928,7 +928,7 @@ const Invoice = () => {
 
           setContracts(contractsResponse.data);
 
-          
+
 
           // Agar URL'da contractId bo'lsa, uni tanlash
 
@@ -970,7 +970,7 @@ const Invoice = () => {
 
         }
 
-        
+
 
         // Invoice ma'lumotlarini olish (yo'q bo'lsa 200 + null qaytadi)
 
@@ -1359,6 +1359,11 @@ const Invoice = () => {
       return;
     }
 
+    const wasDark = document.documentElement.classList.contains('dark');
+    if (wasDark) {
+      document.documentElement.classList.remove('dark');
+    }
+
     setPdfIncludeSeal(includeSeal);
     setIsPdfMode(true);
     await waitForPaint();
@@ -1390,6 +1395,9 @@ const Invoice = () => {
 
     setIsPdfMode(false);
     setPdfIncludeSeal(true);
+    if (wasDark) {
+      document.documentElement.classList.add('dark');
+    }
   };
 
   const extractBlobErrorMessage = async (blob: Blob, fallback: string) => {
@@ -1439,7 +1447,7 @@ const Invoice = () => {
   const trackProcessDownload = (processType: 'TIR' | 'CERT' | 'DECLARATION') => {
     const tid = taskId ? Number(taskId) : invoice?.taskId;
     if (!tid || !Number.isFinite(tid)) return;
-    apiClient.post('/process/download', { taskId: tid, processType }).catch(() => {});
+    apiClient.post('/process/download', { taskId: tid, processType }).catch(() => { });
   };
 
   const loadRegionCodes = async (): Promise<RegionCode[]> => {
@@ -1748,7 +1756,7 @@ const Invoice = () => {
       return;
     }
 
-    
+
 
     try {
 
@@ -1791,7 +1799,7 @@ const Invoice = () => {
       setDeliveryTermsOptions(mergedDeliveryTerms);
       localStorage.setItem(getDeliveryTermsKey(deliveryTermsKey), JSON.stringify(mergedDeliveryTerms));
 
-      
+
 
       // AdditionalInfo'ga to'lov usulini qo'shish
 
@@ -1996,7 +2004,7 @@ const Invoice = () => {
       return;
     }
 
-    
+
 
     const hasValidItems =
       items.length > 0 &&
@@ -2289,9 +2297,9 @@ const Invoice = () => {
   const formatNumber = (value?: number) =>
     value !== undefined && value !== null && !Number.isNaN(value)
       ? value.toLocaleString('ru-RU', {
-          minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
-          maximumFractionDigits: 2,
-        })
+        minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+        maximumFractionDigits: 2,
+      })
       : '';
   const formatNumberFixed = (value?: number) =>
     value !== undefined && value !== null && !Number.isNaN(value)
@@ -2786,16 +2794,16 @@ const Invoice = () => {
                     return true;
                   })
                   .map((entry: ChangeLogEntry, idx: number) => (
-                  <li key={idx} className="text-gray-700 flex flex-wrap items-baseline gap-x-2">
-                    <span>
-                      <span className="font-medium text-amber-800">{entry.fieldLabel}:</span>{' '}
-                      Oldin <span className="text-gray-600">{entry.oldValue}</span>, hozir <span className="font-medium text-gray-900">{entry.newValue}</span>
-                    </span>
-                    {entry.changedAt && (
-                      <span className="text-xs text-gray-500 whitespace-nowrap">— {entry.changedAt}</span>
-                    )}
-                  </li>
-                ))}
+                    <li key={idx} className="text-gray-700 flex flex-wrap items-baseline gap-x-2">
+                      <span>
+                        <span className="font-medium text-amber-800">{entry.fieldLabel}:</span>{' '}
+                        Oldin <span className="text-gray-600">{entry.oldValue}</span>, hozir <span className="font-medium text-gray-900">{entry.newValue}</span>
+                      </span>
+                      {entry.changedAt && (
+                        <span className="text-xs text-gray-500 whitespace-nowrap">— {entry.changedAt}</span>
+                      )}
+                    </li>
+                  ))}
               </ul>
             </div>
           )}
@@ -2827,11 +2835,10 @@ const Invoice = () => {
                   key={tab.id}
                   type="button"
                   onClick={() => setViewTab(tab.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    isActive
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${isActive
                       ? 'bg-indigo-600 text-white border-indigo-600'
                       : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -2896,26 +2903,26 @@ const Invoice = () => {
 
                   <div className="flex items-center gap-2">
                     <span className="text-base font-bold text-gray-700">Контракт №:</span>
-                  {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
-                    <span className="px-2 py-1 text-base font-semibold text-gray-900">
-                      {selectedContract
-                        ? `${selectedContract.contractNumber} от ${formatDate(selectedContract.contractDate)}`
-                        : ''}
-                    </span>
-                  ) : (
-                    <select
-                      value={selectedContractId}
-                      onChange={(e) => handleContractSelect(e.target.value)}
-                      className="flex-1 px-2 py-1 border border-gray-300 rounded text-base font-semibold"
-                    >
-                      <option value="">Shartnoma tanlang...</option>
-                      {contracts.map(contract => (
-                        <option key={contract.id} value={contract.id}>
-                          {contract.contractNumber} от {formatDate(contract.contractDate)}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                    {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
+                      <span className="px-2 py-1 text-base font-semibold text-gray-900">
+                        {selectedContract
+                          ? `${selectedContract.contractNumber} от ${formatDate(selectedContract.contractDate)}`
+                          : ''}
+                      </span>
+                    ) : (
+                      <select
+                        value={selectedContractId}
+                        onChange={(e) => handleContractSelect(e.target.value)}
+                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-base font-semibold"
+                      >
+                        <option value="">Shartnoma tanlang...</option>
+                        {contracts.map(contract => (
+                          <option key={contract.id} value={contract.id}>
+                            {contract.contractNumber} от {formatDate(contract.contractDate)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
 
                   </div>
                 </div>
@@ -3243,11 +3250,10 @@ const Invoice = () => {
                           alert('Nusxalash uchun ma\'lumot yo\'q');
                         }
                       }}
-                      className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-300 text-sm ${
-                        addressCopySuccess
+                      className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-300 text-sm ${addressCopySuccess
                           ? 'bg-green-500 text-white scale-110 shadow-lg shadow-green-500/40'
                           : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                      }`}
+                        }`}
                       title="Грузополучатель manzili + п/п. + Покупатель nomi + Покупатель manzili"
                     >
                       {addressCopySuccess ? (
@@ -3309,520 +3315,520 @@ const Invoice = () => {
                 <h3 className="font-semibold text-gray-800">Товары</h3>
 
                 {(viewTab === 'invoice' && canEditEffective) && (
-                <div className="flex items-center gap-2">
-                  <details
-                    ref={columnsDropdownRef}
-                    open={columnsDropdownOpen}
-                    className="relative"
-                  >
-                    <summary
-                      className="list-none cursor-pointer px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setColumnsDropdownOpen((prev) => !prev);
-                      }}
+                  <div className="flex items-center gap-2">
+                    <details
+                      ref={columnsDropdownRef}
+                      open={columnsDropdownOpen}
+                      className="relative"
                     >
-                      Ustunlar
-                    </summary>
-                    <div className="absolute right-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-20">
-                      <div className="grid grid-cols-1 gap-2 text-sm text-gray-700">
-                        {(['index', 'tnved', 'plu', 'name', 'unit', 'package', 'quantity', 'packagesCount', 'gross', 'net', 'unitPrice', 'total', 'actions'] as ColumnLabelKey[]).map((key) => (
-                          <div key={key} className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={visibleColumns[key]}
-                              onChange={() => setVisibleColumnsAndPersist((prev) => ({ ...prev, [key]: !prev[key] }))}
-                              className="shrink-0"
-                            />
-                            <input
-                              type="text"
-                              value={columnLabels[key]}
-                              onChange={(e) => setColumnLabels((prev) => ({ ...prev, [key]: e.target.value }))}
-                              className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-xs"
-                              placeholder={defaultColumnLabels[key]}
-                            />
-                          </div>
-                        ))}
+                      <summary
+                        className="list-none cursor-pointer px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setColumnsDropdownOpen((prev) => !prev);
+                        }}
+                      >
+                        Ustunlar
+                      </summary>
+                      <div className="absolute right-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-20">
+                        <div className="grid grid-cols-1 gap-2 text-sm text-gray-700">
+                          {(['index', 'tnved', 'plu', 'name', 'unit', 'package', 'quantity', 'packagesCount', 'gross', 'net', 'unitPrice', 'total', 'actions'] as ColumnLabelKey[]).map((key) => (
+                            <div key={key} className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={visibleColumns[key]}
+                                onChange={() => setVisibleColumnsAndPersist((prev) => ({ ...prev, [key]: !prev[key] }))}
+                                className="shrink-0"
+                              />
+                              <input
+                                type="text"
+                                value={columnLabels[key]}
+                                onChange={(e) => setColumnLabels((prev) => ({ ...prev, [key]: e.target.value }))}
+                                className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-xs"
+                                placeholder={defaultColumnLabels[key]}
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </details>
-                  <button
+                    </details>
+                    <button
 
-                  type="button"
+                      type="button"
 
-                  onClick={addItem}
+                      onClick={addItem}
 
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
 
-                >
+                    >
 
-                  Qator qo'shish
+                      Qator qo'shish
 
-                </button>
-                </div>
+                    </button>
+                  </div>
                 )}
 
               </div>
 
-              
+
 
               <>
                 {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
-                <>
-                <div className="overflow-x-auto border border-black rounded-lg invoice-table-wrap flex flex-wrap justify-start items-start">
-                <table className="w-full text-sm items-table-compact border-0">
-                    <thead className="text-left">
-                      <tr className="bg-white text-gray-900 font-semibold border-b-2 border-gray-800">
-                        {effectiveColumns.index && (
-                          <th className="px-2 py-2 text-center text-xs font-semibold w-12" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.index}
-                          </th>
-                        )}
-                        {effectiveColumns.tnved && (
-                          <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.tnved}
-                          </th>
-                        )}
-                        {effectiveColumns.plu && (
-                          <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.plu}
-                          </th>
-                        )}
-                        {effectiveColumns.name && (
-                          <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.name}
-                          </th>
-                        )}
-                        {effectiveColumns.unit && (
-                          <th className="px-2 py-2 text-center text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.unit}
-                          </th>
-                        )}
-                        {effectiveColumns.package && (
-                          <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.package}
-                          </th>
-                        )}
-                        {effectiveColumns.quantity && (
-                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.quantity}
-                          </th>
-                        )}
-                        {effectiveColumns.packagesCount && (
-                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.packagesCount}
-                          </th>
-                        )}
-                        {effectiveColumns.gross && (
-                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.gross}
-                          </th>
-                        )}
-                        {effectiveColumns.net && (
-                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.net}
-                          </th>
-                        )}
-                        {effectiveColumns.unitPrice && (
-                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.unitPrice}
-                          </th>
-                        )}
-                        {effectiveColumns.total && (
-                          <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {totalColumnLabel}
-                          </th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((item, index) => (
-                        <tr key={index} className="border-b border-gray-200">
-                          {effectiveColumns.index && (
-                            <td className="px-2 py-2 text-center">{index + 1}</td>
-                          )}
-                          {effectiveColumns.tnved && (
-                            <td className="px-2 py-2">{item.tnvedCode || ''}</td>
-                          )}
-                          {effectiveColumns.plu && (
-                            <td className="px-2 py-2">{item.pluCode || ''}</td>
-                          )}
-                          {effectiveColumns.name && (
-                            <td className="px-2 py-2">{item.name || ''}</td>
-                          )}
-                          {effectiveColumns.unit && (
-                            <td className="px-2 py-2 text-center">{item.unit || ''}</td>
-                          )}
-                          {effectiveColumns.package && (
-                            <td className="px-2 py-2">{item.packageType || ''}</td>
-                          )}
-                          {effectiveColumns.quantity && (
-                            <td className="px-2 py-2 text-right">{formatNumber(item.quantity)}</td>
-                          )}
-                          {effectiveColumns.packagesCount && (
-                            <td className="px-2 py-2 text-right">{formatNumber(item.packagesCount ?? 0)}</td>
-                          )}
-                          {effectiveColumns.gross && (
-                            <td className="px-2 py-2 text-right">{formatNumber(item.grossWeight || 0)}</td>
-                          )}
-                          {effectiveColumns.net && (
-                            <td className="px-2 py-2 text-right">{formatNumber(item.netWeight || 0)}</td>
-                          )}
-                          {effectiveColumns.unitPrice && (
-                            <td className="px-2 py-2 text-right">{formatNumber(item.unitPrice)}</td>
-                          )}
-                          {effectiveColumns.total && (
-                            <td className="px-2 py-2 text-right font-semibold">
-                              {item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-white font-semibold border-t-2 border-gray-400 h-[35px]">
-                        {leadingColumnsCount > 0 && (
-                          <td className="px-2 pt-1.5 pb-2.5 text-center" colSpan={leadingColumnsCount} style={{ verticalAlign: 'top' }}>
-                            Всего:
-                          </td>
-                        )}
-                        {effectiveColumns.quantity && (
-                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
-                            {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
-                          </td>
-                        )}
-                        {effectiveColumns.packagesCount && (
-                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
-                            {formatNumber(items.reduce((sum, item) => sum + (item.packagesCount ?? 0), 0))}
-                          </td>
-                        )}
-                        {effectiveColumns.gross && (
-                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
-                            {formatNumber(items.reduce((sum, item) => sum + (item.grossWeight || 0), 0))}
-                          </td>
-                        )}
-                        {effectiveColumns.net && (
-                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
-                            {formatNumber(items.reduce((sum, item) => sum + (item.netWeight || 0), 0))}
-                          </td>
-                        )}
-                        {effectiveColumns.unitPrice && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
-                        {effectiveColumns.total && (
-                          <td className="px-2 pt-1.5 pb-3 text-right font-bold" style={{ verticalAlign: 'top' }}>
-                            {formatNumberFixed(items.reduce((sum, item) => sum + item.totalPrice, 0))}
-                          </td>
-                        )}
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-                  {effectiveColumns.total && (
-                    <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
-                      Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), invoiceCurrency)}
-                    </div>
-                  )}
-                </>
-                ) : (
-                <>
-                  <div className="overflow-x-auto border border-black rounded-lg invoice-table-wrap flex flex-wrap justify-start items-start">
-                  <table className="w-full text-sm items-table-compact border-0">
-                    <thead className="text-left">
-                      <tr className="bg-white text-gray-900 font-semibold border-b-2 border-gray-800">
-                        {effectiveColumns.index && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold w-12" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.index}
-                          </th>
-                        )}
-                        {effectiveColumns.tnved && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.tnved}
-                          </th>
-                        )}
-                        {effectiveColumns.plu && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.plu}
-                          </th>
-                        )}
-                        {effectiveColumns.name && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.name}
-                          </th>
-                        )}
-                        {effectiveColumns.unit && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.unit}
-                          </th>
-                        )}
-                        {effectiveColumns.package && (
-                          <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.package}
-                          </th>
-                        )}
-                        {effectiveColumns.quantity && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.quantity}
-                          </th>
-                        )}
-                        {effectiveColumns.packagesCount && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.packagesCount}
-                          </th>
-                        )}
-                        {effectiveColumns.gross && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.gross}
-                          </th>
-                        )}
-                        {effectiveColumns.net && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.net}
-                          </th>
-                        )}
-                        {effectiveColumns.unitPrice && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.unitPrice}
-                          </th>
-                        )}
-                        {effectiveColumns.total && (
-                          <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {totalColumnLabel}
-                          </th>
-                        )}
-                        {effectiveColumns.actions && (
-                          <th className="px-2 py-3 text-center text-xs font-semibold" style={{ verticalAlign: 'top' }}>
-                            {columnLabels.actions}
-                          </th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((item, index) => (
-                        <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                          {effectiveColumns.index && (
-                            <td className="px-2 py-2 text-center">{index + 1}</td>
-                          )}
-                          {effectiveColumns.tnved && (
-                            <td className="px-2 py-2">
-                              <input
-                                type="text"
-                                value={item.tnvedCode || ''}
-                                onChange={(e) => handleItemChange(index, 'tnvedCode', e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                                placeholder="0810700001"
-                              />
-                            </td>
-                          )}
-                          {effectiveColumns.plu && (
-                            <td className="px-2 py-2">
-                              <input
-                                type="text"
-                                value={item.pluCode || ''}
-                                onChange={(e) => handleItemChange(index, 'pluCode', e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                                placeholder="4309371"
-                              />
-                            </td>
-                          )}
-                          {effectiveColumns.name && (
-                            <td className="px-2 py-2">
-                              <input
-                                type="text"
-                                value={item.name}
-                                onChange={(e) => handleNameChange(index, e.target.value)}
-                                list="invoice-tnved-products"
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                                placeholder="Наименование товара"
-                                required
-                              />
-                            </td>
-                          )}
-                          {effectiveColumns.unit && (
-                            <td className="px-2 py-2">
-                              <select
-                                value={item.unit || 'кг'}
-                                onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center bg-white"
-                                required
-                              >
-                                {UNIT_OPTIONS.map((u) => (
-                                  <option key={u} value={u}>{u}</option>
-                                ))}
-                              </select>
-                            </td>
-                          )}
-                          {effectiveColumns.package && (
-                            <td className="px-2 py-2">
-                              <select
-                                value={item.packageType || ''}
-                                onChange={(e) => handleItemChange(index, 'packageType', e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs bg-white"
-                              >
-                                <option value="">— Вид упаковки —</option>
-                                {packagingTypes.map((p) => (
-                                  <option key={p.id} value={p.name}>{p.name}</option>
-                                ))}
-                              </select>
-                            </td>
-                          )}
-                          {effectiveColumns.quantity && (
-                            <td className="px-2 py-2">
-                              <input
-                                type="number"
-                                value={item.quantity ?? 0}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  handleItemChange(index, 'quantity', v === '' ? 0 : (parseFloat(v) || 0));
-                                }}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
-                                min="0"
-                                step="0.01"
-                                required
-                                placeholder="0"
-                              />
-                            </td>
-                          )}
-                          {effectiveColumns.packagesCount && (
-                            <td className="px-2 py-2">
-                              <input
-                                type="number"
-                                value={item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount}
-                                onChange={(e) => {
-                                  const raw = e.target.value;
-                                  const num = raw === '' ? undefined : (parseFloat(String(raw).replace(',', '.')) || 0);
-                                  handleItemChange(index, 'packagesCount', num ?? 0);
-                                }}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
-                                min="0"
-                                step="0.01"
-                                placeholder=""
-                              />
-                            </td>
-                          )}
-                          {effectiveColumns.gross && (
-                            <td className="px-2 py-2">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={getGrossWeightDisplayValue(index, item)}
-                                onChange={(e) => handleGrossWeightChange(index, e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    applyGrossWeightFormula(index);
-                                  }
-                                }}
-                                onBlur={() => applyGrossWeightFormula(index)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
-                                placeholder="7802 yoki *8 (Enter)"
-                                title="Raqam yoki *8.5 — Enter bosganda Кол-во упаковки ga ko'paytiriladi, natija butun son"
-                              />
-                            </td>
-                          )}
-                          {effectiveColumns.net && (
-                            <td className="px-2 py-2">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={getNetWeightDisplayValue(index, item)}
-                                onChange={(e) => handleNetWeightChange(index, e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    applyNetWeightFormula(index);
-                                  }
-                                }}
-                                onBlur={() => applyNetWeightFormula(index)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
-                                placeholder="7150 yoki *1.2 (Enter)"
-                                title="Raqam yoki *1.2 — Enter: Brutto − (1.2 × Кол-во упаковки), natija butun son"
-                              />
-                            </td>
-                          )}
-                          {effectiveColumns.unitPrice && (
-                            <td className="px-2 py-2">
-                              <input
-                                type="number"
-                                value={item.unitPrice === 0 ? '' : item.unitPrice}
-                                onChange={(e) => {
-                                  const raw = e.target.value;
-                                  const num = parseFloat(String(raw).replace(',', '.'));
-                                  handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0);
-                                }}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
-                                min="0"
-                                step="0.01"
-                                required
-                                placeholder=""
-                              />
-                            </td>
-                          )}
-                          {effectiveColumns.total && (
-                            <td className="px-2 py-2">
-                              <div className="text-right font-semibold text-xs">
-                                {item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}
-                              </div>
-                            </td>
-                          )}
-                          {effectiveColumns.actions && (
-                            <td className="px-2 py-2 text-center">
-                              {items.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => removeItem(index)}
-                                  className="text-red-600 hover:text-red-800 text-sm"
-                                >
-                                  ✕
-                                </button>
+                  <>
+                    <div className="overflow-x-auto border border-black rounded-lg invoice-table-wrap flex flex-wrap justify-start items-start">
+                      <table className="w-full text-sm items-table-compact border-0">
+                        <thead className="text-left">
+                          <tr className="bg-white text-gray-900 font-semibold border-b-2 border-gray-800">
+                            {effectiveColumns.index && (
+                              <th className="px-2 py-2 text-center text-xs font-semibold w-12" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.index}
+                              </th>
+                            )}
+                            {effectiveColumns.tnved && (
+                              <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.tnved}
+                              </th>
+                            )}
+                            {effectiveColumns.plu && (
+                              <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.plu}
+                              </th>
+                            )}
+                            {effectiveColumns.name && (
+                              <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.name}
+                              </th>
+                            )}
+                            {effectiveColumns.unit && (
+                              <th className="px-2 py-2 text-center text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.unit}
+                              </th>
+                            )}
+                            {effectiveColumns.package && (
+                              <th className="px-2 py-2 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.package}
+                              </th>
+                            )}
+                            {effectiveColumns.quantity && (
+                              <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.quantity}
+                              </th>
+                            )}
+                            {effectiveColumns.packagesCount && (
+                              <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.packagesCount}
+                              </th>
+                            )}
+                            {effectiveColumns.gross && (
+                              <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.gross}
+                              </th>
+                            )}
+                            {effectiveColumns.net && (
+                              <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.net}
+                              </th>
+                            )}
+                            {effectiveColumns.unitPrice && (
+                              <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.unitPrice}
+                              </th>
+                            )}
+                            {effectiveColumns.total && (
+                              <th className="px-2 py-2 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {totalColumnLabel}
+                              </th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.map((item, index) => (
+                            <tr key={index} className="border-b border-gray-200">
+                              {effectiveColumns.index && (
+                                <td className="px-2 py-2 text-center">{index + 1}</td>
                               )}
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-white font-semibold border-t-2 border-gray-400 h-[35px]">
-                        {leadingColumnsCount > 0 && (
-                          <td className="px-2 pt-1.5 pb-2.5 text-center" colSpan={leadingColumnsCount} style={{ verticalAlign: 'top' }}>
-                            Всего:
-                          </td>
-                        )}
-                        {effectiveColumns.quantity && (
-                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
-                            {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
-                          </td>
-                        )}
-                        {effectiveColumns.packagesCount && (
-                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
-                            {formatNumber(items.reduce((sum, item) => sum + (item.packagesCount ?? 0), 0))}
-                          </td>
-                        )}
-                        {effectiveColumns.gross && (
-                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
-                            {formatNumber(items.reduce((sum, item) => sum + (item.grossWeight || 0), 0))}
-                          </td>
-                        )}
-                        {effectiveColumns.net && (
-                          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
-                            {formatNumber(items.reduce((sum, item) => sum + (item.netWeight || 0), 0))}
-                          </td>
-                        )}
-                        {effectiveColumns.unitPrice && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
-                        {effectiveColumns.total && (
-                          <td className="px-2 pt-1.5 pb-3 text-right font-bold" style={{ verticalAlign: 'top' }}>
-                            {formatNumberFixed(items.reduce((sum, item) => sum + item.totalPrice, 0))}
-                          </td>
-                        )}
-                        {effectiveColumns.actions && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
-                      </tr>
-                    </tfoot>
-                  </table>
-                  </div>
-                  {effectiveColumns.total && (
-                    <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
-                      Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), invoiceCurrency)}
+                              {effectiveColumns.tnved && (
+                                <td className="px-2 py-2">{item.tnvedCode || ''}</td>
+                              )}
+                              {effectiveColumns.plu && (
+                                <td className="px-2 py-2">{item.pluCode || ''}</td>
+                              )}
+                              {effectiveColumns.name && (
+                                <td className="px-2 py-2">{item.name || ''}</td>
+                              )}
+                              {effectiveColumns.unit && (
+                                <td className="px-2 py-2 text-center">{item.unit || ''}</td>
+                              )}
+                              {effectiveColumns.package && (
+                                <td className="px-2 py-2">{item.packageType || ''}</td>
+                              )}
+                              {effectiveColumns.quantity && (
+                                <td className="px-2 py-2 text-right">{formatNumber(item.quantity)}</td>
+                              )}
+                              {effectiveColumns.packagesCount && (
+                                <td className="px-2 py-2 text-right">{formatNumber(item.packagesCount ?? 0)}</td>
+                              )}
+                              {effectiveColumns.gross && (
+                                <td className="px-2 py-2 text-right">{formatNumber(item.grossWeight || 0)}</td>
+                              )}
+                              {effectiveColumns.net && (
+                                <td className="px-2 py-2 text-right">{formatNumber(item.netWeight || 0)}</td>
+                              )}
+                              {effectiveColumns.unitPrice && (
+                                <td className="px-2 py-2 text-right">{formatNumber(item.unitPrice)}</td>
+                              )}
+                              {effectiveColumns.total && (
+                                <td className="px-2 py-2 text-right font-semibold">
+                                  {item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-white font-semibold border-t-2 border-gray-400 h-[35px]">
+                            {leadingColumnsCount > 0 && (
+                              <td className="px-2 pt-1.5 pb-2.5 text-center" colSpan={leadingColumnsCount} style={{ verticalAlign: 'top' }}>
+                                Всего:
+                              </td>
+                            )}
+                            {effectiveColumns.quantity && (
+                              <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+                                {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
+                              </td>
+                            )}
+                            {effectiveColumns.packagesCount && (
+                              <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+                                {formatNumber(items.reduce((sum, item) => sum + (item.packagesCount ?? 0), 0))}
+                              </td>
+                            )}
+                            {effectiveColumns.gross && (
+                              <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+                                {formatNumber(items.reduce((sum, item) => sum + (item.grossWeight || 0), 0))}
+                              </td>
+                            )}
+                            {effectiveColumns.net && (
+                              <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+                                {formatNumber(items.reduce((sum, item) => sum + (item.netWeight || 0), 0))}
+                              </td>
+                            )}
+                            {effectiveColumns.unitPrice && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
+                            {effectiveColumns.total && (
+                              <td className="px-2 pt-1.5 pb-3 text-right font-bold" style={{ verticalAlign: 'top' }}>
+                                {formatNumberFixed(items.reduce((sum, item) => sum + item.totalPrice, 0))}
+                              </td>
+                            )}
+                          </tr>
+                        </tfoot>
+                      </table>
                     </div>
-                  )}
-                </>
+                    {effectiveColumns.total && (
+                      <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
+                        Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), invoiceCurrency)}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto border border-black rounded-lg invoice-table-wrap flex flex-wrap justify-start items-start">
+                      <table className="w-full text-sm items-table-compact border-0">
+                        <thead className="text-left">
+                          <tr className="bg-white text-gray-900 font-semibold border-b-2 border-gray-800">
+                            {effectiveColumns.index && (
+                              <th className="px-2 py-3 text-center text-xs font-semibold w-12" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.index}
+                              </th>
+                            )}
+                            {effectiveColumns.tnved && (
+                              <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.tnved}
+                              </th>
+                            )}
+                            {effectiveColumns.plu && (
+                              <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.plu}
+                              </th>
+                            )}
+                            {effectiveColumns.name && (
+                              <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.name}
+                              </th>
+                            )}
+                            {effectiveColumns.unit && (
+                              <th className="px-2 py-3 text-center text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.unit}
+                              </th>
+                            )}
+                            {effectiveColumns.package && (
+                              <th className="px-2 py-3 text-left text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.package}
+                              </th>
+                            )}
+                            {effectiveColumns.quantity && (
+                              <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.quantity}
+                              </th>
+                            )}
+                            {effectiveColumns.packagesCount && (
+                              <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.packagesCount}
+                              </th>
+                            )}
+                            {effectiveColumns.gross && (
+                              <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.gross}
+                              </th>
+                            )}
+                            {effectiveColumns.net && (
+                              <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.net}
+                              </th>
+                            )}
+                            {effectiveColumns.unitPrice && (
+                              <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.unitPrice}
+                              </th>
+                            )}
+                            {effectiveColumns.total && (
+                              <th className="px-2 py-3 text-right text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {totalColumnLabel}
+                              </th>
+                            )}
+                            {effectiveColumns.actions && (
+                              <th className="px-2 py-3 text-center text-xs font-semibold" style={{ verticalAlign: 'top' }}>
+                                {columnLabels.actions}
+                              </th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.map((item, index) => (
+                            <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
+                              {effectiveColumns.index && (
+                                <td className="px-2 py-2 text-center">{index + 1}</td>
+                              )}
+                              {effectiveColumns.tnved && (
+                                <td className="px-2 py-2">
+                                  <input
+                                    type="text"
+                                    value={item.tnvedCode || ''}
+                                    onChange={(e) => handleItemChange(index, 'tnvedCode', e.target.value)}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                    placeholder="0810700001"
+                                  />
+                                </td>
+                              )}
+                              {effectiveColumns.plu && (
+                                <td className="px-2 py-2">
+                                  <input
+                                    type="text"
+                                    value={item.pluCode || ''}
+                                    onChange={(e) => handleItemChange(index, 'pluCode', e.target.value)}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                    placeholder="4309371"
+                                  />
+                                </td>
+                              )}
+                              {effectiveColumns.name && (
+                                <td className="px-2 py-2">
+                                  <input
+                                    type="text"
+                                    value={item.name}
+                                    onChange={(e) => handleNameChange(index, e.target.value)}
+                                    list="invoice-tnved-products"
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                    placeholder="Наименование товара"
+                                    required
+                                  />
+                                </td>
+                              )}
+                              {effectiveColumns.unit && (
+                                <td className="px-2 py-2">
+                                  <select
+                                    value={item.unit || 'кг'}
+                                    onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center bg-white"
+                                    required
+                                  >
+                                    {UNIT_OPTIONS.map((u) => (
+                                      <option key={u} value={u}>{u}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                              )}
+                              {effectiveColumns.package && (
+                                <td className="px-2 py-2">
+                                  <select
+                                    value={item.packageType || ''}
+                                    onChange={(e) => handleItemChange(index, 'packageType', e.target.value)}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                                  >
+                                    <option value="">— Вид упаковки —</option>
+                                    {packagingTypes.map((p) => (
+                                      <option key={p.id} value={p.name}>{p.name}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                              )}
+                              {effectiveColumns.quantity && (
+                                <td className="px-2 py-2">
+                                  <input
+                                    type="number"
+                                    value={item.quantity ?? 0}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
+                                      handleItemChange(index, 'quantity', v === '' ? 0 : (parseFloat(v) || 0));
+                                    }}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                    min="0"
+                                    step="0.01"
+                                    required
+                                    placeholder="0"
+                                  />
+                                </td>
+                              )}
+                              {effectiveColumns.packagesCount && (
+                                <td className="px-2 py-2">
+                                  <input
+                                    type="number"
+                                    value={item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      const num = raw === '' ? undefined : (parseFloat(String(raw).replace(',', '.')) || 0);
+                                      handleItemChange(index, 'packagesCount', num ?? 0);
+                                    }}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder=""
+                                  />
+                                </td>
+                              )}
+                              {effectiveColumns.gross && (
+                                <td className="px-2 py-2">
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={getGrossWeightDisplayValue(index, item)}
+                                    onChange={(e) => handleGrossWeightChange(index, e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        applyGrossWeightFormula(index);
+                                      }
+                                    }}
+                                    onBlur={() => applyGrossWeightFormula(index)}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                    placeholder="7802 yoki *8 (Enter)"
+                                    title="Raqam yoki *8.5 — Enter bosganda Кол-во упаковки ga ko'paytiriladi, natija butun son"
+                                  />
+                                </td>
+                              )}
+                              {effectiveColumns.net && (
+                                <td className="px-2 py-2">
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={getNetWeightDisplayValue(index, item)}
+                                    onChange={(e) => handleNetWeightChange(index, e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        applyNetWeightFormula(index);
+                                      }
+                                    }}
+                                    onBlur={() => applyNetWeightFormula(index)}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                    placeholder="7150 yoki *1.2 (Enter)"
+                                    title="Raqam yoki *1.2 — Enter: Brutto − (1.2 × Кол-во упаковки), natija butun son"
+                                  />
+                                </td>
+                              )}
+                              {effectiveColumns.unitPrice && (
+                                <td className="px-2 py-2">
+                                  <input
+                                    type="number"
+                                    value={item.unitPrice === 0 ? '' : item.unitPrice}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      const num = parseFloat(String(raw).replace(',', '.'));
+                                      handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0);
+                                    }}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                    min="0"
+                                    step="0.01"
+                                    required
+                                    placeholder=""
+                                  />
+                                </td>
+                              )}
+                              {effectiveColumns.total && (
+                                <td className="px-2 py-2">
+                                  <div className="text-right font-semibold text-xs">
+                                    {item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}
+                                  </div>
+                                </td>
+                              )}
+                              {effectiveColumns.actions && (
+                                <td className="px-2 py-2 text-center">
+                                  {items.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => removeItem(index)}
+                                      className="text-red-600 hover:text-red-800 text-sm"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-white font-semibold border-t-2 border-gray-400 h-[35px]">
+                            {leadingColumnsCount > 0 && (
+                              <td className="px-2 pt-1.5 pb-2.5 text-center" colSpan={leadingColumnsCount} style={{ verticalAlign: 'top' }}>
+                                Всего:
+                              </td>
+                            )}
+                            {effectiveColumns.quantity && (
+                              <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+                                {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
+                              </td>
+                            )}
+                            {effectiveColumns.packagesCount && (
+                              <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+                                {formatNumber(items.reduce((sum, item) => sum + (item.packagesCount ?? 0), 0))}
+                              </td>
+                            )}
+                            {effectiveColumns.gross && (
+                              <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+                                {formatNumber(items.reduce((sum, item) => sum + (item.grossWeight || 0), 0))}
+                              </td>
+                            )}
+                            {effectiveColumns.net && (
+                              <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+                                {formatNumber(items.reduce((sum, item) => sum + (item.netWeight || 0), 0))}
+                              </td>
+                            )}
+                            {effectiveColumns.unitPrice && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
+                            {effectiveColumns.total && (
+                              <td className="px-2 pt-1.5 pb-3 text-right font-bold" style={{ verticalAlign: 'top' }}>
+                                {formatNumberFixed(items.reduce((sum, item) => sum + item.totalPrice, 0))}
+                              </td>
+                            )}
+                            {effectiveColumns.actions && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                    {effectiveColumns.total && (
+                      <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
+                        Сумма прописью: {numberToWordsRu(items.reduce((sum, item) => sum + item.totalPrice, 0), invoiceCurrency)}
+                      </div>
+                    )}
+                  </>
                 )}
               </>
 
@@ -3880,25 +3886,25 @@ const Invoice = () => {
             {/* Notes (Spetsifikatsiya tabida ko'rinmas) */}
 
             {viewTab !== 'spec' && (
-            <div className="mb-8">
+              <div className="mb-8">
 
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Особые примечания</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Особые примечания</label>
 
-              {(isPdfMode || viewTab === 'packing') ? (
-                <div className="w-full min-h-[48px] px-4 py-3 flex items-center text-left text-sm text-gray-900 whitespace-pre-wrap border border-gray-300 rounded-lg">
-                  {form.notes || ''}
-                </div>
-              ) : (
-                <textarea
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-base"
-                  rows={3}
-                  placeholder="Qo'shimcha eslatmalar..."
-                />
-              )}
+                {(isPdfMode || viewTab === 'packing') ? (
+                  <div className="w-full min-h-[48px] px-4 py-3 flex items-center text-left text-sm text-gray-900 whitespace-pre-wrap border border-gray-300 rounded-lg">
+                    {form.notes || ''}
+                  </div>
+                ) : (
+                  <textarea
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-base"
+                    rows={3}
+                    placeholder="Qo'shimcha eslatmalar..."
+                  />
+                )}
 
-            </div>
+              </div>
             )}
 
 
@@ -4040,7 +4046,7 @@ const Invoice = () => {
           </div>
         </form>
 
-                </div>
+      </div>
 
 
 
@@ -4050,14 +4056,14 @@ const Invoice = () => {
           <div className={`bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto${!canEditEffective ? ' invoice-additional-info-modal-readonly' : ''}`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">Дополнительная информация</h2>
-                    <button
+              <button
 
                 onClick={() => setShowAdditionalInfoModal(false)}
                 className="text-gray-500 hover:text-gray-700 text-2xl"
-                    >
+              >
 
                 ×
-                    </button>
+              </button>
 
             </div>
 
@@ -4207,371 +4213,371 @@ const Invoice = () => {
                   )}
                 </>
               ) : (
-              <>
-              {/* Место там. очистки — juft Растаможка avto-to'ldiriladi yoki Адрес растаможки dan tanlash */}
-              {selectedContract && (() => {
-                const customsStr = selectedContract.customsAddress || '';
-                const options = [...new Set(
-                  customsStr.split('\n').map((s: string) => s.trim()).filter(Boolean)
-                )];
-                return (
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Место там. очистки:
-                      </label>
-                      <button type="button" onClick={() => toggleAdditionalInfoVisible('customsAddress')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('customsAddress') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                        <Icon icon={isAdditionalInfoVisible('customsAddress') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
-                      </button>
-                    </div>
-                    {options.length > 0 ? (
-                      <select
-                        value={form.customsAddress ?? ''}
-                        onChange={(e) => setForm({ ...form, customsAddress: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      >
-                        <option value="">Shartnomadan tanlang...</option>
-                        {options.map((opt) => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    ) : (
+                <>
+                  {/* Место там. очистки — juft Растаможка avto-to'ldiriladi yoki Адрес растаможки dan tanlash */}
+                  {selectedContract && (() => {
+                    const customsStr = selectedContract.customsAddress || '';
+                    const options = [...new Set(
+                      customsStr.split('\n').map((s: string) => s.trim()).filter(Boolean)
+                    )];
+                    return (
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Место там. очистки:
+                          </label>
+                          <button type="button" onClick={() => toggleAdditionalInfoVisible('customsAddress')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('customsAddress') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                            <Icon icon={isAdditionalInfoVisible('customsAddress') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {options.length > 0 ? (
+                          <select
+                            value={form.customsAddress ?? ''}
+                            onChange={(e) => setForm({ ...form, customsAddress: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          >
+                            <option value="">Shartnomadan tanlang...</option>
+                            {options.map((opt) => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={form.customsAddress ?? ''}
+                            onChange={(e) => setForm({ ...form, customsAddress: e.target.value })}
+                            placeholder="Место там. очистки"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                    <div className="md:col-span-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Номер автотранспорта:<span className="text-red-500 ml-1">*</span>
+                        </label>
+                        <button type="button" onClick={() => toggleAdditionalInfoVisible('vehicleNumber')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('vehicleNumber') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                          <Icon icon={isAdditionalInfoVisible('vehicleNumber') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                        </button>
+                      </div>
                       <input
                         type="text"
-                        value={form.customsAddress ?? ''}
-                        onChange={(e) => setForm({ ...form, customsAddress: e.target.value })}
-                        placeholder="Место там. очистки"
+                        value={form.vehicleNumber}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setForm({ ...form, vehicleNumber: value });
+                          if (additionalInfoError && form.deliveryTerms.trim() && value.trim()) {
+                            setAdditionalInfoError(null);
+                          }
+                        }}
+                        required
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                       />
-                    )}
-                  </div>
-                );
-              })()}
-
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-                <div className="md:col-span-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Номер автотранспорта:<span className="text-red-500 ml-1">*</span>
-                    </label>
-                    <button type="button" onClick={() => toggleAdditionalInfoVisible('vehicleNumber')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('vehicleNumber') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                      <Icon icon={isAdditionalInfoVisible('vehicleNumber') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={form.vehicleNumber}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setForm({ ...form, vehicleNumber: value });
-                      if (additionalInfoError && form.deliveryTerms.trim() && value.trim()) {
-                        setAdditionalInfoError(null);
-                      }
-                    }}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
-                </div>
-                <div className="md:col-span-1 w-[110px]">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Yuk tortuvchi
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={form.loaderWeight}
-                    onChange={(e) => setForm({ ...form, loaderWeight: e.target.value })}
-                    className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right"
-                    placeholder="кг"
-                  />
-                </div>
-                <div className="md:col-span-1 w-[110px]">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Pritsep
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={form.trailerWeight}
-                    onChange={(e) => setForm({ ...form, trailerWeight: e.target.value })}
-                    className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right"
-                    placeholder="кг"
-                  />
-                </div>
-                <div className="md:col-span-1 w-[110px]">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Poddon
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={form.palletWeight}
-                    onChange={(e) => {
-                      const weight = e.target.value;
-                      setForm({
-                        ...form,
-                        palletWeight: weight,
-                        notes: weight.trim()
-                          ? `Товары уложены на деревянных паллетах которые не являются товаром весом ${weight} кг.`
-                          : form.notes,
-                      });
-                    }}
-                    className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right"
-                    placeholder="кг"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    TIR №:
-                  </label>
-                  <input
-                    type="text"
-                    value={form.tirNumber}
-                    onChange={(e) => setForm({ ...form, tirNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    SMR №:
-                  </label>
-                  <input
-                    type="text"
-                    value={form.smrNumber}
-                    onChange={(e) => setForm({ ...form, smrNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Ixtiyoriy maydonlar - o'chirish imkoniyati bilan */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Место отгрузки груза:
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, shipmentPlace: '' })}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                    title="O'chirish"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={form.shipmentPlace}
-                  onChange={(e) => setForm({ ...form, shipmentPlace: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
+                    </div>
+                    <div className="md:col-span-1 w-[110px]">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Yuk tortuvchi
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={form.loaderWeight}
+                        onChange={(e) => setForm({ ...form, loaderWeight: e.target.value })}
+                        className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right"
+                        placeholder="кг"
+                      />
+                    </div>
+                    <div className="md:col-span-1 w-[110px]">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Pritsep
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={form.trailerWeight}
+                        onChange={(e) => setForm({ ...form, trailerWeight: e.target.value })}
+                        className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right"
+                        placeholder="кг"
+                      />
+                    </div>
+                    <div className="md:col-span-1 w-[110px]">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Poddon
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={form.palletWeight}
+                        onChange={(e) => {
+                          const weight = e.target.value;
+                          setForm({
+                            ...form,
+                            palletWeight: weight,
+                            notes: weight.trim()
+                              ? `Товары уложены на деревянных паллетах которые не являются товаром весом ${weight} кг.`
+                              : form.notes,
+                          });
+                        }}
+                        className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right"
+                        placeholder="кг"
+                      />
+                    </div>
                   </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Место назначения:
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, destination: '' })}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                    title="O'chirish"
-                  >
-                    ✕
-                  </button>
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        TIR №:
+                      </label>
+                      <input
+                        type="text"
+                        value={form.tirNumber}
+                        onChange={(e) => setForm({ ...form, tirNumber: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        SMR №:
+                      </label>
+                      <input
+                        type="text"
+                        value={form.smrNumber}
+                        onChange={(e) => setForm({ ...form, smrNumber: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ixtiyoriy maydonlar - o'chirish imkoniyati bilan */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Место отгрузки груза:
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, shipmentPlace: '' })}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                        title="O'chirish"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={form.shipmentPlace}
+                      onChange={(e) => setForm({ ...form, shipmentPlace: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Место назначения:
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, destination: '' })}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                        title="O'chirish"
+                      >
+                        ✕
+                      </button>
+                    </div>
                     <input
 
-                  type="text"
-                  value={form.destination}
-                  onChange={(e) => setForm({ ...form, destination: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      type="text"
+                      value={form.destination}
+                      onChange={(e) => setForm({ ...form, destination: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                     />
 
                   </div>
 
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Происхождение товара:
-                  </label>
-                  <button type="button" onClick={() => toggleAdditionalInfoVisible('origin')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('origin') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                    <Icon icon={isAdditionalInfoVisible('origin') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={form.origin || 'Республика Узбекистан'}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-100"
-                />
-                  </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Производитель:
-                    </label>
-                    <button type="button" onClick={() => toggleAdditionalInfoVisible('manufacturer')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('manufacturer') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                      <Icon icon={isAdditionalInfoVisible('manufacturer') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, manufacturer: '' })}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                    title="O'chirish"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={form.manufacturer}
-                  onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-                </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Номер заказа:
-                    </label>
-                    <button type="button" onClick={() => toggleAdditionalInfoVisible('orderNumber')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('orderNumber') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                      <Icon icon={isAdditionalInfoVisible('orderNumber') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, orderNumber: '' })}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                    title="O'chirish"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={form.orderNumber}
-                  onChange={(e) => setForm({ ...form, orderNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Глобальный идентификационный номер GS1 (GLN):
-                    </label>
-                    <button type="button" onClick={() => toggleAdditionalInfoVisible('gln')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('gln') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                      <Icon icon={isAdditionalInfoVisible('gln') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, gln: '' })}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                    title="O'chirish"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={form.gln}
-                  onChange={(e) => setForm({ ...form, gln: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  placeholder="Shartnomadan olinadi yoki qo'lda yoziladi"
-                />
-            </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Урожай:
-                    </label>
-                    <button type="button" onClick={() => toggleAdditionalInfoVisible('harvestYear')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('harvestYear') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                      <Icon icon={isAdditionalInfoVisible('harvestYear') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                    title="O'chirish"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={form.harvestYear}
-                  onChange={(e) => setForm({ ...form, harvestYear: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-                <span className="text-sm text-gray-500 ml-2">года</span>
-              </div>
-
-              {/* Dinamik maydonlar */}
-              {customFields.map((field) => (
-                <div key={field.id}>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
                       <label className="block text-sm font-medium text-gray-700">
-                        {field.label}:
+                        Происхождение товара:
                       </label>
-                      <button type="button" onClick={() => toggleAdditionalInfoVisible(`custom_${field.id}`)} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible(`custom_${field.id}`) ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                        <Icon icon={isAdditionalInfoVisible(`custom_${field.id}`) ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                      <button type="button" onClick={() => toggleAdditionalInfoVisible('origin')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('origin') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                        <Icon icon={isAdditionalInfoVisible('origin') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
                       </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setCustomFields(customFields.filter(f => f.id !== field.id))}
-                      className="text-red-500 hover:text-red-700 text-sm"
-                      title="O'chirish"
-                    >
-                      ✕
-                    </button>
+                    <input
+                      type="text"
+                      value={form.origin || 'Республика Узбекистан'}
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-100"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    value={field.value}
-                    onChange={(e) => {
-                      setCustomFields(customFields.map(f => 
-                        f.id === field.id ? { ...f, value: e.target.value } : f
-                      ));
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
-                </div>
-              ))}
 
-              {/* Yangi maydon qo'shish tugmasi */}
-              {canEditEffective && (
-                <div className="pt-2 border-t">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddFieldModal(true)}
-                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2"
-                  >
-                    <span>+</span>
-                    <span>Yangi maydon qo'shish</span>
-                  </button>
-                </div>
-              )}
-            </>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Производитель:
+                        </label>
+                        <button type="button" onClick={() => toggleAdditionalInfoVisible('manufacturer')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('manufacturer') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                          <Icon icon={isAdditionalInfoVisible('manufacturer') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, manufacturer: '' })}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                        title="O'chirish"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={form.manufacturer}
+                      onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Номер заказа:
+                        </label>
+                        <button type="button" onClick={() => toggleAdditionalInfoVisible('orderNumber')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('orderNumber') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                          <Icon icon={isAdditionalInfoVisible('orderNumber') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, orderNumber: '' })}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                        title="O'chirish"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={form.orderNumber}
+                      onChange={(e) => setForm({ ...form, orderNumber: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Глобальный идентификационный номер GS1 (GLN):
+                        </label>
+                        <button type="button" onClick={() => toggleAdditionalInfoVisible('gln')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('gln') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                          <Icon icon={isAdditionalInfoVisible('gln') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, gln: '' })}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                        title="O'chirish"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={form.gln}
+                      onChange={(e) => setForm({ ...form, gln: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      placeholder="Shartnomadan olinadi yoki qo'lda yoziladi"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Урожай:
+                        </label>
+                        <button type="button" onClick={() => toggleAdditionalInfoVisible('harvestYear')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('harvestYear') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                          <Icon icon={isAdditionalInfoVisible('harvestYear') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                        title="O'chirish"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={form.harvestYear}
+                      onChange={(e) => setForm({ ...form, harvestYear: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <span className="text-sm text-gray-500 ml-2">года</span>
+                  </div>
+
+                  {/* Dinamik maydonlar */}
+                  {customFields.map((field) => (
+                    <div key={field.id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            {field.label}:
+                          </label>
+                          <button type="button" onClick={() => toggleAdditionalInfoVisible(`custom_${field.id}`)} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible(`custom_${field.id}`) ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                            <Icon icon={isAdditionalInfoVisible(`custom_${field.id}`) ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setCustomFields(customFields.filter(f => f.id !== field.id))}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                          title="O'chirish"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={field.value}
+                        onChange={(e) => {
+                          setCustomFields(customFields.map(f =>
+                            f.id === field.id ? { ...f, value: e.target.value } : f
+                          ));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </div>
+                  ))}
+
+                  {/* Yangi maydon qo'shish tugmasi */}
+                  {canEditEffective && (
+                    <div className="pt-2 border-t">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddFieldModal(true)}
+                        className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2"
+                      >
+                        <span>+</span>
+                        <span>Yangi maydon qo'shish</span>
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
 
             </div>
@@ -4597,7 +4603,7 @@ const Invoice = () => {
 
           </div>
 
-      </div>
+        </div>
 
       )}
 

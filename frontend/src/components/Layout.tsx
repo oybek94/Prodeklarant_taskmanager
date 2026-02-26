@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications, getNotificationDisplayMessage, requestNotificationPermission } from '../hooks/useNotifications';
+import { useTheme } from '../contexts/ThemeContext';
 
 /** Hozircha bildirishnomalar o‘chirilgan; keyin yoqish uchun true qiling */
 const NOTIFICATIONS_ENABLED = false;
@@ -10,6 +11,7 @@ const NOTIFICATIONS_ENABLED = false;
 const Layout = () => {
   const { user, logout } = useAuth();
   const { notifications, confirmProcess, rejectProcess, refresh } = useNotifications();
+  const { theme, toggleTheme } = useTheme();
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -33,7 +35,7 @@ const Layout = () => {
   }, [notifications.length]);
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Desktop: default ochiq, Mobile: default yopiq
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -61,7 +63,7 @@ const Layout = () => {
 
     // Initial check
     handleResize();
-    
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -75,6 +77,7 @@ const Layout = () => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
   const isSettingsPage = location.pathname.startsWith('/settings');
+  const isInvoicesPage = location.pathname === '/invoices';
 
   const navItems = [
     ...(user?.role === 'ADMIN' ? [{ path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' }] : []),
@@ -89,9 +92,9 @@ const Layout = () => {
   ];
 
   return (
-    <div className="flex h-screen bg-gray-50 relative">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 relative">
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-12' : 'w-0'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300 overflow-hidden relative`}>
+      <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-12' : 'w-0'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 overflow-hidden relative`}>
         {/* Desktop: Sidebar yopiq bo'lganda - Toggle button tepada */}
         {isDesktop && !sidebarOpen && (
           <div className="p-3 border-b border-gray-200 flex justify-center">
@@ -142,7 +145,7 @@ const Layout = () => {
 
         {/* Mobile: Sidebar ochiq bo'lganda header */}
         {!isDesktop && sidebarOpen && (
-          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <div>
               <img src="/logo.png" alt="Prodeklarant" className="h-8 w-auto" />
               <h1 className="sr-only">Prodeklarant</h1>
@@ -173,11 +176,10 @@ const Layout = () => {
                       setSidebarOpen(false);
                     }
                   }}
-                  className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg transition-colors ${
-                    isActive(item.path)
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg transition-colors ${isActive(item.path)
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                    }`}
                   title={!sidebarOpen ? item.label : ''}
                 >
                   <Icon icon={item.icon} className="w-5 h-5 flex-shrink-0" />
@@ -189,10 +191,10 @@ const Layout = () => {
         </nav>
 
         {/* Logout Button */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors`}
+            className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}
             title={!sidebarOpen ? 'Chiqish' : ''}
           >
             <Icon icon="lucide:log-out" className="w-5 h-5 flex-shrink-0" />
@@ -202,9 +204,17 @@ const Layout = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden text-gray-900 dark:text-gray-100">
         {/* Header; bildirishnoma qo'ng'irog'i NOTIFICATIONS_ENABLED = true qilinganda ko'rinadi */}
-        <header className="flex-shrink-0 flex items-center justify-end gap-2 px-4 py-2 bg-white border-b border-gray-200">
+        <header className="flex-shrink-0 flex items-center justify-end gap-2 px-4 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <button
+            onClick={toggleTheme}
+            className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            title={theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}
+            aria-label={theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}
+          >
+            <Icon icon={theme === 'dark' ? "lucide:sun" : "lucide:moon"} className="w-5 h-5" />
+          </button>
           {NOTIFICATIONS_ENABLED && (
             <div className="relative" ref={panelRef}>
               <button
@@ -302,7 +312,7 @@ const Layout = () => {
         </header>
         {/* Mobile: Sidebar yopiq bo'lganda top padding qo'shish */}
         <main
-          className={`flex-1 ${isSettingsPage ? 'overflow-hidden' : 'overflow-y-auto'} p-6 ${!isDesktop && !sidebarOpen ? 'pt-20' : ''}`}
+          className={`flex-1 ${(isSettingsPage || isInvoicesPage) ? 'overflow-hidden flex flex-col min-h-0' : 'overflow-y-auto block'} p-6 ${!isDesktop && !sidebarOpen ? 'pt-20' : ''}`}
         >
           <Outlet />
         </main>

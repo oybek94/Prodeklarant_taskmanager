@@ -91,17 +91,25 @@ const contractSchema = z.object({
 router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
     const clientId = parseInt(req.params.clientId);
-    
+
     const contracts = await prisma.contract.findMany({
       where: { clientId },
       orderBy: { contractDate: 'desc' }
     });
 
     if (contracts.length > 0) {
-      const directors = await prisma.$queryRaw<Array<{ id: number; buyerDirector: string | null; consigneeDirector: string | null }>>`
-        SELECT "id", "buyerDirector", "consigneeDirector" FROM "Contract" WHERE "clientId" = ${clientId}
+      const directors = await prisma.$queryRaw<Array<{ id: number; buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null }>>`
+        SELECT "id", "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy" FROM "Contract" WHERE "clientId" = ${clientId}
       `;
-      const byId = Object.fromEntries((directors || []).map((d: any) => [d.id, { buyerDirector: d.buyerDirector ?? null, consigneeDirector: d.consigneeDirector ?? null }]));
+      const byId = Object.fromEntries((directors || []).map((d: any) => [
+        d.id,
+        {
+          buyerDirector: d.buyerDirector ?? null,
+          consigneeDirector: d.consigneeDirector ?? null,
+          supplierDirector: d.supplierDirector ?? null,
+          goodsReleasedBy: d.goodsReleasedBy ?? null,
+        }
+      ]));
       const merged = contracts.map((c: any) => ({ ...c, ...byId[c.id] }));
       return res.json(merged);
     }
@@ -116,7 +124,7 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Res
 router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    
+
     const contract = await prisma.contract.findUnique({
       where: { id },
       include: {
@@ -133,11 +141,11 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Shartnoma topilmadi' });
     }
 
-    const directors = await prisma.$queryRaw<Array<{ buyerDirector: string | null; consigneeDirector: string | null }>>`
-      SELECT "buyerDirector", "consigneeDirector" FROM "Contract" WHERE "id" = ${id}
+    const directors = await prisma.$queryRaw<Array<{ buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null }>>`
+      SELECT "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy" FROM "Contract" WHERE "id" = ${id}
     `;
     const result = directors?.[0]
-      ? { ...contract, buyerDirector: (directors[0] as any).buyerDirector, consigneeDirector: (directors[0] as any).consigneeDirector }
+      ? { ...contract, buyerDirector: (directors[0] as any).buyerDirector, consigneeDirector: (directors[0] as any).consigneeDirector, supplierDirector: (directors[0] as any).supplierDirector, goodsReleasedBy: (directors[0] as any).goodsReleasedBy }
       : contract;
     res.json(result);
   } catch (error: any) {
@@ -275,6 +283,8 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
     }
     const postBuyerDirector = data.buyerDirector;
     const postConsigneeDirector = data.consigneeDirector;
+    const postSupplierDirector = data.supplierDirector;
+    const postGoodsReleasedBy = data.goodsReleasedBy;
 
     const contract = await prisma.contract.create({
       data: contractData,
@@ -288,14 +298,22 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
       }
     });
     let createdContract: any = contract;
-    if (postBuyerDirector !== undefined || postConsigneeDirector !== undefined) {
+    if (postBuyerDirector !== undefined || postConsigneeDirector !== undefined || postSupplierDirector !== undefined || postGoodsReleasedBy !== undefined) {
       await prisma.$executeRaw`
         UPDATE "Contract"
         SET "buyerDirector" = ${postBuyerDirector ?? null},
-            "consigneeDirector" = ${postConsigneeDirector ?? null}
+            "consigneeDirector" = ${postConsigneeDirector ?? null},
+            "supplierDirector" = ${postSupplierDirector ?? null},
+            "goodsReleasedBy" = ${postGoodsReleasedBy ?? null}
         WHERE "id" = ${contract.id}
       `;
-      createdContract = { ...contract, buyerDirector: postBuyerDirector ?? null, consigneeDirector: postConsigneeDirector ?? null };
+      createdContract = {
+        ...contract,
+        buyerDirector: postBuyerDirector ?? null,
+        consigneeDirector: postConsigneeDirector ?? null,
+        supplierDirector: postSupplierDirector ?? null,
+        goodsReleasedBy: postGoodsReleasedBy ?? null,
+      };
     }
     if (contractData.specification !== undefined) {
       const specJson = JSON.stringify(contractData.specification);
@@ -313,8 +331,14 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
       });
       if (refreshed) {
         createdContract = refreshed;
-        if (postBuyerDirector !== undefined || postConsigneeDirector !== undefined) {
-          createdContract = { ...createdContract, buyerDirector: postBuyerDirector ?? null, consigneeDirector: postConsigneeDirector ?? null };
+        if (postBuyerDirector !== undefined || postConsigneeDirector !== undefined || postSupplierDirector !== undefined || postGoodsReleasedBy !== undefined) {
+          createdContract = {
+            ...createdContract,
+            buyerDirector: postBuyerDirector ?? null,
+            consigneeDirector: postConsigneeDirector ?? null,
+            supplierDirector: postSupplierDirector ?? null,
+            goodsReleasedBy: postGoodsReleasedBy ?? null,
+          };
         }
       }
     }
@@ -331,7 +355,7 @@ router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res
   try {
     const id = parseInt(req.params.id);
     const parsed = contractSchema.safeParse(req.body);
-    
+
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
@@ -375,6 +399,8 @@ router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res
     };
     const putBuyerDirector = data.buyerDirector;
     const putConsigneeDirector = data.consigneeDirector;
+    const putSupplierDirector = data.supplierDirector;
+    const putGoodsReleasedBy = data.goodsReleasedBy;
 
     // Add optional seller fields
     if (data.sellerDetails !== undefined) contractData.sellerDetails = data.sellerDetails;
@@ -473,11 +499,13 @@ router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res
       }
     });
 
-    if (putBuyerDirector !== undefined || putConsigneeDirector !== undefined) {
+    if (putBuyerDirector !== undefined || putConsigneeDirector !== undefined || putSupplierDirector !== undefined || putGoodsReleasedBy !== undefined) {
       await prisma.$executeRaw`
         UPDATE "Contract"
         SET "buyerDirector" = ${putBuyerDirector ?? null},
-            "consigneeDirector" = ${putConsigneeDirector ?? null}
+            "consigneeDirector" = ${putConsigneeDirector ?? null},
+            "supplierDirector" = ${putSupplierDirector ?? null},
+            "goodsReleasedBy" = ${putGoodsReleasedBy ?? null}
         WHERE "id" = ${id}
       `;
     }
@@ -486,9 +514,11 @@ router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res
       console.log('[contracts PUT] saved specification length:', Array.isArray(contract.specification) ? (contract.specification as any[]).length : 'not array');
     }
     let updatedContract = contract;
-    if (putBuyerDirector !== undefined || putConsigneeDirector !== undefined) {
+    if (putBuyerDirector !== undefined || putConsigneeDirector !== undefined || putSupplierDirector !== undefined || putGoodsReleasedBy !== undefined) {
       (updatedContract as any).buyerDirector = putBuyerDirector ?? null;
       (updatedContract as any).consigneeDirector = putConsigneeDirector ?? null;
+      (updatedContract as any).supplierDirector = putSupplierDirector ?? null;
+      (updatedContract as any).goodsReleasedBy = putGoodsReleasedBy ?? null;
     }
     if (contractData.specification !== undefined) {
       const specJson = JSON.stringify(contractData.specification);

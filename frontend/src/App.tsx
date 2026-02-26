@@ -41,25 +41,25 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      <Route 
-        path="/login" 
+      <Route
+        path="/login"
         element={
-          isAuthenticated 
-            ? <Navigate to={user?.role === 'ADMIN' ? "/dashboard" : "/tasks"} /> 
-            : <Login /> 
-        } 
+          isAuthenticated
+            ? <Navigate to={user?.role === 'ADMIN' ? "/dashboard" : "/tasks"} />
+            : <Login />
+        }
       />
-      <Route 
-        path="/client/login" 
-        element={<ClientLogin />} 
+      <Route
+        path="/client/login"
+        element={<ClientLogin />}
       />
-      <Route 
-        path="/client/dashboard" 
-        element={<ClientDashboard />} 
+      <Route
+        path="/client/dashboard"
+        element={<ClientDashboard />}
       />
-      <Route 
-        path="/q/:token" 
-        element={<QRVerification />} 
+      <Route
+        path="/q/:token"
+        element={<QRVerification />}
       />
       <Route
         element={
@@ -224,30 +224,34 @@ const AppRoutes = () => {
         />
         <Route path="/profile" element={<Profile />} />
       </Route>
-      <Route 
-        path="/" 
+      <Route
+        path="/"
         element={
-          <Navigate 
+          <Navigate
             to={
-              isAuthenticated 
+              isAuthenticated
                 ? (user?.role === 'ADMIN' ? "/dashboard" : "/tasks")
                 : "/login"
-            } 
-            replace 
+            }
+            replace
           />
-        } 
+        }
       />
     </Routes>
   );
 };
 
+import { ThemeProvider } from './contexts/ThemeContext';
+
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

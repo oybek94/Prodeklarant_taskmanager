@@ -2486,7 +2486,7 @@ const Tasks = () => {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
               <Icon icon="lucide:layout-list" className="w-5 h-5" />
             </div>
-            <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 tracking-tight">Vazifalar</h1>
+            <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 tracking-tight">Vazifalar</h1>
           </div>
           {/* Tab buttons */}
           <div className="flex gap-1.5 bg-gray-100/80 backdrop-blur-md p-1.5 rounded-xl border border-gray-200/50 shadow-inner">

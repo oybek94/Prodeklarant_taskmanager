@@ -151,7 +151,7 @@ const Reports = () => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-4">Hisobotlar</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Hisobotlar</h1>
 
         {/* Report Type Selector */}
         <div className="flex gap-2 mb-4">

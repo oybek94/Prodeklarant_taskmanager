@@ -603,7 +603,7 @@ const ClientDetail = () => {
           >
             ← Orqaga
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">{client.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{client.name}</h1>
         </div>
       </div>
 

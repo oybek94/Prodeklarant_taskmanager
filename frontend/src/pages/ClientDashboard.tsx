@@ -266,7 +266,7 @@ const ClientDashboard = () => {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
               <p className="text-sm text-gray-500 mt-1">Xush kelibsiz, {client?.name}</p>
             </div>
             <button

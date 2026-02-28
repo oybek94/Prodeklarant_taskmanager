@@ -2496,7 +2496,7 @@ const Invoice = () => {
 
         <div className="mb-6 flex items-center justify-between">
 
-          <h1 className="text-2xl font-bold text-gray-800">Invoice</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Invoice</h1>
 
           <div className="flex flex-wrap items-center gap-2">
             {!invoysStageReady && (
@@ -2935,7 +2935,7 @@ const Invoice = () => {
 
               <div className="text-right">
 
-                <h1 className="text-5xl font-bold text-gray-800 mb-6">
+                <h1 className="text-5xl font-bold text-gray-800 dark:text-gray-100 mb-6">
                   {viewTab === 'invoice'
                     ? 'INVOICE'
                     : viewTab === 'spec'

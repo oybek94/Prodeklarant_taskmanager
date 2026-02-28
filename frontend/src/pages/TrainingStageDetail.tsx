@@ -368,7 +368,7 @@ export default function TrainingStageDetail() {
               />
             </div>
           ) : (
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{stage.title}</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{stage.title}</h1>
           )}
           {training.title && (
             <p className="text-sm text-gray-500 mb-4">Kurs: {training.title}</p>

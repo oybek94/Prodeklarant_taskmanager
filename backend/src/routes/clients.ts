@@ -50,72 +50,72 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     const clients = await prisma.client.findMany({
-    include: {
-      tasks: {
-        select: {
-          id: true,
-          hasPsr: true,
-          snapshotDealAmount: true,
-          snapshotPsrPrice: true,
+      include: {
+        tasks: {
+          select: {
+            id: true,
+            hasPsr: true,
+            snapshotDealAmount: true,
+            snapshotPsrPrice: true,
+          },
+        },
+        transactions: {
+          where: { type: 'INCOME' },
+          select: {
+            amount: true,
+            currency: true,
+          },
         },
       },
-      transactions: {
-        where: { type: 'INCOME' },
-        select: {
-          amount: true,
-          currency: true,
-        },
-      },
-    },
-    orderBy: { createdAt: 'desc' }
-  });
+      orderBy: { createdAt: 'desc' }
+    });
 
-  // Calculate balance for each client in deal currency
-  const clientsWithBalance = await Promise.all(clients.map(async (client: any) => {
-    try {
-      const dealCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
-      const dealAmount = Number(client.dealAmount || 0);
-      
-      const totalTasks = client.tasks?.length || 0;
-      const tasksWithPsr = (client.tasks || []).filter((t: any) => t.hasPsr).length;
-      
-      // Calculate total deal amount in deal currency using task snapshots
-      const totalDealAmount = (client.tasks || []).reduce((sum: number, task: any) => {
-        const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
-        const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
-        return sum + baseAmount + psrAmount;
-      }, 0);
-      
-      const totalIncome = (client.transactions || [])
-        .filter((t: any) => t.currency === dealCurrency)
-        .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+    // Calculate balance for each client in deal currency
+    const clientsWithBalance = await Promise.all(clients.map(async (client: any) => {
+      try {
+        const dealCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
+        const dealAmount = Number(client.dealAmount || 0);
 
-      const balance = totalDealAmount - totalIncome;
-      
-      return {
-        ...client,
-        balance,
-        totalDealAmount, // Return in deal currency
-        totalIncome,
-        balanceCurrency: dealCurrency,
-      };
-    } catch (clientError) {
-      console.error(`Error processing client ${client.id}:`, clientError);
-      // Return client with default values if processing fails
-      return {
-        ...client,
-        balance: 0,
-        totalDealAmount: 0,
-        totalIncome: 0,
-        balanceCurrency: client.dealAmount_currency || client.dealAmountCurrency || 'USD',
-      };
-    }
-  }));
-  
+        const totalTasks = client.tasks?.length || 0;
+        const tasksWithPsr = (client.tasks || []).filter((t: any) => t.hasPsr).length;
+
+        // Calculate total deal amount in deal currency using task snapshots
+        const totalDealAmount = (client.tasks || []).reduce((sum: number, task: any) => {
+          const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
+          const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+          return sum + baseAmount + psrAmount;
+        }, 0);
+
+        const totalIncome = (client.transactions || [])
+          .filter((t: any) => t.currency === dealCurrency)
+          .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+
+        const balance = totalDealAmount - totalIncome;
+
+        return {
+          ...client,
+          balance,
+          totalDealAmount, // Return in deal currency
+          totalIncome,
+          balanceCurrency: dealCurrency,
+        };
+      } catch (clientError) {
+        console.error(`Error processing client ${client.id}:`, clientError);
+        // Return client with default values if processing fails
+        return {
+          ...client,
+          balance: 0,
+          totalDealAmount: 0,
+          totalIncome: 0,
+          balanceCurrency: client.dealAmount_currency || client.dealAmountCurrency || 'USD',
+        };
+      }
+    }));
+
     res.json(clientsWithBalance);
   } catch (error: any) {
     console.error('Error fetching clients:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Mijozlarni yuklashda xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
     });
@@ -129,18 +129,18 @@ router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
     const taskId = Number(req.params.taskId);
     const userId = req.user!.id;
     const userRole = req.user!.role;
-    
+
     // For CLIENT role, userId is the clientId
     const clientId = userRole === 'CLIENT' ? userId : Number(req.query.clientId || userId);
-    
+
     // Check if CLIENT is accessing their own data
     if (userRole === 'CLIENT' && userId !== clientId) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
+
     // Get task with all details including stages
     const task = await prisma.task.findFirst({
-      where: { 
+      where: {
         id: taskId,
         clientId: clientId, // Ensure task belongs to this client
       },
@@ -179,11 +179,11 @@ router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
         },
       },
     });
-    
+
     if (!task) {
       return res.status(404).json({ error: 'Task topilmadi' });
     }
-    
+
     // Format stages with duration information
     const formattedStages = task.stages.map((stage) => {
       let durationText = '';
@@ -200,13 +200,13 @@ router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
       } else {
         durationText = 'Jarayonda...';
       }
-      
+
       return {
         ...stage,
         durationText,
       };
     });
-    
+
     res.json({
       id: task.id,
       title: task.title,
@@ -222,9 +222,9 @@ router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
     });
   } catch (error: any) {
     console.error('Error fetching task detail:', error);
-    res.status(500).json({ 
-      error: 'Task ma\'lumotlarini yuklashda xatolik yuz berdi', 
-      details: error.message 
+    res.status(500).json({
+      error: 'Task ma\'lumotlarini yuklashda xatolik yuz berdi',
+      details: error.message
     });
   }
 });
@@ -276,7 +276,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const parsed = clientSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    
+
     const dealAmountCurrency: Currency | null = parsed.data.dealAmountCurrency ? (parsed.data.dealAmountCurrency as Currency) : null;
     const dealAmount = parsed.data.dealAmount ? new Decimal(parsed.data.dealAmount) : null;
     const exchangeSource: ExchangeSource = (parsed.data.dealAmountExchangeSource as ExchangeSource) || 'CBU';
@@ -321,7 +321,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         });
       }
     }
-    
+
     const createData: any = {
       name: parsed.data.name,
       // Keep old fields for backward compatibility
@@ -350,7 +350,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       correspondentBankAccount: parsed.data.correspondentBankAccount || undefined,
       correspondentBankSwift: parsed.data.correspondentBankSwift || undefined,
     };
-    
+
     // Handle credit fields explicitly
     if (parsed.data.creditType !== undefined) {
       createData.creditType = parsed.data.creditType ?? null;
@@ -361,30 +361,30 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     if (parsed.data.creditStartDate !== undefined) {
       createData.creditStartDate = parsed.data.creditStartDate ? new Date(parsed.data.creditStartDate) : null;
     }
-    
+
     // Hash password if both email and password are provided
     if (req.body.password && req.body.email) {
       const passwordHash = await hashPassword(req.body.password);
       createData.passwordHash = passwordHash;
     }
-    
+
     console.log('Creating client with data:', JSON.stringify(createData, null, 2));
-    
+
     const client = await prisma.client.create({
       data: createData,
     });
-    
+
     console.log('Created client:', {
       id: client.id,
       creditType: (client as any).creditType,
       creditLimit: (client as any).creditLimit,
       creditStartDate: (client as any).creditStartDate,
     });
-    
+
     res.status(201).json(client);
   } catch (error: any) {
     console.error('Error creating client:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
     });
@@ -420,9 +420,9 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     });
 
     // #region agent log
-    const logAfterQuery = {location:'clients.ts:99',message:'After Prisma query',data:{clientFound:!!client,hasTasks:!!client?.tasks,hasTransactions:!!client?.transactions,tasksCount:client?.tasks?.length,transactionsCount:client?.transactions?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'};
+    const logAfterQuery = { location: 'clients.ts:99', message: 'After Prisma query', data: { clientFound: !!client, hasTasks: !!client?.tasks, hasTransactions: !!client?.transactions, tasksCount: client?.tasks?.length, transactionsCount: client?.transactions?.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' };
     console.log('[DEBUG]', JSON.stringify(logAfterQuery));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logAfterQuery)}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logAfterQuery) }).catch(() => { });
     // #endregion
 
     if (!client) return res.status(404).json({ error: 'Not found' });
@@ -435,11 +435,11 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       .reduce((sum, t) => sum + Number(t.amount), 0);
     const totalTasks = client.tasks.length;
     const dealAmount = Number(client.dealAmount || 0);
-    
+
     // PSR bor bo'lgan tasklar sonini hisoblash
     const tasksWithPsr = client.tasks.filter(task => task.hasPsr).length;
     const tasksWithoutPsr = totalTasks - tasksWithPsr;
-    
+
     // Har bir task bo'yicha kelishuv summasini yig'amiz
     // snapshotDealAmount bo'lsa o'shani olamiz, bo'lmasa client.dealAmount
     // PSR bo'lsa +10 qo'shamiz
@@ -450,10 +450,10 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       const psrAmount = task.hasPsr ? 10 : 0;
       return sum + baseAmount + psrAmount;
     }, 0);
-    
+
     // Qoldiq = Jami shartnoma summasi - Jami kirim
     const balance = totalDealAmount - totalIncome;
-    
+
     const tasksByBranch = client.tasks.reduce((acc: any, task) => {
       const branchName = task.branch?.name || 'Unknown';
       acc[branchName] = (acc[branchName] || 0) + 1;
@@ -461,9 +461,9 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     }, {});
 
     // #region agent log
-    const logBeforeResponse = {location:'clients.ts:135',message:'Before sending response',data:{totalIncome,totalTasks,dealAmount,totalDealAmount,balance},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'};
+    const logBeforeResponse = { location: 'clients.ts:135', message: 'Before sending response', data: { totalIncome, totalTasks, dealAmount, totalDealAmount, balance }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' };
     console.log('[DEBUG]', JSON.stringify(logBeforeResponse));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logBeforeResponse)}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logBeforeResponse) }).catch(() => { });
     // #endregion
 
     res.json({
@@ -480,12 +480,12 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     });
   } catch (error: any) {
     // #region agent log
-    const logError = {location:'clients.ts:150',message:'Error in GET /:id',data:{errorMessage:error?.message,errorName:error?.name,errorCode:error?.code,prismaError:error?.meta,errorStack:error instanceof Error?error.stack:'No stack'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'};
+    const logError = { location: 'clients.ts:150', message: 'Error in GET /:id', data: { errorMessage: error?.message, errorName: error?.name, errorCode: error?.code, prismaError: error?.meta, errorStack: error instanceof Error ? error.stack : 'No stack' }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'ALL' };
     console.log('[DEBUG ERROR]', JSON.stringify(logError, null, 2));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logError)}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logError) }).catch(() => { });
     // #endregion
     console.error('Error fetching client:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
     });
@@ -499,14 +499,14 @@ router.get('/:id/monthly-tasks', async (req, res) => {
 
   // Get tasks for the last 12 months
   const now = new Date();
-  const months: { month: string; count: number }[] = [];
-  
+  const months: { month: string; count: number; year: number; monthIndex: number }[] = [];
+
   for (let i = 11; i >= 0; i--) {
     const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
-    
+
     const monthName = monthStart.toLocaleDateString('uz-UZ', { month: 'short', year: 'numeric' });
-    
+
     const count = await prisma.task.count({
       where: {
         clientId: id,
@@ -516,8 +516,8 @@ router.get('/:id/monthly-tasks', async (req, res) => {
         },
       },
     });
-    
-    months.push({ month: monthName, count });
+
+    months.push({ month: monthName, count, year: monthStart.getFullYear(), monthIndex: monthStart.getMonth() });
   }
 
   res.json(months);
@@ -526,10 +526,10 @@ router.get('/:id/monthly-tasks', async (req, res) => {
 router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
-    
+
     // Build update data - use Prisma's update with explicit field mapping
     const updateData: any = {};
-    
+
     // Standard fields
     if (req.body.name !== undefined) {
       updateData.name = req.body.name;
@@ -540,17 +540,17 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     const currencyChanged = req.body.dealAmountCurrency !== undefined;
     const exchangeRateChanged = req.body.dealAmountExchangeRate !== undefined;
 
-      if (dealAmountChanged || currencyChanged || exchangeRateChanged) {
+    if (dealAmountChanged || currencyChanged || exchangeRateChanged) {
       // Get current client to check existing values
       const currentClient = await prisma.client.findUnique({
         where: { id },
         select: { dealAmount: true, dealAmountCurrency: true, dealAmountExchangeRate: true, dealAmount_exchange_source: true },
       });
 
-      const newDealAmount = dealAmountChanged 
+      const newDealAmount = dealAmountChanged
         ? (req.body.dealAmount === null || req.body.dealAmount === '' ? null : new Decimal(req.body.dealAmount))
         : (currentClient?.dealAmount ? new Decimal(currentClient.dealAmount) : null);
-      
+
       const newCurrency: Currency | null = currencyChanged
         ? (req.body.dealAmountCurrency || null)
         : (currentClient?.dealAmountCurrency as Currency | null);
@@ -623,7 +623,7 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     if (req.body.phone !== undefined) {
       updateData.phone = req.body.phone === null || req.body.phone === '' ? null : req.body.phone;
     }
-    
+
     // Shartnoma maydonlari
     if (req.body.contractNumber !== undefined) {
       updateData.contractNumber = req.body.contractNumber === null || req.body.contractNumber === '' ? undefined : req.body.contractNumber;
@@ -661,26 +661,26 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     if (req.body.correspondentBankSwift !== undefined) {
       updateData.correspondentBankSwift = req.body.correspondentBankSwift === null || req.body.correspondentBankSwift === '' ? undefined : req.body.correspondentBankSwift;
     }
-    
+
     // Credit fields - ALWAYS include if present in request
     if ('creditType' in req.body) {
       updateData.creditType = (req.body.creditType === '' || req.body.creditType === null || req.body.creditType === undefined)
         ? null
         : String(req.body.creditType);
     }
-    
+
     if ('creditLimit' in req.body) {
       if (req.body.creditLimit === '' || req.body.creditLimit === null || req.body.creditLimit === undefined) {
         updateData.creditLimit = null;
       } else {
-        const limitValue = typeof req.body.creditLimit === 'string' 
-          ? parseFloat(req.body.creditLimit) 
+        const limitValue = typeof req.body.creditLimit === 'string'
+          ? parseFloat(req.body.creditLimit)
           : Number(req.body.creditLimit);
         // Use Prisma.Decimal for proper type handling
         updateData.creditLimit = isNaN(limitValue) ? null : new Prisma.Decimal(limitValue);
       }
     }
-    
+
     if ('creditStartDate' in req.body) {
       updateData.creditStartDate = (req.body.creditStartDate === '' || req.body.creditStartDate === null || req.body.creditStartDate === undefined)
         ? null
@@ -692,28 +692,28 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         ? req.body.defaultAfterHoursPayer
         : 'CLIENT';
     }
-    
+
     // Hash password if provided
     if (req.body.password) {
       const passwordHash = await hashPassword(req.body.password);
       updateData.passwordHash = passwordHash;
     }
-    
+
     console.log('Update data before Prisma:', JSON.stringify(updateData, null, 2));
-    
+
     // Update using Prisma with explicit data object
     const updatedClient = await prisma.client.update({
       where: { id },
       data: updateData,
     });
-    
+
     console.log('Updated client from Prisma:', {
       id: updatedClient.id,
       creditType: (updatedClient as any).creditType,
       creditLimit: (updatedClient as any).creditLimit,
       creditStartDate: (updatedClient as any).creditStartDate,
     });
-    
+
     // Return all fields explicitly
     res.json({
       id: updatedClient.id,
@@ -735,7 +735,7 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       message: error.message,
       meta: error.meta,
     });
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
     });
@@ -854,12 +854,12 @@ router.get('/:id/tasks', requireAuth(), async (req: AuthRequest, res) => {
     const id = Number(req.params.id);
     const userId = req.user!.id;
     const userRole = req.user!.role;
-    
+
     // Check if CLIENT is accessing their own data
     if (userRole === 'CLIENT' && userId !== id) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
+
     // Get tasks with branch information
     const tasks = await prisma.task.findMany({
       where: { clientId: id },
@@ -873,7 +873,7 @@ router.get('/:id/tasks', requireAuth(), async (req: AuthRequest, res) => {
         },
       },
     });
-    
+
     // Format response to match frontend expectations
     const formattedTasks = tasks.map(task => ({
       id: task.id,
@@ -884,12 +884,12 @@ router.get('/:id/tasks', requireAuth(), async (req: AuthRequest, res) => {
         name: task.branch.name
       } : null,
     }));
-    
+
     res.json(formattedTasks);
   } catch (error: any) {
     console.error('Error fetching client tasks:', error);
-    res.status(500).json({ 
-      error: 'Ishlarni yuklashda xatolik yuz berdi', 
+    res.status(500).json({
+      error: 'Ishlarni yuklashda xatolik yuz berdi',
       details: error.message || 'Noma\'lum xatolik'
     });
   }
@@ -901,12 +901,12 @@ router.get('/:id/transactions', requireAuth(), async (req: AuthRequest, res) => 
     const id = Number(req.params.id);
     const userId = req.user!.id;
     const userRole = req.user!.role;
-    
+
     // Check if CLIENT is accessing their own data
     if (userRole === 'CLIENT' && userId !== id) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
+
     const transactions = await prisma.transaction.findMany({
       where: { clientId: id },
       orderBy: { date: 'desc' },
@@ -918,7 +918,7 @@ router.get('/:id/transactions', requireAuth(), async (req: AuthRequest, res) => 
         comment: true,
       },
     });
-    
+
     res.json(transactions);
   } catch (error: any) {
     console.error('Error fetching client transactions:', error);

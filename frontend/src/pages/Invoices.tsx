@@ -458,7 +458,7 @@ const Invoices = () => {
             <Icon icon="lucide:file-text" className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 tracking-tight">
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 tracking-tight">
               Invoice'lar
             </h1>
             <p className="text-sm text-gray-500 font-medium mt-0.5">Barcha schyot-fakturalarni boshqarish</p>

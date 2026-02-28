@@ -199,7 +199,7 @@ export default function Exam() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6 pb-4 border-b">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{exam.title}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{exam.title}</h1>
             {exam.description && (
               <p className="text-gray-600 mt-1">{exam.description}</p>
             )}

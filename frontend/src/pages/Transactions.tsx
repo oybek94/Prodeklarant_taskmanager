@@ -555,7 +555,7 @@ const Transactions = () => {
             <Icon icon="lucide:arrow-right-left" className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 tracking-tight">
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 tracking-tight">
               Tranzaksiyalar
             </h1>
             <p className="text-sm text-gray-500 font-medium mt-0.5">Kirim, chiqim va ish haqi bo'yicha to'lovlar</p>
@@ -1245,10 +1245,10 @@ const Transactions = () => {
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${t.type === 'INCOME'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : t.type === 'EXPENSE'
-                                ? 'bg-rose-100 text-rose-800'
-                                : 'bg-indigo-100 text-indigo-800'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : t.type === 'EXPENSE'
+                              ? 'bg-rose-100 text-rose-800'
+                              : 'bg-indigo-100 text-indigo-800'
                             }`}
                         >
                           {t.type}
@@ -1267,8 +1267,8 @@ const Transactions = () => {
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
                         {t.paymentMethod ? (
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${t.paymentMethod === 'CASH'
-                              ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-200'
-                              : 'bg-purple-100 text-purple-800 ring-1 ring-purple-200'
+                            ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-200'
+                            : 'bg-purple-100 text-purple-800 ring-1 ring-purple-200'
                             }`}>
                             {t.paymentMethod === 'CASH' ? 'Naqt' : 'Karta'}
                           </span>

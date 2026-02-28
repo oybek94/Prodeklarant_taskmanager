@@ -205,7 +205,7 @@ const TaskDetail = () => {
           >
             ← Orqaga
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">{task.title}</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{task.title}</h1>
         </div>
             {task.status === 'TEKSHIRILGAN' && (
               <div className="flex gap-2">

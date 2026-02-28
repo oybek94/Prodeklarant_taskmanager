@@ -49,7 +49,7 @@ export default function Training() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">O'qitish Kurslari</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">O'qitish Kurslari</h1>
         <p className="text-gray-600 mt-2">
           Yangi kelgan ishchilar uchun o'qitish materiallari va imtihonlar
         </p>

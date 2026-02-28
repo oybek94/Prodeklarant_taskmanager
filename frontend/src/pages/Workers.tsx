@@ -194,7 +194,7 @@ const Workers = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Workers</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Workers</h1>
         <button
           onClick={() => {
             if (isMobile) {

@@ -135,7 +135,7 @@ const Archive = () => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Arxiv</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Arxiv</h1>
         <p className="text-gray-600">Yakunlangan task'larning hujjatlari</p>
       </div>
 

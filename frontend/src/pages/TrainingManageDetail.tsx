@@ -520,7 +520,7 @@ export default function TrainingManageDetail() {
         >
           ← Orqaga
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">{training.title}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{training.title}</h1>
         {training.description && (
           <p className="text-gray-600 mt-2">{training.description}</p>
         )}

@@ -312,7 +312,7 @@ const Layout = () => {
         </header>
         {/* Mobile: Sidebar yopiq bo'lganda top padding qo'shish */}
         <main
-          className={`flex-1 ${(isSettingsPage || isInvoicesPage) ? 'overflow-hidden flex flex-col min-h-0' : 'overflow-y-auto block'} p-6 ${!isDesktop && !sidebarOpen ? 'pt-20' : ''}`}
+          className={`flex-1 ${isInvoicesPage ? 'overflow-hidden flex flex-col min-h-0' : 'overflow-y-auto'} p-6 ${!isDesktop && !sidebarOpen ? 'pt-20' : ''}`}
         >
           <Outlet />
         </main>

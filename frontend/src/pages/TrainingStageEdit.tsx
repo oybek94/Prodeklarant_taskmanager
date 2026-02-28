@@ -137,7 +137,7 @@ export default function TrainingStageEdit() {
             >
               ← Orqaga
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               Maqola Tahrirlash
             </h1>
             <p className="text-sm text-gray-500 mt-1">

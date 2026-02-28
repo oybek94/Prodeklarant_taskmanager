@@ -293,7 +293,7 @@ const Profile = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Personal Cabinet</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Personal Cabinet</h1>
         {isAdmin && id && (
           <div className="flex gap-2">
             <button

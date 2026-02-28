@@ -130,7 +130,7 @@ export default function TrainingManagement() {
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">O'qitish Kurslarini Boshqarish</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">O'qitish Kurslarini Boshqarish</h1>
           <p className="text-gray-600 mt-2">O'qitish kurslarini yaratish, tahrirlash va boshqarish</p>
         </div>
         <button

@@ -101,7 +101,7 @@ export default function ExamResult() {
       <div className="bg-white rounded-lg shadow p-6">
         {/* Header */}
         <div className="text-center mb-6 pb-4 border-b">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             Imtihon Natijasi
           </h1>
           <div

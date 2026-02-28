@@ -4,6 +4,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications, getNotificationDisplayMessage, requestNotificationPermission } from '../hooks/useNotifications';
 import { useTheme } from '../contexts/ThemeContext';
+import toast from 'react-hot-toast';
 
 /** Hozircha bildirishnomalar o‘chirilgan; keyin yoqish uchun true qiling */
 const NOTIFICATIONS_ENABLED = false;
@@ -266,7 +267,7 @@ const Layout = () => {
                                   await confirmProcess(n.taskProcessId);
                                   if (notifications.length <= 1) setNotificationPanelOpen(false);
                                 } catch (err: any) {
-                                  alert(err.message || 'Xatolik');
+                                  toast.error(err.message || "Xatolik ro'y berdi");
                                 }
                               }}
                               className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -280,7 +281,7 @@ const Layout = () => {
                                   await rejectProcess(n.taskProcessId);
                                   if (notifications.length <= 1) setNotificationPanelOpen(false);
                                 } catch (err: any) {
-                                  alert(err.message || 'Xatolik');
+                                  toast.error(err.message || "Xatolik ro'y berdi");
                                 }
                               }}
                               className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"

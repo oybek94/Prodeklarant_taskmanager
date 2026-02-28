@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth } from '../middleware/auth';
 import { z } from 'zod';
+import { getWorkerKpiStats } from '../services/kpi';
 
 const router = Router();
 
@@ -37,6 +38,34 @@ router.get('/logs', requireAuth('ADMIN'), async (_req, res) => {
     take: 200,
   });
   res.json(logs);
+});
+
+// Yangi API: Worker Performance Stats
+router.get('/worker-stats/:workerId', requireAuth(), async (req, res) => {
+  try {
+    const workerId = parseInt(req.params.workerId, 10);
+    if (isNaN(workerId)) {
+      return res.status(400).json({ error: "Noto'g'ri ishchi IDsi" });
+    }
+
+    const { startDate, endDate } = req.query;
+
+    let start: Date | undefined;
+    let end: Date | undefined;
+
+    if (startDate) {
+      start = new Date(startDate as string);
+    }
+    if (endDate) {
+      end = new Date(endDate as string);
+    }
+
+    const stats = await getWorkerKpiStats(workerId, start, end);
+    res.json(stats);
+  } catch (error: any) {
+    console.error('Error fetching worker KPI stats:', error);
+    res.status(500).json({ error: "Ishchi statistikasini yuklashda xatolik yuz berdi" });
+  }
 });
 
 export default router;

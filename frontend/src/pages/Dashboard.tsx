@@ -170,25 +170,19 @@ const Dashboard = () => {
       const now = new Date();
       const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
       const todayStr = todayUTC.toISOString().split('T')[0];
-      
-      console.log('[Dashboard] Fetching exchange rate for today:', todayStr, 'Current time:', now.toISOString(), 'UTC date:', todayUTC.toISOString());
-      
+
       // First, try to fetch from CBU API directly for today (this will get the latest rate)
       try {
-        console.log('[Dashboard] Fetching latest rate from CBU API...');
         const fetchResponse = await apiClient.post('/finance/exchange-rates/fetch');
         if (fetchResponse.data?.rate) {
           const rate = parseFloat(fetchResponse.data.rate);
-          console.log('[Dashboard] Fetched latest rate from CBU:', rate);
           setExchangeRate(rate);
           return;
         }
       } catch (fetchError: any) {
-        console.log('[Dashboard] Could not fetch from CBU API:', fetchError?.response?.data || fetchError?.message);
       }
-      
+
       // If CBU fetch failed, try to get from database with today's date
-      console.log('[Dashboard] Trying to get rate from database for date:', todayStr);
       const response = await apiClient.get(`/finance/exchange-rates/for-date?date=${todayStr}`).catch((error) => {
         // Handle 404 and other errors
         if (error.response?.status === 404) {
@@ -197,31 +191,24 @@ const Dashboard = () => {
         }
         throw error;
       });
-      
-      console.log('[Dashboard] Exchange rate response:', response?.data);
-      
       if (response?.data?.rate !== undefined && response?.data?.rate !== null) {
         const rate = parseFloat(response.data.rate);
-        
+
         // If it's a fallback (yesterday's rate), try to fetch today's rate from CBU again
         if (response.data.fallback) {
-          console.log('[Dashboard] Rate is fallback, trying to fetch today\'s rate from CBU again...');
           // Try to fetch from CBU API endpoint
           try {
             const fetchResponse = await apiClient.post('/finance/exchange-rates/fetch');
             if (fetchResponse.data?.rate) {
               const newRate = parseFloat(fetchResponse.data.rate);
-              console.log('[Dashboard] Fetched today\'s rate from CBU:', newRate);
               setExchangeRate(newRate);
               return;
             }
           } catch (fetchError) {
-            console.log('[Dashboard] Could not fetch from CBU API, using fallback rate');
           }
         }
-        
+
         setExchangeRate(rate);
-        console.log('[Dashboard] Exchange rate loaded:', rate, 'fallback:', response.data.fallback, 'date:', response.data.date);
       } else {
         console.warn('[Dashboard] No rate in response:', response?.data);
       }
@@ -242,12 +229,6 @@ const Dashboard = () => {
       setLoading(true);
       setStatsError(null);
       const response = await apiClient.get('/dashboard/stats');
-      console.log('[Dashboard] Stats response:', response.data);
-      console.log('[Dashboard] tasksByBranch:', response.data?.tasksByBranch);
-      console.log('[Dashboard] tasksByBranch type:', typeof response.data?.tasksByBranch);
-      console.log('[Dashboard] tasksByBranch isArray:', Array.isArray(response.data?.tasksByBranch));
-      console.log('[Dashboard] tasksByBranch length:', response.data?.tasksByBranch?.length);
-
       if (response.status >= 400 || response.data?.error) {
         const errorMessage = response.data?.error || `Dashboard statistikasi yuklanmadi (status: ${response.status})`;
         setStatsError(errorMessage);
@@ -264,15 +245,15 @@ const Dashboard = () => {
         });
         return;
       }
-      
+
       // Ensure tasksByBranch is always an array
       const statsData = {
         ...response.data,
-        tasksByBranch: Array.isArray(response.data?.tasksByBranch) 
-          ? response.data.tasksByBranch 
+        tasksByBranch: Array.isArray(response.data?.tasksByBranch)
+          ? response.data.tasksByBranch
           : [],
       };
-      
+
       setStats(statsData);
     } catch (error: any) {
       console.error('Error loading stats:', error);
@@ -493,9 +474,32 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f3f4f6] dark:bg-gray-900 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/40 via-purple-50/20 to-white pb-12 pt-4 px-4 sm:px-6 lg:px-8">
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-0 py-0">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Page Header (Hero style) */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white/60 backdrop-blur-md rounded-2xl shadow-sm border border-white/40 p-6">
+          <div>
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+              Assalomu alaykum, {user?.name || 'Foydalanuvchi'}!
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Bugun {new Date().toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+          </div>
+          {exchangeRate && (
+            <div className="mt-4 md:mt-0 px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-100 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                <Icon icon="lucide:dollar-sign" className="text-emerald-600 w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 font-medium tracking-wide uppercase">Valyuta kursi</p>
+                <p className="text-sm font-bold text-emerald-700">{formatUzs(exchangeRate)} UZS</p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Completed Tasks Summary */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           {[
@@ -509,39 +513,49 @@ const Dashboard = () => {
             const deltaLabel = loadingCompletedSummary
               ? 'Yuklanmoqda...'
               : delta === null || delta === undefined
-              ? 'Taqqoslash uchun ma\'lumot yo\'q'
-              : `${item.suffix} ${formatDeltaLabel(delta, '')} ${delta >= 0 ? 'yuqori' : 'past'}`.trim();
+                ? 'Taqqoslash uchun ma\'lumot yo\'q'
+                : `${item.suffix} ${formatDeltaLabel(delta, '')} ${delta >= 0 ? 'yuqori' : 'past'}`.trim();
             const deltaTone = delta === null ? 'text-gray-400' : delta >= 0 ? 'text-emerald-600' : 'text-red-600';
             const sparkLabels = data?.series?.labels ?? [];
             const sparkData = data?.series?.data ?? [];
 
             return (
-              <div key={item.key} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between">
+              <div
+                key={item.key}
+                className="group relative bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden"
+              >
+                {/* Decorative blob */}
+                <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-10 blur-2xl group-hover:scale-150 transition-transform duration-700 bg-[${item.spark}]`} style={{ backgroundColor: item.spark }}></div>
+
+                <div className="flex items-center justify-between relative z-10">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg">
-                      <Icon icon={item.icon} className="text-gray-600" />
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white" style={{ background: `linear-gradient(135deg, #ffffff, ${item.spark}20)` }}>
+                      <Icon icon={item.icon} className={item.accent} />
                     </div>
-                    <div className="text-sm text-gray-600">{item.title}</div>
+                    <div className="text-sm font-medium text-gray-500 tracking-wide uppercase">{item.title}</div>
                   </div>
-                  <div className={`text-3xl font-bold ${item.accent}`}>
+                  <div className={`text-4xl font-extrabold tracking-tight ${item.accent}`}>
                     {loadingCompletedSummary ? '-' : data?.count ?? 0}
                   </div>
                 </div>
-                <div className="mt-4 border-t border-gray-100 pt-4 flex items-center justify-between gap-4">
+
+                <div className="mt-6 border-t border-gray-100/50 pt-4 flex items-center justify-between gap-4 relative z-10">
                   {item.showChart && Array.isArray(sparkData) && sparkData.length > 0 ? (
-                    <div className="h-8 w-24">
+                    <div className="h-10 w-28 opacity-80 group-hover:opacity-100 transition-opacity">
                       <Line
                         data={buildSparklineData(sparkLabels, sparkData, item.spark)}
                         options={sparklineOptions}
                       />
                     </div>
                   ) : (
-                    <div className="h-8 w-24 flex items-center justify-center text-gray-300">
-                      <span className="text-xs">Ma'lumot yo‘q</span>
+                    <div className="h-10 w-28 flex items-center text-gray-400 opacity-50">
+                      <span className="text-xs font-medium">Barchasi ko'rildi</span>
                     </div>
                   )}
-                  <div className={`text-xs font-medium ${deltaTone}`}>{deltaLabel}</div>
+                  <div className={`text-xs font-semibold px-2.5 py-1 rounded-full ${delta === null ? 'bg-gray-100 text-gray-500' : delta >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                    }`}>
+                    {deltaLabel}
+                  </div>
                 </div>
               </div>
             );
@@ -553,43 +567,43 @@ const Dashboard = () => {
           {/* Left Column - Chart and Tasks */}
           <div className="lg:col-span-2 space-y-6">
             {/* Task Done Graph */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6" style={{ height: '503px' }}>
+            <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50" style={{ height: '503px' }}>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Task Done</h2>
-                <div className="flex gap-2">
+                <div className="flex flex-col">
+                  <h2 className="text-xl font-bold text-gray-900 tracking-tight">Oylik monitoring</h2>
+                  <p className="text-xs text-gray-500 font-medium">Bajarilgan vazifalar dinamikasi</p>
+                </div>
+                <div className="flex gap-2 bg-gray-100/80 p-1 rounded-xl">
                   <button
                     onClick={() => setPeriod('weekly')}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      period === 'weekly'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all duration-300 ${period === 'weekly'
+                      ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200/50'
+                      : 'text-gray-500 hover:text-gray-900'
+                      }`}
                   >
                     Haftalik
                   </button>
                   <button
                     onClick={() => setPeriod('monthly')}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      period === 'monthly'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all duration-300 ${period === 'monthly'
+                      ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200/50'
+                      : 'text-gray-500 hover:text-gray-900'
+                      }`}
                   >
                     Oylik
                   </button>
                   <button
                     onClick={() => setPeriod('yearly')}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      period === 'yearly'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all duration-300 ${period === 'yearly'
+                      ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200/50'
+                      : 'text-gray-500 hover:text-gray-900'
+                      }`}
                   >
                     Yillik
                   </button>
                 </div>
               </div>
-              
+
               {/* Charts.js Line Chart */}
               {chartDataWithLabels.labels.length > 0 ? (
                 <div className="h-[400px]">
@@ -706,14 +720,14 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Tasks by Branch Chart */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-indigo-50 to-indigo-100">
                     <Icon icon="lucide:building" className="w-6 h-6 text-indigo-600" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Filiallar bo'yicha tasklar</h2>
-                    <p className="text-xs text-gray-500">Qaysi filialda qancha ish bo'lgani</p>
+                    <h2 className="text-lg font-bold text-gray-900 tracking-tight">Filiallar ulushi</h2>
+                    <p className="text-xs text-gray-500 font-medium">Bajarilgan ishlarning hududlarga foizi</p>
                   </div>
                 </div>
                 {loading ? (
@@ -722,20 +736,12 @@ const Dashboard = () => {
                   </div>
                 ) : (() => {
                   const branches = stats?.tasksByBranch;
-                  
-                  // Debug information - faqat development uchun
-                  console.log('[Dashboard Debug] tasksByBranch raw:', branches);
-                  console.log('[Dashboard Debug] tasksByBranch type:', typeof branches);
-                  console.log('[Dashboard Debug] tasksByBranch isArray:', Array.isArray(branches));
-                  console.log('[Dashboard Debug] tasksByBranch length:', branches?.length);
-                  console.log('[Dashboard Debug] Full stats object:', stats);
-                  console.log('[Dashboard Debug] statsError:', statsError);
-                  
-                  const hasValidData = branches && 
-                    Array.isArray(branches) && 
-                    branches.length > 0 && 
+
+                  const hasValidData = branches &&
+                    Array.isArray(branches) &&
+                    branches.length > 0 &&
                     branches.some((b: any) => b && b.count > 0);
-                  
+
                   if (statsError) {
                     return (
                       <div className="text-center py-12 text-gray-400">
@@ -765,11 +771,11 @@ const Dashboard = () => {
                       </div>
                     );
                   }
-                  
+
                   const validBranches = branches.filter((b: any) => b && b.branchName && b.count > 0);
                   const labels = validBranches.map((b: any) => b.branchName);
                   const series = validBranches.map((b: any) => b.count);
-                  
+
                   if (labels.length === 0 || series.length === 0 || series.every((s: number) => s === 0)) {
                     return (
                       <div className="text-center py-12 text-gray-400">
@@ -786,7 +792,7 @@ const Dashboard = () => {
                       </div>
                     );
                   }
-                  
+
                   return (
                     <div>
                       <Chart
@@ -836,45 +842,42 @@ const Dashboard = () => {
               </div>
 
               {/* Worker completion ranking */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex flex-col gap-3 mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+              <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50">
+                <div className="flex flex-col gap-4 mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-emerald-50 to-teal-100">
                       <Icon icon="lucide:trophy" className="w-6 h-6 text-emerald-600" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-900">Eng ko'p ish bajarganlar</h2>
-                      <p className="text-xs text-gray-500">Ishchilar bo'yicha yakunlangan jarayonlar</p>
+                      <h2 className="text-lg font-bold text-gray-900 tracking-tight">Peshqadamlar</h2>
+                      <p className="text-xs text-gray-500 font-medium">Eng ko'p ish bajargan xodimlar</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1 bg-gray-100/80 p-1 rounded-xl">
                     <button
                       onClick={() => setRankingPeriod('weekly')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                        rankingPeriod === 'weekly'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${rankingPeriod === 'weekly'
+                        ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-gray-200/50'
+                        : 'text-gray-500 hover:text-gray-900'
+                        }`}
                     >
                       Haftalik
                     </button>
                     <button
                       onClick={() => setRankingPeriod('monthly')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                        rankingPeriod === 'monthly'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${rankingPeriod === 'monthly'
+                        ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-gray-200/50'
+                        : 'text-gray-500 hover:text-gray-900'
+                        }`}
                     >
                       Oylik
                     </button>
                     <button
                       onClick={() => setRankingPeriod('yearly')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                        rankingPeriod === 'yearly'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${rankingPeriod === 'yearly'
+                        ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-gray-200/50'
+                        : 'text-gray-500 hover:text-gray-900'
+                        }`}
                     >
                       Yillik
                     </button>
@@ -898,19 +901,18 @@ const Dashboard = () => {
                   return (
                     <div className="space-y-3">
                       {ranking.map((worker, index) => (
-                        <div key={worker.userId} className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-3">
-                            <span className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-semibold ${
-                              index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                              index === 1 ? 'bg-gray-100 text-gray-700' :
-                              index === 2 ? 'bg-orange-100 text-orange-700' :
-                              'bg-emerald-50 text-emerald-700'
-                            }`}>
+                        <div key={worker.userId} className="group flex items-center justify-between p-3 rounded-xl hover:bg-white/50 transition-colors border border-transparent hover:border-gray-100">
+                          <div className="flex items-center gap-4">
+                            <span className={`w-8 h-8 flex items-center justify-center rounded-xl text-sm font-bold shadow-sm ${index === 0 ? 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-white ring-2 ring-yellow-100' :
+                              index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white ring-2 ring-gray-100' :
+                                index === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-400 text-white ring-2 ring-orange-100' :
+                                  'bg-gray-100 text-gray-600'
+                              }`}>
                               {index + 1}
                             </span>
-                            <span className="text-gray-700">{worker.name}</span>
+                            <span className="font-semibold text-gray-800">{worker.name}</span>
                           </div>
-                          <span className="font-semibold text-gray-900">{worker.completedStages} ta</span>
+                          <span className="font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full text-xs">{worker.completedStages} ta</span>
                         </div>
                       ))}
                     </div>
@@ -923,14 +925,14 @@ const Dashboard = () => {
           {/* Right Sidebar */}
           <div className="space-y-6">
             {/* Yearly Goal Gauge Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-blue-50 to-indigo-100">
                   <Icon icon="lucide:target" className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Yillik maqsad</h2>
-                  <p className="text-xs text-gray-500">2026 yil uchun</p>
+                  <h2 className="text-lg font-bold text-gray-900 tracking-tight">Yillik maqsad</h2>
+                  <p className="text-xs text-gray-500 font-medium">Joriy 2026 yil uchun progress</p>
                 </div>
               </div>
               {loadingCompletedSummary ? (
@@ -1041,45 +1043,42 @@ const Dashboard = () => {
             </div>
 
             {/* Worker error ranking */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex flex-col gap-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+            <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50">
+              <div className="flex flex-col gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-red-50 to-orange-100">
                     <Icon icon="lucide:alert-circle" className="w-6 h-6 text-red-600" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Eng ko'p xato qilganlar</h2>
-                    <p className="text-xs text-gray-500">Ishchilar bo'yicha xatolar soni</p>
+                    <h2 className="text-lg font-bold text-gray-900 tracking-tight">Eng ko'p xato qilganlar</h2>
+                    <p className="text-xs text-gray-500 font-medium">Ishchilar bo'yicha xatolar soni</p>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1 bg-gray-100/80 p-1 rounded-xl">
                   <button
                     onClick={() => setErrorRankingPeriod('weekly')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                      errorRankingPeriod === 'weekly'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'weekly'
+                      ? 'bg-white text-red-700 shadow-sm ring-1 ring-gray-200/50'
+                      : 'text-gray-500 hover:text-gray-900'
+                      }`}
                   >
                     Haftalik
                   </button>
                   <button
                     onClick={() => setErrorRankingPeriod('monthly')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                      errorRankingPeriod === 'monthly'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'monthly'
+                      ? 'bg-white text-red-700 shadow-sm ring-1 ring-gray-200/50'
+                      : 'text-gray-500 hover:text-gray-900'
+                      }`}
                   >
                     Oylik
                   </button>
                   <button
                     onClick={() => setErrorRankingPeriod('yearly')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                      errorRankingPeriod === 'yearly'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'yearly'
+                      ? 'bg-white text-red-700 shadow-sm ring-1 ring-gray-200/50'
+                      : 'text-gray-500 hover:text-gray-900'
+                      }`}
                   >
                     Yillik
                   </button>
@@ -1103,19 +1102,18 @@ const Dashboard = () => {
                 return (
                   <div className="space-y-3">
                     {errorRanking.map((worker, index) => (
-                      <div key={worker.userId} className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-semibold ${
-                            index === 0 ? 'bg-red-100 text-red-700' :
-                            index === 1 ? 'bg-orange-100 text-orange-700' :
-                            index === 2 ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-gray-50 text-gray-700'
-                          }`}>
+                      <div key={worker.userId} className="group flex items-center justify-between p-3 rounded-xl hover:bg-white/50 transition-colors border border-transparent hover:border-gray-100">
+                        <div className="flex items-center gap-4">
+                          <span className={`w-8 h-8 flex items-center justify-center rounded-xl text-sm font-bold shadow-sm ${index === 0 ? 'bg-gradient-to-br from-red-400 to-red-600 text-white ring-2 ring-red-100' :
+                            index === 1 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white ring-2 ring-orange-100' :
+                              index === 2 ? 'bg-gradient-to-br from-amber-300 to-amber-500 text-white ring-2 ring-amber-100' :
+                                'bg-gray-100 text-gray-600'
+                            }`}>
                             {index + 1}
                           </span>
-                          <span className="text-gray-700">{worker.name}</span>
+                          <span className="font-semibold text-gray-800">{worker.name}</span>
                         </div>
-                        <span className="font-semibold text-gray-900">{worker.errorsCount} ta</span>
+                        <span className="font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full text-xs">{worker.errorsCount} ta</span>
                       </div>
                     ))}
                   </div>
@@ -1125,552 +1123,183 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Financial Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 mt-6">
-          {/* Bugun sof foyda - birinchi card */}
-          {(() => {
-            const todayNetProfit = stats?.todayNetProfit;
-            const hasUsd = todayNetProfit?.usd !== undefined && todayNetProfit.usd !== 0;
-            const hasUzs = todayNetProfit?.uzs !== undefined && todayNetProfit.uzs !== 0;
-            const totalProfit = (todayNetProfit?.usd || 0) + (todayNetProfit?.uzs || 0);
-            const isPositive = totalProfit >= 0;
-            const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
-            const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
-            const icon = isPositive ? 'lucide:trending-up' : 'lucide:trending-down';
+        {/* Financial Stats Chart */}
+        <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50 mb-6 mt-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-emerald-50 to-teal-100">
+              <Icon icon="lucide:bar-chart-2" className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 tracking-tight">Umumiy Sof Foyda Dinamikasi</h2>
+              <p className="text-xs text-gray-500 font-medium">Davrlar kesimida daromad ko'rsatkichlari (USD va UZS)</p>
+            </div>
+          </div>
+          {loading ? (
+            <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div></div>
+          ) : (() => {
+            const netProfitSeries = [
+              {
+                name: 'Daromad (USD)',
+                data: [
+                  stats?.todayNetProfit?.usd || 0,
+                  stats?.weeklyNetProfit?.usd || 0,
+                  stats?.monthlyNetProfit?.usd || 0,
+                  stats?.yearlyNetProfit?.usd || 0
+                ]
+              },
+              {
+                name: 'Daromad (UZS)',
+                data: [
+                  stats?.todayNetProfit?.uzs || 0,
+                  stats?.weeklyNetProfit?.uzs || 0,
+                  stats?.monthlyNetProfit?.uzs || 0,
+                  stats?.yearlyNetProfit?.uzs || 0
+                ]
+              }
+            ];
+
+            const netProfitOptions: any = {
+              chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+              plotOptions: { bar: { horizontal: false, columnWidth: '45%', borderRadius: 6 } },
+              dataLabels: { enabled: false },
+              stroke: { show: true, width: 4, colors: ['transparent'] },
+              xaxis: { categories: ['Bugun', 'Haftalik', 'Oylik', 'Yillik'], labels: { style: { fontWeight: 600, colors: '#6b7280' } } },
+              yaxis: {
+                labels: { formatter: (val: number) => formatUzs(val) }
+              },
+              fill: { opacity: 1 },
+              colors: ['#10b981', '#3b82f6'],
+              tooltip: {
+                y: { formatter: (val: number, { seriesIndex }: any) => formatUzs(val) + (seriesIndex === 0 ? ' $' : ' UZS') }
+              },
+              legend: { position: 'top', horizontalAlign: 'right' },
+              grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }
+            };
 
             return (
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full ${bgColor} flex items-center justify-center text-lg`}>
-                      <Icon icon={icon} className={accentColor} />
-                    </div>
-                    <div className="text-sm text-gray-600">Sof foyda</div>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  {loading ? (
-                    <div className={`text-3xl font-bold ${accentColor}`}>
-                      <span className="text-gray-300">-</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {hasUsd && (
-                        <div className={`text-2xl font-bold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={todayNetProfit!.usd}
-                            originalCurrency="USD"
-                            className="inline"
-                          />
-                          {todayNetProfit!.usdCount > 0 && (
-                            <span className="ml-2 text-sm font-medium text-gray-500">
-                              (
-                              <CurrencyDisplay
-                                amount={todayNetProfit!.usd / todayNetProfit!.usdCount}
-                                originalCurrency="USD"
-                                className="inline"
-                              />
-                              )
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {hasUzs && (
-                        <div className={`text-lg font-semibold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={todayNetProfit!.uzs}
-                            originalCurrency="UZS"
-                            className="inline"
-                          />
-                          {todayNetProfit!.uzsCount > 0 && (
-                            <span className="ml-2 text-xs font-medium text-gray-500">
-                              (
-                              <CurrencyDisplay
-                                amount={todayNetProfit!.uzs / todayNetProfit!.uzsCount}
-                                originalCurrency="UZS"
-                                className="inline"
-                              />
-                              )
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {!hasUsd && !hasUzs && (
-                        <div className={`text-3xl font-bold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={0}
-                            originalCurrency="USD"
-                            className="inline"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="mt-4 border-t border-gray-100 pt-4">
-                  <div className="text-xs text-gray-500">Bugun</div>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Haftalik sof foyda - ikkinchi card */}
-          {(() => {
-            const weeklyNetProfit = stats?.weeklyNetProfit;
-            const hasUsd = weeklyNetProfit?.usd !== undefined && weeklyNetProfit.usd !== 0;
-            const hasUzs = weeklyNetProfit?.uzs !== undefined && weeklyNetProfit.uzs !== 0;
-            const totalProfit = (weeklyNetProfit?.usd || 0) + (weeklyNetProfit?.uzs || 0);
-            const isPositive = totalProfit >= 0;
-            const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
-            const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
-            const icon = isPositive ? 'lucide:trending-up' : 'lucide:trending-down';
-
-            return (
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full ${bgColor} flex items-center justify-center text-lg`}>
-                      <Icon icon={icon} className={accentColor} />
-                    </div>
-                    <div className="text-sm text-gray-600">Sof foyda</div>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  {loading ? (
-                    <div className={`text-3xl font-bold ${accentColor}`}>
-                      <span className="text-gray-300">-</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {hasUsd && (
-                        <div className={`text-2xl font-bold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={weeklyNetProfit!.usd}
-                            originalCurrency="USD"
-                            className="inline"
-                          />
-                          {weeklyNetProfit!.usdCount > 0 && (
-                            <span className="ml-2 text-sm font-medium text-gray-500">
-                              (
-                              <CurrencyDisplay
-                                amount={weeklyNetProfit!.usd / weeklyNetProfit!.usdCount}
-                                originalCurrency="USD"
-                                className="inline"
-                              />
-                              )
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {hasUzs && (
-                        <div className={`text-lg font-semibold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={weeklyNetProfit!.uzs}
-                            originalCurrency="UZS"
-                            className="inline"
-                          />
-                          {weeklyNetProfit!.uzsCount > 0 && (
-                            <span className="ml-2 text-xs font-medium text-gray-500">
-                              (
-                              <CurrencyDisplay
-                                amount={weeklyNetProfit!.uzs / weeklyNetProfit!.uzsCount}
-                                originalCurrency="UZS"
-                                className="inline"
-                              />
-                              )
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {!hasUsd && !hasUzs && (
-                        <div className={`text-3xl font-bold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={0}
-                            originalCurrency="USD"
-                            className="inline"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="mt-4 border-t border-gray-100 pt-4">
-                  <div className="text-xs text-gray-500">Haftalik</div>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Oylik sof foyda - uchinchi card */}
-          {(() => {
-            const monthlyNetProfit = stats?.monthlyNetProfit;
-            const hasUsd = monthlyNetProfit?.usd !== undefined && monthlyNetProfit.usd !== 0;
-            const hasUzs = monthlyNetProfit?.uzs !== undefined && monthlyNetProfit.uzs !== 0;
-            const totalProfit = (monthlyNetProfit?.usd || 0) + (monthlyNetProfit?.uzs || 0);
-            const isPositive = totalProfit >= 0;
-            const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
-            const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
-            const icon = isPositive ? 'lucide:trending-up' : 'lucide:trending-down';
-
-            return (
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full ${bgColor} flex items-center justify-center text-lg`}>
-                      <Icon icon={icon} className={accentColor} />
-                    </div>
-                    <div className="text-sm text-gray-600">Sof foyda</div>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  {loading ? (
-                    <div className={`text-3xl font-bold ${accentColor}`}>
-                      <span className="text-gray-300">-</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {hasUsd && (
-                        <div className={`text-2xl font-bold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={monthlyNetProfit!.usd}
-                            originalCurrency="USD"
-                            className="inline"
-                          />
-                          {monthlyNetProfit!.usdCount > 0 && (
-                            <span className="ml-2 text-sm font-medium text-gray-500">
-                              (
-                              <CurrencyDisplay
-                                amount={monthlyNetProfit!.usd / monthlyNetProfit!.usdCount}
-                                originalCurrency="USD"
-                                className="inline"
-                              />
-                              )
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {hasUzs && (
-                        <div className={`text-lg font-semibold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={monthlyNetProfit!.uzs}
-                            originalCurrency="UZS"
-                            className="inline"
-                          />
-                          {monthlyNetProfit!.uzsCount > 0 && (
-                            <span className="ml-2 text-xs font-medium text-gray-500">
-                              (
-                              <CurrencyDisplay
-                                amount={monthlyNetProfit!.uzs / monthlyNetProfit!.uzsCount}
-                                originalCurrency="UZS"
-                                className="inline"
-                              />
-                              )
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {!hasUsd && !hasUzs && (
-                        <div className={`text-3xl font-bold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={0}
-                            originalCurrency="USD"
-                            className="inline"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="mt-4 border-t border-gray-100 pt-4">
-                  <div className="text-xs text-gray-500">Oylik</div>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Yillik sof foyda - to'rtinchi card */}
-          {(() => {
-            const yearlyNetProfit = stats?.yearlyNetProfit;
-            const hasUsd = yearlyNetProfit?.usd !== undefined && yearlyNetProfit.usd !== 0;
-            const hasUzs = yearlyNetProfit?.uzs !== undefined && yearlyNetProfit.uzs !== 0;
-            const totalProfit = (yearlyNetProfit?.usd || 0) + (yearlyNetProfit?.uzs || 0);
-            const isPositive = totalProfit >= 0;
-            const accentColor = isPositive ? 'text-emerald-600' : 'text-red-600';
-            const bgColor = isPositive ? 'bg-emerald-50' : 'bg-red-50';
-            const icon = isPositive ? 'lucide:trending-up' : 'lucide:trending-down';
-
-            return (
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full ${bgColor} flex items-center justify-center text-lg`}>
-                      <Icon icon={icon} className={accentColor} />
-                    </div>
-                    <div className="text-sm text-gray-600">Sof foyda</div>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  {loading ? (
-                    <div className={`text-3xl font-bold ${accentColor}`}>
-                      <span className="text-gray-300">-</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {hasUsd && (
-                        <div className={`text-2xl font-bold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={yearlyNetProfit!.usd}
-                            originalCurrency="USD"
-                            className="inline"
-                          />
-                          {yearlyNetProfit!.usdCount > 0 && (
-                            <span className="ml-2 text-sm font-medium text-gray-500">
-                              (
-                              <CurrencyDisplay
-                                amount={yearlyNetProfit!.usd / yearlyNetProfit!.usdCount}
-                                originalCurrency="USD"
-                                className="inline"
-                              />
-                              )
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {hasUzs && (
-                        <div className={`text-lg font-semibold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={yearlyNetProfit!.uzs}
-                            originalCurrency="UZS"
-                            className="inline"
-                          />
-                          {yearlyNetProfit!.uzsCount > 0 && (
-                            <span className="ml-2 text-xs font-medium text-gray-500">
-                              (
-                              <CurrencyDisplay
-                                amount={yearlyNetProfit!.uzs / yearlyNetProfit!.uzsCount}
-                                originalCurrency="UZS"
-                                className="inline"
-                              />
-                              )
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {!hasUsd && !hasUzs && (
-                        <div className={`text-3xl font-bold ${accentColor}`}>
-                          <CurrencyDisplay
-                            amount={0}
-                            originalCurrency="USD"
-                            className="inline"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="mt-4 border-t border-gray-100 pt-4">
-                  <div className="text-xs text-gray-500">Yillik</div>
-                </div>
+              <div style={{ minHeight: '350px' }}>
+                <Chart options={netProfitOptions} series={netProfitSeries} type="bar" height={350} />
               </div>
             );
           })()}
         </div>
 
-        {/* Qarzdorlar va sertifikatchi qarzi */}
+        {/* Qarzlarning Umumiy Holati (Donut) & Ro'yxatlar */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex flex-col gap-3 mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <Icon icon="lucide:users" className="w-6 h-6 text-orange-600" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Qarzdorlar</h2>
-                  <p className="text-xs text-gray-500">To'lov qilish kerak bo'lgan mijozlar</p>
-                </div>
+          <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50 lg:col-span-1">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-orange-50 to-amber-100">
+                <Icon icon="lucide:pie-chart" className="w-6 h-6 text-orange-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 tracking-tight">Umumiy Qarzdorlik</h2>
+                <p className="text-xs text-gray-500 font-medium">Barcha qarzlar balansi</p>
               </div>
             </div>
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
+              <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div></div>
             ) : (() => {
               const paymentReminders = stats?.paymentReminders || [];
-              if (!Array.isArray(paymentReminders) || paymentReminders.length === 0) {
-                return (
-                  <div className="text-center py-12 text-gray-400">
-                    <Icon icon="lucide:check-circle" className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>Qarzdorlar mavjud emas</p>
-                  </div>
-                );
-              }
-              
-              // Calculate totals by currency
-              const totalDebtUSD = paymentReminders
-                .filter((p: PaymentReminder) => p.currency === 'USD')
-                .reduce((sum, p) => sum + (p.currentDebt || 0), 0);
-              const totalDebtUZS = paymentReminders
-                .filter((p: PaymentReminder) => p.currency === 'UZS')
-                .reduce((sum, p) => sum + (p.currentDebt || 0), 0);
+              const totalDebtUSD = paymentReminders.filter((p: any) => p.currency === 'USD').reduce((sum: number, p: any) => sum + (p.currentDebt || 0), 0);
+              const totalDebtUZS = paymentReminders.filter((p: any) => p.currency === 'UZS').reduce((sum: number, p: any) => sum + (p.currentDebt || 0), 0);
+              const totalDebtorsUzs = totalDebtUZS + (totalDebtUSD * (exchangeRate || 12800));
+
+              const certifierDebtUzs = stats?.certifierDebt?.remaining?.total || 0;
+              const workerDebtUsd = (stats?.workerDebts || []).reduce((sum: number, w: any) => sum + w.pendingUsd, 0);
+              const totalLiabilitiesUzs = certifierDebtUzs + (workerDebtUsd * (exchangeRate || 12800));
+
+              const debtSeries = [totalDebtorsUzs, totalLiabilitiesUzs];
+              const debtOptions: any = {
+                chart: { type: 'donut', fontFamily: 'Inter, sans-serif' },
+                labels: ['Mijozlar qarzi (Aktivlar)', 'Bizning qarzimiz (Passivlar)'],
+                colors: ['#f59e0b', '#ef4444'],
+                plotOptions: {
+                  pie: { donut: { size: '75%', labels: { show: true, name: { show: true }, value: { show: true, formatter: (val: number) => formatUzs(val) + ' UZS' }, total: { show: true, label: 'Jami Qarzlar', formatter: function (w: any) { return formatUzs(w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0)) + ' UZS' } } } } }
+                },
+                dataLabels: { enabled: false },
+                legend: { position: 'bottom' },
+                tooltip: { y: { formatter: (val: number) => formatUzs(val) + ' UZS' } }
+              };
 
               return (
-                <div>
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {paymentReminders.map((reminder: PaymentReminder) => (
-                      <div
-                        key={reminder.clientId}
-                        className="p-3 bg-white rounded-md"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-semibold text-gray-900">{reminder.clientName}</p>
-                          </div>
-                          <div className="text-right">
-                          <p className="text-base font-semibold text-gray-900">
-                              {reminder.currentDebt !== undefined && (
-                                <CurrencyDisplay
-                                  amount={reminder.currentDebt}
-                                  originalCurrency={reminder.currency || 'USD'}
-                                  className="inline"
-                                />
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Jami qarz */}
-                  {(totalDebtUSD > 0 || totalDebtUZS > 0) && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="space-y-2">
-                        {totalDebtUSD > 0 && (
-                          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-gray-500" />
-                              <span className="text-sm font-medium text-gray-600">Jami qarz (USD):</span>
-                            </div>
-                          <span className="text-base font-semibold text-gray-900">
-                              <CurrencyDisplay
-                                amount={totalDebtUSD}
-                                originalCurrency="USD"
-                                className="inline"
-                              />
-                            </span>
-                          </div>
-                        )}
-                        {totalDebtUZS > 0 && (
-                          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-gray-500" />
-                              <span className="text-sm font-medium text-gray-600">Jami qarz (UZS):</span>
-                            </div>
-                          <span className="text-base font-semibold text-gray-900">
-                              <CurrencyDisplay
-                                amount={totalDebtUZS}
-                                originalCurrency="UZS"
-                                className="inline"
-                              />
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                <div className="flex flex-col items-center justify-center" style={{ minHeight: '320px' }}>
+                  {totalDebtorsUzs === 0 && totalLiabilitiesUzs === 0 ? (
+                    <div className="flex flex-col items-center text-gray-400 mt-10">
+                      <Icon icon="lucide:check-circle" className="w-12 h-12 mb-2 opacity-50" />
+                      <p>Qarzlar mavjud emas</p>
                     </div>
+                  ) : (
+                    <Chart options={debtOptions} series={debtSeries} type="donut" height={320} width="100%" />
                   )}
                 </div>
               );
             })()}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
-                <Icon icon="lucide:clipboard-list" className="w-6 h-6 text-slate-600" />
+          <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50 lg:col-span-2">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-indigo-50 to-blue-100">
+                <Icon icon="lucide:list" className="w-6 h-6 text-indigo-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Sertifikatchilar</h2>
-                <p className="text-xs text-gray-500">Oltiariq filialidan</p>
+                <h2 className="text-lg font-bold text-gray-900 tracking-tight">Qarzlar Tafsiloti</h2>
+                <p className="text-xs text-gray-500 font-medium">Barcha qarzdorlar va ishchilardan qarzlar</p>
               </div>
             </div>
 
-            {!stats?.certifierDebt ? (
-              <div className="text-center py-12 text-gray-400">
-                <Icon icon="lucide:clipboard" className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>Ma'lumotlar topilmadi</p>
-              </div>
+            {loading ? (
+              <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>
             ) : (
-              <div className="space-y-4">
-                <div className="text-xs text-gray-500">
-                  Tasklar soni: <span className="font-semibold text-gray-700">{stats.certifierDebt.taskCount}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Mijozlar qarzi */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-200/60 pb-2">Mijozlar qarzi</h3>
+                  <div className="space-y-2 max-h-[280px] overflow-y-auto pr-2 custom-scrollbar">
+                    {!(stats?.paymentReminders?.length) ? (
+                      <p className="text-xs text-gray-400">Qarzdorlar mavjud emas</p>
+                    ) : (
+                      stats.paymentReminders.map((reminder: any) => (
+                        <div key={reminder.clientId} className="flex justify-between items-center p-2 hover:bg-white/50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
+                          <span className="text-sm font-medium text-gray-800">{reminder.clientName}</span>
+                          <span className="text-sm font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">
+                            <CurrencyDisplay amount={reminder.currentDebt || 0} originalCurrency={reminder.currency || 'USD'} />
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-3">
-                  {[
-                    { label: 'ST-1', key: 'st1' as const },
-                    { label: 'FITO', key: 'fito' as const },
-                    { label: 'AKT', key: 'akt' as const },
-                  ].map(({ label, key }) => (
-                    <div key={label} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-700">{label}</span>
-                        <span className="font-semibold text-gray-900">
-                          {formatUzs(stats.certifierDebt.remaining[key])} so'm
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="pt-3 border-t border-gray-200 flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Jami qoldiq</span>
-                  <span className="font-semibold text-red-600">
-                    {formatUzs(stats.certifierDebt.remaining.total)} so'm
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                <Icon icon="lucide:wallet" className="w-6 h-6 text-emerald-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Ishchilar</h2>
-                <p className="text-xs text-gray-500">Sizning ishchilardan qarzingiz (USD)</p>
-              </div>
-            </div>
-
-            {!stats?.workerDebts || stats.workerDebts.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">
-                <Icon icon="lucide:check-circle" className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>Ishchilardan qarz mavjud emas</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {stats.workerDebts.map((worker) => {
-                  const amountClass = 'text-gray-900';
-                  return (
-                    <div key={worker.userId} className="flex items-center justify-between p-3 bg-white rounded-md">
-                      <span className="text-sm font-medium text-gray-700">{worker.name}</span>
-                      <span className={`text-sm font-semibold ${amountClass}`}>
-                        {worker.pendingUsd.toFixed(2)} $
-                      </span>
+                {/* Ishchilar/Sert ro'yxati */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-200/60 pb-2">Sertifikat va Ishchilar</h3>
+                  <div className="space-y-6 max-h-[280px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-3">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sertifikatchilar qoldig'i</div>
+                      {stats?.certifierDebt && stats.certifierDebt.remaining.total > 0 ? (
+                        <div className="flex justify-between items-center p-3 rounded-xl bg-red-50/70 border border-red-100/50">
+                          <span className="text-sm font-semibold text-gray-800">Oltiariq ({stats.certifierDebt.taskCount} ta)</span>
+                          <span className="text-sm font-bold text-red-600">{formatUzs(stats.certifierDebt.remaining.total)} UZS</span>
+                        </div>
+                      ) : <p className="text-xs text-gray-400">Ma'lumot yo'q</p>}
                     </div>
-                  );
-                })}
-                {(() => {
-                  const total = stats.workerDebts.reduce((sum, worker) => sum + worker.pendingUsd, 0);
-                  const totalClass = total !== 0 ? 'text-red-600' : 'text-gray-500';
-                  return (
-                    <div className="flex items-center justify-between pt-3 mt-2 border-t border-gray-200">
-                      <span className="text-sm font-semibold text-gray-700">Jami</span>
-                      <span className={`text-sm font-semibold ${totalClass}`}>
-                        {total.toFixed(2)} $
-                      </span>
+                    <div className="space-y-3">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ishchilar qarzi</div>
+                      {!(stats?.workerDebts?.length) ? (
+                        <p className="text-xs text-gray-400">Ishchilardan qarz yo'q</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {stats.workerDebts.map((worker: any) => (
+                            <div key={worker.userId} className="flex justify-between items-center p-2 hover:bg-white/50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
+                              <span className="text-sm font-medium text-gray-800">{worker.name}</span>
+                              <span className="text-sm font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">{worker.pendingUsd.toFixed(2)} $</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  );
-                })()}
+                  </div>
+                </div>
               </div>
             )}
           </div>

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { Toaster } from 'react-hot-toast';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -10,6 +11,7 @@ import Transactions from './pages/Transactions';
 import Clients from './pages/Clients';
 import ClientDetail from './pages/ClientDetail';
 import Workers from './pages/Workers';
+import WorkerReport from './pages/WorkerReport';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Training from './pages/Training';
@@ -214,6 +216,7 @@ const AppRoutes = () => {
           }
         />
         <Route path="/workers/:id" element={<Profile />} />
+        <Route path="/workers/:id/report" element={<WorkerReport />} />
         <Route
           path="/settings"
           element={
@@ -249,6 +252,7 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <AppRoutes />
+          <Toaster position="top-right" />
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>

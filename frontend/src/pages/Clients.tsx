@@ -31,6 +31,8 @@ interface Client {
   balanceCurrency?: 'USD' | 'UZS';
   totalDealAmount?: number;
   totalIncome?: number;
+  initialDebt?: number | string | null;
+  initialDebtCurrency?: 'USD' | 'UZS';
 }
 
 interface ClientDetail {
@@ -316,6 +318,8 @@ const Clients = () => {
     correspondentBankAccount: '',
     correspondentBankSwift: '',
     dealAmountExchangeRate: '',
+    initialDebt: '',
+    initialDebtCurrency: 'USD' as 'USD' | 'UZS',
   });
   const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
   const [editForm, setEditForm] = useState({
@@ -341,6 +345,8 @@ const Clients = () => {
     correspondentBank: '',
     correspondentBankAccount: '',
     correspondentBankSwift: '',
+    initialDebt: '',
+    initialDebtCurrency: 'USD' as 'USD' | 'UZS',
   });
   const [showContractModal, setShowContractModal] = useState(false);
   const [savingContract, setSavingContract] = useState(false);
@@ -635,8 +641,9 @@ const Clients = () => {
             const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
             const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
             const totalIncome = client.transactions?.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0) || 0;
-            const balance = totalDealAmount - totalIncome;
-            return { ...client, balance, totalDealAmount, totalIncome };
+            const initialDebt = Number(client.initialDebt || 0);
+            const balance = totalDealAmount - totalIncome + initialDebt;
+            return { ...client, balance, totalDealAmount, totalIncome, initialDebt };
           }
           return client;
         });
@@ -1058,6 +1065,8 @@ const Clients = () => {
         correspondentBank: form.correspondentBank || undefined,
         correspondentBankAccount: form.correspondentBankAccount || undefined,
         correspondentBankSwift: form.correspondentBankSwift || undefined,
+        initialDebt: form.initialDebt ? parseFloat(form.initialDebt) : undefined,
+        initialDebtCurrency: form.initialDebtCurrency || 'USD',
       };
 
       // Handle credit fields - if creditType is empty, set to null, otherwise use the value
@@ -1103,6 +1112,8 @@ const Clients = () => {
         correspondentBank: '',
         correspondentBankAccount: '',
         correspondentBankSwift: '',
+        initialDebt: '',
+        initialDebtCurrency: 'USD' as 'USD' | 'UZS',
       });
       await loadClients();
       await loadStats();
@@ -1137,6 +1148,8 @@ const Clients = () => {
       correspondentBank: (client as any).correspondentBank || '',
       correspondentBankAccount: (client as any).correspondentBankAccount || '',
       correspondentBankSwift: (client as any).correspondentBankSwift || '',
+      initialDebt: client.initialDebt ? client.initialDebt.toString() : '',
+      initialDebtCurrency: (client.initialDebtCurrency || 'USD') as 'USD' | 'UZS',
     });
     setShowEditModal(true);
   };
@@ -1205,6 +1218,8 @@ const Clients = () => {
         correspondentBank: editForm.correspondentBank || undefined,
         correspondentBankAccount: editForm.correspondentBankAccount || undefined,
         correspondentBankSwift: editForm.correspondentBankSwift || undefined,
+        initialDebt: editForm.initialDebt ? parseFloat(editForm.initialDebt) : undefined,
+        initialDebtCurrency: editForm.initialDebtCurrency || 'USD',
       };
 
       // Handle credit fields - if creditType is empty, set to null, otherwise use the value
@@ -1274,6 +1289,8 @@ const Clients = () => {
         correspondentBank: '',
         correspondentBankAccount: '',
         correspondentBankSwift: '',
+        initialDebt: '',
+        initialDebtCurrency: 'USD' as 'USD' | 'UZS',
       });
 
       // Reload clients list to get updated data
@@ -1594,6 +1611,26 @@ const Clients = () => {
                 }}
                 errors={monetaryErrors}
               />
+              <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/50">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">O'tgan yilgi / eski qarzdorlik (ixtiyoriy)</h3>
+                <MonetaryInput
+                  amount={form.initialDebt || ''}
+                  currency={form.initialDebtCurrency || 'USD'}
+                  exchangeRate={''}
+                  date={new Date().toISOString().split('T')[0]}
+                  onAmountChange={(value) => {
+                    setForm({ ...form, initialDebt: value });
+                  }}
+                  onCurrencyChange={(value) => {
+                    setForm({ ...form, initialDebtCurrency: value as 'USD' | 'UZS' });
+                  }}
+                  onExchangeRateChange={() => { }} // Initial debt does not enforce exchange rate typing strictly on client side
+                  label="Oldingi qarz summasi"
+                  required={false}
+                  showLabels={false}
+                  currencyRules={{ exchangeRateRequired: false }}
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                 <input
@@ -1779,7 +1816,8 @@ const Clients = () => {
                             const totalTasks = client.tasks?.length || 0;
                             const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
                             const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
-                            const calculatedBalance = totalDealAmount;
+                            const initialDebt = Number(client.initialDebt || 0);
+                            const calculatedBalance = totalDealAmount + initialDebt;
 
                             return (
                               <span className={`font-medium ${calculatedBalance > 0
@@ -3181,6 +3219,26 @@ const Clients = () => {
                   currencyRules={{
                     exchangeRateRequired: true,
                   }}
+                />
+              </div>
+              <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/50">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">O'tgan yilgi / eski qarzdorlik (ixtiyoriy)</h3>
+                <MonetaryInput
+                  amount={editForm.initialDebt || ''}
+                  currency={editForm.initialDebtCurrency || 'USD'}
+                  exchangeRate={''}
+                  date={new Date().toISOString().split('T')[0]} // Not heavily validated
+                  onAmountChange={(value) => {
+                    setEditForm({ ...editForm, initialDebt: value });
+                  }}
+                  onCurrencyChange={(value) => {
+                    setEditForm({ ...editForm, initialDebtCurrency: value as 'USD' | 'UZS' });
+                  }}
+                  onExchangeRateChange={() => { }}
+                  label="Oldingi qarz summasi"
+                  required={false}
+                  showLabels={false}
+                  currencyRules={{ exchangeRateRequired: false }}
                 />
               </div>
               <div>

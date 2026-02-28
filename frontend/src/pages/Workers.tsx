@@ -166,7 +166,7 @@ const Workers = () => {
 
   const handleDelete = async (workerId: number) => {
     if (!confirm('Bu ishchini o\'chirishni xohlaysizmi? Bu amalni qaytarib bo\'lmaydi.')) return;
-    
+
     try {
       await apiClient.delete(`/users/${workerId}`);
       setOpenMenuId(null);
@@ -254,7 +254,7 @@ const Workers = () => {
                       </div>
                     </div>
                     <div className="relative">
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenMenuId(openMenuId === worker.id ? null : worker.id);
@@ -264,7 +264,7 @@ const Workers = () => {
                         <Icon icon="lucide:more-vertical" className="w-5 h-5" />
                       </button>
                       {openMenuId === worker.id && (
-                        <div 
+                        <div
                           className="absolute right-0 top-8 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 min-w-[140px]"
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -323,13 +323,22 @@ const Workers = () => {
                     )}
                   </div>
 
-                  {/* View Details Button */}
-                  <button
-                    onClick={() => navigate(`/workers/${worker.id}`)}
-                    className="w-full px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
-                  >
-                    View Details
-                  </button>
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => navigate(`/workers/${worker.id}/report`)}
+                      className="flex-1 flex justify-center items-center gap-1.5 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors border border-emerald-200"
+                    >
+                      <Icon icon="lucide:bar-chart-2" className="w-4 h-4" />
+                      Hisobot
+                    </button>
+                    <button
+                      onClick={() => navigate(`/workers/${worker.id}`)}
+                      className="flex-1 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
+                    >
+                      Batafsil
+                    </button>
+                  </div>
                 </div>
               );
             })
@@ -339,7 +348,7 @@ const Workers = () => {
 
       {/* Add Worker Modal */}
       {showWorkerForm && (
-        <div 
+        <div
           className={isMobile && (isNewWorkerRoute || editWorkerId)
             ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
             : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
@@ -354,7 +363,7 @@ const Workers = () => {
             }
           }}
         >
-          <div 
+          <div
             className={isMobile && (isNewWorkerRoute || editWorkerId)
               ? 'bg-white w-full h-full p-6 overflow-y-auto'
               : 'bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4'}

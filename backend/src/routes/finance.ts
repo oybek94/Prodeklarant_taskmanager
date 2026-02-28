@@ -50,7 +50,7 @@ router.get('/balance', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     // Get transaction history if filters provided
     let transactionHistory: any[] = [];
     let exchangeRatesUsed: any[] = [];
-    
+
     if (startDate || endDate || currency) {
       const txWhere: any = {};
       if (startDate) txWhere.date = { ...txWhere.date, gte: new Date(startDate as string) };
@@ -140,9 +140,9 @@ router.get('/balance', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     res.json(response);
   } catch (error: any) {
     console.error('Error fetching balances:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Balanslarni yuklashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -187,9 +187,9 @@ router.post('/balance', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     res.json(balance);
   } catch (error: any) {
     console.error('Error updating balance:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Balansni yangilashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -198,7 +198,18 @@ router.post('/balance', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 router.get('/debtors', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
   try {
     const allClients = await prisma.client.findMany({
-      include: {
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        dealAmount: true,
+        dealAmountCurrency: true,
+        creditType: true,
+        creditLimit: true,
+        creditStartDate: true,
+        initialDebt: true,
+        initialDebtCurrency: true,
+        initialDebtInUzs: true,
         tasks: {
           select: {
             id: true,
@@ -217,7 +228,7 @@ router.get('/debtors', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
             currency: true,
           },
         },
-      },
+      }
     });
 
     const debtors = allClients
@@ -235,7 +246,19 @@ router.get('/debtors', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
           .filter((t: any) => t.currency === dealCurrency)
           .reduce((sum, t) => sum + Number(t.amount), 0);
 
-        const currentDebt = totalDealAmount - totalPaid;
+        let initialDebt = 0;
+        if ((client as any).initialDebt) {
+          const clientInitialDebtCurrency = (client as any).initialDebtCurrency || 'USD';
+          if (clientInitialDebtCurrency === dealCurrency) {
+            initialDebt = Number((client as any).initialDebt);
+          } else {
+            initialDebt = (client as any).initialDebtInUzs && dealCurrency === 'UZS'
+              ? Number((client as any).initialDebtInUzs)
+              : Number((client as any).initialDebt);
+          }
+        }
+
+        const currentDebt = totalDealAmount - totalPaid + initialDebt;
 
         // If client has no debt, skip
         if (currentDebt <= 0) {
@@ -258,9 +281,9 @@ router.get('/debtors', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
     res.json(debtors);
   } catch (error: any) {
     console.error('Error fetching debtors:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Qarzdorlarni yuklashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -309,9 +332,9 @@ router.get('/debts', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
     res.json(debtsWithDetails);
   } catch (error: any) {
     console.error('Error fetching debts:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Qarzlarni yuklashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -347,9 +370,9 @@ router.post('/debt', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     res.status(201).json(debt);
   } catch (error: any) {
     console.error('Error creating debt:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Qarz qo\'shishda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -378,9 +401,9 @@ router.patch('/debt/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) =>
     res.json(debt);
   } catch (error: any) {
     console.error('Error updating debt:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Qarzni yangilashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -395,9 +418,9 @@ router.delete('/debt/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) =
     res.status(204).send();
   } catch (error: any) {
     console.error('Error deleting debt:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Qarzni o\'chirishda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -422,7 +445,7 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
         where: { currency },
       });
       const totalDebt = allDebts.reduce((sum, d) => sum + Number(d.amount), 0);
-      
+
       // Qarzlar bo'yicha guruhlash
       const debtsByType = allDebts.reduce((acc: any, debt) => {
         acc[debt.debtorType] = (acc[debt.debtorType] || 0) + Number(debt.amount);
@@ -442,7 +465,7 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
             },
           },
           transactions: {
-            where: { 
+            where: {
               type: 'INCOME',
               currency,
             },
@@ -461,7 +484,20 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
         const tasksWithPsr = client.tasks.filter(t => t.hasPsr).length;
         const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
         const totalPaid = client.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
-        const debt = totalDealAmount - totalPaid;
+
+        let initialDebt = 0;
+        if ((client as any).initialDebt) {
+          const clientInitialDebtCurrency = (client as any).initialDebtCurrency || 'USD';
+          if (clientInitialDebtCurrency === currency) {
+            initialDebt = Number((client as any).initialDebt);
+          } else {
+            initialDebt = (client as any).initialDebtInUzs && currency === 'UZS'
+              ? Number((client as any).initialDebtInUzs)
+              : Number((client as any).initialDebt);
+          }
+        }
+
+        const debt = totalDealAmount - totalPaid + initialDebt;
         if (debt > 0) {
           clientDebts += debt;
         }
@@ -489,9 +525,9 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
     res.json(statistics);
   } catch (error: any) {
     console.error('Error fetching statistics:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Statistikani yuklashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -507,9 +543,9 @@ router.get('/exchange-rates', requireAuth('ADMIN'), async (_req: AuthRequest, re
     res.json(rates);
   } catch (error: any) {
     console.error('Error fetching exchange rates:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Kurslarni yuklashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -518,9 +554,9 @@ router.get('/exchange-rates', requireAuth('ADMIN'), async (_req: AuthRequest, re
 router.get('/exchange-rates/for-date', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const { date } = req.query;
-    
+
     console.log('[ExchangeRate] Request received:', { date, query: req.query });
-    
+
     if (!date) {
       console.log('[ExchangeRate] Missing date parameter');
       return res.status(400).json({ error: 'Date parameter is required' });
@@ -552,13 +588,13 @@ router.get('/exchange-rates/for-date', requireAuth(), async (req: AuthRequest, r
     } catch (error: any) {
       console.error('[ExchangeRate] Error getting exchange rate from database:', error);
       console.error('[ExchangeRate] Error stack:', error?.stack);
-      
+
       // If no rate found in database, try to fetch from CBU API directly
       try {
         console.log('[ExchangeRate] Trying to fetch from CBU API directly');
         const { fetchRateFromCBU } = await import('../services/exchange-rate');
         const cbuRate = await fetchRateFromCBU(targetDate);
-        
+
         if (cbuRate) {
           console.log('[ExchangeRate] CBU API rate found:', cbuRate.toString());
           // Save to database for future use
@@ -568,7 +604,7 @@ router.get('/exchange-rates/for-date', requireAuth(), async (req: AuthRequest, r
           } catch (saveError) {
             console.error('[ExchangeRate] Error saving rate to database:', saveError);
           }
-          
+
           return res.status(200).json({
             rate: Number(cbuRate),
             date: targetDate.toISOString().split('T')[0],
@@ -581,7 +617,7 @@ router.get('/exchange-rates/for-date', requireAuth(), async (req: AuthRequest, r
       } catch (cbuError: any) {
         console.error('[ExchangeRate] CBU API fetch failed:', cbuError);
       }
-      
+
       // If CBU API also failed, try to get the latest rate from database as fallback
       try {
         console.log('[ExchangeRate] Trying to get latest rate from database as fallback');
@@ -598,7 +634,7 @@ router.get('/exchange-rates/for-date', requireAuth(), async (req: AuthRequest, r
         });
       } catch (fallbackError: any) {
         console.error('[ExchangeRate] Fallback also failed:', fallbackError);
-        return res.status(404).json({ 
+        return res.status(404).json({
           error: 'Kurs topilmadi',
           details: error.message || 'Berilgan sana uchun valyuta kursi topilmadi va eng so\'nggi kurs ham topilmadi'
         });
@@ -614,9 +650,9 @@ router.get('/exchange-rates/for-date', requireAuth(), async (req: AuthRequest, r
   } catch (error: any) {
     console.error('[ExchangeRate] Unexpected error:', error);
     console.error('[ExchangeRate] Error stack:', error?.stack);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Kursni yuklashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -628,20 +664,20 @@ router.post('/exchange-rates/fetch', requireAuth(), async (_req: AuthRequest, re
     // Always fetch today's rate
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     console.log('[ExchangeRate] Fetching today\'s rate from CBU API, date:', today.toISOString().split('T')[0]);
     const rate = await fetchAndSaveDailyRate(today);
-    
-    res.json({ 
+
+    res.json({
       message: 'Kurs muvaffaqiyatli yangilandi',
       rate: Number(rate),
       date: today.toISOString().split('T')[0],
     });
   } catch (error: any) {
     console.error('[ExchangeRate] Error fetching latest rate:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Kursni yangilashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -689,9 +725,9 @@ router.post('/exchange-rates', requireAuth('ADMIN'), async (req: AuthRequest, re
     res.json({ message: 'Kurs muvaffaqiyatli saqlandi' });
   } catch (error: any) {
     console.error('Error setting rate:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Kursni saqlashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -737,9 +773,9 @@ router.put('/exchange-rates/:id', requireAuth('ADMIN'), async (req: AuthRequest,
     res.json({ message: 'Kurs muvaffaqiyatli yangilandi' });
   } catch (error: any) {
     console.error('Error updating rate:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Kursni yangilashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -844,7 +880,7 @@ router.post('/convert-currency', requireAuth('ADMIN'), async (req: AuthRequest, 
 
       // Konvertatsiya transaction'ini yaratish (EXPENSE va INCOME)
       const convertComment = comment || `Konvertatsiya: ${fromCurrency} -> ${toCurrency} (kurs: ${rate})`;
-      
+
       const expenseTransaction = await tx.transaction.create({
         data: {
           type: 'EXPENSE',
@@ -894,9 +930,9 @@ router.post('/convert-currency', requireAuth('ADMIN'), async (req: AuthRequest, 
     });
   } catch (error: any) {
     console.error('Error converting currency:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Valyuta konvertatsiyasida xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });

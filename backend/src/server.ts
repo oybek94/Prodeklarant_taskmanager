@@ -44,7 +44,7 @@ import { initializeExchangeRateScheduler } from './services/exchange-rate-schedu
 import { initializeProcessScheduler } from './services/process-scheduler';
 import processRouter from './routes/process';
 import notificationsRouter from './routes/notifications';
-// import { fixDatabaseRoles } from './utils/fixDatabaseRoles'; // Vaqtinchalik o'chirilgan
+
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
@@ -62,25 +62,25 @@ app.use(cors({
     if (!origin) {
       return callback(null, true);
     }
-    
+
     // Agar origin allowedOrigins ro'yxatida bo'lsa, ruxsat berish
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    
+
     // Development'da barcha localhost originlarga ruxsat berish
     if (process.env.NODE_ENV !== 'production') {
       if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
         return callback(null, true);
       }
     }
-    
+
     // Agar origin allowedOrigins ro'yxatida bo'lmasa, lekin production'da bo'lsa, 
     // ham ruxsat berish (chunki Nginx orqali kelgan so'rovlar origin header bilan kelishi mumkin)
     if (process.env.NODE_ENV === 'production') {
       return callback(null, true);
     }
-    
+
     // Development'da faqat allowedOrigins ro'yxatidagi originlarga ruxsat berish
     // Lekin xatolikni throw qilmasdan, faqat console'ga log qilamiz
     console.warn(`⚠️  CORS: ${origin} ruxsat berilmagan, lekin ruxsat berildi (development)`);
@@ -88,9 +88,9 @@ app.use(cors({
   },
   credentials: true
 }));
-// Increase body size limits for file uploads (200MB for multiple files, each file max 100MB)
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ extended: true, limit: '200mb' }));
+// Increase body size limits for file uploads (50MB for multiple files)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Static file serving - uploads papkasini serve qilish
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -121,8 +121,8 @@ app.get('/health', async (_req, res) => {
   try {
     // Quick health check without database query to avoid timeout
     // Immediately respond to avoid blocking
-    res.json({ 
-      status: 'ok', 
+    res.json({
+      status: 'ok',
       timestamp: new Date().toISOString(),
       server: 'running'
     });
@@ -236,7 +236,7 @@ initializeProcessScheduler();
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ API listening on http://localhost:${PORT}`);
   console.log(`✅ Server ishga tushdi!`);
-  
+
   // Database ulanishini tekshirish (async, server ishga tushgandan keyin)
   // Add timeout to avoid blocking server startup
   Promise.race([

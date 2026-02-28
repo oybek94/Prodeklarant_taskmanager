@@ -36,6 +36,8 @@ const clientSchema = z.object({
   correspondentBank: z.string().optional(),
   correspondentBankAccount: z.string().optional(),
   correspondentBankSwift: z.string().optional(),
+  initialDebt: z.number().optional().nullable(),
+  initialDebtCurrency: z.enum(['USD', 'UZS']).optional().nullable(),
 });
 
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
@@ -90,12 +92,27 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
           .filter((t: any) => t.currency === dealCurrency)
           .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
 
-        const balance = totalDealAmount - totalIncome;
+        // Add initial debt to total deal amount depending on currency
+        let initialDebt = 0;
+        if (client.initialDebt) {
+          const clientInitialDebtCurrency = client.initialDebtCurrency || 'USD';
+          if (clientInitialDebtCurrency === dealCurrency) {
+            initialDebt = Number(client.initialDebt);
+          } else {
+            // Basic cross conversion if currencies mismatch, else wait for manual fix. Right now it just gets default
+            initialDebt = client.initialDebtInUzs && dealCurrency === 'UZS'
+              ? Number(client.initialDebtInUzs)
+              : Number(client.initialDebt);
+          }
+        }
+
+        const balance = totalDealAmount - totalIncome + initialDebt;
 
         return {
           ...client,
           balance,
           totalDealAmount, // Return in deal currency
+          initialDebt,
           totalIncome,
           balanceCurrency: dealCurrency,
         };
@@ -347,9 +364,29 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       transitAccount: parsed.data.transitAccount || undefined,
       bankSwift: parsed.data.bankSwift || undefined,
       correspondentBank: parsed.data.correspondentBank || undefined,
-      correspondentBankAccount: parsed.data.correspondentBankAccount || undefined,
-      correspondentBankSwift: parsed.data.correspondentBankSwift || undefined,
+      correspondentBankSuite: parsed.data.correspondentBankSwift || undefined,
     };
+
+    // Calculate initial debt info if provided
+    if (parsed.data.initialDebt !== undefined && parsed.data.initialDebt !== null) {
+      const initialDebtAmount = new Decimal(parsed.data.initialDebt);
+      const initialDebtCurrency = (parsed.data.initialDebtCurrency as Currency) || 'USD';
+
+      createData.initialDebt = initialDebtAmount;
+      createData.initialDebtCurrency = initialDebtCurrency;
+
+      // if currency is usd, but we also save uzs amount, we need exchange rate or fallback to 1 -> then get latest
+      if (initialDebtCurrency !== 'UZS') {
+        try {
+          const rate = await getLatestExchangeRate(initialDebtCurrency, 'UZS', undefined, 'CBU');
+          createData.initialDebtExchangeRate = rate;
+          createData.initialDebtInUzs = calculateAmountUzs(initialDebtAmount, initialDebtCurrency, rate);
+        } catch (e) { /* ignore fetching rate temporarily if fails  */ }
+      } else {
+        createData.initialDebtExchangeRate = new Decimal(1);
+        createData.initialDebtInUzs = initialDebtAmount;
+      }
+    }
 
     // Handle credit fields explicitly
     if (parsed.data.creditType !== undefined) {
@@ -451,8 +488,20 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       return sum + baseAmount + psrAmount;
     }, 0);
 
-    // Qoldiq = Jami shartnoma summasi - Jami kirim
-    const balance = totalDealAmount - totalIncome;
+    let initialDebt = 0;
+    if ((client as any).initialDebt) {
+      const clientInitialDebtCurrency = (client as any).initialDebtCurrency || 'USD';
+      if (clientInitialDebtCurrency === dealCurrency) {
+        initialDebt = Number((client as any).initialDebt);
+      } else {
+        initialDebt = (client as any).initialDebtInUzs && dealCurrency === 'UZS'
+          ? Number((client as any).initialDebtInUzs)
+          : Number((client as any).initialDebt);
+      }
+    }
+
+    // Qoldiq = Jami shartnoma summasi - Jami kirim + O'tgan yilgi qarz
+    const balance = totalDealAmount - totalIncome + initialDebt;
 
     const tasksByBranch = client.tasks.reduce((acc: any, task) => {
       const branchName = task.branch?.name || 'Unknown';
@@ -624,6 +673,48 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       updateData.phone = req.body.phone === null || req.body.phone === '' ? null : req.body.phone;
     }
 
+    // Handle initial debt update
+    const initialDebtChanged = req.body.initialDebt !== undefined;
+    const initialDebtCurrencyChanged = req.body.initialDebtCurrency !== undefined;
+
+    if (initialDebtChanged || initialDebtCurrencyChanged) {
+      const currentClient = await prisma.client.findUnique({
+        where: { id },
+        select: { initialDebt: true, initialDebtCurrency: true, initialDebtExchangeRate: true },
+      });
+
+      const newInitialDebt = initialDebtChanged
+        ? (req.body.initialDebt === null || req.body.initialDebt === '' ? null : new Decimal(req.body.initialDebt))
+        : (currentClient?.initialDebt ? new Decimal(currentClient.initialDebt) : null);
+
+      const newInitialCurrency: Currency | null = initialDebtCurrencyChanged
+        ? (req.body.initialDebtCurrency || null)
+        : (currentClient?.initialDebtCurrency as Currency | null);
+
+      if (newInitialDebt && newInitialCurrency) {
+        updateData.initialDebt = newInitialDebt;
+        updateData.initialDebtCurrency = newInitialCurrency;
+
+        if (newInitialCurrency !== 'UZS') {
+          try {
+            // For initial debt, we just fetch the latest CBU rate to have a record of its worth in UZS today
+            const rate = await getLatestExchangeRate(newInitialCurrency, 'UZS', undefined, 'CBU');
+            updateData.initialDebtExchangeRate = rate;
+            updateData.initialDebtInUzs = calculateAmountUzs(newInitialDebt, newInitialCurrency, rate);
+          } catch (error) { /* Ignore rate fetch error */ }
+        } else {
+          updateData.initialDebtExchangeRate = new Decimal(1);
+          updateData.initialDebtInUzs = newInitialDebt;
+        }
+      } else if (newInitialDebt === null) {
+        // Clearing initial debt
+        updateData.initialDebt = null;
+        updateData.initialDebtCurrency = null;
+        updateData.initialDebtExchangeRate = null;
+        updateData.initialDebtInUzs = null;
+      }
+    }
+
     // Shartnoma maydonlari
     if (req.body.contractNumber !== undefined) {
       updateData.contractNumber = req.body.contractNumber === null || req.body.contractNumber === '' ? undefined : req.body.contractNumber;
@@ -724,6 +815,8 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       creditType: (updatedClient as any).creditType,
       creditLimit: (updatedClient as any).creditLimit,
       creditStartDate: (updatedClient as any).creditStartDate,
+      initialDebt: (updatedClient as any).initialDebt,
+      initialDebtCurrency: (updatedClient as any).initialDebtCurrency,
       defaultAfterHoursPayer: (updatedClient as any).defaultAfterHoursPayer,
       createdAt: updatedClient.createdAt,
       updatedAt: updatedClient.updatedAt,

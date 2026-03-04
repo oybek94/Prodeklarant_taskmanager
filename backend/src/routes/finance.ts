@@ -204,6 +204,7 @@ router.get('/debtors', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
         phone: true,
         dealAmount: true,
         dealAmountCurrency: true,
+        dealAmount_currency: true,
         creditType: true,
         creditLimit: true,
         creditStartDate: true,

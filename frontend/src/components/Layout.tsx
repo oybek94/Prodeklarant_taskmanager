@@ -86,6 +86,8 @@ const Layout = () => {
     { path: '/invoices', label: 'Invoyslar', icon: 'lucide:file-text' },
     { path: '/transactions', label: 'Tranzaksiyalar', icon: 'lucide:receipt' },
     ...((user?.role === 'ADMIN' || user?.role === 'MANAGER') ? [{ path: '/clients', label: 'Mijozlar', icon: 'lucide:users' }] : []),
+    ...((user?.role === 'ADMIN' || user?.role === 'MANAGER') ? [{ path: '/leads', label: 'Lidlar', icon: 'lucide:target' }] : []),
+    ...((user?.role === 'ADMIN' || user?.role === 'MANAGER') ? [{ path: '/crm', label: 'CRM', icon: 'lucide:bar-chart-2' }] : []),
     { path: '/training', label: 'O\'qitish', icon: 'lucide:graduation-cap' },
     ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'lucide:user-cog' }] : []),
     ...(user?.role === 'ADMIN' ? [{ path: '/settings', label: 'Sozlamalar', icon: 'lucide:settings' }] : []),

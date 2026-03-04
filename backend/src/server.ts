@@ -44,6 +44,7 @@ import { initializeExchangeRateScheduler } from './services/exchange-rate-schedu
 import { initializeProcessScheduler } from './services/process-scheduler';
 import processRouter from './routes/process';
 import notificationsRouter from './routes/notifications';
+import leadsRouter from './routes/leads';
 
 
 const app = express();
@@ -185,6 +186,7 @@ app.use('/api/q', qrRouter);
 app.use('/api/sticker', stickerRouter);
 app.use('/api/process', requireAuth(), processRouter);
 app.use('/api/notifications', requireAuth(), notificationsRouter);
+app.use('/api/leads', requireAuth(), leadsRouter);
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

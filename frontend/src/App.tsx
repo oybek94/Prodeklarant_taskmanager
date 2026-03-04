@@ -29,6 +29,9 @@ import Invoice from './pages/Invoice';
 import Invoices from './pages/Invoices';
 import Reports from './pages/Reports';
 import QRVerification from './pages/QRVerification';
+import Leads from './pages/Leads';
+import LeadDetail from './pages/LeadDetail';
+import CrmDashboard from './pages/CrmDashboard';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -70,6 +73,30 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
+        <Route
+          path="/leads"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+              <Leads />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leads/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+              <LeadDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/crm"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+              <CrmDashboard />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/dashboard"
           element={

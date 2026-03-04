@@ -50,6 +50,8 @@ model User {
   transactions       Transaction[]            @relation("TransactionWorker")
   branch             Branch?                  @relation(fields: [branchId], references: [id])
   workerPayments     WorkerPayment[]          @relation("WorkerPayment")
+  assignedLeads      Lead[]                   @relation("LeadAssigned")
+  leadActivities     LeadActivity[]           @relation("LeadActivity")
 }
 
 model Client {
@@ -1075,4 +1077,50 @@ enum TaskProcessLogAction {
   REJECT
   REMINDER_SENT
   ESCALATED
+}
+
+enum LeadStage {
+  COLD
+  IN_PROGRESS
+  MEETING
+  FOLLOW_UP
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+model Lead {
+  id            Int            @id @default(autoincrement())
+  companyName   String
+  inn           String?
+  productType   String?
+  phone         String?
+  contactPerson String?
+  stage         LeadStage      @default(COLD)
+  assignedToId  Int?
+  lostReason    String?
+  nextCallAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  assignedTo    User?          @relation("LeadAssigned", fields: [assignedToId], references: [id])
+  activities    LeadActivity[]
+
+  @@index([stage])
+  @@index([assignedToId])
+  @@index([nextCallAt])
+  @@index([createdAt])
+}
+
+model LeadActivity {
+  id        Int      @id @default(autoincrement())
+  leadId    Int
+  userId    Int
+  type      String
+  note      String?
+  createdAt DateTime @default(now())
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user      User     @relation("LeadActivity", fields: [userId], references: [id])
+
+  @@index([leadId])
+  @@index([userId])
+  @@index([createdAt])
 }

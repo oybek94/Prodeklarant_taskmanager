@@ -8,9 +8,8 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: false, // For now, we'll use localStorage for refresh token
-  timeout: 30000, // 30 seconds timeout (remote database uchun oshirildi)
-  validateStatus: (status) => status < 500, // Don't throw on 4xx errors
+  withCredentials: false,
+  timeout: 30000,
 });
 
 // Request interceptor: Add access token to headers
@@ -74,13 +73,13 @@ apiClient.interceptors.response.use(
       }
       return Promise.reject(new Error('Backend serverga ulanib bo\'lmayapti. Iltimos, server ishlayotganini tekshiring.'));
     }
-    
+
     const originalRequest = error.config as any;
 
     // If 401 and not already retrying
     if (error.response?.status === 401 && !originalRequest._retry) {
       const refreshToken = localStorage.getItem('refreshToken');
-      
+
       // Agar refresh token ham yo'q bo'lsa, darhol login sahifasiga yo'naltiramiz
       if (!refreshToken) {
         localStorage.removeItem('accessToken');

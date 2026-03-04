@@ -181,7 +181,11 @@ export default function Leads() {
             if (stage !== 'ALL') params.stage = stage;
             if (q.trim()) params.search = q.trim();
             const { data } = await apiClient.get('/leads', { params });
-            setLeads(data);
+            if (Array.isArray(data)) {
+                setLeads(data);
+            } else {
+                setLeads([]);
+            }
         } catch {
             toast.error("Lidlarni yuklashda xatolik");
         } finally {

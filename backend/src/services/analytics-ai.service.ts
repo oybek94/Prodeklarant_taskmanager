@@ -82,7 +82,7 @@ export class AnalyticsAIService {
 
       // Get all exam attempts
       const examAttempts = await prisma.examAttempt.findMany({
-        where: { 
+        where: {
           userId,
         },
         include: {
@@ -186,7 +186,7 @@ export class AnalyticsAIService {
           branchId: departmentId,
           active: true,
           role: {
-            in: ['DEKLARANT', 'MANAGER', 'CERTIFICATE_WORKER'],
+            in: ['DEKLARANT'],
           },
         },
         include: {

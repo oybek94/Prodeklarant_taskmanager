@@ -18,9 +18,9 @@ router.post('/login', async (req, res) => {
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     const { email, password } = parsed.data;
     const emailValue = email && email.trim() !== '' ? email : undefined;
-    
+
     let user;
-    
+
     try {
       if (emailValue) {
         // Email bo'lsa, email orqali user topamiz
@@ -37,7 +37,7 @@ router.post('/login', async (req, res) => {
               active: true,
             },
           }),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Database query timeout')), 10000)
           )
         ]) as any;
@@ -56,11 +56,11 @@ router.post('/login', async (req, res) => {
               active: true,
             },
           }),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Database query timeout')), 10000)
           )
         ]) as any[];
-        
+
         // Parol bilan mos kelgan birinchi userni topamiz
         for (const u of allUsers) {
           const isValidPassword = await comparePassword(password, u.passwordHash);
@@ -69,7 +69,7 @@ router.post('/login', async (req, res) => {
             break;
           }
         }
-        
+
         // Agar user topilmasa, dummy comparison qilamiz (timing attack oldini olish uchun)
         if (!user) {
           await comparePassword(password, '$2a$10$dummyhash');
@@ -82,7 +82,7 @@ router.post('/login', async (req, res) => {
       }
       throw dbError;
     }
-    
+
     // Security: Always perform password comparison, even if user not found
     // This prevents user enumeration attacks (timing differences)
     if (!user || !user.active) {
@@ -90,18 +90,18 @@ router.post('/login', async (req, res) => {
       await comparePassword(password, '$2a$10$dummyhash');
       return res.status(401).json({ error: 'Email yoki parol noto\'g\'ri' });
     }
-    
+
     // Security: Verify password using bcrypt.compare
     // This uses constant-time comparison to prevent timing attacks
     // Note: Agar email bo'lmasa, parol allaqachon tekshirilgan
-    const isValidPassword = emailValue 
+    const isValidPassword = emailValue
       ? await comparePassword(password, user.passwordHash)
       : true; // Email bo'lmasa, parol allaqachon tekshirilgan
-      
+
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Email yoki parol noto\'g\'ri' });
     }
-    
+
     // Convert role to valid enum value
     let validRole = user.role;
     if (user.role === 'WORKER' || user.role === 'ACCOUNTANT') {
@@ -111,23 +111,23 @@ router.post('/login', async (req, res) => {
     } else {
       validRole = 'DEKLARANT';
     }
-    
+
     const payload = { sub: user.id, role: validRole, branchId: user.branchId || null, name: user.name };
     return res.json({
       accessToken: signAccessToken(payload),
       refreshToken: signRefreshToken(payload),
-      user: { 
-        id: user.id, 
-        name: user.name, 
-        role: validRole, 
-        branchId: user.branchId || null 
+      user: {
+        id: user.id,
+        name: user.name,
+        role: validRole,
+        branchId: user.branchId || null
       },
     });
   } catch (error: any) {
     console.error('Login error:', error);
     if (error.message && error.message.includes('not found in enum')) {
-      return res.status(500).json({ 
-        error: 'Database rollarida muammo. Iltimos, backend/fix-roles.sql faylini pgAdmin orqali bajarishingiz kerak.' 
+      return res.status(500).json({
+        error: 'Database rollarida muammo. Iltimos, backend/fix-roles.sql faylini pgAdmin orqali bajarishingiz kerak.'
       });
     }
     return res.status(500).json({ error: error.message || 'Internal server error' });
@@ -167,12 +167,13 @@ router.post('/register', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const exists = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   if (exists) return res.status(400).json({ error: 'Email already used' });
+  const validRole = parsed.data.role === 'ADMIN' ? 'ADMIN' : 'DEKLARANT';
   const user = await prisma.user.create({
     data: {
       name: parsed.data.name,
       email: parsed.data.email,
       passwordHash: await hashPassword(parsed.data.password),
-      role: parsed.data.role,
+      role: validRole,
       branchId: parsed.data.branchId,
     },
   });
@@ -195,27 +196,27 @@ router.post('/client/login', async (req, res) => {
     const parsed = clientLoginSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     const { phone, password } = parsed.data;
-    
+
     // Find client by phone
     const client = await prisma.client.findFirst({
       where: { phone },
     });
-    
+
     if (!client) {
       return res.status(401).json({ error: 'Telefon raqam yoki parol noto\'g\'ri' });
     }
-    
+
     // Check if client has password set
     if (!client.passwordHash) {
       return res.status(401).json({ error: 'Parol o\'rnatilmagan. Iltimos, administrator bilan bog\'laning.' });
     }
-    
+
     // Verify password
     const isValid = await comparePassword(password, client.passwordHash);
     if (!isValid) {
       return res.status(401).json({ error: 'Telefon raqam yoki parol noto\'g\'ri' });
     }
-    
+
     // Generate tokens for client
     const payload = { sub: client.id, role: 'CLIENT', branchId: null, name: client.name };
     return res.json({
@@ -235,7 +236,7 @@ router.get('/client/me', requireAuth(), async (req: AuthRequest, res) => {
     if (req.user!.role !== 'CLIENT') {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
+
     const client = await prisma.client.findUnique({
       where: { id: req.user!.id },
       select: {
@@ -246,7 +247,7 @@ router.get('/client/me', requireAuth(), async (req: AuthRequest, res) => {
         createdAt: true,
       },
     });
-    
+
     if (!client) return res.status(404).json({ error: 'Client not found' });
     res.json(client);
   } catch (error: any) {
@@ -260,10 +261,10 @@ router.get('/me', requireAuth(), async (req: AuthRequest, res) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    
+
     // Use Prisma ORM instead of raw SQL
     const user = await prisma.user.findFirst({
-      where: { 
+      where: {
         id: req.user.id,
         active: true,
       },
@@ -277,11 +278,11 @@ router.get('/me', requireAuth(), async (req: AuthRequest, res) => {
         salary: true,
       },
     });
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     res.json({
       id: user.id,
       name: user.name,

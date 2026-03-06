@@ -96,6 +96,7 @@ export default function TrainingStageDetail() {
   const [editingMaterialId, setEditingMaterialId] = useState<number | null>(null);
   const [editMaterialContent, setEditMaterialContent] = useState('');
   const [savingMaterial, setSavingMaterial] = useState(false);
+  const [generatingExam, setGeneratingExam] = useState<number | null>(null);
 
   // Faqat ADMIN uchun tahrirlash imkoniyati
   const canEdit = user?.role === 'ADMIN';
@@ -208,18 +209,16 @@ export default function TrainingStageDetail() {
     }
   };
 
-  const handleMaterialComplete = async (materialId: number) => {
+  const handleStartStageExam = async () => {
     try {
-      await apiClient.post(`/training/${trainingId}/materials/${materialId}/complete`);
-      alert('Material muvaffaqiyatli yakunlandi!');
-      fetchData();
+      setGeneratingExam(-1);
+      const resp = await apiClient.post(`/exams/ai/generate-stage/${stageId}`);
+      navigate(`/exam/${resp.data.exam.id}`);
     } catch (error: any) {
-      console.error('Error completing material:', error);
-      if (error.response?.status === 400) {
-        alert(error.response.data.error);
-      } else {
-        alert('Xatolik yuz berdi');
-      }
+      console.error('Error starting exam:', error);
+      alert(error.response?.data?.error || 'Imtihon tuzishda xatolik yuz berdi');
+    } finally {
+      setGeneratingExam(null);
     }
   };
 
@@ -470,14 +469,6 @@ export default function TrainingStageDetail() {
                                 dangerouslySetInnerHTML={{ __html: material.content }}
                               />
                             )}
-
-                            <button
-                              onClick={() => handleMaterialComplete(material.id)}
-                              className="mt-8 w-full py-3 md:py-4 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-black shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 md:gap-3"
-                            >
-                              <Icon icon="lucide:check-circle" className="w-5 h-5 md:w-6 md:h-6" />
-                              <span className="text-sm md:text-base">Ushbu qismni o'qib bo'ldim</span>
-                            </button>
                           </div>
                         )}
 
@@ -504,51 +495,33 @@ export default function TrainingStageDetail() {
                                 <div className="p-12"><audio src={material.fileUrl} controls className="w-full" /></div>
                               )}
                             </div>
-
-                            <div className="p-6 bg-white/5 backdrop-blur-md">
-                              <button
-                                onClick={() => handleMaterialComplete(material.id)}
-                                className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors"
-                              >
-                                <Icon icon="lucide:check" className="w-5 h-5" />
-                                Tugallash
-                              </button>
-                            </div>
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
 
-                  {/* Step Exams */}
-                  {step.exams && step.exams.length > 0 && (
-                    <div className="mt-12 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-[40px] p-8 shadow-xl shadow-indigo-600/20">
-                      <div className="flex items-center gap-4 mb-6">
-                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center border border-white/30 backdrop-blur-md">
-                          <Icon icon="lucide:award" className="w-6 h-6 text-white" />
-                        </div>
-                        <h3 className="text-2xl font-black text-white">Dars Imtihoni</h3>
-                      </div>
-                      <div className="space-y-4">
-                        {step.exams.map(exam => (
-                          <div key={exam.id} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 flex items-center justify-between gap-6">
-                            <div>
-                              <h4 className="text-xl font-bold text-white mb-2">{exam.title}</h4>
-                              {exam.description && <p className="text-indigo-100/70 text-sm line-clamp-1">{exam.description}</p>}
-                            </div>
-                            <button
-                              onClick={() => handleStartExam(exam.id)}
-                              className="flex-shrink-0 px-8 py-3 bg-white text-indigo-600 rounded-xl font-black shadow-lg hover:scale-105 active:scale-95 transition-all"
-                            >
-                              Boshlash
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
+          </div>
+
+          {/* Main Stage Exam Button at the bottom */}
+          <div className="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800">
+            <button
+              onClick={handleStartStageExam}
+              disabled={generatingExam === -1}
+              className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+              {generatingExam === -1 ? (
+                <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin" />
+              ) : (
+                <Icon icon="lucide:brain-circuit" className="w-6 h-6" />
+              )}
+              <span className="text-lg">
+                {generatingExam === -1 ? "AI Savollar tuzmoqda (Kuting)..." : "Imtihon Topshirish"}
+              </span>
+            </button>
+            <p className="text-center text-slate-500 mt-4 text-sm font-medium">Ushbu mavzuni to'liq o'qib bo'lgach, O'zlashtirganingizni tekshirish uchun imtihon topshiring</p>
           </div>
 
         </div>

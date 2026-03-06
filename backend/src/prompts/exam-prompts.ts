@@ -79,14 +79,14 @@ OUTPUT FORMAT (strict JSON):
   }
 }`;
   } else {
-    // Question generation mode: Generate 8-12 questions
+    // Question generation mode: Generate 5-10 questions
     return `Generate an exam for lesson "${lessonTitle}" (ID: ${lessonId}).
 
 LESSON CONTENT:
 ${lessonFullText}
 
 TASK:
-Generate 8-12 questions that test understanding of the lesson content. Questions should:
+Generate 5 to 10 questions (depending on the length of the lesson content) that test understanding of the lesson content. Questions should:
 1. Cover different sections of the lesson
 2. Mix question types: single choice, multiple choice, and text-based
 3. Test comprehension, not memorization
@@ -164,11 +164,11 @@ ${lessonContent}
 
 QUESTIONS AND CORRECT ANSWERS:
 ${JSON.stringify(questions.map(q => ({
-  id: q.id,
-  question: q.question,
-  type: q.type,
-  correct_answer: q.correctAnswer,
-})), null, 2)}
+    id: q.id,
+    question: q.question,
+    type: q.type,
+    correct_answer: q.correctAnswer,
+  })), null, 2)}
 
 LEARNER ANSWERS:
 ${JSON.stringify(learnerAnswers, null, 2)}

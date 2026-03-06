@@ -93,8 +93,8 @@ router.post('/:id/start', requireAuth(), async (req: AuthRequest, res) => {
       });
 
       if (!trainingProgress || !trainingProgress.completed) {
-        return res.status(400).json({ 
-          error: 'Avval o\'qitishni tugallashingiz kerak' 
+        return res.status(400).json({
+          error: 'Avval o\'qitishni tugallashingiz kerak'
         });
       }
     }
@@ -182,7 +182,7 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
       if (question.type === 'SINGLE_CHOICE' || question.type === 'MULTIPLE_CHOICE') {
         const correctAnswer = question.correctAnswer;
         const userAnswerValue = userAnswer.answer;
-        
+
         if (Array.isArray(correctAnswer) && Array.isArray(userAnswerValue)) {
           // Multiple choice: ikkala array ham bir xil bo'lishi kerak
           isCorrect = JSON.stringify(correctAnswer.sort()) === JSON.stringify(userAnswerValue.sort());
@@ -215,11 +215,11 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
     // Imtihon natijasini yangilash
     // Agar savollar bo'lmasa, maxScore 0 bo'ladi, shuning uchun tekshirish kerak
     if (attempt.maxScore === 0) {
-      return res.status(400).json({ 
-        error: 'Imtihonda savollar mavjud emas. Avval savollar qo\'shing.' 
+      return res.status(400).json({
+        error: 'Imtihonda savollar mavjud emas. Avval savollar qo\'shing.'
       });
     }
-    
+
     const scorePercent = Math.round((totalScore / attempt.maxScore) * 100);
     const passed = scorePercent >= exam.passingScore;
 
@@ -431,13 +431,147 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 // ============================================================================
 
 /**
+ * POST /api/exams/ai/generate-stage/:stageId
+ * Generate AI-powered exam for a complete stage
+ */
+router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const stageId = parseInt(req.params.stageId);
+
+    // Get stage details
+    const stage = await prisma.trainingStage.findUnique({
+      where: { id: stageId },
+      include: {
+        steps: {
+          include: {
+            materials: {
+              where: { type: 'TEXT' },
+              orderBy: { orderIndex: 'asc' },
+            },
+            exams: {
+              where: { active: true }
+            }
+          },
+        },
+      },
+    });
+
+    if (!stage) {
+      return res.status(404).json({ error: 'Stage topilmadi' });
+    }
+
+    // Check if there's already a dummy step for this stage's exam
+    let dummyStep = stage.steps.find(s => s.title === '_AI_STAGE_EXAM');
+
+    if (dummyStep && dummyStep.exams && dummyStep.exams.length > 0) {
+      // Just return the existing exam to save AI cost
+      return res.json({ exam: dummyStep.exams[0] });
+    }
+
+    // Aggregate all stage text content
+    let fullContent = stage.description ? `${stage.description}\n\n` : '';
+
+    stage.steps.forEach(step => {
+      if (step.title !== '_AI_STAGE_EXAM') {
+        fullContent += `\n\n--- ${step.title} ---\n`;
+        if (step.description) fullContent += `${step.description}\n`;
+        step.materials.forEach(m => {
+          if (m.content) fullContent += `\n${m.content}`;
+        });
+      }
+    });
+
+    if (!fullContent || fullContent.trim().length === 0) {
+      return res.status(400).json({ error: 'Stage content topilmadi (materiallar yo\'q)' });
+    }
+
+    // Generate exam using AI
+    const examResult = await ExamAIService.generateExam(
+      stageId, // using stageId just as an identifier
+      stage.title,
+      fullContent
+    );
+
+    let dummyStepId: number;
+
+    // If dummy step doesn't exist, create it
+    if (!dummyStep) {
+      const newDummyStep = await prisma.trainingStep.create({
+        data: {
+          stageId,
+          title: '_AI_STAGE_EXAM',
+          description: 'Auto-generated hidden step for stage exam',
+          isActive: false, // hidden from normal UI
+          orderIndex: 9999
+        }
+      });
+      dummyStepId = newDummyStep.id;
+    } else {
+      dummyStepId = dummyStep.id;
+    }
+
+    // Create exam in database
+    const exam = await prisma.exam.create({
+      data: {
+        lessonId: dummyStepId,
+        title: `${stage.title} - Mavzulashtirilgan Imtihon`,
+        description: `AI tomonidan tuzilgan mavzulashtirilgan imtihon`,
+        passingScore: examResult.passing_score,
+        questionCount: examResult.questions.length,
+        active: true,
+      },
+    });
+
+    // Create exam questions
+    const questions = await Promise.all(
+      examResult.questions.map((q, index) =>
+        prisma.examQuestion.create({
+          data: {
+            examId: exam.id,
+            question: q.question,
+            type: q.type,
+            options: q.options || [],
+            correctAnswer: q.correct_answer,
+            points: q.points,
+            orderIndex: index,
+          },
+        })
+      )
+    );
+
+    res.json({
+      exam: {
+        ...exam,
+        questions,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error generating AI stage exam:', error);
+    res.status(500).json({
+      error: 'AI exam generatsiya qilishda xatolik',
+      details: error.message,
+    });
+  }
+});
+
+/**
  * POST /api/exams/ai/generate/:lessonId
  * Generate AI-powered exam for a lesson
  */
-router.post('/ai/generate/:lessonId', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+router.post('/ai/generate/:lessonId', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const lessonId = parseInt(req.params.lessonId);
-    
+
+    // Check if exam already exists
+    const existingExam = await prisma.exam.findFirst({
+      where: { lessonId, active: true },
+    });
+
+    if (existingExam) {
+      // Just return the existing exam to save AI cost
+      return res.json({ exam: existingExam });
+    }
+
     // Get lesson details
     const lesson = await prisma.trainingStep.findUnique({
       where: { id: lessonId },

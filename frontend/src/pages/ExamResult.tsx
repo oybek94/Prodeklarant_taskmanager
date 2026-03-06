@@ -163,9 +163,61 @@ export default function ExamResult() {
                 <h2 className="text-2xl font-black uppercase tracking-tight">AI Baholash va Tavsiyalar</h2>
               </div>
               <div className="prose prose-invert max-w-none text-indigo-50 font-medium leading-relaxed">
-                {result.evaluation.split('\n').map((line, i) => (
-                  <p key={i} className="mb-4">{line}</p>
-                ))}
+                {typeof result.evaluation === 'string' ? (
+                  result.evaluation.split('\n').map((line, i) => (
+                    <p key={i} className="mb-4">{line}</p>
+                  ))
+                ) : (
+                  <div className="space-y-6">
+                    {/* Yutuqlar */}
+                    {(result.evaluation as any).strengths && (result.evaluation as any).strengths.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-bold text-emerald-300 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:check-circle" /> Yutuqlar:
+                        </h3>
+                        <ul className="list-disc pl-5 space-y-1 text-sm md:text-base">
+                          {(result.evaluation as any).strengths.map((str: string, i: number) => <li key={i}>{str}</li>)}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Kamchiliklar */}
+                    {(result.evaluation as any).weaknesses && (result.evaluation as any).weaknesses.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-bold text-red-300 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:alert-circle" /> Kamchiliklar:
+                        </h3>
+                        <ul className="list-disc pl-5 space-y-1 text-sm md:text-base">
+                          {(result.evaluation as any).weaknesses.map((w: string, i: number) => <li key={i}>{w}</li>)}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Tavsiyalar */}
+                    {(result.evaluation as any).recommendation && (
+                      <div>
+                        <h3 className="text-lg font-bold text-yellow-300 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:lightbulb" /> Tavsiya:
+                        </h3>
+                        <p className="text-sm md:text-base pl-2 border-l-2 border-yellow-300/30">
+                          {(result.evaluation as any).recommendation}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Takrorlanishi kerak bo'lganlar */}
+                    {(result.evaluation as any).suggested_review && (result.evaluation as any).suggested_review.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-bold text-indigo-300 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:book-open" /> Qayta ko'rib chiqish tavsiya etiladi:
+                        </h3>
+                        <ul className="list-disc pl-5 space-y-1 text-sm md:text-base">
+                          {(result.evaluation as any).suggested_review.map((r: string, i: number) => <li key={i}>{r}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -193,8 +245,8 @@ export default function ExamResult() {
               <div
                 key={answer.id}
                 className={`bg-white dark:bg-slate-800 rounded-[32px] p-8 border-l-[12px] shadow-xl shadow-slate-200/50 dark:shadow-none transition-all ${answer.isCorrect
-                    ? 'border-emerald-500 dark:border-emerald-600'
-                    : 'border-red-500 dark:border-red-600'
+                  ? 'border-emerald-500 dark:border-emerald-600'
+                  : 'border-red-500 dark:border-red-600'
                   }`}
               >
                 <div className="flex items-start justify-between gap-6">
@@ -219,10 +271,10 @@ export default function ExamResult() {
                             <div
                               key={optIdx}
                               className={`p-4 rounded-2xl border-2 flex items-center gap-3 transition-colors ${isUserChoice
-                                  ? answer.isCorrect
-                                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
-                                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
-                                  : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800 text-slate-500'
+                                ? answer.isCorrect
+                                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
+                                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+                                : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800 text-slate-500'
                                 }`}
                             >
                               <Icon

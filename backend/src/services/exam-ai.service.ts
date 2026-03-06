@@ -97,8 +97,8 @@ export class ExamAIService {
         throw new Error('Invalid exam generation result: missing questions array');
       }
 
-      if (result.questions.length < 8 || result.questions.length > 12) {
-        throw new Error(`Invalid exam generation result: expected 8-12 questions, got ${result.questions.length}`);
+      if (result.questions.length < 5 || result.questions.length > 10) {
+        throw new Error(`Invalid exam generation result: expected 5-10 questions, got ${result.questions.length}`);
       }
 
       return result;

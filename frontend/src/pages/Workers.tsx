@@ -33,7 +33,7 @@ const Workers = () => {
   const [form, setForm] = useState({
     name: '',
     password: '',
-    role: 'DEKLARANT' as 'ADMIN' | 'MANAGER' | 'DEKLARANT',
+    role: 'DEKLARANT' as 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'SELLER',
     branchId: '',
     salary: '',
   });
@@ -76,7 +76,7 @@ const Workers = () => {
       const response = await apiClient.get('/workers');
       if (Array.isArray(response.data)) {
         // Filter to show only DEKLARANT and MANAGER roles (exclude ADMIN)
-        setWorkers(response.data.filter((w: any) => w.role === 'DEKLARANT' || w.role === 'MANAGER'));
+        setWorkers(response.data.filter((w: any) => w.role === 'DEKLARANT' || w.role === 'MANAGER' || w.role === 'SELLER'));
       } else {
         console.error('Invalid response format:', response.data);
         setWorkers([]);
@@ -147,7 +147,7 @@ const Workers = () => {
     setForm({
       name: worker.name,
       password: '',
-      role: worker.role as 'ADMIN' | 'MANAGER' | 'DEKLARANT',
+      role: worker.role as 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'SELLER',
       branchId: worker.branch?.id ? worker.branch.id.toString() : '',
       salary: worker.salary ? Number(worker.salary).toString() : '',
     });
@@ -432,11 +432,12 @@ const Workers = () => {
                 <select
                   required
                   value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value as 'ADMIN' | 'MANAGER' | 'DEKLARANT', branchId: e.target.value === 'MANAGER' ? '' : form.branchId })}
+                  onChange={(e) => setForm({ ...form, role: e.target.value as 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'SELLER', branchId: e.target.value === 'MANAGER' ? '' : form.branchId })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="DEKLARANT">DEKLARANT</option>
                   <option value="MANAGER">MANAGER</option>
+                  <option value="SELLER">SOTUVCHI (SELLER)</option>
                   <option value="ADMIN">ADMIN</option>
                 </select>
               </div>

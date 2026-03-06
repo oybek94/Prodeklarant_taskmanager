@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
 
-interface ExamResult {
+interface ExamResultData {
   attempt: {
     id: number;
     score: number;
@@ -29,19 +29,19 @@ interface ExamResult {
   scorePercent: number;
   passed: boolean;
   passingScore: number;
+  evaluation?: string; // AI feedback
 }
 
 export default function ExamResult() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const [result, setResult] = useState<ExamResult | null>(
+  const [result, setResult] = useState<ExamResultData | null>(
     location.state?.result || null
   );
   const [loading, setLoading] = useState(!result);
 
   useEffect(() => {
-    // Agar state orqali result kelmagan bo'lsa, API'dan olish
     if (!result && id) {
       fetchResult();
     }
@@ -55,7 +55,7 @@ export default function ExamResult() {
         const scorePercent = latestAttempt.maxScore > 0
           ? Math.round((latestAttempt.score / latestAttempt.maxScore) * 100)
           : 0;
-        
+
         setResult({
           attempt: latestAttempt,
           score: latestAttempt.score,
@@ -74,181 +74,210 @@ export default function ExamResult() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-600">Yuklanmoqda...</div>
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-900">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-500 font-bold">Natijalar hisoblanmoqda...</p>
+        </div>
       </div>
     );
   }
 
   if (!result) {
     return (
-      <div className="p-6">
-        <div className="bg-white rounded-lg shadow p-8 text-center">
-          <p className="text-gray-500">Natija topilmadi</p>
-          <button
-            onClick={() => navigate('/training')}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            O'qitish kurslariga qaytish
-          </button>
+      <div className="p-6 min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <div className="text-center p-12 bg-white dark:bg-slate-800 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-700 max-w-lg">
+          <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6 text-red-600">
+            <Icon icon="lucide:alert-circle" className="w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Natija topilmadi</h2>
+          <p className="text-slate-500 mb-8">Ushbu imtihon uchun hali natija qayd etilmagan.</p>
+          <Link to="/training" className="inline-flex items-center gap-2 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all">
+            <Icon icon="lucide:arrow-left" className="w-5 h-5" />
+            O'qitish sahifasiga qaytish
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="bg-white rounded-lg shadow p-6">
-        {/* Header */}
-        <div className="text-center mb-6 pb-4 border-b">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            Imtihon Natijasi
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300 pb-20">
+      {/* Hero Result Section */}
+      <section className={`relative pt-24 pb-32 overflow-hidden transition-colors ${result.passed ? 'bg-emerald-600' : 'bg-slate-900'
+        }`}>
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl" />
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full translate-x-1/2 translate-y-1/2 blur-3xl" />
+        </div>
+
+        <div className="max-w-4xl mx-auto px-6 relative z-10 text-center">
+          <div className={`w-28 h-28 mx-auto mb-8 rounded-[40px] flex items-center justify-center shadow-2xl border-4 border-white/20 backdrop-blur-xl ${result.passed ? 'bg-white/20' : 'bg-red-500/20'
+            }`}>
+            <Icon
+              icon={result.passed ? "lucide:award" : "lucide:frown"}
+              className={`w-14 h-14 text-white ${result.passed ? 'animate-bounce' : ''}`}
+            />
+          </div>
+
+          <h1 className="text-5xl md:text-6xl font-black text-white mb-4 tracking-tight">
+            {result.passed ? "Tabriklaymiz!" : "Hali imkoniyat bor"}
           </h1>
-          <div
-            className={`inline-flex items-center px-4 py-2 rounded-full text-lg font-semibold ${
-              result.passed
-                ? 'bg-green-100 text-green-800'
-                : 'bg-red-100 text-red-800'
-            }`}
-          >
-            {result.passed ? (
-              <>
-                <Icon icon="lucide:check-circle-2" className="w-6 h-6 mr-2" />
-                O'tdingiz!
-              </>
-            ) : (
-              <>
-                <Icon icon="lucide:x-circle" className="w-6 h-6 mr-2" />
-                O'ta olmadingiz
-              </>
-            )}
+          <p className="text-xl text-white/80 font-medium mb-12">
+            {result.passed
+              ? "Siz imtihonni muvaffaqiyatli topshirdingiz va keyingi bosqichga o'tdingiz."
+              : "Imtihondan o'tish uchun ball yetarli bo'lmadi. Xatolarni ko'rib chiqing va yana urinib ko'ring."}
+          </p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: "Olingan Ball", value: result.score, icon: "lucide:star", color: "bg-white/10" },
+              { label: "Maksimal Ball", value: result.maxScore, icon: "lucide:target", color: "bg-white/10" },
+              { label: "Natija", value: `${result.scorePercent}%`, icon: "lucide:percent", color: "bg-white/20" },
+              { label: "O'tish Balli", value: `${result.passingScore}%`, icon: "lucide:shield-check", color: "bg-white/10" },
+            ].map((stat, i) => (
+              <div key={i} className={`${stat.color} backdrop-blur-md rounded-3xl p-6 border border-white/10`}>
+                <Icon icon={stat.icon} className="w-6 h-6 text-white/60 mx-auto mb-2" />
+                <p className="text-2xl font-black text-white">{stat.value}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/50">{stat.label}</p>
+              </div>
+            ))}
           </div>
         </div>
+      </section>
 
-        {/* Score Summary */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <div className="text-3xl font-bold text-blue-600">
-              {result.score}
-            </div>
-            <div className="text-sm text-gray-600 mt-1">Olingan ball</div>
-          </div>
-          <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <div className="text-3xl font-bold text-gray-600">
-              {result.maxScore}
-            </div>
-            <div className="text-sm text-gray-600 mt-1">Maksimal ball</div>
-          </div>
-          <div className="text-center p-4 bg-purple-50 rounded-lg">
-            <div className="text-3xl font-bold text-purple-600">
-              {result.scorePercent}%
-            </div>
-            <div className="text-sm text-gray-600 mt-1">Foiz</div>
-          </div>
-        </div>
+      {/* Content Section */}
+      <main className="max-w-4xl mx-auto px-6 -mt-16 relative z-20">
 
-        {/* Passing Score */}
-        <div className="mb-6 p-4 bg-yellow-50 rounded-lg">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-700">O'tish balli:</span>
-            <span className="font-semibold text-gray-900">
-              {result.passingScore}%
-            </span>
+        {/* AI Evaluation / Feedback Card */}
+        {result.evaluation && (
+          <div className="bg-indigo-600 rounded-[40px] p-10 mb-12 shadow-2xl shadow-indigo-600/30 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 transform translate-x-1/4 -translate-y-1/4 opacity-10">
+              <Icon icon="lucide:brain-circuit" className="w-48 h-48" />
+            </div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Icon icon="lucide:sparkles" className="w-6 h-6" />
+                </div>
+                <h2 className="text-2xl font-black uppercase tracking-tight">AI Baholash va Tavsiyalar</h2>
+              </div>
+              <div className="prose prose-invert max-w-none text-indigo-50 font-medium leading-relaxed">
+                {result.evaluation.split('\n').map((line, i) => (
+                  <p key={i} className="mb-4">{line}</p>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Answers Review */}
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Javoblar Ko'rib Chiqish
-          </h2>
-          <div className="space-y-4">
+        {/* Detailed Review Section */}
+        <section className="space-y-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white">Javoblar Tahlili</h3>
+              <p className="text-slate-500 text-sm">Har bir savol bo'yicha batafsil hisobot</p>
+            </div>
+            <div className="flex gap-2">
+              <div className="px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-black">
+                {result.attempt.answers.filter(a => a.isCorrect).length} To'g'ri
+              </div>
+              <div className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-xs font-black">
+                {result.attempt.answers.filter(a => !a.isCorrect).length} Noto'g'ri
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
             {result.attempt.answers.map((answer, index) => (
               <div
                 key={answer.id}
-                className={`p-4 rounded-lg border-2 ${
-                  answer.isCorrect
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-red-500 bg-red-50'
-                }`}
+                className={`bg-white dark:bg-slate-800 rounded-[32px] p-8 border-l-[12px] shadow-xl shadow-slate-200/50 dark:shadow-none transition-all ${answer.isCorrect
+                    ? 'border-emerald-500 dark:border-emerald-600'
+                    : 'border-red-500 dark:border-red-600'
+                  }`}
               >
-                <div className="flex items-start justify-between mb-2">
+                <div className="flex items-start justify-between gap-6">
                   <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <span className="font-semibold text-gray-900 mr-2">
-                        {index + 1}.
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-black text-slate-500">
+                        {index + 1}
                       </span>
-                      <span className="text-gray-900">
+                      <h4 className="text-lg font-bold text-slate-900 dark:text-white">
                         {answer.question.question}
-                      </span>
+                      </h4>
                     </div>
-                    {answer.question.type !== 'TEXT' && (
-                      <div className="ml-6 mt-2">
-                        <div className="text-sm text-gray-600 mb-1">
-                          Variantlar:
-                        </div>
-                        <div className="space-y-1">
-                          {answer.question.options.map((option, optIndex) => (
+
+                    {answer.question.type !== 'TEXT' ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
+                        {answer.question.options.map((option, optIdx) => {
+                          const isUserChoice = Array.isArray(answer.answer)
+                            ? answer.answer.includes(option)
+                            : answer.answer === option;
+
+                          return (
                             <div
-                              key={optIndex}
-                              className={`text-sm p-2 rounded ${
-                                Array.isArray(answer.answer) &&
-                                answer.answer.includes(option)
-                                  ? 'bg-blue-100 font-medium'
-                                  : ''
-                              }`}
+                              key={optIdx}
+                              className={`p-4 rounded-2xl border-2 flex items-center gap-3 transition-colors ${isUserChoice
+                                  ? answer.isCorrect
+                                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
+                                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+                                  : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800 text-slate-500'
+                                }`}
                             >
-                              {option}
+                              <Icon
+                                icon={isUserChoice ? (answer.isCorrect ? "lucide:check-circle-2" : "lucide:x-circle") : "lucide:circle"}
+                                className="w-5 h-5 flex-shrink-0"
+                              />
+                              <span className="text-sm font-bold">{option}</span>
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
-                    )}
-                    {answer.question.type === 'TEXT' && (
-                      <div className="ml-6 mt-2">
-                        <div className="text-sm text-gray-600 mb-1">
-                          Sizning javobingiz:
-                        </div>
-                        <div className="p-2 bg-white rounded border">
-                          {answer.answer || '(Javob berilmagan)'}
-                        </div>
+                    ) : (
+                      <div className="mt-4 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Sizning Javobingiz</p>
+                        <p className="text-slate-700 dark:text-slate-300 font-bold whitespace-pre-wrap">
+                          {answer.answer || "(Javob berilmagan)"}
+                        </p>
                       </div>
                     )}
                   </div>
-                  <div className="ml-4 text-right">
-                    <div
-                      className={`text-lg font-bold ${
-                        answer.isCorrect ? 'text-green-600' : 'text-red-600'
-                      }`}
-                    >
-                      {answer.isCorrect ? '✓' : '✗'}
+
+                  <div className="text-right flex flex-col items-end">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-2 ${answer.isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'
+                      }`}>
+                      <Icon icon={answer.isCorrect ? "lucide:check" : "lucide:x"} className="w-6 h-6" />
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {answer.points} / {answer.question.points} ball
-                    </div>
+                    <p className="text-xl font-black text-slate-900 dark:text-white">{answer.points}</p>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">ball</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Actions */}
-        <div className="flex justify-center gap-4 pt-4 border-t">
+        {/* Action Buttons */}
+        <div className="mt-16 flex flex-col sm:flex-row items-center justify-center gap-4">
+          {!result.passed && (
+            <button
+              onClick={() => navigate(`/exam/${id}`)}
+              className="w-full sm:w-auto px-10 py-5 bg-indigo-600 text-white rounded-[24px] font-black shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-3"
+            >
+              <Icon icon="lucide:refresh-ccw" className="w-6 h-6" />
+              Qayta Topshirish
+            </button>
+          )}
           <button
             onClick={() => navigate('/training')}
-            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="w-full sm:w-auto px-10 py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[24px] font-black shadow-xl hover:bg-slate-800 dark:hover:bg-slate-100 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-3"
           >
-            O'qitish kurslariga qaytish
-          </button>
-          <button
-            onClick={() => navigate(`/exam/${id}`)}
-            className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-          >
-            Qayta topshirish
+            <Icon icon="lucide:layout-grid" className="w-6 h-6" />
+            Kurslar Ro'yxati
           </button>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

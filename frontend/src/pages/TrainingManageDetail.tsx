@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import RichTextEditor from '../components/RichTextEditor';
 
 interface Material {
   id: number;
@@ -151,7 +152,7 @@ export default function TrainingManageDetail() {
 
       // Backend'dan kelgan fileUrl'ni olish
       const fileUrl = response.data.fileUrl;
-      
+
       // Backend'dan kelgan fileUrl allaqachon to'liq yoki relative bo'lishi mumkin
       // Relative bo'lsa, server base URL'ni qo'shamiz
       let fullUrl = fileUrl;
@@ -161,7 +162,7 @@ export default function TrainingManageDetail() {
         const serverBaseUrl = apiBaseUrl.replace('/api', '') || (import.meta.env.PROD ? '' : 'http://localhost:3001');
         fullUrl = `${serverBaseUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
       }
-      
+
       setMaterialForm({ ...materialForm, fileUrl: fullUrl });
       setSelectedFile(null);
       return fullUrl;
@@ -193,7 +194,7 @@ export default function TrainingManageDetail() {
 
   const handleSubmitMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Agar file tanlangan va yuklanmagan bo'lsa, avval yuklash
     if (selectedFile && (materialForm.type === 'IMAGE' || materialForm.type === 'VIDEO' || materialForm.type === 'AUDIO')) {
       try {
@@ -219,10 +220,10 @@ export default function TrainingManageDetail() {
     } catch (error: any) {
       console.error('Error submitting material:', error);
       let errorMessage = 'Xatolik yuz berdi';
-      
+
       if (error.response?.data) {
         const errorData = error.response.data;
-        
+
         // Agar details array bo'lsa
         if (Array.isArray(errorData.details)) {
           errorMessage = errorData.details
@@ -231,19 +232,19 @@ export default function TrainingManageDetail() {
               return path ? `${path}: ${e.message || e}` : (e.message || e);
             })
             .join('\n');
-        } 
+        }
         // Agar details string bo'lsa
         else if (typeof errorData.details === 'string') {
           errorMessage = errorData.details;
         }
         // Agar error bor bo'lsa
         else if (errorData.error) {
-          errorMessage = typeof errorData.error === 'string' 
-            ? errorData.error 
+          errorMessage = typeof errorData.error === 'string'
+            ? errorData.error
             : JSON.stringify(errorData.error);
         }
       }
-      
+
       alert(errorMessage);
     }
   };
@@ -410,7 +411,7 @@ export default function TrainingManageDetail() {
 
   const handleSubmitMaterialForStep = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (materialContext?.stageId && materialContext?.stepId) {
       // Submit to step
       try {
@@ -460,10 +461,10 @@ export default function TrainingManageDetail() {
       } catch (error: any) {
         console.error('Error submitting material:', error);
         let errorMessage = 'Xatolik yuz berdi';
-        
+
         if (error.response?.data) {
           const errorData = error.response.data;
-          
+
           // Agar details array bo'lsa
           if (Array.isArray(errorData.details)) {
             errorMessage = errorData.details
@@ -472,19 +473,19 @@ export default function TrainingManageDetail() {
                 return path ? `${path}: ${e.message || e}` : (e.message || e);
               })
               .join('\n');
-          } 
+          }
           // Agar details string bo'lsa
           else if (typeof errorData.details === 'string') {
             errorMessage = errorData.details;
           }
           // Agar error bor bo'lsa
           else if (errorData.error) {
-            errorMessage = typeof errorData.error === 'string' 
-              ? errorData.error 
+            errorMessage = typeof errorData.error === 'string'
+              ? errorData.error
               : JSON.stringify(errorData.error);
           }
         }
-        
+
         alert(errorMessage);
       }
     } else {
@@ -531,31 +532,28 @@ export default function TrainingManageDetail() {
         <div className="flex gap-4">
           <button
             onClick={() => setActiveTab('stages')}
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'stages'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600'
-            }`}
+            className={`px-4 py-2 font-medium ${activeTab === 'stages'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600'
+              }`}
           >
             Bosqichlar ({training.stages?.length || 0})
           </button>
           <button
             onClick={() => setActiveTab('materials')}
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'materials'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600'
-            }`}
+            className={`px-4 py-2 font-medium ${activeTab === 'materials'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600'
+              }`}
           >
             Materiallar ({training.materials.length})
           </button>
           <button
             onClick={() => setActiveTab('exams')}
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'exams'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600'
-            }`}
+            className={`px-4 py-2 font-medium ${activeTab === 'exams'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600'
+              }`}
           >
             Imtihonlar ({training.exams.length})
           </button>
@@ -587,10 +585,10 @@ export default function TrainingManageDetail() {
                 stage.steps.forEach(step => {
                   allMaterials.push(...step.materials);
                 });
-                
+
                 return (
                   <div key={stage.id} className="bg-white rounded-lg shadow overflow-hidden">
-                    <div 
+                    <div
                       className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
                       onClick={() => navigate(`/training/${id}/stage/${stage.id}`)}
                     >
@@ -734,11 +732,10 @@ export default function TrainingManageDetail() {
                       )}
                     </div>
                     <span
-                      className={`px-2 py-1 text-xs rounded ${
-                        exam.active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
+                      className={`px-2 py-1 text-xs rounded ${exam.active
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
+                        }`}
                     >
                       {exam.active ? 'Faol' : 'Nofaol'}
                     </span>
@@ -825,262 +822,11 @@ export default function TrainingManageDetail() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Maqola Kontenti
                   </label>
-                  
-                  {/* Formatlash Tugmalari */}
-                  <div className="border border-gray-300 rounded-t-lg bg-gray-50 p-2 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
-                        if (textarea) {
-                          const start = textarea.selectionStart;
-                          const end = textarea.selectionEnd;
-                          const selectedText = textarea.value.substring(start, end);
-                          const newText = textarea.value.substring(0, start) + 
-                            `**${selectedText || 'qalin matn'}**` + 
-                            textarea.value.substring(end);
-                          setStageForm({ ...stageForm, description: newText });
-                          setTimeout(() => {
-                            textarea.focus();
-                            textarea.setSelectionRange(start + 2, start + 2 + (selectedText || 'qalin matn').length);
-                          }, 0);
-                        }
-                      }}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm font-bold"
-                      title="Qalin matn"
-                    >
-                      <strong>B</strong>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
-                        if (textarea) {
-                          const start = textarea.selectionStart;
-                          const end = textarea.selectionEnd;
-                          const selectedText = textarea.value.substring(start, end);
-                          const newText = textarea.value.substring(0, start) + 
-                            `*${selectedText || 'kursiv matn'}*` + 
-                            textarea.value.substring(end);
-                          setStageForm({ ...stageForm, description: newText });
-                          setTimeout(() => {
-                            textarea.focus();
-                            textarea.setSelectionRange(start + 1, start + 1 + (selectedText || 'kursiv matn').length);
-                          }, 0);
-                        }
-                      }}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm italic"
-                      title="Kursiv"
-                    >
-                      <em>I</em>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
-                        if (textarea) {
-                          const start = textarea.selectionStart;
-                          const newText = textarea.value.substring(0, start) + 
-                            '\n## ' + 
-                            textarea.value.substring(start);
-                          setStageForm({ ...stageForm, description: newText });
-                          setTimeout(() => {
-                            textarea.focus();
-                            textarea.setSelectionRange(start + 4, start + 4);
-                          }, 0);
-                        }
-                      }}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
-                      title="Sarlavha"
-                    >
-                      H2
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
-                        if (textarea) {
-                          const start = textarea.selectionStart;
-                          const end = textarea.selectionEnd;
-                          const selectedText = textarea.value.substring(start, end);
-                          const newText = textarea.value.substring(0, start) + 
-                            `[${selectedText || 'link matni'}](url)` + 
-                            textarea.value.substring(end);
-                          setStageForm({ ...stageForm, description: newText });
-                          setTimeout(() => {
-                            textarea.focus();
-                            const linkStart = start + 1;
-                            const linkEnd = linkStart + (selectedText || 'link matni').length;
-                            textarea.setSelectionRange(linkStart, linkEnd);
-                          }, 0);
-                        }
-                      }}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
-                      title="Link"
-                    >
-                      🔗
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
-                        if (textarea) {
-                          const start = textarea.selectionStart;
-                          const newText = textarea.value.substring(0, start) + 
-                            '\n- ' + 
-                            textarea.value.substring(start);
-                          setStageForm({ ...stageForm, description: newText });
-                          setTimeout(() => {
-                            textarea.focus();
-                            textarea.setSelectionRange(start + 3, start + 3);
-                          }, 0);
-                        }
-                      }}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
-                      title="Ro'yxat"
-                    >
-                      •
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
-                        if (textarea) {
-                          const start = textarea.selectionStart;
-                          const newText = textarea.value.substring(0, start) + 
-                            '\n```\nKod bloki\n```\n' + 
-                            textarea.value.substring(start);
-                          setStageForm({ ...stageForm, description: newText });
-                          setTimeout(() => {
-                            textarea.focus();
-                            textarea.setSelectionRange(start + 6, start + 13);
-                          }, 0);
-                        }
-                      }}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
-                      title="Kod bloki"
-                    >
-                      {'</>'}
-                    </button>
-                    <div className="border-l border-gray-300 mx-2"></div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const url = prompt('Rasm URL manzilini kiriting:');
-                        if (url) {
-                          const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
-                          if (textarea) {
-                            const start = textarea.selectionStart;
-                            const newText = textarea.value.substring(0, start) + 
-                              `\n![Rasm tavsifi](${url})\n` + 
-                              textarea.value.substring(start);
-                            setStageForm({ ...stageForm, description: newText });
-                            setTimeout(() => {
-                              textarea.focus();
-                              textarea.setSelectionRange(start + 2, start + 15);
-                            }, 0);
-                          }
-                        }
-                      }}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
-                      title="Rasm qo'shish"
-                    >
-                      🖼️
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const url = prompt('Video URL manzilini kiriting:');
-                        if (url) {
-                          const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
-                          if (textarea) {
-                            const start = textarea.selectionStart;
-                            const newText = textarea.value.substring(0, start) + 
-                              `\n[Video: ${url}]\n` + 
-                              textarea.value.substring(start);
-                            setStageForm({ ...stageForm, description: newText });
-                            setTimeout(() => {
-                              textarea.focus();
-                              textarea.setSelectionRange(start + 2, start + 7);
-                            }, 0);
-                          }
-                        }
-                      }}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
-                      title="Video qo'shish"
-                    >
-                      🎥
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const url = prompt('Audio URL manzilini kiriting:');
-                        if (url) {
-                          const textarea = document.getElementById('description-textarea') as HTMLTextAreaElement;
-                          if (textarea) {
-                            const start = textarea.selectionStart;
-                            const newText = textarea.value.substring(0, start) + 
-                              `\n[Audio: ${url}]\n` + 
-                              textarea.value.substring(start);
-                            setStageForm({ ...stageForm, description: newText });
-                            setTimeout(() => {
-                              textarea.focus();
-                              textarea.setSelectionRange(start + 2, start + 7);
-                            }, 0);
-                          }
-                        }
-                      }}
-                      className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm"
-                      title="Audio qo'shish"
-                    >
-                      🎵
-                    </button>
-                  </div>
 
-                  {/* Textarea */}
-                  <textarea
-                    id="description-textarea"
-                    value={stageForm.description}
-                    onChange={(e) =>
-                      setStageForm({ ...stageForm, description: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border-x border-b border-gray-300 rounded-b-lg min-h-[400px] font-mono text-sm"
-                    placeholder="Maqola kontentini kiriting...&#10;&#10;Formatlash uchun yuqoridagi tugmalardan foydalaning.&#10;Markdown formatida yozishingiz mumkin."
+                  <RichTextEditor
+                    content={stageForm.description || ''}
+                    onChange={(content) => setStageForm({ ...stageForm, description: content })}
                   />
-                  
-                  {/* Preview (optional) */}
-                  {stageForm.description && (
-                    <div className="mt-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Ko'rinish:</h4>
-                      <div className="prose max-w-none text-sm whitespace-pre-wrap">
-                        {stageForm.description.split('\n').map((line, i) => {
-                          // Oddiy markdown parsing
-                          if (line.startsWith('## ')) {
-                            return <h2 key={i} className="text-xl font-bold mt-4 mb-2">{line.substring(3)}</h2>;
-                          }
-                          if (line.startsWith('**') && line.endsWith('**')) {
-                            return <p key={i}><strong>{line.substring(2, line.length - 2)}</strong></p>;
-                          }
-                          if (line.startsWith('*') && line.endsWith('*') && !line.startsWith('**')) {
-                            return <p key={i}><em>{line.substring(1, line.length - 1)}</em></p>;
-                          }
-                          if (line.startsWith('- ')) {
-                            return <li key={i} className="ml-4">{line.substring(2)}</li>;
-                          }
-                          if (line.startsWith('![')) {
-                            const match = line.match(/!\[([^\]]+)\]\(([^)]+)\)/);
-                            if (match) {
-                              return <img key={i} src={match[2]} alt={match[1]} className="max-w-full rounded my-2" />;
-                            }
-                          }
-                          if (line.trim()) {
-                            return <p key={i} className="mb-2">{line}</p>;
-                          }
-                          return <br key={i} />;
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Tartib raqami */}
@@ -1258,16 +1004,14 @@ export default function TrainingManageDetail() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Kontent
                     </label>
-                    <textarea
-                      value={materialForm.content}
-                      onChange={(e) =>
+                    <RichTextEditor
+                      content={materialForm.content || ''}
+                      onChange={(content) =>
                         setMaterialForm({
                           ...materialForm,
-                          content: e.target.value,
+                          content: content,
                         })
                       }
-                      className="w-full px-3 py-2 border rounded-lg"
-                      rows={10}
                     />
                   </div>
                 )}
@@ -1277,7 +1021,7 @@ export default function TrainingManageDetail() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Fayl yuklash yoki URL kiritish *
                       </label>
-                      
+
                       {/* File Upload */}
                       <div className="mb-3">
                         <label className="block text-sm text-gray-600 mb-2">
@@ -1289,8 +1033,8 @@ export default function TrainingManageDetail() {
                             materialForm.type === 'IMAGE'
                               ? 'image/jpeg,image/jpg,image/png,image/gif,image/webp'
                               : materialForm.type === 'VIDEO'
-                              ? 'video/mp4,video/mpeg,video/quicktime,video/webm'
-                              : 'audio/mpeg,audio/mp3,audio/wav,audio/ogg'
+                                ? 'video/mp4,video/mpeg,video/quicktime,video/webm'
+                                : 'audio/mpeg,audio/mp3,audio/wav,audio/ogg'
                           }
                           onChange={handleFileChange}
                           disabled={uploadingFile}
@@ -1330,8 +1074,8 @@ export default function TrainingManageDetail() {
                             materialForm.type === 'IMAGE'
                               ? 'https://drive.google.com/file/d/... yoki https://example.com/image.jpg'
                               : materialForm.type === 'VIDEO'
-                              ? 'https://example.com/file.mp4'
-                              : 'https://example.com/file.mp3'
+                                ? 'https://example.com/file.mp4'
+                                : 'https://example.com/file.mp3'
                           }
                         />
                         {materialForm.type === 'IMAGE' && (

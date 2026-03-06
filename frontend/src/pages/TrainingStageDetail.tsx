@@ -3,30 +3,32 @@ import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { markArticleAsRead } from '../utils/articleStorage';
 import { useAuth } from '../contexts/AuthContext';
+import { Icon } from '@iconify/react';
+import RichTextEditor from '../components/RichTextEditor';
 
 // Google Drive linkini rasm URL'iga o'tkazish
 const convertGoogleDriveUrl = (url: string): string => {
   if (!url) return url;
-  
+
   if (url.includes('drive.google.com/uc?export=view')) {
     return url;
   }
-  
+
   let fileId = '';
   const match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (match1) {
     fileId = match1[1];
   }
-  
+
   const match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (match2) {
     fileId = match2[1];
   }
-  
+
   if (fileId) {
     return `https://drive.google.com/uc?export=view&id=${fileId}`;
   }
-  
+
   return url;
 };
 
@@ -83,18 +85,18 @@ export default function TrainingStageDetail() {
   const [training, setTraining] = useState<Training | null>(null);
   const [loading, setLoading] = useState(true);
   const [lessonsStatus, setLessonsStatus] = useState<LessonStatus[]>([]);
-  
+
   // Tahrirlash uchun state'lar
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [saving, setSaving] = useState(false);
-  
+
   // Material tahrirlash uchun state'lar
   const [editingMaterialId, setEditingMaterialId] = useState<number | null>(null);
   const [editMaterialContent, setEditMaterialContent] = useState('');
   const [savingMaterial, setSavingMaterial] = useState(false);
-  
+
   // Faqat ADMIN uchun tahrirlash imkoniyati
   const canEdit = user?.role === 'ADMIN';
 
@@ -102,12 +104,12 @@ export default function TrainingStageDetail() {
     if (trainingId && stageId) {
       fetchData();
       fetchLessonsStatus();
-      
+
       // Mark article as read when user opens the article detail page
       // This uses the centralized localStorage utility for consistency
       const trainingIdNum = parseInt(trainingId);
       const stageIdNum = parseInt(stageId);
-      
+
       if (!isNaN(trainingIdNum) && !isNaN(stageIdNum)) {
         markArticleAsRead(trainingIdNum, stageIdNum);
       }
@@ -120,9 +122,9 @@ export default function TrainingStageDetail() {
       // Training ma'lumotlarini olish
       const trainingResponse = await apiClient.get(`/training/${trainingId}`);
       setTraining(trainingResponse.data);
-      
+
       // Stage ma'lumotlarini topish
-      const stageData = trainingResponse.data.stages?.find((s: Stage) => s.id === parseInt(stageId));
+      const stageData = trainingResponse.data.stages?.find((s: Stage) => s.id === parseInt(stageId || '0'));
       if (stageData) {
         // Fetch exams for each step (lesson)
         const stageWithExams = {
@@ -238,13 +240,13 @@ export default function TrainingStageDetail() {
   // Material saqlash
   const handleSaveMaterial = async (materialId: number) => {
     if (!trainingId) return;
-    
+
     try {
       setSavingMaterial(true);
       await apiClient.put(`/training/${trainingId}/materials/${materialId}`, {
         content: editMaterialContent,
       });
-      
+
       // Ma'lumotlarni qayta yuklash
       await fetchData();
       setEditingMaterialId(null);
@@ -277,19 +279,19 @@ export default function TrainingStageDetail() {
   // Saqlash
   const handleSaveEdit = async () => {
     if (!trainingId || !stageId) return;
-    
+
     if (!editTitle.trim()) {
       alert('Sarlavha bo\'sh bo\'lishi mumkin emas!');
       return;
     }
-    
+
     try {
       setSaving(true);
       await apiClient.put(`/training/${trainingId}/stages/${stageId}`, {
         title: editTitle.trim(),
         description: editDescription,
       });
-      
+
       // Ma'lumotlarni qayta yuklash
       await fetchData();
       setIsEditing(false);
@@ -333,353 +335,315 @@ export default function TrainingStageDetail() {
   });
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+      {/* Sidebar Navigation */}
+      <aside className="w-full lg:w-80 xl:w-96 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col sticky top-0 h-[calc(100vh-64px)] lg:h-screen z-20">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-700">
           <button
-            onClick={() => navigate(`/training/${trainingId}/manage`)}
-            className="text-blue-600 hover:text-blue-800 inline-block"
+            onClick={() => navigate(`/training/${trainingId}`)}
+            className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 mb-6 transition-all font-semibold text-sm"
           >
-            ← Orqaga
+            <Icon icon="lucide:arrow-left" className="w-4 h-4" />
+            Kursga qaytish
           </button>
-          {canEdit && !isEditing && (
-            <button
-              onClick={handleStartEdit}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <span>✏️</span>
-              Tahrirlash
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/30">
+              <Icon icon="lucide:book-open" className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="font-black text-slate-900 dark:text-white leading-tight">{training.title}</h2>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mt-1">Bosqich #{stage.orderIndex}</p>
+            </div>
+          </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          {isEditing ? (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sarlavha:
-              </label>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+          {stage.steps
+            .sort((a, b) => a.orderIndex - b.orderIndex)
+            .map((step, idx) => {
+              const lessonStatus = getLessonStatus(step.id);
+              const isActive = step.id === stage.steps[0].id; // Simple active check for now
+
+              return (
+                <div key={step.id} className="space-y-1">
+                  <div className={`p-4 rounded-2xl transition-all cursor-pointer border ${isActive
+                    ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800'
+                    : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-transparent'
+                    }`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${lessonStatus?.status === 'COMPLETED'
+                        ? 'bg-green-500 text-white'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                        }`}>
+                        {lessonStatus?.status === 'COMPLETED' ? <Icon icon="lucide:check" className="w-3.5 h-3.5" /> : idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className={`text-sm font-bold truncate ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                          {step.title}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          {getStatusBadge(lessonStatus?.status || 'NOT_STARTED')}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Material Sub-list */}
+                  <div className="ml-9 border-l border-slate-200 dark:border-slate-700 space-y-1">
+                    {step.materials.map(m => (
+                      <div key={m.id} className="pl-4 py-2 flex items-center gap-2 group cursor-pointer text-xs font-semibold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                        <Icon icon={`lucide:${m.type === 'VIDEO' ? 'play-circle' : m.type === 'AUDIO' ? 'mic' : m.type === 'IMAGE' ? 'image' : 'file-text'}`} className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+                        <span className="truncate">{m.title || 'Material'}</span>
+                      </div>
+                    ))}
+                    {step.exams?.map(ex => (
+                      <div key={ex.id} className="pl-4 py-2 flex items-center gap-2 group cursor-pointer text-xs font-bold text-slate-400 hover:text-purple-600 transition-colors">
+                        <Icon icon="lucide:brain-circuit" className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+                        <span className="truncate">{ex.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto h-screen bg-white dark:bg-slate-900 transition-colors duration-300">
+        <div className="max-w-4xl mx-auto px-6 lg:px-12 py-12">
+          {/* Main Title Section */}
+          <div className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <span className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-widest">O'qitish Materiali</span>
+              {canEdit && (
+                <button
+                  onClick={isEditing ? handleSaveEdit : handleStartEdit}
+                  disabled={saving}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 ${isEditing
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  <Icon icon={isEditing ? 'lucide:save' : 'lucide:edit-3'} className="w-4 h-4" />
+                  {isEditing ? (saving ? 'Saqlanmoqda...' : 'Saqlash') : 'Kontentni Tahrirlash'}
+                </button>
+              )}
+            </div>
+
+            {isEditing ? (
               <input
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-2xl font-bold"
-                placeholder="Sarlavha kiriting..."
+                className="w-full bg-transparent text-5xl font-black text-slate-900 dark:text-white border-b-2 border-indigo-600 focus:outline-none mb-8 pb-4"
               />
-            </div>
-          ) : (
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{stage.title}</h1>
-          )}
-          {training.title && (
-            <p className="text-sm text-gray-500 mb-4">Kurs: {training.title}</p>
-          )}
-          {!isEditing && stage.description && (
-            <div 
-              className="text-gray-700 leading-relaxed prose prose-lg max-w-none"
-              dangerouslySetInnerHTML={{ __html: stage.description }}
-            />
-          )}
-        </div>
-      </div>
+            ) : (
+              <h1 className="text-5xl font-black text-slate-900 dark:text-white mb-8 tracking-tight leading-tight">
+                {stage.title}
+              </h1>
+            )}
 
-      {/* Maqola kontenti */}
-      <div className="bg-white rounded-lg shadow p-8">
-        {/* Saqlash va bekor qilish tugmalari - faqat tahrirlash rejimida */}
-        {canEdit && isEditing && (
-          <div className="mb-6 flex justify-end gap-2">
-            <button
-              onClick={handleSaveEdit}
-              disabled={saving}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Saqlanmoqda...' : '💾 Saqlash'}
-            </button>
-            <button
-              onClick={handleCancelEdit}
-              disabled={saving}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-            >
-              Bekor qilish
-            </button>
+            <div className="flex items-center gap-6 pb-12 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <Icon icon="lucide:clock" className="w-4 h-4 text-slate-400" />
+                </div>
+                <span className="text-xs font-bold text-slate-400">{allMaterials.length * 5} daqiqa o'qish</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <Icon icon="lucide:layers" className="w-4 h-4 text-slate-400" />
+                </div>
+                <span className="text-xs font-bold text-slate-400">{stage.steps.length} qadam</span>
+              </div>
+            </div>
           </div>
-        )}
 
-        <article className="prose prose-lg max-w-none">
-          {/* Stage description - tahrirlash yoki ko'rish rejimi */}
-          {isEditing ? (
-            <div className="mb-8">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Maqola matni:
-              </label>
-              <textarea
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                className="w-full min-h-[400px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                placeholder="HTML yoki oddiy matn kiriting..."
-              />
-              <p className="mt-2 text-xs text-gray-500">
-                HTML formatida kiriting. Masalan: &lt;p&gt;Matn&lt;/p&gt;
-              </p>
-            </div>
-          ) : (
-            stage.description && (
-              <div 
-                className="prose prose-lg max-w-none mb-8"
-                dangerouslySetInnerHTML={{ __html: stage.description }}
-              />
-            )
-          )}
-          
-          {/* Steps va Materiallar */}
-          {stage.steps && stage.steps.length > 0 ? (
-            <div className="space-y-8">
-              {stage.steps
-                .sort((a, b) => a.orderIndex - b.orderIndex)
-                .map((step, stepIndex) => (
-                  <div key={step.id} className="border-b border-gray-200 pb-8 last:border-b-0">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex-1">
-                        {step.title && (
-                          <h2 className="text-2xl font-semibold text-gray-900">
-                            {step.title}
-                          </h2>
-                        )}
-                        {(() => {
-                          const lessonStatus = getLessonStatus(step.id);
-                          return lessonStatus && (
-                            <div className="mt-2 flex items-center gap-2">
-                              {getStatusBadge(lessonStatus.status)}
-                              {lessonStatus.lastAttemptScore !== null && (
-                                <span className="text-sm text-gray-600">
-                                  Oxirgi ball: {lessonStatus.lastAttemptScore}%
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                      {(() => {
-                        const lessonStatus = getLessonStatus(step.id);
-                        const canStart = lessonStatus && (lessonStatus.status === 'AVAILABLE' || lessonStatus.status === 'IN_PROGRESS');
-                        if (canStart) {
-                          return (
-                            <button
-                              onClick={() => handleStartLesson(step.id)}
-                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                            >
-                              Darsni boshlash
-                            </button>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </div>
-                    {step.description && (
-                      <div className="text-gray-700 whitespace-pre-wrap mb-6 leading-relaxed">
-                        {step.description}
-                      </div>
-                    )}
-                    
-                    {/* Step materiallari */}
-                    {step.materials.length > 0 && (
-                      <div className="space-y-6 mt-6">
-                        {step.materials
-                          .sort((a, b) => a.orderIndex - b.orderIndex)
-                          .map((material) => (
-                            <div key={material.id}>
-                              {material.type === 'TEXT' && material.content ? (
-                                <div className="relative">
-                                  {/* Material tahrirlash tugmasi */}
-                                  {canEdit && editingMaterialId !== material.id && (
-                                    <div className="mb-4 flex justify-end">
-                                      <button
-                                        onClick={() => handleStartEditMaterial(material)}
-                                        className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
-                                      >
-                                        <span>✏️</span>
-                                        Tahrirlash
-                                      </button>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Tahrirlash rejimi */}
-                                  {editingMaterialId === material.id ? (
-                                    <div className="mb-4">
-                                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Material matni:
-                                      </label>
-                                      <textarea
-                                        value={editMaterialContent}
-                                        onChange={(e) => setEditMaterialContent(e.target.value)}
-                                        className="w-full min-h-[400px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                                        placeholder="HTML yoki oddiy matn kiriting..."
-                                      />
-                                      <p className="mt-2 text-xs text-gray-500">
-                                        HTML formatida kiriting. Masalan: &lt;p&gt;Matn&lt;/p&gt;
-                                      </p>
-                                      <div className="mt-4 flex gap-2 justify-end">
-                                        <button
-                                          onClick={() => handleSaveMaterial(material.id)}
-                                          disabled={savingMaterial}
-                                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                          {savingMaterial ? 'Saqlanmoqda...' : '💾 Saqlash'}
-                                        </button>
-                                        <button
-                                          onClick={handleCancelEditMaterial}
-                                          disabled={savingMaterial}
-                                          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-                                        >
-                                          Bekor qilish
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div 
-                                      className="lesson-content text-gray-700 leading-relaxed"
-                                      dangerouslySetInnerHTML={{ __html: material.content }}
-                                      style={{
-                                        fontFamily: 'system-ui, -apple-system, sans-serif',
-                                      }}
-                                    />
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="border border-gray-200 rounded-lg p-6 bg-gray-50">
-                                  <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="text-2xl">
-                                      {material.type === 'TEXT' && '📄'}
-                                      {material.type === 'AUDIO' && '🎵'}
-                                      {material.type === 'VIDEO' && '🎥'}
-                                      {material.type === 'IMAGE' && '🖼️'}
-                                    </span>
-                                    {material.title}
-                                  </h3>
-                                  
-                                  {/* Material kontenti */}
-                                  <div className="space-y-4">
-                                    {material.type === 'VIDEO' && material.fileUrl && (
-                                      <div className="rounded-lg overflow-hidden">
-                                        <video
-                                          src={material.fileUrl}
-                                          controls
-                                          className="w-full rounded-lg"
-                                        >
-                                          Video'ni qo'llab-quvvatlamaydi
-                                        </video>
-                                      </div>
-                                    )}
+          {/* Reader Section */}
+          <div className="space-y-16">
+            {isEditing ? (
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                <h3 className="text-sm font-black text-slate-400 mb-4 uppercase tracking-widest">Maqola Kontenti (Rich Text)</h3>
+                <RichTextEditor
+                  content={editDescription}
+                  onChange={setEditDescription}
+                />
+              </div>
+            ) : (
+              stage.description && (
+                <div
+                  className="prose prose-slate dark:prose-invert max-w-none 
+                  prose-h2:text-3xl prose-h2:font-black prose-h2:tracking-tight prose-h2:mt-12
+                  prose-p:text-lg prose-p:leading-relaxed prose-p:text-slate-600 dark:prose-p:text-slate-300
+                  prose-img:rounded-3xl prose-img:shadow-2xl prose-img:border prose-img:border-slate-100
+                  prose-blockquote:border-l-4 prose-blockquote:border-indigo-600 prose-blockquote:bg-indigo-50/50 dark:prose-blockquote:bg-indigo-900/10 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:rounded-r-2xl prose-blockquote:italic
+                  "
+                  dangerouslySetInnerHTML={{ __html: stage.description }}
+                />
+              )
+            )}
 
-                                    {material.type === 'AUDIO' && material.fileUrl && (
-                                      <div className="bg-white p-4 rounded border">
-                                        <audio
-                                          src={material.fileUrl}
-                                          controls
-                                          className="w-full"
-                                        >
-                                          Audio'ni qo'llab-quvvatlamaydi
-                                        </audio>
-                                      </div>
-                                    )}
-
-                                    {material.type === 'IMAGE' && material.fileUrl && (
-                                      <div className="rounded-lg overflow-hidden">
-                                        <img
-                                          src={convertGoogleDriveUrl(material.fileUrl)}
-                                          alt={material.title}
-                                          className="w-full rounded-lg border border-gray-200"
-                                          onError={(e) => {
-                                            const target = e.target as HTMLImageElement;
-                                            if (target.src !== material.fileUrl) {
-                                              target.src = material.fileUrl || '';
-                                            }
-                                          }}
-                                        />
-                                      </div>
-                                    )}
-
-                                    {material.durationMin && (
-                                      <p className="text-sm text-gray-500">
-                                        Davomiyligi: {material.durationMin} daqiqa
-                                      </p>
-                                    )}
-
-                                    <button
-                                      onClick={() => handleMaterialComplete(material.id)}
-                                      className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                    >
-                                      ✓ Materialni yakunlash
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                      </div>
-                    )}
-
-                  </div>
-                ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              Materiallar mavjud emas
-            </div>
-          )}
-        </article>
-      </div>
-
-      {/* Barcha imtihonlar - sahifaning eng pastida */}
-      {(() => {
-        const allExams = stage.steps?.flatMap(step => step.exams || []) || [];
-        const hasExams = allExams.length > 0;
-        console.log('All exams:', allExams, 'Has exams:', hasExams);
-        return hasExams;
-      })() && (
-        <div className="mt-8 bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Imtihonlar</h2>
-          <div className="space-y-4">
+            {/* Steps Rendering */}
             {stage.steps
-              .filter(step => step.exams && step.exams.length > 0)
-              .map((step) => {
-                const lessonStatus = getLessonStatus(step.id);
-                const canTakeExam = lessonStatus && (lessonStatus.status === 'IN_PROGRESS' || lessonStatus.status === 'COMPLETED' || lessonStatus.status === 'FAILED');
-                
-                return (
-                  <div key={step.id} className="border border-gray-200 rounded-lg p-4">
-                    <h3 className="text-lg font-medium text-gray-900 mb-3">{step.title}</h3>
-                    <div className="space-y-3">
-                      {step.exams?.map((exam) => (
-                        <div
-                          key={exam.id}
-                          className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
-                        >
-                          <div className="flex-1">
-                            <h4 className="font-medium text-gray-900">{exam.title}</h4>
-                            {exam.description && (
-                              <p className="text-sm text-gray-600 mt-1">{exam.description}</p>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleStartExam(exam.id)}
-                            disabled={!canTakeExam}
-                            className={`px-6 py-3 rounded-lg transition-colors font-medium ${
-                              canTakeExam
-                                ? 'bg-green-600 text-white hover:bg-green-700 shadow-md hover:shadow-lg'
-                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            }`}
-                          >
-                            {canTakeExam ? 'Imtihonni boshlash' : 'Avval darsni boshlang'}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+              .sort((a, b) => a.orderIndex - b.orderIndex)
+              .map(step => (
+                <div key={step.id} className="relative pt-12">
+                  <div className="flex items-center gap-4 mb-8">
+                    <span className="flex-shrink-0 w-12 h-12 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl flex items-center justify-center font-black text-xl shadow-xl">
+                      {step.orderIndex}
+                    </span>
+                    <h2 className="text-3xl font-black text-slate-900 dark:text-white">{step.title}</h2>
                   </div>
-                );
-              })}
+
+                  {step.description && (
+                    <p className="text-lg text-slate-600 dark:text-slate-400 mb-8 leading-relaxed italic border-l-4 border-slate-200 dark:border-slate-700 pl-6">
+                      {step.description}
+                    </p>
+                  )}
+
+                  <div className="space-y-12">
+                    {step.materials.map(material => (
+                      <div key={material.id} className="relative group">
+                        {material.type === 'TEXT' && material.content && (
+                          <div className="bg-white dark:bg-slate-800 rounded-[32px] p-8 border border-slate-200 dark:border-slate-700 shadow-sm group-hover:shadow-xl transition-all">
+                            <div className="flex items-center justify-between mb-6">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center">
+                                  <Icon icon="lucide:file-text" className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                </div>
+                                <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-tighter">{material.title || 'Maqola Materiali'}</h4>
+                              </div>
+                              {canEdit && (
+                                <button
+                                  onClick={() => handleStartEditMaterial(material)}
+                                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-indigo-600 transition-all"
+                                >
+                                  <Icon icon="lucide:maximize-2" className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+
+                            {editingMaterialId === material.id ? (
+                              <div className="space-y-4">
+                                <RichTextEditor content={editMaterialContent} onChange={setEditMaterialContent} />
+                                <div className="flex justify-end gap-2">
+                                  <button onClick={handleCancelEditMaterial} className="px-4 py-2 text-sm font-bold text-slate-500">Bekor qilish</button>
+                                  <button onClick={() => handleSaveMaterial(material.id)} className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold shadow-lg">Saqlash</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                className="prose prose-slate dark:prose-invert max-w-none"
+                                dangerouslySetInnerHTML={{ __html: material.content }}
+                              />
+                            )}
+
+                            <button
+                              onClick={() => handleMaterialComplete(material.id)}
+                              className="mt-8 w-full py-4 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-black shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                            >
+                              <Icon icon="lucide:check-circle" className="w-6 h-6" />
+                              Ushbu qismni o'qib bo'ldim
+                            </button>
+                          </div>
+                        )}
+
+                        {(material.type === 'VIDEO' || material.type === 'IMAGE' || material.type === 'AUDIO') && (
+                          <div className="bg-slate-900 rounded-[40px] overflow-hidden shadow-2xl group-hover:scale-[1.01] transition-all duration-500">
+                            <div className="p-8 border-b border-white/10 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+                                  <Icon icon={`lucide:${material.type === 'VIDEO' ? 'play-circle' : material.type === 'AUDIO' ? 'mic' : 'image'}`} className="w-5 h-5 text-white" />
+                                </div>
+                                <h4 className="font-extrabold text-white">{material.title}</h4>
+                              </div>
+                              <div className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-400 uppercase tracking-widest">{material.type} CONTENT</div>
+                            </div>
+
+                            <div className="bg-black/40">
+                              {material.type === 'VIDEO' && material.fileUrl && (
+                                <video src={material.fileUrl} controls className="w-full aspect-video" />
+                              )}
+                              {material.type === 'IMAGE' && material.fileUrl && (
+                                <img src={convertGoogleDriveUrl(material.fileUrl)} alt={material.title} className="w-full object-contain max-h-[600px]" />
+                              )}
+                              {material.type === 'AUDIO' && material.fileUrl && (
+                                <div className="p-12"><audio src={material.fileUrl} controls className="w-full" /></div>
+                              )}
+                            </div>
+
+                            <div className="p-6 bg-white/5 backdrop-blur-md">
+                              <button
+                                onClick={() => handleMaterialComplete(material.id)}
+                                className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors"
+                              >
+                                <Icon icon="lucide:check" className="w-5 h-5" />
+                                Tugallash
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Step Exams */}
+                  {step.exams && step.exams.length > 0 && (
+                    <div className="mt-12 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-[40px] p-8 shadow-xl shadow-indigo-600/20">
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center border border-white/30 backdrop-blur-md">
+                          <Icon icon="lucide:award" className="w-6 h-6 text-white" />
+                        </div>
+                        <h3 className="text-2xl font-black text-white">Dars Imtihoni</h3>
+                      </div>
+                      <div className="space-y-4">
+                        {step.exams.map(exam => (
+                          <div key={exam.id} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 flex items-center justify-between gap-6">
+                            <div>
+                              <h4 className="text-xl font-bold text-white mb-2">{exam.title}</h4>
+                              {exam.description && <p className="text-indigo-100/70 text-sm line-clamp-1">{exam.description}</p>}
+                            </div>
+                            <button
+                              onClick={() => handleStartExam(exam.id)}
+                              className="flex-shrink-0 px-8 py-3 bg-white text-indigo-600 rounded-xl font-black shadow-lg hover:scale-105 active:scale-95 transition-all"
+                            >
+                              Boshlash
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+          </div>
+
+          {/* Footer Navigation */}
+          <div className="mt-24 pt-12 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <button
+              onClick={() => navigate(`/training/${trainingId}`)}
+              className="px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2"
+            >
+              <Icon icon="lucide:chevron-left" className="w-5 h-5" />
+              Oldingi bosqich
+            </button>
+            <div className="text-center">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-2">Progress</span>
+              <div className="w-32 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-600 w-full animate-progress" />
+              </div>
+            </div>
+            <button
+              disabled
+              className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-bold opacity-50 cursor-not-allowed flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+            >
+              Keyingi bosqich
+              <Icon icon="lucide:chevron-right" className="w-5 h-5" />
+            </button>
           </div>
         </div>
-      )}
+      </main>
     </div>
   );
 }

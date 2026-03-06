@@ -127,87 +127,135 @@ export default function TrainingManagement() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-6 min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">O'qitish Kurslarini Boshqarish</h1>
-          <p className="text-gray-600 mt-2">O'qitish kurslarini yaratish, tahrirlash va boshqarish</p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-blue-600 rounded-lg shadow-lg shadow-blue-500/30">
+              <Icon icon="lucide:graduation-cap" className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+              O'qitish Kurslarini Boshqarish
+            </h1>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 max-w-2xl">
+            Kompaniya xodimlari uchun o'quv dasturlarini yaratish, materiallarni tahrirlash va testlarni boshqarish markazi.
+          </p>
         </div>
         <button
           onClick={handleAdd}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 font-semibold"
         >
           <Icon icon="lucide:plus" className="w-5 h-5" />
-          Yangi Kurs
+          Yangi Kurs Qo'shish
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {trainings.map((training) => (
-          <div
-            key={training.id}
-            className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6"
+      {trainings.length === 0 ? (
+        <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl border border-gray-200 dark:border-slate-700 p-12 text-center shadow-xl">
+          <div className="w-20 h-20 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Icon icon="lucide:book-open" className="w-10 h-10 text-gray-400" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Hozircha kurslar yo'q</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-sm mx-auto">
+            Xodimlarni o'qitishni boshlash uchun dastlabki o'quv kursini yarating.
+          </p>
+          <button
+            onClick={handleAdd}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <h2 className="text-xl font-semibold text-gray-900 mb-1">
-                  {training.title}
-                </h2>
+            Birinchi kursni yaratish
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          {trainings.map((training) => (
+            <div
+              key={training.id}
+              className="group bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden"
+            >
+              {/* Card Header with Gradient */}
+              <div className="h-32 bg-gradient-to-br from-blue-600 to-indigo-700 p-6 relative">
+                <div className="absolute top-4 right-4">
+                  <span
+                    className={`px-3 py-1 text-xs font-bold rounded-full backdrop-blur-md ${training.active
+                      ? 'bg-green-500/20 text-green-100 border border-green-500/30'
+                      : 'bg-gray-500/20 text-gray-100 border border-gray-500/30'
+                      }`}
+                  >
+                    {training.active ? 'Faol' : 'Nofaol'}
+                  </span>
+                </div>
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30">
+                  <Icon icon="lucide:book-open" className="w-6 h-6 text-white" />
+                </div>
+                <div className="absolute -bottom-6 left-6 right-6">
+                  <div className="bg-white dark:bg-slate-700 rounded-xl p-4 shadow-lg border border-gray-100 dark:border-slate-600">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+                      {training.title}
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Tartib: #{training.orderIndex}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 pt-10">
                 {training.description && (
-                  <p className="text-gray-600 text-sm line-clamp-2">
+                  <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2 mb-6 min-h-[40px]">
                     {training.description}
                   </p>
                 )}
-              </div>
-              <span
-                className={`px-2 py-1 text-xs rounded ${
-                  training.active
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-gray-100 text-gray-800'
-                }`}
-              >
-                {training.active ? 'Faol' : 'Nofaol'}
-              </span>
-            </div>
 
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Materiallar:</span>
-                <span className="font-medium">{training._count.materials}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Imtihonlar:</span>
-                <span className="font-medium">{training._count.exams}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Tartib:</span>
-                <span className="font-medium">#{training.orderIndex}</span>
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-gray-50 dark:bg-slate-700/50 p-3 rounded-xl border border-gray-100 dark:border-slate-700 flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                      <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Materiallar</div>
+                      <div className="text-sm font-bold text-gray-900 dark:text-white">{training._count.materials} ta</div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-slate-700/50 p-3 rounded-xl border border-gray-100 dark:border-slate-700 flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                      <Icon icon="lucide:clipboard-check" className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Testlar</div>
+                      <div className="text-sm font-bold text-gray-900 dark:text-white">{training._count.exams} ta</div>
+                    </div>
+                  </div>
+                </div>
 
-            <div className="flex gap-2 pt-4 border-t">
-              <Link
-                to={`/training/${training.id}/manage`}
-                className="flex-1 px-3 py-2 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 text-center text-sm"
-              >
-                Boshqarish
-              </Link>
-              <button
-                onClick={() => handleEdit(training)}
-                className="px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm"
-              >
-                Tahrirlash
-              </button>
-              <button
-                onClick={() => handleDelete(training.id)}
-                className="px-3 py-2 bg-red-50 text-red-700 rounded hover:bg-red-100 text-sm"
-              >
-                O'chirish
-              </button>
+                <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-slate-700">
+                  <Link
+                    to={`/training/${training.id}/manage`}
+                    className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-center text-sm font-bold shadow-md hover:shadow-lg transition-all"
+                  >
+                    Boshqarish
+                  </Link>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(training)}
+                      className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                    >
+                      <Icon icon="lucide:edit-2" className="w-4 h-4" />
+                      Tahrirlash
+                    </button>
+                    <button
+                      onClick={() => handleDelete(training.id)}
+                      className="px-4 py-2.5 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm font-semibold transition-all"
+                      title="O'chirish"
+                    >
+                      <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Add Modal */}
       {showAddModal && (

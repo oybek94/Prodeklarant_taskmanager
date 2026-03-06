@@ -50,7 +50,7 @@ const AppRoutes = () => {
         path="/login"
         element={
           isAuthenticated
-            ? <Navigate to={user?.role === 'ADMIN' ? "/dashboard" : "/tasks"} />
+            ? <Navigate to={user?.role === 'ADMIN' ? "/dashboard" : (user?.role === 'SELLER' ? "/leads" : "/tasks")} />
             : <Login />
         }
       />
@@ -76,7 +76,7 @@ const AppRoutes = () => {
         <Route
           path="/leads"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'SELLER']}>
               <Leads />
             </ProtectedRoute>
           }
@@ -84,7 +84,7 @@ const AppRoutes = () => {
         <Route
           path="/leads/:id"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'SELLER']}>
               <LeadDetail />
             </ProtectedRoute>
           }
@@ -92,7 +92,7 @@ const AppRoutes = () => {
         <Route
           path="/crm"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'SELLER']}>
               <CrmDashboard />
             </ProtectedRoute>
           }
@@ -105,13 +105,27 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-        <Route path="/tasks" element={<Tasks />} />
+        <Route
+          path="/tasks"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
+              <Tasks />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/tasks/new" element={<Tasks />} />
         <Route path="/tasks/archive" element={<Tasks />} />
         <Route path="/tasks/archive/filters" element={<Tasks />} />
         <Route path="/tasks/:id/edit" element={<Tasks />} />
         <Route path="/tasks/:id" element={<TaskDetail />} />
-        <Route path="/transactions" element={<Transactions />} />
+        <Route
+          path="/transactions"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
+              <Transactions />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/transactions/new" element={<Transactions />} />
         <Route path="/transactions/:id/edit" element={<Transactions />} />
         <Route
@@ -133,7 +147,7 @@ const AppRoutes = () => {
         <Route
           path="/invoices"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
               <Invoices />
             </ProtectedRoute>
           }
@@ -173,7 +187,7 @@ const AppRoutes = () => {
         <Route
           path="/invoices/task/:taskId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
               <Invoice />
             </ProtectedRoute>
           }
@@ -181,12 +195,19 @@ const AppRoutes = () => {
         <Route
           path="/invoices/client/:clientId/contract/:contractId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
               <Invoice />
             </ProtectedRoute>
           }
         />
-        <Route path="/training" element={<Training />} />
+        <Route
+          path="/training"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER', 'SELLER']}>
+              <Training />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/training/:id" element={<TrainingDetail />} />
         <Route
           path="/training/manage"
@@ -260,7 +281,7 @@ const AppRoutes = () => {
           <Navigate
             to={
               isAuthenticated
-                ? (user?.role === 'ADMIN' ? "/dashboard" : "/tasks")
+                ? (user?.role === 'ADMIN' ? "/dashboard" : (user?.role === 'SELLER' ? "/leads" : "/tasks"))
                 : "/login"
             }
             replace

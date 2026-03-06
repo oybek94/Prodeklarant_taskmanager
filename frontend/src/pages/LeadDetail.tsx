@@ -39,6 +39,11 @@ interface LeadFull {
     productType: string | null;
     phone: string | null;
     contactPerson: string | null;
+    estimatedExportVolume: string | null;
+    region: string | null;
+    district: string | null;
+    exportedCountries: string | null;
+    partners: string | null;
     stage: LeadStage;
     lostReason: string | null;
     nextCallAt: string | null;
@@ -89,6 +94,11 @@ export default function LeadDetail() {
                 productType: data.productType,
                 phone: data.phone,
                 contactPerson: data.contactPerson,
+                estimatedExportVolume: data.estimatedExportVolume,
+                region: data.region,
+                district: data.district,
+                exportedCountries: data.exportedCountries,
+                partners: data.partners,
                 assignedToId: data.assignedTo?.id ?? null,
             } as any);
         } catch {
@@ -102,7 +112,7 @@ export default function LeadDetail() {
     const fetchWorkers = async () => {
         try {
             const { data } = await apiClient.get('/workers');
-            setWorkers(data.filter((w: Worker) => w.role === 'MANAGER' || w.role === 'ADMIN'));
+            setWorkers(data.filter((w: Worker) => w.role === 'MANAGER' || w.role === 'ADMIN' || w.role === 'SELLER'));
         } catch { /* ignore */ }
     };
 
@@ -249,9 +259,11 @@ export default function LeadDetail() {
                             <button onClick={() => setEditing(true)} className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Tahrirlash">
                                 <Icon icon="lucide:pencil" className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                             </button>
-                            <button onClick={handleDelete} className="p-2 rounded-xl border border-red-200 hover:bg-red-50 transition-colors" title="O'chirish">
-                                <Icon icon="lucide:trash-2" className="w-4 h-4 text-red-500" />
-                            </button>
+                            {user?.role !== 'SELLER' && (
+                                <button onClick={handleDelete} className="p-2 rounded-xl border border-red-200 hover:bg-red-50 transition-colors" title="O'chirish">
+                                    <Icon icon="lucide:trash-2" className="w-4 h-4 text-red-500" />
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -265,10 +277,15 @@ export default function LeadDetail() {
                         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Ma'lumotlar</h2>
                         <div className="space-y-3">
                             {[
+                                { label: 'Viloyat', field: 'region', icon: 'lucide:map-pin' },
+                                { label: 'Tuman', field: 'district', icon: 'lucide:map' },
                                 { label: 'STIR', field: 'inn', icon: 'lucide:hash' },
-                                { label: 'Mahsulot', field: 'productType', icon: 'lucide:package' },
                                 { label: 'Telefon', field: 'phone', icon: 'lucide:phone' },
                                 { label: "Mas'ul shaxs", field: 'contactPerson', icon: 'lucide:user' },
+                                { label: 'Tahminiy hajmi', field: 'estimatedExportVolume', icon: 'lucide:bar-chart-3' },
+                                { label: 'Turkumi', field: 'productType', icon: 'lucide:package' },
+                                { label: 'Export davlatlari', field: 'exportedCountries', icon: 'lucide:globe' },
+                                { label: 'Xamkorlari', field: 'partners', icon: 'lucide:users' },
                             ].map(({ label, field, icon }) => (
                                 <div key={field} className="flex items-start gap-3">
                                     <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -284,7 +301,17 @@ export default function LeadDetail() {
                                             />
                                         ) : (
                                             <p className="text-sm font-medium text-gray-800 dark:text-gray-200 break-all">
-                                                {(lead as any)[field] || '—'}
+                                                {field === 'estimatedExportVolume' && (lead as any)[field] && !isNaN(Number((lead as any)[field])) ? (
+                                                    (() => {
+                                                        const vol = Number((lead as any)[field]);
+                                                        let colorClass = "text-gray-800 dark:text-gray-200";
+                                                        if (vol > 30) colorClass = "text-emerald-600 dark:text-emerald-400 font-bold";
+                                                        else if (vol >= 10) colorClass = "text-amber-500 dark:text-amber-400 font-semibold";
+                                                        else colorClass = "text-red-500 dark:text-red-400 font-medium";
+
+                                                        return <span className={colorClass}>{Math.round(vol).toLocaleString()}</span>;
+                                                    })()
+                                                ) : ((lead as any)[field] || '—')}
                                             </p>
                                         )}
                                     </div>

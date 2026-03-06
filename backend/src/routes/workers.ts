@@ -21,18 +21,18 @@ const STAGE_FIXED_PRICES: Record<string, number> = {
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const user = req.user;
-    
+
     // If user is not ADMIN, show only their own data
     const where: any = {};
     if (user && user.role !== 'ADMIN') {
       where.id = user.id;
     }
-    
+
     const workers = await prisma.user.findMany({
       where: {
         ...where,
         role: {
-          in: ['DEKLARANT', 'ADMIN', 'MANAGER'],
+          in: ['DEKLARANT', 'ADMIN', 'MANAGER', 'SELLER'],
         },
       },
       select: {
@@ -55,7 +55,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
         name: 'asc',
       },
     });
-    
+
     res.json(workers);
   } catch (error: any) {
     console.error('Error fetching workers:', error);
@@ -327,7 +327,7 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
       percentage: 0,
     };
   });
-  
+
   // Also initialize with alternative names
   stageStats['Xujjat_tekshirish'] = {
     stageName: 'Tekshirish',
@@ -373,7 +373,7 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
   for (const stage of completedStages) {
     let stageName = stage.name;
     let normalizedStageName = stageName;
-    
+
     // Handle different naming conventions
     if (stageName === 'Xujjat_tekshirish' || stageName === 'Xujjat tekshirish' || stageName === 'Tekshirish') {
       normalizedStageName = 'Tekshirish';
@@ -382,10 +382,10 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
     } else if (stageName === 'ST' || stageName === 'Fito' || stageName === 'FITO' || stageName === 'Sertifikat olib chiqish') {
       normalizedStageName = 'Sertifikat olib chiqish';
     }
-    
+
     // Use normalized name for stats
     const targetStageName = normalizedStageName;
-    
+
     if (!stageStats[targetStageName]) {
       stageStats[targetStageName] = {
         stageName: targetStageName,
@@ -414,7 +414,7 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
     startDate: Object.keys(dateFilter).length > 0 ? dateFilter.gte : undefined,
     endDate: Object.keys(dateFilter).length > 0 ? dateFilter.lte : undefined,
   });
-  
+
   const totalReceivedFromSalary = Number(paymentReport.totalPaidUsd); // USD equivalent
 
   // Calculate pending amount and ensure percentage is correct

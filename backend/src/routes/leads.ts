@@ -10,17 +10,28 @@ const upload = multer({ storage: multer.memoryStorage() });
 // GET /api/leads — Ro'yxat (filter: stage, assignedToId, search, reminder)
 router.get('/', async (req: AuthRequest, res: Response) => {
     try {
-        const { stage, assignedToId, search, reminder } = req.query;
+        const { stage, assignedToId, search, reminder, region, productType, exportVolume } = req.query;
+        console.log('Fetching leads with filters:', { stage, assignedToId, search, reminder, region, productType, exportVolume });
         const where: any = {};
 
         if (stage && stage !== 'ALL') where.stage = stage;
         if (assignedToId) where.assignedToId = Number(assignedToId);
+
+        if (region) {
+            where.region = { contains: String(region), mode: 'insensitive' };
+        }
+        if (productType) {
+            where.productType = { contains: String(productType), mode: 'insensitive' };
+        }
+
         if (search) {
             where.OR = [
                 { companyName: { contains: String(search), mode: 'insensitive' } },
                 { inn: { contains: String(search), mode: 'insensitive' } },
                 { phone: { contains: String(search), mode: 'insensitive' } },
                 { contactPerson: { contains: String(search), mode: 'insensitive' } },
+                { region: { contains: String(search), mode: 'insensitive' } },
+                { district: { contains: String(search), mode: 'insensitive' } },
             ];
         }
         if (reminder === 'today') {
@@ -31,7 +42,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             where.nextCallAt = { gte: todayStart, lte: todayEnd };
         }
 
-        const leads = await prisma.lead.findMany({
+        let leads = await prisma.lead.findMany({
             where,
             include: {
                 assignedTo: { select: { id: true, name: true } },
@@ -39,6 +50,17 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             },
             orderBy: { updatedAt: 'desc' },
         });
+
+        if (exportVolume) {
+            leads = leads.filter(l => {
+                const vol = Number(l.estimatedExportVolume);
+                if (isNaN(vol)) return false;
+                if (exportVolume === 'low') return vol < 10;
+                if (exportVolume === 'medium') return vol >= 10 && vol <= 30;
+                if (exportVolume === 'high') return vol > 30;
+                return true;
+            });
+        }
 
         res.json(leads);
     } catch (err: any) {
@@ -162,7 +184,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 // POST /api/leads — Yangi lid
 router.post('/', async (req: AuthRequest, res: Response) => {
     try {
-        const { companyName, inn, productType, phone, contactPerson, assignedToId } = req.body;
+        const { companyName, inn, productType, phone, contactPerson, assignedToId, estimatedExportVolume, region, district, exportedCountries, partners } = req.body;
         if (!companyName) return res.status(400).json({ error: 'companyName majburiy' });
 
         const lead = await prisma.lead.create({
@@ -173,6 +195,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
                 phone: phone || null,
                 contactPerson: contactPerson || null,
                 assignedToId: assignedToId ? Number(assignedToId) : null,
+                estimatedExportVolume: (estimatedExportVolume && !isNaN(Number(estimatedExportVolume)))
+                    ? String(Math.round(Number(estimatedExportVolume)))
+                    : (estimatedExportVolume || null),
+                region: region || null,
+                district: district || null,
+                exportedCountries: exportedCountries || null,
+                partners: partners || null,
             },
             include: { assignedTo: { select: { id: true, name: true } } },
         });
@@ -199,7 +228,11 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 router.put('/:id', async (req: AuthRequest, res: Response) => {
     try {
         const id = Number(req.params.id);
-        const { companyName, inn, productType, phone, contactPerson, stage, assignedToId, lostReason, nextCallAt } = req.body;
+        const {
+            companyName, inn, productType, phone, contactPerson, stage,
+            assignedToId, lostReason, nextCallAt, estimatedExportVolume,
+            region, district, exportedCountries, partners
+        } = req.body;
 
         const existing = await prisma.lead.findUnique({ where: { id } });
         if (!existing) return res.status(404).json({ error: 'Lid topilmadi' });
@@ -214,6 +247,19 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         if (assignedToId !== undefined) data.assignedToId = assignedToId ? Number(assignedToId) : null;
         if (lostReason !== undefined) data.lostReason = lostReason;
         if (nextCallAt !== undefined) data.nextCallAt = nextCallAt ? new Date(nextCallAt) : null;
+
+        if (estimatedExportVolume !== undefined) {
+            if (estimatedExportVolume && !isNaN(Number(estimatedExportVolume))) {
+                data.estimatedExportVolume = String(Math.round(Number(estimatedExportVolume)));
+            } else {
+                data.estimatedExportVolume = estimatedExportVolume;
+            }
+        }
+
+        if (region !== undefined) data.region = region;
+        if (district !== undefined) data.district = district;
+        if (exportedCountries !== undefined) data.exportedCountries = exportedCountries;
+        if (partners !== undefined) data.partners = partners;
 
         const lead = await prisma.lead.update({
             where: { id },
@@ -301,21 +347,41 @@ router.post('/import', upload.single('file'), async (req: AuthRequest, res: Resp
 
         const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+        // Use raw array to handle duplicate columns like "Viloyat"
+        const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+        if (rows.length < 2) return res.status(400).json({ error: 'Faylda ma\'lumot yo\'q' });
+
+        // Header mapping based on order:
+        // 0: Firma nomi, 1: Viloyat, 2: Viloyat (Tuman), 3: STIR, 4: Telefon, 5: Mas'ul, 6: Tahminiy hajmi, 7: Turkumi, 8: Export qilgan davlatlari, 9: Xamkorlari
 
         const created: any[] = [];
-        for (const row of rows) {
-            const companyName =
-                row['Firma nomi'] || row['companyName'] || row['company_name'] || row['Компания'] || '';
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const companyName = String(row[0] || '').trim();
             if (!companyName) continue;
+
+            const rawVolume = row[6];
+            let volume = String(rawVolume || '').trim();
+            if (typeof rawVolume === 'number') {
+                volume = String(Math.round(rawVolume));
+            } else if (volume && !isNaN(Number(volume))) {
+                volume = String(Math.round(Number(volume)));
+            }
 
             const lead = await prisma.lead.create({
                 data: {
-                    companyName: String(companyName).trim(),
-                    inn: String(row['STIR'] || row['INN'] || row['inn'] || '').trim() || null,
-                    productType: String(row['Mahsulot'] || row['productType'] || row['product'] || '').trim() || null,
-                    phone: String(row['Telefon'] || row['phone'] || '').trim() || null,
-                    contactPerson: String(row['Mas\'ul'] || row['contactPerson'] || row['contact'] || '').trim() || null,
+                    companyName,
+                    region: String(row[1] || '').trim() || null,
+                    district: String(row[2] || '').trim() || null,
+                    inn: String(row[3] || '').trim() || null,
+                    phone: String(row[4] || '').trim() || null,
+                    contactPerson: String(row[5] || '').trim() || null,
+                    estimatedExportVolume: volume || null,
+                    productType: String(row[7] || '').trim() || null,
+                    exportedCountries: String(row[8] || '').trim() || null,
+                    partners: String(row[9] || '').trim() || null,
                 },
             });
             created.push(lead);

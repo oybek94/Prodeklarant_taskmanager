@@ -6,7 +6,7 @@ interface User {
   id: number;
   name: string;
   email?: string;
-  role: 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'CLIENT' | 'CERTIFICATE_WORKER' | 'WORKER' | 'OPERATOR' | 'ACCOUNTANT' | 'OWNER';
+  role: 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'CLIENT' | 'CERTIFICATE_WORKER' | 'WORKER' | 'OPERATOR' | 'ACCOUNTANT' | 'OWNER' | 'SELLER';
   branchId?: number | null;
 }
 
@@ -39,13 +39,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const checkAuth = async () => {
       const accessToken = localStorage.getItem('accessToken');
       const refreshToken = localStorage.getItem('refreshToken');
-      
+
       if (accessToken || refreshToken) {
         try {
           // Determine which endpoint to use based on token role
           const role = accessToken ? getRoleFromToken(accessToken) : null;
           const endpoint = role === 'CLIENT' ? '/auth/client/me' : '/auth/me';
-          
+
           // Avval access token bilan urinib ko'ramiz
           const response = await apiClient.get(endpoint);
           if (response.status >= 400 || response.data?.error) {
@@ -56,12 +56,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return;
           }
           const userData = response.data;
-          
+
           // For CLIENT, add role from token since backend doesn't return it
           if (role === 'CLIENT') {
             userData.role = 'CLIENT';
           }
-          
+
           setUser(userData);
         } catch (error: any) {
           // Timeout yoki network xatolik bo'lsa, darhol user null qilamiz
@@ -91,12 +91,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               // Yangi token bilan user ma'lumotlarini olamiz
               const userResponse = await apiClient.get(endpoint);
               const userData = userResponse.data;
-              
+
               // For CLIENT, add role from token since backend doesn't return it
               if (newRole === 'CLIENT') {
                 userData.role = 'CLIENT';
               }
-              
+
               setUser(userData);
             } catch (refreshError) {
               // Refresh ham ishlamasa, logout qilamiz
@@ -123,9 +123,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     try {
       // Email bo'sh bo'lsa, undefined yuboramiz
-      const response = await apiClient.post('/auth/login', { 
+      const response = await apiClient.post('/auth/login', {
         ...(email && email.trim() !== '' ? { email } : {}),
-        password 
+        password
       });
       if (response.status >= 400 || response.data?.error) {
         throw new Error(response.data?.error || 'Login failed');

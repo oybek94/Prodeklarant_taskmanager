@@ -344,18 +344,26 @@ export default function TrainingStageDetail() {
           {/* Main Title Section */}
           <div className="mb-12">
             <div className="flex items-center justify-between mb-6">
-              <span className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-widest">O'qitish Materiali</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => navigate(`/training/${trainingId}`)}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all"
+                >
+                  <Icon icon="lucide:arrow-left" className="w-5 h-5" />
+                </button>
+                <span className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-widest hidden sm:inline-block">O'qitish Materiali</span>
+              </div>
               {canEdit && (
                 <button
                   onClick={isEditing ? handleSaveEdit : handleStartEdit}
                   disabled={saving}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 ${isEditing
+                  className={`flex items-center gap-2 p-2.5 md:px-4 md:py-2 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 ${isEditing
                     ? 'bg-green-600 text-white hover:bg-green-700'
                     : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                 >
-                  <Icon icon={isEditing ? 'lucide:save' : 'lucide:edit-3'} className="w-4 h-4" />
-                  {isEditing ? (saving ? 'Saqlanmoqda...' : 'Saqlash') : 'Kontentni Tahrirlash'}
+                  <Icon icon={isEditing ? 'lucide:save' : 'lucide:edit-3'} className="w-5 h-5 md:w-4 md:h-4" />
+                  <span className="hidden md:inline">{isEditing ? (saving ? 'Saqlanmoqda...' : 'Saqlash') : 'Kontentni Tahrirlash'}</span>
                 </button>
               )}
             </div>
@@ -465,10 +473,10 @@ export default function TrainingStageDetail() {
 
                             <button
                               onClick={() => handleMaterialComplete(material.id)}
-                              className="mt-8 w-full py-4 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-black shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                              className="mt-8 w-full py-3 md:py-4 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-black shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 md:gap-3"
                             >
-                              <Icon icon="lucide:check-circle" className="w-6 h-6" />
-                              Ushbu qismni o'qib bo'ldim
+                              <Icon icon="lucide:check-circle" className="w-5 h-5 md:w-6 md:h-6" />
+                              <span className="text-sm md:text-base">Ushbu qismni o'qib bo'ldim</span>
                             </button>
                           </div>
                         )}
@@ -543,29 +551,6 @@ export default function TrainingStageDetail() {
               ))}
           </div>
 
-          {/* Footer Navigation */}
-          <div className="mt-24 pt-12 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <button
-              onClick={() => navigate(`/training/${trainingId}`)}
-              className="px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2"
-            >
-              <Icon icon="lucide:chevron-left" className="w-5 h-5" />
-              Oldingi bosqich
-            </button>
-            <div className="text-center">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-2">Progress</span>
-              <div className="w-32 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div className="h-full bg-indigo-600 w-full animate-progress" />
-              </div>
-            </div>
-            <button
-              disabled
-              className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-bold opacity-50 cursor-not-allowed flex items-center gap-2 shadow-lg shadow-indigo-500/20"
-            >
-              Keyingi bosqich
-              <Icon icon="lucide:chevron-right" className="w-5 h-5" />
-            </button>
-          </div>
         </div>
       </main>
     </div>

@@ -380,3 +380,199 @@ body {
   background-color: #f3f4f6;
   cursor: not-allowed;
 }
+
+/* TinyMCE content display — mirrors the editor's content_style exactly */
+.tinymce-content {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.dark .tinymce-content {
+  color: #f1f5f9;
+}
+
+.tinymce-content h1,
+.tinymce-content h2,
+.tinymce-content h3,
+.tinymce-content h4,
+.tinymce-content h5,
+.tinymce-content h6 {
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  line-height: 1.3;
+}
+
+.dark .tinymce-content h1,
+.dark .tinymce-content h2,
+.dark .tinymce-content h3,
+.dark .tinymce-content h4,
+.dark .tinymce-content h5,
+.dark .tinymce-content h6 {
+  color: #f8fafc;
+}
+
+.tinymce-content h1 { font-size: 2rem; }
+.tinymce-content h2 { font-size: 1.75rem; }
+.tinymce-content h3 { font-size: 1.5rem; }
+.tinymce-content h4 { font-size: 1.25rem; }
+.tinymce-content h5 { font-size: 1.125rem; }
+.tinymce-content h6 { font-size: 1rem; }
+
+.tinymce-content p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.tinymce-content ul,
+.tinymce-content ol {
+  padding-left: 1.75rem;
+  margin-bottom: 1rem;
+}
+
+.tinymce-content ul {
+  list-style-type: disc;
+}
+
+.tinymce-content ol {
+  list-style-type: decimal;
+}
+
+.tinymce-content li {
+  margin-bottom: 0.4rem;
+  line-height: 1.6;
+}
+
+.tinymce-content a {
+  color: #4f46e5;
+  text-decoration: underline;
+}
+
+.dark .tinymce-content a {
+  color: #818cf8;
+}
+
+.tinymce-content strong,
+.tinymce-content b {
+  font-weight: 700;
+}
+
+.tinymce-content em,
+.tinymce-content i {
+  font-style: italic;
+}
+
+.tinymce-content u {
+  text-decoration: underline;
+}
+
+.tinymce-content s,
+.tinymce-content del {
+  text-decoration: line-through;
+}
+
+.tinymce-content blockquote {
+  border-left: 4px solid #6366f1;
+  background-color: rgba(99, 102, 241, 0.05);
+  margin: 1.5rem 0;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0 12px 12px 0;
+  font-style: italic;
+  color: #475569;
+}
+
+.dark .tinymce-content blockquote {
+  color: #94a3b8;
+  background-color: rgba(99, 102, 241, 0.08);
+}
+
+.tinymce-content code {
+  background-color: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.dark .tinymce-content code {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+
+.tinymce-content pre {
+  background-color: #1e293b;
+  color: #f8fafc;
+  padding: 16px;
+  border-radius: 12px;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.9em;
+  line-height: 1.7;
+}
+
+.tinymce-content pre code {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+.tinymce-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 15px;
+  display: block;
+  margin: 1rem 0;
+}
+
+.tinymce-content table {
+  border-collapse: collapse;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 1.5rem 0;
+}
+
+.tinymce-content table th,
+.tinymce-content table td {
+  border: 1px solid #e2e8f0;
+  padding: 12px 16px;
+  text-align: left;
+}
+
+.tinymce-content table th {
+  background-color: #f8fafc;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dark .tinymce-content table th {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+.dark .tinymce-content table th,
+.dark .tinymce-content table td {
+  border-color: #334155;
+}
+
+.tinymce-content table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.dark .tinymce-content table tbody tr:nth-child(even) {
+  background-color: #1e293b;
+}
+
+.tinymce-content hr {
+  border: none;
+  border-top: 2px solid #e2e8f0;
+  margin: 2rem 0;
+}
+
+.dark .tinymce-content hr {
+  border-top-color: #334155;
+}

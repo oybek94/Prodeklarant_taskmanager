@@ -337,7 +337,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       const allWorkers = await prisma.user.findMany({
         where: {
           role: {
-            in: ['DEKLARANT', 'ADMIN', 'MANAGER', 'CERTIFICATE_WORKER'],
+            in: ['DEKLARANT', 'ADMIN'],
           },
           active: true,
         },
@@ -418,7 +418,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       const allWorkers = await prisma.user.findMany({
         where: {
           role: {
-            in: ['DEKLARANT', 'ADMIN', 'MANAGER', 'CERTIFICATE_WORKER'],
+            in: ['DEKLARANT', 'ADMIN'],
           },
           active: true,
         },
@@ -976,7 +976,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       where: {
         active: true,
         role: {
-          in: ['DEKLARANT', 'ADMIN', 'MANAGER', 'CERTIFICATE_WORKER'],
+          in: ['DEKLARANT', 'ADMIN'],
         },
       },
       select: { id: true, name: true },

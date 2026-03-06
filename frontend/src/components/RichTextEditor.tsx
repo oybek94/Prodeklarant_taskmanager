@@ -4,14 +4,11 @@ import { Editor } from '@tinymce/tinymce-react';
 interface RichTextEditorProps {
   content: string;
   onChange: (content: string) => void;
-  onExportHTML?: (html: string) => void;
-  onExportJSON?: (json: any) => void;
 }
 
 export default function RichTextEditor({
   content,
   onChange,
-  onExportHTML,
 }: RichTextEditorProps) {
   const editorRef = useRef<any>(null);
 
@@ -19,32 +16,8 @@ export default function RichTextEditor({
     onChange(content);
   };
 
-  const handleExportHTML = () => {
-    if (onExportHTML && editorRef.current) {
-      onExportHTML(editorRef.current.getContent());
-    } else if (editorRef.current) {
-      const html = editorRef.current.getContent();
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'maqola.html';
-      a.click();
-    }
-  };
-
   return (
     <div className="bg-white dark:bg-slate-800 rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-700">
-      <div className="p-2 border-b border-slate-100 dark:border-slate-700 flex justify-end">
-        <button
-          type="button"
-          onClick={handleExportHTML}
-          className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-xs font-black transition-all"
-          title="HTML sifatida eksport qilish"
-        >
-          📄 HTML Eksport
-        </button>
-      </div>
 
       <Editor
         apiKey="zlrh6c5uci1filu0wsd013tj3aozdq4enn477iqnc7pyqv34"

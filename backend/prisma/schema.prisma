@@ -1003,10 +1003,7 @@ model LeadActivity {
 
 enum Role {
   ADMIN
-  MANAGER
   DEKLARANT
-  CERTIFICATE_WORKER
-  SELLER
 }
 
 enum TaskStatus {

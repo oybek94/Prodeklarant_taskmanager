@@ -431,12 +431,83 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 // ============================================================================
 
 /**
+ * POST /api/exams/stage/:stageId/init-manual-exam
+ * Initializes or retrieves the manual exam container for a particular Stage
+ */
+router.post('/stage/:stageId/init-manual-exam', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const stageId = parseInt(req.params.stageId);
+
+    // Get stage details
+    const stage = await prisma.trainingStage.findUnique({
+      where: { id: stageId },
+      include: {
+        steps: {
+          include: {
+            exams: {
+              where: { active: true },
+              include: { questions: { orderBy: { orderIndex: 'asc' } } }
+            }
+          },
+        },
+      },
+    });
+
+    if (!stage) {
+      return res.status(404).json({ error: 'Stage topilmadi' });
+    }
+
+    let dummyStep = stage.steps.find(s => s.title === '_AI_STAGE_EXAM');
+    let dummyStepId: number;
+
+    if (!dummyStep) {
+      const newDummyStep = await prisma.trainingStep.create({
+        data: {
+          stageId,
+          title: '_AI_STAGE_EXAM',
+          description: 'Auto-generated hidden step for stage exam',
+          isActive: false,
+          orderIndex: 9999
+        }
+      });
+      dummyStepId = newDummyStep.id;
+    } else {
+      dummyStepId = dummyStep.id;
+      if (dummyStep.exams && dummyStep.exams.length > 0) {
+        return res.json({ exam: dummyStep.exams[0], questions: dummyStep.exams[0].questions || [] });
+      }
+    }
+
+    // Create the exam container if it didn't exist
+    const exam = await prisma.exam.create({
+      data: {
+        lessonId: dummyStepId,
+        title: `${stage.title} - Mavzulashtirilgan Imtihon`,
+        description: `Mavzuga oid savollar bazasi`,
+        passingScore: 80,
+        questionCount: 0,
+        active: true,
+      },
+      include: {
+        questions: true,
+      }
+    });
+
+    res.json({ exam, questions: [] });
+  } catch (error: any) {
+    console.error('Error initializing manual exam:', error);
+    res.status(500).json({ error: 'Imtihon bazasini yaratishda xatolik', details: error.message });
+  }
+});
+
+/**
  * POST /api/exams/ai/generate-stage/:stageId
- * Generate AI-powered exam for a complete stage
+ * Start dynamic exam for a stage using manual questions and dynamic count
  */
 router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const stageId = parseInt(req.params.stageId);
+    const userId = req.user!.id;
 
     // Get stage details
     const stage = await prisma.trainingStage.findUnique({
@@ -449,7 +520,10 @@ router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthReques
               orderBy: { orderIndex: 'asc' },
             },
             exams: {
-              where: { active: true }
+              where: { active: true },
+              include: {
+                questions: true,
+              }
             }
           },
         },
@@ -463,12 +537,57 @@ router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthReques
     // Check if there's already a dummy step for this stage's exam
     let dummyStep = stage.steps.find(s => s.title === '_AI_STAGE_EXAM');
 
-    if (dummyStep && dummyStep.exams && dummyStep.exams.length > 0) {
-      // Just return the existing exam to save AI cost
-      return res.json({ exam: dummyStep.exams[0] });
+    // If no exam in dummy step, it means we haven't generated one yet for this stage.
+    let exam: any;
+
+    if (!dummyStep || !dummyStep.exams || dummyStep.exams.length === 0) {
+      if (!dummyStep) {
+        dummyStep = await prisma.trainingStep.create({
+          data: {
+            stageId,
+            title: '_AI_STAGE_EXAM',
+            description: 'Auto-generated hidden step for stage exam',
+            isActive: false,
+            orderIndex: 9999
+          },
+          include: { exams: { include: { questions: true } }, materials: true }
+        });
+      }
+
+      exam = await prisma.exam.create({
+        data: {
+          lessonId: dummyStep.id,
+          title: `${stage.title} - AI Generated Exam`,
+          description: `AI tomonidan tuzilgan mavzulashtirilgan imtihon`,
+          passingScore: 80,
+          questionCount: 0,
+          active: true,
+        },
+        include: { questions: true }
+      });
+    } else {
+      exam = dummyStep.exams[0];
     }
 
-    // Aggregate all stage text content
+    // O'qitishni tugallanganligini tekshirish (faqat trainingId bo'lsa)
+    if (exam.trainingId) {
+      const trainingProgress = await prisma.trainingProgress.findUnique({
+        where: {
+          userId_trainingId: {
+            userId,
+            trainingId: exam.trainingId,
+          },
+        },
+      });
+
+      if (!trainingProgress || !trainingProgress.completed) {
+        return res.status(400).json({
+          error: 'Avval o\'qitishni tugallashingiz kerak'
+        });
+      }
+    }
+
+    // Aggregate all stage text content to determine question count via AI
     let fullContent = stage.description ? `${stage.description}\n\n` : '';
 
     stage.steps.forEach(step => {
@@ -481,49 +600,28 @@ router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthReques
       }
     });
 
-    if (!fullContent || fullContent.trim().length === 0) {
-      return res.status(400).json({ error: 'Stage content topilmadi (materiallar yo\'q)' });
+    if (fullContent.trim().length === 0) {
+      return res.status(400).json({ error: 'Stage uchun o\'quv matnlari topilmadi.' });
     }
 
-    // Generate exam using AI
+    // Always generate a fresh batch of questions so retrying gives new ones
+    console.log(`Generating fresh exam for stage ${stage.title}...`);
     const examResult = await ExamAIService.generateExam(
-      stageId, // using stageId just as an identifier
+      dummyStep.id, // using dummyStep id as lessonId
       stage.title,
       fullContent
     );
 
-    let dummyStepId: number;
+    // Wipe previous questions for this specific exam container to replace with new ones
+    // Or we just delete them all. But we have existing attempts referencing answer.questionId.
+    // So we just add new questions and soft-delete/deactivate old ones? 
+    // Wait, ExamQuestion doesn't have an `active` flag. If we delete them, `ExamAnswer` CASCADE might delete prior user attempts.
+    // Let's check prisma schema: `ExamAnswer` -> `question ExamQuestion @relation(...)`. 
+    // For now, let's just create new questions and return them without deleting old ones so we preserve attempt history.
+    // Actually, saving thousands of unused questions might be bad, but it preserves history.
 
-    // If dummy step doesn't exist, create it
-    if (!dummyStep) {
-      const newDummyStep = await prisma.trainingStep.create({
-        data: {
-          stageId,
-          title: '_AI_STAGE_EXAM',
-          description: 'Auto-generated hidden step for stage exam',
-          isActive: false, // hidden from normal UI
-          orderIndex: 9999
-        }
-      });
-      dummyStepId = newDummyStep.id;
-    } else {
-      dummyStepId = dummyStep.id;
-    }
-
-    // Create exam in database
-    const exam = await prisma.exam.create({
-      data: {
-        lessonId: dummyStepId,
-        title: `${stage.title} - Mavzulashtirilgan Imtihon`,
-        description: `AI tomonidan tuzilgan mavzulashtirilgan imtihon`,
-        passingScore: examResult.passing_score,
-        questionCount: examResult.questions.length,
-        active: true,
-      },
-    });
-
-    // Create exam questions
-    const questions = await Promise.all(
+    // Create new exam questions
+    const createdQuestions = await Promise.all(
       examResult.questions.map((q, index) =>
         prisma.examQuestion.create({
           data: {
@@ -532,23 +630,52 @@ router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthReques
             type: q.type,
             options: q.options || [],
             correctAnswer: q.correct_answer,
-            points: q.points,
+            points: q.points || 1,
             orderIndex: index,
           },
         })
       )
     );
 
+    // Update parent exam with new passing score & questions count
+    await prisma.exam.update({
+      where: { id: exam.id },
+      data: {
+        passingScore: examResult.passing_score,
+        questionCount: createdQuestions.length,
+      }
+    });
+
+    // Strip out correctAnswer info to send to frontend
+    const questionsForUser = createdQuestions.map((q: any) => ({
+      id: q.id,
+      question: q.question,
+      type: q.type,
+      options: q.options,
+      points: q.points,
+    }));
+
+    // Update passing score and max score locally to allow dynamic length submission.
+    // The exact generated points
+    const maxScore = questionsForUser.reduce((sum: number, q: any) => sum + q.points, 0);
+
+    // Provide it securely back to frontend (which now bypasses start endpoint for Stage exam logic)
     res.json({
       exam: {
-        ...exam,
-        questions,
+        id: exam.id,
+        title: exam.title,
+        description: exam.description,
+        passingScore: exam.passingScore,
+        timeLimitMin: exam.timeLimitMin,
+        isDynamic: true // flag info
       },
+      questions: questionsForUser,
+      maxScore,
     });
   } catch (error: any) {
-    console.error('Error generating AI stage exam:', error);
+    console.error('Error starting dynamic stage exam:', error);
     res.status(500).json({
-      error: 'AI exam generatsiya qilishda xatolik',
+      error: 'Imtihon tayyorlashda xatolik',
       details: error.message,
     });
   }

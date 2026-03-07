@@ -67,6 +67,8 @@ interface Stage {
   description?: string;
   orderIndex: number;
   steps: Step[];
+  isUnlocked?: boolean;
+  isPassed?: boolean;
 }
 
 interface Exam {
@@ -290,30 +292,38 @@ export default function TrainingDetail() {
             {training.stages
               .sort((a, b) => a.orderIndex - b.orderIndex)
               .map((stage, index) => {
-                const totalMaterials = (stage.steps || []).reduce((sum, step) => sum + (step.materials?.length || 0), 0);
-                const isRead = readStages.includes(stage.id);
-                const isActive = index === 0 || (training.progress?.stageId === stage.id);
+                const totalMaterials = (stage.steps || [])
+                  .filter(step => step.title !== '_AI_STAGE_EXAM')
+                  .reduce((sum, step) => sum + (step.materials?.length || 0), 0);
+
+                const isRead = stage.isPassed || readStages.includes(stage.id);
+                const isUnlocked = stage.isUnlocked ?? (index === 0);
+                const isActive = isUnlocked && !isRead;
 
                 return (
                   <div
                     key={stage.id}
-                    onClick={() => navigate(`/training/${id}/stage/${stage.id}`)}
-                    className={`group cursor-pointer relative bg-white dark:bg-slate-800 rounded-3xl p-6 border-2 transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 ${isRead
-                      ? 'border-green-500/30 bg-green-50/10'
-                      : isActive
-                        ? 'border-indigo-500 shadow-xl shadow-indigo-500/10'
-                        : 'border-slate-200 dark:border-slate-700 opacity-60'
+                    onClick={() => {
+                      if (isUnlocked) {
+                        navigate(`/training/${id}/stage/${stage.id}`)
+                      }
+                    }}
+                    className={`group relative bg-white dark:bg-slate-800 rounded-3xl p-6 border-2 transition-all duration-300 ${isRead
+                      ? 'border-green-500/30 bg-green-50/10 cursor-pointer hover:shadow-2xl hover:-translate-y-2'
+                      : isUnlocked
+                        ? 'border-indigo-500 shadow-xl shadow-indigo-500/10 cursor-pointer hover:shadow-2xl hover:-translate-y-2'
+                        : 'border-slate-200 dark:border-slate-700 opacity-60 cursor-not-allowed'
                       }`}
                   >
                     {/* Status Badge */}
                     <div className="absolute -top-3 left-6">
                       <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border shadow-sm ${isRead
                         ? 'bg-green-500 border-green-600 text-white'
-                        : isActive
+                        : isUnlocked
                           ? 'bg-indigo-600 border-indigo-700 text-white'
                           : 'bg-slate-100 border-slate-200 dark:bg-slate-700 dark:border-slate-600 text-slate-500'
                         }`}>
-                        {isRead ? 'Tugallangan' : isActive ? 'Faol Bosqich' : 'Qulflangan'}
+                        {isRead ? 'Tugallangan' : isUnlocked ? 'Faol Bosqich' : 'Qulflangan'}
                       </div>
                     </div>
 
@@ -341,10 +351,16 @@ export default function TrainingDetail() {
                     )}
 
                     <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Kirish</span>
-                      <div className={`p-2 rounded-xl transition-all ${isRead ? 'bg-green-50 text-green-600' : 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white'
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                        {isUnlocked ? 'Kirish' : 'Qulflangan'}
+                      </span>
+                      <div className={`p-2 rounded-xl transition-all ${isRead
+                        ? 'bg-green-50 text-green-600'
+                        : isUnlocked
+                          ? 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white'
+                          : 'bg-slate-50 text-slate-400 dark:bg-slate-700 dark:text-slate-500'
                         }`}>
-                        <Icon icon="lucide:arrow-right" className="w-5 h-5" />
+                        <Icon icon={isUnlocked ? "lucide:arrow-right" : "lucide:lock"} className="w-5 h-5" />
                       </div>
                     </div>
                   </div>

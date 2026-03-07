@@ -5,6 +5,7 @@ import { markArticleAsRead } from '../utils/articleStorage';
 import { useAuth } from '../contexts/AuthContext';
 import { Icon } from '@iconify/react';
 import RichTextEditor from '../components/RichTextEditor';
+import QuestionsModal from '../components/QuestionsModal';
 
 // Google Drive linkini rasm URL'iga o'tkazish
 const convertGoogleDriveUrl = (url: string): string => {
@@ -97,6 +98,9 @@ export default function TrainingStageDetail() {
   const [editMaterialContent, setEditMaterialContent] = useState('');
   const [savingMaterial, setSavingMaterial] = useState(false);
   const [generatingExam, setGeneratingExam] = useState<number | null>(null);
+
+  // Imtihon savollari
+  const [isQuestionsModalOpen, setIsQuestionsModalOpen] = useState(false);
 
   // Faqat ADMIN uchun tahrirlash imkoniyati
   const canEdit = user?.role === 'ADMIN';
@@ -353,17 +357,26 @@ export default function TrainingStageDetail() {
                 <span className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-widest hidden sm:inline-block">O'qitish Materiali</span>
               </div>
               {canEdit && (
-                <button
-                  onClick={isEditing ? handleSaveEdit : handleStartEdit}
-                  disabled={saving}
-                  className={`flex items-center gap-2 p-2.5 md:px-4 md:py-2 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 ${isEditing
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                >
-                  <Icon icon={isEditing ? 'lucide:save' : 'lucide:edit-3'} className="w-5 h-5 md:w-4 md:h-4" />
-                  <span className="hidden md:inline">{isEditing ? (saving ? 'Saqlanmoqda...' : 'Saqlash') : 'Kontentni Tahrirlash'}</span>
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setIsQuestionsModalOpen(true)}
+                    className="flex items-center gap-2 p-2.5 md:px-4 md:py-2 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  >
+                    <Icon icon="lucide:database" className="w-5 h-5 md:w-4 md:h-4" />
+                    <span className="hidden md:inline">Imtihon Savollari</span>
+                  </button>
+                  <button
+                    onClick={isEditing ? handleSaveEdit : handleStartEdit}
+                    disabled={saving}
+                    className={`flex items-center gap-2 p-2.5 md:px-4 md:py-2 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 ${isEditing
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                  >
+                    <Icon icon={isEditing ? 'lucide:save' : 'lucide:edit-3'} className="w-5 h-5 md:w-4 md:h-4" />
+                    <span className="hidden md:inline">{isEditing ? (saving ? 'Saqlanmoqda...' : 'Saqlash') : 'Kontentni Tahrirlash'}</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -417,6 +430,7 @@ export default function TrainingStageDetail() {
 
             {/* Steps Rendering */}
             {stage.steps
+              .filter(step => step.title !== '_AI_STAGE_EXAM')
               .sort((a, b) => a.orderIndex - b.orderIndex)
               .map(step => (
                 <div key={step.id} className="relative pt-12">
@@ -526,6 +540,15 @@ export default function TrainingStageDetail() {
 
         </div>
       </main>
+
+      {/* Savollar Modali */}
+      {isQuestionsModalOpen && stageId && trainingId && (
+        <QuestionsModal
+          stageId={stageId}
+          trainingId={trainingId}
+          onClose={() => setIsQuestionsModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

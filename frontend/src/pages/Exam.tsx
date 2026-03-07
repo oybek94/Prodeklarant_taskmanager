@@ -203,10 +203,10 @@ export default function Exam() {
                 key={q.id}
                 onClick={() => setCurrentQuestionIndex(idx)}
                 className={`aspect-square rounded-xl flex items-center justify-center font-black text-sm transition-all ${idx === currentQuestionIndex
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 active:scale-90 scale-110'
-                    : answers[q.id]
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 active:scale-90 scale-110'
+                  : answers[q.id]
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600'
                   }`}
               >
                 {idx + 1}
@@ -288,8 +288,8 @@ export default function Exam() {
                     key={idx}
                     onClick={() => handleAnswerChange(currentQuestion.id, option)}
                     className={`w-full text-left p-6 rounded-3xl border-2 transition-all flex items-center gap-4 group ${currentAnswer === option
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-600/20'
-                        : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-600 text-slate-700 dark:text-slate-300'
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-600/20'
+                      : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-600 text-slate-700 dark:text-slate-300'
                       }`}
                   >
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black transition-colors ${currentAnswer === option ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-700'
@@ -315,8 +315,8 @@ export default function Exam() {
                         handleAnswerChange(currentQuestion.id, newAnswers);
                       }}
                       className={`w-full text-left p-6 rounded-3xl border-2 transition-all flex items-center gap-4 group ${isSelected
-                          ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-600/20'
-                          : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-emerald-400 text-slate-700 dark:text-slate-300'
+                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-600/20'
+                        : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-emerald-400 text-slate-700 dark:text-slate-300'
                         }`}
                     >
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${isSelected ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-700'
@@ -355,8 +355,8 @@ export default function Exam() {
           <button
             onClick={currentQuestionIndex === questions.length - 1 ? handleSubmit : handleNext}
             className={`flex items-center gap-2 px-10 py-4 rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 ${currentQuestionIndex === questions.length - 1
-                ? 'bg-green-600 text-white shadow-green-600/20 hover:bg-green-700'
-                : 'bg-indigo-600 text-white shadow-indigo-600/20 hover:bg-indigo-700'
+              ? 'bg-green-600 text-white shadow-green-600/20 hover:bg-green-700'
+              : 'bg-indigo-600 text-white shadow-indigo-600/20 hover:bg-indigo-700'
               }`}
           >
             {currentQuestionIndex === questions.length - 1 ? (
@@ -367,7 +367,17 @@ export default function Exam() {
           </button>
         </footer>
       </main>
+
+      {/* Checking Answers Modal Overlay */}
+      {submitting && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white dark:bg-slate-800 p-8 rounded-[32px] shadow-2xl max-w-sm w-full mx-4 text-center flex flex-col items-center">
+            <Icon icon="lucide:loader-2" className="w-16 h-16 text-indigo-500 animate-spin mb-6" />
+            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">Javoblar tekshirilmoqda...</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Iltimos kuting, AI natijalaringizni hisoblamoqda.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

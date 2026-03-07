@@ -16,10 +16,11 @@ export function getSystemPrompt(): string {
 CRITICAL RULES:
 1. You act ONLY as an instructor and examiner. You do not provide hints, explanations before scoring, or external knowledge.
 2. You use ONLY the provided lesson content. You must not hallucinate, add external knowledge, or reference information not explicitly stated in the lesson.
-3. You evaluate understanding, not memorization. Focus on whether the learner comprehends concepts, not whether they can recite exact phrases.
-4. You must produce structured, machine-readable JSON output. No markdown, no explanations outside the JSON structure.
-5. Maintain a neutral, professional tone. No encouragement, no criticism, only objective assessment.
-6. Do not provide hints or explanations before scoring. The learner must demonstrate understanding without assistance.
+3. You must communicate and generate all content STRICTLY in the Uzbek language (O'zbek tilida). All questions, answers, and feedback must be in Uzbek.
+4. You evaluate understanding, not memorization. Focus on whether the learner comprehends concepts, not whether they can recite exact phrases.
+5. You must produce structured, machine-readable JSON output. No markdown, no explanations outside the JSON structure.
+6. Maintain a neutral, professional tone. No encouragement, no criticism, only objective assessment.
+7. Do not provide hints or explanations before scoring. The learner must demonstrate understanding without assistance.
 
 Your role is to:
 - Generate questions that test comprehension of the lesson content
@@ -86,27 +87,25 @@ LESSON CONTENT:
 ${lessonFullText}
 
 TASK:
-Generate 5 to 10 questions (depending on the length of the lesson content) that test understanding of the lesson content. Questions should:
+Generate 5 to 10 single-choice questions (depending on the length of the lesson content) that test understanding of the lesson content. Questions should:
 1. Cover different sections of the lesson
-2. Mix question types: single choice, multiple choice, and text-based
+2. Be exclusively single choice questions (one correct answer out of multiple options)
 3. Test comprehension, not memorization
 4. Be clear and unambiguous
-5. Have correct answers that can be verified from the lesson content
+5. Have exactly one correct answer that can be verified from the lesson content
 
 QUESTION DISTRIBUTION:
-- 40% single choice questions
-- 30% multiple choice questions  
-- 30% text-based questions (short answer)
+- 100% single choice questions
 
 OUTPUT FORMAT (strict JSON):
 {
   "questions": [
     {
       "id": string (unique identifier),
-      "type": "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TEXT",
+      "type": "SINGLE_CHOICE",
       "question": string,
-      "options": string[] (for SINGLE_CHOICE and MULTIPLE_CHOICE),
-      "correct_answer": string | string[] | string (for TEXT: expected answer key points),
+      "options": string[] (at least 3-4 options),
+      "correct_answer": string (exactly matches one of the options),
       "points": number (default: 1),
       "topic": string (which section/topic this tests)
     }
@@ -116,6 +115,28 @@ OUTPUT FORMAT (strict JSON):
 }`;
   }
 }
+
+// ============================================================================
+// QUESTION COUNT PROMPT
+// ============================================================================
+export function generateQuestionCountPrompt(lessonTitle: string, lessonFullText: string): string {
+  return `Analyze the content for the lesson/stage "${lessonTitle}" and determine how many exam questions would be appropriate to thoroughly test a learner's understanding of this material.
+
+LESSON CONTENT:
+${lessonFullText}
+
+TASK:
+Based on the length, density, and complexity of the content above, determine the optimal number of questions (an integer between 3 and 15) to include in an exam.
+- Brief content: 3-5 questions
+- Medium content: 5-8 questions
+- Extensive content: 8-15 questions
+
+OUTPUT FORMAT (strict JSON):
+{
+  "count": number
+}`;
+}
+
 
 // ============================================================================
 // 3️⃣ EVALUATOR PROMPT (Consistency Validation and Feedback Generation)
@@ -150,7 +171,7 @@ export function generateEvaluatorPrompt(inputs: EvaluatorPromptInputs): string {
     passed,
   } = inputs;
 
-  return `You are a quality evaluator for an exam attempt. Validate scoring consistency and generate comprehensive feedback.
+  return `You are a quality evaluator for an exam attempt. Validate scoring consistency and generate comprehensive feedback STRICTLY in the Uzbek language (O'zbek tilida). Barcha javob va baholashlar faqat o'zbek tilida yozilishi shart.
 
 EXAM ATTEMPT DETAILS:
 - Attempt ID: ${attemptId}
@@ -199,14 +220,14 @@ OUTPUT FORMAT (strict JSON):
   "score": number (validated score, 0-100),
   "passed": boolean,
   "scoring_valid": boolean,
-  "scoring_notes": string (if inconsistencies found),
-  "strengths": string[] (list of topics/skills demonstrated well),
-  "weaknesses": string[] (list of topics/skills needing improvement),
-  "recommendation": string (actionable recommendation for the learner),
+  "scoring_notes": string (if inconsistencies found, strictly in Uzbek),
+  "strengths": string[] (list of topics/skills demonstrated well, strictly in Uzbek),
+  "weaknesses": string[] (list of topics/skills needing improvement, strictly in Uzbek),
+  "recommendation": string (actionable recommendation for the learner, strictly in Uzbek),
   "topic_scores": {
     "topic_name": number (0-100 percentage)
   },
-  "suggested_review": string[] (specific sections or concepts to review)
+  "suggested_review": string[] (specific sections or concepts to review, strictly in Uzbek)
 }`;
 }
 

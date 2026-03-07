@@ -106,7 +106,7 @@ router.post('/login', async (req, res) => {
     let validRole = user.role;
     if (user.role === 'WORKER' || user.role === 'ACCOUNTANT') {
       validRole = 'DEKLARANT';
-    } else if (user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'DEKLARANT') {
+    } else if (user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'DEKLARANT' || user.role === 'SELLER') {
       validRole = user.role;
     } else {
       validRole = 'DEKLARANT';
@@ -157,7 +157,7 @@ router.post('/refresh', async (req, res) => {
 const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string(),
   role: z.enum(['ADMIN', 'MANAGER', 'DEKLARANT']),
   branchId: z.number(),
 });

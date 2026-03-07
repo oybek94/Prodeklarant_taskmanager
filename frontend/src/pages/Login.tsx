@@ -19,7 +19,7 @@ const Login = () => {
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+      navigate('/');
     } catch (err: any) {
       const errorMessage = err.response?.data?.error || err.message || 'Login xatolik';
       setError(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));

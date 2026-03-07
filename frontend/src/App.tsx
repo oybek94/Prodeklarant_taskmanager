@@ -50,7 +50,7 @@ const AppRoutes = () => {
         path="/login"
         element={
           isAuthenticated
-            ? <Navigate to={user?.role === 'ADMIN' ? "/dashboard" : (user?.role === 'SELLER' ? "/leads" : "/tasks")} />
+            ? <Navigate to={user?.role === 'ADMIN' ? "/dashboard" : (user?.role === 'SELLER' ? "/crm" : "/tasks")} />
             : <Login />
         }
       />
@@ -113,11 +113,11 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-        <Route path="/tasks/new" element={<Tasks />} />
-        <Route path="/tasks/archive" element={<Tasks />} />
-        <Route path="/tasks/archive/filters" element={<Tasks />} />
-        <Route path="/tasks/:id/edit" element={<Tasks />} />
-        <Route path="/tasks/:id" element={<TaskDetail />} />
+        <Route path="/tasks/new" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Tasks /></ProtectedRoute>} />
+        <Route path="/tasks/archive" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Tasks /></ProtectedRoute>} />
+        <Route path="/tasks/archive/filters" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Tasks /></ProtectedRoute>} />
+        <Route path="/tasks/:id/edit" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Tasks /></ProtectedRoute>} />
+        <Route path="/tasks/:id" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><TaskDetail /></ProtectedRoute>} />
         <Route
           path="/transactions"
           element={
@@ -126,8 +126,8 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-        <Route path="/transactions/new" element={<Transactions />} />
-        <Route path="/transactions/:id/edit" element={<Transactions />} />
+        <Route path="/transactions/new" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Transactions /></ProtectedRoute>} />
+        <Route path="/transactions/:id/edit" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Transactions /></ProtectedRoute>} />
         <Route
           path="/finance"
           element={
@@ -273,7 +273,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-        <Route path="/profile" element={<Profile />} />
+        <Route path="/profile" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Profile /></ProtectedRoute>} />
       </Route>
       <Route
         path="/"
@@ -281,7 +281,7 @@ const AppRoutes = () => {
           <Navigate
             to={
               isAuthenticated
-                ? (user?.role === 'ADMIN' ? "/dashboard" : (user?.role === 'SELLER' ? "/leads" : "/tasks"))
+                ? (user?.role === 'ADMIN' ? "/dashboard" : (user?.role === 'SELLER' ? "/crm" : "/tasks"))
                 : "/login"
             }
             replace

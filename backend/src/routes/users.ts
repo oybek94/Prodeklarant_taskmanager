@@ -240,7 +240,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),
-  password: z.string().min(6).optional(),
+  password: z.string().optional(),
   role: z.enum(['ADMIN', 'MANAGER', 'DEKLARANT', 'SELLER', 'CERTIFICATE_WORKER']).optional(),
   branchId: z.union([z.number(), z.null()]).optional(),
   position: z.string().optional(),

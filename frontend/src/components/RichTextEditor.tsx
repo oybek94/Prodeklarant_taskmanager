@@ -20,7 +20,7 @@ export default function RichTextEditor({
     <div className="bg-white dark:bg-slate-800 rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-700">
 
       <Editor
-        apiKey="zlrh6c5uci1filu0wsd013tj3aozdq4enn477iqnc7pyqv34"
+        tinymceScriptSrc="/tinymce/tinymce.min.js"
         onInit={(_evt, editor) => editorRef.current = editor}
         value={content}
         onEditorChange={handleEditorChange}

@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import MonetaryInput from '../components/MonetaryInput';
+import DateInput from '../components/DateInput';
+import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 
 interface TaskStage {
   id: number;
@@ -9,7 +12,7 @@ interface TaskStage {
   status: 'BOSHLANMAGAN' | 'TAYYOR';
   startedAt?: string;
   completedAt?: string;
-  durationMinutes?: number;
+  durationMin?: number | null;
   assignedToId?: number;
   assignedTo?: { id: number; name: string };
 }
@@ -21,6 +24,8 @@ interface TaskError {
   comment?: string;
   date: string;
   worker: { id: number; name: string };
+  createdAt: string;
+  createdById: number;
 }
 
 interface Task {
@@ -50,6 +55,7 @@ const TaskDetail = () => {
   const [updatingStage, setUpdatingStage] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'stages' | 'errors'>('stages');
   const [showErrorForm, setShowErrorForm] = useState(false);
+  const [editingErrorId, setEditingErrorId] = useState<number | null>(null);
   const [workers, setWorkers] = useState<User[]>([]);
   const [errorForm, setErrorForm] = useState({
     stageName: '',
@@ -103,14 +109,30 @@ const TaskDetail = () => {
   const handleAddError = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient.post(`/tasks/${id}/errors`, {
-        stageName: errorForm.stageName,
-        workerId: parseInt(errorForm.workerId),
-        amount: parseFloat(errorForm.amount),
-        comment: errorForm.comment,
-        date: new Date(errorForm.date),
-      });
+      const amountValue = errorForm.amount.trim();
+      if (!/^\d{1,4}$/.test(amountValue)) {
+        alert('Summa faqat USD bo\'lishi va 4 xonagacha bo\'lishi kerak');
+        return;
+      }
+      if (editingErrorId) {
+        await apiClient.patch(`/tasks/${id}/errors/${editingErrorId}`, {
+          stageName: errorForm.stageName,
+          workerId: parseInt(errorForm.workerId),
+          amount: parseFloat(amountValue),
+          comment: errorForm.comment,
+          date: new Date(errorForm.date),
+        });
+      } else {
+        await apiClient.post(`/tasks/${id}/errors`, {
+          stageName: errorForm.stageName,
+          workerId: parseInt(errorForm.workerId),
+          amount: parseFloat(amountValue),
+          comment: errorForm.comment,
+          date: new Date(errorForm.date),
+        });
+      }
       setShowErrorForm(false);
+      setEditingErrorId(null);
       setErrorForm({
         stageName: '',
         workerId: '',
@@ -134,6 +156,14 @@ const TaskDetail = () => {
     }
   };
 
+  const canEditError = (error: TaskError) => {
+    if (!user) return false;
+    if (user.role === 'ADMIN') return true;
+    const createdAt = new Date(error.createdAt).getTime();
+    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+    return error.createdById === user.id && Date.now() - createdAt <= twoDaysMs;
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('uz-UZ');
@@ -143,8 +173,18 @@ const TaskDetail = () => {
     if (!minutes) return '-';
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    if (hours > 0) return `${hours} soat ${mins} daqiqa`;
+    if (hours > 0) return `${hours} soat, ${mins} daqiqa`;
     return `${mins} daqiqa`;
+  };
+
+  const formatDateShort = (dateString?: string) => {
+    if (!dateString) return '-';
+    const d = new Date(dateString);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    return `${day}.${month} ${h}:${m}`;
   };
 
   if (loading) {
@@ -165,8 +205,35 @@ const TaskDetail = () => {
           >
             ← Orqaga
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">{task.title}</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{task.title}</h1>
         </div>
+            {task.status === 'TEKSHIRILGAN' && (
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await apiClient.get(`/sticker/${task.id}/image`, {
+                        responseType: 'blob',
+                      });
+                      const blob = new Blob([response.data], { type: 'image/png' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `sticker-${task.id}.png`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      setTimeout(() => URL.revokeObjectURL(url), 100);
+                    } catch (error: any) {
+                      alert(error.response?.data?.error || 'Stiker yuklab olishda xatolik');
+                    }
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  Stiker yuklab olish (PNG)
+                </button>
+              </div>
+            )}
       </div>
 
       {/* Task Info */}
@@ -224,50 +291,39 @@ const TaskDetail = () => {
           </nav>
         </div>
 
-        <div className="p-6">
+        <div className="p-4">
           {activeTab === 'stages' && (
-            <div className="space-y-4">
+            <div className="overflow-x-auto w-full">
+              <div className="grid grid-cols-[2fr_1.5fr_1.5fr_1.5fr_1fr_auto] gap-x-6 py-2 px-3 text-xs font-medium text-gray-500 border-b border-gray-200 w-full">
+                <div>Bosqich</div>
+                <div>Javobgar</div>
+                <div>Boshlangan</div>
+                <div>Tugallangan</div>
+                <div>Davomiyligi</div>
+                <div className="text-right">Holat</div>
+              </div>
               {task.stages.map((stage) => (
                 <div
                   key={stage.id}
-                  className="border rounded-lg p-4 hover:bg-gray-50 transition"
+                  className="grid grid-cols-[2fr_1.5fr_1.5fr_1.5fr_1fr_auto] gap-x-6 py-2 px-3 border-b border-gray-100 last:border-0 hover:bg-gray-50/50 text-sm w-full items-center"
                 >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{stage.name}</h3>
-                      <div className="text-sm text-gray-500 mt-1">
-                        {stage.assignedTo ? `Javobgar: ${stage.assignedTo.name}` : 'Javobgar belgilanmagan'}
-                      </div>
-                    </div>
+                  <div className="font-medium text-gray-900 truncate min-w-0" title={stage.name}>{stage.name}</div>
+                  <div className="text-gray-600 truncate min-w-0" title={stage.assignedTo?.name}>{stage.assignedTo?.name ?? '-'}</div>
+                  <div className="text-gray-600 whitespace-nowrap">{formatDateShort(stage.startedAt)}</div>
+                  <div className="text-gray-600 whitespace-nowrap">{formatDateShort(stage.completedAt)}</div>
+                  <div className="text-gray-600 whitespace-nowrap" title={stage.durationMin != null ? `${stage.durationMin} daqiqa` : undefined}>{formatDuration(stage.durationMin ?? undefined)}</div>
+                  <div className="flex justify-end">
                     <button
                       onClick={() => handleStageToggle(stage.id, stage.status)}
                       disabled={updatingStage === stage.id}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                      className={`px-2 py-1 rounded text-xs font-medium transition shrink-0 whitespace-nowrap ${
                         stage.status === 'TAYYOR'
                           ? 'bg-green-100 text-green-800 hover:bg-green-200'
                           : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                       } disabled:opacity-50`}
                     >
-                      {updatingStage === stage.id
-                        ? 'Yuklanmoqda...'
-                        : stage.status === 'TAYYOR'
-                        ? 'Tayyor'
-                        : 'Boshlanmagan'}
+                      {updatingStage === stage.id ? '...' : stage.status === 'TAYYOR' ? 'Tayyor' : 'Boshlanmagan'}
                     </button>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <div className="text-gray-500">Boshlangan</div>
-                      <div className="font-medium">{formatDate(stage.startedAt)}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Tugallangan</div>
-                      <div className="font-medium">{formatDate(stage.completedAt)}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Davomiyligi</div>
-                      <div className="font-medium">{formatDuration(stage.durationMinutes)}</div>
-                    </div>
                   </div>
                 </div>
               ))}
@@ -279,7 +335,17 @@ const TaskDetail = () => {
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Xatolar ro'yxati</h3>
                 <button
-                  onClick={() => setShowErrorForm(true)}
+                  onClick={() => {
+                    setEditingErrorId(null);
+                    setErrorForm({
+                      stageName: '',
+                      workerId: '',
+                      amount: '',
+                      comment: '',
+                      date: new Date().toISOString().split('T')[0],
+                    });
+                    setShowErrorForm(true);
+                  }}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
                 >
                   + Xato qo'shish
@@ -288,6 +354,9 @@ const TaskDetail = () => {
 
               {showErrorForm && (
                 <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <div className="text-sm font-semibold text-gray-700 mb-3">
+                    {editingErrorId ? 'Xatoni tahrirlash' : 'Xato qo\'shish'}
+                  </div>
                   <form onSubmit={handleAddError} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -331,20 +400,29 @@ const TaskDetail = () => {
                           Xato summasi
                         </label>
                         <input
-                          type="number"
-                          step="0.01"
+                        type="text"
+                        inputMode="numeric"
                           value={errorForm.amount}
-                          onChange={(e) => setErrorForm({ ...errorForm, amount: e.target.value })}
+                        onChange={(e) => {
+                          const nextValue = e.target.value;
+                          if (nextValue === '') {
+                            setErrorForm({ ...errorForm, amount: '' });
+                            return;
+                          }
+                          if (/^\d{0,4}$/.test(nextValue)) {
+                            setErrorForm({ ...errorForm, amount: nextValue });
+                          }
+                        }}
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="0"
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
-                        <input
-                          type="date"
+                        <DateInput
                           value={errorForm.date}
-                          onChange={(e) => setErrorForm({ ...errorForm, date: e.target.value })}
+                          onChange={(value) => setErrorForm({ ...errorForm, date: value })}
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         />
@@ -396,12 +474,32 @@ const TaskDetail = () => {
                           <div className="text-sm text-gray-600 mt-2">{error.comment}</div>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleDeleteError(error.id)}
-                        className="text-red-600 hover:text-red-800 ml-4"
-                      >
-                        O'chirish
-                      </button>
+                      {canEditError(error) && (
+                        <div className="ml-4 flex flex-col gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingErrorId(error.id);
+                              setErrorForm({
+                                stageName: error.stageName,
+                                workerId: error.worker.id.toString(),
+                                amount: String(error.amount),
+                                comment: error.comment || '',
+                                date: new Date(error.date).toISOString().split('T')[0],
+                              });
+                              setShowErrorForm(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            Tahrirlash
+                          </button>
+                          <button
+                            onClick={() => handleDeleteError(error.id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            O'chirish
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

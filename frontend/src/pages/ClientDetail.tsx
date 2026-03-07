@@ -1,7 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Icon } from '@iconify/react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import CurrencyDisplay from '../components/CurrencyDisplay';
+import DateInput from '../components/DateInput';
+
+const resolveUploadUrl = (url?: string | null) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = apiClient.defaults.baseURL || '';
+  if (!base || base.startsWith('/')) return url;
+  const origin = base.replace(/\/api\/?$/, '');
+  return `${origin}${url}`;
+};
 
 interface Task {
   id: number;
@@ -25,8 +37,11 @@ interface Contract {
   contractDate: string;
   sellerName: string;
   buyerName: string;
+  destinationCountry?: string;
   deliveryTerms?: string;
   paymentMethod?: string;
+  signatureUrl?: string;
+  sealUrl?: string;
 }
 
 interface Client {
@@ -47,10 +62,27 @@ interface Client {
   };
 }
 
+const destinationCountryOptions = [
+  'Россия',
+  'Казахстан',
+  'Кыргызстан',
+  'Таджикистан',
+  'Туркменистан',
+  'Китай',
+  'Турция',
+  'ОАЭ',
+  'Германия',
+  'Польша',
+  'Литва',
+  'Латвия',
+  'Эстония',
+];
+
 const ClientDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isManagerOnly = user?.role === 'MANAGER';
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -59,7 +91,7 @@ const ClientDetail = () => {
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [contractForm, setContractForm] = useState({
     contractNumber: '',
-    contractDate: new Date().toISOString().split('T')[0],
+    contractDate: '',
     // Sotuvchi - alohida maydonlar
     sellerName: '',
     sellerLegalAddress: '',
@@ -67,6 +99,7 @@ const ClientDetail = () => {
     // Sotib oluvchi - alohida maydonlar
     buyerName: '',
     buyerAddress: '',
+    destinationCountry: '',
     buyerDetails: '', // Qolgan rekvizitlar
     // Yuk jo'natuvchi - alohida maydonlar (ixtiyoriy)
     shipperName: '',
@@ -112,6 +145,8 @@ const ClientDetail = () => {
     gln: '', // Глобальный идентификационный номер GS1 (GLN)
     supplierDirector: '', // Руководитель Поставщика
     goodsReleasedBy: '', // Товар отпустил
+    signatureUrl: '',
+    sealUrl: '',
   });
 
   useEffect(() => {
@@ -143,6 +178,17 @@ const ClientDetail = () => {
     } finally {
       setLoadingContracts(false);
     }
+  };
+
+  const uploadContractImage = async (file: File, field: 'signatureUrl' | 'sealUrl') => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await apiClient.post('/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    setContractForm((prev) => ({ ...prev, [field]: response.data.fileUrl }));
   };
 
   // Helper function to parse details textarea
@@ -316,6 +362,7 @@ const ClientDetail = () => {
         // Sotib oluvchi
         buyerName: contractForm.buyerName,
         buyerAddress: contractForm.buyerAddress,
+        destinationCountry: contractForm.destinationCountry,
         buyerDetails: contractForm.buyerDetails || undefined, // To'g'ridan-to'g'ri textarea ma'lumotlari
         // Yuk jo'natuvchi
         shipperName: contractForm.shipperName || undefined,
@@ -330,6 +377,8 @@ const ClientDetail = () => {
         gln: contractForm.gln || undefined, // Глобальный идентификационный номер GS1 (GLN)
         supplierDirector: contractForm.supplierDirector || undefined, // Руководитель Поставщика
         goodsReleasedBy: contractForm.goodsReleasedBy || undefined, // Товар отпустил
+        signatureUrl: contractForm.signatureUrl || undefined,
+        sealUrl: contractForm.sealUrl || undefined,
       };
 
       if (editingContract) {
@@ -344,7 +393,7 @@ const ClientDetail = () => {
       setEditingContract(null);
       setContractForm({
         contractNumber: '',
-        contractDate: new Date().toISOString().split('T')[0],
+        contractDate: '',
         sellerDetails: '',
         buyerDetails: '',
         shipperDetails: '',
@@ -362,6 +411,7 @@ const ClientDetail = () => {
         sellerCorrespondentBankSwift: '',
         buyerName: '',
         buyerAddress: '',
+        destinationCountry: '',
         buyerInn: '',
         buyerOgrn: '',
         buyerBankName: '',
@@ -392,6 +442,8 @@ const ClientDetail = () => {
         gln: '',
         supplierDirector: '',
         goodsReleasedBy: '',
+        signatureUrl: '',
+        sealUrl: '',
       });
       await loadContracts();
     } catch (error: any) {
@@ -450,7 +502,7 @@ const ClientDetail = () => {
         
         setContractForm({
           contractNumber: contractData.contractNumber || '',
-          contractDate: contractData.contractDate ? contractData.contractDate.split('T')[0] : new Date().toISOString().split('T')[0],
+          contractDate: contractData.contractDate ? contractData.contractDate.split('T')[0] : '',
           // Sotuvchi
           sellerName: contractData.sellerName || '',
           sellerLegalAddress: contractData.sellerLegalAddress || '',
@@ -458,6 +510,7 @@ const ClientDetail = () => {
           // Sotib oluvchi
           buyerName: contractData.buyerName || '',
           buyerAddress: contractData.buyerAddress || '',
+          destinationCountry: contractData.destinationCountry || '',
           buyerDetails,
           // Yuk jo'natuvchi
           shipperName: contractData.shipperName || '',
@@ -503,6 +556,8 @@ const ClientDetail = () => {
           gln: contractData.gln || '',
           supplierDirector: contractData.supplierDirector || '',
           goodsReleasedBy: contractData.goodsReleasedBy || '',
+          signatureUrl: contractData.signatureUrl || '',
+          sealUrl: contractData.sealUrl || '',
         });
         setEditingContract(contract);
         setShowContractForm(true);
@@ -548,48 +603,62 @@ const ClientDetail = () => {
           >
             ← Orqaga
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">{client.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{client.name}</h1>
         </div>
       </div>
 
-      {/* Client Info */}
-      <div className="bg-white rounded-lg shadow p-6 mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <div className="text-sm text-gray-500">Telefon</div>
-            <div className="font-medium">{client.phone || '-'}</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-500">Kelishuv summasi (bitta task)</div>
-            <div className="font-medium">${Number(client.stats.dealAmount).toFixed(2)}</div>
-            {client.stats.totalDealAmount !== undefined && (
-              <>
-                <div className="text-xs text-gray-400 mt-1">Jami (PSR hisobga olingan)</div>
-                <div className="font-medium text-blue-600">${Number(client.stats.totalDealAmount).toFixed(2)}</div>
-                {client.stats.tasksWithPsr !== undefined && client.stats.tasksWithPsr > 0 && (
-                  <div className="text-xs text-gray-400 mt-1">
-                    (+${(client.stats.tasksWithPsr * 10).toFixed(2)} PSR uchun)
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-          <div>
-            <div className="text-sm text-gray-500">Jami tushgan</div>
-            <div className="font-medium">${Number(client.stats.totalIncome).toFixed(2)}</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-500">Balans</div>
-            <div
-              className={`font-medium ${
-                Number(client.stats.balance) >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}
-            >
-              ${Number(client.stats.balance).toFixed(2)}
+      {/* Client Info - faqat ADMIN uchun (Telefon, Kelishuv, Jami tushgan, Balans) */}
+      {user?.role === 'ADMIN' && client.stats && (
+        <div className="bg-white rounded-lg shadow p-6 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <div className="text-sm text-gray-500">Telefon</div>
+              <div className="font-medium">{client.phone || '-'}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Kelishuv summasi (bitta task)</div>
+              <CurrencyDisplay
+                amount={Number(client.stats.dealAmount)}
+                originalCurrency="USD"
+                className="font-medium"
+              />
+              {client.stats.totalDealAmount !== undefined && (
+                <>
+                  <div className="text-xs text-gray-400 mt-1">Jami (PSR hisobga olingan)</div>
+                  <CurrencyDisplay
+                    amount={Number(client.stats.totalDealAmount)}
+                    originalCurrency="USD"
+                    className="font-medium text-blue-600"
+                  />
+                  {client.stats.tasksWithPsr !== undefined && client.stats.tasksWithPsr > 0 && (
+                    <div className="text-xs text-gray-400 mt-1">
+                      (+<CurrencyDisplay amount={client.stats.tasksWithPsr * 10} originalCurrency="USD" /> PSR uchun)
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Jami tushgan</div>
+              <CurrencyDisplay
+                amount={Number(client.stats.totalIncome)}
+                originalCurrency="USD"
+                className="font-medium"
+              />
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Balans</div>
+              <CurrencyDisplay
+                amount={Number(client.stats.balance)}
+                originalCurrency={(client.stats.currency || 'USD') as 'USD' | 'UZS'}
+                className={`font-medium ${
+                  Number(client.stats.balance) >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              />
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Contracts Section - Shartnomalar bo'limi */}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-t-4 border-green-500">
@@ -601,7 +670,7 @@ const ClientDetail = () => {
               setEditingContract(null);
               setContractForm({
                 contractNumber: '',
-                contractDate: new Date().toISOString().split('T')[0],
+                contractDate: '',
                 sellerDetails: '',
                 buyerDetails: '',
                 shipperDetails: '',
@@ -619,6 +688,7 @@ const ClientDetail = () => {
                 sellerCorrespondentBankSwift: '',
                 buyerName: '',
                 buyerAddress: '',
+                destinationCountry: '',
                 buyerInn: '',
                 buyerOgrn: '',
                 buyerBankName: '',
@@ -679,18 +749,22 @@ const ClientDetail = () => {
                     <td className="px-6 py-4 text-sm text-gray-900">{contract.sellerName}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{contract.buyerName}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
                         <button
+                          type="button"
                           onClick={() => handleEditContract(contract)}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-600 hover:bg-blue-100 transition-colors"
+                          title="Tahrirlash"
                         >
-                          Tahrirlash
+                          <Icon icon="lucide:pencil" className="w-4 h-4" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDeleteContract(contract.id)}
-                          className="text-red-600 hover:text-red-800"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
+                          title="O'chirish"
                         >
-                          O'chirish
+                          <Icon icon="lucide:trash-2" className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -702,11 +776,12 @@ const ClientDetail = () => {
         )}
       </div>
 
-      {/* Stats by Branch */}
+      {/* Stats by Branch - MANAGER uchun ko'rinmasin */}
+      {client.stats && (
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Filial bo'yicha statistika</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Object.entries(client.stats.tasksByBranch).map(([branch, count]) => (
+          {Object.entries(client.stats.tasksByBranch || {}).map(([branch, count]) => (
             <div key={branch} className="text-center p-4 bg-gray-50 rounded-lg">
               <div className="text-2xl font-bold text-gray-800">{count}</div>
               <div className="text-sm text-gray-500">{branch}</div>
@@ -714,11 +789,13 @@ const ClientDetail = () => {
           ))}
         </div>
       </div>
+      )}
 
-      {/* Tasks */}
+      {/* Tasks - MANAGER uchun ko'rinmasin */}
+      {!isManagerOnly && (
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Buyurtmalar ({client.tasks.length})</h2>
-        {client.tasks.length === 0 ? (
+        <h2 className="text-lg font-semibold mb-4">Buyurtmalar ({client.tasks?.length ?? 0})</h2>
+        {(client.tasks?.length ?? 0) === 0 ? (
           <div className="text-center py-8 text-gray-400">Buyurtmalar yo'q</div>
         ) : (
           <div className="overflow-x-auto">
@@ -743,7 +820,7 @@ const ClientDetail = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {client.tasks.map((task) => (
+                {(client.tasks || []).map((task) => (
                   <tr key={task.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {task.title}
@@ -794,11 +871,13 @@ const ClientDetail = () => {
           </div>
         )}
       </div>
+      )}
 
-      {/* Transactions */}
+      {/* Transactions - MANAGER uchun ko'rinmasin */}
+      {!isManagerOnly && (
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold mb-4">To'lovlar ({client.transactions.length})</h2>
-        {client.transactions.length === 0 ? (
+        <h2 className="text-lg font-semibold mb-4">To'lovlar ({(client.transactions || []).length})</h2>
+        {(client.transactions?.length ?? 0) === 0 ? (
           <div className="text-center py-8 text-gray-400">To'lovlar yo'q</div>
         ) : (
           <div className="overflow-x-auto">
@@ -817,10 +896,10 @@ const ClientDetail = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {client.transactions.map((t) => (
+                {(client.transactions || []).map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ${Number(t.amount).toFixed(2)} {t.currency}
+                      <CurrencyDisplay amount={Number(t.amount)} originalCurrency={t.currency as 'USD' | 'UZS'} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(t.date)}
@@ -833,6 +912,7 @@ const ClientDetail = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Contract Form Modal */}
       {showContractForm && (
@@ -877,13 +957,28 @@ const ClientDetail = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma sanasi *</label>
-                    <input
-                      type="date"
+                    <DateInput
                       value={contractForm.contractDate}
-                      onChange={(e) => setContractForm({ ...contractForm, contractDate: e.target.value })}
+                      onChange={(value) => setContractForm({ ...contractForm, contractDate: value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
                     />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Eksport davlati *</label>
+                    <select
+                      value={contractForm.destinationCountry}
+                      onChange={(e) => setContractForm({ ...contractForm, destinationCountry: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                    >
+                      <option value="">Tanlang...</option>
+                      {destinationCountryOptions.map((country) => (
+                        <option key={country} value={country}>
+                          {country}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
@@ -1106,6 +1201,82 @@ const ClientDetail = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       placeholder="ФИО лица, отпустившего товар"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Имзо (PNG/JPG)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          await uploadContractImage(file, 'signatureUrl');
+                        } catch (error) {
+                          console.error('Error uploading signature:', error);
+                          alert('Imzoni yuklashda xatolik yuz berdi');
+                        } finally {
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    {contractForm.signatureUrl && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <img
+                          src={resolveUploadUrl(contractForm.signatureUrl)}
+                          alt="Imzo"
+                          className="h-[90px] w-auto object-contain border border-gray-200 rounded"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setContractForm({ ...contractForm, signatureUrl: '' })}
+                          className="text-sm text-red-600 hover:text-red-800"
+                        >
+                          O'chirish
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Muhr (PNG/JPG)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          await uploadContractImage(file, 'sealUrl');
+                        } catch (error) {
+                          console.error('Error uploading seal:', error);
+                          alert('Muhrni yuklashda xatolik yuz berdi');
+                        } finally {
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    {contractForm.sealUrl && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <img
+                          src={resolveUploadUrl(contractForm.sealUrl)}
+                          alt="Muhr"
+                          className="h-[215px] w-auto object-contain border border-gray-200 rounded"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setContractForm({ ...contractForm, sealUrl: '' })}
+                          className="text-sm text-red-600 hover:text-red-800"
+                        >
+                          O'chirish
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

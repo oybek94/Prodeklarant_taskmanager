@@ -2,8 +2,62 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
+import { ExamAIService } from '../services/exam-ai.service';
+import { LessonProgressionService } from '../services/lesson-progression.service';
 
 const router = Router();
+
+// GET /exams - Get exams (with optional filters) - MUST BE BEFORE /:id routes
+router.get('/', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const lessonId = req.query.lessonId ? parseInt(req.query.lessonId as string) : undefined;
+    const trainingId = req.query.trainingId ? parseInt(req.query.trainingId as string) : undefined;
+
+    const where: any = {
+      active: true,
+    };
+
+    if (lessonId) {
+      where.lessonId = lessonId;
+    }
+
+    if (trainingId) {
+      where.trainingId = trainingId;
+    }
+
+    const exams = await prisma.exam.findMany({
+      where,
+      include: {
+        lesson: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        training: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        _count: {
+          select: {
+            questions: true,
+            attempts: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    res.json(exams);
+  } catch (error) {
+    console.error('Error fetching exams:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
+  }
+});
 
 // Imtihonni boshlash
 router.post('/:id/start', requireAuth(), async (req: AuthRequest, res) => {
@@ -27,20 +81,22 @@ router.post('/:id/start', requireAuth(), async (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'Imtihon faol emas' });
     }
 
-    // O'qitishni tugallanganligini tekshirish
-    const progress = await prisma.trainingProgress.findUnique({
-      where: {
-        userId_trainingId: {
-          userId: req.user!.id,
-          trainingId: exam.trainingId,
+    // O'qitishni tugallanganligini tekshirish (faqat trainingId bo'lsa)
+    if (exam.trainingId) {
+      const trainingProgress = await prisma.trainingProgress.findUnique({
+        where: {
+          userId_trainingId: {
+            userId: req.user!.id,
+            trainingId: exam.trainingId,
+          },
         },
-      },
-    });
-
-    if (!progress || !progress.completed) {
-      return res.status(400).json({ 
-        error: 'Avval o\'qitishni tugallashingiz kerak' 
       });
+
+      if (!trainingProgress || !trainingProgress.completed) {
+        return res.status(400).json({
+          error: 'Avval o\'qitishni tugallashingiz kerak'
+        });
+      }
     }
 
     // Savollarni tayyorlash (to'g'ri javoblarni olib tashlash)
@@ -124,18 +180,30 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
 
       // To'g'ri javobni tekshirish
       if (question.type === 'SINGLE_CHOICE' || question.type === 'MULTIPLE_CHOICE') {
-        const correctAnswer = question.correctAnswer;
-        const userAnswerValue = userAnswer.answer;
-        
-        if (Array.isArray(correctAnswer) && Array.isArray(userAnswerValue)) {
-          // Multiple choice: ikkala array ham bir xil bo'lishi kerak
-          isCorrect = JSON.stringify(correctAnswer.sort()) === JSON.stringify(userAnswerValue.sort());
+        const correctRaw = question.correctAnswer;
+        const userRaw = userAnswer.answer;
+
+        // Normalize: har ikkalasini ham massivga o'tkazish
+        const normalizeAnswer = (val: any): string[] => {
+          if (Array.isArray(val)) return val.map(String).sort();
+          if (val === null || val === undefined) return [];
+          return [String(val)];
+        };
+
+        const correctNorm = normalizeAnswer(correctRaw);
+        const userNorm = normalizeAnswer(userRaw);
+
+        if (question.type === 'SINGLE_CHOICE') {
+          // Single choice: bitta to'g'ri javob
+          const correctStr = correctNorm[0] || '';
+          const userStr = userNorm[0] || '';
+          isCorrect = correctStr.trim().toLowerCase() === userStr.trim().toLowerCase();
         } else {
-          isCorrect = JSON.stringify(correctAnswer) === JSON.stringify(userAnswerValue);
+          // Multiple choice: barcha javoblar mos kelishi kerak
+          isCorrect = JSON.stringify(correctNorm) === JSON.stringify(userNorm);
         }
       } else if (question.type === 'TEXT') {
-        // Text javoblar uchun keyinroq qo'lda tekshirish mumkin
-        isCorrect = false; // Hozircha false
+        isCorrect = false;
       }
 
       if (isCorrect) {
@@ -159,11 +227,11 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
     // Imtihon natijasini yangilash
     // Agar savollar bo'lmasa, maxScore 0 bo'ladi, shuning uchun tekshirish kerak
     if (attempt.maxScore === 0) {
-      return res.status(400).json({ 
-        error: 'Imtihonda savollar mavjud emas. Avval savollar qo\'shing.' 
+      return res.status(400).json({
+        error: 'Imtihonda savollar mavjud emas. Avval savollar qo\'shing.'
       });
     }
-    
+
     const scorePercent = Math.round((totalScore / attempt.maxScore) * 100);
     const passed = scorePercent >= exam.passingScore;
 
@@ -182,6 +250,16 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
         },
       },
     });
+
+    // Lesson yoki bosqich holatini yangilash
+    if (exam.lessonId) {
+      await LessonProgressionService.updateLessonStatusAfterExam(
+        req.user!.id,
+        exam.lessonId,
+        scorePercent,
+        passed
+      );
+    }
 
     res.json({
       attempt: updatedAttempt,
@@ -367,6 +445,460 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     }
     console.error('Error updating exam:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
+  }
+});
+
+// ============================================================================
+// AI EXAM SYSTEM ENDPOINTS
+// ============================================================================
+
+/**
+ * POST /api/exams/stage/:stageId/init-manual-exam
+ * Initializes or retrieves the manual exam container for a particular Stage
+ */
+router.post('/stage/:stageId/init-manual-exam', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const stageId = parseInt(req.params.stageId);
+
+    // Get stage details
+    const stage = await prisma.trainingStage.findUnique({
+      where: { id: stageId },
+      include: {
+        steps: {
+          include: {
+            exams: {
+              where: { active: true },
+              include: { questions: { orderBy: { orderIndex: 'asc' } } }
+            }
+          },
+        },
+      },
+    });
+
+    if (!stage) {
+      return res.status(404).json({ error: 'Stage topilmadi' });
+    }
+
+    let dummyStep = stage.steps.find(s => s.title === '_AI_STAGE_EXAM');
+    let dummyStepId: number;
+
+    if (!dummyStep) {
+      const newDummyStep = await prisma.trainingStep.create({
+        data: {
+          stageId,
+          title: '_AI_STAGE_EXAM',
+          description: 'Auto-generated hidden step for stage exam',
+          isActive: false,
+          orderIndex: 9999
+        }
+      });
+      dummyStepId = newDummyStep.id;
+    } else {
+      dummyStepId = dummyStep.id;
+      if (dummyStep.exams && dummyStep.exams.length > 0) {
+        return res.json({ exam: dummyStep.exams[0], questions: dummyStep.exams[0].questions || [] });
+      }
+    }
+
+    // Create the exam container if it didn't exist
+    const exam = await prisma.exam.create({
+      data: {
+        lessonId: dummyStepId,
+        title: `${stage.title} - Mavzulashtirilgan Imtihon`,
+        description: `Mavzuga oid savollar bazasi`,
+        passingScore: 80,
+        questionCount: 0,
+        active: true,
+      },
+      include: {
+        questions: true,
+      }
+    });
+
+    res.json({ exam, questions: [] });
+  } catch (error: any) {
+    console.error('Error initializing manual exam:', error);
+    res.status(500).json({ error: 'Imtihon bazasini yaratishda xatolik', details: error.message });
+  }
+});
+
+/**
+ * POST /api/exams/ai/generate-stage/:stageId
+ * Start exam for a stage using manually-added questions (no AI generation)
+ */
+router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const stageId = parseInt(req.params.stageId);
+    const userId = req.user!.id;
+
+    // Get stage details with all steps and their exams/questions
+    const stage = await prisma.trainingStage.findUnique({
+      where: { id: stageId },
+      include: {
+        steps: {
+          include: {
+            exams: {
+              where: { active: true },
+              include: {
+                questions: {
+                  orderBy: { orderIndex: 'asc' },
+                }
+              }
+            }
+          },
+        },
+      },
+    });
+
+    if (!stage) {
+      return res.status(404).json({ error: 'Stage topilmadi' });
+    }
+
+    // Find the dummy step for this stage's exam
+    let dummyStep = stage.steps.find(s => s.title === '_AI_STAGE_EXAM');
+
+    let exam: any;
+
+    if (!dummyStep) {
+      // Create dummy step if it doesn't exist
+      dummyStep = await prisma.trainingStep.create({
+        data: {
+          stageId,
+          title: '_AI_STAGE_EXAM',
+          description: 'Auto-generated hidden step for stage exam',
+          isActive: false,
+          orderIndex: 9999
+        },
+        include: { exams: { include: { questions: true } }, materials: true }
+      }) as any;
+    }
+
+    // Get exam from dummy step
+    const existingExam = (dummyStep as any).exams?.[0];
+
+    if (!existingExam) {
+      // Create exam container if it doesn't exist
+      exam = await prisma.exam.create({
+        data: {
+          lessonId: (dummyStep as any).id,
+          title: `${stage.title} - Imtihon`,
+          description: `Bosqich imtihoni`,
+          passingScore: 80,
+          questionCount: 0,
+          active: true,
+        },
+        include: { questions: true }
+      });
+    } else {
+      // Load existing exam with questions freshly from DB
+      exam = await prisma.exam.findUnique({
+        where: { id: existingExam.id },
+        include: {
+          questions: {
+            orderBy: { orderIndex: 'asc' }
+          }
+        }
+      });
+    }
+
+    if (!exam || !exam.questions || exam.questions.length === 0) {
+      return res.status(400).json({
+        error: 'Bu bosqich uchun savollar qo\'shilmagan. Admin tomonidan savollar qo\'shilishi kerak.'
+      });
+    }
+
+    // Shuffle questions for variety on retakes
+    const shuffled = [...exam.questions].sort(() => Math.random() - 0.5);
+
+    // Strip out correctAnswer info to send to frontend
+    const questionsForUser = shuffled.map((q: any) => ({
+      id: q.id,
+      question: q.question,
+      type: q.type,
+      options: q.options,
+      points: q.points,
+    }));
+
+    const maxScore = questionsForUser.reduce((sum: number, q: any) => sum + (q.points || 1), 0);
+
+    res.json({
+      exam: {
+        id: exam.id,
+        title: exam.title,
+        description: exam.description,
+        passingScore: exam.passingScore,
+        timeLimitMin: exam.timeLimitMin,
+        isDynamic: true
+      },
+      questions: questionsForUser,
+      maxScore,
+    });
+  } catch (error: any) {
+    console.error('Error starting stage exam:', error);
+    res.status(500).json({
+      error: 'Imtihon tayyorlashda xatolik',
+      details: error.message,
+    });
+  }
+});
+
+
+/**
+ * POST /api/exams/ai/generate/:lessonId
+ * Generate AI-powered exam for a lesson
+ */
+router.post('/ai/generate/:lessonId', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const lessonId = parseInt(req.params.lessonId);
+
+    // Check if exam already exists
+    const existingExam = await prisma.exam.findFirst({
+      where: { lessonId, active: true },
+    });
+
+    if (existingExam) {
+      // Just return the existing exam to save AI cost
+      return res.json({ exam: existingExam });
+    }
+
+    // Get lesson details
+    const lesson = await prisma.trainingStep.findUnique({
+      where: { id: lessonId },
+      include: {
+        materials: {
+          where: {
+            type: 'TEXT',
+          },
+          orderBy: {
+            orderIndex: 'asc',
+          },
+        },
+      },
+    });
+
+    if (!lesson) {
+      return res.status(404).json({ error: 'Lesson topilmadi' });
+    }
+
+    // Combine all text materials into lesson content
+    const lessonContent = lesson.materials
+      .map(m => m.content || '')
+      .filter(c => c.trim().length > 0)
+      .join('\n\n');
+
+    if (!lessonContent || lessonContent.trim().length === 0) {
+      return res.status(400).json({ error: 'Lesson content topilmadi' });
+    }
+
+    // Generate exam using AI
+    const examResult = await ExamAIService.generateExam(
+      lessonId,
+      lesson.title,
+      lessonContent
+    );
+
+    // Create exam in database
+    const exam = await prisma.exam.create({
+      data: {
+        lessonId: lessonId,
+        title: `${lesson.title} - AI Generated Exam`,
+        description: `AI tomonidan avtomatik generatsiya qilingan imtihon`,
+        passingScore: examResult.passing_score,
+        questionCount: examResult.questions.length,
+        active: true,
+      },
+    });
+
+    // Create exam questions
+    const questions = await Promise.all(
+      examResult.questions.map((q, index) =>
+        prisma.examQuestion.create({
+          data: {
+            examId: exam.id,
+            question: q.question,
+            type: q.type,
+            options: q.options || [],
+            correctAnswer: q.correct_answer,
+            points: q.points,
+            orderIndex: index,
+          },
+        })
+      )
+    );
+
+    res.json({
+      exam: {
+        ...exam,
+        questions,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error generating AI exam:', error);
+    res.status(500).json({
+      error: 'AI exam generatsiya qilishda xatolik',
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/exams/:id/attempt
+ * Submit exam attempt with AI evaluation
+ */
+router.post('/:id/attempt', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const examId = parseInt(req.params.id);
+    const userId = req.user!.id;
+
+    const schema = z.object({
+      answers: z.record(z.string(), z.any()), // { questionId: answer }
+    });
+
+    const { answers } = schema.parse(req.body);
+
+    // Get exam with questions
+    const exam = await prisma.exam.findUnique({
+      where: { id: examId },
+      include: {
+        questions: {
+          orderBy: {
+            orderIndex: 'asc',
+          },
+        },
+        lesson: {
+          include: {
+            materials: {
+              where: {
+                type: 'TEXT',
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!exam) {
+      return res.status(404).json({ error: 'Exam topilmadi' });
+    }
+
+    if (!exam.lessonId || !exam.lesson) {
+      return res.status(400).json({ error: 'Exam lesson ga bog\'lanmagan' });
+    }
+
+    // Get lesson content
+    const lessonContent = exam.lesson.materials
+      .map(m => m.content || '')
+      .filter(c => c.trim().length > 0)
+      .join('\n\n');
+
+    // Evaluate answers using AI
+    const evaluationResult = await ExamAIService.evaluateAnswers(
+      exam.lesson.id,
+      exam.lesson.title,
+      lessonContent,
+      answers
+    );
+
+    // Get attempt number
+    const previousAttempts = await prisma.examAttempt.count({
+      where: {
+        userId,
+        examId,
+      },
+    });
+
+    const attemptNumber = previousAttempts + 1;
+
+    // Create exam attempt
+    const attempt = await prisma.examAttempt.create({
+      data: {
+        userId,
+        examId,
+        attemptNumber,
+        score: evaluationResult.score,
+        maxScore: 100,
+        passed: evaluationResult.passed,
+        aiFeedback: evaluationResult as any,
+      },
+    });
+
+    // Create exam answers
+    await Promise.all(
+      Object.entries(answers).map(async ([questionId, answer]) => {
+        const question = exam.questions.find(q => q.id === parseInt(questionId));
+        if (!question) return;
+
+        const questionScore = evaluationResult.question_scores[questionId] || {
+          correct: false,
+          score: 0,
+          feedback: '',
+        };
+
+        await prisma.examAnswer.create({
+          data: {
+            attemptId: attempt.id,
+            questionId: question.id,
+            answer: answer as any,
+            isCorrect: questionScore.correct,
+            points: questionScore.score,
+          },
+        });
+      })
+    );
+
+    // Update lesson status
+    if (exam.lessonId && exam.lesson) {
+      await LessonProgressionService.updateLessonStatusAfterExam(
+        userId,
+        exam.lessonId,
+        evaluationResult.score,
+        evaluationResult.passed
+      );
+    }
+
+    // Get evaluator feedback
+    const evaluatorResult = await ExamAIService.evaluateAttempt({
+      attemptId: attempt.id,
+      examId: exam.id,
+      lessonTitle: exam.lesson.title,
+      lessonContent,
+      questions: exam.questions.map(q => ({
+        id: q.id.toString(),
+        question: q.question,
+        type: q.type,
+        correctAnswer: q.correctAnswer,
+      })),
+      learnerAnswers: answers,
+      questionScores: evaluationResult.question_scores,
+      overallScore: evaluationResult.score,
+      passed: evaluationResult.passed,
+    });
+
+    // Update attempt with evaluator feedback
+    const updatedAttempt = await prisma.examAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        aiFeedback: evaluatorResult as any,
+      },
+      include: {
+        answers: {
+          include: {
+            question: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      attempt: updatedAttempt,
+      evaluation: evaluatorResult,
+    });
+  } catch (error: any) {
+    console.error('Error submitting exam attempt:', error);
+    res.status(500).json({
+      error: 'Exam attempt yuborishda xatolik',
+      details: error.message,
+    });
   }
 });
 

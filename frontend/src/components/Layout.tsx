@@ -1,208 +1,325 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Icon } from '@iconify/react';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useState } from 'react';
+import { useNotifications, getNotificationDisplayMessage, requestNotificationPermission } from '../hooks/useNotifications';
+import { useTheme } from '../contexts/ThemeContext';
+import toast from 'react-hot-toast';
+
+/** Hozircha bildirishnomalar o‘chirilgan; keyin yoqish uchun true qiling */
+const NOTIFICATIONS_ENABLED = false;
 
 const Layout = () => {
   const { user, logout } = useAuth();
+  const { notifications, confirmProcess, rejectProcess, refresh } = useNotifications();
+  const { theme, toggleTheme } = useTheme();
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!NOTIFICATIONS_ENABLED) return;
+    if (notifications.length > 0) {
+      setNotificationPanelOpen(true);
+    }
+  }, [notifications.length]);
+
+  useEffect(() => {
+    if (!NOTIFICATIONS_ENABLED) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifications.length > 0) return;
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setNotificationPanelOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notifications.length]);
+  const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const getIcon = (path: string, isActive: boolean) => {
-    const iconClass = `w-5 h-5 ${isActive ? 'text-blue-700' : 'text-gray-600'}`;
-    switch (path) {
-      case '/dashboard':
-        return (
-          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-        );
-      case '/tasks':
-        return (
-          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-          </svg>
-        );
-      case '/transactions':
-        return (
-          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      case '/clients':
-        return (
-          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-        );
-      case '/workers':
-        return (
-          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        );
-      case '/settings':
-        return (
-          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        );
-      case '/profile':
-        return (
-          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-        );
-      case '/training':
-        return (
-          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
-        );
-      case '/training/manage':
-        return (
-          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-          </svg>
-        );
-      case '/finance':
-        return (
-          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      case '/invoices':
-        return (
-          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', adminOnly: true },
-    { path: '/tasks', label: 'Tasks' },
-    { path: '/transactions', label: 'Transactions' },
-    { path: '/finance', label: 'Pul nazorati', adminOnly: true },
-    { path: '/invoices', label: 'Invoice\'lar', adminOnly: true },
-    { path: '/clients', label: 'Clients', adminOnly: true },
-    { path: '/training', label: 'O\'qitish' },
-    { path: '/training/manage', label: 'O\'qitish Boshqaruvi', adminOnly: true },
-    { path: '/workers', label: 'Workers' },
-    { path: '/settings', label: 'Sozlamalar' },
-    { path: '/profile', label: 'Profile' },
-  ];
-
-  const canAccess = (path: string) => {
-    if (path === '/workers' && user?.role !== 'ADMIN') {
-      return false;
-    }
-    if (path === '/state-payments' && user?.role !== 'ADMIN') {
-      return false;
-    }
-    if (path === '/settings' && user?.role !== 'ADMIN') {
-      return false;
+  // Desktop: default ochiq, Mobile: default yopiq
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768; // md breakpoint
     }
     return true;
+  });
+
+  // Window size'ni kuzatish
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
+
+  // Window resize'da sidebar holatini yangilash
+  useEffect(() => {
+    const handleResize = () => {
+      const desktop = window.innerWidth >= 768;
+      setIsDesktop(desktop);
+      // Desktop'ga o'tganda ochiq, Mobile'ga o'tganda yopiq
+      setSidebarOpen(desktop);
+    };
+
+    // Initial check
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
+  const isActive = (path: string) => {
+    return location.pathname === path || location.pathname.startsWith(path + '/');
+  };
+  const isSettingsPage = location.pathname.startsWith('/settings');
+  const isInvoicesPage = location.pathname === '/invoices';
+
+  const navItems = [
+    ...(user?.role === 'ADMIN' ? [{ path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' }] : []),
+    ...((user?.role !== 'SELLER') ? [
+      { path: '/tasks', label: 'Vazifalar', icon: 'lucide:clipboard-list' },
+      { path: '/invoices', label: 'Invoyslar', icon: 'lucide:file-text' },
+      { path: '/transactions', label: 'Tranzaksiyalar', icon: 'lucide:receipt' },
+    ] : []),
+    ...((user?.role === 'ADMIN' || user?.role === 'MANAGER') ? [{ path: '/clients', label: 'Mijozlar', icon: 'lucide:users' }] : []),
+    ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/leads', label: 'Lidlar', icon: 'lucide:target' }] : []),
+    ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/crm', label: 'CRM', icon: 'lucide:bar-chart-2' }] : []),
+    { path: '/training', label: 'O\'qitish', icon: 'lucide:graduation-cap' },
+    ...(user?.role === 'ADMIN' ? [{ path: '/training/manage', label: 'O\'qitish Boshqaruvi', icon: 'lucide:book-open-check' }] : []),
+    ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'lucide:user-cog' }] : []),
+    ...(user?.role === 'ADMIN' ? [{ path: '/settings', label: 'Sozlamalar', icon: 'lucide:settings' }] : []),
+    ...(user?.role !== 'SELLER' ? [{ path: '/profile', label: 'Profil', icon: 'lucide:user' }] : []),
+  ];
+
   return (
-    <div className="flex h-screen bg-gray-50 relative">
-      {/* Overlay for mobile */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 relative">
       {/* Sidebar */}
-      <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col transform transition-transform duration-300 ease-in-out ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
-      >
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-800">Prodeklarant</h1>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-gray-500 hover:text-gray-700"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {menuItems.map((item) => {
-            if (!canAccess(item.path)) return null;
-            if (item.adminOnly && user?.role !== 'ADMIN') return null;
-            const isActive = location.pathname === item.path || (item.path === '/training/manage' && location.pathname.startsWith('/training/') && location.pathname.includes('/manage'));
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => {
-                  // Close sidebar on mobile when clicking a link
-                  if (window.innerWidth < 1024) {
-                    setSidebarOpen(false);
-                  }
-                }}
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {getIcon(item.path, isActive)}
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="p-4 border-t border-gray-200">
-          <button
-            onClick={logout}
-            className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 rounded-lg transition flex items-center gap-3"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            <span>Logout</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-12' : 'w-0'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 overflow-hidden relative`}>
+        {/* Desktop: Sidebar yopiq bo'lganda - Toggle button tepada */}
+        {isDesktop && !sidebarOpen && (
+          <div className="p-3 border-b border-gray-200 flex justify-center">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-gray-500 hover:text-gray-700 lg:hidden"
+              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              aria-label="Toggle sidebar"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <Icon icon="lucide:menu" className="w-5 h-5 text-gray-600" />
             </button>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="font-medium text-gray-800">{user?.name}</div>
-              <div className="text-sm text-gray-500">{user?.role}</div>
-            </div>
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-            </div>
-          </div>
-        </header>
+        )}
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        {/* Logo/Header with Toggle Button - Desktop ochiq */}
+        {sidebarOpen && isDesktop && (
+          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <img src="/logo.png" alt="Prodeklarant" className="h-8 w-auto" />
+              <h1 className="sr-only">Prodeklarant</h1>
+              {user && (
+                <p className="text-sm text-gray-500 mt-2">{user.name}</p>
+              )}
+            </div>
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
+              aria-label="Toggle sidebar"
+            >
+              <Icon icon="lucide:x" className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+        )}
+
+        {/* Mobile: Toggle button yonida sahifa nomi - sidebar yopiq bo'lganda */}
+        {!isDesktop && !sidebarOpen && (
+          <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 p-4 flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
+              aria-label="Toggle sidebar"
+            >
+              <Icon icon="lucide:menu" className="w-5 h-5 text-gray-600" />
+            </button>
+            <img src="/logo.png" alt="Prodeklarant" className="h-6 w-auto" />
+            <h1 className="sr-only">Prodeklarant</h1>
+          </div>
+        )}
+
+        {/* Mobile: Sidebar ochiq bo'lganda header */}
+        {!isDesktop && sidebarOpen && (
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div>
+              <img src="/logo.png" alt="Prodeklarant" className="h-8 w-auto" />
+              <h1 className="sr-only">Prodeklarant</h1>
+              {user && (
+                <p className="text-sm text-gray-500 mt-2">{user.name}</p>
+              )}
+            </div>
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
+              aria-label="Toggle sidebar"
+            >
+              <Icon icon="lucide:x" className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto p-4">
+          <ul className="space-y-2">
+            {navItems.map((item) => (
+              <li key={item.path}>
+                <button
+                  onClick={() => {
+                    navigate(item.path);
+                    // Mobile'da navigation'dan keyin sidebar'ni yopish
+                    if (!isDesktop) {
+                      setSidebarOpen(false);
+                    }
+                  }}
+                  className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg transition-colors ${isActive(item.path)
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                    }`}
+                  title={!sidebarOpen ? item.label : ''}
+                >
+                  <Icon icon={item.icon} className="w-5 h-5 flex-shrink-0" />
+                  {sidebarOpen && <span>{item.label}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* Logout Button */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}
+            title={!sidebarOpen ? 'Chiqish' : ''}
+          >
+            <Icon icon="lucide:log-out" className="w-5 h-5 flex-shrink-0" />
+            {sidebarOpen && <span>Chiqish</span>}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden text-gray-900 dark:text-gray-100">
+        {/* Header; bildirishnoma qo'ng'irog'i NOTIFICATIONS_ENABLED = true qilinganda ko'rinadi */}
+        <header className="flex-shrink-0 flex items-center justify-end gap-2 px-4 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <button
+            onClick={toggleTheme}
+            className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            title={theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}
+            aria-label={theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}
+          >
+            <Icon icon={theme === 'dark' ? "lucide:sun" : "lucide:moon"} className="w-5 h-5" />
+          </button>
+          {NOTIFICATIONS_ENABLED && (
+            <div className="relative" ref={panelRef}>
+              <button
+                onClick={() => {
+                  setNotificationPanelOpen(!notificationPanelOpen);
+                  requestNotificationPermission();
+                }}
+                className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Bildirishnomalar"
+                title="Bildirishnomalar"
+              >
+                <Icon icon="lucide:bell" className="w-5 h-5" />
+                {notifications.length > 0 && (
+                  <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-xs font-medium text-white bg-red-500 rounded-full">
+                    {notifications.length > 9 ? '9+' : notifications.length}
+                  </span>
+                )}
+              </button>
+              {notificationPanelOpen && (
+                <div className="absolute right-0 mt-1 w-96 max-h-[28rem] overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl z-50">
+                  <div className="flex items-center gap-2 p-4 border-b border-gray-100 bg-gray-50 rounded-t-xl">
+                    <Icon icon="lucide:bell-ring" className="w-5 h-5 text-indigo-600" />
+                    <span className="font-semibold text-gray-800">Bildirishnomalar</span>
+                    {notifications.length > 0 && (
+                      <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-full">
+                        {notifications.length}
+                      </span>
+                    )}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 px-4 text-gray-400">
+                      <Icon icon="lucide:bell-off" className="w-12 h-12 mb-3 opacity-50" />
+                      <p className="text-sm font-medium">Bildirishnomalar yo'q</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {notifications.map((n) => (
+                        <div key={n.id} className="p-4 hover:bg-gray-50/80 transition-colors">
+                          <div className="flex gap-3 mb-3">
+                            <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center">
+                              <Icon icon="lucide:file-question" className="w-4 h-4 text-indigo-600" />
+                            </div>
+                            <p className="text-sm text-gray-800 leading-relaxed flex-1 min-w-0">{getNotificationDisplayMessage(n)}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await confirmProcess(n.taskProcessId);
+                                  if (notifications.length <= 1) setNotificationPanelOpen(false);
+                                } catch (err: any) {
+                                  toast.error(err.message || "Xatolik ro'y berdi");
+                                }
+                              }}
+                              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              <Icon icon="lucide:check" className="w-4 h-4" />
+                              Ha
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await rejectProcess(n.taskProcessId);
+                                  if (notifications.length <= 1) setNotificationPanelOpen(false);
+                                } catch (err: any) {
+                                  toast.error(err.message || "Xatolik ro'y berdi");
+                                }
+                              }}
+                              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                              <Icon icon="lucide:x" className="w-4 h-4" />
+                              Yo'q
+                            </button>
+                            {n.actionUrl && (
+                              <button
+                                onClick={() => {
+                                  navigate(n.actionUrl!);
+                                  setNotificationPanelOpen(false);
+                                }}
+                                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              >
+                                <Icon icon="lucide:external-link" className="w-4 h-4" />
+                                Vazifaga
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </header>
+        {/* Mobile: Sidebar yopiq bo'lganda top padding qo'shish */}
+        <main
+          className={`flex-1 ${isInvoicesPage ? 'overflow-hidden flex flex-col min-h-0' : 'overflow-y-auto'} p-6 ${!isDesktop && !sidebarOpen ? 'pt-20' : ''}`}
+        >
           <Outlet />
         </main>
       </div>
@@ -211,4 +328,3 @@ const Layout = () => {
 };
 
 export default Layout;
-

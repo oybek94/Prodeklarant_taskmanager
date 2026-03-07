@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && mkdir -p dist/fonts && cp -r src/fonts/* dist/fonts/ 2>/dev/null || true",
     "start": "node dist/index.js",
     "start:server": "node dist/index.js",
     "lint": "echo \"no lint configured\"",
@@ -15,18 +15,10 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "test:integration": "newman run ./openapi/lms-postman-collection.json -e ./openapi/lms-postman-environment.json --delay-request 50",
-    "test:integration:ci": "npm run test:integration"
-  },
-  "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.10.2",
-    "ts-node": "^10.9.2",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "newman": "^5.2.0"
+    "test:integration:ci": "npm run test:integration",
+    "seed:lesson": "tsx src/scripts/seed-lesson-prodeklarant-intro.ts",
+    "create:exam": "tsx src/scripts/create-exam-for-lesson.ts",
+    "list:lessons": "tsx src/scripts/list-lessons.ts"
   },
   "keywords": [],
   "author": "",
@@ -34,24 +26,32 @@
   "type": "commonjs",
   "dependencies": {
     "@prisma/client": "^5.18.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/archiver": "^7.0.0",
     "@types/bcrypt": "^6.0.0",
     "@types/multer": "^2.0.0",
     "@types/pdf-parse": "^1.1.5",
     "@types/pdfkit": "^0.17.4",
+    "@types/qrcode": "^1.5.6",
     "archiver": "^7.0.1",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
+    "docx": "^9.5.1",
     "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "multer": "^2.0.2",
+    "multer": "^2.1.0",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^8.0.1",
     "openai": "^6.15.0",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.17.2",
     "pg": "^8.16.3",
     "prisma": "^5.18.0",
+    "qrcode": "^1.5.4",
+    "xlsx": "^0.18.5",
     "zod": "^4.1.13"
   },
   "devDependencies": {
@@ -60,8 +60,10 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.10.2",
+    "@types/nodemailer": "^7.0.9",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "newman": "^5.2.0"
   }
 }

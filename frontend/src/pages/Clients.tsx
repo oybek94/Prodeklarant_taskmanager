@@ -1,25 +1,48 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import { Icon } from '@iconify/react';
+import MonetaryInput from '../components/MonetaryInput';
+import CurrencyDisplay from '../components/CurrencyDisplay';
+import DateInput from '../components/DateInput';
+import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
+import { useIsMobile } from '../utils/useIsMobile';
+import { getDefaultTnvedProducts, getTnvedProducts } from '../utils/tnvedProducts';
+
+const resolveUploadUrl = (url?: string | null) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = apiClient.defaults.baseURL || '';
+  if (!base || base.startsWith('/')) return url;
+  const origin = base.replace(/\/api\/?$/, '');
+  return `${origin}${url}`;
+};
 
 interface Client {
   id: number;
   name: string;
   dealAmount?: number | string | null;
+  dealAmountCurrency?: 'USD' | 'UZS';
   phone?: string;
   createdAt: string;
   tasks?: { id: number }[];
   balance?: number;
+  balanceCurrency?: 'USD' | 'UZS';
   totalDealAmount?: number;
   totalIncome?: number;
+  initialDebt?: number | string | null;
+  initialDebtCurrency?: 'USD' | 'UZS';
 }
 
 interface ClientDetail {
   id: number;
   name: string;
   dealAmount?: number | string | null;
+  balanceCurrency?: 'USD' | 'UZS';
   phone?: string;
   createdAt: string;
+  defaultAfterHoursPayer?: 'CLIENT' | 'COMPANY' | null;
   creditType?: string | null;
   creditLimit?: number | string | null;
   creditStartDate?: string | null;
@@ -51,6 +74,8 @@ interface ClientDetail {
 interface MonthlyTask {
   month: string;
   count: number;
+  year?: number;
+  monthIndex?: number;
 }
 
 interface ClientStats {
@@ -60,7 +85,206 @@ interface ClientStats {
   archived: { current: number; change: number };
 }
 
+const allCountries = [
+  'Afghanistan',
+  'Albania',
+  'Algeria',
+  'Andorra',
+  'Angola',
+  'Antigua and Barbuda',
+  'Argentina',
+  'Armenia',
+  'Australia',
+  'Austria',
+  'Azerbaijan',
+  'Bahamas',
+  'Bahrain',
+  'Bangladesh',
+  'Barbados',
+  'Belarus',
+  'Belgium',
+  'Belize',
+  'Benin',
+  'Bhutan',
+  'Bolivia',
+  'Bosnia and Herzegovina',
+  'Botswana',
+  'Brazil',
+  'Brunei',
+  'Bulgaria',
+  'Burkina Faso',
+  'Burundi',
+  'Cabo Verde',
+  'Cambodia',
+  'Cameroon',
+  'Canada',
+  'Central African Republic',
+  'Chad',
+  'Chile',
+  'China',
+  'Colombia',
+  'Comoros',
+  'Congo',
+  'Costa Rica',
+  'Cote d\'Ivoire',
+  'Croatia',
+  'Cuba',
+  'Cyprus',
+  'Czechia',
+  'Denmark',
+  'Djibouti',
+  'Dominica',
+  'Dominican Republic',
+  'Ecuador',
+  'Egypt',
+  'El Salvador',
+  'Equatorial Guinea',
+  'Eritrea',
+  'Estonia',
+  'Eswatini',
+  'Ethiopia',
+  'Fiji',
+  'Finland',
+  'France',
+  'Gabon',
+  'Gambia',
+  'Georgia',
+  'Germany',
+  'Ghana',
+  'Greece',
+  'Grenada',
+  'Guatemala',
+  'Guinea',
+  'Guinea-Bissau',
+  'Guyana',
+  'Haiti',
+  'Honduras',
+  'Hungary',
+  'Iceland',
+  'India',
+  'Indonesia',
+  'Iran',
+  'Iraq',
+  'Ireland',
+  'Israel',
+  'Italy',
+  'Jamaica',
+  'Japan',
+  'Jordan',
+  'Kazakhstan',
+  'Kenya',
+  'Kiribati',
+  'Kuwait',
+  'Kyrgyzstan',
+  'Laos',
+  'Latvia',
+  'Lebanon',
+  'Lesotho',
+  'Liberia',
+  'Libya',
+  'Liechtenstein',
+  'Lithuania',
+  'Luxembourg',
+  'Madagascar',
+  'Malawi',
+  'Malaysia',
+  'Maldives',
+  'Mali',
+  'Malta',
+  'Marshall Islands',
+  'Mauritania',
+  'Mauritius',
+  'Mexico',
+  'Micronesia',
+  'Moldova',
+  'Monaco',
+  'Mongolia',
+  'Montenegro',
+  'Morocco',
+  'Mozambique',
+  'Myanmar',
+  'Namibia',
+  'Nauru',
+  'Nepal',
+  'Netherlands',
+  'New Zealand',
+  'Nicaragua',
+  'Niger',
+  'Nigeria',
+  'North Korea',
+  'North Macedonia',
+  'Norway',
+  'Oman',
+  'Pakistan',
+  'Palau',
+  'Panama',
+  'Papua New Guinea',
+  'Paraguay',
+  'Peru',
+  'Philippines',
+  'Poland',
+  'Portugal',
+  'Qatar',
+  'Romania',
+  'Russia',
+  'Rwanda',
+  'Saint Kitts and Nevis',
+  'Saint Lucia',
+  'Saint Vincent and the Grenadines',
+  'Samoa',
+  'San Marino',
+  'Sao Tome and Principe',
+  'Saudi Arabia',
+  'Senegal',
+  'Serbia',
+  'Seychelles',
+  'Sierra Leone',
+  'Singapore',
+  'Slovakia',
+  'Slovenia',
+  'Solomon Islands',
+  'Somalia',
+  'South Africa',
+  'South Korea',
+  'South Sudan',
+  'Spain',
+  'Sri Lanka',
+  'Sudan',
+  'Suriname',
+  'Sweden',
+  'Switzerland',
+  'Syria',
+  'Taiwan',
+  'Tajikistan',
+  'Tanzania',
+  'Thailand',
+  'Timor-Leste',
+  'Togo',
+  'Tonga',
+  'Trinidad and Tobago',
+  'Tunisia',
+  'Turkey',
+  'Turkmenistan',
+  'Tuvalu',
+  'Uganda',
+  'Ukraine',
+  'United Arab Emirates',
+  'United Kingdom',
+  'United States',
+  'Uruguay',
+  'Uzbekistan',
+  'Vanuatu',
+  'Vatican City',
+  'Venezuela',
+  'Vietnam',
+  'Yemen',
+  'Zambia',
+  'Zimbabwe',
+];
+
 const Clients = () => {
+  const { user } = useAuth();
+  const isManagerOnly = user?.role === 'MANAGER';
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -93,12 +317,18 @@ const Clients = () => {
     correspondentBank: '',
     correspondentBankAccount: '',
     correspondentBankSwift: '',
+    dealAmountExchangeRate: '',
+    initialDebt: '',
+    initialDebtCurrency: 'USD' as 'USD' | 'UZS',
   });
+  const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
   const [editForm, setEditForm] = useState({
     name: '',
     dealAmount: '',
     dealAmountCurrency: 'USD' as 'USD' | 'UZS',
+    dealAmountExchangeRate: '',
     phone: '',
+    defaultAfterHoursPayer: 'CLIENT' as 'CLIENT' | 'COMPANY',
     creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
     creditLimit: '',
     creditStartDate: '',
@@ -115,24 +345,233 @@ const Clients = () => {
     correspondentBank: '',
     correspondentBankAccount: '',
     correspondentBankSwift: '',
+    initialDebt: '',
+    initialDebtCurrency: 'USD' as 'USD' | 'UZS',
   });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [savingContract, setSavingContract] = useState(false);
+  const [hasShipper, setHasShipper] = useState(false);
+  const [hasConsignee, setHasConsignee] = useState(false);
+  const [contracts, setContracts] = useState<any[]>([]);
+  const [loadingContracts, setLoadingContracts] = useState(false);
+  const [editingContractId, setEditingContractId] = useState<number | null>(null);
+  const [contractModalTab, setContractModalTab] = useState<'main' | 'spec' | 'terms' | 'customs'>('main');
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [transactionForm, setTransactionForm] = useState({
+    amount: '',
+    currency: 'USD' as 'USD' | 'UZS',
+    date: new Date().toISOString().split('T')[0],
+    comment: '',
+    type: 'INCOME' as 'INCOME' | 'EXPENSE' | 'SALARY',
+  });
+  const [savingTransaction, setSavingTransaction] = useState(false);
+  const [selectedMonthForTasks, setSelectedMonthForTasks] = useState<{ label: string; year: number; monthIndex: number } | null>(null);
+  type SpecRow = {
+    productName: string;
+    botanicalName?: string;
+    tnvedCode?: string;
+    quantity: number;
+    unit?: string;
+    unitPrice?: number;
+    totalPrice?: number;
+    specNumber?: string;
+    productNumber?: string;
+  };
+  function getDefaultSpecFromTnved(): SpecRow[] {
+    return getDefaultTnvedProducts().map((p) => ({
+      productName: p.name,
+      botanicalName: p.botanicalName || '',
+      tnvedCode: p.code || '',
+      quantity: 0,
+      unit: 'кг',
+      unitPrice: 0,
+      totalPrice: 0,
+      specNumber: '',
+      productNumber: '',
+    }));
+  }
+  /** Har bir shartnoma spetsifikatsiyasida Sozlamalar (TNVED) ro'yxati bo'lishi uchun: mavjud spec ga TNVED da bor lekin spec da yo'q mahsulotlarni qo'shamiz. */
+  function ensureSpecHasTnvedProducts(currentSpec: SpecRow[]): SpecRow[] {
+    const defaults = getDefaultTnvedProducts();
+    const defaultsByName = new Map(
+      defaults.map((item) => [item.name.trim(), item])
+    );
+    const normalized = (currentSpec || []).map((row) => {
+      const key = row.productName?.trim() || '';
+      const match = defaultsByName.get(key);
+      if (!match) return row;
+      return {
+        ...row,
+        tnvedCode: row.tnvedCode || match.code || '',
+        botanicalName: row.botanicalName || match.botanicalName || '',
+      };
+    });
+    const namesInSpec = new Set(normalized.map((r) => r.productName?.trim()).filter(Boolean));
+    const toAdd = defaults
+      .filter((p) => !namesInSpec.has(p.name?.trim()))
+      .map((p) => ({
+        productName: p.name,
+        botanicalName: p.botanicalName || '',
+        tnvedCode: p.code || '',
+        quantity: 0,
+        unit: 'кг' as const,
+        unitPrice: 0,
+        totalPrice: 0,
+        specNumber: '',
+        productNumber: '',
+      }));
+    return [...normalized, ...toAdd];
+  }
+  const [contractForm, setContractForm] = useState<{
+    contractNumber: string;
+    contractDate: string;
+    contractCurrency: string;
+    emails: string;
+    sellerName: string;
+    sellerInn: string;
+    sellerLegalAddress: string;
+    sellerDetails: string;
+    gln: string;
+    buyerName: string;
+    buyerInn: string;
+    buyerAddress: string;
+    destinationCountry: string;
+    buyerDetails: string;
+    deliveryTerms: string[];
+    customsAddress: string[];
+    shipperName: string;
+    shipperInn: string;
+    shipperAddress: string;
+    shipperDetails: string;
+    consigneeName: string;
+    consigneeInn: string;
+    consigneeAddress: string;
+    consigneeDetails: string;
+    supplierDirector: string;
+    buyerDirector: string;
+    consigneeDirector: string;
+    goodsReleasedBy: string;
+    signatureUrl: string;
+    sealUrl: string;
+    sellerSignatureUrl: string;
+    sellerSealUrl: string;
+    buyerSignatureUrl: string;
+    buyerSealUrl: string;
+    consigneeSignatureUrl: string;
+    consigneeSealUrl: string;
+    specification: SpecRow[];
+  }>({
+    contractNumber: '',
+    contractDate: '',
+    contractCurrency: 'USD',
+    emails: '',
+    sellerName: '',
+    sellerInn: '',
+    sellerLegalAddress: '',
+    sellerDetails: '',
+    gln: '',
+    buyerName: '',
+    buyerInn: '',
+    buyerAddress: '',
+    destinationCountry: '',
+    buyerDetails: '',
+    deliveryTerms: [''],
+    customsAddress: [''],
+    shipperName: '',
+    shipperInn: '',
+    shipperAddress: '',
+    shipperDetails: '',
+    consigneeName: '',
+    consigneeInn: '',
+    consigneeAddress: '',
+    consigneeDetails: '',
+    supplierDirector: '',
+    buyerDirector: '',
+    consigneeDirector: '',
+    goodsReleasedBy: '',
+    signatureUrl: '',
+    sealUrl: '',
+    sellerSignatureUrl: '',
+    sellerSealUrl: '',
+    buyerSignatureUrl: '',
+    buyerSealUrl: '',
+    consigneeSignatureUrl: '',
+    consigneeSealUrl: '',
+    specification: [],
+  });
+  const contractFormRef = useRef(contractForm);
+  contractFormRef.current = contractForm;
+  const setContractFormAndRef = (update: React.SetStateAction<typeof contractForm>) => {
+    if (typeof update === 'function') {
+      setContractForm((prev) => {
+        const next = (update as (prev: typeof contractForm) => typeof contractForm)(prev);
+        contractFormRef.current = next;
+        return next;
+      });
+    } else {
+      contractFormRef.current = update;
+      setContractForm(update);
+    }
+  };
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMobile = useIsMobile();
+  const isNewClientRoute = location.pathname === '/clients/new';
+  const editMatch = location.pathname.match(/^\/clients\/(\d+)\/edit$/);
+  const editClientId = editMatch ? Number(editMatch[1]) : null;
+  const showClientForm = showForm || (isMobile && isNewClientRoute);
+  const showEditClientForm = showEditModal || (isMobile && !!editClientId);
 
   useEffect(() => {
     loadClients();
     loadStats();
   }, []);
 
+  // Invoices sahifasidan Mijoz yoki Shartnoma ustiga bosilganda ochilgan oynalarni ochish
+  useEffect(() => {
+    const state = location.state as { openClientId?: number; openContractId?: number } | null;
+    const openClientId = state?.openClientId;
+    const openContractId = state?.openContractId;
+    if (openClientId != null && Number.isFinite(openClientId)) {
+      loadClientDetail(Number(openClientId)).then(() => {
+        if (openContractId != null && Number.isFinite(openContractId)) {
+          openContractEditById(Number(openContractId));
+        }
+      });
+      navigate('/clients', { replace: true, state: {} });
+    }
+  }, [location.state]);
+
+  // MANAGER: faqat shartnomalar; mijoz qo'shish/tahrirlash sahifalariga kirishni taqiqlash
+  useEffect(() => {
+    if (!isManagerOnly) return;
+    if (location.pathname === '/clients/new' || /^\/clients\/\d+\/edit$/.test(location.pathname)) {
+      navigate('/clients', { replace: true });
+    }
+  }, [isManagerOnly, location.pathname, navigate]);
+
   // Handle ESC key to close modals
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (showClientModal) {
+        if (showContractModal) {
+          setShowContractModal(false);
+        } else if (showClientModal) {
           setShowClientModal(false);
           setSelectedClient(null);
-        } else if (showForm) {
-          setShowForm(false);
+        } else if (showForm || isNewClientRoute) {
+          if (isMobile && isNewClientRoute) {
+            navigate('/clients');
+          } else {
+            setShowForm(false);
+          }
+        } else if (showEditModal || editClientId) {
+          if (isMobile && editClientId) {
+            navigate('/clients');
+          } else {
+            setShowEditModal(false);
+            setEditingClient(null);
+          }
         }
       }
     };
@@ -141,7 +580,53 @@ const Clients = () => {
     return () => {
       window.removeEventListener('keydown', handleEscKey);
     };
-  }, [showForm, showClientModal]);
+  }, [showForm, showClientModal, showContractModal, showEditModal, isMobile, isNewClientRoute, editClientId, navigate]);
+
+  const resetContractForm = () => {
+    const empty = {
+      contractNumber: '',
+      contractDate: '',
+      contractCurrency: 'USD',
+      emails: '',
+      sellerName: '',
+      sellerInn: '',
+      sellerLegalAddress: '',
+      sellerDetails: '',
+      gln: '',
+      buyerName: '',
+      buyerInn: '',
+      buyerAddress: '',
+      destinationCountry: '',
+      buyerDetails: '',
+      deliveryTerms: [''],
+      customsAddress: [''],
+      shipperName: '',
+      shipperInn: '',
+      shipperAddress: '',
+      shipperDetails: '',
+      consigneeName: '',
+      consigneeInn: '',
+      consigneeAddress: '',
+      consigneeDetails: '',
+      supplierDirector: '',
+      buyerDirector: '',
+      consigneeDirector: '',
+      goodsReleasedBy: '',
+      signatureUrl: '',
+      sealUrl: '',
+      sellerSignatureUrl: '',
+      sellerSealUrl: '',
+      buyerSignatureUrl: '',
+      buyerSealUrl: '',
+      consigneeSignatureUrl: '',
+      consigneeSealUrl: '',
+      specification: [],
+    };
+    setContractFormAndRef(empty);
+    setHasShipper(false);
+    setHasConsignee(false);
+    setEditingContractId(null);
+  };
 
   const loadClients = async () => {
     try {
@@ -156,8 +641,9 @@ const Clients = () => {
             const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
             const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
             const totalIncome = client.transactions?.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0) || 0;
-            const balance = totalDealAmount - totalIncome;
-            return { ...client, balance, totalDealAmount, totalIncome };
+            const initialDebt = Number(client.initialDebt || 0);
+            const balance = totalDealAmount - totalIncome + initialDebt;
+            return { ...client, balance, totalDealAmount, totalIncome, initialDebt };
           }
           return client;
         });
@@ -188,15 +674,372 @@ const Clients = () => {
       const response = await apiClient.get(`/clients/${clientId}`);
       setSelectedClient(response.data);
       setShowClientModal(true);
-      
+
       // Load monthly tasks data
-      const monthlyResponse = await apiClient.get(`/clients/${clientId}/monthly-tasks`);
+      // Using a timestamp cache buster to ensure old cached responses without year/monthIndex aren't used
+      const monthlyResponse = await apiClient.get(`/clients/${clientId}/monthly-tasks?_t=${Date.now()}`);
       setMonthlyTasks(monthlyResponse.data);
+
+      // Load contracts
+      await loadContracts(clientId);
     } catch (error) {
       console.error('Error loading client detail:', error);
       alert('Mijoz ma\'lumotlarini yuklashda xatolik yuz berdi');
     } finally {
       setLoadingClient(false);
+    }
+  };
+
+  const loadContracts = async (clientId: number) => {
+    try {
+      setLoadingContracts(true);
+      const response = await apiClient.get(`/contracts/client/${clientId}`);
+      if (Array.isArray(response.data)) {
+        setContracts(response.data);
+      } else {
+        setContracts([]);
+      }
+    } catch (error) {
+      console.error('Error loading contracts:', error);
+      setContracts([]);
+    } finally {
+      setLoadingContracts(false);
+    }
+  };
+
+  type ContractImageField = 'signatureUrl' | 'sealUrl' | 'sellerSignatureUrl' | 'sellerSealUrl' | 'buyerSignatureUrl' | 'buyerSealUrl' | 'consigneeSignatureUrl' | 'consigneeSealUrl';
+  const uploadContractImage = async (file: File, field: ContractImageField) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await apiClient.post('/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    const fileUrl = response.data?.fileUrl ?? '';
+    if (!fileUrl) {
+      alert('Yuklash javobida URL topilmadi');
+      return;
+    }
+    contractFormRef.current = { ...contractFormRef.current, [field]: fileUrl };
+    setContractForm((prev) => ({ ...prev, [field]: fileUrl }));
+  };
+
+  const handleContractSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClient) return;
+    const form = contractFormRef.current;
+    const joinPreserveEmpty = (values: string[]) => values.join('\n');
+    const hasAnyValue = (values: string[]) => values.some((v) => v.trim() !== '');
+    const deliveryTermsValue = joinPreserveEmpty(form.deliveryTerms);
+    const customsAddressValue = joinPreserveEmpty(form.customsAddress);
+    if (!form.contractNumber || !form.contractDate) {
+      alert('Shartnoma raqami va sanasi majburiy');
+      return;
+    }
+    if (!form.sellerName || !form.sellerLegalAddress) {
+      alert('Sotuvchi ma\'lumotlari to\'liq bo\'lishi kerak');
+      return;
+    }
+    if (!form.buyerName || !form.buyerAddress) {
+      alert('Sotib oluvchi ma\'lumotlari to\'liq bo\'lishi kerak');
+      return;
+    }
+    if (!form.destinationCountry || !form.destinationCountry.trim()) {
+      alert('Sotib oluvchi davlati majburiy');
+      return;
+    }
+    if (!form.supplierDirector) {
+      alert('Direktor F.I.O. majburiy');
+      return;
+    }
+
+    try {
+      setSavingContract(true);
+      const payload: any = {
+        clientId: selectedClient.id,
+        contractNumber: form.contractNumber,
+        contractDate: form.contractDate,
+        contractCurrency: (form.contractCurrency?.trim() || 'USD'),
+        emails: form.emails?.trim() || undefined,
+        sellerName: form.sellerName,
+        sellerInn: form.sellerInn || undefined,
+        sellerLegalAddress: form.sellerLegalAddress,
+        sellerDetails: form.sellerDetails || undefined,
+        gln: form.gln || undefined,
+        buyerName: form.buyerName,
+        buyerInn: form.buyerInn || undefined,
+        buyerAddress: form.buyerAddress,
+        destinationCountry: form.destinationCountry.trim(),
+        buyerDetails: form.buyerDetails || undefined,
+        deliveryTerms: hasAnyValue(form.deliveryTerms) ? deliveryTermsValue : undefined,
+        customsAddress: hasAnyValue(form.customsAddress) ? customsAddressValue : undefined,
+        supplierDirector: form.supplierDirector?.trim() || '',
+        buyerDirector: form.buyerDirector?.trim() || '',
+        consigneeDirector: form.consigneeDirector?.trim() || '',
+        goodsReleasedBy: form.goodsReleasedBy || undefined,
+        signatureUrl: form.signatureUrl?.trim() || undefined,
+        sealUrl: form.sealUrl?.trim() || undefined,
+        sellerSignatureUrl: (form.sellerSignatureUrl?.trim() ?? '') === '' ? '' : form.sellerSignatureUrl,
+        sellerSealUrl: (form.sellerSealUrl?.trim() ?? '') === '' ? '' : form.sellerSealUrl,
+        buyerSignatureUrl: (form.buyerSignatureUrl?.trim() ?? '') === '' ? '' : form.buyerSignatureUrl,
+        buyerSealUrl: (form.buyerSealUrl?.trim() ?? '') === '' ? '' : form.buyerSealUrl,
+        consigneeSignatureUrl: (form.consigneeSignatureUrl?.trim() ?? '') === '' ? '' : form.consigneeSignatureUrl,
+        consigneeSealUrl: (form.consigneeSealUrl?.trim() ?? '') === '' ? '' : form.consigneeSealUrl,
+      };
+
+      if (hasShipper) {
+        payload.shipperName = form.shipperName || undefined;
+        payload.shipperInn = form.shipperInn || undefined;
+        payload.shipperAddress = form.shipperAddress || undefined;
+        payload.shipperDetails = form.shipperDetails || undefined;
+      } else {
+        payload.shipperName = '';
+        payload.shipperInn = '';
+        payload.shipperAddress = '';
+        payload.shipperDetails = '';
+      }
+
+      if (hasConsignee) {
+        payload.consigneeName = form.consigneeName || undefined;
+        payload.consigneeInn = form.consigneeInn || undefined;
+        payload.consigneeAddress = form.consigneeAddress || undefined;
+        payload.consigneeDetails = form.consigneeDetails || undefined;
+      } else {
+        payload.consigneeName = '';
+        payload.consigneeInn = '';
+        payload.consigneeAddress = '';
+        payload.consigneeDetails = '';
+      }
+
+      payload.specification = (form.specification || []).map((row) => ({
+        productName: row.productName || '',
+        botanicalName: row.botanicalName || undefined,
+        tnvedCode: row.tnvedCode || undefined,
+        quantity: Number(row.quantity) || 0,
+        unit: row.unit || undefined,
+        unitPrice: row.unitPrice != null ? Number(row.unitPrice) : undefined,
+        totalPrice: row.totalPrice != null ? Number(row.totalPrice) : (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0),
+        specNumber: row.specNumber || undefined,
+        productNumber: row.productNumber || undefined,
+      }));
+
+      console.log('Saving contract with payload:', payload);
+      if (editingContractId) {
+        // Tahrirlash
+        const response = await apiClient.put(`/contracts/${editingContractId}`, payload);
+        console.log('Contract updated:', response.data);
+      } else {
+        // Yangi qo'shish
+        const response = await apiClient.post('/contracts', payload);
+        console.log('Contract created:', response.data);
+      }
+      setShowContractModal(false);
+      resetContractForm();
+      setEditingContractId(null);
+      await loadContracts(selectedClient.id);
+      await loadClientDetail(selectedClient.id);
+      await loadClients();
+      await loadStats();
+    } catch (error: any) {
+      console.error('Error creating contract:', error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Shartnoma yaratishda xatolik yuz berdi';
+      alert(errorMessage);
+    } finally {
+      setSavingContract(false);
+    }
+  };
+
+  const handleEditContract = async (contract: any) => {
+    setEditingContractId(contract.id);
+    setShowContractModal(true);
+    const parseListPreservingEmpty = (value?: string | null) => {
+      const items = String(value ?? '').split('\n');
+      return items.length ? items : [''];
+    };
+    try {
+      const response = await apiClient.get(`/contracts/${contract.id}`);
+      const c = response.data;
+      let spec: SpecRow[] = [];
+      if (c.specification) {
+        if (Array.isArray(c.specification)) spec = c.specification;
+        else if (typeof c.specification === 'string') {
+          try { spec = JSON.parse(c.specification); } catch { spec = []; }
+        }
+      }
+      setContractFormAndRef({
+        contractNumber: c.contractNumber || '',
+        contractDate: c.contractDate ? String(c.contractDate).split('T')[0] : '',
+        contractCurrency: (c as any).contractCurrency || 'USD',
+        emails: (c as any).emails || '',
+        sellerName: c.sellerName || '',
+        sellerInn: c.sellerInn || '',
+        sellerLegalAddress: c.sellerLegalAddress || '',
+        sellerDetails: c.sellerDetails || '',
+        gln: c.gln || '',
+        buyerName: c.buyerName || '',
+        buyerInn: c.buyerInn || '',
+        buyerAddress: c.buyerAddress || '',
+        destinationCountry: c.destinationCountry || '',
+        buyerDetails: c.buyerDetails || '',
+        deliveryTerms: parseListPreservingEmpty(c.deliveryTerms),
+        customsAddress: parseListPreservingEmpty(c.customsAddress),
+        shipperName: c.shipperName || '',
+        shipperInn: c.shipperInn || '',
+        shipperAddress: c.shipperAddress || '',
+        shipperDetails: c.shipperDetails || '',
+        consigneeName: c.consigneeName || '',
+        consigneeInn: c.consigneeInn || '',
+        consigneeAddress: c.consigneeAddress || '',
+        consigneeDetails: c.consigneeDetails || '',
+        supplierDirector: c.supplierDirector || '',
+        buyerDirector: (c as any).buyerDirector || '',
+        consigneeDirector: (c as any).consigneeDirector || '',
+        goodsReleasedBy: c.goodsReleasedBy || '',
+        signatureUrl: c.signatureUrl ?? '',
+        sealUrl: c.sealUrl ?? '',
+        sellerSignatureUrl: c.sellerSignatureUrl ?? '',
+        sellerSealUrl: c.sellerSealUrl ?? '',
+        buyerSignatureUrl: c.buyerSignatureUrl ?? '',
+        buyerSealUrl: c.buyerSealUrl ?? '',
+        consigneeSignatureUrl: c.consigneeSignatureUrl ?? '',
+        consigneeSealUrl: c.consigneeSealUrl ?? '',
+        specification: spec,
+      });
+      setHasShipper(!!c.shipperName);
+      setHasConsignee(!!c.consigneeName);
+    } catch (err) {
+      console.error('Error loading contract for edit:', err);
+      let spec: SpecRow[] = [];
+      if (contract.specification) {
+        if (Array.isArray(contract.specification)) spec = contract.specification;
+        else if (typeof contract.specification === 'string') {
+          try { spec = JSON.parse(contract.specification); } catch { spec = []; }
+        }
+      }
+      setContractFormAndRef({
+        contractNumber: contract.contractNumber || '',
+        contractDate: contract.contractDate ? contract.contractDate.split('T')[0] : '',
+        contractCurrency: (contract as any).contractCurrency || 'USD',
+        emails: (contract as any).emails || '',
+        sellerName: contract.sellerName || '',
+        sellerInn: contract.sellerInn || '',
+        sellerLegalAddress: contract.sellerLegalAddress || '',
+        sellerDetails: contract.sellerDetails || '',
+        gln: contract.gln || '',
+        buyerName: contract.buyerName || '',
+        buyerInn: contract.buyerInn || '',
+        buyerAddress: contract.buyerAddress || '',
+        destinationCountry: contract.destinationCountry || '',
+        buyerDetails: contract.buyerDetails || '',
+        deliveryTerms: parseListPreservingEmpty(contract.deliveryTerms),
+        customsAddress: parseListPreservingEmpty(contract.customsAddress),
+        shipperName: contract.shipperName || '',
+        shipperInn: contract.shipperInn || '',
+        shipperAddress: contract.shipperAddress || '',
+        shipperDetails: contract.shipperDetails || '',
+        consigneeName: contract.consigneeName || '',
+        consigneeInn: contract.consigneeInn || '',
+        consigneeAddress: contract.consigneeAddress || '',
+        consigneeDetails: contract.consigneeDetails || '',
+        supplierDirector: contract.supplierDirector || '',
+        buyerDirector: (contract as any).buyerDirector || '',
+        consigneeDirector: (contract as any).consigneeDirector || '',
+        goodsReleasedBy: contract.goodsReleasedBy || '',
+        signatureUrl: contract.signatureUrl ?? '',
+        sealUrl: contract.sealUrl ?? '',
+        sellerSignatureUrl: contract.sellerSignatureUrl ?? '',
+        sellerSealUrl: contract.sellerSealUrl ?? '',
+        buyerSignatureUrl: contract.buyerSignatureUrl ?? '',
+        buyerSealUrl: contract.buyerSealUrl ?? '',
+        consigneeSignatureUrl: contract.consigneeSignatureUrl ?? '',
+        consigneeSealUrl: contract.consigneeSealUrl ?? '',
+        specification: spec,
+      });
+      setHasShipper(!!contract.shipperName);
+      setHasConsignee(!!contract.consigneeName);
+    }
+  };
+
+  const openContractEditById = async (contractId: number) => {
+    setEditingContractId(contractId);
+    setShowContractModal(true);
+    const parseListPreservingEmpty = (value?: string | null) => {
+      const items = String(value ?? '').split('\n');
+      return items.length ? items : [''];
+    };
+    try {
+      const response = await apiClient.get(`/contracts/${contractId}`);
+      const c = response.data;
+      let spec: SpecRow[] = [];
+      if (c.specification) {
+        if (Array.isArray(c.specification)) spec = c.specification;
+        else if (typeof c.specification === 'string') {
+          try { spec = JSON.parse(c.specification); } catch { spec = []; }
+        }
+      }
+      setContractFormAndRef({
+        contractNumber: c.contractNumber || '',
+        contractDate: c.contractDate ? String(c.contractDate).split('T')[0] : '',
+        contractCurrency: (c as any).contractCurrency || 'USD',
+        emails: (c as any).emails || '',
+        sellerName: c.sellerName || '',
+        sellerInn: c.sellerInn || '',
+        sellerLegalAddress: c.sellerLegalAddress || '',
+        sellerDetails: c.sellerDetails || '',
+        gln: c.gln || '',
+        buyerName: c.buyerName || '',
+        buyerInn: c.buyerInn || '',
+        buyerAddress: c.buyerAddress || '',
+        destinationCountry: c.destinationCountry || '',
+        buyerDetails: c.buyerDetails || '',
+        deliveryTerms: parseListPreservingEmpty(c.deliveryTerms),
+        customsAddress: parseListPreservingEmpty(c.customsAddress),
+        shipperName: c.shipperName || '',
+        shipperInn: c.shipperInn || '',
+        shipperAddress: c.shipperAddress || '',
+        shipperDetails: c.shipperDetails || '',
+        consigneeName: c.consigneeName || '',
+        consigneeInn: c.consigneeInn || '',
+        consigneeAddress: c.consigneeAddress || '',
+        consigneeDetails: c.consigneeDetails || '',
+        supplierDirector: c.supplierDirector || '',
+        buyerDirector: (c as any).buyerDirector || '',
+        consigneeDirector: (c as any).consigneeDirector || '',
+        goodsReleasedBy: c.goodsReleasedBy || '',
+        signatureUrl: c.signatureUrl ?? '',
+        sealUrl: c.sealUrl ?? '',
+        sellerSignatureUrl: c.sellerSignatureUrl ?? '',
+        sellerSealUrl: c.sellerSealUrl ?? '',
+        buyerSignatureUrl: c.buyerSignatureUrl ?? '',
+        buyerSealUrl: c.buyerSealUrl ?? '',
+        consigneeSignatureUrl: c.consigneeSignatureUrl ?? '',
+        consigneeSealUrl: c.consigneeSealUrl ?? '',
+        specification: spec,
+      });
+      setHasShipper(!!c.shipperName);
+      setHasConsignee(!!c.consigneeName);
+    } catch (err) {
+      console.error('Error loading contract for edit:', err);
+      alert('Shartnoma yuklanmadi');
+    }
+  };
+
+  const handleDeleteContract = async (contractId: number) => {
+    if (!confirm('Shartnomani o\'chirishni tasdiqlaysizmi?')) {
+      return;
+    }
+    try {
+      await apiClient.delete(`/contracts/${contractId}`);
+      if (selectedClient) {
+        await loadContracts(selectedClient.id);
+        await loadClientDetail(selectedClient.id);
+      }
+      await loadClients();
+      alert('Shartnoma muvaffaqiyatli o\'chirildi');
+    } catch (error: any) {
+      console.error('Error deleting contract:', error);
+      alert(error.response?.data?.error || 'Shartnoma o\'chirishda xatolik yuz berdi');
     }
   };
 
@@ -207,6 +1050,7 @@ const Clients = () => {
         name: form.name,
         dealAmount: form.dealAmount ? parseFloat(form.dealAmount) : undefined,
         dealAmountCurrency: form.dealAmountCurrency,
+        dealAmountExchangeRate: form.dealAmount && form.dealAmountExchangeRate ? parseFloat(form.dealAmountExchangeRate) : undefined,
         phone: form.phone || undefined,
         // Shartnoma maydonlari
         contractNumber: form.contractNumber || undefined,
@@ -221,6 +1065,8 @@ const Clients = () => {
         correspondentBank: form.correspondentBank || undefined,
         correspondentBankAccount: form.correspondentBankAccount || undefined,
         correspondentBankSwift: form.correspondentBankSwift || undefined,
+        initialDebt: form.initialDebt ? parseFloat(form.initialDebt) : undefined,
+        initialDebtCurrency: form.initialDebtCurrency || 'USD',
       };
 
       // Handle credit fields - if creditType is empty, set to null, otherwise use the value
@@ -240,14 +1086,19 @@ const Clients = () => {
       }
 
       await apiClient.post('/clients', createData);
-      setShowForm(false);
-      setForm({ 
-        name: '', 
-        dealAmount: '', 
-        dealAmountCurrency: 'USD', 
-        phone: '', 
-        creditType: '', 
-        creditLimit: '', 
+      if (isMobile && isNewClientRoute) {
+        navigate('/clients');
+      } else {
+        setShowForm(false);
+      }
+      setForm({
+        name: '',
+        dealAmount: '',
+        dealAmountCurrency: 'USD',
+        dealAmountExchangeRate: '',
+        phone: '',
+        creditType: '',
+        creditLimit: '',
         creditStartDate: '',
         contractNumber: '',
         address: '',
@@ -261,6 +1112,8 @@ const Clients = () => {
         correspondentBank: '',
         correspondentBankAccount: '',
         correspondentBankSwift: '',
+        initialDebt: '',
+        initialDebtCurrency: 'USD' as 'USD' | 'UZS',
       });
       await loadClients();
       await loadStats();
@@ -276,7 +1129,9 @@ const Clients = () => {
       name: client.name,
       dealAmount: client.dealAmount ? client.dealAmount.toString() : '',
       dealAmountCurrency: (client.dealAmountCurrency || 'USD') as 'USD' | 'UZS',
+      dealAmountExchangeRate: (client as any).dealAmountExchangeRate ? (client as any).dealAmountExchangeRate.toString() : '',
       phone: client.phone || '',
+      defaultAfterHoursPayer: (client.defaultAfterHoursPayer === 'COMPANY' ? 'COMPANY' : 'CLIENT') as 'CLIENT' | 'COMPANY',
       creditType: client.creditType || '',
       creditLimit: client.creditLimit ? client.creditLimit.toString() : '',
       creditStartDate: client.creditStartDate ? new Date(client.creditStartDate).toISOString().split('T')[0] : '',
@@ -293,20 +1148,63 @@ const Clients = () => {
       correspondentBank: (client as any).correspondentBank || '',
       correspondentBankAccount: (client as any).correspondentBankAccount || '',
       correspondentBankSwift: (client as any).correspondentBankSwift || '',
+      initialDebt: client.initialDebt ? client.initialDebt.toString() : '',
+      initialDebtCurrency: (client.initialDebtCurrency || 'USD') as 'USD' | 'UZS',
     });
     setShowEditModal(true);
   };
 
+  useEffect(() => {
+    if (!isMobile || !editClientId) return;
+    const client = clients.find((c) => c.id === editClientId);
+    if (client) {
+      handleEdit(client);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, editClientId, clients]);
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingClient) return;
+
+    // Validate monetary fields if deal amount is provided
+    if (editForm.dealAmount) {
+      const errors = validateMonetaryFields(
+        {
+          amount: editForm.dealAmount,
+          currency: editForm.dealAmountCurrency || 'USD',
+          exchangeRate: editForm.dealAmountExchangeRate,
+          date: new Date().toISOString().split('T')[0],
+        },
+        {
+          exchangeRateRequired: true,
+        }
+      );
+
+      if (!isValidMonetaryFields(
+        {
+          amount: editForm.dealAmount,
+          currency: editForm.dealAmountCurrency || 'USD',
+          exchangeRate: editForm.dealAmountExchangeRate,
+          date: new Date().toISOString().split('T')[0],
+        },
+        {
+          exchangeRateRequired: true,
+        }
+      )) {
+        alert('Iltimos, deal amount uchun barcha maydonlarni to\'g\'ri to\'ldiring');
+        return;
+      }
+    }
 
     try {
       const updateData: any = {
         name: editForm.name,
         dealAmount: editForm.dealAmount ? parseFloat(editForm.dealAmount) : undefined,
         dealAmountCurrency: editForm.dealAmountCurrency,
+        dealAmountExchangeRate: editForm.dealAmount && editForm.dealAmountExchangeRate ? parseFloat(editForm.dealAmountExchangeRate) : undefined,
         phone: editForm.phone || undefined,
+        defaultAfterHoursPayer: editForm.defaultAfterHoursPayer,
         // Shartnoma maydonlari
         contractNumber: editForm.contractNumber || undefined,
         address: editForm.address || undefined,
@@ -320,6 +1218,8 @@ const Clients = () => {
         correspondentBank: editForm.correspondentBank || undefined,
         correspondentBankAccount: editForm.correspondentBankAccount || undefined,
         correspondentBankSwift: editForm.correspondentBankSwift || undefined,
+        initialDebt: editForm.initialDebt ? parseFloat(editForm.initialDebt) : undefined,
+        initialDebtCurrency: editForm.initialDebtCurrency || 'USD',
       };
 
       // Handle credit fields - if creditType is empty, set to null, otherwise use the value
@@ -340,9 +1240,9 @@ const Clients = () => {
         creditLimit: updateData.creditLimit,
         creditStartDate: updateData.creditStartDate,
       });
-      
+
       const response = await apiClient.patch(`/clients/${editingClient.id}`, updateData);
-      
+
       console.log('=== Update response ===');
       console.log('Full response:', JSON.stringify(response.data, null, 2));
       console.log('Credit fields in response:', {
@@ -350,7 +1250,7 @@ const Clients = () => {
         creditLimit: response.data.creditLimit,
         creditStartDate: response.data.creditStartDate,
       });
-      
+
       if (!response.data.creditType && updateData.creditType) {
         console.error('⚠️ WARNING: creditType was sent but not returned!');
       }
@@ -360,16 +1260,22 @@ const Clients = () => {
       if (!response.data.creditStartDate && updateData.creditStartDate) {
         console.error('⚠️ WARNING: creditStartDate was sent but not returned!');
       }
-      
-      setShowEditModal(false);
+
+      if (isMobile && editClientId) {
+        navigate('/clients');
+      } else {
+        setShowEditModal(false);
+      }
       setEditingClient(null);
-      setEditForm({ 
-        name: '', 
-        dealAmount: '', 
-        dealAmountCurrency: 'USD', 
-        phone: '', 
-        creditType: '', 
-        creditLimit: '', 
+      setEditForm({
+        name: '',
+        dealAmount: '',
+        dealAmountCurrency: 'USD',
+        dealAmountExchangeRate: '',
+        phone: '',
+        defaultAfterHoursPayer: 'CLIENT',
+        creditType: '',
+        creditLimit: '',
         creditStartDate: '',
         contractNumber: '',
         address: '',
@@ -383,12 +1289,14 @@ const Clients = () => {
         correspondentBank: '',
         correspondentBankAccount: '',
         correspondentBankSwift: '',
+        initialDebt: '',
+        initialDebtCurrency: 'USD' as 'USD' | 'UZS',
       });
-      
+
       // Reload clients list to get updated data
       await loadClients();
       await loadStats();
-      
+
       // If client detail modal is open, reload it
       if (selectedClient && selectedClient.id === editingClient.id) {
         await loadClientDetail(editingClient.id);
@@ -413,6 +1321,43 @@ const Clients = () => {
       }
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleTransactionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClient) return;
+
+    try {
+      setSavingTransaction(true);
+      const payload: any = {
+        type: transactionForm.type,
+        amount: parseFloat(transactionForm.amount),
+        currency: transactionForm.currency,
+        date: new Date(transactionForm.date),
+        comment: transactionForm.comment,
+        clientId: selectedClient.id,
+      };
+
+      await apiClient.post('/transactions', payload);
+      setShowTransactionModal(false);
+      setTransactionForm({
+        amount: '',
+        currency: 'USD',
+        date: new Date().toISOString().split('T')[0],
+        comment: '',
+        type: 'INCOME',
+      });
+
+      // reload client detail to get new transactions
+      await loadClientDetail(selectedClient.id);
+
+      // reload clients list to update global states if necessary
+      await loadClients();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    } finally {
+      setSavingTransaction(false);
     }
   };
 
@@ -462,35 +1407,40 @@ const Clients = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Clients</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Clients</h1>
           <div className="text-sm text-gray-500 mt-1">Home &gt; Clients</div>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add New
-        </button>
+        {!isManagerOnly && (
+          <button
+            onClick={() => {
+              if (isMobile) {
+                navigate('/clients/new');
+              } else {
+                setShowForm(true);
+              }
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            <Icon icon="lucide:plus" className="w-5 h-5" />
+            Add New
+          </button>
+        )}
       </div>
 
-      {/* Stats Cards */}
-      {stats && (
+      {/* Stats Cards - faqat ADMIN uchun; MANAGER uchun ko'rinmasin */}
+      {!isManagerOnly && stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           {/* Total Clients */}
           <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
             {/* Decorative pattern */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-            
+
             <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
-                stats.total.change >= 0
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
-              }`}>
+              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.total.change >= 0
+                ? 'bg-green-100 text-green-800'
+                : 'bg-red-100 text-red-800'
+                }`}>
                 <span className="inline-flex items-center">
                   <span className="mr-1">{stats.total.change >= 0 ? '↑' : '↓'}</span>
                   {formatChange(stats.total.change)}
@@ -499,9 +1449,7 @@ const Clients = () => {
             </div>
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
+                <Icon icon="lucide:users" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.total.current}</div>
@@ -513,13 +1461,12 @@ const Clients = () => {
             {/* Decorative pattern */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-            
+
             <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
-                stats.active.change >= 0
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
-              }`}>
+              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.active.change >= 0
+                ? 'bg-green-100 text-green-800'
+                : 'bg-red-100 text-red-800'
+                }`}>
                 <span className="inline-flex items-center">
                   <span className="mr-1">{stats.active.change >= 0 ? '↑' : '↓'}</span>
                   {formatChange(stats.active.change)}
@@ -528,9 +1475,7 @@ const Clients = () => {
             </div>
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Icon icon="lucide:check-circle-2" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.active.current}</div>
@@ -542,13 +1487,12 @@ const Clients = () => {
             {/* Decorative pattern */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-            
+
             <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
-                stats.inactive.change >= 0
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
-              }`}>
+              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.inactive.change >= 0
+                ? 'bg-green-100 text-green-800'
+                : 'bg-red-100 text-red-800'
+                }`}>
                 <span className="inline-flex items-center">
                   <span className="mr-1">{stats.inactive.change >= 0 ? '↑' : '↓'}</span>
                   {formatChange(stats.inactive.change)}
@@ -557,9 +1501,7 @@ const Clients = () => {
             </div>
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Icon icon="lucide:x-circle" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.inactive.current}</div>
@@ -571,13 +1513,12 @@ const Clients = () => {
             {/* Decorative pattern */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-            
+
             <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${
-                stats.archived.change >= 0
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
-              }`}>
+              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.archived.change >= 0
+                ? 'bg-green-100 text-green-800'
+                : 'bg-red-100 text-red-800'
+                }`}>
                 <span className="inline-flex items-center">
                   <span className="mr-1">{stats.archived.change >= 0 ? '↑' : '↓'}</span>
                   {formatChange(stats.archived.change)}
@@ -586,9 +1527,7 @@ const Clients = () => {
             </div>
             <div className="flex items-center gap-3 mb-3 relative z-10">
               <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                </svg>
+                <Icon icon="lucide:archive" className="w-6 h-6 text-white" />
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.archived.current}</div>
@@ -599,28 +1538,38 @@ const Clients = () => {
 
 
       {/* Add Client Modal */}
-      {showForm && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
+      {showClientForm && (
+        <div
+          className={isMobile && isNewClientRoute
+            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+          style={isMobile && isNewClientRoute ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setShowForm(false);
+              if (isMobile && isNewClientRoute) {
+                navigate('/clients');
+              } else {
+                setShowForm(false);
+              }
             }
           }}
         >
-          <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-            }}
+          <div
+            className={isMobile && isNewClientRoute
+              ? 'bg-white w-full h-full p-6 overflow-y-auto'
+              : 'bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
+            style={isMobile && isNewClientRoute ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Yangi mijoz</h2>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  if (isMobile && isNewClientRoute) {
+                    navigate('/clients');
+                  } else {
+                    setShowForm(false);
+                  }
+                }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
               >
                 ×
@@ -637,32 +1586,50 @@ const Clients = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Deal Amount
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={form.dealAmount}
-                    onChange={(e) => setForm({ ...form, dealAmount: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valyuta
-                  </label>
-                  <select
-                    value={form.dealAmountCurrency}
-                    onChange={(e) => setForm({ ...form, dealAmountCurrency: e.target.value as 'USD' | 'UZS' })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="USD">USD</option>
-                    <option value="UZS">UZS</option>
-                  </select>
-                </div>
+              <MonetaryInput
+                amount={form.dealAmount || ''}
+                currency={form.dealAmountCurrency || 'USD'}
+                exchangeRate={form.dealAmountExchangeRate || ''}
+                date={new Date().toISOString().split('T')[0]} // Use current date for deal amount
+                onAmountChange={(value) => {
+                  setForm({ ...form, dealAmount: value });
+                  setMonetaryErrors({ ...monetaryErrors, amount: undefined });
+                }}
+                onCurrencyChange={(value) => {
+                  setForm({ ...form, dealAmountCurrency: value });
+                  setMonetaryErrors({ ...monetaryErrors, currency: undefined });
+                }}
+                onExchangeRateChange={(value) => {
+                  setForm({ ...form, dealAmountExchangeRate: value });
+                  setMonetaryErrors({ ...monetaryErrors, exchangeRate: undefined });
+                }}
+                label="Deal Amount"
+                required={false}
+                showLabels={true}
+                currencyRules={{
+                  exchangeRateRequired: true,
+                }}
+                errors={monetaryErrors}
+              />
+              <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/50">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">O'tgan yilgi / eski qarzdorlik (ixtiyoriy)</h3>
+                <MonetaryInput
+                  amount={form.initialDebt || ''}
+                  currency={form.initialDebtCurrency || 'USD'}
+                  exchangeRate={''}
+                  date={new Date().toISOString().split('T')[0]}
+                  onAmountChange={(value) => {
+                    setForm({ ...form, initialDebt: value });
+                  }}
+                  onCurrencyChange={(value) => {
+                    setForm({ ...form, initialDebtCurrency: value as 'USD' | 'UZS' });
+                  }}
+                  onExchangeRateChange={() => { }} // Initial debt does not enforce exchange rate typing strictly on client side
+                  label="Oldingi qarz summasi"
+                  required={false}
+                  showLabels={false}
+                  currencyRules={{ exchangeRateRequired: false }}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
@@ -674,138 +1641,6 @@ const Clients = () => {
                 />
               </div>
 
-              {/* Shartnoma ma'lumotlari */}
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Shartnoma ma'lumotlari (Invoice uchun)</h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma raqami</label>
-                      <input
-                        type="text"
-                        value={form.contractNumber}
-                        onChange={(e) => setForm({ ...form, contractNumber: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        placeholder="Masalan: RVI-FER-291019"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ИНН</label>
-                      <input
-                        type="text"
-                        value={form.inn}
-                        onChange={(e) => setForm({ ...form, inn: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Manzil (Адрес)</label>
-                    <input
-                      type="text"
-                      value={form.address}
-                      onChange={(e) => setForm({ ...form, address: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                  <div className="border-t border-gray-200 pt-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Bank ma'lumotlari</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank nomi</label>
-                        <input
-                          type="text"
-                          value={form.bankName}
-                          onChange={(e) => setForm({ ...form, bankName: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank manzili</label>
-                        <input
-                          type="text"
-                          value={form.bankAddress}
-                          onChange={(e) => setForm({ ...form, bankAddress: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Текущий счет</label>
-                          <input
-                            type="text"
-                            value={form.bankAccount}
-                            onChange={(e) => setForm({ ...form, bankAccount: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Транзитный счет</label>
-                          <input
-                            type="text"
-                            value={form.transitAccount}
-                            onChange={(e) => setForm({ ...form, transitAccount: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">SWIFT</label>
-                        <input
-                          type="text"
-                          value={form.bankSwift}
-                          onChange={(e) => setForm({ ...form, bankSwift: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        />
-                      </div>
-                      <div className="border-t border-gray-200 pt-3">
-                        <h5 className="text-sm font-medium text-gray-700 mb-2">Korrespondent bank</h5>
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Bank nomi</label>
-                            <input
-                              type="text"
-                              value={form.correspondentBank}
-                              onChange={(e) => setForm({ ...form, correspondentBank: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Кор счет</label>
-                              <input
-                                type="text"
-                                value={form.correspondentBankAccount}
-                                onChange={(e) => setForm({ ...form, correspondentBankAccount: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">SWIFT</label>
-                              <input
-                                type="text"
-                                value={form.correspondentBankSwift}
-                                onChange={(e) => setForm({ ...form, correspondentBankSwift: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
               {/* Nasiya shartlari */}
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
@@ -840,10 +1675,9 @@ const Clients = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya boshlangan sana</label>
-                        <input
-                          type="date"
+                        <DateInput
                           value={form.creditStartDate}
-                          onChange={(e) => setForm({ ...form, creditStartDate: e.target.value })}
+                          onChange={(value) => setForm({ ...form, creditStartDate: value })}
                           required={!!form.creditType}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         />
@@ -852,7 +1686,7 @@ const Clients = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -884,37 +1718,41 @@ const Clients = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Client
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Deal Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Phone
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  No of Projects
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Mijoz qardorligi
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                  Actions
-                </th>
+                {!isManagerOnly && (
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Deal Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Phone
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      No of Projects
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Mijoz qardorligi
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {sortedClients.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-400">
+                  <td colSpan={isManagerOnly ? 1 : 7} className="px-6 py-4 text-center text-gray-400">
                     Ma'lumotlar yo'q
                   </td>
                 </tr>
               ) : (
                 sortedClients.map((client) => (
-                  <tr 
-                    key={client.id} 
+                  <tr
+                    key={client.id}
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => loadClientDetail(client.id)}
                   >
@@ -929,87 +1767,106 @@ const Clients = () => {
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900">{client.name}</div>
+                          {isManagerOnly && (
+                            <div className="text-xs text-gray-500 mt-0.5">Shartnomalar uchun bosing</div>
+                          )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {client.dealAmount
-                        ? `$${Number(client.dealAmount).toFixed(2)}`
-                        : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {client.phone || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {client.tasks?.length || 0}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {(() => {
-                        // Get balance from client data
-                        const balance = typeof client.balance === 'number' ? client.balance : 
-                                       (client.balance !== undefined && client.balance !== null ? Number(client.balance) : null);
-                        
-                        if (balance !== null && balance !== undefined && !isNaN(balance)) {
-                          return (
-                            <span className={`font-medium ${
-                              balance > 0
+                    {!isManagerOnly && (
+                      <>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {client.dealAmount ? (
+                            <CurrencyDisplay
+                              amount={Number(client.dealAmount)}
+                              originalCurrency={(client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                            />
+                          ) : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {client.phone || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {client.tasks?.length || 0}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {(() => {
+                            // Get balance from client data
+                            const balance = typeof client.balance === 'number' ? client.balance :
+                              (client.balance !== undefined && client.balance !== null ? Number(client.balance) : null);
+
+                            if (balance !== null && balance !== undefined && !isNaN(balance)) {
+                              return (
+                                <span className={`font-medium ${balance > 0
+                                  ? 'text-red-600'
+                                  : balance === 0
+                                    ? 'text-gray-600'
+                                    : 'text-green-600'
+                                  }`}>
+                                  <CurrencyDisplay
+                                    amount={Number(balance)}
+                                    originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                                  />
+                                </span>
+                              );
+                            }
+
+                            // Fallback: calculate balance if not provided
+                            const dealAmount = Number(client.dealAmount || 0);
+                            const totalTasks = client.tasks?.length || 0;
+                            const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
+                            const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+                            const initialDebt = Number(client.initialDebt || 0);
+                            const calculatedBalance = totalDealAmount + initialDebt;
+
+                            return (
+                              <span className={`font-medium ${calculatedBalance > 0
                                 ? 'text-red-600'
-                                : balance === 0
-                                ? 'text-gray-600'
-                                : 'text-green-600'
-                            }`}>
-                              {balance > 0 ? '+' : ''}${balance.toFixed(2)}
-                            </span>
-                          );
-                        }
-                        
-                        // Fallback: calculate balance if not provided
-                        const dealAmount = Number(client.dealAmount || 0);
-                        const totalTasks = client.tasks?.length || 0;
-                        const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
-                        const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
-                        const calculatedBalance = totalDealAmount;
-                        
-                        return (
-                          <span className={`font-medium ${
-                            calculatedBalance > 0
-                              ? 'text-red-600'
-                              : calculatedBalance === 0
-                              ? 'text-gray-600'
-                              : 'text-green-600'
-                          }`}>
-                            {calculatedBalance > 0 ? '+' : ''}${calculatedBalance.toFixed(2)}
+                                : calculatedBalance === 0
+                                  ? 'text-gray-600'
+                                  : 'text-green-600'
+                                }`}>
+                                <CurrencyDisplay
+                                  amount={Number(calculatedBalance)}
+                                  originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                                />
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                            Active
                           </span>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                        Active
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => handleEdit(client)}
-                          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
-                          title="O'zgartirish"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(client.id)}
-                          className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
-                          title="O'chirish"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          {!isManagerOnly && (
+                            <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => {
+                                  if (isMobile) {
+                                    navigate(`/clients/${client.id}/edit`);
+                                  } else {
+                                    handleEdit(client);
+                                  }
+                                }}
+                                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                                title="O'zgartirish"
+                              >
+                                <Icon icon="lucide:pencil" className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(client.id)}
+                                className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
+                                title="O'chirish"
+                              >
+                                <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))
               )}
@@ -1018,9 +1875,9 @@ const Clients = () => {
         </div>
       )}
 
-      {/* Client Detail Modal */}
+      {/* Client Detail Modal - ADMIN va MANAGER; MANAGER uchun faqat shartnomalar bo'limi to'liq */}
       {showClientModal && selectedClient && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
           style={{
             animation: 'backdropFadeIn 0.3s ease-out'
@@ -1032,7 +1889,7 @@ const Clients = () => {
             }
           }}
         >
-          <div 
+          <div
             className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
             style={{
               animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
@@ -1054,107 +1911,127 @@ const Clients = () => {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setShowClientModal(false);
-                  setSelectedClient(null);
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    resetContractForm();
+                    if (selectedClient) {
+                      await loadContracts(selectedClient.id);
+                    }
+                    setShowContractModal(true);
+                  }}
+                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  + Shartnoma qo'shish
+                </button>
+                <button
+                  onClick={() => {
+                    setShowClientModal(false);
+                    setSelectedClient(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
-            {/* Top Financial Summary */}
-            {selectedClient.stats && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Barcha loyihalar summasi (PSR hisobga olingan)</div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    ${selectedClient.stats.totalDealAmount !== undefined 
-                      ? Number(selectedClient.stats.totalDealAmount).toFixed(2)
-                      : (Number(selectedClient.stats.totalTasks) * Number(selectedClient.stats.dealAmount)).toFixed(2)}
-                  </div>
-                  {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +${(selectedClient.stats.tasksWithPsr * 10).toFixed(2)})
+            {/* Top Financial Summary - faqat ADMIN */}
+            {!isManagerOnly && selectedClient.stats && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">Barcha loyihalar summasi (PSR hisobga olingan)</div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      ${selectedClient.stats.totalDealAmount !== undefined
+                        ? Number(selectedClient.stats.totalDealAmount).toFixed(2)
+                        : (Number(selectedClient.stats.totalTasks) * Number(selectedClient.stats.dealAmount)).toFixed(2)}
                     </div>
-                  )}
-                </div>
-                <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Jami to'lovlar</div>
-                  <div className="text-2xl font-bold text-green-600">
-                    ${Number(selectedClient.stats.totalIncome).toFixed(2)}
+                    {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +<CurrencyDisplay amount={selectedClient.stats.tasksWithPsr * 10} originalCurrency="USD" />)
+                      </div>
+                    )}
                   </div>
-                </div>
-                <div className={`p-4 rounded-lg border ${
-                  selectedClient.stats.balance > 0 
-                    ? 'bg-red-50 border-red-200' 
+                  <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">Jami to'lovlar</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      <CurrencyDisplay amount={Number(selectedClient.stats.totalIncome)} originalCurrency="USD" />
+                    </div>
+                  </div>
+                  <div className={`p-4 rounded-lg border ${selectedClient.stats.balance > 0
+                    ? 'bg-red-50 border-red-200'
                     : selectedClient.stats.balance === 0
-                    ? 'bg-yellow-50 border-yellow-200'
-                    : 'bg-green-50 border-green-200'
-                }`}>
-                  <div className="text-sm text-gray-600 mb-1">Qarzorligi</div>
-                  <div className={`text-2xl font-bold ${
-                    selectedClient.stats.balance > 0 
-                      ? 'text-red-600' 
+                      ? 'bg-yellow-50 border-yellow-200'
+                      : 'bg-green-50 border-green-200'
+                    }`}>
+                    <div className="text-sm text-gray-600 mb-1">Qarzorligi</div>
+                    <div className={`text-2xl font-bold ${selectedClient.stats.balance > 0
+                      ? 'text-red-600'
                       : selectedClient.stats.balance === 0
-                      ? 'text-yellow-600'
-                      : 'text-green-600'
-                  }`}>
-                    {selectedClient.stats.balance < 0 ? '-' : ''}${Math.abs(Number(selectedClient.stats.balance)).toFixed(2)}
+                        ? 'text-yellow-600'
+                        : 'text-green-600'
+                      }`}>
+                      <CurrencyDisplay amount={Number(selectedClient.stats.balance)} originalCurrency={selectedClient.balanceCurrency || 'USD'} />
+                    </div>
                   </div>
+                </div>
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="text-sm text-gray-600 mb-1">Qo'shimcha to'lovni kim to'laydi</div>
+                  <div className="text-sm font-medium text-gray-800">
+                    {(selectedClient as any).defaultAfterHoursPayer === 'COMPANY' ? 'Men to\'layman (kompaniya)' : 'Mijoz to\'laydi'}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Client Info - faqat ADMIN */}
+            {!isManagerOnly && (
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-1">Telefon</div>
+                  <div className="font-medium text-gray-900">{selectedClient.phone || '-'}</div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-1">Shartnoma summasi (bitta task)</div>
+                  <div className="font-medium text-gray-900">
+                    {selectedClient.dealAmount ? (
+                      <CurrencyDisplay amount={Number(selectedClient.dealAmount)} originalCurrency="USD" />
+                    ) : '-'}
+                  </div>
+                  {selectedClient.stats?.totalDealAmount !== undefined && (
+                    <>
+                      <div className="text-sm text-gray-500 mb-1 mt-2">Jami shartnoma summasi (PSR hisobga olingan)</div>
+                      <div className="font-medium text-blue-600">
+                        <CurrencyDisplay amount={Number(selectedClient.stats.totalDealAmount)} originalCurrency="USD" />
+                      </div>
+                      {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +<CurrencyDisplay amount={selectedClient.stats.tasksWithPsr * 10} originalCurrency="USD" />)
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Client Info */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-500 mb-1">Telefon</div>
-                <div className="font-medium text-gray-900">{selectedClient.phone || '-'}</div>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-500 mb-1">Shartnoma summasi (bitta task)</div>
-                <div className="font-medium text-gray-900">
-                  {selectedClient.dealAmount
-                    ? `$${Number(selectedClient.dealAmount).toFixed(2)}`
-                    : '-'}
-                </div>
-                {selectedClient.stats?.totalDealAmount !== undefined && (
-                  <>
-                    <div className="text-sm text-gray-500 mb-1 mt-2">Jami shartnoma summasi (PSR hisobga olingan)</div>
-                    <div className="font-medium text-blue-600">
-                      ${Number(selectedClient.stats.totalDealAmount).toFixed(2)}
-                    </div>
-                    {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +${(selectedClient.stats.tasksWithPsr * 10).toFixed(2)})
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Kelishuv shartlari (Nasiya shartlari) */}
-            {(selectedClient.creditType || selectedClient.creditLimit) && (
+            {/* Kelishuv shartlari (Nasiya shartlari) - faqat ADMIN */}
+            {!isManagerOnly && (selectedClient.creditType || selectedClient.creditLimit) && (
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
+                  <Icon icon="lucide:shield-check" className="w-5 h-5 text-blue-600" />
                   Kelishuv shartlari (Nasiya)
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
                     <div className="text-xs text-gray-600 mb-1">Nasiya turi</div>
                     <div className="font-semibold text-gray-900">
-                      {selectedClient.creditType === 'TASK_COUNT' 
+                      {selectedClient.creditType === 'TASK_COUNT'
                         ? 'Ma\'lum bir ish sonigacha'
                         : selectedClient.creditType === 'AMOUNT'
-                        ? 'Ma\'lum bir summagacha'
-                        : 'Nasiya yo\'q'}
+                          ? 'Ma\'lum bir summagacha'
+                          : 'Nasiya yo\'q'}
                     </div>
                   </div>
                   {selectedClient.creditLimit && (
@@ -1165,7 +2042,7 @@ const Clients = () => {
                       <div className="font-semibold text-gray-900">
                         {selectedClient.creditType === 'TASK_COUNT'
                           ? `${Number(selectedClient.creditLimit)} ta ish`
-                          : `$${Number(selectedClient.creditLimit).toFixed(2)}`}
+                          : <CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />}
                       </div>
                     </div>
                   )}
@@ -1195,8 +2072,8 @@ const Clients = () => {
               </div>
             )}
 
-            {/* Stats Summary */}
-            {selectedClient.stats && (
+            {/* Stats Summary - faqat ADMIN */}
+            {!isManagerOnly && selectedClient.stats && (
               <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Statistika</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1213,6 +2090,78 @@ const Clients = () => {
                 </div>
               </div>
             )}
+
+            {/* Shartnomalar ro'yxati */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-semibold text-gray-800">Shartnomalar</h3>
+                <button
+                  onClick={async () => {
+                    resetContractForm();
+                    if (selectedClient) {
+                      await loadContracts(selectedClient.id);
+                    }
+                    setShowContractModal(true);
+                  }}
+                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  + Shartnoma qo'shish
+                </button>
+              </div>
+              {loadingContracts ? (
+                <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+              ) : contracts.length === 0 ? (
+                <div className="text-center py-4 text-gray-400">Shartnomalar yo'q</div>
+              ) : (
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shartnoma raqami</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sana</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sotuvchi</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sotib oluvchi</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amallar</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {contracts.map((contract) => (
+                          <tr key={contract.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{contract.contractNumber}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(contract.contractDate).toLocaleDateString('uz-UZ')}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">{contract.sellerName}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900">{contract.buyerName}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditContract(contract)}
+                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Tahrirlash"
+                                >
+                                  <Icon icon="lucide:pencil" className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteContract(contract.id)}
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="O'chirish"
+                                >
+                                  <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Monthly Tasks Chart */}
             {monthlyTasks.length > 0 && (
@@ -1231,8 +2180,13 @@ const Clients = () => {
                             </div>
                           )}
                           <div
+                            onClick={() => {
+                              if (item.year !== undefined && item.monthIndex !== undefined) {
+                                setSelectedMonthForTasks({ label: item.month, year: item.year, monthIndex: item.monthIndex });
+                              }
+                            }}
                             className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t transition-all duration-500 hover:from-blue-600 hover:to-blue-500 cursor-pointer relative"
-                            style={{ 
+                            style={{
                               height: `${height}%`,
                               minHeight: item.count > 0 ? '4px' : '0px'
                             }}
@@ -1250,8 +2204,16 @@ const Clients = () => {
             )}
 
             {/* Transactions */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Tranzaksiyalar ({selectedClient.transactions.length})</h3>
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-semibold text-gray-800">Tranzaksiyalar ({selectedClient.transactions.length})</h3>
+                <button
+                  onClick={() => setShowTransactionModal(true)}
+                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  + Tranzaksiya qo'shish
+                </button>
+              </div>
               {selectedClient.transactions.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">Tranzaksiyalar yo'q</div>
               ) : (
@@ -1289,32 +2251,936 @@ const Clients = () => {
         </div>
       )}
 
-      {/* Edit Client Modal */}
-      {showEditModal && editingClient && (
-        <div 
+      {/* Contract Create Modal */}
+      {showContractModal && selectedClient && (
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
+          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setShowEditModal(false);
-              setEditingClient(null);
+              setShowContractModal(false);
+              resetContractForm();
             }
           }}
         >
-          <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-            }}
+          <div
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">
+                  {editingContractId ? 'Shartnomani tahrirlash' : 'Yangi shartnoma qo\'shish'}
+                </h3>
+                <p className="text-sm text-gray-500">{selectedClient.name}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowContractModal(false);
+                  resetContractForm();
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Tablar */}
+            <div className="flex gap-2 mb-4 border-b">
+              <button
+                type="button"
+                onClick={() => setContractModalTab('main')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'main' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                Shartnoma ma'lumotlari
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setContractModalTab('spec');
+                  const spec = contractForm.specification || [];
+                  if (spec.length === 0) {
+                    setContractFormAndRef((prev) => ({ ...prev, specification: getDefaultSpecFromTnved() }));
+                  } else {
+                    setContractFormAndRef((prev) => ({ ...prev, specification: ensureSpecHasTnvedProducts(prev.specification || []) }));
+                  }
+                }}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'spec' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                Spetsifikatsiya
+              </button>
+              <button
+                type="button"
+                onClick={() => setContractModalTab('terms')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'terms' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                Условия поставки
+              </button>
+              <button
+                type="button"
+                onClick={() => setContractModalTab('customs')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'customs' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                Адрес растаможки
+              </button>
+            </div>
+
+            <form onSubmit={handleContractSubmit} className="space-y-6">
+              {contractModalTab === 'main' && (
+                <>
+                  {/* Shartnoma ma'lumotlari */}
+                  <div className="border-b pb-4">
+                    <h4 className="font-semibold text-gray-700 mb-3">Shartnoma ma'lumotlari</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma raqami *</label>
+                        <input
+                          type="text"
+                          value={contractForm.contractNumber}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, contractNumber: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma sanasi *</label>
+                        <DateInput
+                          value={contractForm.contractDate}
+                          onChange={(value) => setContractFormAndRef({ ...contractForm, contractDate: value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma valyutasi</label>
+                        <select
+                          value={contractForm.contractCurrency || 'USD'}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, contractCurrency: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg min-w-[120px]"
+                        >
+                          <option value="USD">USD</option>
+                          <option value="RUB">RUB</option>
+                          <option value="EUR">EUR</option>
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email manzillar</label>
+                        <input
+                          type="text"
+                          value={contractForm.emails}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, emails: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="email1@example.com, email2@example.com"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Email bir nechta bo&apos;lishi mumkin. Agar email lar ko&apos;p bo&apos;lsa, vergul (,) bilan ajratib yozing.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sotuvchi ma'lumotlari */}
+                  <div className="border-b pb-4">
+                    <h4 className="font-semibold text-gray-700 mb-3">Sotuvchi ma'lumotlari</h4>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi *</label>
+                          <input
+                            type="text"
+                            value={contractForm.sellerName}
+                            onChange={(e) => setContractFormAndRef({ ...contractForm, sellerName: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            required
+                          />
+                        </div>
+                        <div className="sm:w-40">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">INN</label>
+                          <input
+                            type="text"
+                            value={contractForm.sellerInn}
+                            onChange={(e) => setContractFormAndRef({ ...contractForm, sellerInn: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            placeholder="INN"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili *</label>
+                        <textarea
+                          rows={2}
+                          value={contractForm.sellerLegalAddress}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, sellerLegalAddress: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                        <textarea
+                          rows={3}
+                          value={contractForm.sellerDetails}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, sellerDetails: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="INN, MFO, bank, hisob raqam va h.k."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">GLN kod</label>
+                        <input
+                          type="text"
+                          value={contractForm.gln}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, gln: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="GLN kodini kiriting"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Директор</label>
+                        <input
+                          type="text"
+                          value={contractForm.supplierDirector}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, supplierDirector: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="Ism familyasi"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              const inputEl = e.currentTarget;
+                              if (!file) return;
+                              try {
+                                await uploadContractImage(file, 'sellerSignatureUrl');
+                              } catch (err) {
+                                console.error(err);
+                                alert('Imzoni yuklashda xatolik');
+                              }
+                              if (inputEl) inputEl.value = '';
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                          {contractForm.sellerSignatureUrl && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <img src={resolveUploadUrl(contractForm.sellerSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
+                              <a href={resolveUploadUrl(contractForm.sellerSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Muhr (PNG/JPG)</label>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              const inputEl = e.currentTarget;
+                              if (!file) return;
+                              try {
+                                await uploadContractImage(file, 'sellerSealUrl');
+                              } catch (err) {
+                                console.error(err);
+                                alert('Muhrni yuklashda xatolik');
+                              }
+                              if (inputEl) inputEl.value = '';
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                          {contractForm.sellerSealUrl && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <img src={resolveUploadUrl(contractForm.sellerSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
+                              <a href={resolveUploadUrl(contractForm.sellerSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sotib oluvchi ma'lumotlari */}
+                  <div className="border-b pb-4">
+                    <h4 className="font-semibold text-gray-700 mb-3">Sotib oluvchi ma'lumotlari</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi *</label>
+                        <input
+                          type="text"
+                          value={contractForm.buyerName}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, buyerName: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Davlati *</label>
+                        <input
+                          type="text"
+                          list="destination-countries"
+                          value={contractForm.destinationCountry}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, destinationCountry: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="Davlatni tanlang..."
+                          required
+                        />
+                        <datalist id="destination-countries">
+                          {allCountries.map((country) => (
+                            <option key={country} value={country} />
+                          ))}
+                        </datalist>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili *</label>
+                        <textarea
+                          rows={2}
+                          value={contractForm.buyerAddress}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, buyerAddress: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                        <textarea
+                          rows={3}
+                          value={contractForm.buyerDetails}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, buyerDetails: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="INN, MFO, bank, hisob raqam va h.k."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Директор</label>
+                        <input
+                          type="text"
+                          value={contractForm.buyerDirector}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, buyerDirector: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="Ism familyasi"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              const inputEl = e.currentTarget;
+                              if (!file) return;
+                              try {
+                                await uploadContractImage(file, 'buyerSignatureUrl');
+                              } catch (err) {
+                                console.error(err);
+                                alert('Imzoni yuklashda xatolik');
+                              }
+                              if (inputEl) inputEl.value = '';
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                          {contractForm.buyerSignatureUrl && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <img src={resolveUploadUrl(contractForm.buyerSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
+                              <a href={resolveUploadUrl(contractForm.buyerSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Muhr (PNG/JPG)</label>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              const inputEl = e.currentTarget;
+                              if (!file) return;
+                              try {
+                                await uploadContractImage(file, 'buyerSealUrl');
+                              } catch (err) {
+                                console.error(err);
+                                alert('Muhrni yuklashda xatolik');
+                              }
+                              if (inputEl) inputEl.value = '';
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                          {contractForm.buyerSealUrl && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <img src={resolveUploadUrl(contractForm.buyerSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
+                              <a href={resolveUploadUrl(contractForm.buyerSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Yuk jo'natuvchi */}
+                  <div className="border-b pb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-gray-700">Yuk jo'natuvchi ma'lumotlari</h4>
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                        <input
+                          type="checkbox"
+                          checked={hasShipper}
+                          onChange={(e) => setHasShipper(e.target.checked)}
+                        />
+                        Yuk jo'natuvchi mavjud
+                      </label>
+                    </div>
+                    {hasShipper && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi</label>
+                            <input
+                              type="text"
+                              value={contractForm.shipperName}
+                              onChange={(e) => setContractFormAndRef({ ...contractForm, shipperName: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            />
+                          </div>
+                          <div className="sm:w-40">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">INN</label>
+                            <input
+                              type="text"
+                              value={contractForm.shipperInn}
+                              onChange={(e) => setContractFormAndRef({ ...contractForm, shipperInn: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              placeholder="INN"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili</label>
+                          <textarea
+                            rows={2}
+                            value={contractForm.shipperAddress}
+                            onChange={(e) => setContractFormAndRef({ ...contractForm, shipperAddress: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                          <textarea
+                            rows={3}
+                            value={contractForm.shipperDetails}
+                            onChange={(e) => setContractFormAndRef({ ...contractForm, shipperDetails: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            placeholder="INN, MFO, bank, hisob raqam va h.k."
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Yuk qabul qiluvchi */}
+                  <div className="border-b pb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-gray-700">Yuk qabul qiluvchi ma'lumotlari</h4>
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                        <input
+                          type="checkbox"
+                          checked={hasConsignee}
+                          onChange={(e) => setHasConsignee(e.target.checked)}
+                        />
+                        Yuk qabul qiluvchi mavjud
+                      </label>
+                    </div>
+                    {hasConsignee && (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi</label>
+                          <input
+                            type="text"
+                            value={contractForm.consigneeName}
+                            onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeName: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili</label>
+                          <textarea
+                            rows={2}
+                            value={contractForm.consigneeAddress}
+                            onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeAddress: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                          <textarea
+                            rows={3}
+                            value={contractForm.consigneeDetails}
+                            onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeDetails: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            placeholder="INN, MFO, bank, hisob raqam va h.k."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Директор</label>
+                          <input
+                            type="text"
+                            value={contractForm.consigneeDirector}
+                            onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeDirector: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            placeholder="Ism familyasi"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                const inputEl = e.currentTarget;
+                                if (!file) return;
+                                try {
+                                  await uploadContractImage(file, 'consigneeSignatureUrl');
+                                } catch (err) {
+                                  console.error(err);
+                                  alert('Imzoni yuklashda xatolik');
+                                }
+                                if (inputEl) inputEl.value = '';
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            />
+                            {contractForm.consigneeSignatureUrl && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <img src={resolveUploadUrl(contractForm.consigneeSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
+                                <a href={resolveUploadUrl(contractForm.consigneeSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
+                                <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Muhr (PNG/JPG)</label>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                const inputEl = e.currentTarget;
+                                if (!file) return;
+                                try {
+                                  await uploadContractImage(file, 'consigneeSealUrl');
+                                } catch (err) {
+                                  console.error(err);
+                                  alert('Muhrni yuklashda xatolik');
+                                }
+                                if (inputEl) inputEl.value = '';
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            />
+                            {contractForm.consigneeSealUrl && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <img src={resolveUploadUrl(contractForm.consigneeSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
+                                <a href={resolveUploadUrl(contractForm.consigneeSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
+                                <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Direktor */}
+                  <div>
+                    <h4 className="font-semibold text-gray-700 mb-3">Direktor ma'lumotlari</h4>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Direktor F.I.O. *</label>
+                        <input
+                          type="text"
+                          value={contractForm.supplierDirector}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, supplierDirector: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Товар отпустил:</label>
+                        <input
+                          type="text"
+                          value={contractForm.goodsReleasedBy}
+                          onChange={(e) => setContractFormAndRef({ ...contractForm, goodsReleasedBy: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="Товар отпустил"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                </>
+              )}
+
+              {contractModalTab === 'terms' && (
+                <>
+                  <div>
+                    <h4 className="font-semibold text-gray-700 mb-3">Условия поставки / Rastamojka</h4>
+                    <p className="text-sm text-gray-500 mb-2">Har bir qatorda chap ustun — Условия поставки, o‘ng ustun — Rastamojka (juft, bir-biriga bog‘langan).</p>
+                    <div className="space-y-2">
+                      {(() => {
+                        const delivery = contractForm.deliveryTerms;
+                        const customs = contractForm.customsAddress;
+                        const len = Math.max(delivery.length, customs.length, 1);
+                        const d = [...delivery]; while (d.length < len) d.push('');
+                        const c = [...customs]; while (c.length < len) c.push('');
+                        return d.map((_, index) => (
+                          <div key={`terms-row-${index}`} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={d[index] ?? ''}
+                              onChange={(e) => {
+                                const nextD = [...d];
+                                nextD[index] = e.target.value;
+                                const nextC = [...c];
+                                while (nextC.length < nextD.length) nextC.push('');
+                                setContractFormAndRef({ ...contractForm, deliveryTerms: nextD, customsAddress: nextC });
+                              }}
+                              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+                              placeholder="Условия поставки"
+                            />
+                            <input
+                              type="text"
+                              value={c[index] ?? ''}
+                              onChange={(e) => {
+                                const nextC = [...c];
+                                nextC[index] = e.target.value;
+                                const nextD = [...d];
+                                while (nextD.length < nextC.length) nextD.push('');
+                                setContractFormAndRef({ ...contractForm, deliveryTerms: nextD, customsAddress: nextC });
+                              }}
+                              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+                              placeholder="Rastamojka"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (len <= 1) {
+                                  setContractFormAndRef({
+                                    ...contractForm,
+                                    deliveryTerms: [''],
+                                    customsAddress: [''],
+                                  });
+                                  return;
+                                }
+                                const nextD = d.filter((_, i) => i !== index);
+                                const nextC = c.filter((_, i) => i !== index);
+                                setContractFormAndRef({
+                                  ...contractForm,
+                                  deliveryTerms: nextD.length ? nextD : [''],
+                                  customsAddress: nextC.length ? nextC : [''],
+                                });
+                              }}
+                              className="px-2 py-2 text-sm text-red-600 hover:text-red-700 shrink-0"
+                              title="O'chirish"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ));
+                      })()}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const delivery = contractForm.deliveryTerms;
+                          const customs = contractForm.customsAddress;
+                          const len = Math.max(delivery.length, customs.length, 1);
+                          const nextD = [...contractForm.deliveryTerms]; while (nextD.length < len) nextD.push(''); nextD.push('');
+                          const nextC = [...contractForm.customsAddress]; while (nextC.length < len) nextC.push(''); nextC.push('');
+                          setContractFormAndRef({ ...contractForm, deliveryTerms: nextD, customsAddress: nextC });
+                        }}
+                        className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                      >
+                        + Qator qo'shish
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {contractModalTab === 'customs' && (
+                <>
+                  <div>
+                    <h4 className="font-semibold text-gray-700 mb-3">Shaxar / Адрес растаможки</h4>
+                    <div className="space-y-2">
+                      {contractForm.customsAddress.map((value, index) => {
+                        const address = value || '';
+                        return (
+                          <div key={`customs-address-${index}`} className="flex items-start gap-2">
+                            <textarea
+                              rows={2}
+                              value={address}
+                              onChange={(e) => {
+                                const next = [...contractForm.customsAddress];
+                                next[index] = e.target.value;
+                                setContractFormAndRef({ ...contractForm, customsAddress: next });
+                              }}
+                              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+                              placeholder="Адрес растаможки"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (contractForm.customsAddress.length === 1) {
+                                  setContractFormAndRef({ ...contractForm, customsAddress: [''] });
+                                  return;
+                                }
+                                const next = contractForm.customsAddress.filter((_, i) => i !== index);
+                                setContractFormAndRef({ ...contractForm, customsAddress: next.length ? next : [''] });
+                              }}
+                              className="px-2 py-2 text-sm text-red-600 hover:text-red-700 shrink-0"
+                              title="O'chirish"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => setContractFormAndRef({ ...contractForm, customsAddress: [...contractForm.customsAddress, ''] })}
+                        className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                      >
+                        + Qator qo'shish
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {contractModalTab === 'spec' && (
+                <>
+                  <div>
+                    <h4 className="font-semibold text-gray-700 mb-3">Spetsifikatsiya (qaysi mahsulotlar, qancha, qanday narxda)</h4>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full border border-gray-300 rounded-lg text-sm">
+                        <thead>
+                          <tr className="bg-gray-100">
+                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-20">Товар №</th>
+                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-24">Спецификация №</th>
+                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-28">TNVED kod</th>
+                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b">Mahsulot nomi</th>
+                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b">Botanik nomi</th>
+                            <th className="px-2 py-2 text-right font-medium text-gray-700 border-b w-28">ЦЕНА</th>
+                            <th className="px-2 py-2 w-10 border-b"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(contractForm.specification || []).map((row, idx) => (
+                            <tr key={idx} className="border-b border-gray-200">
+                              <td className="px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={row.productNumber ?? ''}
+                                  onChange={(e) => {
+                                    setContractFormAndRef((prev) => {
+                                      const next = [...(prev.specification || [])];
+                                      next[idx] = { ...next[idx], productNumber: e.target.value };
+                                      return { ...prev, specification: next };
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                  placeholder="Товар №"
+                                />
+                              </td>
+                              <td className="px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={row.specNumber ?? ''}
+                                  onChange={(e) => {
+                                    setContractFormAndRef((prev) => {
+                                      const next = [...(prev.specification || [])];
+                                      next[idx] = { ...next[idx], specNumber: e.target.value };
+                                      return { ...prev, specification: next };
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                  placeholder="Спецификация №"
+                                />
+                              </td>
+                              <td className="px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={row.tnvedCode ?? ''}
+                                  onChange={(e) => {
+                                    setContractFormAndRef((prev) => {
+                                      const next = [...(prev.specification || [])];
+                                      next[idx] = { ...next[idx], tnvedCode: e.target.value };
+                                      return { ...prev, specification: next };
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                  placeholder="TNVED kod"
+                                />
+                              </td>
+                              <td className="px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={row.productName}
+                                  onChange={(e) => {
+                                    setContractFormAndRef((prev) => {
+                                      const next = [...(prev.specification || [])];
+                                      next[idx] = { ...next[idx], productName: e.target.value };
+                                      return { ...prev, specification: next };
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                  placeholder="Mahsulot nomi"
+                                />
+                              </td>
+                              <td className="px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={row.botanicalName ?? ''}
+                                  onChange={(e) => {
+                                    setContractFormAndRef((prev) => {
+                                      const next = [...(prev.specification || [])];
+                                      next[idx] = { ...next[idx], botanicalName: e.target.value };
+                                      return { ...prev, specification: next };
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                  placeholder="Botanik nomi"
+                                />
+                              </td>
+                              <td className="px-2 py-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  value={row.unitPrice !== undefined && row.unitPrice !== null ? row.unitPrice : ''}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    const p = raw === '' ? 0 : parseFloat(raw);
+                                    const num = typeof p === 'number' && !Number.isNaN(p) ? p : 0;
+                                    setContractFormAndRef((prev) => {
+                                      const next = [...(prev.specification || [])];
+                                      next[idx] = { ...next[idx], unitPrice: num, totalPrice: (next[idx].quantity || 0) * num };
+                                      return { ...prev, specification: next };
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                  placeholder="0"
+                                />
+                              </td>
+                              <td className="px-2 py-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setContractFormAndRef((prev) => ({
+                                      ...prev,
+                                      specification: (prev.specification || []).filter((_, i) => i !== idx),
+                                    }));
+                                  }}
+                                  className="text-red-600 hover:text-red-800 text-sm"
+                                >
+                                  ×
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setContractFormAndRef((prev) => ({
+                          ...prev,
+                          specification: [
+                            ...(prev.specification || []),
+                            {
+                              productName: '',
+                              botanicalName: '',
+                              tnvedCode: '',
+                              quantity: 0,
+                              unit: 'кг',
+                              unitPrice: 0,
+                              totalPrice: 0,
+                              specNumber: '',
+                              productNumber: '',
+                            },
+                          ],
+                        }));
+                      }}
+                      className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                    >
+                      + Qator qo'shish
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={savingContract}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  {savingContract ? 'Saqlanmoqda...' : 'Saqlash'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowContractModal(false);
+                    resetContractForm();
+                  }}
+                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
+                >
+                  Bekor qilish
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Client Modal */}
+      {showEditClientForm && editingClient && (
+        <div
+          className={isMobile && editClientId
+            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+          style={isMobile && editClientId ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              if (isMobile && editClientId) {
+                navigate('/clients');
+              } else {
+                setShowEditModal(false);
+                setEditingClient(null);
+              }
+            }
+          }}
+        >
+          <div
+            className={isMobile && editClientId
+              ? 'bg-white w-full h-full p-6 overflow-y-auto'
+              : 'bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
+            style={isMobile && editClientId ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Mijozni tahrirlash</h2>
               <button
                 onClick={() => {
-                  setShowEditModal(false);
-                  setEditingClient(null);
+                  if (isMobile && editClientId) {
+                    navigate('/clients');
+                  } else {
+                    setShowEditModal(false);
+                    setEditingClient(null);
+                  }
                 }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
               >
@@ -1333,33 +3199,47 @@ const Clients = () => {
                 />
               </div>
               <div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Deal Amount
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editForm.dealAmount}
-                      onChange={(e) => setEditForm({ ...editForm, dealAmount: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Valyuta
-                    </label>
-                    <select
-                      value={editForm.dealAmountCurrency}
-                      onChange={(e) => setEditForm({ ...editForm, dealAmountCurrency: e.target.value as 'USD' | 'UZS' })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="UZS">UZS</option>
-                    </select>
-                  </div>
-                </div>
+                <MonetaryInput
+                  amount={editForm.dealAmount || ''}
+                  currency={editForm.dealAmountCurrency || 'USD'}
+                  exchangeRate={editForm.dealAmountExchangeRate || ''}
+                  date={new Date().toISOString().split('T')[0]} // Use current date for deal amount
+                  onAmountChange={(value) => {
+                    setEditForm({ ...editForm, dealAmount: value });
+                  }}
+                  onCurrencyChange={(value) => {
+                    setEditForm({ ...editForm, dealAmountCurrency: value });
+                  }}
+                  onExchangeRateChange={(value) => {
+                    setEditForm({ ...editForm, dealAmountExchangeRate: value });
+                  }}
+                  label="Deal Amount"
+                  required={false}
+                  showLabels={true}
+                  currencyRules={{
+                    exchangeRateRequired: true,
+                  }}
+                />
+              </div>
+              <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/50">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">O'tgan yilgi / eski qarzdorlik (ixtiyoriy)</h3>
+                <MonetaryInput
+                  amount={editForm.initialDebt || ''}
+                  currency={editForm.initialDebtCurrency || 'USD'}
+                  exchangeRate={''}
+                  date={new Date().toISOString().split('T')[0]} // Not heavily validated
+                  onAmountChange={(value) => {
+                    setEditForm({ ...editForm, initialDebt: value });
+                  }}
+                  onCurrencyChange={(value) => {
+                    setEditForm({ ...editForm, initialDebtCurrency: value as 'USD' | 'UZS' });
+                  }}
+                  onExchangeRateChange={() => { }}
+                  label="Oldingi qarz summasi"
+                  required={false}
+                  showLabels={false}
+                  currencyRules={{ exchangeRateRequired: false }}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
@@ -1371,138 +3251,32 @@ const Clients = () => {
                 />
               </div>
 
-              {/* Shartnoma ma'lumotlari */}
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Shartnoma ma'lumotlari (Invoice uchun)</h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma raqami</label>
-                      <input
-                        type="text"
-                        value={editForm.contractNumber}
-                        onChange={(e) => setEditForm({ ...editForm, contractNumber: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        placeholder="Masalan: RVI-FER-291019"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ИНН</label>
-                      <input
-                        type="text"
-                        value={editForm.inn}
-                        onChange={(e) => setEditForm({ ...editForm, inn: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Manzil (Адрес)</label>
-                    <input
-                      type="text"
-                      value={editForm.address}
-                      onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={editForm.email}
-                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                  <div className="border-t border-gray-200 pt-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Bank ma'lumotlari</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank nomi</label>
-                        <input
-                          type="text"
-                          value={editForm.bankName}
-                          onChange={(e) => setEditForm({ ...editForm, bankName: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank manzili</label>
-                        <input
-                          type="text"
-                          value={editForm.bankAddress}
-                          onChange={(e) => setEditForm({ ...editForm, bankAddress: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Текущий счет</label>
-                          <input
-                            type="text"
-                            value={editForm.bankAccount}
-                            onChange={(e) => setEditForm({ ...editForm, bankAccount: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Транзитный счет</label>
-                          <input
-                            type="text"
-                            value={editForm.transitAccount}
-                            onChange={(e) => setEditForm({ ...editForm, transitAccount: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">SWIFT</label>
-                        <input
-                          type="text"
-                          value={editForm.bankSwift}
-                          onChange={(e) => setEditForm({ ...editForm, bankSwift: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        />
-                      </div>
-                      <div className="border-t border-gray-200 pt-3">
-                        <h5 className="text-sm font-medium text-gray-700 mb-2">Korrespondent bank</h5>
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Bank nomi</label>
-                            <input
-                              type="text"
-                              value={editForm.correspondentBank}
-                              onChange={(e) => setEditForm({ ...editForm, correspondentBank: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Кор счет</label>
-                              <input
-                                type="text"
-                                value={editForm.correspondentBankAccount}
-                                onChange={(e) => setEditForm({ ...editForm, correspondentBankAccount: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">SWIFT</label>
-                              <input
-                                type="text"
-                                value={editForm.correspondentBankSwift}
-                                onChange={(e) => setEditForm({ ...editForm, correspondentBankSwift: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Qo'shimcha to'lovni kim to'laydi</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, defaultAfterHoursPayer: 'CLIENT' })}
+                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.defaultAfterHoursPayer === 'CLIENT'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
+                  >
+                    Mijoz to'laydi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, defaultAfterHoursPayer: 'COMPANY' })}
+                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.defaultAfterHoursPayer === 'COMPANY'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      }`}
+                  >
+                    Men to'layman
+                  </button>
                 </div>
               </div>
-              
+
               {/* Nasiya shartlari */}
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
@@ -1537,10 +3311,9 @@ const Clients = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya boshlangan sana</label>
-                        <input
-                          type="date"
+                        <DateInput
                           value={editForm.creditStartDate}
-                          onChange={(e) => setEditForm({ ...editForm, creditStartDate: e.target.value })}
+                          onChange={(value) => setEditForm({ ...editForm, creditStartDate: value })}
                           required={!!editForm.creditType}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         />
@@ -1549,7 +3322,7 @@ const Clients = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -1569,6 +3342,190 @@ const Clients = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction Create Modal */}
+      {showTransactionModal && selectedClient && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowTransactionModal(false);
+              setTransactionForm({ ...transactionForm, amount: '', comment: '' });
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+            style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Yangi tranzaksiya</h3>
+                <p className="text-sm text-gray-500">{selectedClient.name}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowTransactionModal(false);
+                  setTransactionForm({ ...transactionForm, amount: '', comment: '' });
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleTransactionSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Summa *</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={transactionForm.amount}
+                    onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-lg font-medium"
+                    required
+                  />
+                  <select
+                    value={transactionForm.currency}
+                    onChange={(e) => setTransactionForm({ ...transactionForm, currency: e.target.value as 'USD' | 'UZS' })}
+                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="UZS">UZS</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sana *</label>
+                <input
+                  type="date"
+                  value={transactionForm.date}
+                  onChange={(e) => setTransactionForm({ ...transactionForm, date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Izoh</label>
+                <textarea
+                  value={transactionForm.comment}
+                  onChange={(e) => setTransactionForm({ ...transactionForm, comment: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  rows={3}
+                  placeholder="Tranzaksiya haqida izoh..."
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowTransactionModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  disabled={savingTransaction}
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                  disabled={savingTransaction}
+                >
+                  {savingTransaction ? 'Saqlanmoqda...' : 'Saqlash'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Month Tasks Modal */}
+      {selectedMonthForTasks && selectedClient && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm p-4"
+          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedMonthForTasks(null);
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[85vh] flex flex-col"
+            style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+          >
+            <div className="flex justify-between items-center mb-5 pb-4 border-b border-gray-100 shrink-0">
+              <div>
+                <h3 className="text-xl font-bold text-gray-800">{selectedMonthForTasks.label} dagi ishlar</h3>
+                <p className="text-sm font-medium text-gray-500 mt-1">{selectedClient.name}</p>
+              </div>
+              <button
+                onClick={() => setSelectedMonthForTasks(null)}
+                className="text-gray-400 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl transition-colors"
+                title="Yopish"
+              >
+                <Icon icon="lucide:x" className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 pr-1 custom-scrollbar">
+              {(() => {
+                const monthTasks = selectedClient.tasks.filter(task => {
+                  const d = new Date(task.createdAt);
+                  return d.getFullYear() === selectedMonthForTasks.year && d.getMonth() === selectedMonthForTasks.monthIndex;
+                });
+
+                if (monthTasks.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                      <Icon icon="lucide:clipboard-x" className="w-16 h-16 mb-4 opacity-50" />
+                      <p className="text-lg font-medium text-gray-500">Bu oyda ishlar topilmadi</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2">
+                    {monthTasks.map(task => (
+                      <div
+                        key={task.id}
+                        className="p-3 bg-white border border-gray-100 rounded-lg hover:border-blue-200 hover:shadow-md hover:shadow-blue-500/5 transition-all cursor-pointer group flex items-center justify-between gap-4"
+                        onClick={() => navigate(`/tasks/${task.id}`)}
+                      >
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <h4 className="font-semibold text-gray-800 text-sm group-hover:text-blue-600 transition-colors truncate max-w-[40%]" title={task.title}>
+                            {task.title}
+                          </h4>
+
+                          <div className="flex items-center gap-3 text-xs text-gray-500 font-medium whitespace-nowrap">
+                            <span className="flex items-center gap-1">
+                              <Icon icon="lucide:map-pin" className="w-3 h-3 text-gray-400" />
+                              <span className="truncate max-w-[120px]">{task.branch?.name || 'Noma\'lum'}</span>
+                            </span>
+                            <span className="flex items-center gap-1.5 text-gray-400">|</span>
+                            <span className="flex items-center gap-1.5">
+                              <Icon icon="lucide:calendar" className="w-3 h-3 text-gray-400" />
+                              {new Date(task.createdAt).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md whitespace-nowrap border shrink-0 ${task.status === 'TAYYOR' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          task.status === 'JARAYONDA' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            'bg-gray-50 text-gray-700 border-gray-200'
+                          }`}>
+                          {task.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}

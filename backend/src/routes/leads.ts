@@ -1,0 +1,407 @@
+import { Router, Request, Response } from 'express';
+import { prisma } from '../prisma';
+import { AuthRequest } from '../middleware/auth';
+import multer from 'multer';
+import * as XLSX from 'xlsx';
+
+const router = Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
+// GET /api/leads — Ro'yxat (filter: stage, assignedToId, search, reminder)
+router.get('/', async (req: AuthRequest, res: Response) => {
+    try {
+        const { stage, assignedToId, search, reminder, region, productType, exportVolume } = req.query;
+        console.log('Fetching leads with filters:', { stage, assignedToId, search, reminder, region, productType, exportVolume });
+        const where: any = {};
+
+        if (stage && stage !== 'ALL') where.stage = stage;
+        if (assignedToId) where.assignedToId = Number(assignedToId);
+
+        if (region) {
+            where.region = { contains: String(region), mode: 'insensitive' };
+        }
+        if (productType) {
+            where.productType = { contains: String(productType), mode: 'insensitive' };
+        }
+
+        if (search) {
+            where.OR = [
+                { companyName: { contains: String(search), mode: 'insensitive' } },
+                { inn: { contains: String(search), mode: 'insensitive' } },
+                { phone: { contains: String(search), mode: 'insensitive' } },
+                { contactPerson: { contains: String(search), mode: 'insensitive' } },
+                { region: { contains: String(search), mode: 'insensitive' } },
+                { district: { contains: String(search), mode: 'insensitive' } },
+            ];
+        }
+        if (reminder === 'today') {
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayEnd = new Date();
+            todayEnd.setHours(23, 59, 59, 999);
+            where.nextCallAt = { gte: todayStart, lte: todayEnd };
+        }
+
+        let leads = await prisma.lead.findMany({
+            where,
+            include: {
+                assignedTo: { select: { id: true, name: true } },
+                _count: { select: { activities: true } },
+            },
+            orderBy: { updatedAt: 'desc' },
+        });
+
+        if (exportVolume) {
+            leads = leads.filter(l => {
+                const vol = Number(l.estimatedExportVolume);
+                if (isNaN(vol)) return false;
+                if (exportVolume === 'low') return vol < 10;
+                if (exportVolume === 'medium') return vol >= 10 && vol <= 30;
+                if (exportVolume === 'high') return vol > 30;
+                return true;
+            });
+        }
+
+        res.json(leads);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/leads/stats — Admin statistika
+router.get('/stats', async (req: AuthRequest, res: Response) => {
+    try {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
+        const [
+            totalLeads,
+            byStageCold,
+            byStageInProgress,
+            byStageMeeting,
+            byStageFollowUp,
+            byStageWon,
+            byStageLost,
+            todayActivities,
+            todayMeetings,
+        ] = await Promise.all([
+            prisma.lead.count(),
+            prisma.lead.count({ where: { stage: 'COLD' } }),
+            prisma.lead.count({ where: { stage: 'IN_PROGRESS' } }),
+            prisma.lead.count({ where: { stage: 'MEETING' } }),
+            prisma.lead.count({ where: { stage: 'FOLLOW_UP' } }),
+            prisma.lead.count({ where: { stage: 'CLOSED_WON' } }),
+            prisma.lead.count({ where: { stage: 'CLOSED_LOST' } }),
+            prisma.leadActivity.count({
+                where: { createdAt: { gte: todayStart, lte: todayEnd } },
+            }),
+            prisma.lead.count({
+                where: { stage: 'MEETING', updatedAt: { gte: todayStart, lte: todayEnd } },
+            }),
+        ]);
+
+        // Sotuvchi samaradorligi
+        const sellerStats = await prisma.lead.groupBy({
+            by: ['assignedToId'],
+            _count: { id: true },
+            where: { assignedToId: { not: null } },
+        });
+
+        const sellerIds = sellerStats.map((s) => s.assignedToId!);
+        const sellers = await prisma.user.findMany({
+            where: { id: { in: sellerIds } },
+            select: { id: true, name: true },
+        });
+
+        const wonStats = await prisma.lead.groupBy({
+            by: ['assignedToId'],
+            _count: { id: true },
+            where: { assignedToId: { not: null }, stage: 'CLOSED_WON' },
+        });
+
+        const sellerPerformance = sellers.map((s) => ({
+            id: s.id,
+            name: s.name,
+            total: sellerStats.find((x) => x.assignedToId === s.id)?._count.id ?? 0,
+            won: wonStats.find((x) => x.assignedToId === s.id)?._count.id ?? 0,
+        }));
+
+        // So'nggi 7 kun faoliyat
+        const last7Days: { date: string; count: number }[] = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const start = new Date(d); start.setHours(0, 0, 0, 0);
+            const end = new Date(d); end.setHours(23, 59, 59, 999);
+            const count = await prisma.leadActivity.count({
+                where: { createdAt: { gte: start, lte: end } },
+            });
+            last7Days.push({ date: d.toLocaleDateString('uz-UZ', { weekday: 'short', day: 'numeric' }), count });
+        }
+
+        res.json({
+            totalLeads,
+            byStage: {
+                COLD: byStageCold,
+                IN_PROGRESS: byStageInProgress,
+                MEETING: byStageMeeting,
+                FOLLOW_UP: byStageFollowUp,
+                CLOSED_WON: byStageWon,
+                CLOSED_LOST: byStageLost,
+            },
+            todayActivities,
+            todayMeetings,
+            sellerPerformance,
+            last7Days,
+        });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/leads/:id — Bitta lid
+router.get('/:id', async (req: AuthRequest, res: Response) => {
+    try {
+        const lead = await prisma.lead.findUnique({
+            where: { id: Number(req.params.id) },
+            include: {
+                assignedTo: { select: { id: true, name: true } },
+                activities: {
+                    include: { user: { select: { id: true, name: true } } },
+                    orderBy: { createdAt: 'desc' },
+                },
+            },
+        });
+        if (!lead) return res.status(404).json({ error: 'Lid topilmadi' });
+        res.json(lead);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/leads — Yangi lid
+router.post('/', async (req: AuthRequest, res: Response) => {
+    try {
+        const { companyName, inn, productType, phone, contactPerson, assignedToId, estimatedExportVolume, region, district, exportedCountries, partners } = req.body;
+        if (!companyName) return res.status(400).json({ error: 'companyName majburiy' });
+
+        const lead = await prisma.lead.create({
+            data: {
+                companyName,
+                inn: inn || null,
+                productType: productType || null,
+                phone: phone || null,
+                contactPerson: contactPerson || null,
+                assignedToId: assignedToId ? Number(assignedToId) : null,
+                estimatedExportVolume: (estimatedExportVolume && !isNaN(Number(estimatedExportVolume)))
+                    ? String(Math.round(Number(estimatedExportVolume)))
+                    : (estimatedExportVolume || null),
+                region: region || null,
+                district: district || null,
+                exportedCountries: exportedCountries || null,
+                partners: partners || null,
+            },
+            include: { assignedTo: { select: { id: true, name: true } } },
+        });
+
+        // Faoliyat yozing
+        if (req.user) {
+            await prisma.leadActivity.create({
+                data: {
+                    leadId: lead.id,
+                    userId: req.user.id,
+                    type: 'created',
+                    note: 'Lid yaratildi',
+                },
+            });
+        }
+
+        res.status(201).json(lead);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT /api/leads/:id — Yangilash
+router.put('/:id', async (req: AuthRequest, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        const {
+            companyName, inn, productType, phone, contactPerson, stage,
+            assignedToId, lostReason, nextCallAt, estimatedExportVolume,
+            region, district, exportedCountries, partners
+        } = req.body;
+
+        const existing = await prisma.lead.findUnique({ where: { id } });
+        if (!existing) return res.status(404).json({ error: 'Lid topilmadi' });
+
+        const data: any = {};
+        if (companyName !== undefined) data.companyName = companyName;
+        if (inn !== undefined) data.inn = inn;
+        if (productType !== undefined) data.productType = productType;
+        if (phone !== undefined) data.phone = phone;
+        if (contactPerson !== undefined) data.contactPerson = contactPerson;
+        if (stage !== undefined) data.stage = stage;
+        if (assignedToId !== undefined) data.assignedToId = assignedToId ? Number(assignedToId) : null;
+        if (lostReason !== undefined) data.lostReason = lostReason;
+        if (nextCallAt !== undefined) data.nextCallAt = nextCallAt ? new Date(nextCallAt) : null;
+
+        if (estimatedExportVolume !== undefined) {
+            if (estimatedExportVolume && !isNaN(Number(estimatedExportVolume))) {
+                data.estimatedExportVolume = String(Math.round(Number(estimatedExportVolume)));
+            } else {
+                data.estimatedExportVolume = estimatedExportVolume;
+            }
+        }
+
+        if (region !== undefined) data.region = region;
+        if (district !== undefined) data.district = district;
+        if (exportedCountries !== undefined) data.exportedCountries = exportedCountries;
+        if (partners !== undefined) data.partners = partners;
+
+        const lead = await prisma.lead.update({
+            where: { id },
+            data,
+            include: { assignedTo: { select: { id: true, name: true } } },
+        });
+
+        // Bosqich o'zgargan bo'lsa faoliyat yozish
+        if (stage && stage !== existing.stage && req.user) {
+            const stageLabels: Record<string, string> = {
+                COLD: 'Yangi',
+                IN_PROGRESS: 'Aloqaga chiqildi',
+                MEETING: 'Uchrashuv belgilandi',
+                FOLLOW_UP: "O'ylanyapti",
+                CLOSED_WON: 'Mijoz',
+                CLOSED_LOST: 'Rad etdi',
+            };
+            await prisma.leadActivity.create({
+                data: {
+                    leadId: id,
+                    userId: req.user.id,
+                    type: 'stage_change',
+                    note: `Bosqich: ${stageLabels[existing.stage] || existing.stage} → ${stageLabels[stage] || stage}${lostReason ? ` (Sabab: ${lostReason})` : ''}`,
+                },
+            });
+        }
+
+        res.json(lead);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/leads/:id
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        await prisma.lead.delete({ where: { id } });
+        res.json({ success: true });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/leads/:id/activities — Faoliyat tarixi
+router.get('/:id/activities', async (req: AuthRequest, res: Response) => {
+    try {
+        const activities = await prisma.leadActivity.findMany({
+            where: { leadId: Number(req.params.id) },
+            include: { user: { select: { id: true, name: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(activities);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/leads/:id/activities — Izoh / qo'ng'iroq yozish
+router.post('/:id/activities', async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        const { type, note } = req.body;
+        if (!type) return res.status(400).json({ error: 'type majburiy' });
+
+        const activity = await prisma.leadActivity.create({
+            data: {
+                leadId: Number(req.params.id),
+                userId: req.user.id,
+                type,
+                note: note || null,
+            },
+            include: { user: { select: { id: true, name: true } } },
+        });
+        res.status(201).json(activity);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/leads/import — CSV/Excel yuklash
+router.post('/import', upload.single('file'), async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'Fayl yuklanmadi' });
+
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        // Use raw array to handle duplicate columns like "Viloyat"
+        const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+        if (rows.length < 2) return res.status(400).json({ error: 'Faylda ma\'lumot yo\'q' });
+
+        // Header mapping based on order:
+        // 0: Firma nomi, 1: Viloyat, 2: Viloyat (Tuman), 3: STIR, 4: Telefon, 5: Mas'ul, 6: Tahminiy hajmi, 7: Turkumi, 8: Export qilgan davlatlari, 9: Xamkorlari
+
+        const created: any[] = [];
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const companyName = String(row[0] || '').trim();
+            if (!companyName) continue;
+
+            const rawVolume = row[6];
+            let volume = String(rawVolume || '').trim();
+            if (typeof rawVolume === 'number') {
+                volume = String(Math.round(rawVolume));
+            } else if (volume && !isNaN(Number(volume))) {
+                volume = String(Math.round(Number(volume)));
+            }
+
+            const lead = await prisma.lead.create({
+                data: {
+                    companyName,
+                    region: String(row[1] || '').trim() || null,
+                    district: String(row[2] || '').trim() || null,
+                    inn: String(row[3] || '').trim() || null,
+                    phone: String(row[4] || '').trim() || null,
+                    contactPerson: String(row[5] || '').trim() || null,
+                    estimatedExportVolume: volume || null,
+                    productType: String(row[7] || '').trim() || null,
+                    exportedCountries: String(row[8] || '').trim() || null,
+                    partners: String(row[9] || '').trim() || null,
+                },
+            });
+            created.push(lead);
+        }
+
+        if (req.user) {
+            await prisma.leadActivity.createMany({
+                data: created.map((l) => ({
+                    leadId: l.id,
+                    userId: req.user!.id,
+                    type: 'import',
+                    note: 'Excel/CSV orqali import qilindi',
+                })),
+            });
+        }
+
+        res.json({ imported: created.length, leads: created });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+export default router;

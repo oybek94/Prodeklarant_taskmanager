@@ -10,25 +10,42 @@ import kpiRouter from './routes/kpi';
 import usersRouter from './routes/users';
 import dashboardRouter from './routes/dashboard';
 import workersRouter from './routes/workers';
+import workerPaymentsRouter from './routes/worker-payments';
 import branchesRouter from './routes/branches';
 import statePaymentsRouter from './routes/state-payments';
 import bxmRouter from './routes/bxm';
 import trainingRouter from './routes/training';
 import examsRouter from './routes/exams';
+import lessonsRouter from './routes/lessons';
+import analyticsRouter from './routes/analytics';
 import uploadRouter from './routes/upload';
 import documentsRouter from './routes/documents';
 import financeRouter from './routes/finance';
 import invoicesRouter from './routes/invoices';
 import companySettingsRouter from './routes/company-settings';
+import certifierFeeConfigRouter from './routes/certifier-fee-config';
+import yearlyGoalConfigRouter from './routes/yearly-goal-config';
+import regionCodesRouter from './routes/region-codes';
+import packagingTypesRouter from './routes/packaging-types';
 import contractsRouter from './routes/contracts';
 import taskStatusRouter from './routes/task-status';
 import taskDocumentsRouter from './routes/task-documents';
 import taskAiChecksRouter from './routes/task-ai-checks';
+import sendTaskEmailRouter from './routes/send-task-email';
+import aiRouter from './routes/ai';
+import reportsRouter from './routes/reports';
+import qrRouter from './routes/qr';
+import stickerRouter from './routes/sticker';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
+import OpenAIClient from './ai/openai.client';
 import path from 'path';
 import lmsRouter from './routes/lms';
-// import { fixDatabaseRoles } from './utils/fixDatabaseRoles'; // Vaqtinchalik o'chirilgan
+import { initializeExchangeRateScheduler } from './services/exchange-rate-scheduler';
+import { initializeProcessScheduler } from './services/process-scheduler';
+import processRouter from './routes/process';
+import notificationsRouter from './routes/notifications';
+import leadsRouter from './routes/leads';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
@@ -46,25 +63,35 @@ app.use(cors({
     if (!origin) {
       return callback(null, true);
     }
-    
+
     // Agar origin allowedOrigins ro'yxatida bo'lsa, ruxsat berish
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    
+
+    // Development'da barcha localhost originlarga ruxsat berish
+    if (process.env.NODE_ENV !== 'production') {
+      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+        return callback(null, true);
+      }
+    }
+
     // Agar origin allowedOrigins ro'yxatida bo'lmasa, lekin production'da bo'lsa, 
     // ham ruxsat berish (chunki Nginx orqali kelgan so'rovlar origin header bilan kelishi mumkin)
     if (process.env.NODE_ENV === 'production') {
       return callback(null, true);
     }
-    
+
     // Development'da faqat allowedOrigins ro'yxatidagi originlarga ruxsat berish
-    callback(new Error('CORS policy violation'));
+    // Lekin xatolikni throw qilmasdan, faqat console'ga log qilamiz
+    console.warn(`⚠️  CORS: ${origin} ruxsat berilmagan, lekin ruxsat berildi (development)`);
+    callback(null, true);
   },
   credentials: true
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increase body size limits for file uploads (50MB for multiple files)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Static file serving - uploads papkasini serve qilish
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -84,43 +111,82 @@ app.get('/', (_req, res) => {
       users: '/api/users',
       dashboard: '/api/dashboard',
       workers: '/api/workers',
+      workerPayments: '/api/worker-payments',
       bxm: '/api/bxm',
+      ai: '/api/ai',
     },
   });
 });
 
 app.get('/health', async (_req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok' });
+    // Quick health check without database query to avoid timeout
+    // Immediately respond to avoid blocking
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      server: 'running'
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: String(err) });
+  }
+});
+
+// Separate endpoint for database health check
+app.get('/health/db', async (_req, res) => {
+  try {
+    await Promise.race([
+      prisma.$queryRaw`SELECT 1`,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Database query timeout')), 5000))
+    ]);
+    res.json({ status: 'ok', database: 'connected' });
   } catch (err) {
     res.status(500).json({ status: 'error', error: String(err) });
   }
 });
 
 app.use('/api/auth', authRouter);
+// AI endpoints (protected, requires authentication)
+app.use('/api/ai', requireAuth(), aiRouter);
 // Client endpoints (public for client login, but protected for other operations)
 app.use('/api/clients', clientsRouter);
 app.use('/api/tasks', requireAuth(), auditLog('ACCESS', 'TASK'), tasksRouter);
 app.use('/api/tasks', requireAuth(), taskStatusRouter);
 app.use('/api/tasks', requireAuth(), taskDocumentsRouter);
 app.use('/api/tasks', requireAuth(), taskAiChecksRouter);
+app.use('/api/send-task-email', requireAuth(), sendTaskEmailRouter);
 app.use('/api/transactions', requireAuth(), auditLog('ACCESS', 'TRANSACTION'), transactionsRouter);
 app.use('/api/kpi', requireAuth(), kpiRouter);
 app.use('/api/users', requireAuth('ADMIN'), auditLog('ACCESS', 'USER'), usersRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/workers', workersRouter);
+app.use('/api/worker-payments', workerPaymentsRouter);
 app.use('/api/branches', requireAuth(), branchesRouter);
 app.use('/api/state-payments', requireAuth('ADMIN'), statePaymentsRouter);
 app.use('/api/bxm', bxmRouter);
 app.use('/api/training', trainingRouter);
 app.use('/api/exams', examsRouter);
+app.use('/api/lessons', requireAuth(), lessonsRouter);
+app.use('/api/analytics', requireAuth('ADMIN'), analyticsRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/finance', financeRouter);
+app.use('/api/reports', reportsRouter);
 app.use('/api/invoices', requireAuth(), invoicesRouter);
 app.use('/api/company-settings', companySettingsRouter);
+app.use('/api/certifier-fee-config', certifierFeeConfigRouter);
+app.use('/api/yearly-goal-config', yearlyGoalConfigRouter);
+app.use('/api/region-codes', regionCodesRouter);
+app.use('/api/packaging-types', requireAuth(), packagingTypesRouter);
 app.use('/api/contracts', requireAuth(), contractsRouter);
+// Public QR verification endpoint (no authentication required)
+app.use('/q', qrRouter);
+app.use('/api/q', qrRouter);
+// Sticker PDF generation endpoint (requires authentication)
+app.use('/api/sticker', stickerRouter);
+app.use('/api/process', requireAuth(), processRouter);
+app.use('/api/notifications', requireAuth(), notificationsRouter);
+app.use('/api/leads', requireAuth(), leadsRouter);
 
 // LMS endpoints (v1) - stream token issuance and streaming proxy
 app.use('/api/v1', lmsRouter);
@@ -134,19 +200,60 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
+// Validate environment variables on startup
+function validateEnvironment() {
+  const requiredVars: string[] = [];
+  const warnings: string[] = [];
+
+  // Check OpenAI API key (required for AI features)
+  if (!OpenAIClient.isConfigured()) {
+    warnings.push('⚠️  OPENAI_API_KEY is not set. AI features will not work.');
+  } else {
+    console.log('✅ OPENAI_API_KEY is configured');
+  }
+
+  // Check database URL
+  if (!process.env.DATABASE_URL) {
+    requiredVars.push('DATABASE_URL');
+  }
+
+  // Display warnings
+  if (warnings.length > 0) {
+    warnings.forEach((warning) => console.warn(warning));
+  }
+
+  // Fail fast if critical vars are missing
+  if (requiredVars.length > 0) {
+    console.error(`❌ Missing required environment variables: ${requiredVars.join(', ')}`);
+    console.error('Please set them in your .env file');
+    process.exit(1);
+  }
+}
+
+// Validate environment before starting server
+validateEnvironment();
+
+// Initialize exchange rate scheduler
+initializeExchangeRateScheduler();
+initializeProcessScheduler();
+
 // Server'ni darhol ishga tushirish - database ulanishini kutmasdan
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ API listening on http://localhost:${PORT}`);
   console.log(`✅ Server ishga tushdi!`);
-  
+
   // Database ulanishini tekshirish (async, server ishga tushgandan keyin)
-  prisma.$connect()
+  // Add timeout to avoid blocking server startup
+  Promise.race([
+    prisma.$connect(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Database connection timeout')), 10000))
+  ])
     .then(() => {
       console.log('✅ Database ulanishi muvaffaqiyatli!');
     })
     .catch((err: any) => {
       console.error('⚠️  Database ulanishi muammosi:', err.message);
-      console.log('⚠️  Server ishlayapti, lekin database ulanishi yo\'q. Iltimos, database sozlamalarini tekshiring.');
+      console.log('⚠️  Server ishlayapti, lekin database ulanishi sekin yoki mavjud emas. Remote database\'ga ulanish muammosi bo\'lishi mumkin.');
     });
 });
 
@@ -172,4 +279,5 @@ process.on('SIGINT', async () => {
   await prisma.$disconnect();
   process.exit(0);
 });
+
 

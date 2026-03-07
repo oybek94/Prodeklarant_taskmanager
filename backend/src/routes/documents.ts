@@ -132,35 +132,8 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
       const name = names[i] || file.originalname;
       const description = descriptions[i] || null;
 
-      let document;
-      
-      // Agar task yakunlangan bo'lsa, arxivga qo'shamiz
-      if (task.status === 'YAKUNLANDI') {
-        document = await prisma.archiveDocument.create({
-          data: {
-            taskId: task.id,
-            taskTitle: task.title,
-            clientName: task.client.name,
-            branchName: task.branch.name,
-            name,
-            fileUrl,
-            fileType,
-            fileSize: file.size,
-            description,
-            uploadedById: req.user!.id,
-          },
-          include: {
-            uploadedBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        });
-      } else {
-        document = await prisma.taskDocument.create({
+      // Hujjatlar doim TaskDocument'ga qo'shiladi, arxivga faqat /archive-task/:taskId endpoint orqali
+      const document = await prisma.taskDocument.create({
           data: {
             taskId,
             name,
@@ -180,7 +153,6 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
             },
           },
         });
-      }
 
       documents.push(document);
     }
@@ -199,7 +171,7 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
   }
 });
 
-// Arxiv task'iga hujjat qo'shish
+// Arxiv task'iga hujjat qo'shish - faqat arxivga o'tgan task'lar uchun
 router.post('/archive/task/:taskId', requireAuth('ADMIN'), upload.array('files', 10), async (req: AuthRequest, res) => {
   try {
     const taskId = parseInt(req.params.taskId);
@@ -218,6 +190,7 @@ router.post('/archive/task/:taskId', requireAuth('ADMIN'), upload.array('files',
       include: {
         client: { select: { name: true } },
         branch: { select: { name: true } },
+        documents: true, // TaskDocument'larni tekshirish uchun
       },
     });
 
@@ -229,6 +202,25 @@ router.post('/archive/task/:taskId', requireAuth('ADMIN'), upload.array('files',
         }
       });
       return res.status(404).json({ error: 'Task topilmadi' });
+    }
+
+    // Arxivga o'tishdan oldin TaskDocument'da hujjatlar bo'lishi kerak
+    // Bu endpoint faqat allaqachon arxivga o'tgan task'larga qo'shimcha hujjat qo'shish uchun
+    const existingArchiveDocs = await prisma.archiveDocument.count({
+      where: { taskId }
+    });
+
+    if (existingArchiveDocs === 0) {
+      // Agar arxivga o'tmagan bo'lsa, avval /archive-task/:taskId endpoint'ini chaqirish kerak
+      // Fayllarni o'chirish
+      files.forEach(file => {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      });
+      return res.status(400).json({ 
+        error: 'Task hali arxivga o\'tmagan. Avval hujjatlarni yuklang va /archive-task/:taskId endpoint\'ini chaqiring.' 
+      });
     }
 
     const documents: any[] = [];
@@ -331,17 +323,17 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
       return res.status(403).json({ error: 'Ruxsat yo\'q' });
     }
 
-    // Admin'dan boshqa foydalanuvchilar 2 kundan keyin o'chira oladi
+    // Admin'dan boshqa foydalanuvchilar 2 kungacha o'chira oladi (2 kundan keyin o'chirish mumkin emas)
     if (req.user!.role !== 'ADMIN' && document.uploadedById === req.user!.id) {
       const uploadTime = new Date(document.createdAt || (document as any).archivedAt);
       const now = new Date();
       const diffInMs = now.getTime() - uploadTime.getTime();
       const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
       
-      if (diffInDays < 2) {
-        console.log(`[DELETE /documents/${id}] Too soon to delete (${diffInDays.toFixed(2)} days)`);
+      if (diffInDays > 2) {
+        console.log(`[DELETE /documents/${id}] Too late to delete (${diffInDays.toFixed(2)} days passed)`);
         return res.status(403).json({ 
-          error: 'Hujjatni 2 kundan keyin o\'chirish mumkin' 
+          error: 'Hujjatni 2 kundan keyin o\'chirish mumkin emas' 
         });
       }
     }
@@ -550,8 +542,29 @@ router.post('/archive-task/:taskId', requireAuth('ADMIN'), async (req: AuthReque
       return res.status(404).json({ error: 'Task topilmadi' });
     }
 
-    if (task.status !== 'YAKUNLANDI') {
-      return res.status(400).json({ error: 'Task yakunlanmagan' });
+    const incompleteStages = await prisma.taskStage.count({
+      where: { taskId, status: { not: 'TAYYOR' } },
+    });
+    if (incompleteStages > 0) {
+      return res.status(400).json({ error: 'Task barcha jarayonlari yakunlanmagan' });
+    }
+
+    // Check if documents exist before archiving - STRICT VALIDATION
+    if (!task.documents || task.documents.length === 0) {
+      return res.status(400).json({ 
+        error: 'Arxivga o\'tishdan oldin kamida bitta hujjat yuklanishi kerak. Iltimos, avval hujjatlarni yuklang.' 
+      });
+    }
+
+    // Qo'shimcha tekshiruv: hujjatlar haqiqatan ham mavjudligini tekshirish
+    const documentCount = await prisma.taskDocument.count({
+      where: { taskId }
+    });
+
+    if (documentCount === 0) {
+      return res.status(400).json({ 
+        error: 'Arxivga o\'tishdan oldin kamida bitta hujjat yuklanishi kerak. Hujjatlar topilmadi.' 
+      });
     }
 
     // Hujjatlarni arxivga ko'chirish
@@ -605,16 +618,13 @@ router.get('/task/:taskId/download-all', requireAuth(), async (req: AuthRequest,
     }
 
     // Hujjatlarni olish
-    let documents;
-    if (task.status === 'YAKUNLANDI') {
-      documents = await prisma.archiveDocument.findMany({
-        where: { taskId },
-      });
-    } else {
-      documents = await prisma.taskDocument.findMany({
-        where: { taskId },
-      });
-    }
+    // Ba'zi holatlarda YAKUNLANDI bo'lsa ham hujjatlar TaskDocument'da qolgan bo'lishi mumkin.
+    const [archiveDocs, taskDocs] = await Promise.all([
+      prisma.archiveDocument.findMany({ where: { taskId } }),
+      prisma.taskDocument.findMany({ where: { taskId } }),
+    ]);
+
+    const documents = archiveDocs.length > 0 ? archiveDocs : taskDocs;
 
     if (documents.length === 0) {
       return res.status(404).json({ error: 'Hujjatlar topilmadi' });
@@ -646,10 +656,40 @@ router.get('/task/:taskId/download-all', requireAuth(), async (req: AuthRequest,
 
     archive.pipe(res);
 
+    const resolveFilePaths = (fileUrl?: string | null, fallbackName?: string | null) => {
+      const candidates: string[] = [];
+      if (fileUrl) {
+        let pathname = fileUrl;
+        if (/^https?:\/\//i.test(fileUrl)) {
+          try {
+            pathname = new URL(fileUrl).pathname;
+          } catch {
+            pathname = fileUrl;
+          }
+        }
+        if (pathname.startsWith('/uploads/')) {
+          pathname = pathname.replace(/^\/uploads\//, '');
+        } else {
+          pathname = pathname.replace(/^\/+/, '');
+        }
+        candidates.push(path.join(uploadsDir, pathname));
+      }
+
+      const baseName = fileUrl ? path.basename(fileUrl) : fallbackName ? path.basename(fallbackName) : '';
+      if (baseName) {
+        candidates.push(path.join(documentsDir, baseName));
+        candidates.push(path.join(archiveDir, baseName));
+      }
+
+      return candidates;
+    };
+
     // Har bir hujjatni ZIP'ga qo'shish
     for (const doc of documents) {
-      const filePath = path.join(__dirname, '../../', doc.fileUrl);
-      
+      const candidatePaths = resolveFilePaths(doc.fileUrl, doc.name);
+      const filePath = candidatePaths.find((candidate) => fs.existsSync(candidate));
+      if (!filePath) continue;
+
       if (fs.existsSync(filePath)) {
         // Fayl nomini tozalash
         const cleanFileName = doc.name

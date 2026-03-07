@@ -1,11 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../lib/api';
+import { Icon } from '@iconify/react';
+import {
+  addTnvedProduct,
+  deleteTnvedProduct,
+  getTnvedProducts,
+  resetTnvedProductsToDefaults,
+  updateTnvedProduct,
+} from '../utils/tnvedProducts';
+interface PackagingTypeItem {
+  id: string;
+  name: string;
+  code?: string;
+}
 
 interface BXMConfig {
   id: number;
   year: number;
   amount: number;
+  amountUsd?: number;
+  amountUzs?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -17,6 +32,14 @@ interface StatePayment {
   psrPrice: number;
   workerPrice: number;
   customsPayment: number;
+  certificatePaymentUsd?: number;
+  certificatePaymentUzs?: number;
+  psrPriceUsd?: number;
+  psrPriceUzs?: number;
+  workerPriceUsd?: number;
+  workerPriceUzs?: number;
+  customsPaymentUsd?: number;
+  customsPaymentUzs?: number;
   branch: {
     id: number;
     name: string;
@@ -46,23 +69,135 @@ interface CompanySettings {
   correspondentBankSwift?: string;
 }
 
+interface CertifierFeeConfig {
+  id: number;
+  st1Rate: number;
+  fitoRate: number;
+  aktRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface YearlyGoalConfig {
+  id: number;
+  year: number;
+  targetTasks: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface KpiConfig {
+  id: number;
+  stageName: string;
+  price: number;
+  updatedAt: string;
+}
+
+interface RegionCode {
+  id: number;
+  name: string;
+  internalCode: string;
+  externalCode: string;
+  createdAt: string;
+}
+
+interface ProcessSetting {
+  id: number;
+  processType: 'TIR' | 'CERT' | 'DECLARATION';
+  estimatedTime: number;
+  reminder1: number;
+  reminder2: number;
+  reminder3: number;
+  updatedAt: string;
+}
+
+const PROCESS_TYPE_LABELS: Record<string, string> = {
+  TIR: 'TIR-SMR',
+  CERT: 'Zayavka',
+  DECLARATION: 'Deklaratsiya',
+};
+
+const STAGE_PRICE_DEFAULTS = [
+  { stageName: 'Invoys', price: 3.0 },
+  { stageName: 'Zayavka', price: 3.0 },
+  { stageName: 'TIR-SMR', price: 1.5 },
+  { stageName: 'Sertifikat olib chiqish', price: 1.25 },
+  { stageName: 'Deklaratsiya', price: 2.0 },
+  { stageName: 'Tekshirish', price: 2.0 },
+  { stageName: 'Topshirish', price: 1.25 },
+  { stageName: 'Pochta', price: 1.0 },
+];
+
+const iconClassName = 'h-4 w-4';
+
+const IconAdd = () => (
+  <svg viewBox="0 0 20 20" className={iconClassName} fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M10 4v12M4 10h12" strokeLinecap="round" />
+  </svg>
+);
+
+const IconEdit = () => (
+  <svg viewBox="0 0 20 20" className={iconClassName} fill="none" stroke="currentColor" strokeWidth="1.6">
+    <path d="M12.5 4.5 15.5 7.5" strokeLinecap="round" />
+    <path d="M5 15h3l7.5-7.5-3-3L5 12v3z" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconTrash = () => (
+  <svg viewBox="0 0 20 20" className={iconClassName} fill="none" stroke="currentColor" strokeWidth="1.6">
+    <path d="M4 6h12" strokeLinecap="round" />
+    <path d="M7 6V4h6v2" strokeLinejoin="round" />
+    <path d="M6 6l1 10h6l1-10" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconSave = () => (
+  <svg viewBox="0 0 20 20" className={iconClassName} fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M4 10l4 4 8-8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconCancel = () => (
+  <svg viewBox="0 0 20 20" className={iconClassName} fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+  </svg>
+);
+
 const Settings = () => {
   const { user } = useAuth();
+  const [tnvedProducts, setTnvedProducts] = useState(getTnvedProducts());
+  const [tnvedName, setTnvedName] = useState('');
+  const [tnvedCode, setTnvedCode] = useState('');
+  const [tnvedBotanical, setTnvedBotanical] = useState('');
+  const [editingTnvedId, setEditingTnvedId] = useState<string | null>(null);
+  const [editingTnvedName, setEditingTnvedName] = useState('');
+  const [editingTnvedCode, setEditingTnvedCode] = useState('');
+  const [editingTnvedBotanical, setEditingTnvedBotanical] = useState('');
+  const [packagingTypes, setPackagingTypes] = useState<PackagingTypeItem[]>([]);
+  const [loadingPackagingTypes, setLoadingPackagingTypes] = useState(true);
+  const [packagingName, setPackagingName] = useState('');
+  const [packagingCode, setPackagingCode] = useState('');
+  const [editingPackagingId, setEditingPackagingId] = useState<string | null>(null);
+  const [editingPackagingName, setEditingPackagingName] = useState('');
+  const [editingPackagingCode, setEditingPackagingCode] = useState('');
   const [bxmConfigs, setBxmConfigs] = useState<BXMConfig[]>([]);
   const [currentBXM, setCurrentBXM] = useState<BXMConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingYear, setEditingYear] = useState<number | null>(null);
-  const [editAmount, setEditAmount] = useState<string>('');
+  const [editAmountUsd, setEditAmountUsd] = useState<string>('');
+  const [editAmountUzs, setEditAmountUzs] = useState<string>('');
   const [statePayments, setStatePayments] = useState<StatePayment[]>([]);
   const [loadingStatePayments, setLoadingStatePayments] = useState(true);
   const [showStatePaymentForm, setShowStatePaymentForm] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [statePaymentForm, setStatePaymentForm] = useState({
     branchId: '',
-    certificatePayment: '',
-    psrPrice: '',
-    workerPrice: '',
-    customsPayment: '',
+    certificatePaymentUsd: '',
+    certificatePaymentUzs: '',
+    psrPriceUsd: '',
+    psrPriceUzs: '',
+    workerPriceUsd: '',
+    workerPriceUzs: '',
   });
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [loadingCompanySettings, setLoadingCompanySettings] = useState(true);
@@ -82,6 +217,66 @@ const Settings = () => {
     correspondentBankAddress: '',
     correspondentBankSwift: '',
   });
+  const [certifierFeeConfig, setCertifierFeeConfig] = useState<CertifierFeeConfig | null>(null);
+  const [loadingCertifierFeeConfig, setLoadingCertifierFeeConfig] = useState(true);
+  const [showCertifierFeeForm, setShowCertifierFeeForm] = useState(false);
+  const [certifierFeeForm, setCertifierFeeForm] = useState({
+    st1Rate: '',
+    fitoRate: '',
+    aktRate: '',
+  });
+  const [yearlyGoalConfig, setYearlyGoalConfig] = useState<YearlyGoalConfig | null>(null);
+  const [loadingYearlyGoalConfig, setLoadingYearlyGoalConfig] = useState(true);
+  const [showYearlyGoalForm, setShowYearlyGoalForm] = useState(false);
+  const [yearlyGoalForm, setYearlyGoalForm] = useState({
+    year: new Date().getFullYear().toString(),
+    targetTasks: '',
+  });
+  const [kpiConfigEdits, setKpiConfigEdits] = useState<Record<string, string>>({});
+  const [loadingKpiConfigs, setLoadingKpiConfigs] = useState(true);
+  const [savingKpiConfigs, setSavingKpiConfigs] = useState(false);
+  const [showBranchForm, setShowBranchForm] = useState(false);
+  const [newBranchName, setNewBranchName] = useState('');
+  const [deletingBranchId, setDeletingBranchId] = useState<number | null>(null);
+  const [regionCodes, setRegionCodes] = useState<RegionCode[]>([]);
+  const [loadingRegionCodes, setLoadingRegionCodes] = useState(true);
+  const [showRegionCodeForm, setShowRegionCodeForm] = useState(false);
+  const [regionCodeForm, setRegionCodeForm] = useState({
+    name: '',
+    internalCode: '',
+    externalCode: '',
+  });
+  const [deletingRegionCodeId, setDeletingRegionCodeId] = useState<number | null>(null);
+  type TabType = 'general' | 'financial' | 'structure' | 'specs' | 'processes';
+  const [activeTab, setActiveTab] = useState<TabType>('general');
+  const tabs = [
+    { id: 'general', label: "Umumiy", icon: 'lucide:settings' },
+    { id: 'financial', label: "Moliyaviy", icon: 'lucide:dollar-sign' },
+    { id: 'structure', label: "Tuzilma", icon: 'lucide:building-2' },
+    { id: 'specs', label: "Spetsifikatsiyalar", icon: 'lucide:box' },
+    { id: 'processes', label: "Jarayonlar", icon: 'lucide:git-pull-request' }
+  ];
+
+  const [processSettings, setProcessSettings] = useState<ProcessSetting[]>([]);
+  const [loadingProcessSettings, setLoadingProcessSettings] = useState(true);
+  const [processSettingsEdits, setProcessSettingsEdits] = useState<Record<string, { estimatedTime: string; reminder1: string; reminder2: string; reminder3: string }>>({});
+  const [savingProcessSettings, setSavingProcessSettings] = useState(false);
+
+  const refreshTnvedProducts = () => {
+    setTnvedProducts(getTnvedProducts());
+  };
+  const loadPackagingTypes = async () => {
+    try {
+      setLoadingPackagingTypes(true);
+      const res = await apiClient.get<PackagingTypeItem[]>('/packaging-types');
+      setPackagingTypes(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.error('Qadoq turlarini yuklash:', e);
+      setPackagingTypes([]);
+    } finally {
+      setLoadingPackagingTypes(false);
+    }
+  };
 
   useEffect(() => {
     loadBXMConfigs();
@@ -89,6 +284,12 @@ const Settings = () => {
     loadStatePayments();
     loadBranches();
     loadCompanySettings();
+    loadCertifierFeeConfig();
+    loadYearlyGoalConfig();
+    loadKpiConfigs();
+    loadRegionCodes();
+    loadProcessSettings();
+    loadPackagingTypes();
   }, []);
 
   const loadBXMConfigs = async () => {
@@ -113,22 +314,25 @@ const Settings = () => {
 
   const handleEdit = (config: BXMConfig) => {
     setEditingYear(config.year);
-    setEditAmount(config.amount.toString());
+    setEditAmountUsd((config.amountUsd ?? config.amount).toString());
+    setEditAmountUzs((config.amountUzs ?? 412000).toString());
   };
 
   const handleSave = async (year: number) => {
     try {
-      const amount = parseFloat(editAmount);
-      if (isNaN(amount) || amount < 0) {
+      const amountUsd = parseFloat(editAmountUsd);
+      const amountUzs = parseFloat(editAmountUzs);
+      if (isNaN(amountUsd) || amountUsd < 0 || isNaN(amountUzs) || amountUzs < 0) {
         alert('Noto\'g\'ri summa');
         return;
       }
 
-      await apiClient.put(`/bxm/${year}`, { amount });
+      await apiClient.put(`/bxm/${year}`, { amountUsd, amountUzs });
       await loadBXMConfigs();
       await loadCurrentBXM();
       setEditingYear(null);
-      setEditAmount('');
+      setEditAmountUsd('');
+      setEditAmountUzs('');
       alert('BXM muvaffaqiyatli yangilandi');
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
@@ -139,17 +343,19 @@ const Settings = () => {
     try {
       const currentYear = new Date().getFullYear();
       const newYear = currentYear + 1;
-      const amount = parseFloat(editAmount);
-      
-      if (isNaN(amount) || amount < 0) {
+      const amountUsd = parseFloat(editAmountUsd);
+      const amountUzs = parseFloat(editAmountUzs);
+
+      if (isNaN(amountUsd) || amountUsd < 0 || isNaN(amountUzs) || amountUzs < 0) {
         alert('Noto\'g\'ri summa');
         return;
       }
 
-      await apiClient.put(`/bxm/${newYear}`, { amount });
+      await apiClient.put(`/bxm/${newYear}`, { amountUsd, amountUzs });
       await loadBXMConfigs();
       setEditingYear(null);
-      setEditAmount('');
+      setEditAmountUsd('');
+      setEditAmountUzs('');
       alert('Yangi yil uchun BXM muvaffaqiyatli qo\'shildi');
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
@@ -174,6 +380,228 @@ const Settings = () => {
       setBranches(response.data);
     } catch (error) {
       console.error('Error loading branches:', error);
+      setBranches([]);
+    }
+  };
+
+  const loadRegionCodes = async () => {
+    try {
+      setLoadingRegionCodes(true);
+      const response = await apiClient.get('/region-codes');
+      setRegionCodes(response.data);
+    } catch (error) {
+      console.error('Error loading region codes:', error);
+    } finally {
+      setLoadingRegionCodes(false);
+    }
+  };
+
+  const handleCreateBranch = async (branchName: string) => {
+    try {
+      await apiClient.post('/branches', { name: branchName });
+      await loadBranches();
+      alert('Filial muvaffaqiyatli qo\'shildi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleDeleteBranch = async (branchId: number, branchName: string) => {
+    if (!confirm(`"${branchName}" filialini o'chirishni xohlaysizmi?`)) return;
+    try {
+      setDeletingBranchId(branchId);
+      await apiClient.delete(`/branches/${branchId}`);
+      await loadBranches();
+      alert('Filial muvaffaqiyatli o\'chirildi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    } finally {
+      setDeletingBranchId(null);
+    }
+  };
+
+  const handleCreateRegionCode = async () => {
+    const payload = {
+      name: regionCodeForm.name.trim(),
+      internalCode: regionCodeForm.internalCode.trim(),
+      externalCode: regionCodeForm.externalCode.trim(),
+    };
+    if (!payload.name || !payload.internalCode || !payload.externalCode) {
+      alert('Barcha maydonlarni to\'ldiring');
+      return;
+    }
+    try {
+      await apiClient.post('/region-codes', payload);
+      setRegionCodeForm({ name: '', internalCode: '', externalCode: '' });
+      setShowRegionCodeForm(false);
+      await loadRegionCodes();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleDeleteRegionCode = async (id: number, name: string) => {
+    if (!confirm(`"${name}" hudud kodini o'chirishni xohlaysizmi?`)) return;
+    try {
+      setDeletingRegionCodeId(id);
+      await apiClient.delete(`/region-codes/${id}`);
+      await loadRegionCodes();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    } finally {
+      setDeletingRegionCodeId(null);
+    }
+  };
+
+  const loadProcessSettings = async () => {
+    try {
+      setLoadingProcessSettings(true);
+      const response = await apiClient.get('/process/settings');
+      const data = Array.isArray(response.data) ? response.data : [];
+      setProcessSettings(data);
+      const edits: Record<string, { estimatedTime: string; reminder1: string; reminder2: string; reminder3: string }> = {};
+      data.forEach((s: ProcessSetting) => {
+        edits[s.processType] = {
+          estimatedTime: s.estimatedTime.toString(),
+          reminder1: s.reminder1.toString(),
+          reminder2: s.reminder2.toString(),
+          reminder3: s.reminder3.toString(),
+        };
+      });
+      setProcessSettingsEdits(edits);
+    } catch (error) {
+      console.error('Error loading process settings:', error);
+    } finally {
+      setLoadingProcessSettings(false);
+    }
+  };
+
+  const handleSaveProcessSettings = async () => {
+    try {
+      setSavingProcessSettings(true);
+      const settings = Object.entries(processSettingsEdits).map(([processType, vals]) => ({
+        processType: processType as 'TIR' | 'CERT' | 'DECLARATION',
+        estimatedTime: parseInt(vals.estimatedTime, 10) || 0,
+        reminder1: parseInt(vals.reminder1, 10) || 0,
+        reminder2: parseInt(vals.reminder2, 10) || 0,
+        reminder3: parseInt(vals.reminder3, 10) || 0,
+      }));
+      await apiClient.put('/process/settings', { settings });
+      await loadProcessSettings();
+      alert('Jarayon sozlamalari muvaffaqiyatli saqlandi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    } finally {
+      setSavingProcessSettings(false);
+    }
+  };
+
+  const handleAddTnvedProduct = () => {
+    if (!tnvedName.trim() || !tnvedCode.trim()) {
+      alert('Mahsulot nomi va TNVED kodi majburiy');
+      return;
+    }
+    addTnvedProduct(tnvedName.trim(), tnvedCode.trim(), tnvedBotanical.trim());
+    setTnvedName('');
+    setTnvedCode('');
+    setTnvedBotanical('');
+    refreshTnvedProducts();
+  };
+
+  const startEditTnved = (item: { id: string; name: string; code: string; botanicalName?: string }) => {
+    setEditingTnvedId(item.id);
+    setEditingTnvedName(item.name);
+    setEditingTnvedCode(item.code);
+    setEditingTnvedBotanical(item.botanicalName || '');
+  };
+
+  const cancelEditTnved = () => {
+    setEditingTnvedId(null);
+    setEditingTnvedName('');
+    setEditingTnvedCode('');
+    setEditingTnvedBotanical('');
+  };
+
+  const handleSaveTnved = () => {
+    if (!editingTnvedId) return;
+    if (!editingTnvedName.trim() || !editingTnvedCode.trim()) {
+      alert('Mahsulot nomi va TNVED kodi majburiy');
+      return;
+    }
+    updateTnvedProduct(
+      editingTnvedId,
+      editingTnvedName.trim(),
+      editingTnvedCode.trim(),
+      editingTnvedBotanical.trim()
+    );
+    cancelEditTnved();
+    refreshTnvedProducts();
+  };
+
+  const handleDeleteTnved = (id: string, name: string) => {
+    if (!confirm(`"${name}" mahsulotini o'chirishni xohlaysizmi?`)) return;
+    deleteTnvedProduct(id);
+    refreshTnvedProducts();
+  };
+
+  const handleResetTnved = () => {
+    if (!confirm('Standart spetsifikatsiya ro\'yxatini tiklaysizmi?')) return;
+    resetTnvedProductsToDefaults();
+    refreshTnvedProducts();
+  };
+
+  const handleAddPackagingType = async () => {
+    if (!packagingName.trim() || !packagingCode.trim()) {
+      alert('Qadoq nomi va qadoq kodi majburiy');
+      return;
+    }
+    try {
+      await apiClient.post('/packaging-types', { name: packagingName.trim(), code: packagingCode.trim() });
+      setPackagingName('');
+      setPackagingCode('');
+      await loadPackagingTypes();
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Qo‘shishda xatolik');
+    }
+  };
+
+  const startEditPackaging = (item: { id: string; name: string; code?: string }) => {
+    setEditingPackagingId(item.id);
+    setEditingPackagingName(item.name);
+    setEditingPackagingCode(item.code || '');
+  };
+
+  const cancelEditPackaging = () => {
+    setEditingPackagingId(null);
+    setEditingPackagingName('');
+    setEditingPackagingCode('');
+  };
+
+  const handleSavePackaging = async () => {
+    if (!editingPackagingId) return;
+    if (!editingPackagingName.trim() || !editingPackagingCode.trim()) {
+      alert('Qadoq nomi va qadoq kodi majburiy');
+      return;
+    }
+    try {
+      await apiClient.put(`/packaging-types/${editingPackagingId}`, {
+        name: editingPackagingName.trim(),
+        code: editingPackagingCode.trim(),
+      });
+      cancelEditPackaging();
+      await loadPackagingTypes();
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Saqlashda xatolik');
+    }
+  };
+
+  const handleDeletePackaging = async (id: string, name: string) => {
+    if (!confirm(`"${name}" qadoq turini o'chirishni xohlaysizmi?`)) return;
+    try {
+      await apiClient.delete(`/packaging-types/${id}`);
+      await loadPackagingTypes();
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'O‘chirishda xatolik');
     }
   };
 
@@ -182,18 +610,22 @@ const Settings = () => {
     try {
       await apiClient.post('/state-payments', {
         branchId: Number(statePaymentForm.branchId),
-        certificatePayment: Number(statePaymentForm.certificatePayment),
-        psrPrice: Number(statePaymentForm.psrPrice),
-        workerPrice: Number(statePaymentForm.workerPrice),
-        customsPayment: Number(statePaymentForm.customsPayment),
+        certificatePaymentUsd: Number(statePaymentForm.certificatePaymentUsd),
+        certificatePaymentUzs: Number(statePaymentForm.certificatePaymentUzs),
+        psrPriceUsd: Number(statePaymentForm.psrPriceUsd),
+        psrPriceUzs: Number(statePaymentForm.psrPriceUzs),
+        workerPriceUsd: Number(statePaymentForm.workerPriceUsd),
+        workerPriceUzs: Number(statePaymentForm.workerPriceUzs),
       });
       setShowStatePaymentForm(false);
       setStatePaymentForm({
         branchId: '',
-        certificatePayment: '',
-        psrPrice: '',
-        workerPrice: '',
-        customsPayment: '',
+        certificatePaymentUsd: '',
+        certificatePaymentUzs: '',
+        psrPriceUsd: '',
+        psrPriceUzs: '',
+        workerPriceUsd: '',
+        workerPriceUzs: '',
       });
       await loadStatePayments();
     } catch (error: any) {
@@ -211,12 +643,13 @@ const Settings = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, currency: 'USD' | 'UZS') => {
     return new Intl.NumberFormat('uz-UZ', {
       style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(amount);
+      currency,
+      minimumFractionDigits: currency === 'USD' ? 2 : 0,
+      maximumFractionDigits: currency === 'USD' ? 2 : 0,
+    }).format(amount).replace(/,/g, ' ');
   };
 
   const formatDate = (dateString: string) => {
@@ -258,6 +691,84 @@ const Settings = () => {
     }
   };
 
+  const loadCertifierFeeConfig = async () => {
+    try {
+      setLoadingCertifierFeeConfig(true);
+      const response = await apiClient.get('/certifier-fee-config');
+      if (response.data) {
+        setCertifierFeeConfig(response.data);
+        setCertifierFeeForm({
+          st1Rate: response.data.st1Rate?.toString() ?? '',
+          fitoRate: response.data.fitoRate?.toString() ?? '',
+          aktRate: response.data.aktRate?.toString() ?? '',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading certifier fee config:', error);
+    } finally {
+      setLoadingCertifierFeeConfig(false);
+    }
+  };
+
+  const loadYearlyGoalConfig = async () => {
+    try {
+      setLoadingYearlyGoalConfig(true);
+      const response = await apiClient.get('/yearly-goal-config');
+      if (response.data) {
+        setYearlyGoalConfig(response.data);
+        setYearlyGoalForm({
+          year: response.data.year?.toString() ?? new Date().getFullYear().toString(),
+          targetTasks: response.data.targetTasks?.toString() ?? '',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading yearly goal config:', error);
+    } finally {
+      setLoadingYearlyGoalConfig(false);
+    }
+  };
+
+  const loadKpiConfigs = async () => {
+    try {
+      setLoadingKpiConfigs(true);
+      const response = await apiClient.get('/kpi/configs');
+      const configMap = new Map<string, number>(
+        response.data.map((config: KpiConfig) => [config.stageName, Number(config.price)])
+      );
+      const edits: Record<string, string> = {};
+      STAGE_PRICE_DEFAULTS.forEach((stage) => {
+        const value = configMap.get(stage.stageName) ?? stage.price;
+        edits[stage.stageName] = value.toString();
+      });
+      setKpiConfigEdits(edits);
+    } catch (error) {
+      console.error('Error loading KPI configs:', error);
+    } finally {
+      setLoadingKpiConfigs(false);
+    }
+  };
+
+  const handleSaveKpiConfigs = async () => {
+    try {
+      setSavingKpiConfigs(true);
+      const payload = STAGE_PRICE_DEFAULTS.map((stage) => {
+        const rawValue = kpiConfigEdits[stage.stageName];
+        const price = parseFloat(rawValue);
+        if (isNaN(price) || price < 0) {
+          throw new Error(`Noto'g'ri summa: ${stage.stageName}`);
+        }
+        return { stageName: stage.stageName, price };
+      });
+      await apiClient.put('/kpi/configs', payload);
+      await loadKpiConfigs();
+      alert('Jarayonlar bo\'yicha summalar saqlandi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || error.message || 'Xatolik yuz berdi');
+    } finally {
+      setSavingKpiConfigs(false);
+    }
+  };
+
   const handleCompanySettingsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -265,6 +776,37 @@ const Settings = () => {
       setShowCompanySettingsForm(false);
       await loadCompanySettings();
       alert('Kompaniya sozlamalari muvaffaqiyatli saqlandi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleCertifierFeeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiClient.post('/certifier-fee-config', {
+        st1Rate: Number(certifierFeeForm.st1Rate),
+        fitoRate: Number(certifierFeeForm.fitoRate),
+        aktRate: Number(certifierFeeForm.aktRate),
+      });
+      setShowCertifierFeeForm(false);
+      await loadCertifierFeeConfig();
+      alert('Sertifikatchi tariflari muvaffaqiyatli saqlandi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleYearlyGoalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiClient.post('/yearly-goal-config', {
+        year: Number(yearlyGoalForm.year),
+        targetTasks: Number(yearlyGoalForm.targetTasks),
+      });
+      setShowYearlyGoalForm(false);
+      await loadYearlyGoalConfig();
+      alert('Yillik maqsad muvaffaqiyatli saqlandi');
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
@@ -279,519 +821,1501 @@ const Settings = () => {
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Sozlamalar</h1>
-
-      {/* Current BXM */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Joriy BXM (Bazaviy Xisoblash Miqdori)</h2>
-        {loading ? (
-          <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-        ) : currentBXM ? (
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm text-gray-600">Yil: {currentBXM.year}</div>
-              <div className="text-2xl font-bold text-blue-600">
-                ${Number(currentBXM.amount).toFixed(2)}
-              </div>
+    <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* Sidebar */}
+        <div className="w-full md:w-64 shrink-0">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 space-y-1 sticky top-6">
+            <div className="px-3 py-2 mb-2">
+              <h1 className="text-xl font-bold text-gray-800">Sozlamalar</h1>
+              <p className="text-xs text-gray-500 mt-1">Asosiy ma'lumotlar, tariflar...</p>
             </div>
-            <button
-              onClick={() => handleEdit(currentBXM)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              O'zgartirish
-            </button>
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as TabType)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === tab.id
+                  ? 'bg-blue-50 text-blue-700 shadow-sm border border-blue-100'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent'
+                  }`}
+              >
+                <Icon icon={tab.icon} className={`w-5 h-5 ${activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'}`} />
+                {tab.label}
+              </button>
+            ))}
           </div>
-        ) : (
-          <div className="text-center py-4 text-gray-400">BXM topilmadi</div>
-        )}
-      </div>
-
-      {/* BXM History */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">BXM tarixi</h2>
-          <button
-            onClick={() => {
-              const currentYear = new Date().getFullYear();
-              setEditingYear(currentYear + 1);
-              setEditAmount('34.4');
-            }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            + Yangi yil qo'shish
-          </button>
         </div>
-        <div className="space-y-3">
-          {bxmConfigs.map((config) => (
-            <div
-              key={config.id}
-              className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-            >
-              {editingYear === config.year ? (
-                <div className="flex items-center gap-3 flex-1">
-                  <span className="text-sm font-medium text-gray-700 w-20">{config.year}</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editAmount}
-                    onChange={(e) => setEditAmount(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="BXM summa"
-                  />
-                  <button
-                    onClick={() => handleSave(config.year)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Saqlash
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingYear(null);
-                      setEditAmount('');
-                    }}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-                  >
-                    Bekor qilish
-                  </button>
+
+        {/* Content Area */}
+        <div className="flex-1 min-w-0">
+
+          {activeTab === 'general' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-3 border-b border-gray-200 pb-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
+                  <Icon icon="lucide:settings" className="w-5 h-5 text-blue-600" />
                 </div>
-              ) : (
-                <>
-                  <div>
-                    <div className="text-sm font-medium text-gray-800">{config.year} yil</div>
-                    <div className="text-lg font-bold text-blue-600">
-                      ${Number(config.amount).toFixed(2)}
+                <h2 className="text-xl font-bold text-gray-800">Umumiy Ma'lumotlar</h2>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-center mb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <Icon icon="lucide:building-2" className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <h2 className="text-base font-bold text-gray-800">Kompaniya ma'lumotlari</h2>
+                    </div>
+                    <button
+                      onClick={() => setShowCompanySettingsForm(true)}
+                      className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      title="Tahrirlash"
+                    >
+                      <Icon icon="lucide:edit-2" className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-xs text-gray-400 uppercase font-semibold">Nomi</div>
+                      <div className="text-sm text-gray-800 font-medium">{companySettingsForm.name || "Kiritilmagan"}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-400 uppercase font-semibold">Yuridik manzil</div>
+                      <div className="text-sm text-gray-800">{companySettingsForm.legalAddress || "Kiritilmagan"}</div>
+                    </div>
+                    <div className="flex gap-6">
+                      <div className="flex-1">
+                        <div className="text-xs text-gray-400 uppercase font-semibold">Telefon</div>
+                        <div className="text-sm text-gray-800">{companySettingsForm.phone || "Kiritilmagan"}</div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs text-gray-400 uppercase font-semibold">Email</div>
+                        <div className="text-sm text-gray-800">{companySettingsForm.email || "Kiritilmagan"}</div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-400 uppercase font-semibold">INN</div>
+                      <div className="text-sm text-gray-800">{companySettingsForm.inn || "Kiritilmagan"}</div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleEdit(config)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    O'zgartirish
-                  </button>
-                </>
-              )}
+                </div>
+
+                <div className="space-y-6">
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-center mb-5">
+                      <h2 className="text-base font-bold text-gray-800 flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center"><Icon icon="lucide:coins" className="w-4 h-4 text-indigo-600" /></span>
+                        Joriy BXM
+                      </h2>
+                      {currentBXM && (
+                        <button
+                          onClick={() => handleEdit(currentBXM)}
+                          className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          aria-label="O'zgartirish"
+                          title="O'zgartirish"
+                        >
+                          <IconEdit />
+                          <span className="sr-only">O'zgartirish</span>
+                        </button>
+                      )}
+                    </div>
+                    {loading ? (
+                      <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+                    ) : currentBXM ? (
+                      <div>
+                        <div className="text-sm text-gray-500 mb-1">Yil: {currentBXM.year}</div>
+                        <div className="text-2xl font-bold text-indigo-600">
+                          {formatCurrency(Number(currentBXM.amountUsd ?? currentBXM.amount), 'USD')}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {formatCurrency(Number(currentBXM.amountUzs ?? 412000), 'UZS')}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-400">BXM topilmadi</div>
+                    )}
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-center mb-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+                          <Icon icon="lucide:target" className="w-4 h-4 text-green-600" />
+                        </div>
+                        <h2 className="text-base font-bold text-gray-800">Yillik maqsad</h2>
+                      </div>
+                      <button
+                        onClick={() => setShowYearlyGoalForm(true)}
+                        className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                        aria-label={yearlyGoalConfig ? "O'zgartirish" : "Qo'shish"}
+                        title={yearlyGoalConfig ? "O'zgartirish" : "Qo'shish"}
+                      >
+                        {yearlyGoalConfig ? <IconEdit /> : <IconAdd />}
+                        <span className="sr-only">{yearlyGoalConfig ? 'O\'zgartirish' : 'Qo\'shish'}</span>
+                      </button>
+                    </div>
+
+                    {loadingYearlyGoalConfig ? (
+                      <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+                    ) : yearlyGoalConfig ? (
+                      <div className="space-y-2 text-sm">
+                        <div><span className="font-semibold">Yil:</span> {yearlyGoalConfig.year}</div>
+                        <div><span className="font-semibold">Maqsad:</span> {yearlyGoalConfig.targetTasks.toLocaleString('uz-UZ')} task</div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-400">
+                        Yillik maqsad kiritilmagan.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          ))}
-          {editingYear && editingYear > Math.max(...bxmConfigs.map(c => c.year), 0) && (
-            <div className="flex items-center gap-3 p-3 border-2 border-green-300 rounded-lg bg-green-50">
-              <span className="text-sm font-medium text-gray-700 w-20">{editingYear}</span>
-              <input
-                type="number"
-                step="0.01"
-                value={editAmount}
-                onChange={(e) => setEditAmount(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="BXM summa"
-              />
-              <button
-                onClick={handleAddNewYear}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                Qo'shish
-              </button>
-              <button
-                onClick={() => {
-                  setEditingYear(null);
-                  setEditAmount('');
-                }}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-              >
-                Bekor qilish
-              </button>
+          )}
+
+          {activeTab === 'financial' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-3 border-b border-gray-200 pb-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-emerald-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800">Moliyaviy Sozlamalar</h2>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-center mb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                        <Icon icon="lucide:history" className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <h2 className="text-base font-bold text-gray-800">BXM tarixi</h2>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const currentYear = new Date().getFullYear();
+                        setEditingYear(currentYear + 1);
+                        setEditAmountUsd('34.4');
+                        setEditAmountUzs('412000');
+                      }}
+                      className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      aria-label="Yangi yil qo'shish"
+                      title="Yangi yil qo'shish"
+                    >
+                      <IconAdd />
+                      <span className="sr-only">Yangi yil qo'shish</span>
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {bxmConfigs.map((config) => (
+                      <div
+                        key={config.id}
+                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                      >
+                        {editingYear === config.year ? (
+                          <div className="flex items-center gap-3 flex-1">
+                            <span className="text-sm font-medium text-gray-700 w-20">{config.year}</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editAmountUsd}
+                              onChange={(e) => setEditAmountUsd(e.target.value)}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="BXM USD"
+                            />
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editAmountUzs}
+                              onChange={(e) => setEditAmountUzs(e.target.value)}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="BXM UZS"
+                            />
+                            <button
+                              onClick={() => handleSave(config.year)}
+                              className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                              aria-label="Saqlash"
+                              title="Saqlash"
+                            >
+                              <IconSave />
+                              <span className="sr-only">Saqlash</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingYear(null);
+                                setEditAmountUsd('');
+                                setEditAmountUzs('');
+                              }}
+                              className="inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                              aria-label="Bekor qilish"
+                              title="Bekor qilish"
+                            >
+                              <IconCancel />
+                              <span className="sr-only">Bekor qilish</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <div>
+                              <div className="text-sm font-medium text-gray-800">{config.year} yil</div>
+                              <div className="text-lg font-bold text-blue-600">
+                                {formatCurrency(Number(config.amountUsd ?? config.amount), 'USD')}
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                {formatCurrency(Number(config.amountUzs ?? 412000), 'UZS')}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleEdit(config)}
+                              className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                              aria-label="O'zgartirish"
+                              title="O'zgartirish"
+                            >
+                              <IconEdit />
+                              <span className="sr-only">O'zgartirish</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    {editingYear && editingYear > Math.max(...bxmConfigs.map(c => c.year), 0) && (
+                      <div className="flex items-center gap-3 p-3 border-2 border-green-300 rounded-lg bg-green-50">
+                        <span className="text-sm font-medium text-gray-700 w-20">{editingYear}</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editAmountUsd}
+                          onChange={(e) => setEditAmountUsd(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="BXM USD"
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editAmountUzs}
+                          onChange={(e) => setEditAmountUzs(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="BXM UZS"
+                        />
+                        <button
+                          onClick={handleAddNewYear}
+                          className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                          aria-label="Qo'shish"
+                          title="Qo'shish"
+                        >
+                          <IconAdd />
+                          <span className="sr-only">Qo'shish</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingYear(null);
+                            setEditAmountUsd('');
+                            setEditAmountUzs('');
+                          }}
+                          className="inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                          aria-label="Bekor qilish"
+                          title="Bekor qilish"
+                        >
+                          <IconCancel />
+                          <span className="sr-only">Bekor qilish</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-6">
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-center mb-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+                          <Icon icon="lucide:percent" className="w-4 h-4 text-orange-600" />
+                        </div>
+                        <h2 className="text-base font-bold text-gray-800">Sertifikatchi tariflari (Oltiariq)</h2>
+                      </div>
+                      <button
+                        onClick={() => setShowCertifierFeeForm(true)}
+                        className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                        aria-label={certifierFeeConfig ? "O'zgartirish" : "Qo'shish"}
+                        title={certifierFeeConfig ? "O'zgartirish" : "Qo'shish"}
+                      >
+                        {certifierFeeConfig ? <IconEdit /> : <IconAdd />}
+                        <span className="sr-only">{certifierFeeConfig ? 'O\'zgartirish' : 'Qo\'shish'}</span>
+                      </button>
+                    </div>
+
+                    {loadingCertifierFeeConfig ? (
+                      <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+                    ) : certifierFeeConfig ? (
+                      <div className="space-y-2 text-sm">
+                        <div><span className="font-semibold">ST-1:</span> {formatCurrency(Number(certifierFeeConfig.st1Rate), 'UZS')}</div>
+                        <div><span className="font-semibold">FITO:</span> {formatCurrency(Number(certifierFeeConfig.fitoRate), 'UZS')}</div>
+                        <div><span className="font-semibold">AKT:</span> {formatCurrency(Number(certifierFeeConfig.aktRate), 'UZS')}</div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-400">
+                        Sertifikatchi tariflari kiritilmagan.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-center mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                      <Icon icon="lucide:credit-card" className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <h2 className="text-base font-bold text-gray-800">Davlat to'lovlari</h2>
+                  </div>
+                  <button
+                    onClick={() => setShowStatePaymentForm(true)}
+                    className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    aria-label="Davlat to'lovi qo'shish"
+                    title="Davlat to'lovi qo'shish"
+                  >
+                    <IconAdd />
+                    <span className="sr-only">Qo'shish</span>
+                  </button>
+                </div>
+
+                {loadingStatePayments ? (
+                  <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+                ) : statePayments.length === 0 ? (
+                  <div className="text-center py-4 text-gray-400">Davlat to'lovlari topilmadi</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Filial</th>
+                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Sertifikat to'lovi</th>
+                          <th className="text-right py-3 px-4 font-semibold text-gray-700">PSR narxi</th>
+                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishchi narxi</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Yaratilgan</th>
+                          <th className="text-center py-3 px-4 font-semibold text-gray-700">Amallar</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {statePayments.map((payment) => (
+                          <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-3 px-4 text-gray-800 font-medium">{payment.branch.name}</td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="text-sm text-gray-700">{formatCurrency(Number(payment.certificatePaymentUsd ?? payment.certificatePayment), 'USD')}</div>
+                              <div className="text-xs text-gray-500">{formatCurrency(Number(payment.certificatePaymentUzs ?? payment.certificatePayment), 'UZS')}</div>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="text-sm text-gray-700">{formatCurrency(Number(payment.psrPriceUsd ?? payment.psrPrice), 'USD')}</div>
+                              <div className="text-xs text-gray-500">{formatCurrency(Number(payment.psrPriceUzs ?? payment.psrPrice), 'UZS')}</div>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="text-sm text-gray-700">{formatCurrency(Number(payment.workerPriceUsd ?? payment.workerPrice), 'USD')}</div>
+                              <div className="text-xs text-gray-500">{formatCurrency(Number(payment.workerPriceUzs ?? payment.workerPrice), 'UZS')}</div>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-500">{formatDate(payment.createdAt)}</td>
+                            <td className="py-3 px-4 text-center">
+                              <button
+                                onClick={() => handleDeleteStatePayment(payment.id)}
+                                className="inline-flex items-center justify-center p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                                aria-label="O'chirish"
+                                title="O'chirish"
+                              >
+                                <IconTrash />
+                                <span className="sr-only">O'chirish</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'structure' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-3 border-b border-gray-200 pb-3">
+                <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center">
+                  <Icon icon="lucide:building-2" className="w-5 h-5 text-violet-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800">Tuzilma (Filial va Hududlar)</h2>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-center mb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                        <Icon icon="lucide:map-pin" className="w-4 h-4 text-violet-600" />
+                      </div>
+                      <h2 className="text-base font-bold text-gray-800">Filiallar</h2>
+                    </div>
+                    <button
+                      onClick={() => setShowBranchForm(true)}
+                      className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      aria-label="Filial qo'shish"
+                      title="Filial qo'shish"
+                    >
+                      <IconAdd />
+                      <span className="sr-only">Filial qo'shish</span>
+                    </button>
+                  </div>
+
+                  {branches.length === 0 ? (
+                    <div className="text-center py-4 text-gray-400">Filiallar topilmadi</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {branches.map((branch) => (
+                        <div
+                          key={branch.id}
+                          className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                        >
+                          <div className="text-gray-800 font-medium">{branch.name}</div>
+                          <button
+                            onClick={() => handleDeleteBranch(branch.id, branch.name)}
+                            disabled={deletingBranchId === branch.id}
+                            className="inline-flex items-center justify-center p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
+                            aria-label="Filialni o'chirish"
+                            title="Filialni o'chirish"
+                          >
+                            <IconTrash />
+                            <span className="sr-only">{deletingBranchId === branch.id ? 'O\'chirilmoqda...' : 'O\'chirish'}</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {showBranchForm && (
+                    <div className="mt-4 p-4 border-2 border-green-300 rounded-lg bg-green-50">
+                      <h3 className="text-md font-semibold text-gray-800 mb-3">Yangi filial</h3>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newBranchName}
+                          onChange={(e) => setNewBranchName(e.target.value)}
+                          placeholder="Filial nomi"
+                          className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && newBranchName.trim()) {
+                              handleCreateBranch(newBranchName.trim());
+                              setNewBranchName('');
+                              setShowBranchForm(false);
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => {
+                            if (newBranchName.trim()) {
+                              handleCreateBranch(newBranchName.trim());
+                              setNewBranchName('');
+                              setShowBranchForm(false);
+                            }
+                          }}
+                          className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                          aria-label="Qo'shish"
+                          title="Qo'shish"
+                        >
+                          <IconAdd />
+                          <span className="sr-only">Qo'shish</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowBranchForm(false);
+                            setNewBranchName('');
+                          }}
+                          className="inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                          aria-label="Bekor qilish"
+                          title="Bekor qilish"
+                        >
+                          <IconCancel />
+                          <span className="sr-only">Bekor qilish</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-center mb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center">
+                        <Icon icon="lucide:hash" className="w-4 h-4 text-sky-600" />
+                      </div>
+                      <h2 className="text-base font-bold text-gray-800">Hudud kodlari</h2>
+                    </div>
+                    <button
+                      onClick={() => setShowRegionCodeForm(true)}
+                      className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      aria-label="Hudud kodi qo'shish"
+                      title="Hudud kodi qo'shish"
+                    >
+                      <IconAdd />
+                      <span className="sr-only">Qo'shish</span>
+                    </button>
+                  </div>
+
+                  {loadingRegionCodes ? (
+                    <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+                  ) : regionCodes.length === 0 ? (
+                    <div className="text-center py-4 text-gray-400">Hudud kodlari topilmadi</div>
+                  ) : (
+                    <div className="max-h-[520px] overflow-auto border border-gray-100 rounded-lg">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200 bg-gray-50 sticky top-0">
+                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Hudud</th>
+                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Kod ichki</th>
+                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Kod tashqi</th>
+                            <th className="text-center py-2 px-3 font-semibold text-gray-700">Amallar</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {regionCodes.map((code) => (
+                            <tr key={code.id} className="border-b border-gray-100 hover:bg-gray-50">
+                              <td className="py-2 px-3 text-gray-800 font-medium">{code.name}</td>
+                              <td className="py-2 px-3 text-gray-700">{code.internalCode}</td>
+                              <td className="py-2 px-3 text-gray-700">{code.externalCode}</td>
+                              <td className="py-2 px-3 text-center">
+                                <button
+                                  onClick={() => handleDeleteRegionCode(code.id, code.name)}
+                                  disabled={deletingRegionCodeId === code.id}
+                                  className="inline-flex items-center justify-center p-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs disabled:opacity-50"
+                                  aria-label="Hudud kodini o'chirish"
+                                  title="O'chirish"
+                                >
+                                  <IconTrash />
+                                  <span className="sr-only">{deletingRegionCodeId === code.id ? 'O\'chirilmoqda...' : 'O\'chirish'}</span>
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {showRegionCodeForm && (
+                    <div className="mt-4 p-4 border-2 border-green-300 rounded-lg bg-green-50">
+                      <h3 className="text-md font-semibold text-gray-800 mb-3">Yangi hudud kodi</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          value={regionCodeForm.name}
+                          onChange={(e) => setRegionCodeForm({ ...regionCodeForm, name: e.target.value })}
+                          placeholder="Hudud nomi"
+                          className="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={regionCodeForm.internalCode}
+                          onChange={(e) => setRegionCodeForm({ ...regionCodeForm, internalCode: e.target.value })}
+                          placeholder="Kod ichki"
+                          className="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={regionCodeForm.externalCode}
+                          onChange={(e) => setRegionCodeForm({ ...regionCodeForm, externalCode: e.target.value })}
+                          placeholder="Kod tashqi"
+                          className="px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={handleCreateRegionCode}
+                          className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                          aria-label="Qo'shish"
+                          title="Qo'shish"
+                        >
+                          <IconAdd />
+                          <span className="sr-only">Qo'shish</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowRegionCodeForm(false);
+                            setRegionCodeForm({ name: '', internalCode: '', externalCode: '' });
+                          }}
+                          className="inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                          aria-label="Bekor qilish"
+                          title="Bekor qilish"
+                        >
+                          <IconCancel />
+                          <span className="sr-only">Bekor qilish</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'specs' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-3 border-b border-gray-200 pb-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
+                  <Icon icon="lucide:box" className="w-5 h-5 text-blue-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800">Spetsifikatsiyalar</h2>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6">
+                {/* TNVED Products Section */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-center mb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <Icon icon="lucide:package" className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <h2 className="text-base font-bold text-gray-800">TNVED Mahsulotlari</h2>
+                    </div>
+                    <button
+                      onClick={handleResetTnved}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                      title="Asli holatiga qaytarish"
+                    >
+                      <Icon icon="lucide:rotate-ccw" className="w-4 h-4" />
+                      Qaytarish
+                    </button>
+                  </div>
+
+                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <h3 className="text-sm font-semibold text-blue-800 mb-3">Yangi mahsulot qo'shish</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        value={tnvedName}
+                        onChange={(e) => setTnvedName(e.target.value)}
+                        placeholder="Mahsulot nomi"
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={tnvedCode}
+                        onChange={(e) => setTnvedCode(e.target.value)}
+                        placeholder="TNVED kodi"
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={tnvedBotanical}
+                        onChange={(e) => setTnvedBotanical(e.target.value)}
+                        placeholder="Botanika nomi (ixtiyoriy)"
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={handleAddTnvedProduct}
+                      className="mt-3 w-full md:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    >
+                      Qo'shish
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Mahsulot</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">TNVED kodi</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Botanika nomi</th>
+                          <th className="text-center py-3 px-4 font-semibold text-gray-700">Amallar</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tnvedProducts.map((product) => (
+                          <tr key={product.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                            <td className="py-3 px-4">
+                              {editingTnvedId === product.id ? (
+                                <input
+                                  type="text"
+                                  value={editingTnvedName}
+                                  onChange={(e) => setEditingTnvedName(e.target.value)}
+                                  className="w-full px-2 py-1 border border-blue-300 rounded outline-none"
+                                />
+                              ) : (
+                                <span className="text-gray-800 font-medium">{product.name}</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {editingTnvedId === product.id ? (
+                                <input
+                                  type="text"
+                                  value={editingTnvedCode}
+                                  onChange={(e) => setEditingTnvedCode(e.target.value)}
+                                  className="w-full px-2 py-1 border border-blue-300 rounded outline-none"
+                                />
+                              ) : (
+                                <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-600 text-xs">{product.code}</code>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-gray-500 italic">
+                              {editingTnvedId === product.id ? (
+                                <input
+                                  type="text"
+                                  value={editingTnvedBotanical}
+                                  onChange={(e) => setEditingTnvedBotanical(e.target.value)}
+                                  className="w-full px-2 py-1 border border-blue-300 rounded outline-none"
+                                />
+                              ) : (
+                                product.botanicalName || '-'
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex justify-center gap-2">
+                                {editingTnvedId === product.id ? (
+                                  <>
+                                    <button onClick={handleSaveTnved} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Saqlash"><Icon icon="lucide:check" className="w-4 h-4" /></button>
+                                    <button onClick={cancelEditTnved} className="p-1.5 text-gray-400 hover:bg-gray-50 rounded" title="Bekor qilish"><Icon icon="lucide:x" className="w-4 h-4" /></button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button onClick={() => startEditTnved(product)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded text-sm" title="Tahrirlash"><Icon icon="lucide:edit-2" className="w-4 h-4" /></button>
+                                    <button onClick={() => handleDeleteTnved(product.id, product.name)} className="p-1.5 text-red-600 hover:bg-red-50 rounded text-sm" title="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Packaging Types Section */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+                      <Icon icon="lucide:package-2" className="w-4 h-4 text-green-600" />
+                    </div>
+                    <h2 className="text-base font-bold text-gray-800">Qadoq turlari</h2>
+                  </div>
+
+                  <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-100">
+                    <h3 className="text-sm font-semibold text-green-800 mb-3">Yangi qadoq turi qo'shish</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        value={packagingName}
+                        onChange={(e) => setPackagingName(e.target.value)}
+                        placeholder="Qadoq nomi (masalan: Quti)"
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={packagingCode}
+                        onChange={(e) => setPackagingCode(e.target.value)}
+                        placeholder="Kod (ixitiyoriy)"
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={handleAddPackagingType}
+                      className="mt-3 w-full md:w-auto px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                      Qo'shish
+                    </button>
+                  </div>
+
+                  {loadingPackagingTypes ? (
+                    <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {packagingTypes.map((type) => (
+                        <div key={type.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:border-green-200 hover:bg-green-50/30 transition-all">
+                          {editingPackagingId === type.id ? (
+                            <div className="flex flex-col gap-2 w-full">
+                              <input
+                                type="text"
+                                value={editingPackagingName}
+                                onChange={(e) => setEditingPackagingName(e.target.value)}
+                                className="px-2 py-1 border border-green-300 rounded outline-none text-sm"
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <button onClick={handleSavePackaging} className="flex-1 bg-green-600 text-white py-1 rounded text-xs">Saqlash</button>
+                                <button onClick={cancelEditPackaging} className="flex-1 bg-gray-200 text-gray-600 py-1 rounded text-xs">Bekor</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div>
+                                <div className="text-gray-800 font-medium">{type.name}</div>
+                                {type.code && <div className="text-xs text-gray-400">Kod: {type.code}</div>}
+                              </div>
+                              <div className="flex gap-1">
+                                <button onClick={() => startEditPackaging(type)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Icon icon="lucide:edit-2" className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => handleDeletePackaging(type.id, type.name)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Icon icon="lucide:trash-2" className="w-3.5 h-3.5" /></button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'processes' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex justify-between items-center border-b pb-2">
+                <h2 className="text-xl font-semibold text-gray-800">Jarayon Sozlamalari (Eslatmalar)</h2>
+                <button
+                  onClick={handleSaveProcessSettings}
+                  disabled={savingProcessSettings}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                >
+                  {savingProcessSettings ? (
+                    <>
+                      <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
+                      Saqlanmoqda...
+                    </>
+                  ) : (
+                    <>
+                      <Icon icon="lucide:save" className="w-4 h-4" />
+                      Barchasini saqlash
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {loadingProcessSettings ? (
+                <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
+              ) : (
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200">
+                          <th className="text-left py-4 px-6 font-semibold text-gray-700">Jarayon turi</th>
+                          <th className="text-center py-4 px-6 font-semibold text-gray-700">Taxminiy vaqt (kun)</th>
+                          <th className="text-center py-4 px-6 font-semibold text-gray-700">1-eslatma (kun)</th>
+                          <th className="text-center py-4 px-6 font-semibold text-gray-700">2-eslatma (kun)</th>
+                          <th className="text-center py-4 px-6 font-semibold text-gray-700">3-eslatma (kun)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {processSettings.map((setting) => (
+                          <tr key={setting.processType} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="py-4 px-6 font-medium text-gray-800">
+                              {setting.processType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')}
+                            </td>
+                            <td className="py-4 px-6">
+                              <input
+                                type="number"
+                                value={processSettingsEdits[setting.processType]?.estimatedTime || ''}
+                                onChange={(e) => setProcessSettingsEdits({
+                                  ...processSettingsEdits,
+                                  [setting.processType]: { ...processSettingsEdits[setting.processType], estimatedTime: e.target.value }
+                                })}
+                                className="w-20 mx-auto px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
+                              />
+                            </td>
+                            <td className="py-4 px-6">
+                              <input
+                                type="number"
+                                value={processSettingsEdits[setting.processType]?.reminder1 || ''}
+                                onChange={(e) => setProcessSettingsEdits({
+                                  ...processSettingsEdits,
+                                  [setting.processType]: { ...processSettingsEdits[setting.processType], reminder1: e.target.value }
+                                })}
+                                className="w-20 mx-auto px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
+                              />
+                            </td>
+                            <td className="py-4 px-6">
+                              <input
+                                type="number"
+                                value={processSettingsEdits[setting.processType]?.reminder2 || ''}
+                                onChange={(e) => setProcessSettingsEdits({
+                                  ...processSettingsEdits,
+                                  [setting.processType]: { ...processSettingsEdits[setting.processType], reminder2: e.target.value }
+                                })}
+                                className="w-20 mx-auto px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
+                              />
+                            </td>
+                            <td className="py-4 px-6">
+                              <input
+                                type="number"
+                                value={processSettingsEdits[setting.processType]?.reminder3 || ''}
+                                onChange={(e) => setProcessSettingsEdits({
+                                  ...processSettingsEdits,
+                                  [setting.processType]: { ...processSettingsEdits[setting.processType], reminder3: e.target.value }
+                                })}
+                                className="w-20 mx-auto px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* KPI / Worker payments section */}
+              <div className="border-t pt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800">Ishchilarga to'lovlar (KPI)</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">Har bir bosqich uchun to'lanadigan summa (BXM bilan)</p>
+                  </div>
+                  <button
+                    onClick={handleSaveKpiConfigs}
+                    disabled={savingKpiConfigs}
+                    className="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {savingKpiConfigs ? (
+                      <>
+                        <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
+                        Saqlanmoqda...
+                      </>
+                    ) : (
+                      <>
+                        <Icon icon="lucide:save" className="w-4 h-4" />
+                        Saqlash
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {loadingKpiConfigs ? (
+                  <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
+                ) : (
+                  <div className="bg-white rounded-lg shadow overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-indigo-50 border-b border-indigo-100">
+                            <th className="text-left py-3 px-6 font-semibold text-gray-700">Bosqich nomi</th>
+                            <th className="text-center py-3 px-6 font-semibold text-gray-700">Narxi (BXM)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {STAGE_PRICE_DEFAULTS.map((stage) => (
+                            <tr key={stage.stageName} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="py-3 px-6 font-medium text-gray-800">{stage.stageName}</td>
+                              <td className="py-3 px-6">
+                                <div className="flex justify-center">
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={kpiConfigEdits[stage.stageName] ?? stage.price}
+                                    onChange={(e) => setKpiConfigEdits({
+                                      ...kpiConfigEdits,
+                                      [stage.stageName]: e.target.value
+                                    })}
+                                    className="w-28 px-3 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 outline-none text-center"
+                                  />
+                                </div>
+                              </td>
+
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* State Payment Form Modal */}
+          {showStatePaymentForm && (
+            <div
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setShowStatePaymentForm(false);
+                }
+              }}
+            >
+              <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">Yangi davlat to'lovi</h3>
+                  <button
+                    onClick={() => setShowStatePaymentForm(false)}
+                    className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-700"
+                    aria-label="Yopish"
+                    title="Yopish"
+                  >
+                    <IconCancel />
+                    <span className="sr-only">Yopish</span>
+                  </button>
+                </div>
+                <form onSubmit={handleStatePaymentSubmit}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Filial <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={statePaymentForm.branchId}
+                        onChange={(e) => setStatePaymentForm({ ...statePaymentForm, branchId: e.target.value })}
+                        required
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      >
+                        <option value="">Tanlang...</option>
+                        {branches.map((branch) => (
+                          <option key={branch.id} value={branch.id}>
+                            {branch.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Sertifikat to'lovi <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={statePaymentForm.certificatePaymentUsd}
+                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, certificatePaymentUsd: e.target.value })}
+                          required
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                          placeholder="USD"
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={statePaymentForm.certificatePaymentUzs}
+                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, certificatePaymentUzs: e.target.value })}
+                          required
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                          placeholder="UZS"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        PSR narxi <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={statePaymentForm.psrPriceUsd}
+                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, psrPriceUsd: e.target.value })}
+                          required
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                          placeholder="USD"
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={statePaymentForm.psrPriceUzs}
+                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, psrPriceUzs: e.target.value })}
+                          required
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                          placeholder="UZS"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Ishchi narxi <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={statePaymentForm.workerPriceUsd}
+                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, workerPriceUsd: e.target.value })}
+                          required
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                          placeholder="USD"
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={statePaymentForm.workerPriceUzs}
+                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, workerPriceUzs: e.target.value })}
+                          required
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                          placeholder="UZS"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      type="submit"
+                      className="flex-1 inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      aria-label="Saqlash"
+                      title="Saqlash"
+                    >
+                      <IconSave />
+                      <span className="sr-only">Saqlash</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowStatePaymentForm(false)}
+                      className="flex-1 inline-flex items-center justify-center p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                      aria-label="Bekor qilish"
+                      title="Bekor qilish"
+                    >
+                      <IconCancel />
+                      <span className="sr-only">Bekor qilish</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Certifier Fee Form Modal */}
+          {showCertifierFeeForm && (
+            <div
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setShowCertifierFeeForm(false);
+                }
+              }}
+            >
+              <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">Sertifikatchi tariflari</h3>
+                  <button
+                    onClick={() => setShowCertifierFeeForm(false)}
+                    className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-700"
+                    aria-label="Yopish"
+                    title="Yopish"
+                  >
+                    <IconCancel />
+                    <span className="sr-only">Yopish</span>
+                  </button>
+                </div>
+                <form onSubmit={handleCertifierFeeSubmit}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ST-1 (UZS)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={certifierFeeForm.st1Rate}
+                        onChange={(e) => setCertifierFeeForm({ ...certifierFeeForm, st1Rate: e.target.value })}
+                        required
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">FITO (UZS)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={certifierFeeForm.fitoRate}
+                        onChange={(e) => setCertifierFeeForm({ ...certifierFeeForm, fitoRate: e.target.value })}
+                        required
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">AKT (UZS)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={certifierFeeForm.aktRate}
+                        onChange={(e) => setCertifierFeeForm({ ...certifierFeeForm, aktRate: e.target.value })}
+                        required
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      type="submit"
+                      className="flex-1 inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      aria-label="Saqlash"
+                      title="Saqlash"
+                    >
+                      <IconSave />
+                      <span className="sr-only">Saqlash</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowCertifierFeeForm(false)}
+                      className="flex-1 inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                      aria-label="Bekor qilish"
+                      title="Bekor qilish"
+                    >
+                      <IconCancel />
+                      <span className="sr-only">Bekor qilish</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Yearly Goal Form Modal */}
+          {showYearlyGoalForm && (
+            <div
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setShowYearlyGoalForm(false);
+                }
+              }}
+            >
+              <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">Yillik maqsad</h3>
+                  <button
+                    onClick={() => setShowYearlyGoalForm(false)}
+                    className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-700"
+                    aria-label="Yopish"
+                    title="Yopish"
+                  >
+                    <IconCancel />
+                    <span className="sr-only">Yopish</span>
+                  </button>
+                </div>
+                <form onSubmit={handleYearlyGoalSubmit}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Yil</label>
+                      <input
+                        type="number"
+                        min="2000"
+                        value={yearlyGoalForm.year}
+                        onChange={(e) => setYearlyGoalForm({ ...yearlyGoalForm, year: e.target.value })}
+                        required
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Maqsad (task)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={yearlyGoalForm.targetTasks}
+                        onChange={(e) => setYearlyGoalForm({ ...yearlyGoalForm, targetTasks: e.target.value })}
+                        required
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      type="submit"
+                      className="flex-1 inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      aria-label="Saqlash"
+                      title="Saqlash"
+                    >
+                      <IconSave />
+                      <span className="sr-only">Saqlash</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowYearlyGoalForm(false)}
+                      className="flex-1 inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                      aria-label="Bekor qilish"
+                      title="Bekor qilish"
+                    >
+                      <IconCancel />
+                      <span className="sr-only">Bekor qilish</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Company Settings Form Modal */}
+          {showCompanySettingsForm && (
+            <div
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm overflow-y-auto"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setShowCompanySettingsForm(false);
+                }
+              }}
+            >
+              <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 my-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">Kompaniya ma'lumotlari</h3>
+                  <button
+                    onClick={() => setShowCompanySettingsForm(false)}
+                    className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-700"
+                    aria-label="Yopish"
+                    title="Yopish"
+                  >
+                    <IconCancel />
+                    <span className="sr-only">Yopish</span>
+                  </button>
+                </div>
+                <form onSubmit={handleCompanySettingsSubmit}>
+                  <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Kompaniya nomi <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={companySettingsForm.name}
+                        onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, name: e.target.value })}
+                        required
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Yuridik manzil <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        value={companySettingsForm.legalAddress}
+                        onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, legalAddress: e.target.value })}
+                        required
+                        rows={2}
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Haqiqiy manzil <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        value={companySettingsForm.actualAddress}
+                        onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, actualAddress: e.target.value })}
+                        required
+                        rows={2}
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">INN</label>
+                        <input
+                          type="text"
+                          value={companySettingsForm.inn}
+                          onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, inn: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                        <input
+                          type="text"
+                          value={companySettingsForm.phone}
+                          onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, phone: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={companySettingsForm.email}
+                        onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, email: e.target.value })}
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      />
+                    </div>
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold text-gray-700 mb-3">Bank ma'lumotlari</h4>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank nomi</label>
+                        <input
+                          type="text"
+                          value={companySettingsForm.bankName}
+                          onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankName: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                      </div>
+                      <div className="mt-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank manzili</label>
+                        <textarea
+                          value={companySettingsForm.bankAddress}
+                          onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankAddress: e.target.value })}
+                          rows={2}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                      </div>
+                      <div className="mt-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Hisob raqami</label>
+                        <input
+                          type="text"
+                          value={companySettingsForm.bankAccount}
+                          onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankAccount: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                      </div>
+                      <div className="mt-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">SWIFT kodi</label>
+                        <input
+                          type="text"
+                          value={companySettingsForm.swiftCode}
+                          onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, swiftCode: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold text-gray-700 mb-3">Bank-korrespondent ma'lumotlari</h4>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank-korrespondent</label>
+                        <input
+                          type="text"
+                          value={companySettingsForm.correspondentBank}
+                          onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, correspondentBank: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                      </div>
+                      <div className="mt-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank-korrespondent manzili</label>
+                        <textarea
+                          value={companySettingsForm.correspondentBankAddress}
+                          onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, correspondentBankAddress: e.target.value })}
+                          rows={2}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                      </div>
+                      <div className="mt-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank-korrespondent SWIFT</label>
+                        <input
+                          type="text"
+                          value={companySettingsForm.correspondentBankSwift}
+                          onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, correspondentBankSwift: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      type="submit"
+                      className="flex-1 inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      aria-label="Saqlash"
+                      title="Saqlash"
+                    >
+                      <IconSave />
+                      <span className="sr-only">Saqlash</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowCompanySettingsForm(false)}
+                      className="flex-1 inline-flex items-center justify-center p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                      aria-label="Bekor qilish"
+                      title="Bekor qilish"
+                    >
+                      <IconCancel />
+                      <span className="sr-only">Bekor qilish</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* State Payments Section */}
-      <div className="bg-white rounded-lg shadow p-6 mt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">Davlat to'lovlari</h2>
-          <button
-            onClick={() => setShowStatePaymentForm(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            + Qo'shish
-          </button>
-        </div>
-
-        {loadingStatePayments ? (
-          <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-        ) : statePayments.length === 0 ? (
-          <div className="text-center py-4 text-gray-400">Davlat to'lovlari topilmadi</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Filial</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Sertifikat to'lovi</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">PSR narxi</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishchi narxi</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Bojxona to'lovi</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Yaratilgan</th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Amallar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {statePayments.map((payment) => (
-                  <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-gray-800 font-medium">{payment.branch.name}</td>
-                    <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(payment.certificatePayment)}</td>
-                    <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(payment.psrPrice)}</td>
-                    <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(payment.workerPrice)}</td>
-                    <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(payment.customsPayment)}</td>
-                    <td className="py-3 px-4 text-sm text-gray-500">{formatDate(payment.createdAt)}</td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleDeleteStatePayment(payment.id)}
-                        className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-                      >
-                        O'chirish
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* State Payment Form Modal */}
-      {showStatePaymentForm && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowStatePaymentForm(false);
-            }
-          }}
-        >
-          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Yangi davlat to'lovi</h3>
-              <button
-                onClick={() => setShowStatePaymentForm(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-              >
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleStatePaymentSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Filial <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={statePaymentForm.branchId}
-                    onChange={(e) => setStatePaymentForm({ ...statePaymentForm, branchId: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                  >
-                    <option value="">Tanlang...</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sertifikat to'lovi <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={statePaymentForm.certificatePayment}
-                    onChange={(e) => setStatePaymentForm({ ...statePaymentForm, certificatePayment: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    PSR narxi <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={statePaymentForm.psrPrice}
-                    onChange={(e) => setStatePaymentForm({ ...statePaymentForm, psrPrice: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ishchi narxi <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={statePaymentForm.workerPrice}
-                    onChange={(e) => setStatePaymentForm({ ...statePaymentForm, workerPrice: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bojxona to'lovi <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={statePaymentForm.customsPayment}
-                    onChange={(e) => setStatePaymentForm({ ...statePaymentForm, customsPayment: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Saqlash
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowStatePaymentForm(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                >
-                  Bekor qilish
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Company Settings Section */}
-      <div className="bg-white rounded-lg shadow p-6 mt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">Kompaniya ma'lumotlari</h2>
-          <button
-            onClick={() => {
-              if (companySettings) {
-                setShowCompanySettingsForm(true);
-              } else {
-                setShowCompanySettingsForm(true);
-              }
-            }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            {companySettings ? 'O\'zgartirish' : '+ Qo\'shish'}
-          </button>
-        </div>
-
-        {loadingCompanySettings ? (
-          <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-        ) : companySettings ? (
-          <div className="space-y-2 text-sm">
-            <div><span className="font-semibold">Nomi:</span> {companySettings.name}</div>
-            <div><span className="font-semibold">Yuridik manzil:</span> {companySettings.legalAddress}</div>
-            <div><span className="font-semibold">Haqiqiy manzil:</span> {companySettings.actualAddress}</div>
-            {companySettings.inn && <div><span className="font-semibold">INN:</span> {companySettings.inn}</div>}
-            {companySettings.phone && <div><span className="font-semibold">Telefon:</span> {companySettings.phone}</div>}
-            {companySettings.email && <div><span className="font-semibold">Email:</span> {companySettings.email}</div>}
-            {companySettings.bankName && <div><span className="font-semibold">Bank:</span> {companySettings.bankName}</div>}
-            {companySettings.bankAccount && <div><span className="font-semibold">Hisob raqami:</span> {companySettings.bankAccount}</div>}
-          </div>
-        ) : (
-          <div className="text-center py-4 text-gray-400">
-            Kompaniya ma'lumotlari kiritilmagan. Invoice yaratish uchun kompaniya ma'lumotlarini kiriting.
-          </div>
-        )}
-      </div>
-
-      {/* Company Settings Form Modal */}
-      {showCompanySettingsForm && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm overflow-y-auto"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowCompanySettingsForm(false);
-            }
-          }}
-        >
-          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 my-8">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Kompaniya ma'lumotlari</h3>
-              <button
-                onClick={() => setShowCompanySettingsForm(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-              >
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleCompanySettingsSubmit}>
-              <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Kompaniya nomi <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={companySettingsForm.name}
-                    onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, name: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Yuridik manzil <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={companySettingsForm.legalAddress}
-                    onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, legalAddress: e.target.value })}
-                    required
-                    rows={2}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Haqiqiy manzil <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={companySettingsForm.actualAddress}
-                    onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, actualAddress: e.target.value })}
-                    required
-                    rows={2}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">INN</label>
-                    <input
-                      type="text"
-                      value={companySettingsForm.inn}
-                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, inn: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
-                    <input
-                      type="text"
-                      value={companySettingsForm.phone}
-                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, phone: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={companySettingsForm.email}
-                    onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, email: e.target.value })}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                  />
-                </div>
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold text-gray-700 mb-3">Bank ma'lumotlari</h4>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank nomi</label>
-                    <input
-                      type="text"
-                      value={companySettingsForm.bankName}
-                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankName: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    />
-                  </div>
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank manzili</label>
-                    <textarea
-                      value={companySettingsForm.bankAddress}
-                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankAddress: e.target.value })}
-                      rows={2}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    />
-                  </div>
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Hisob raqami</label>
-                    <input
-                      type="text"
-                      value={companySettingsForm.bankAccount}
-                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankAccount: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    />
-                  </div>
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">SWIFT kodi</label>
-                    <input
-                      type="text"
-                      value={companySettingsForm.swiftCode}
-                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, swiftCode: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    />
-                  </div>
-                </div>
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold text-gray-700 mb-3">Bank-korrespondent ma'lumotlari</h4>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank-korrespondent</label>
-                    <input
-                      type="text"
-                      value={companySettingsForm.correspondentBank}
-                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, correspondentBank: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    />
-                  </div>
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank-korrespondent manzili</label>
-                    <textarea
-                      value={companySettingsForm.correspondentBankAddress}
-                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, correspondentBankAddress: e.target.value })}
-                      rows={2}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    />
-                  </div>
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank-korrespondent SWIFT</label>
-                    <input
-                      type="text"
-                      value={companySettingsForm.correspondentBankSwift}
-                      onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, correspondentBankSwift: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Saqlash
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCompanySettingsForm(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                >
-                  Bekor qilish
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
-
 export default Settings;

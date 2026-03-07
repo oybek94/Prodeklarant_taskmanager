@@ -4,67 +4,130 @@ import { comparePassword, hashPassword } from '../utils/hash';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
-import { User } from '@prisma/client';
 
 const router = Router();
 
 const loginSchema = z.object({
-  password: z.string().min(4),
+  email: z.string().email('Email manzil noto\'g\'ri').optional().or(z.literal('')).or(z.undefined()),
+  password: z.string().min(1, 'Parol kiritilishi shart'),
 });
 
 router.post('/login', async (req, res) => {
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    const { password } = parsed.data;
-    
-    // Find user by password - check all users using raw SQL to avoid enum issues
-    const users = await prisma.$queryRaw<Array<{ id: number; name: string; passwordHash: string; role: string; branchId: number }>>`
-      SELECT id, name, "passwordHash", role::text as role, "branchId"
-      FROM "User"
-      WHERE active = true
-    `;
-    
-    let matchedUser: Pick<User, 'id' | 'name' | 'passwordHash' | 'role' | 'branchId'> | null = null;
-    for (const user of users) {
-      const ok = await comparePassword(password, user.passwordHash);
-      if (ok) {
-        if (matchedUser) {
-          // Multiple users with same password - security issue
-          return res.status(400).json({ 
-            error: 'Xatolik: Bir nechta foydalanuvchi bir xil parolga ega. Iltimos, parollarni o\'zgartiring.' 
-          });
+    const { email, password } = parsed.data;
+    const emailValue = email && email.trim() !== '' ? email : undefined;
+
+    let user;
+
+    try {
+      if (emailValue) {
+        // Email bo'lsa, email orqali user topamiz
+        // Add timeout to database query
+        user = await Promise.race([
+          prisma.user.findUnique({
+            where: { email: emailValue },
+            select: {
+              id: true,
+              name: true,
+              passwordHash: true,
+              role: true,
+              branchId: true,
+              active: true,
+            },
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Database query timeout')), 10000)
+          )
+        ]) as any;
+      } else {
+        // Email bo'lmasa, faqat parol bilan user topamiz
+        // Barcha active userlarni olamiz va parolni tekshiramiz
+        const allUsers = await Promise.race([
+          prisma.user.findMany({
+            where: { active: true },
+            select: {
+              id: true,
+              name: true,
+              passwordHash: true,
+              role: true,
+              branchId: true,
+              active: true,
+            },
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Database query timeout')), 10000)
+          )
+        ]) as any[];
+
+        // Parol bilan mos kelgan birinchi userni topamiz
+        for (const u of allUsers) {
+          const isValidPassword = await comparePassword(password, u.passwordHash);
+          if (isValidPassword) {
+            user = u;
+            break;
+          }
         }
-        matchedUser = user as Pick<User, 'id' | 'name' | 'passwordHash' | 'role' | 'branchId'>;
+
+        // Agar user topilmasa, dummy comparison qilamiz (timing attack oldini olish uchun)
+        if (!user) {
+          await comparePassword(password, '$2a$10$dummyhash');
+        }
       }
+    } catch (dbError: any) {
+      console.error('Database error during login:', dbError);
+      if (dbError.message && dbError.message.includes('timeout')) {
+        return res.status(503).json({ error: 'Database serverga ulanib bo\'lmayapti. Iltimos, keyinroq urinib ko\'ring.' });
+      }
+      throw dbError;
     }
-    
-    if (!matchedUser) {
-      return res.status(401).json({ error: 'Noto\'g\'ri parol' });
+
+    // Security: Always perform password comparison, even if user not found
+    // This prevents user enumeration attacks (timing differences)
+    if (!user || !user.active) {
+      // Perform dummy comparison to prevent timing attacks
+      await comparePassword(password, '$2a$10$dummyhash');
+      return res.status(401).json({ error: 'Email yoki parol noto\'g\'ri' });
     }
-    
+
+    // Security: Verify password using bcrypt.compare
+    // This uses constant-time comparison to prevent timing attacks
+    // Note: Agar email bo'lmasa, parol allaqachon tekshirilgan
+    const isValidPassword = emailValue
+      ? await comparePassword(password, user.passwordHash)
+      : true; // Email bo'lmasa, parol allaqachon tekshirilgan
+
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Email yoki parol noto\'g\'ri' });
+    }
+
     // Convert role to valid enum value
-    const user = matchedUser as any;
     let validRole = user.role;
     if (user.role === 'WORKER' || user.role === 'ACCOUNTANT') {
       validRole = 'DEKLARANT';
-    } else if (user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'DEKLARANT') {
+    } else if (user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'DEKLARANT' || user.role === 'SELLER') {
       validRole = user.role;
     } else {
       validRole = 'DEKLARANT';
     }
-    
+
     const payload = { sub: user.id, role: validRole, branchId: user.branchId || null, name: user.name };
     return res.json({
       accessToken: signAccessToken(payload),
       refreshToken: signRefreshToken(payload),
-      user: { id: user.id, name: user.name, role: validRole, branchId: user.branchId || null },
+      user: {
+        id: user.id,
+        name: user.name,
+        role: validRole,
+        branchId: user.branchId || null
+      },
     });
   } catch (error: any) {
     console.error('Login error:', error);
     if (error.message && error.message.includes('not found in enum')) {
-      return res.status(500).json({ 
-        error: 'Database rollarida muammo. Iltimos, backend/fix-roles.sql faylini pgAdmin orqali bajarishingiz kerak.' 
+      return res.status(500).json({
+        error: 'Database rollarida muammo. Iltimos, backend/fix-roles.sql faylini pgAdmin orqali bajarishingiz kerak.'
       });
     }
     return res.status(500).json({ error: error.message || 'Internal server error' });
@@ -94,7 +157,7 @@ router.post('/refresh', async (req, res) => {
 const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string(),
   role: z.enum(['ADMIN', 'MANAGER', 'DEKLARANT']),
   branchId: z.number(),
 });
@@ -104,12 +167,13 @@ router.post('/register', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const exists = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   if (exists) return res.status(400).json({ error: 'Email already used' });
+  const validRole = parsed.data.role === 'ADMIN' ? 'ADMIN' : 'DEKLARANT';
   const user = await prisma.user.create({
     data: {
       name: parsed.data.name,
       email: parsed.data.email,
       passwordHash: await hashPassword(parsed.data.password),
-      role: parsed.data.role,
+      role: validRole,
       branchId: parsed.data.branchId,
     },
   });
@@ -132,27 +196,27 @@ router.post('/client/login', async (req, res) => {
     const parsed = clientLoginSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     const { phone, password } = parsed.data;
-    
+
     // Find client by phone
     const client = await prisma.client.findFirst({
       where: { phone },
     });
-    
+
     if (!client) {
       return res.status(401).json({ error: 'Telefon raqam yoki parol noto\'g\'ri' });
     }
-    
+
     // Check if client has password set
     if (!client.passwordHash) {
       return res.status(401).json({ error: 'Parol o\'rnatilmagan. Iltimos, administrator bilan bog\'laning.' });
     }
-    
+
     // Verify password
     const isValid = await comparePassword(password, client.passwordHash);
     if (!isValid) {
       return res.status(401).json({ error: 'Telefon raqam yoki parol noto\'g\'ri' });
     }
-    
+
     // Generate tokens for client
     const payload = { sub: client.id, role: 'CLIENT', branchId: null, name: client.name };
     return res.json({
@@ -172,7 +236,7 @@ router.get('/client/me', requireAuth(), async (req: AuthRequest, res) => {
     if (req.user!.role !== 'CLIENT') {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
+
     const client = await prisma.client.findUnique({
       where: { id: req.user!.id },
       select: {
@@ -183,7 +247,7 @@ router.get('/client/me', requireAuth(), async (req: AuthRequest, res) => {
         createdAt: true,
       },
     });
-    
+
     if (!client) return res.status(404).json({ error: 'Client not found' });
     res.json(client);
   } catch (error: any) {
@@ -197,27 +261,28 @@ router.get('/me', requireAuth(), async (req: AuthRequest, res) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    
-    // Use raw SQL to avoid enum issues
-    const users = await prisma.$queryRaw<Array<{
-      id: number;
-      name: string;
-      email: string;
-      role: string;
-      branchId: number | null;
-      position: string | null;
-      salary: number | null;
-    }>>`
-      SELECT id, name, email, role::text as role, "branchId", position, salary
-      FROM "User"
-      WHERE id = ${req.user.id} AND active = true
-    `;
-    
-    if (users.length === 0) {
+
+    // Use Prisma ORM instead of raw SQL
+    const user = await prisma.user.findFirst({
+      where: {
+        id: req.user.id,
+        active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        branchId: true,
+        position: true,
+        salary: true,
+      },
+    });
+
+    if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
-    const user = users[0];
+
     res.json({
       id: user.id,
       name: user.name,

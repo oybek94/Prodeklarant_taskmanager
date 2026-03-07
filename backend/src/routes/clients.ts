@@ -1,9 +1,12 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, Currency, ExchangeSource } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { hashPassword } from '../utils/hash';
+import { getLatestExchangeRate } from '../services/exchange-rate';
+import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
 
 const router = Router();
 
@@ -11,6 +14,8 @@ const clientSchema = z.object({
   name: z.string().min(1),
   dealAmount: z.number().optional(),
   dealAmountCurrency: z.enum(['USD', 'UZS']).optional(),
+  dealAmountExchangeRate: z.number().positive().optional(), // Optional - will auto-fetch if not provided
+  dealAmountExchangeSource: z.enum(['CBU', 'MANUAL']).optional(), // Optional - defaults to CBU
   phone: z.string().optional(),
   creditType: z.enum(['TASK_COUNT', 'AMOUNT']).optional().nullable(),
   creditLimit: z.union([z.number(), z.string()]).optional().nullable().transform((val) => {
@@ -31,61 +36,107 @@ const clientSchema = z.object({
   correspondentBank: z.string().optional(),
   correspondentBankAccount: z.string().optional(),
   correspondentBankSwift: z.string().optional(),
+  initialDebt: z.number().optional().nullable(),
+  initialDebtCurrency: z.enum(['USD', 'UZS']).optional().nullable(),
 });
 
-router.get('/', async (_req, res) => {
-  // #region agent log
-  const logEntry = {location:'clients.ts:17',message:'GET /clients entry - checking active field',data:{hypothesis:'A'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
-  console.log('[DEBUG]', JSON.stringify(logEntry));
-  fetch('http://127.0.0.1:7242/ingest/4d4c60ed-1c42-42d6-b52a-9c81b1a324e2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntry)}).catch(()=>{});
-  // #endregion
-  
-  const clients = await prisma.client.findMany({ 
-    include: {
-      tasks: {
-        select: {
-          id: true,
-          hasPsr: true,
+router.get('/', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const isManagerOnly = req.user?.role === 'MANAGER';
+    if (isManagerOnly) {
+      const clients = await prisma.client.findMany({
+        select: { id: true, name: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      return res.json(clients);
+    }
+
+    const clients = await prisma.client.findMany({
+      include: {
+        tasks: {
+          select: {
+            id: true,
+            hasPsr: true,
+            snapshotDealAmount: true,
+            snapshotPsrPrice: true,
+          },
+        },
+        transactions: {
+          where: { type: 'INCOME' },
+          select: {
+            amount: true,
+            currency: true,
+          },
         },
       },
-      transactions: {
-        where: { type: 'INCOME' },
-        select: {
-          amount: true,
-          currency: true,
-        },
-      },
-    },
-    orderBy: { createdAt: 'desc' } 
-  });
-  
-  // Calculate balance for each client
-  const clientsWithBalance = clients.map(client => {
-    const dealAmount = Number(client.dealAmount || 0);
-    const dealCurrency = (client as any).dealAmountCurrency || 'USD';
-    const totalTasks = client.tasks.length;
-    const tasksWithPsr = client.tasks.filter(t => t.hasPsr).length;
-    
-    // Calculate total deal amount (with PSR)
-    const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
-    
-    // Calculate total income - faqat shu valyutadagi transaction'larni hisoblash
-    const totalIncome = client.transactions
-      .filter(t => t.currency === dealCurrency)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-    
-    // Calculate balance (debt)
-    const balance = totalDealAmount - totalIncome;
-    
-    return {
-      ...client,
-      balance,
-      totalDealAmount,
-      totalIncome,
-    };
-  });
-  
-  res.json(clientsWithBalance);
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Calculate balance for each client in deal currency
+    const clientsWithBalance = await Promise.all(clients.map(async (client: any) => {
+      try {
+        const dealCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
+        const dealAmount = Number(client.dealAmount || 0);
+
+        const totalTasks = client.tasks?.length || 0;
+        const tasksWithPsr = (client.tasks || []).filter((t: any) => t.hasPsr).length;
+
+        // Calculate total deal amount in deal currency using task snapshots
+        const totalDealAmount = (client.tasks || []).reduce((sum: number, task: any) => {
+          const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
+          const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+          return sum + baseAmount + psrAmount;
+        }, 0);
+
+        const totalIncome = (client.transactions || [])
+          .filter((t: any) => t.currency === dealCurrency)
+          .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+
+        // Add initial debt to total deal amount depending on currency
+        let initialDebt = 0;
+        if (client.initialDebt) {
+          const clientInitialDebtCurrency = client.initialDebtCurrency || 'USD';
+          if (clientInitialDebtCurrency === dealCurrency) {
+            initialDebt = Number(client.initialDebt);
+          } else {
+            // Basic cross conversion if currencies mismatch, else wait for manual fix. Right now it just gets default
+            initialDebt = client.initialDebtInUzs && dealCurrency === 'UZS'
+              ? Number(client.initialDebtInUzs)
+              : Number(client.initialDebt);
+          }
+        }
+
+        const balance = totalDealAmount - totalIncome + initialDebt;
+
+        return {
+          ...client,
+          balance,
+          totalDealAmount, // Return in deal currency
+          initialDebt,
+          totalIncome,
+          balanceCurrency: dealCurrency,
+        };
+      } catch (clientError) {
+        console.error(`Error processing client ${client.id}:`, clientError);
+        // Return client with default values if processing fails
+        return {
+          ...client,
+          balance: 0,
+          totalDealAmount: 0,
+          totalIncome: 0,
+          balanceCurrency: client.dealAmount_currency || client.dealAmountCurrency || 'USD',
+        };
+      }
+    }));
+
+    res.json(clientsWithBalance);
+  } catch (error: any) {
+    console.error('Error fetching clients:', error);
+    res.status(500).json({
+      error: 'Mijozlarni yuklashda xatolik yuz berdi',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
 });
 
 // Get task detail with stages and duration - CLIENT can access their own tasks, ADMIN can access any
@@ -95,18 +146,18 @@ router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
     const taskId = Number(req.params.taskId);
     const userId = req.user!.id;
     const userRole = req.user!.role;
-    
+
     // For CLIENT role, userId is the clientId
     const clientId = userRole === 'CLIENT' ? userId : Number(req.query.clientId || userId);
-    
+
     // Check if CLIENT is accessing their own data
     if (userRole === 'CLIENT' && userId !== clientId) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
+
     // Get task with all details including stages
     const task = await prisma.task.findFirst({
-      where: { 
+      where: {
         id: taskId,
         clientId: clientId, // Ensure task belongs to this client
       },
@@ -145,11 +196,11 @@ router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
         },
       },
     });
-    
+
     if (!task) {
       return res.status(404).json({ error: 'Task topilmadi' });
     }
-    
+
     // Format stages with duration information
     const formattedStages = task.stages.map((stage) => {
       let durationText = '';
@@ -166,13 +217,13 @@ router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
       } else {
         durationText = 'Jarayonda...';
       }
-      
+
       return {
         ...stage,
         durationText,
       };
     });
-    
+
     res.json({
       id: task.id,
       title: task.title,
@@ -188,9 +239,9 @@ router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
     });
   } catch (error: any) {
     console.error('Error fetching task detail:', error);
-    res.status(500).json({ 
-      error: 'Task ma\'lumotlarini yuklashda xatolik yuz berdi', 
-      details: error.message 
+    res.status(500).json({
+      error: 'Task ma\'lumotlarini yuklashda xatolik yuz berdi',
+      details: error.message
     });
   }
 });
@@ -242,11 +293,65 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const parsed = clientSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    
+
+    const dealAmountCurrency: Currency | null = parsed.data.dealAmountCurrency ? (parsed.data.dealAmountCurrency as Currency) : null;
+    const dealAmount = parsed.data.dealAmount ? new Decimal(parsed.data.dealAmount) : null;
+    const exchangeSource: ExchangeSource = (parsed.data.dealAmountExchangeSource as ExchangeSource) || 'CBU';
+
+    // Handle exchange rate for deal amount if provided
+    let dealAmountExchangeRate: Decimal | null = null;
+    let dealAmountInUzs: Decimal | null = null;
+
+    if (dealAmount && dealAmountCurrency) {
+      // Get or calculate exchange rate
+      if (parsed.data.dealAmountExchangeRate) {
+        dealAmountExchangeRate = new Decimal(parsed.data.dealAmountExchangeRate);
+      } else if (dealAmountCurrency !== 'UZS') {
+        // Auto-fetch latest exchange rate if not provided and currency is not UZS
+        try {
+          dealAmountExchangeRate = await getLatestExchangeRate(dealAmountCurrency, 'UZS', undefined, exchangeSource);
+        } catch (error) {
+          return res.status(400).json({
+            error: `Exchange rate is required for currency ${dealAmountCurrency}. Failed to fetch latest rate: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          });
+        }
+      } else {
+        // UZS currency - rate is always 1
+        dealAmountExchangeRate = new Decimal(1);
+      }
+
+      // Calculate converted UZS amount
+      dealAmountInUzs = calculateAmountUzs(dealAmount, dealAmountCurrency, dealAmountExchangeRate);
+
+      // Validate universal monetary fields
+      const validation = validateMonetaryFields({
+        amount_original: dealAmount,
+        currency: dealAmountCurrency,
+        exchange_rate: dealAmountExchangeRate,
+        amount_uzs: dealAmountInUzs,
+      });
+
+      if (!validation.isValid) {
+        return res.status(400).json({
+          error: 'Monetary validation failed',
+          details: validation.errors,
+        });
+      }
+    }
+
     const createData: any = {
       name: parsed.data.name,
-      dealAmount: parsed.data.dealAmount ?? null,
-      dealAmountCurrency: parsed.data.dealAmountCurrency ?? 'USD',
+      // Keep old fields for backward compatibility
+      dealAmount: dealAmount,
+      dealAmountCurrency: dealAmountCurrency,
+      dealAmountExchangeRate,
+      dealAmountInUzs,
+      // Universal monetary fields
+      dealAmount_amount_original: dealAmount,
+      dealAmount_currency: dealAmountCurrency,
+      dealAmount_exchange_rate: dealAmountExchangeRate,
+      dealAmount_amount_uzs: dealAmountInUzs,
+      dealAmount_exchange_source: dealAmount ? exchangeSource : null,
       phone: parsed.data.phone ?? null,
       // Shartnoma maydonlari
       contractNumber: parsed.data.contractNumber || undefined,
@@ -259,10 +364,30 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       transitAccount: parsed.data.transitAccount || undefined,
       bankSwift: parsed.data.bankSwift || undefined,
       correspondentBank: parsed.data.correspondentBank || undefined,
-      correspondentBankAccount: parsed.data.correspondentBankAccount || undefined,
-      correspondentBankSwift: parsed.data.correspondentBankSwift || undefined,
+      correspondentBankSuite: parsed.data.correspondentBankSwift || undefined,
     };
-    
+
+    // Calculate initial debt info if provided
+    if (parsed.data.initialDebt !== undefined && parsed.data.initialDebt !== null) {
+      const initialDebtAmount = new Decimal(parsed.data.initialDebt);
+      const initialDebtCurrency = (parsed.data.initialDebtCurrency as Currency) || 'USD';
+
+      createData.initialDebt = initialDebtAmount;
+      createData.initialDebtCurrency = initialDebtCurrency;
+
+      // if currency is usd, but we also save uzs amount, we need exchange rate or fallback to 1 -> then get latest
+      if (initialDebtCurrency !== 'UZS') {
+        try {
+          const rate = await getLatestExchangeRate(initialDebtCurrency, 'UZS', undefined, 'CBU');
+          createData.initialDebtExchangeRate = rate;
+          createData.initialDebtInUzs = calculateAmountUzs(initialDebtAmount, initialDebtCurrency, rate);
+        } catch (e) { /* ignore fetching rate temporarily if fails  */ }
+      } else {
+        createData.initialDebtExchangeRate = new Decimal(1);
+        createData.initialDebtInUzs = initialDebtAmount;
+      }
+    }
+
     // Handle credit fields explicitly
     if (parsed.data.creditType !== undefined) {
       createData.creditType = parsed.data.creditType ?? null;
@@ -273,45 +398,50 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     if (parsed.data.creditStartDate !== undefined) {
       createData.creditStartDate = parsed.data.creditStartDate ? new Date(parsed.data.creditStartDate) : null;
     }
-    
+
     // Hash password if both email and password are provided
     if (req.body.password && req.body.email) {
       const passwordHash = await hashPassword(req.body.password);
       createData.passwordHash = passwordHash;
     }
-    
+
     console.log('Creating client with data:', JSON.stringify(createData, null, 2));
-    
+
     const client = await prisma.client.create({
       data: createData,
     });
-    
+
     console.log('Created client:', {
       id: client.id,
       creditType: (client as any).creditType,
       creditLimit: (client as any).creditLimit,
       creditStartDate: (client as any).creditStartDate,
     });
-    
+
     res.status(201).json(client);
   } catch (error: any) {
     console.error('Error creating client:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
     });
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
-    // #region agent log
-    const logEntry = {location:'clients.ts:84',message:'GET /clients/:id entry',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
-    console.log('[DEBUG]', JSON.stringify(logEntry));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntry)}).catch(()=>{});
-    // #endregion
-    
+    const isManagerOnly = req.user?.role === 'MANAGER';
+
+    if (isManagerOnly) {
+      const client = await prisma.client.findUnique({
+        where: { id },
+        select: { id: true, name: true },
+      });
+      if (!client) return res.status(404).json({ error: 'Not found' });
+      return res.json({ ...client, tasks: [], transactions: [], stats: null });
+    }
+
     const client = await prisma.client.findUnique({
       where: { id },
       include: {
@@ -325,13 +455,13 @@ router.get('/:id', async (req, res) => {
         },
       },
     });
-    
+
     // #region agent log
-    const logAfterQuery = {location:'clients.ts:99',message:'After Prisma query',data:{clientFound:!!client,hasTasks:!!client?.tasks,hasTransactions:!!client?.transactions,tasksCount:client?.tasks?.length,transactionsCount:client?.transactions?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'};
+    const logAfterQuery = { location: 'clients.ts:99', message: 'After Prisma query', data: { clientFound: !!client, hasTasks: !!client?.tasks, hasTransactions: !!client?.transactions, tasksCount: client?.tasks?.length, transactionsCount: client?.transactions?.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' };
     console.log('[DEBUG]', JSON.stringify(logAfterQuery));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logAfterQuery)}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logAfterQuery) }).catch(() => { });
     // #endregion
-    
+
     if (!client) return res.status(404).json({ error: 'Not found' });
 
     // Calculate stats
@@ -342,19 +472,37 @@ router.get('/:id', async (req, res) => {
       .reduce((sum, t) => sum + Number(t.amount), 0);
     const totalTasks = client.tasks.length;
     const dealAmount = Number(client.dealAmount || 0);
-    
+
     // PSR bor bo'lgan tasklar sonini hisoblash
     const tasksWithPsr = client.tasks.filter(task => task.hasPsr).length;
     const tasksWithoutPsr = totalTasks - tasksWithPsr;
-    
-    // PSR bor bo'lgan tasklar uchun dealAmount + 10, qolganlari uchun dealAmount
-    // Jami shartnoma summasi = (dealAmount + 10) * tasksWithPsr + dealAmount * tasksWithoutPsr
-    // Yoki oddiyroq: dealAmount * totalTasks + 10 * tasksWithPsr
-    const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
-    
-    // Qoldiq = Jami shartnoma summasi - Jami kirim
-    const balance = totalDealAmount - totalIncome;
-    
+
+    // Har bir task bo'yicha kelishuv summasini yig'amiz
+    // snapshotDealAmount bo'lsa o'shani olamiz, bo'lmasa client.dealAmount
+    // PSR bo'lsa +10 qo'shamiz
+    const totalDealAmount = client.tasks.reduce((sum, task) => {
+      const baseAmount = task.snapshotDealAmount != null
+        ? Number(task.snapshotDealAmount)
+        : dealAmount;
+      const psrAmount = task.hasPsr ? 10 : 0;
+      return sum + baseAmount + psrAmount;
+    }, 0);
+
+    let initialDebt = 0;
+    if ((client as any).initialDebt) {
+      const clientInitialDebtCurrency = (client as any).initialDebtCurrency || 'USD';
+      if (clientInitialDebtCurrency === dealCurrency) {
+        initialDebt = Number((client as any).initialDebt);
+      } else {
+        initialDebt = (client as any).initialDebtInUzs && dealCurrency === 'UZS'
+          ? Number((client as any).initialDebtInUzs)
+          : Number((client as any).initialDebt);
+      }
+    }
+
+    // Qoldiq = Jami shartnoma summasi - Jami kirim + O'tgan yilgi qarz
+    const balance = totalDealAmount - totalIncome + initialDebt;
+
     const tasksByBranch = client.tasks.reduce((acc: any, task) => {
       const branchName = task.branch?.name || 'Unknown';
       acc[branchName] = (acc[branchName] || 0) + 1;
@@ -362,9 +510,9 @@ router.get('/:id', async (req, res) => {
     }, {});
 
     // #region agent log
-    const logBeforeResponse = {location:'clients.ts:135',message:'Before sending response',data:{totalIncome,totalTasks,dealAmount,totalDealAmount,balance},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'};
+    const logBeforeResponse = { location: 'clients.ts:135', message: 'Before sending response', data: { totalIncome, totalTasks, dealAmount, totalDealAmount, balance }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' };
     console.log('[DEBUG]', JSON.stringify(logBeforeResponse));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logBeforeResponse)}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logBeforeResponse) }).catch(() => { });
     // #endregion
 
     res.json({
@@ -381,12 +529,12 @@ router.get('/:id', async (req, res) => {
     });
   } catch (error: any) {
     // #region agent log
-    const logError = {location:'clients.ts:150',message:'Error in GET /:id',data:{errorMessage:error?.message,errorName:error?.name,errorCode:error?.code,prismaError:error?.meta,errorStack:error instanceof Error?error.stack:'No stack'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'};
+    const logError = { location: 'clients.ts:150', message: 'Error in GET /:id', data: { errorMessage: error?.message, errorName: error?.name, errorCode: error?.code, prismaError: error?.meta, errorStack: error instanceof Error ? error.stack : 'No stack' }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'ALL' };
     console.log('[DEBUG ERROR]', JSON.stringify(logError, null, 2));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logError)}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logError) }).catch(() => { });
     // #endregion
     console.error('Error fetching client:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
     });
@@ -400,14 +548,14 @@ router.get('/:id/monthly-tasks', async (req, res) => {
 
   // Get tasks for the last 12 months
   const now = new Date();
-  const months: { month: string; count: number }[] = [];
-  
+  const months: { month: string; count: number; year: number; monthIndex: number }[] = [];
+
   for (let i = 11; i >= 0; i--) {
     const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
-    
+
     const monthName = monthStart.toLocaleDateString('uz-UZ', { month: 'short', year: 'numeric' });
-    
+
     const count = await prisma.task.count({
       where: {
         clientId: id,
@@ -417,8 +565,8 @@ router.get('/:id/monthly-tasks', async (req, res) => {
         },
       },
     });
-    
-    months.push({ month: monthName, count });
+
+    months.push({ month: monthName, count, year: monthStart.getFullYear(), monthIndex: monthStart.getMonth() });
   }
 
   res.json(months);
@@ -427,26 +575,146 @@ router.get('/:id/monthly-tasks', async (req, res) => {
 router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
-    
+
     // Build update data - use Prisma's update with explicit field mapping
     const updateData: any = {};
-    
+
     // Standard fields
     if (req.body.name !== undefined) {
       updateData.name = req.body.name;
     }
-    if (req.body.dealAmount !== undefined) {
-      updateData.dealAmount = req.body.dealAmount === null || req.body.dealAmount === '' 
-        ? null 
-        : parseFloat(req.body.dealAmount);
-    }
-    if (req.body.dealAmountCurrency !== undefined) {
-      updateData.dealAmountCurrency = req.body.dealAmountCurrency || 'USD';
+
+    // Handle deal amount with exchange rate
+    const dealAmountChanged = req.body.dealAmount !== undefined;
+    const currencyChanged = req.body.dealAmountCurrency !== undefined;
+    const exchangeRateChanged = req.body.dealAmountExchangeRate !== undefined;
+
+    if (dealAmountChanged || currencyChanged || exchangeRateChanged) {
+      // Get current client to check existing values
+      const currentClient = await prisma.client.findUnique({
+        where: { id },
+        select: { dealAmount: true, dealAmountCurrency: true, dealAmountExchangeRate: true, dealAmount_exchange_source: true },
+      });
+
+      const newDealAmount = dealAmountChanged
+        ? (req.body.dealAmount === null || req.body.dealAmount === '' ? null : new Decimal(req.body.dealAmount))
+        : (currentClient?.dealAmount ? new Decimal(currentClient.dealAmount) : null);
+
+      const newCurrency: Currency | null = currencyChanged
+        ? (req.body.dealAmountCurrency || null)
+        : (currentClient?.dealAmountCurrency as Currency | null);
+
+      const exchangeSource: ExchangeSource = (req.body.dealAmountExchangeSource as ExchangeSource) || currentClient?.dealAmount_exchange_source || 'CBU';
+
+      if (newDealAmount && newCurrency) {
+        // Get or calculate exchange rate
+        let exchangeRate: Decimal;
+        if (exchangeRateChanged && req.body.dealAmountExchangeRate) {
+          exchangeRate = new Decimal(req.body.dealAmountExchangeRate);
+        } else if (currentClient?.dealAmountExchangeRate && !currencyChanged) {
+          // Keep existing exchange rate if currency hasn't changed
+          exchangeRate = new Decimal(currentClient.dealAmountExchangeRate);
+        } else if (newCurrency !== 'UZS') {
+          // Auto-fetch latest exchange rate
+          try {
+            exchangeRate = await getLatestExchangeRate(newCurrency, 'UZS', undefined, exchangeSource);
+          } catch (error) {
+            return res.status(400).json({
+              error: `Exchange rate is required for currency ${newCurrency}. Failed to fetch latest rate: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            });
+          }
+        } else {
+          // UZS currency - rate is always 1
+          exchangeRate = new Decimal(1);
+        }
+
+        const amountUzs = calculateAmountUzs(newDealAmount, newCurrency, exchangeRate);
+
+        // Validate universal monetary fields
+        const validation = validateMonetaryFields({
+          amount_original: newDealAmount,
+          currency: newCurrency,
+          exchange_rate: exchangeRate,
+          amount_uzs: amountUzs,
+        });
+
+        if (!validation.isValid) {
+          return res.status(400).json({
+            error: 'Monetary validation failed',
+            details: validation.errors,
+          });
+        }
+
+        // Keep old fields for backward compatibility
+        updateData.dealAmount = newDealAmount;
+        updateData.dealAmountCurrency = newCurrency;
+        updateData.dealAmountExchangeRate = exchangeRate;
+        updateData.dealAmountInUzs = amountUzs;
+        // Universal monetary fields
+        updateData.dealAmount_amount_original = newDealAmount;
+        updateData.dealAmount_currency = newCurrency;
+        updateData.dealAmount_exchange_rate = exchangeRate;
+        updateData.dealAmount_amount_uzs = amountUzs;
+        updateData.dealAmount_exchange_source = exchangeSource;
+      } else {
+        // Clearing deal amount
+        updateData.dealAmount = null;
+        updateData.dealAmountCurrency = null;
+        updateData.dealAmountExchangeRate = null;
+        updateData.dealAmountInUzs = null;
+        updateData.dealAmount_amount_original = null;
+        updateData.dealAmount_currency = null;
+        updateData.dealAmount_exchange_rate = null;
+        updateData.dealAmount_amount_uzs = null;
+        updateData.dealAmount_exchange_source = null;
+      }
     }
     if (req.body.phone !== undefined) {
       updateData.phone = req.body.phone === null || req.body.phone === '' ? null : req.body.phone;
     }
-    
+
+    // Handle initial debt update
+    const initialDebtChanged = req.body.initialDebt !== undefined;
+    const initialDebtCurrencyChanged = req.body.initialDebtCurrency !== undefined;
+
+    if (initialDebtChanged || initialDebtCurrencyChanged) {
+      const currentClient = await prisma.client.findUnique({
+        where: { id },
+        select: { initialDebt: true, initialDebtCurrency: true, initialDebtExchangeRate: true },
+      });
+
+      const newInitialDebt = initialDebtChanged
+        ? (req.body.initialDebt === null || req.body.initialDebt === '' ? null : new Decimal(req.body.initialDebt))
+        : (currentClient?.initialDebt ? new Decimal(currentClient.initialDebt) : null);
+
+      const newInitialCurrency: Currency | null = initialDebtCurrencyChanged
+        ? (req.body.initialDebtCurrency || null)
+        : (currentClient?.initialDebtCurrency as Currency | null);
+
+      if (newInitialDebt && newInitialCurrency) {
+        updateData.initialDebt = newInitialDebt;
+        updateData.initialDebtCurrency = newInitialCurrency;
+
+        if (newInitialCurrency !== 'UZS') {
+          try {
+            // For initial debt, we just fetch the latest CBU rate to have a record of its worth in UZS today
+            const rate = await getLatestExchangeRate(newInitialCurrency, 'UZS', undefined, 'CBU');
+            updateData.initialDebtExchangeRate = rate;
+            updateData.initialDebtInUzs = calculateAmountUzs(newInitialDebt, newInitialCurrency, rate);
+          } catch (error) { /* Ignore rate fetch error */ }
+        } else {
+          updateData.initialDebtExchangeRate = new Decimal(1);
+          updateData.initialDebtInUzs = newInitialDebt;
+        }
+      } else if (newInitialDebt === null) {
+        // Clearing initial debt
+        updateData.initialDebt = null;
+        updateData.initialDebtCurrency = null;
+        updateData.initialDebtExchangeRate = null;
+        updateData.initialDebtInUzs = null;
+      }
+    }
+
     // Shartnoma maydonlari
     if (req.body.contractNumber !== undefined) {
       updateData.contractNumber = req.body.contractNumber === null || req.body.contractNumber === '' ? undefined : req.body.contractNumber;
@@ -484,53 +752,59 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     if (req.body.correspondentBankSwift !== undefined) {
       updateData.correspondentBankSwift = req.body.correspondentBankSwift === null || req.body.correspondentBankSwift === '' ? undefined : req.body.correspondentBankSwift;
     }
-    
+
     // Credit fields - ALWAYS include if present in request
     if ('creditType' in req.body) {
       updateData.creditType = (req.body.creditType === '' || req.body.creditType === null || req.body.creditType === undefined)
         ? null
         : String(req.body.creditType);
     }
-    
+
     if ('creditLimit' in req.body) {
       if (req.body.creditLimit === '' || req.body.creditLimit === null || req.body.creditLimit === undefined) {
         updateData.creditLimit = null;
       } else {
-        const limitValue = typeof req.body.creditLimit === 'string' 
-          ? parseFloat(req.body.creditLimit) 
+        const limitValue = typeof req.body.creditLimit === 'string'
+          ? parseFloat(req.body.creditLimit)
           : Number(req.body.creditLimit);
         // Use Prisma.Decimal for proper type handling
         updateData.creditLimit = isNaN(limitValue) ? null : new Prisma.Decimal(limitValue);
       }
     }
-    
+
     if ('creditStartDate' in req.body) {
       updateData.creditStartDate = (req.body.creditStartDate === '' || req.body.creditStartDate === null || req.body.creditStartDate === undefined)
         ? null
         : new Date(req.body.creditStartDate);
     }
-    
+
+    if (req.body.defaultAfterHoursPayer !== undefined) {
+      updateData.defaultAfterHoursPayer = (req.body.defaultAfterHoursPayer === 'CLIENT' || req.body.defaultAfterHoursPayer === 'COMPANY')
+        ? req.body.defaultAfterHoursPayer
+        : 'CLIENT';
+    }
+
     // Hash password if provided
     if (req.body.password) {
       const passwordHash = await hashPassword(req.body.password);
       updateData.passwordHash = passwordHash;
     }
-    
+
     console.log('Update data before Prisma:', JSON.stringify(updateData, null, 2));
-    
+
     // Update using Prisma with explicit data object
     const updatedClient = await prisma.client.update({
       where: { id },
       data: updateData,
     });
-    
+
     console.log('Updated client from Prisma:', {
       id: updatedClient.id,
       creditType: (updatedClient as any).creditType,
       creditLimit: (updatedClient as any).creditLimit,
       creditStartDate: (updatedClient as any).creditStartDate,
     });
-    
+
     // Return all fields explicitly
     res.json({
       id: updatedClient.id,
@@ -541,6 +815,9 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       creditType: (updatedClient as any).creditType,
       creditLimit: (updatedClient as any).creditLimit,
       creditStartDate: (updatedClient as any).creditStartDate,
+      initialDebt: (updatedClient as any).initialDebt,
+      initialDebtCurrency: (updatedClient as any).initialDebtCurrency,
+      defaultAfterHoursPayer: (updatedClient as any).defaultAfterHoursPayer,
       createdAt: updatedClient.createdAt,
       updatedAt: updatedClient.updatedAt,
     });
@@ -551,7 +828,7 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       message: error.message,
       meta: error.meta,
     });
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
     });
@@ -564,18 +841,118 @@ router.delete('/:id', async (req, res) => {
   res.status(204).send();
 });
 
+// Client invoice stats endpoint (for client dashboard)
+router.get('/me/invoice-stats', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (user.role !== 'CLIENT') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const monthParam = String(req.query.month || '');
+    const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
+    const parsedMonth = monthSchema.safeParse(monthParam);
+    if (!parsedMonth.success) {
+      return res.status(400).json({ error: 'Invalid month format. Use YYYY-MM.' });
+    }
+
+    const [yearStr, monthStr] = parsedMonth.data.split('-');
+    const year = Number(yearStr);
+    const monthIndex = Number(monthStr) - 1;
+    const startDate = new Date(Date.UTC(year, monthIndex, 1));
+    const endDate = new Date(Date.UTC(year, monthIndex + 1, 1));
+
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        clientId: user.id,
+        date: {
+          gte: startDate,
+          lt: endDate,
+        },
+      },
+      select: {
+        currency: true,
+        items: {
+          select: {
+            name: true,
+            quantity: true,
+            totalPrice: true,
+          },
+        },
+        contract: {
+          select: {
+            destinationCountry: true,
+          },
+        },
+      },
+    });
+
+    const totals = { totalQuantity: 0, totalValue: 0 };
+    const productMap = new Map<string, { name: string; totalQuantity: number; totalValue: number }>();
+    const countryMap = new Map<string, { country: string; totalQuantity: number; totalValue: number }>();
+
+    const currencySet = new Set<string>();
+    invoices.forEach((invoice) => {
+      currencySet.add(invoice.currency);
+      const country = invoice.contract?.destinationCountry || 'Noma\'lum';
+      invoice.items.forEach((item) => {
+        const quantity = Number(item.quantity || 0);
+        const totalValue = Number(item.totalPrice || 0);
+
+        totals.totalQuantity += quantity;
+        totals.totalValue += totalValue;
+
+        const productEntry = productMap.get(item.name) || {
+          name: item.name,
+          totalQuantity: 0,
+          totalValue: 0,
+        };
+        productEntry.totalQuantity += quantity;
+        productEntry.totalValue += totalValue;
+        productMap.set(item.name, productEntry);
+
+        const countryEntry = countryMap.get(country) || {
+          country,
+          totalQuantity: 0,
+          totalValue: 0,
+        };
+        countryEntry.totalQuantity += quantity;
+        countryEntry.totalValue += totalValue;
+        countryMap.set(country, countryEntry);
+      });
+    });
+
+    const products = Array.from(productMap.values()).sort((a, b) => b.totalValue - a.totalValue);
+    const countries = Array.from(countryMap.values()).sort((a, b) => b.totalValue - a.totalValue);
+
+    res.json({
+      month: parsedMonth.data,
+      currency: currencySet.size === 1 ? Array.from(currencySet)[0] : 'MIXED',
+      totals,
+      products,
+      countries,
+    });
+  } catch (error: any) {
+    console.error('Error fetching invoice stats:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi', details: error.message });
+  }
+});
+
 // Client tasks endpoint (for client dashboard) - CLIENT can access their own, ADMIN can access any
 router.get('/:id/tasks', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
     const userId = req.user!.id;
     const userRole = req.user!.role;
-    
+
     // Check if CLIENT is accessing their own data
     if (userRole === 'CLIENT' && userId !== id) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
+
     // Get tasks with branch information
     const tasks = await prisma.task.findMany({
       where: { clientId: id },
@@ -589,7 +966,7 @@ router.get('/:id/tasks', requireAuth(), async (req: AuthRequest, res) => {
         },
       },
     });
-    
+
     // Format response to match frontend expectations
     const formattedTasks = tasks.map(task => ({
       id: task.id,
@@ -600,12 +977,12 @@ router.get('/:id/tasks', requireAuth(), async (req: AuthRequest, res) => {
         name: task.branch.name
       } : null,
     }));
-    
+
     res.json(formattedTasks);
   } catch (error: any) {
     console.error('Error fetching client tasks:', error);
-    res.status(500).json({ 
-      error: 'Ishlarni yuklashda xatolik yuz berdi', 
+    res.status(500).json({
+      error: 'Ishlarni yuklashda xatolik yuz berdi',
       details: error.message || 'Noma\'lum xatolik'
     });
   }
@@ -617,12 +994,12 @@ router.get('/:id/transactions', requireAuth(), async (req: AuthRequest, res) => 
     const id = Number(req.params.id);
     const userId = req.user!.id;
     const userRole = req.user!.role;
-    
+
     // Check if CLIENT is accessing their own data
     if (userRole === 'CLIENT' && userId !== id) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
+
     const transactions = await prisma.transaction.findMany({
       where: { clientId: id },
       orderBy: { date: 'desc' },
@@ -634,7 +1011,7 @@ router.get('/:id/transactions', requireAuth(), async (req: AuthRequest, res) => 
         comment: true,
       },
     });
-    
+
     res.json(transactions);
   } catch (error: any) {
     console.error('Error fetching client transactions:', error);

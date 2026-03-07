@@ -4,17 +4,105 @@ import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
-import { updateTaskStatus, calculateTaskStatus } from '../services/task-status';
+import { updateTaskStatus, calculateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
+import { TaskStatus, Currency, ExchangeSource } from '@prisma/client';
+
+type AfterHoursPayerType = 'CLIENT' | 'COMPANY';
+import { Decimal } from '@prisma/client/runtime/library';
 import { ValidationService } from '../services/validation.service';
+import { getExchangeRate } from '../services/exchange-rate';
+import { calculateAmountUzs } from '../services/monetary-validation';
+import fs from 'fs/promises';
+import { ensureCmrForInvoice } from '../services/cmr-service';
+import { ensureTirForInvoice } from '../services/tir-service';
 
 const router = Router();
+
+// Helper function for debug logging
+const getDebugLogPath = () => {
+  if (process.platform === 'win32') {
+    return 'g:\\Prodeklarant\\.cursor\\debug.log';
+  }
+  // Linux server path
+  return '/var/www/app/.cursor/debug.log';
+};
+
+const debugLog = (data: any) => {
+  const logEntry = JSON.stringify(data) + '\n';
+  const logPath = getDebugLogPath();
+  // Write to file (async, but we don't await to avoid blocking)
+  fs.appendFile(logPath, logEntry).catch((err) => {
+    // If file doesn't exist, create it first
+    if (err.code === 'ENOENT') {
+      fs.writeFile(logPath, logEntry).catch(() => {});
+    }
+  });
+  // Also log to console for immediate visibility
+  console.log('[DEBUG]', logEntry.trim());
+};
+
+// Helper function to calculate task status from stages array (optimized version)
+function calculateTaskStatusFromStages(stages: Array<{name: string, status: string}>): TaskStatus {
+  if (stages.length === 0) {
+    return TaskStatus.BOSHLANMAGAN;
+  }
+
+  // Create a map of stage names to status
+  const stageMap = new Map(stages.map(s => [s.name, s.status]));
+  
+  // Helper function to check if stage is TAYYOR
+  const isReady = (name: string): boolean => {
+    return stageMap.get(name) === 'TAYYOR';
+  };
+
+  // 1. Check if all stages are blank (BOSHLANMAGAN)
+  const allBlank = stages.every(s => s.status === 'BOSHLANMAGAN');
+  if (allBlank) {
+    return TaskStatus.BOSHLANMAGAN;
+  }
+
+  const allReady = stages.every(s => s.status === 'TAYYOR');
+  if (allReady) {
+    return TaskStatus.YAKUNLANDI;
+  }
+
+  // 4. Topshirish = TAYYOR → TOPSHIRILDI
+  if (isReady('Topshirish')) {
+    return TaskStatus.TOPSHIRILDI;
+  }
+
+  // 3. Tekshirish = TAYYOR → TEKSHIRILGAN
+  if (isReady('Tekshirish')) {
+    return TaskStatus.TEKSHIRILGAN;
+  }
+
+  // 2. Deklaratsiya = TAYYOR → TAYYOR
+  if (isReady('Deklaratsiya')) {
+    return TaskStatus.TAYYOR;
+  }
+
+  // 6. Invoys, Zayavka, TIR-SMR, Sertifikat olib chiqish TAYYOR → JARAYONDA
+  const earlyStages = ['Invoys', 'Zayavka', 'TIR-SMR', 'Sertifikat olib chiqish', 'ST', 'Fito', 'FITO']; // ST va Fito backward compatibility uchun
+  const hasEarlyStageReady = earlyStages.some(name => isReady(name));
+  if (hasEarlyStageReady) {
+    return TaskStatus.JARAYONDA;
+  }
+
+  // If any other stage is TAYYOR, also return JARAYONDA
+  const hasAnyReady = stages.some(s => s.status === 'TAYYOR');
+  if (hasAnyReady) {
+    return TaskStatus.JARAYONDA;
+  }
+
+  // Otherwise -> BOSHLANMAGAN
+  return TaskStatus.BOSHLANMAGAN;
+}
 
 const stageTemplates = [
   'Invoys',
   'Zayavka',
   'TIR-SMR',
-  'ST',
-  'Fito',
+  'Sertifikat olib chiqish',
   'Deklaratsiya',
   'Tekshirish',
   'Topshirish',
@@ -28,13 +116,21 @@ const createTaskSchema = z.object({
   comments: z.string().optional(),
   hasPsr: z.boolean(),
   driverPhone: z.string().optional(),
+  afterHoursDeclaration: z.boolean().optional().default(false),
+  afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional().default('CLIENT'),
   customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
 });
 
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const { branchId, status, clientId } = req.query;
+    const { branchId, status, clientId, page, limit } = req.query;
     const where: any = {};
+    
+    // Pagination parametrlari
+    const pageNum = page ? parseInt(page as string, 10) : undefined;
+    const limitNum = limit ? parseInt(limit as string, 10) : undefined;
+    const skip = pageNum && limitNum ? (pageNum - 1) * limitNum : undefined;
+    const take = limitNum || undefined;
     
     // Role'ga qarab filial filter qo'shish
     const user = req.user;
@@ -67,7 +163,9 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       }
     }
     
-    const tasks = await prisma.task.findMany({
+    // Pagination bilan tasklarni olish
+    const [tasks, total] = await Promise.all([
+      prisma.task.findMany({
       where,
       select: {
         id: true,
@@ -75,7 +173,10 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
         status: true,
         comments: true,
         hasPsr: true,
+        afterHoursDeclaration: true,
+        afterHoursPayer: true,
         driverPhone: true,
+        customsPaymentMultiplier: true,
         createdAt: true,
         client: true, 
         branch: true,
@@ -93,30 +194,47 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
             durationMin: true,
             completedAt: true,
           },
+          orderBy: { stageOrder: 'asc' },
         },
       },
       orderBy: { createdAt: 'desc' },
-    });
+        skip,
+        take,
+      }),
+      // Backward compatibility: agar pagination yo'q bo'lsa, count qilmaymiz
+      pageNum && limitNum ? prisma.task.count({ where }) : Promise.resolve(0),
+    ]);
     
     // Calculate and update status for each task using the new formula
     // NOTE: We only recalculate if status filter is not set, to avoid overriding user's filter
     // If status filter is set, we trust the database value
-    if (!status) {
+    if (!status && tasks.length > 0) {
       // Only recalculate if no status filter is applied
+      // Use stages from task object (already included in select)
+      // Calculate status for each task
+      const updates: Array<{id: number, status: TaskStatus}> = [];
       for (const task of tasks) {
-        const calculatedStatus = await calculateTaskStatus(prisma, task.id);
+        const stages = (task as any).stages || [];
+        const stageStatuses = stages.map((s: any) => ({ name: s.name, status: s.status }));
+        const calculatedStatus = await calculateTaskStatusFromStages(stageStatuses);
         
-        // Update task status if different
+        // Update task object for response
+        (task as any).status = calculatedStatus;
+        
+        // Collect updates to batch them
         if (task.status !== calculatedStatus) {
-          await prisma.task.update({
-            where: { id: task.id },
-            data: { status: calculatedStatus },
-          });
-          (task as any).status = calculatedStatus;
-        } else {
-          // Update the task object with calculated status for response
-          (task as any).status = calculatedStatus;
+          updates.push({ id: task.id, status: calculatedStatus });
         }
+      }
+      
+      // Batch update all tasks with new status
+      if (updates.length > 0) {
+        await Promise.all(updates.map(update => 
+          prisma.task.update({
+            where: { id: update.id },
+            data: { status: update.status },
+          })
+        ));
       }
     } else {
       // If status filter is set, use database status directly
@@ -126,7 +244,21 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       }
     }
     
+    // Backward compatibility: agar pagination parametrlari yo'q bo'lsa, eski format qaytariladi
+    if (pageNum && limitNum && total > 0) {
+      res.json({
+        tasks,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      });
+    } else {
+      // Eski format - barcha tasklar
     res.json(tasks);
+    }
   } catch (error) {
     console.error('Error fetching tasks:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -182,18 +314,167 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       },
     });
 
-    let snapshotDealAmount = client?.dealAmount ? Number(client.dealAmount) : null;
+    // Get full client data for currency information
+    const fullClient = await tx.client.findUnique({
+      where: { id: parsed.data.clientId },
+      select: {
+        dealAmount: true,
+        dealAmountCurrency: true,
+        dealAmountExchangeRate: true,
+        dealAmount_amount_original: true,
+        dealAmount_currency: true,
+        dealAmount_exchange_rate: true,
+        dealAmount_amount_uzs: true,
+        dealAmount_exchange_source: true,
+      },
+    });
+
+    let snapshotDealAmount = fullClient?.dealAmount ? Number(fullClient.dealAmount) : null;
+    let snapshotDealAmountExchangeRate: Decimal | null = null;
     let snapshotCertificatePayment = null;
+    let snapshotCertificatePaymentExchangeRate: Decimal | null = null;
+    let snapshotCertificatePaymentAmountUzs: number | null = null;
     let snapshotPsrPrice = null;
+    let snapshotPsrPriceExchangeRate: Decimal | null = null;
+    let snapshotPsrPriceAmountUzs: number | null = null;
     let snapshotWorkerPrice = null;
+    let snapshotWorkerPriceExchangeRate: Decimal | null = null;
+    let snapshotWorkerPriceAmountUzs: number | null = null;
     let snapshotCustomsPayment = null;
+    let snapshotCustomsPaymentExchangeRate: Decimal | null = null;
+    let snapshotCustomsPaymentAmountUzs: number | null = null;
+
+    // Capture exchange rates for deal amount and populate universal fields
+    let snapshotDealAmountAmountUzs: number | null = null;
+    let snapshotDealAmountCurrency: Currency | null = null;
+    let snapshotDealAmountExchangeRateValue: Decimal | null = null;
+    let snapshotDealAmountExchangeSource: ExchangeSource = 'CBU';
+
+    if (snapshotDealAmount && fullClient) {
+      // Use universal fields if available, fallback to old fields
+      const currency: Currency = fullClient.dealAmount_currency || fullClient.dealAmountCurrency || 'USD';
+      snapshotDealAmountCurrency = currency;
+      
+      if (currency === 'USD') {
+        if (fullClient.dealAmount_exchange_rate) {
+          snapshotDealAmountExchangeRateValue = new Decimal(fullClient.dealAmount_exchange_rate);
+          snapshotDealAmountExchangeRate = snapshotDealAmountExchangeRateValue;
+        } else if (fullClient.dealAmountExchangeRate) {
+          snapshotDealAmountExchangeRateValue = new Decimal(fullClient.dealAmountExchangeRate);
+          snapshotDealAmountExchangeRate = snapshotDealAmountExchangeRateValue;
+        } else {
+          try {
+            const rate = await getExchangeRate(taskCreatedAt, 'USD', 'UZS', tx);
+            snapshotDealAmountExchangeRateValue = rate;
+            snapshotDealAmountExchangeRate = rate;
+          } catch (error) {
+            console.error('Failed to get exchange rate for deal amount snapshot:', error);
+            snapshotDealAmountExchangeRateValue = new Decimal(1);
+            snapshotDealAmountExchangeRate = new Decimal(1);
+          }
+        }
+        snapshotDealAmountAmountUzs = Number(calculateAmountUzs(snapshotDealAmount, currency, snapshotDealAmountExchangeRateValue));
+      } else {
+        // UZS currency - exchange rate is always 1
+        snapshotDealAmountExchangeRateValue = new Decimal(1);
+        snapshotDealAmountExchangeRate = new Decimal(1);
+        snapshotDealAmountAmountUzs = snapshotDealAmount;
+      }
+      snapshotDealAmountExchangeSource = fullClient.dealAmount_exchange_source || 'CBU';
+    }
 
     if (statePayment) {
       // Task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovidan foydalanamiz
-      snapshotCertificatePayment = Number(statePayment.certificatePayment) as any;
-      snapshotPsrPrice = Number(statePayment.psrPrice) as any;
-      snapshotWorkerPrice = Number(statePayment.workerPrice) as any;
-      snapshotCustomsPayment = Number(statePayment.customsPayment) as any;
+      const paymentCurrency: Currency = snapshotDealAmountCurrency || 'USD';
+      const paymentExchangeRate = snapshotDealAmountExchangeRateValue || new Decimal(1);
+      const resolvePaymentAmounts = (
+        amountUsdRaw: number | null | undefined,
+        amountUzsRaw: number | null | undefined,
+        fallbackRaw: number | null | undefined,
+        currency: Currency,
+        exchangeRate: Decimal
+      ) => {
+        const amountUsd = Number(amountUsdRaw ?? fallbackRaw ?? 0);
+        const amountUzs = Number(amountUzsRaw ?? fallbackRaw ?? 0);
+        if (currency === 'USD') {
+          const original = amountUsd;
+          const uzs = amountUzsRaw != null
+            ? amountUzs
+            : Number(calculateAmountUzs(original, 'USD', exchangeRate));
+          const rate = original > 0 ? new Decimal(uzs / original) : new Decimal(1);
+          return { original, uzs, rate };
+        }
+        const original = amountUzs;
+        return { original, uzs: amountUzs, rate: new Decimal(1) };
+      };
+
+      const certificateAmounts = resolvePaymentAmounts(
+        statePayment.certificatePayment_amount_original != null
+          ? Number(statePayment.certificatePayment_amount_original)
+          : null,
+        statePayment.certificatePayment_amount_uzs != null
+          ? Number(statePayment.certificatePayment_amount_uzs)
+          : null,
+        statePayment.certificatePayment != null
+          ? Number(statePayment.certificatePayment)
+          : null,
+        paymentCurrency,
+        paymentExchangeRate
+      );
+      snapshotCertificatePayment = certificateAmounts.original as any;
+      snapshotCertificatePaymentExchangeRate = certificateAmounts.rate;
+      snapshotCertificatePaymentAmountUzs = certificateAmounts.uzs;
+
+      const psrAmounts = resolvePaymentAmounts(
+        statePayment.psrPrice_amount_original != null
+          ? Number(statePayment.psrPrice_amount_original)
+          : null,
+        statePayment.psrPrice_amount_uzs != null
+          ? Number(statePayment.psrPrice_amount_uzs)
+          : null,
+        statePayment.psrPrice != null
+          ? Number(statePayment.psrPrice)
+          : null,
+        paymentCurrency,
+        paymentExchangeRate
+      );
+      snapshotPsrPrice = psrAmounts.original as any;
+      snapshotPsrPriceExchangeRate = psrAmounts.rate;
+      snapshotPsrPriceAmountUzs = psrAmounts.uzs;
+
+      const workerAmounts = resolvePaymentAmounts(
+        statePayment.workerPrice_amount_original != null
+          ? Number(statePayment.workerPrice_amount_original)
+          : null,
+        statePayment.workerPrice_amount_uzs != null
+          ? Number(statePayment.workerPrice_amount_uzs)
+          : null,
+        statePayment.workerPrice != null
+          ? Number(statePayment.workerPrice)
+          : null,
+        paymentCurrency,
+        paymentExchangeRate
+      );
+      snapshotWorkerPrice = workerAmounts.original as any;
+      snapshotWorkerPriceExchangeRate = workerAmounts.rate;
+      snapshotWorkerPriceAmountUzs = workerAmounts.uzs;
+
+      const customsAmounts = resolvePaymentAmounts(
+        statePayment.customsPayment_amount_original != null
+          ? Number(statePayment.customsPayment_amount_original)
+          : null,
+        statePayment.customsPayment_amount_uzs != null
+          ? Number(statePayment.customsPayment_amount_uzs)
+          : null,
+        statePayment.customsPayment != null
+          ? Number(statePayment.customsPayment)
+          : null,
+        paymentCurrency,
+        paymentExchangeRate
+      );
+      snapshotCustomsPayment = customsAmounts.original as any;
+      snapshotCustomsPaymentExchangeRate = customsAmounts.rate;
+      snapshotCustomsPaymentAmountUzs = customsAmounts.uzs;
     }
 
     // Prisma data object - faqat mavjud field'larni qo'shamiz
@@ -202,7 +483,9 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       branchId: parsed.data.branchId,
       title: parsed.data.title,
       hasPsr: parsed.data.hasPsr,
-      createdById: req.user.id,
+      afterHoursDeclaration: parsed.data.afterHoursDeclaration,
+      afterHoursPayer: parsed.data.afterHoursPayer as AfterHoursPayerType,
+      createdById: req.user?.id,
     };
 
     // Optional field'larni qo'shamiz - faqat mavjud va null bo'lmagan qiymatlarni
@@ -213,22 +496,102 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       taskData.driverPhone = parsed.data.driverPhone;
     }
     // Decimal field'lar uchun - faqat mavjud va null bo'lmagan qiymatlarni (Prisma number qabul qiladi)
-    // state-payments.ts dagi kabi to'g'ridan-to'g'ri number sifatida yuboramiz
+    // Keep old fields for backward compatibility
     if (snapshotDealAmount != null) {
       taskData.snapshotDealAmount = snapshotDealAmount;
     }
+    if (snapshotDealAmountExchangeRate != null) {
+      taskData.snapshotDealAmountExchangeRate = snapshotDealAmountExchangeRate;
+    }
     if (snapshotCertificatePayment != null) {
       taskData.snapshotCertificatePayment = snapshotCertificatePayment;
+      taskData.snapshotCertificatePaymentExchangeRate = snapshotCertificatePaymentExchangeRate;
     }
     if (snapshotPsrPrice != null) {
       taskData.snapshotPsrPrice = snapshotPsrPrice;
+      taskData.snapshotPsrPriceExchangeRate = snapshotPsrPriceExchangeRate;
     }
     if (snapshotWorkerPrice != null) {
       taskData.snapshotWorkerPrice = snapshotWorkerPrice;
+      taskData.snapshotWorkerPriceExchangeRate = snapshotWorkerPriceExchangeRate;
     }
     if (snapshotCustomsPayment != null) {
       taskData.snapshotCustomsPayment = snapshotCustomsPayment;
+      taskData.snapshotCustomsPaymentExchangeRate = snapshotCustomsPaymentExchangeRate;
     }
+    
+    // Universal monetary fields for snapshots
+    if (snapshotDealAmount != null && snapshotDealAmountCurrency && snapshotDealAmountExchangeRateValue) {
+      taskData.snapshotDealAmount_amount_original = snapshotDealAmount;
+      taskData.snapshotDealAmount_currency = snapshotDealAmountCurrency;
+      taskData.snapshotDealAmount_exchange_rate = Number(snapshotDealAmountExchangeRateValue);
+      taskData.snapshotDealAmount_amount_uzs = snapshotDealAmountAmountUzs;
+      taskData.snapshotDealAmount_exchange_source = snapshotDealAmountExchangeSource;
+    }
+
+    const snapshotPaymentCurrency: Currency = snapshotDealAmountCurrency || 'USD';
+
+    if (snapshotCertificatePayment != null && snapshotCertificatePaymentAmountUzs != null) {
+      taskData.snapshotCertificatePayment_amount_original = snapshotCertificatePayment;
+      taskData.snapshotCertificatePayment_currency = snapshotPaymentCurrency;
+      taskData.snapshotCertificatePayment_exchange_rate = Number(snapshotCertificatePaymentExchangeRate || 1);
+      taskData.snapshotCertificatePayment_amount_uzs = snapshotCertificatePaymentAmountUzs;
+      taskData.snapshotCertificatePayment_exchange_source = 'MANUAL';
+    }
+    if (snapshotPsrPrice != null && snapshotPsrPriceAmountUzs != null) {
+      taskData.snapshotPsrPrice_amount_original = snapshotPsrPrice;
+      taskData.snapshotPsrPrice_currency = snapshotPaymentCurrency;
+      taskData.snapshotPsrPrice_exchange_rate = Number(snapshotPsrPriceExchangeRate || 1);
+      taskData.snapshotPsrPrice_amount_uzs = snapshotPsrPriceAmountUzs;
+      taskData.snapshotPsrPrice_exchange_source = 'MANUAL';
+    }
+    if (snapshotWorkerPrice != null && snapshotWorkerPriceAmountUzs != null) {
+      taskData.snapshotWorkerPrice_amount_original = snapshotWorkerPrice;
+      taskData.snapshotWorkerPrice_currency = snapshotPaymentCurrency;
+      taskData.snapshotWorkerPrice_exchange_rate = Number(snapshotWorkerPriceExchangeRate || 1);
+      taskData.snapshotWorkerPrice_amount_uzs = snapshotWorkerPriceAmountUzs;
+      taskData.snapshotWorkerPrice_exchange_source = 'MANUAL';
+    }
+    if (snapshotCustomsPayment != null && snapshotCustomsPaymentAmountUzs != null) {
+      taskData.snapshotCustomsPayment_amount_original = snapshotCustomsPayment;
+      taskData.snapshotCustomsPayment_currency = snapshotPaymentCurrency;
+      taskData.snapshotCustomsPayment_exchange_rate = Number(snapshotCustomsPaymentExchangeRate || 1);
+      taskData.snapshotCustomsPayment_amount_uzs = snapshotCustomsPaymentAmountUzs;
+      taskData.snapshotCustomsPayment_exchange_source = 'MANUAL';
+    }
+    
+    if (snapshotCertificatePayment != null) {
+      taskData.snapshotCertificatePayment_amount_original = snapshotCertificatePayment;
+      taskData.snapshotCertificatePayment_currency = 'UZS';
+      taskData.snapshotCertificatePayment_exchange_rate = 1;
+      taskData.snapshotCertificatePayment_amount_uzs = snapshotCertificatePayment;
+      taskData.snapshotCertificatePayment_exchange_source = 'CBU';
+    }
+    
+    if (snapshotPsrPrice != null) {
+      taskData.snapshotPsrPrice_amount_original = snapshotPsrPrice;
+      taskData.snapshotPsrPrice_currency = 'UZS';
+      taskData.snapshotPsrPrice_exchange_rate = 1;
+      taskData.snapshotPsrPrice_amount_uzs = snapshotPsrPrice;
+      taskData.snapshotPsrPrice_exchange_source = 'CBU';
+    }
+    
+    if (snapshotWorkerPrice != null) {
+      taskData.snapshotWorkerPrice_amount_original = snapshotWorkerPrice;
+      taskData.snapshotWorkerPrice_currency = 'UZS';
+      taskData.snapshotWorkerPrice_exchange_rate = 1;
+      taskData.snapshotWorkerPrice_amount_uzs = snapshotWorkerPrice;
+      taskData.snapshotWorkerPrice_exchange_source = 'CBU';
+    }
+    
+    if (snapshotCustomsPayment != null) {
+      taskData.snapshotCustomsPayment_amount_original = snapshotCustomsPayment;
+      taskData.snapshotCustomsPayment_currency = 'UZS';
+      taskData.snapshotCustomsPayment_exchange_rate = 1;
+      taskData.snapshotCustomsPayment_amount_uzs = snapshotCustomsPayment;
+      taskData.snapshotCustomsPayment_exchange_source = 'CBU';
+    }
+    
     if (parsed.data.customsPaymentMultiplier != null) {
       taskData.customsPaymentMultiplier = parsed.data.customsPaymentMultiplier;
     }
@@ -285,6 +648,50 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+// Get task stages (lazy loading)
+router.get('/:id/stages', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const taskId = parseInt(req.params.id);
+    
+    // Task mavjudligini tekshirish
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: { id: true },
+    });
+    
+    if (!task) {
+      return res.status(404).json({ error: 'Task topilmadi' });
+    }
+    
+    // Stages'ni olish
+    const stages = await prisma.taskStage.findMany({
+      where: { taskId },
+      orderBy: { stageOrder: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        stageOrder: true,
+        durationMin: true,
+        startedAt: true,
+        completedAt: true,
+        assignedTo: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+    
+    res.json(stages);
+  } catch (error: any) {
+    console.error('Error fetching task stages:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const task = await prisma.task.findUnique({
@@ -292,6 +699,18 @@ router.get('/:id', async (req, res) => {
     include: {
       client: true,
       branch: true,
+      invoice: {
+        select: {
+          contractNumber: true,
+          contract: {
+            select: {
+              contractNumber: true,
+              contractDate: true,
+              emails: true,
+            },
+          },
+        },
+      },
       createdBy: {
         select: {
           id: true,
@@ -326,26 +745,116 @@ router.get('/:id', async (req, res) => {
   if (!task) return res.status(404).json({ error: 'Not found' });
   
   // Calculate net profit: Kelishuv summasi - Filial bo'yicha davlat to'lovlari
+  // ALL CALCULATIONS MUST BE IN UZS (accounting base currency)
   // Task yaratilgan vaqtdagi snapshot'lardan foydalanamiz
   // Agar snapshot bo'sh bo'lsa, task yaratilgan vaqtdagi davlat to'lovlarini history'dan topamiz
   // Agar PSR bor bo'lsa kelishuv summasiga 10 qo'shamiz va PSR narxini hisobga olamiz
   let netProfit = null;
   try {
-    // Kelishuv summasini olish (snapshot yoki joriy qiymat)
-    const dealAmount = task.snapshotDealAmount ? Number(task.snapshotDealAmount) : Number(task.client.dealAmount || 0);
+    // Get deal amount - use amount_uzs from universal fields
+    let dealAmountInUzs: number = 0;
+    const clientDealCurrency = task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
+    if (task.snapshotDealAmount_amount_uzs) {
+      // Use universal field if available
+      dealAmountInUzs = Number(task.snapshotDealAmount_amount_uzs);
+    } else if (task.snapshotDealAmount) {
+      // Fallback to old field - convert if needed
+      if (clientDealCurrency === 'USD' && task.snapshotDealAmount_exchange_rate) {
+        // Convert USD to UZS using snapshot exchange rate
+        dealAmountInUzs = Number(task.snapshotDealAmount) * Number(task.snapshotDealAmount_exchange_rate);
+      } else if (clientDealCurrency === 'USD' && task.snapshotDealAmountExchangeRate) {
+        // Fallback to old exchange rate field
+        dealAmountInUzs = Number(task.snapshotDealAmount) * Number(task.snapshotDealAmountExchangeRate);
+      } else {
+        // Already in UZS or no exchange rate (assume UZS)
+        dealAmountInUzs = Number(task.snapshotDealAmount);
+      }
+    } else if (task.client.dealAmount_amount_uzs) {
+      // Use client's universal field
+      dealAmountInUzs = Number(task.client.dealAmount_amount_uzs);
+    } else if (task.client.dealAmount) {
+      // Fallback to old client fields
+      const clientDealAmount = Number(task.client.dealAmount);
+      
+      if (clientDealCurrency === 'USD' && task.client.dealAmount_exchange_rate) {
+        // Use universal exchange rate
+        dealAmountInUzs = clientDealAmount * Number(task.client.dealAmount_exchange_rate);
+      } else if (clientDealCurrency === 'USD' && task.client.dealAmountExchangeRate) {
+        // Fallback to old exchange rate
+        dealAmountInUzs = clientDealAmount * Number(task.client.dealAmountExchangeRate);
+      } else if (clientDealCurrency === 'USD') {
+        // Need to fetch historical rate for task creation date
+        const taskCreatedAt = new Date(task.createdAt);
+        try {
+          const exchangeRate = await getExchangeRate(taskCreatedAt, 'USD', 'UZS');
+          dealAmountInUzs = clientDealAmount * Number(exchangeRate);
+        } catch (error) {
+          console.error('Failed to get historical exchange rate for deal amount:', error);
+          dealAmountInUzs = clientDealAmount; // Fallback: assume already in UZS
+        }
+      } else {
+        // Already in UZS
+        dealAmountInUzs = clientDealAmount;
+      }
+    }
     
-    // Davlat to'lovlarini olish
-    let certificatePayment: number;
-    let psrPrice: number;
-    let workerPrice: number;
-    let customsPayment: number;
+    // Davlat to'lovlarini olish (always in UZS per rule 5)
+    const resolvePaymentUzs = (
+      amountOriginal: number | null | undefined,
+      amountUzs: number | null | undefined,
+      currency: Currency,
+      exchangeRate?: Decimal | number | null
+    ) => {
+      if (currency === 'UZS') {
+        return Number(amountUzs ?? amountOriginal ?? 0);
+      }
+      const original = Number(amountOriginal ?? 0);
+      if (amountUzs != null) return Number(amountUzs);
+      const rate = exchangeRate ? new Decimal(exchangeRate) : new Decimal(1);
+      return Number(calculateAmountUzs(original, 'USD', rate));
+    };
 
-    // Agar snapshot'lar mavjud bo'lsa, ulardan foydalanamiz
+    let certificatePaymentUzs: number;
+    let psrPriceUzs: number;
+    let workerPriceUzs: number;
+    let customsPaymentUzs: number;
+
+    // Agar snapshot'lar mavjud bo'lsa, ulardan foydalanamiz (all in UZS)
     if (task.snapshotCertificatePayment !== null && task.snapshotCertificatePayment !== undefined) {
-      certificatePayment = Number(task.snapshotCertificatePayment);
-      psrPrice = Number(task.snapshotPsrPrice || 0);
-      workerPrice = Number(task.snapshotWorkerPrice || 0);
-      customsPayment = Number(task.snapshotCustomsPayment || 0);
+      const paymentCurrency = task.snapshotCertificatePayment_currency || clientDealCurrency;
+      const snapshotRate = task.snapshotCertificatePayment_exchange_rate || task.snapshotDealAmount_exchange_rate || task.snapshotDealAmountExchangeRate;
+      certificatePaymentUzs = resolvePaymentUzs(
+        Number(task.snapshotCertificatePayment),
+        task.snapshotCertificatePayment_amount_uzs != null
+          ? Number(task.snapshotCertificatePayment_amount_uzs)
+          : null,
+        paymentCurrency,
+        snapshotRate
+      );
+      psrPriceUzs = resolvePaymentUzs(
+        Number(task.snapshotPsrPrice || 0),
+        task.snapshotPsrPrice_amount_uzs != null
+          ? Number(task.snapshotPsrPrice_amount_uzs)
+          : null,
+        task.snapshotPsrPrice_currency || clientDealCurrency,
+        task.snapshotPsrPrice_exchange_rate || snapshotRate
+      );
+      workerPriceUzs = resolvePaymentUzs(
+        Number(task.snapshotWorkerPrice || 0),
+        task.snapshotWorkerPrice_amount_uzs != null
+          ? Number(task.snapshotWorkerPrice_amount_uzs)
+          : null,
+        task.snapshotWorkerPrice_currency || clientDealCurrency,
+        task.snapshotWorkerPrice_exchange_rate || snapshotRate
+      );
+      customsPaymentUzs = resolvePaymentUzs(
+        Number(task.snapshotCustomsPayment || 0),
+        task.snapshotCustomsPayment_amount_uzs != null
+          ? Number(task.snapshotCustomsPayment_amount_uzs)
+          : null,
+        task.snapshotCustomsPayment_currency || clientDealCurrency,
+        task.snapshotCustomsPayment_exchange_rate || snapshotRate
+      );
     } else {
       // Snapshot bo'sh bo'lsa, task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovini topamiz
       const taskCreatedAt = new Date(task.createdAt);
@@ -360,40 +869,107 @@ router.get('/:id', async (req, res) => {
       });
 
       if (statePayment) {
-        certificatePayment = Number(statePayment.certificatePayment);
-        psrPrice = Number(statePayment.psrPrice);
-        workerPrice = Number(statePayment.workerPrice);
-        customsPayment = Number(statePayment.customsPayment);
+        const paymentCurrency: Currency = clientDealCurrency === 'UZS' ? 'UZS' : 'USD';
+        const fallbackRate = task.snapshotDealAmount_exchange_rate || task.snapshotDealAmountExchangeRate || 1;
+        certificatePaymentUzs = resolvePaymentUzs(
+          paymentCurrency === 'USD'
+            ? Number(statePayment.certificatePayment_amount_original ?? statePayment.certificatePayment)
+            : Number(statePayment.certificatePayment_amount_uzs ?? statePayment.certificatePayment),
+          statePayment.certificatePayment_amount_uzs != null
+            ? Number(statePayment.certificatePayment_amount_uzs)
+            : null,
+          paymentCurrency,
+          fallbackRate
+        );
+        psrPriceUzs = resolvePaymentUzs(
+          paymentCurrency === 'USD'
+            ? Number(statePayment.psrPrice_amount_original ?? statePayment.psrPrice)
+            : Number(statePayment.psrPrice_amount_uzs ?? statePayment.psrPrice),
+          statePayment.psrPrice_amount_uzs != null
+            ? Number(statePayment.psrPrice_amount_uzs)
+            : null,
+          paymentCurrency,
+          fallbackRate
+        );
+        workerPriceUzs = resolvePaymentUzs(
+          paymentCurrency === 'USD'
+            ? Number(statePayment.workerPrice_amount_original ?? statePayment.workerPrice)
+            : Number(statePayment.workerPrice_amount_uzs ?? statePayment.workerPrice),
+          statePayment.workerPrice_amount_uzs != null
+            ? Number(statePayment.workerPrice_amount_uzs)
+            : null,
+          paymentCurrency,
+          fallbackRate
+        );
+        customsPaymentUzs = resolvePaymentUzs(
+          paymentCurrency === 'USD'
+            ? Number(statePayment.customsPayment_amount_original ?? statePayment.customsPayment)
+            : Number(statePayment.customsPayment_amount_uzs ?? statePayment.customsPayment),
+          statePayment.customsPayment_amount_uzs != null
+            ? Number(statePayment.customsPayment_amount_uzs)
+            : null,
+          paymentCurrency,
+          fallbackRate
+        );
       } else {
         // StatePayment yo'q bo'lsa, 0 qaytaramiz
-        certificatePayment = 0;
-        psrPrice = 0;
-        workerPrice = 0;
-        customsPayment = 0;
+        certificatePaymentUzs = 0;
+        psrPriceUzs = 0;
+        workerPriceUzs = 0;
+        customsPaymentUzs = 0;
       }
     }
 
-    let finalDealAmount = dealAmount;
-    
-    // Agar PSR bor bo'lsa, kelishuv summasiga 10 qo'shamiz
+    // Add PSR amount (10 USD converted to UZS if deal was in USD)
+    // Use exchange rate from snapshot universal fields
+    let psrAmountInUzs = 0;
     if (task.hasPsr) {
-      finalDealAmount += 10;
+      if (clientDealCurrency === 'USD') {
+        // 10 USD - need to convert using snapshot exchange rate
+        let psrExchangeRate: Decimal = new Decimal(1);
+        if (task.snapshotDealAmount_exchange_rate) {
+          psrExchangeRate = new Decimal(task.snapshotDealAmount_exchange_rate);
+        } else if (task.snapshotDealAmountExchangeRate) {
+          psrExchangeRate = new Decimal(task.snapshotDealAmountExchangeRate);
+        } else if (task.client.dealAmount_exchange_rate) {
+          psrExchangeRate = new Decimal(task.client.dealAmount_exchange_rate);
+        } else if (task.client.dealAmountExchangeRate) {
+          psrExchangeRate = new Decimal(task.client.dealAmountExchangeRate);
+        } else {
+          // Fetch historical rate
+          const taskCreatedAt = new Date(task.createdAt);
+          try {
+            psrExchangeRate = await getExchangeRate(taskCreatedAt, 'USD', 'UZS');
+          } catch (error) {
+            console.error('Failed to get exchange rate for PSR amount:', error);
+            psrExchangeRate = new Decimal(1); // Fallback
+          }
+        }
+        psrAmountInUzs = Number(calculateAmountUzs(10, 'USD', psrExchangeRate));
+      } else {
+        // Already in UZS
+        psrAmountInUzs = 10;
+      }
     }
     
-    // Asosiy to'lovlar: Sertifikat + Ishchi + Bojxona
-    let totalPayments = certificatePayment + workerPrice + customsPayment;
+    const finalDealAmountInUzs = dealAmountInUzs + psrAmountInUzs;
     
-    // Agar PSR bor bo'lsa, PSR narxini qo'shamiz
+    // Asosiy to'lovlar: Sertifikat + Ishchi + Bojxona (all in UZS)
+    let totalPaymentsInUzs = certificatePaymentUzs + workerPriceUzs + customsPaymentUzs;
+    
+    // Agar PSR bor bo'lsa, PSR narxini qo'shamiz (in UZS)
     if (task.hasPsr) {
-      totalPayments += psrPrice;
+      totalPaymentsInUzs += psrPriceUzs;
     }
     
-    netProfit = (finalDealAmount - totalPayments) as any;
+    // Calculate net profit in UZS
+    netProfit = (finalDealAmountInUzs - totalPaymentsInUzs) as any;
   } catch (error) {
     console.error('Error calculating net profit:', error);
   }
   
   // Calculate admin earned amount from stages
+  // Amount must be in UZS (accounting base currency)
   let adminEarnedAmount = 0;
   try {
     const STAGE_PERCENTAGES: Record<string, number> = {
@@ -408,10 +984,23 @@ router.get('/:id', async (req, res) => {
       'Pochta': 10,
     };
     
-    // Get workerPrice from snapshot or state payment
-    let workerPrice = 0;
-    if (task.snapshotWorkerPrice !== null && task.snapshotWorkerPrice !== undefined) {
-      workerPrice = Number(task.snapshotWorkerPrice);
+    // Get workerPrice from snapshot or state payment (convert to UZS if needed)
+    // Use amount_uzs from universal fields when available
+    let workerPriceInUzs = 0;
+    if (task.snapshotWorkerPrice_amount_uzs !== null && task.snapshotWorkerPrice_amount_uzs !== undefined) {
+      // Use universal field
+      workerPriceInUzs = Number(task.snapshotWorkerPrice_amount_uzs);
+    } else if (task.snapshotWorkerPrice !== null && task.snapshotWorkerPrice !== undefined) {
+      const workerCurrency = task.snapshotWorkerPrice_currency || task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
+      if (workerCurrency === 'USD') {
+        const rate = task.snapshotWorkerPrice_exchange_rate
+          || task.snapshotDealAmount_exchange_rate
+          || task.snapshotDealAmountExchangeRate
+          || 1;
+        workerPriceInUzs = Number(calculateAmountUzs(Number(task.snapshotWorkerPrice), 'USD', new Decimal(rate)));
+      } else {
+        workerPriceInUzs = Number(task.snapshotWorkerPrice);
+      }
     } else {
       const taskCreatedAt = new Date(task.createdAt);
       const statePayment = await prisma.statePayment.findFirst({
@@ -424,11 +1013,24 @@ router.get('/:id', async (req, res) => {
         },
       });
       if (statePayment) {
-        workerPrice = Number(statePayment.workerPrice);
+        const workerCurrency = task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
+        if (workerCurrency === 'USD') {
+          const amountUsd = Number(statePayment.workerPrice_amount_original ?? statePayment.workerPrice);
+          if (statePayment.workerPrice_amount_uzs != null) {
+            workerPriceInUzs = Number(statePayment.workerPrice_amount_uzs);
+          } else {
+            const rate = task.snapshotDealAmount_exchange_rate
+              || task.snapshotDealAmountExchangeRate
+              || 1;
+            workerPriceInUzs = Number(calculateAmountUzs(amountUsd, 'USD', new Decimal(rate)));
+          }
+        } else {
+          workerPriceInUzs = Number(statePayment.workerPrice_amount_uzs ?? statePayment.workerPrice);
+        }
       }
     }
     
-    // Calculate admin earned amount from completed stages assigned to ADMIN
+    // Calculate admin earned amount from completed stages assigned to ADMIN (in UZS)
     for (const stage of task.stages) {
       if (stage.status === 'TAYYOR' && stage.assignedTo?.role === 'ADMIN') {
         let stageName = stage.name;
@@ -442,7 +1044,7 @@ router.get('/:id', async (req, res) => {
         }
         
         const percentage = STAGE_PERCENTAGES[stageName] || 0;
-        const earnedForThisStage = (workerPrice * percentage) / 100;
+        const earnedForThisStage = (workerPriceInUzs * percentage) / 100;
         adminEarnedAmount += earnedForThisStage;
       }
     }
@@ -450,10 +1052,60 @@ router.get('/:id', async (req, res) => {
     console.error('Error calculating admin earned amount:', error);
   }
   
+  // Get KPI logs for this task (for worker earnings display)
+  const kpiLogs = await prisma.kpiLog.findMany({
+    where: { taskId: id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+  });
+  
+  // Calculate exchange rate information for profit calculation
+  let exchangeRateInfo: { rate: number; source: string; date: Date } | null = null;
+  if (task.snapshotDealAmount_exchange_rate) {
+    exchangeRateInfo = {
+      rate: Number(task.snapshotDealAmount_exchange_rate),
+      source: task.snapshotDealAmount_exchange_source || 'CBU',
+      date: task.createdAt,
+    };
+  }
+
+  // Generate operational view (USD equivalent)
+  let operationalProfit: number | null = null;
+  if (netProfit !== null) {
+    // For operational view, convert UZS profit to USD using current rate
+    try {
+      const currentUsdToUzsRate = await getExchangeRate(new Date(), 'USD', 'UZS');
+      operationalProfit = Number(netProfit) / Number(currentUsdToUzsRate);
+    } catch (error) {
+      console.error('Error calculating operational profit:', error);
+      operationalProfit = null;
+    }
+  }
+
   res.json({
     ...task,
-    netProfit, // Sof foyda (faqat ADMIN uchun ko'rsatiladi)
-    adminEarnedAmount, // Admin ishlab topgan pul
+    netProfit, // Sof foyda (UZS - accounting view)
+    operationalProfit, // Sof foyda (USD equivalent - operational view)
+    adminEarnedAmount, // Admin ishlab topgan pul (UZS)
+    exchangeRateInfo, // Exchange rate used for deal amount conversion
+    kpiLogs: kpiLogs.map((log: any) => ({
+      id: log.id,
+      stageName: log.stageName,
+      amount: log.amount,
+      userId: log.userId,
+      user: log.user,
+      createdAt: log.createdAt,
+    })),
   });
 });
 
@@ -478,16 +1130,42 @@ router.get('/:id/versions', async (req, res) => {
 
 const updateStageSchema = z.object({
   status: z.enum(['BOSHLANMAGAN', 'TAYYOR']),
-  customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
+  customsPaymentMultiplier: z.coerce.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
+  afterHoursDeclaration: z.boolean().optional(),
+  afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional(),
+  skipValidation: z.boolean().optional(), // Skip document validation for ST stage
 });
 
-router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
+router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest, res) => {
+  // #region agent log
+  debugLog({location:'tasks.ts:484',message:'PATCH stage entry',data:{taskId:req.params.taskId,stageId:req.params.stageId,body:req.body},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
+  // #endregion
   const taskId = Number(req.params.taskId);
   const stageId = Number(req.params.stageId);
   const parsed = updateStageSchema.safeParse(req.body);
+  // #region agent log
+  debugLog({location:'tasks.ts:490',message:'Schema validation result',data:{success:parsed.success,errors:parsed.success?null:parsed.error.flatten()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
+  // #endregion
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
+  const user = req.user;
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   try {
+    // Check user access to task
+    const validationService = new ValidationService(prisma);
+    const canAccess = await validationService.canUserAccessTask(
+      taskId,
+      user.id,
+      user.role
+    );
+
+    if (!canAccess) {
+      return res.status(403).json({ error: 'Bu taskga kirish huquqingiz yo\'q' });
+    }
+
     const stage = await prisma.taskStage.findUnique({ 
       where: { id: stageId },
       include: {
@@ -499,201 +1177,61 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
         },
       },
     });
+    // #region agent log
+    debugLog({location:'tasks.ts:540',message:'Stage found',data:{stageFound:!!stage,stageId,stageName:stage?.name,stageStatus:stage?.status,stageTaskId:stage?.taskId,taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
+    // #endregion
     if (!stage || stage.taskId !== taskId) return res.status(404).json({ error: 'Stage not found' });
 
-    // Invoys stage'ini tayyor qilishda Invoice PDF talab qilish
-    if (stage.name === 'Invoys' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
-      try {
-        // Barcha PDF fayllarni olamiz va JavaScript filter qilamiz
-        const allPdfs = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            fileType: 'pdf',
-          },
-        });
+    // Barcha stage'lar oddiy jarayon sifatida ishlaydi - PDF/JPG validation olib tashlandi
 
-        // Nom va tavsif asosida Invoice'ni topamiz
-        const invoiceDocuments = allPdfs.filter((doc) => {
-          const name = (doc.name || '').toLowerCase();
-          const desc = (doc.description || '').toLowerCase();
-          return (
-            name.includes('invoice') ||
-            name.includes('invoys') ||
-            desc.includes('invoice') ||
-            (doc as any).documentType === 'INVOICE'
-          );
-        });
-
-        if (invoiceDocuments.length === 0) {
-          return res.status(400).json({ 
-            error: 'Invoys stage\'ini tayyor qilish uchun Invoice PDF yuklanishi shart. Iltimos, avval Invoice PDF yuklang.' 
-          });
-        }
-      } catch (error: any) {
-        console.error('Error checking Invoice documents:', error);
-        // Xatolik bo'lsa, validation'ni o'tkazib yuboramiz
-        console.log('Skipping Invoice validation due to error');
-      }
-    }
-
-    // ST stage'ini tayyor qilishda Invoice va ST PDF talab qilish
-    if (stage.name === 'ST' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
-      try {
-        const allPdfs = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            fileType: 'pdf',
-          },
-        });
-
-        const invoiceDocuments = allPdfs.filter((doc) => {
-          const name = (doc.name || '').toLowerCase();
-          const desc = (doc.description || '').toLowerCase();
-          return (
-            name.includes('invoice') ||
-            name.includes('invoys') ||
-            desc.includes('invoice') ||
-            doc.documentType === 'INVOICE'
-          );
-        });
-
-        const stDocuments = allPdfs.filter((doc) => {
-          const name = (doc.name || '').toLowerCase();
-          const desc = (doc.description || '').toLowerCase();
-          return (
-            name.includes(' st') ||
-            name.includes('-st') ||
-            name.startsWith('st ') ||
-            desc.includes('st') ||
-            doc.documentType === 'ST'
-          );
-        });
-
-        if (invoiceDocuments.length === 0) {
-          return res.status(400).json({ 
-            error: 'ST stage\'ini tayyor qilish uchun Invoice PDF yuklanishi shart.' 
-          });
-        }
-
-        if (stDocuments.length === 0) {
-          return res.status(400).json({ 
-            error: 'ST stage\'ini tayyor qilish uchun ST PDF yuklanishi shart.' 
-          });
-        }
-      } catch (error) {
-        console.error('Error checking ST documents:', error);
-        // Xatolik bo'lsa, validation'ni o'tkazib yuboramiz
-        console.log('Skipping ST validation due to error');
-      }
-    }
-
-  // Fito stage'ini tayyor qilishda barcha PDF talab qilish
-  if ((stage.name === 'Fito' || stage.name === 'FITO') && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
-    try {
-      let invoiceDocuments: any[] = [];
-      let stDocuments: any[] = [];
-      let fitoDocuments: any[] = [];
-
-      try {
-        invoiceDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            documentType: 'INVOICE',
-          },
-        });
-
-        stDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            documentType: 'ST',
-          },
-        });
-
-        fitoDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            documentType: 'FITO',
-          },
-        });
-      } catch (enumError) {
-        // Fallback: name asosida tekshirish
-        invoiceDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            fileType: 'pdf',
-            OR: [
-              { name: { contains: 'invoice', mode: 'insensitive' } },
-              { name: { contains: 'invoys', mode: 'insensitive' } },
-            ],
-          },
-        });
-
-        stDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            fileType: 'pdf',
-            OR: [
-              { name: { contains: ' st', mode: 'insensitive' } },
-              { name: { contains: '-st', mode: 'insensitive' } },
-            ],
-          },
-        });
-
-        fitoDocuments = await prisma.taskDocument.findMany({
-          where: {
-            taskId: taskId,
-            fileType: 'pdf',
-            OR: [
-              { name: { contains: 'fito', mode: 'insensitive' } },
-              { name: { contains: 'phytosanitary', mode: 'insensitive' } },
-            ],
-          },
-        });
-      }
-
-      if (invoiceDocuments.length === 0) {
-        return res.status(400).json({ 
-          error: 'Fito stage\'ini tayyor qilish uchun Invoice PDF yuklanishi shart.' 
-        });
-      }
-
-      if (stDocuments.length === 0) {
-        return res.status(400).json({ 
-          error: 'Fito stage\'ini tayyor qilish uchun ST PDF yuklanishi shart.' 
-        });
-      }
-
-      if (fitoDocuments.length === 0) {
-        return res.status(400).json({ 
-          error: 'Fito stage\'ini tayyor qilish uchun FITO PDF yuklanishi shart.' 
-        });
-      }
-    } catch (error) {
-      console.error('Error checking Fito documents:', error);
-      return res.status(500).json({ 
-        error: 'Hujjatlarni tekshirishda xatolik yuz berdi' 
+    // Pochta jarayoni tayyor qilishda hujjatlar tekshiruvi
+    if (stage.name === 'Pochta' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
+      const documentCount = await prisma.taskDocument.count({
+        where: { taskId }
       });
+
+      if (documentCount === 0) {
+          return res.status(400).json({ 
+          error: 'Pochta jarayonini tayyor qilish uchun kamida bitta hujjat yuklanishi kerak' 
+        });
+      }
+    }
+
+    // Only the person who completed the stage can change its status (ADMIN ham o'zgartira olmaydi)
+    if (stage.status === 'TAYYOR' && parsed.data.status !== 'TAYYOR') {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const isStageOwner = stage.assignedToId === req.user.id;
+
+      if (!isStageOwner) {
+        return res.status(403).json({ 
+          error: 'Faqat jarayonni tayyor qilgan odam jarayon statusini o\'zgartirishi mumkin' 
+        });
     }
   }
 
   // Agar jarayonni tugallanmagan (BOSHLANMAGAN) qilishga harakat qilinayotgan bo'lsa,
-  // faqat jarayonni boshlagan odam yoki admin buni qila oladi
+  // faqat jarayonni tayyor qilgan odam buni qila oladi (ADMIN ham emas)
   if (parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const isAdmin = req.user.role === 'ADMIN';
     const isStageOwner = stage.assignedToId === req.user.id;
 
-    if (!isAdmin && !isStageOwner) {
+    if (!isStageOwner) {
       return res.status(403).json({ 
-        error: 'Faqat jarayonni boshlagan odam yoki admin jarayonni tugallanmagan qilishi mumkin' 
+        error: 'Faqat jarayonni tayyor qilgan odam jarayonni tugallanmagan qilishi mumkin' 
       });
     }
   }
 
   const now = new Date();
+  // #region agent log
+  debugLog({location:'tasks.ts:758',message:'Before transaction',data:{taskId,stageId,newStatus:parsed.data.status,stageName:stage.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
+  // #endregion
   const updated = await prisma.$transaction(async (tx) => {
     // If Deklaratsiya stage is being started and multiplier is provided, update task's customs payment
     if (stage.name === 'Deklaratsiya' && parsed.data.status === 'TAYYOR' && parsed.data.customsPaymentMultiplier) {
@@ -701,18 +1239,138 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
       const bxmConfig = await (tx as any).bXMConfig.findUnique({
         where: { year: currentYear },
       });
-      const bxmAmount = bxmConfig ? Number(bxmConfig.amount) : 34.4; // Default BXM
-      const calculatedCustomsPayment = bxmAmount * parsed.data.customsPaymentMultiplier;
+      const bxmAmountUsd = bxmConfig ? Number(bxmConfig.amountUsd ?? bxmConfig.amount) : 34.4; // Default BXM USD
+      const bxmAmountUzs = bxmConfig ? Number(bxmConfig.amountUzs ?? 412000) : 412000; // Default BXM UZS
       
+      // Get task with client to update dealAmount
+      const task = await (tx as any).task.findUnique({
+        where: { id: taskId },
+        include: { client: true },
+      });
+      
+      const clientCurrency = task?.client
+        ? (task.client as any).dealAmount_currency || (task.client as any).dealAmountCurrency || 'USD'
+        : 'USD';
+      const afterHoursDeclaration = parsed.data.afterHoursDeclaration ?? task?.afterHoursDeclaration ?? false;
+      const afterHoursPayer = (parsed.data.afterHoursPayer ?? task?.afterHoursPayer ?? 'CLIENT') as AfterHoursPayerType;
+      const afterHoursExtraOriginal = afterHoursDeclaration
+        ? (clientCurrency === 'USD' ? 8.5 : 103000)
+        : 0;
+      const afterHoursExtraUzs = afterHoursDeclaration ? 103000 : 0;
+      const bxmAmountForClient = clientCurrency === 'USD' ? bxmAmountUsd : bxmAmountUzs;
+      const calculatedCustomsBasePayment = bxmAmountForClient * parsed.data.customsPaymentMultiplier;
+      const calculatedCustomsBasePaymentUzs = clientCurrency === 'USD'
+        ? bxmAmountUzs * parsed.data.customsPaymentMultiplier
+        : calculatedCustomsBasePayment;
+      const calculatedCustomsPayment = calculatedCustomsBasePayment + afterHoursExtraOriginal;
+      const calculatedCustomsPaymentUzs = calculatedCustomsBasePaymentUzs + afterHoursExtraUzs;
+      const calculatedCustomsExchangeRate = clientCurrency === 'USD' && calculatedCustomsPayment > 0
+        ? new Decimal(calculatedCustomsPaymentUzs / calculatedCustomsPayment)
+        : new Decimal(1);
+
+      if (task?.client) {
+        const newMultiplier = Number(parsed.data.customsPaymentMultiplier);
+
+        // Calculate new additional payment (if new multiplier > 1)
+        // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
+        let newAdditionalPayment = 0;
+        if (newMultiplier > 1) {
+          if (clientCurrency === 'USD') {
+            newAdditionalPayment = (newMultiplier - 1) * bxmAmountUsd;
+          } else {
+            newAdditionalPayment = (newMultiplier - 1) * bxmAmountUzs;
+          }
+        }
+
+        const dealExtraFromAfterHours = afterHoursDeclaration && afterHoursPayer === 'CLIENT'
+          ? afterHoursExtraOriginal
+          : 0;
+        
+        // Get base deal amount (from client or current snapshot)
+        const baseDealAmount = task.client.dealAmount ? Number(task.client.dealAmount) : 0;
+        const baseDealAmountUzs = clientCurrency === 'USD'
+          ? Number((task.client as any).dealAmount_amount_uzs
+            ?? (baseDealAmount * Number((task.client as any).dealAmount_exchange_rate || (task.client as any).dealAmountExchangeRate || task.snapshotDealAmount_exchange_rate || task.snapshotDealAmountExchangeRate || 1)))
+          : Number((task.client as any).dealAmount_amount_uzs ?? baseDealAmount);
+
+        // Calculate new snapshotDealAmount by removing previous additional payment and adding new one
+        // Or simply: baseDealAmount + newAdditionalPayment (+ after-hours if payer is client)
+        const newSnapshotDealAmount = baseDealAmount + newAdditionalPayment + dealExtraFromAfterHours;
+        const newSnapshotDealAmountUzs = baseDealAmountUzs + (newMultiplier - 1) * bxmAmountUzs + (afterHoursDeclaration && afterHoursPayer === 'CLIENT' ? 103000 : 0);
+        
+        // Update task's snapshotDealAmount
+        await (tx as any).task.update({
+          where: { id: taskId },
+          data: {
+            customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
+            afterHoursDeclaration,
+            afterHoursPayer,
+            snapshotCustomsPayment: calculatedCustomsPayment,
+            snapshotCustomsPaymentExchangeRate: calculatedCustomsExchangeRate,
+            snapshotCustomsPayment_amount_original: calculatedCustomsPayment,
+            snapshotCustomsPayment_currency: clientCurrency,
+            snapshotCustomsPayment_exchange_rate: Number(calculatedCustomsExchangeRate),
+            snapshotCustomsPayment_amount_uzs: calculatedCustomsPaymentUzs,
+            snapshotCustomsPayment_exchange_source: 'MANUAL',
+            snapshotDealAmount: newSnapshotDealAmount,
+            snapshotDealAmount_amount_uzs: newSnapshotDealAmountUzs,
+          },
+        });
+      } else {
+        // If no client, just update customs payment
+        await (tx as any).task.update({
+          where: { id: taskId },
+          data: {
+            customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
+            afterHoursDeclaration,
+            afterHoursPayer,
+            snapshotCustomsPayment: calculatedCustomsPayment,
+            snapshotCustomsPaymentExchangeRate: calculatedCustomsExchangeRate,
+            snapshotCustomsPayment_amount_original: calculatedCustomsPayment,
+            snapshotCustomsPayment_currency: clientCurrency,
+            snapshotCustomsPayment_exchange_rate: Number(calculatedCustomsExchangeRate),
+            snapshotCustomsPayment_amount_uzs: calculatedCustomsPaymentUzs,
+            snapshotCustomsPayment_exchange_source: 'MANUAL',
+          },
+        });
+      }
+    } else if (stage.name === 'Deklaratsiya' && parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
+      const task = await (tx as any).task.findUnique({
+        where: { id: taskId },
+        include: { client: true },
+      });
+
+      const clientCurrency = task?.client
+        ? (task.client as any).dealAmount_currency || (task.client as any).dealAmountCurrency || 'USD'
+        : 'USD';
+
+      const baseDealAmount = task?.client?.dealAmount ? Number(task.client.dealAmount) : 0;
+      const baseDealAmountUzs = clientCurrency === 'USD'
+        ? Number((task?.client as any)?.dealAmount_amount_uzs
+          ?? (baseDealAmount * Number((task?.client as any)?.dealAmount_exchange_rate || (task?.client as any)?.dealAmountExchangeRate || task?.snapshotDealAmount_exchange_rate || task?.snapshotDealAmountExchangeRate || 1)))
+        : Number((task?.client as any)?.dealAmount_amount_uzs ?? baseDealAmount);
+
       await (tx as any).task.update({
         where: { id: taskId },
         data: {
-          customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
-          snapshotCustomsPayment: calculatedCustomsPayment,
+          afterHoursDeclaration: false,
+          customsPaymentMultiplier: null,
+          snapshotCustomsPayment: 0,
+          snapshotCustomsPaymentExchangeRate: new Decimal(1),
+          snapshotCustomsPayment_amount_original: 0,
+          snapshotCustomsPayment_currency: clientCurrency,
+          snapshotCustomsPayment_exchange_rate: 1,
+          snapshotCustomsPayment_amount_uzs: 0,
+          snapshotCustomsPayment_exchange_source: 'MANUAL',
+          snapshotDealAmount: baseDealAmount,
+          snapshotDealAmount_amount_uzs: baseDealAmountUzs,
         },
       });
     }
     
+    // #region agent log
+    debugLog({location:'tasks.ts:796',message:'Before stage update',data:{stageId,newStatus:parsed.data.status,userId:req.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
+    // #endregion
     const upd = await (tx as any).taskStage.update({
       where: { id: stageId },
       data: {
@@ -730,6 +1388,9 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
         },
       },
     });
+    // #region agent log
+    debugLog({location:'tasks.ts:816',message:'Stage updated successfully',data:{stageId,newStatus:upd.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
+    // #endregion
 
     // Create version for stage change
     if (req.user && stage.status !== parsed.data.status) {
@@ -743,17 +1404,78 @@ router.patch('/:taskId/stages/:stageId', async (req: AuthRequest, res) => {
 
     if (parsed.data.status === 'TAYYOR') {
       await computeDurations(tx, taskId);
-      await logKpiForStage(tx, taskId, upd.name, req.user?.id);
+      // Pass completedAt date for exchange rate lookup
+      const completedAtDate = now; // Stage completion time
+      await logKpiForStage(tx, taskId, upd.name, req.user?.id, completedAtDate);
+    } else if (parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
+      // Agar jarayonni TAYYORdan BOSHLANMAGANga o'zgartirsa, KPI log'ni o'chirish
+      // Stage nomini normalize qilish (logKpiForStage bilan bir xil)
+      let normalizedStageName = stage.name;
+      if (stage.name === 'ST' || stage.name === 'Fito' || stage.name === 'FITO') {
+        normalizedStageName = 'Sertifikat olib chiqish';
+      } else if (stage.name === 'Xujjat_topshirish' || stage.name === 'Xujjat topshirish') {
+        normalizedStageName = 'Topshirish';
+      }
+      
+      // Faqat o'sha jarayonni tayyor qilgan foydalanuvchining KPI log'ini o'chirish
+      if (stage.assignedToId) {
+        await (tx as any).kpiLog.deleteMany({
+          where: {
+            taskId: taskId,
+            stageName: normalizedStageName,
+            userId: stage.assignedToId, // Faqat o'sha foydalanuvchining log'ini o'chirish
+          },
+        });
+      }
     }
     
     // Update task status based on all stages
-    await updateTaskStatus(tx, taskId);
+    const needsQrToken = await updateTaskStatus(tx, taskId);
     
-      return upd;
+      return { updated: upd, needsQrToken };
+    }, {
+      maxWait: 30000, // 30 seconds max wait for transaction to start
+      timeout: 30000, // 30 seconds timeout for transaction to complete (remote database uchun)
     });
+  // #region agent log
+  debugLog({location:'tasks.ts:824',message:'Transaction completed',data:{taskId,stageId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
+  // #endregion
 
-    res.json(updated);
+  // Generate QR token after transaction commits (non-blocking, idempotent)
+  if (updated.needsQrToken) {
+    // Fire and forget - don't wait for QR token generation
+    generateQrTokenIfNeeded(taskId).catch((error) => {
+      // Error already logged in generateQrTokenIfNeeded
+    });
+  }
+
+  const shouldGenerateCmr =
+    stage.name === 'Invoys' &&
+    parsed.data.status === 'TAYYOR' &&
+    stage.status !== 'TAYYOR';
+
+  if (shouldGenerateCmr && req.user) {
+    const invoice = await prisma.invoice.findUnique({
+      where: { taskId },
+      select: { id: true },
+    });
+    if (invoice) {
+      await ensureCmrForInvoice({
+        invoiceId: invoice.id,
+        uploadedById: req.user.id,
+      });
+      await ensureTirForInvoice({
+        invoiceId: invoice.id,
+        uploadedById: req.user.id,
+      });
+    }
+  }
+
+    res.json(updated.updated);
   } catch (error: any) {
+  // #region agent log
+  debugLog({location:'tasks.ts:830',message:'PATCH stage error',data:{errorMessage:error?.message,errorCode:error?.code,taskId,stageId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'});
+  // #endregion
     console.error('Error updating stage:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
     res.status(500).json({ 
@@ -771,6 +1493,14 @@ const errorSchema = z.object({
   date: z.coerce.date(),
 });
 
+const updateErrorSchema = z.object({
+  stageName: z.string().optional(),
+  workerId: z.number().optional(),
+  amount: z.number().optional(),
+  comment: z.string().optional(),
+  date: z.coerce.date().optional(),
+});
+
 router.get('/:taskId/errors', async (req, res) => {
   const taskId = Number(req.params.taskId);
   const errors = await prisma.taskError.findMany({
@@ -781,10 +1511,14 @@ router.get('/:taskId/errors', async (req, res) => {
   res.json(errors);
 });
 
-router.post('/:taskId/errors', async (req: AuthRequest, res) => {
+router.post('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
   const taskId = Number(req.params.taskId);
   const parsed = errorSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
   // Create error and deduct from worker's earned amount using transaction
   const result = await prisma.$transaction(async (tx) => {
@@ -797,6 +1531,7 @@ router.post('/:taskId/errors', async (req: AuthRequest, res) => {
         amount: parsed.data.amount,
         comment: parsed.data.comment,
         date: parsed.data.date,
+        createdById: req.user!.id,
       },
       include: {
         worker: { select: { id: true, name: true } },
@@ -820,10 +1555,97 @@ router.post('/:taskId/errors', async (req: AuthRequest, res) => {
   res.status(201).json(result);
 });
 
-router.delete('/:taskId/errors/:errorId', async (req: AuthRequest, res) => {
+router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest, res) => {
   const errorId = Number(req.params.errorId);
-  await prisma.taskError.delete({ where: { id: errorId } });
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const error = await prisma.taskError.findUnique({
+    where: { id: errorId },
+  });
+  if (!error) {
+    return res.status(404).json({ error: 'Xato topilmadi' });
+  }
+
+  const createdAt = new Date(error.createdAt);
+  const diffMs = Date.now() - createdAt.getTime();
+  const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+  const isAdmin = req.user.role === 'ADMIN';
+  if (!isAdmin && (error.createdById !== req.user.id || diffMs > twoDaysMs)) {
+    return res.status(403).json({ error: 'Xatoni faqat 2 kun ichida qo‘shgan odam o‘chira oladi' });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await (tx as any).taskError.delete({ where: { id: errorId } });
+    await (tx as any).kpiLog.create({
+      data: {
+        userId: error.workerId,
+        taskId: error.taskId,
+        stageName: error.stageName,
+        amount: Number(error.amount), // Revert deduction
+      },
+    });
+  });
+
   res.status(204).send();
+});
+
+router.patch('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest, res) => {
+  const errorId = Number(req.params.errorId);
+  const parsed = updateErrorSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const error = await prisma.taskError.findUnique({
+    where: { id: errorId },
+  });
+  if (!error) {
+    return res.status(404).json({ error: 'Xato topilmadi' });
+  }
+
+  const createdAt = new Date(error.createdAt);
+  const diffMs = Date.now() - createdAt.getTime();
+  const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+  const isAdmin = req.user.role === 'ADMIN';
+  if (!isAdmin && (error.createdById !== req.user.id || diffMs > twoDaysMs)) {
+    return res.status(403).json({ error: 'Xatoni faqat 2 kun ichida qo‘shgan odam o‘zgartira oladi' });
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const next = await (tx as any).taskError.update({
+      where: { id: errorId },
+      data: {
+        ...(parsed.data.stageName && { stageName: parsed.data.stageName }),
+        ...(parsed.data.workerId && { workerId: parsed.data.workerId }),
+        ...(parsed.data.amount !== undefined && { amount: parsed.data.amount }),
+        ...(parsed.data.comment !== undefined && { comment: parsed.data.comment }),
+        ...(parsed.data.date && { date: parsed.data.date }),
+      },
+      include: { worker: { select: { id: true, name: true } } },
+    });
+
+    if (parsed.data.amount !== undefined && Number(parsed.data.amount) !== Number(error.amount)) {
+      const diff = Number(parsed.data.amount) - Number(error.amount);
+      if (diff !== 0) {
+        await (tx as any).kpiLog.create({
+          data: {
+            userId: next.workerId,
+            taskId: next.taskId,
+            stageName: next.stageName,
+            amount: -diff, // Adjust deduction by delta
+          },
+        });
+      }
+    }
+
+    return next;
+  });
+
+  res.json(updated);
 });
 
 const updateTaskSchema = z.object({
@@ -832,6 +1654,8 @@ const updateTaskSchema = z.object({
   branchId: z.number().optional(),
   comments: z.string().optional(),
   hasPsr: z.boolean().optional(),
+  afterHoursDeclaration: z.boolean().optional(),
+  afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional(),
   driverPhone: z.string().optional(),
 });
 
@@ -875,6 +1699,8 @@ async function createTaskVersion(tx: any, taskId: number, changedBy: number, cha
     if (task.status) changes.status = task.status;
     if (task.comments) changes.comments = task.comments;
     if (task.hasPsr !== undefined) changes.hasPsr = task.hasPsr;
+    if (task.afterHoursDeclaration !== undefined) changes.afterHoursDeclaration = task.afterHoursDeclaration;
+    if (task.afterHoursPayer) changes.afterHoursPayer = task.afterHoursPayer;
     if (task.driverPhone) changes.driverPhone = task.driverPhone;
   } else if (changeType === 'STAGE' && stageInfo) {
     // Stage changes
@@ -924,13 +1750,51 @@ async function createTaskVersion(tx: any, taskId: number, changedBy: number, cha
   });
 }
 
-router.patch('/:id', async (req: AuthRequest, res) => {
+router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
   const parsed = updateTaskSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const task = await prisma.task.findUnique({ where: { id } });
+  const user = req.user;
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const task = await prisma.task.findUnique({ 
+    where: { id },
+    select: { 
+      id: true,
+      title: true,
+      clientId: true,
+      branchId: true,
+      comments: true,
+      hasPsr: true,
+      afterHoursDeclaration: true,
+      afterHoursPayer: true,
+      driverPhone: true,
+      createdById: true,
+      createdAt: true,
+      snapshotDealAmount: true,
+      snapshotDealAmountExchangeRate: true,
+      snapshotDealAmount_exchange_rate: true,
+    }
+  });
   if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const hasOtherFields = parsed.data.title !== undefined || parsed.data.clientId !== undefined ||
+    parsed.data.branchId !== undefined || parsed.data.comments !== undefined ||
+    parsed.data.hasPsr !== undefined || parsed.data.driverPhone !== undefined;
+  const isOnlyAfterHoursUpdate = !hasOtherFields && (parsed.data.afterHoursDeclaration !== undefined || parsed.data.afterHoursPayer !== undefined);
+
+  const isCreator = task.createdById === user.id;
+  const isAdmin = user.role === 'ADMIN';
+
+  // Faqat "ish vaqtidan tashqari" maydonlarini yangilashda har qanday avtorizatsiyalangan foydalanuvchi ruxsat etiladi
+  if (!isAdmin && !isCreator && !isOnlyAfterHoursUpdate) {
+    return res.status(403).json({
+      error: 'Faqat task yaratgan ishchi taskni o\'zgartirishi mumkin'
+    });
+  }
 
   // Check if there are actual changes
   const hasChanges = 
@@ -939,6 +1803,8 @@ router.patch('/:id', async (req: AuthRequest, res) => {
     (parsed.data.branchId && parsed.data.branchId !== task.branchId) ||
     (parsed.data.comments !== undefined && parsed.data.comments !== task.comments) ||
     (parsed.data.hasPsr !== undefined && parsed.data.hasPsr !== task.hasPsr) ||
+    (parsed.data.afterHoursDeclaration !== undefined && parsed.data.afterHoursDeclaration !== (task as any).afterHoursDeclaration) ||
+    (parsed.data.afterHoursPayer !== undefined && parsed.data.afterHoursPayer !== (task as any).afterHoursPayer) ||
     (parsed.data.driverPhone !== undefined && parsed.data.driverPhone !== task.driverPhone);
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -947,18 +1813,109 @@ router.patch('/:id', async (req: AuthRequest, res) => {
       await createTaskVersion(tx, id, req.user.id);
     }
 
+    const updateData: any = {
+      ...(parsed.data.title && { title: parsed.data.title }),
+      ...(parsed.data.clientId && { clientId: parsed.data.clientId }),
+      ...(parsed.data.branchId && { branchId: parsed.data.branchId }),
+      ...(parsed.data.comments !== undefined && { comments: parsed.data.comments || null }),
+      ...(parsed.data.hasPsr !== undefined && { hasPsr: parsed.data.hasPsr }),
+      ...(parsed.data.afterHoursDeclaration !== undefined && { afterHoursDeclaration: parsed.data.afterHoursDeclaration }),
+      ...(parsed.data.afterHoursPayer !== undefined && { afterHoursPayer: parsed.data.afterHoursPayer as AfterHoursPayerType }),
+      ...(parsed.data.driverPhone !== undefined && { driverPhone: parsed.data.driverPhone || null }),
+      ...(hasChanges && req.user && { updatedById: req.user.id }),
+    };
+
+    if (parsed.data.branchId && parsed.data.branchId !== task.branchId) {
+      const statePayment = await (tx as any).statePayment.findFirst({
+        where: {
+          branchId: parsed.data.branchId,
+          createdAt: { lte: task.createdAt },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const client = await (tx as any).client.findUnique({
+        where: { id: task.clientId },
+        select: {
+          dealAmount_currency: true,
+          dealAmountCurrency: true,
+        },
+      });
+
+      const clientCurrency: Currency = client?.dealAmount_currency || client?.dealAmountCurrency || 'USD';
+
+      const pickAmount = (usd: number | null | undefined, uzs: number | null | undefined, fallback: number) =>
+        clientCurrency === 'USD'
+          ? Number(usd ?? fallback)
+          : Number(uzs ?? fallback);
+
+      if (statePayment) {
+        const certAmount = pickAmount(statePayment.certificatePayment_amount_original, statePayment.certificatePayment_amount_uzs, Number(statePayment.certificatePayment));
+        const psrAmount = pickAmount(statePayment.psrPrice_amount_original, statePayment.psrPrice_amount_uzs, Number(statePayment.psrPrice));
+        const workerAmount = pickAmount(statePayment.workerPrice_amount_original, statePayment.workerPrice_amount_uzs, Number(statePayment.workerPrice));
+
+        updateData.snapshotCertificatePayment = certAmount;
+        updateData.snapshotPsrPrice = psrAmount;
+        updateData.snapshotWorkerPrice = workerAmount;
+
+        updateData.snapshotCertificatePayment_amount_original = certAmount;
+        updateData.snapshotPsrPrice_amount_original = psrAmount;
+        updateData.snapshotWorkerPrice_amount_original = workerAmount;
+
+        updateData.snapshotCertificatePayment_currency = clientCurrency;
+        updateData.snapshotPsrPrice_currency = clientCurrency;
+        updateData.snapshotWorkerPrice_currency = clientCurrency;
+
+        updateData.snapshotCertificatePayment_amount_uzs = Number(statePayment.certificatePayment_amount_uzs ?? statePayment.certificatePayment);
+        updateData.snapshotPsrPrice_amount_uzs = Number(statePayment.psrPrice_amount_uzs ?? statePayment.psrPrice);
+        updateData.snapshotWorkerPrice_amount_uzs = Number(statePayment.workerPrice_amount_uzs ?? statePayment.workerPrice);
+
+        updateData.snapshotCertificatePayment_exchange_rate = 1;
+        updateData.snapshotPsrPrice_exchange_rate = 1;
+        updateData.snapshotWorkerPrice_exchange_rate = 1;
+
+        updateData.snapshotCertificatePayment_exchange_source = 'MANUAL';
+        updateData.snapshotPsrPrice_exchange_source = 'MANUAL';
+        updateData.snapshotWorkerPrice_exchange_source = 'MANUAL';
+      } else {
+        updateData.snapshotCertificatePayment = 0;
+        updateData.snapshotPsrPrice = 0;
+        updateData.snapshotWorkerPrice = 0;
+
+        updateData.snapshotCertificatePayment_amount_original = 0;
+        updateData.snapshotPsrPrice_amount_original = 0;
+        updateData.snapshotWorkerPrice_amount_original = 0;
+
+        updateData.snapshotCertificatePayment_currency = clientCurrency;
+        updateData.snapshotPsrPrice_currency = clientCurrency;
+        updateData.snapshotWorkerPrice_currency = clientCurrency;
+
+        updateData.snapshotCertificatePayment_amount_uzs = 0;
+        updateData.snapshotPsrPrice_amount_uzs = 0;
+        updateData.snapshotWorkerPrice_amount_uzs = 0;
+
+        updateData.snapshotCertificatePayment_exchange_rate = 1;
+        updateData.snapshotPsrPrice_exchange_rate = 1;
+        updateData.snapshotWorkerPrice_exchange_rate = 1;
+
+        updateData.snapshotCertificatePayment_exchange_source = 'MANUAL';
+        updateData.snapshotPsrPrice_exchange_source = 'MANUAL';
+        updateData.snapshotWorkerPrice_exchange_source = 'MANUAL';
+      }
+    }
+
     const updatedTask = await (tx as any).task.update({
       where: { id },
-      data: {
-        ...(parsed.data.title && { title: parsed.data.title }),
-        ...(parsed.data.clientId && { clientId: parsed.data.clientId }),
-        ...(parsed.data.branchId && { branchId: parsed.data.branchId }),
-        ...(parsed.data.comments !== undefined && { comments: parsed.data.comments || null }),
-        ...(parsed.data.hasPsr !== undefined && { hasPsr: parsed.data.hasPsr }),
-        ...(parsed.data.driverPhone !== undefined && { driverPhone: parsed.data.driverPhone || null }),
-        ...(hasChanges && req.user && { updatedById: req.user.id }),
-      },
+      data: updateData,
     });
+
+    // Task filiali o'zgarganda tegishli invoysning branchId sini ham yangilash (Invoyslar jadvalida to'g'ri ko'rinsin)
+    if (parsed.data.branchId != null && parsed.data.branchId !== task.branchId) {
+      await (tx as any).invoice.updateMany({
+        where: { taskId: id },
+        data: { branchId: parsed.data.branchId },
+      });
+    }
 
     return updatedTask;
   });
@@ -966,16 +1923,46 @@ router.patch('/:id', async (req: AuthRequest, res) => {
   res.json(updated);
 });
 
-router.delete('/:id', async (req: AuthRequest, res) => {
+router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
-  const task = await prisma.task.findUnique({ where: { id } });
+  const user = req.user;
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const task = await prisma.task.findUnique({ 
+    where: { id },
+    include: {
+      stages: {
+        select: {
+          status: true,
+        },
+      },
+    },
+  });
   if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  // Agar task Jarayonda bo'lsa, o'chirish mumkin emas
+  if (task.status === 'JARAYONDA') {
+    return res.status(400).json({ 
+      error: 'Jarayonda bo\'lgan taskni o\'chirish mumkin emas' 
+    });
+  }
+
+  // Faqat barcha jarayonlar BOSHLANMAGAN bo'lsa, o'chirish mumkin
+  const hasStartedStages = task.stages.some(stage => stage.status !== 'BOSHLANMAGAN');
+  if (hasStartedStages) {
+    return res.status(400).json({ 
+      error: 'Taskni o\'chirish uchun barcha jarayonlar boshlanmagan (BOSHLANMAGAN) bo\'lishi kerak' 
+    });
+  }
 
   await prisma.$transaction(async (tx) => {
     await (tx as any).taskError.deleteMany({ where: { taskId: id } });
     await (tx as any).taskStage.deleteMany({ where: { taskId: id } });
     await (tx as any).kpiLog.deleteMany({ where: { taskId: id } });
     await (tx as any).transaction.deleteMany({ where: { taskId: id } });
+    await (tx as any).taskDocument.deleteMany({ where: { taskId: id } });
     await (tx as any).task.delete({ where: { id } });
   });
 

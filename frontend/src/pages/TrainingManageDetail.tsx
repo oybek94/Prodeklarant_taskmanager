@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import RichTextEditor from '../components/RichTextEditor';
 
 interface Material {
   id: number;
@@ -151,7 +152,7 @@ export default function TrainingManageDetail() {
 
       // Backend'dan kelgan fileUrl'ni olish
       const fileUrl = response.data.fileUrl;
-      
+
       // Backend'dan kelgan fileUrl allaqachon to'liq yoki relative bo'lishi mumkin
       // Relative bo'lsa, server base URL'ni qo'shamiz
       let fullUrl = fileUrl;
@@ -161,7 +162,7 @@ export default function TrainingManageDetail() {
         const serverBaseUrl = apiBaseUrl.replace('/api', '') || (import.meta.env.PROD ? '' : 'http://localhost:3001');
         fullUrl = `${serverBaseUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
       }
-      
+
       setMaterialForm({ ...materialForm, fileUrl: fullUrl });
       setSelectedFile(null);
       return fullUrl;
@@ -193,7 +194,7 @@ export default function TrainingManageDetail() {
 
   const handleSubmitMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Agar file tanlangan va yuklanmagan bo'lsa, avval yuklash
     if (selectedFile && (materialForm.type === 'IMAGE' || materialForm.type === 'VIDEO' || materialForm.type === 'AUDIO')) {
       try {
@@ -219,10 +220,10 @@ export default function TrainingManageDetail() {
     } catch (error: any) {
       console.error('Error submitting material:', error);
       let errorMessage = 'Xatolik yuz berdi';
-      
+
       if (error.response?.data) {
         const errorData = error.response.data;
-        
+
         // Agar details array bo'lsa
         if (Array.isArray(errorData.details)) {
           errorMessage = errorData.details
@@ -231,19 +232,19 @@ export default function TrainingManageDetail() {
               return path ? `${path}: ${e.message || e}` : (e.message || e);
             })
             .join('\n');
-        } 
+        }
         // Agar details string bo'lsa
         else if (typeof errorData.details === 'string') {
           errorMessage = errorData.details;
         }
         // Agar error bor bo'lsa
         else if (errorData.error) {
-          errorMessage = typeof errorData.error === 'string' 
-            ? errorData.error 
+          errorMessage = typeof errorData.error === 'string'
+            ? errorData.error
             : JSON.stringify(errorData.error);
         }
       }
-      
+
       alert(errorMessage);
     }
   };
@@ -315,24 +316,10 @@ export default function TrainingManageDetail() {
     setShowStageModal(true);
   };
 
-  const handleEditStage = (stage: Stage) => {
-    setSelectedStage(stage);
-    setStageForm({
-      title: stage.title,
-      description: stage.description || '',
-      orderIndex: stage.orderIndex,
-    });
-    setShowStageModal(true);
-  };
-
   const handleSubmitStage = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (selectedStage) {
-        await apiClient.put(`/training/${id}/stages/${selectedStage.id}`, stageForm);
-      } else {
-        await apiClient.post(`/training/${id}/stages`, stageForm);
-      }
+      await apiClient.post(`/training/${id}/stages`, stageForm);
       setShowStageModal(false);
       setSelectedStage(null);
       fetchTraining();
@@ -403,6 +390,7 @@ export default function TrainingManageDetail() {
     }
   };
 
+
   // Material handlers for steps
   const [materialContext, setMaterialContext] = useState<{ stageId?: number; stepId?: number } | null>(null);
 
@@ -423,7 +411,7 @@ export default function TrainingManageDetail() {
 
   const handleSubmitMaterialForStep = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (materialContext?.stageId && materialContext?.stepId) {
       // Submit to step
       try {
@@ -473,10 +461,10 @@ export default function TrainingManageDetail() {
       } catch (error: any) {
         console.error('Error submitting material:', error);
         let errorMessage = 'Xatolik yuz berdi';
-        
+
         if (error.response?.data) {
           const errorData = error.response.data;
-          
+
           // Agar details array bo'lsa
           if (Array.isArray(errorData.details)) {
             errorMessage = errorData.details
@@ -485,19 +473,19 @@ export default function TrainingManageDetail() {
                 return path ? `${path}: ${e.message || e}` : (e.message || e);
               })
               .join('\n');
-          } 
+          }
           // Agar details string bo'lsa
           else if (typeof errorData.details === 'string') {
             errorMessage = errorData.details;
           }
           // Agar error bor bo'lsa
           else if (errorData.error) {
-            errorMessage = typeof errorData.error === 'string' 
-              ? errorData.error 
+            errorMessage = typeof errorData.error === 'string'
+              ? errorData.error
               : JSON.stringify(errorData.error);
           }
         }
-        
+
         alert(errorMessage);
       }
     } else {
@@ -533,7 +521,7 @@ export default function TrainingManageDetail() {
         >
           ← Orqaga
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">{training.title}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{training.title}</h1>
         {training.description && (
           <p className="text-gray-600 mt-2">{training.description}</p>
         )}
@@ -544,31 +532,28 @@ export default function TrainingManageDetail() {
         <div className="flex gap-4">
           <button
             onClick={() => setActiveTab('stages')}
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'stages'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600'
-            }`}
+            className={`px-4 py-2 font-medium ${activeTab === 'stages'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600'
+              }`}
           >
             Bosqichlar ({training.stages?.length || 0})
           </button>
           <button
             onClick={() => setActiveTab('materials')}
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'materials'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600'
-            }`}
+            className={`px-4 py-2 font-medium ${activeTab === 'materials'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600'
+              }`}
           >
             Materiallar ({training.materials.length})
           </button>
           <button
             onClick={() => setActiveTab('exams')}
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'exams'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600'
-            }`}
+            className={`px-4 py-2 font-medium ${activeTab === 'exams'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600'
+              }`}
           >
             Imtihonlar ({training.exams.length})
           </button>
@@ -579,7 +564,7 @@ export default function TrainingManageDetail() {
       {activeTab === 'stages' && (
         <div>
           <div className="mb-4 flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Bosqichlar va Qadamlar</h2>
+            <h2 className="text-lg font-semibold">Bosqichlar</h2>
             <button
               onClick={handleAddStage}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -594,121 +579,57 @@ export default function TrainingManageDetail() {
                 <p className="text-gray-500">Hozircha bosqichlar mavjud emas</p>
               </div>
             ) : (
-              training.stages.map((stage) => (
-                <div key={stage.id} className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold">{stage.title}</h3>
-                      {stage.description && (
-                        <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{stage.description}</p>
-                      )}
-                      <p className="text-xs text-gray-400 mt-1">
-                        #{stage.orderIndex} | {stage.steps.length} ta qadam
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEditStage(stage)}
-                        className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm"
-                      >
-                        Tahrirlash
-                      </button>
-                      <button
-                        onClick={() => handleDeleteStage(stage.id)}
-                        className="px-3 py-1 bg-red-50 text-red-700 rounded hover:bg-red-100 text-sm"
-                      >
-                        O'chirish
-                      </button>
-                    </div>
-                  </div>
+              training.stages.map((stage) => {
+                // Barcha materiallarni to'plash (steps va stage materiallari)
+                const allMaterials: Material[] = [];
+                stage.steps.forEach(step => {
+                  allMaterials.push(...step.materials);
+                });
 
-                  {/* Steps */}
-                  <div className="ml-4 border-l-2 border-gray-200 pl-4 space-y-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium text-gray-700">Qadamlar</h4>
-                      <button
-                        onClick={() => handleAddStep(stage.id)}
-                        className="px-3 py-1 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 text-sm"
-                      >
-                        + Qadam qo'shish
-                      </button>
-                    </div>
-                    {stage.steps.length === 0 ? (
-                      <p className="text-sm text-gray-500">Qadamlar mavjud emas</p>
-                    ) : (
-                      stage.steps.map((step) => (
-                        <div key={step.id} className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex-1">
-                              <h5 className="font-medium text-gray-900">{step.title}</h5>
-                              {step.description && (
-                                <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{step.description}</p>
-                              )}
-                              <p className="text-xs text-gray-400 mt-1">
-                                #{step.orderIndex} | {step.materials.length} ta material
-                              </p>
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleEditStep(stage.id, step)}
-                                className="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs"
-                              >
-                                Tahrirlash
-                              </button>
-                              <button
-                                onClick={() => handleDeleteStep(stage.id, step.id)}
-                                className="px-2 py-1 bg-red-50 text-red-700 rounded hover:bg-red-100 text-xs"
-                              >
-                                O'chirish
-                              </button>
-                            </div>
+                return (
+                  <div key={stage.id} className="bg-white rounded-lg shadow overflow-hidden">
+                    <div
+                      className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => navigate(`/training/${id}/stage/${stage.id}`)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">📖</span>
+                            <h3 className="text-lg font-semibold">{stage.title}</h3>
                           </div>
-
-                          {/* Materials */}
-                          <div className="ml-4 mt-3">
-                            <div className="flex justify-between items-center mb-2">
-                              <span className="text-sm text-gray-600">Materiallar</span>
-                              <button
-                                onClick={() => handleAddMaterialToStep(stage.id, step.id)}
-                                className="px-2 py-1 bg-green-50 text-green-700 rounded hover:bg-green-100 text-xs"
-                              >
-                                + Material qo'shish
-                              </button>
-                            </div>
-                            {step.materials.length === 0 ? (
-                              <p className="text-xs text-gray-400">Materiallar mavjud emas</p>
-                            ) : (
-                              <div className="space-y-2">
-                                {step.materials.map((material) => (
-                                  <div
-                                    key={material.id}
-                                    className="flex items-center justify-between bg-white p-2 rounded text-sm"
-                                  >
-                                    <span>
-                                      {material.type === 'TEXT' && '📄'}
-                                      {material.type === 'AUDIO' && '🎵'}
-                                      {material.type === 'VIDEO' && '🎥'}
-                                      {material.type === 'IMAGE' && '🖼️'}
-                                      {' '}
-                                      {material.title}
-                                    </span>
-                                    <button
-                                      onClick={() => handleDeleteMaterial(material.id)}
-                                      className="text-red-600 hover:text-red-800 text-xs"
-                                    >
-                                      O'chirish
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                          {stage.description && (
+                            <p className="text-sm text-gray-500 mt-1 line-clamp-2">{stage.description}</p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-1">
+                            #{stage.orderIndex} | {allMaterials.length} ta material
+                          </p>
                         </div>
-                      ))
-                    )}
+                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/training/${id}/stage/${stage.id}/edit`);
+                            }}
+                            className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm"
+                          >
+                            Tahrirlash
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteStage(stage.id);
+                            }}
+                            className="px-3 py-1 bg-red-50 text-red-700 rounded hover:bg-red-100 text-sm"
+                          >
+                            O'chirish
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -811,11 +732,10 @@ export default function TrainingManageDetail() {
                       )}
                     </div>
                     <span
-                      className={`px-2 py-1 text-xs rounded ${
-                        exam.active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
+                      className={`px-2 py-1 text-xs rounded ${exam.active
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
+                        }`}
                     >
                       {exam.active ? 'Faol' : 'Nofaol'}
                     </span>
@@ -857,17 +777,32 @@ export default function TrainingManageDetail() {
         </div>
       )}
 
-      {/* Stage Modal */}
+      {/* Stage Modal - Full Screen Editor */}
       {showStageModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">
-              {selectedStage ? 'Bosqichni Tahrirlash' : 'Yangi Bosqich'}
-            </h2>
-            <form onSubmit={handleSubmitStage}>
-              <div className="space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg w-full max-w-7xl mx-4 my-8 min-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="border-b p-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold">
+                {selectedStage ? 'Bosqichni Tahrirlash' : 'Yangi Bosqich - Maqola Tahrirlash'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowStageModal(false);
+                  setSelectedStage(null);
+                }}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Editor Content */}
+            <form onSubmit={handleSubmitStage} className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Sarlavha */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Sarlavha * (masalan: "1. KOMPANIYA BILAN TANISHUV")
                   </label>
                   <input
@@ -877,25 +812,26 @@ export default function TrainingManageDetail() {
                     onChange={(e) =>
                       setStageForm({ ...stageForm, title: e.target.value })
                     }
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg"
                     placeholder="1. KOMPANIYA BILAN TANISHUV"
                   />
                 </div>
+
+                {/* Tavsif - Rich Text Editor */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tavsif
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Maqola Kontenti
                   </label>
-                  <textarea
-                    value={stageForm.description}
-                    onChange={(e) =>
-                      setStageForm({ ...stageForm, description: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg"
-                    rows={3}
+
+                  <RichTextEditor
+                    content={stageForm.description || ''}
+                    onChange={(content) => setStageForm({ ...stageForm, description: content })}
                   />
                 </div>
+
+                {/* Tartib raqami */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Tartib raqami
                   </label>
                   <input
@@ -907,26 +843,28 @@ export default function TrainingManageDetail() {
                         orderIndex: parseInt(e.target.value) || 0,
                       })
                     }
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg"
                   />
                 </div>
               </div>
-              <div className="flex gap-2 mt-6">
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Saqlash
-                </button>
+
+              {/* Footer */}
+              <div className="border-t p-6 flex gap-3 justify-end">
                 <button
                   type="button"
                   onClick={() => {
                     setShowStageModal(false);
                     setSelectedStage(null);
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                 >
                   Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Saqlash
                 </button>
               </div>
             </form>
@@ -1066,16 +1004,14 @@ export default function TrainingManageDetail() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Kontent
                     </label>
-                    <textarea
-                      value={materialForm.content}
-                      onChange={(e) =>
+                    <RichTextEditor
+                      content={materialForm.content || ''}
+                      onChange={(content) =>
                         setMaterialForm({
                           ...materialForm,
-                          content: e.target.value,
+                          content: content,
                         })
                       }
-                      className="w-full px-3 py-2 border rounded-lg"
-                      rows={10}
                     />
                   </div>
                 )}
@@ -1085,7 +1021,7 @@ export default function TrainingManageDetail() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Fayl yuklash yoki URL kiritish *
                       </label>
-                      
+
                       {/* File Upload */}
                       <div className="mb-3">
                         <label className="block text-sm text-gray-600 mb-2">
@@ -1097,8 +1033,8 @@ export default function TrainingManageDetail() {
                             materialForm.type === 'IMAGE'
                               ? 'image/jpeg,image/jpg,image/png,image/gif,image/webp'
                               : materialForm.type === 'VIDEO'
-                              ? 'video/mp4,video/mpeg,video/quicktime,video/webm'
-                              : 'audio/mpeg,audio/mp3,audio/wav,audio/ogg'
+                                ? 'video/mp4,video/mpeg,video/quicktime,video/webm'
+                                : 'audio/mpeg,audio/mp3,audio/wav,audio/ogg'
                           }
                           onChange={handleFileChange}
                           disabled={uploadingFile}
@@ -1138,8 +1074,8 @@ export default function TrainingManageDetail() {
                             materialForm.type === 'IMAGE'
                               ? 'https://drive.google.com/file/d/... yoki https://example.com/image.jpg'
                               : materialForm.type === 'VIDEO'
-                              ? 'https://example.com/file.mp4'
-                              : 'https://example.com/file.mp3'
+                                ? 'https://example.com/file.mp4'
+                                : 'https://example.com/file.mp3'
                           }
                         />
                         {materialForm.type === 'IMAGE' && (

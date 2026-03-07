@@ -6,13 +6,13 @@ interface User {
   id: number;
   name: string;
   email?: string;
-  role: 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'CLIENT';
+  role: 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'CLIENT' | 'CERTIFICATE_WORKER' | 'WORKER' | 'OPERATOR' | 'ACCOUNTANT' | 'OWNER' | 'SELLER';
   branchId?: number | null;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -39,24 +39,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const checkAuth = async () => {
       const accessToken = localStorage.getItem('accessToken');
       const refreshToken = localStorage.getItem('refreshToken');
-      
+
       if (accessToken || refreshToken) {
         try {
           // Determine which endpoint to use based on token role
           const role = accessToken ? getRoleFromToken(accessToken) : null;
           const endpoint = role === 'CLIENT' ? '/auth/client/me' : '/auth/me';
-          
+
           // Avval access token bilan urinib ko'ramiz
           const response = await apiClient.get(endpoint);
+          if (response.status >= 400 || response.data?.error) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            setUser(null);
+            setIsLoading(false);
+            return;
+          }
           const userData = response.data;
-          
+
           // For CLIENT, add role from token since backend doesn't return it
           if (role === 'CLIENT') {
             userData.role = 'CLIENT';
           }
-          
+
           setUser(userData);
         } catch (error: any) {
+          // Timeout yoki network xatolik bo'lsa, darhol user null qilamiz
+          if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+            console.error('Timeout/Network error in checkAuth:', error.message);
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            setUser(null);
+            setIsLoading(false);
+            return;
+          }
           // Agar access token eskirgan bo'lsa, refresh token bilan yangilashga harakat qilamiz
           if (refreshToken && error.response?.status === 401) {
             try {
@@ -75,33 +91,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               // Yangi token bilan user ma'lumotlarini olamiz
               const userResponse = await apiClient.get(endpoint);
               const userData = userResponse.data;
-              
+
               // For CLIENT, add role from token since backend doesn't return it
               if (newRole === 'CLIENT') {
                 userData.role = 'CLIENT';
               }
-              
+
               setUser(userData);
             } catch (refreshError) {
               // Refresh ham ishlamasa, logout qilamiz
               localStorage.removeItem('accessToken');
               localStorage.removeItem('refreshToken');
+              setUser(null);
             }
           } else {
             // Boshqa xatolik bo'lsa, tokenlarni tozalaymiz
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
+            setUser(null);
           }
         }
+      } else {
+        // Token yo'q bo'lsa, user null qilamiz
+        setUser(null);
       }
       setIsLoading(false);
     };
     checkAuth();
   }, []);
 
-  const login = async (password: string) => {
+  const login = async (email: string, password: string) => {
     try {
-      const response = await apiClient.post('/auth/login', { password });
+      // Email bo'sh bo'lsa, undefined yuboramiz
+      const response = await apiClient.post('/auth/login', {
+        ...(email && email.trim() !== '' ? { email } : {}),
+        password
+      });
+      if (response.status >= 400 || response.data?.error) {
+        throw new Error(response.data?.error || 'Login failed');
+      }
       const { accessToken, refreshToken, user: userData } = response.data;
 
       localStorage.setItem('accessToken', accessToken);
@@ -109,6 +137,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(userData);
     } catch (error: any) {
       console.error('Login API error:', error);
+      // Timeout yoki network xatolik bo'lsa, maxsus xabar qaytaramiz
+      if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+        throw new Error('Backend serverga ulanib bo\'lmayapti. Iltimos, server ishlayotganini tekshiring.');
+      }
       throw error;
     }
   };

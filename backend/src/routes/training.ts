@@ -197,7 +197,7 @@ router.post('/:id/stages/:stageId/steps/:stepId/materials', requireAuth('ADMIN')
   try {
     const stepId = parseInt(req.params.stepId);
     console.log('Creating material for step:', stepId, 'Body:', req.body);
-    
+
     const baseSchema = z.object({
       title: z.string().min(1),
       content: z.string().optional(),
@@ -209,7 +209,7 @@ router.post('/:id/stages/:stageId/steps/:stepId/materials', requireAuth('ADMIN')
     // Type bo'yicha validation
     const body = req.body;
     let data;
-    
+
     if (body.type === 'TEXT') {
       data = baseSchema.parse(body);
     } else if (body.type === 'IMAGE' || body.type === 'AUDIO' || body.type === 'VIDEO') {
@@ -219,7 +219,7 @@ router.post('/:id/stages/:stageId/steps/:stepId/materials', requireAuth('ADMIN')
     } else {
       data = baseSchema.parse(body);
     }
-    
+
     // Clean up data: remove undefined values and empty strings
     const cleanData: any = {
       title: data.title,
@@ -228,7 +228,7 @@ router.post('/:id/stages/:stageId/steps/:stepId/materials', requireAuth('ADMIN')
       stepId: stepId,
       trainingId: null, // Step ichiga material bo'lsa, trainingId null bo'lishi kerak
     };
-    
+
     // Add optional fields only if they exist and are not empty
     if (data.content !== undefined && data.content !== '') {
       cleanData.content = data.content;
@@ -239,9 +239,9 @@ router.post('/:id/stages/:stageId/steps/:stepId/materials', requireAuth('ADMIN')
     if (data.durationMin !== undefined && data.durationMin !== null) {
       cleanData.durationMin = data.durationMin;
     }
-    
+
     console.log('Creating step material with clean data:', cleanData);
-    
+
     const material = await prisma.trainingMaterial.create({
       data: cleanData,
     });
@@ -251,14 +251,14 @@ router.post('/:id/stages/:stageId/steps/:stepId/materials', requireAuth('ADMIN')
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error('Validation error in step material:', error.issues);
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Validation xatosi',
-        details: error.issues 
+        details: error.issues
       });
     }
     console.error('Error creating material:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
     });
@@ -316,6 +316,63 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       },
     });
 
+    // Dummy steplarning progressini olish
+    const dummyStepIds = training.stages
+      .flatMap((stage: any) => stage.steps)
+      .filter((step: any) => step.title === '_AI_STAGE_EXAM')
+      .map((step: any) => step.id);
+
+    const dummyStepProgress = await prisma.lessonProgress.findMany({
+      where: {
+        userId: req.user!.id,
+        lessonId: { in: dummyStepIds },
+        status: 'COMPLETED'
+      }
+    });
+    const passedDummyStepIds = new Set(dummyStepProgress.map(p => p.lessonId));
+
+    // Check which stages the user has visited (read)
+    const visitedProgress = await prisma.trainingProgress.findMany({
+      where: {
+        userId: req.user!.id,
+        trainingId: training.id,
+        stageId: { not: null },
+        materialId: { not: null }, // Only stages where they actually read material
+      },
+    });
+    const visitedStageIds = new Set(visitedProgress.map((p: any) => p.stageId));
+
+    const stagesWithLockStatus = training.stages
+      .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+      .map((stage: any, index: number, array: any[]) => {
+        let isUnlocked = false;
+        let isPassed = false;
+        const dummyStep = stage.steps.find((s: any) => s.title === '_AI_STAGE_EXAM');
+        if (dummyStep && passedDummyStepIds.has(dummyStep.id)) {
+          isPassed = true;
+        }
+
+        if (index === 0) {
+          isUnlocked = true;
+        } else {
+          // Check if previous stage is passed
+          const prevStage = array[index - 1];
+          const prevDummyStep = prevStage.steps.find((s: any) => s.title === '_AI_STAGE_EXAM');
+          if (prevDummyStep && passedDummyStepIds.has(prevDummyStep.id)) {
+            isUnlocked = true;
+          }
+        }
+
+        const isRead = visitedStageIds.has(stage.id);
+
+        return {
+          ...stage,
+          isUnlocked,
+          isPassed,
+          isRead,
+        };
+      });
+
     // Imtihon natijalarini olish
     const examAttempts = await prisma.examAttempt.findMany({
       where: {
@@ -326,12 +383,19 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       take: 5,
     });
 
+    // Bosqichlarga asoslanib progress hisoblash
+    const totalStages = stagesWithLockStatus.length;
+    const passedStages = stagesWithLockStatus.filter((s: any) => s.isPassed).length;
+    const computedProgressPercent = totalStages > 0 ? Math.round((passedStages / totalStages) * 100) : 0;
+    const computedCompleted = passedStages === totalStages && totalStages > 0;
+
     res.json({
       ...training,
-      progress: progress || {
-        completed: false,
-        progressPercent: 0,
-        lastAccessedAt: null,
+      stages: stagesWithLockStatus,
+      progress: {
+        ...(progress || { lastAccessedAt: null }),
+        progressPercent: computedProgressPercent,
+        completed: computedCompleted,
       },
       recentExamAttempts: examAttempts,
     });
@@ -396,8 +460,8 @@ router.post('/:id/materials/:materialId/complete', requireAuth(), async (req: Au
       const lastCompletedMaterialId = existingProgress?.materialId;
       const lastCompletedMaterial = lastCompletedMaterialId
         ? await prisma.trainingMaterial.findUnique({
-            where: { id: lastCompletedMaterialId },
-          })
+          where: { id: lastCompletedMaterialId },
+        })
         : null;
 
       // Agar oldingi materiallar o'qilmagan bo'lsa
@@ -440,29 +504,29 @@ router.post('/:id/materials/:materialId/complete', requireAuth(), async (req: Au
     // Barcha materiallar sonini olish (stepId bo'lsa step ichida, aks holda training ichida)
     const totalMaterials = stepId
       ? await prisma.trainingMaterial.count({
-          where: { stepId: stepId },
-        })
+        where: { stepId: stepId },
+      })
       : await prisma.trainingMaterial.count({
-          where: { trainingId: trainingId },
-        });
+        where: { trainingId: trainingId },
+      });
 
     // O'qilgan materiallar sonini olish (orderIndex bo'yicha)
     const completedMaterialsCount = stepId
       ? await prisma.trainingMaterial.count({
-          where: {
-            stepId: stepId,
-            orderIndex: { lte: currentMaterial.orderIndex },
-          },
-        })
+        where: {
+          stepId: stepId,
+          orderIndex: { lte: currentMaterial.orderIndex },
+        },
+      })
       : await prisma.trainingMaterial.count({
-          where: {
-            trainingId: trainingId,
-            orderIndex: { lte: currentMaterial.orderIndex },
-          },
-        });
+        where: {
+          trainingId: trainingId,
+          orderIndex: { lte: currentMaterial.orderIndex },
+        },
+      });
 
     // Agar materiallar bo'lmasa, progress 0% bo'ladi
-    const progressPercent = totalMaterials > 0 
+    const progressPercent = totalMaterials > 0
       ? Math.round((completedMaterialsCount / totalMaterials) * 100)
       : 0;
     const completed = totalMaterials > 0 && progressPercent === 100;
@@ -545,7 +609,7 @@ router.post('/:id/materials', requireAuth('ADMIN'), async (req: AuthRequest, res
   try {
     const trainingId = parseInt(req.params.id);
     console.log('Creating material for training:', trainingId, 'Body:', req.body);
-    
+
     const baseSchema = z.object({
       title: z.string().min(1),
       content: z.string().optional(),
@@ -557,7 +621,7 @@ router.post('/:id/materials', requireAuth('ADMIN'), async (req: AuthRequest, res
     // Type bo'yicha validation
     const body = req.body;
     let data;
-    
+
     if (body.type === 'TEXT') {
       data = baseSchema.parse(body);
     } else if (body.type === 'IMAGE' || body.type === 'AUDIO' || body.type === 'VIDEO') {
@@ -567,7 +631,7 @@ router.post('/:id/materials', requireAuth('ADMIN'), async (req: AuthRequest, res
     } else {
       data = baseSchema.parse(body);
     }
-    
+
     // Clean up data: remove undefined values and set stepId to null
     const cleanData: any = {
       title: data.title,
@@ -576,7 +640,7 @@ router.post('/:id/materials', requireAuth('ADMIN'), async (req: AuthRequest, res
       trainingId: trainingId,
       stepId: null, // Eski materiallar uchun stepId null bo'lishi kerak
     };
-    
+
     // Add optional fields only if they exist
     if (data.content !== undefined && data.content !== '') {
       cleanData.content = data.content;
@@ -587,9 +651,9 @@ router.post('/:id/materials', requireAuth('ADMIN'), async (req: AuthRequest, res
     if (data.durationMin !== undefined && data.durationMin !== null) {
       cleanData.durationMin = data.durationMin;
     }
-    
+
     console.log('Creating material with clean data:', cleanData);
-    
+
     const material = await prisma.trainingMaterial.create({
       data: cleanData,
     });
@@ -598,13 +662,13 @@ router.post('/:id/materials', requireAuth('ADMIN'), async (req: AuthRequest, res
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error('Validation error in material:', error.issues);
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Validation xatosi',
-        details: error.issues 
+        details: error.issues
       });
     }
     console.error('Error creating material:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
     });
@@ -626,7 +690,7 @@ router.put('/:id/materials/:materialId', requireAuth('ADMIN'), async (req: AuthR
     // Type bo'yicha validation
     const body = req.body;
     let data;
-    
+
     if (body.type === 'TEXT' || !body.type) {
       data = baseSchema.extend({
         fileUrl: z.string().optional(),

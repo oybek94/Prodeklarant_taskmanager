@@ -3,13 +3,72 @@ import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { generateInvoicePDF } from '../services/invoice-pdf';
+import { generateInvoiceExcel } from '../services/invoice-excel';
+import { generateFssExcel } from '../services/fss-excel';
+import { Prisma } from '@prisma/client';
+import { getNextInvoiceNumber } from '../utils/invoice-number';
+import { ensureCmrForInvoice } from '../services/cmr-service';
+import { ensureTirForInvoice } from '../services/tir-service';
+import { generateST1Excel } from '../services/st1-excel';
+import { generateCommodityEkExcel } from '../services/commodity-ek-excel';
+import fs from 'fs/promises';
 
 const router = Router();
 
-// GET /invoices - Barcha invoice'lar
+// GET /invoices/next-number?contractId=:id - Shartnoma uchun keyingi invoice raqami (parametrli routelardan oldin)
+router.get('/next-number', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const contractIdStr = req.query.contractId;
+    const contractId = contractIdStr ? parseInt(String(contractIdStr)) : NaN;
+    if (!Number.isFinite(contractId)) {
+      return res.status(400).json({ error: 'contractId kerak' });
+    }
+    const lastInvoice = await prisma.invoice.findFirst({
+      where: { contractId },
+      orderBy: { createdAt: 'desc' },
+    });
+    const nextNumber = lastInvoice ? getNextInvoiceNumber(lastInvoice.invoiceNumber) : '1';
+    res.json({ nextNumber });
+  } catch (error: any) {
+    console.error('Error getting next invoice number:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/check-number?invoiceNumber=:num&contractId=:id&excludeId=:id - Raqam mavjudligini tekshirish (shartnoma bo'yicha)
+router.get('/check-number', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const invoiceNumber = String(req.query.invoiceNumber || '').trim();
+    if (!invoiceNumber) {
+      return res.json({ available: true });
+    }
+    const contractIdStr = req.query.contractId;
+    const excludeIdStr = req.query.excludeId;
+    const excludeId = excludeIdStr ? parseInt(String(excludeIdStr)) : undefined;
+    const contractId = contractIdStr ? parseInt(String(contractIdStr)) : undefined;
+    const whereClause = Number.isFinite(contractId)
+      ? { contractId, invoiceNumber }
+      : { contractId: null, invoiceNumber };
+    const existing = await prisma.invoice.findFirst({
+      where: whereClause,
+    });
+    const available = !existing || (excludeId != null && existing.id === excludeId);
+    res.json({ available });
+  } catch (error: any) {
+    console.error('Error checking invoice number:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices - Barcha invoice'lar (filialga bog'langan ishchilar faqat o'z filiali invoyslarini ko'radi)
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
+    const isAdminOrManager = req.user?.role === 'ADMIN' || req.user?.role === 'MANAGER';
+    const userBranchId = req.user?.branchId ?? null;
+    const onlyOwnBranch = !isAdminOrManager && userBranchId != null;
+
     const invoices = await prisma.invoice.findMany({
+      where: onlyOwnBranch ? { branchId: userBranchId } : undefined,
       include: {
         items: {
           orderBy: { orderIndex: 'asc' }
@@ -19,12 +78,22 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
             id: true,
             title: true,
             status: true,
+            branch: { select: { id: true, name: true } },
+            stages: { select: { name: true, status: true } },
+            _count: { select: { errors: true } }
           }
         },
         client: {
           select: {
             id: true,
             name: true,
+          }
+        },
+        contract: {
+          select: {
+            sellerName: true,
+            buyerName: true,
+            consigneeName: true,
           }
         },
         branch: {
@@ -37,43 +106,61 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json(invoices.map(invoice => ({
-      ...invoice,
-      totalAmount: Number(invoice.totalAmount),
-      items: invoice.items.map(item => ({
-        ...item,
-        quantity: Number(item.quantity),
-        grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
-        netWeight: item.netWeight ? Number(item.netWeight) : null,
-        unitPrice: Number(item.unitPrice),
-        totalPrice: Number(item.totalPrice),
-      }))
-    })));
+    const invoicesWithContract = await Promise.all(invoices.map(async (invoice) => {
+      let contract = invoice.contract;
+      if (!contract && invoice.contractNumber && invoice.clientId) {
+        const found = await prisma.contract.findFirst({
+          where: {
+            contractNumber: invoice.contractNumber,
+            clientId: invoice.clientId,
+          },
+          select: { sellerName: true, buyerName: true, consigneeName: true },
+        });
+        if (found) contract = found;
+      }
+      return {
+        ...invoice,
+        contract,
+        totalAmount: Number(invoice.totalAmount),
+        items: invoice.items.map(item => ({
+          ...item,
+          quantity: Number(item.quantity),
+          packagesCount: item.packagesCount != null ? Number(item.packagesCount) : null,
+          grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
+          netWeight: item.netWeight ? Number(item.netWeight) : null,
+          unitPrice: Number(item.unitPrice),
+          totalPrice: Number(item.totalPrice),
+        }))
+      };
+    }));
+    res.json(invoicesWithContract);
   } catch (error: any) {
     console.error('Error fetching invoices:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });
 
-// Invoice yaratish/update uchun schema
+// Invoice yaratish/update uchun schema (null yuborilganda undefined ga aylantiramiz)
+const optionalString = () => z.string().optional().nullable().transform((v) => v ?? undefined);
 const invoiceSchema = z.object({
   taskId: z.number().optional(),
   clientId: z.number().optional(),
-  invoiceNumber: z.string().optional(),
-  contractNumber: z.string().optional(),
-  contractId: z.number().optional(),
-  date: z.string().optional(),
-  currency: z.enum(['USD', 'UZS']).optional(),
+  invoiceNumber: optionalString(),
+  contractNumber: optionalString(),
+  contractId: z.number().optional().nullable().transform((v) => v ?? undefined),
+  date: optionalString(),
+  currency: z.enum(['USD', 'UZS']).optional().nullable().transform((v) => v ?? undefined),
   totalAmount: z.number().optional(),
-  notes: z.string().optional(),
+  notes: optionalString(),
   additionalInfo: z.any().optional(),
   items: z.array(z.object({
-    tnvedCode: z.string().optional(),
-    pluCode: z.string().optional(),
+    tnvedCode: z.string().optional().nullable().transform(v => v ?? undefined),
+    pluCode: z.string().optional().nullable().transform(v => v ?? undefined),
     name: z.string(),
-    packageType: z.string().optional(),
+    packageType: z.string().optional().nullable().transform(v => v ?? undefined),
     unit: z.string(),
     quantity: z.number(),
+    packagesCount: z.number().optional().nullable().transform(v => v ?? undefined),
     grossWeight: z.number().optional(),
     netWeight: z.number().optional(),
     unitPrice: z.number(),
@@ -118,6 +205,7 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res) => 
       items: invoice.items.map(item => ({
         ...item,
         quantity: Number(item.quantity),
+        packagesCount: item.packagesCount != null ? Number(item.packagesCount) : null,
         grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
         netWeight: item.netWeight ? Number(item.netWeight) : null,
         unitPrice: Number(item.unitPrice),
@@ -130,7 +218,7 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res) => 
   }
 });
 
-// GET /invoices/task/:taskId - Task uchun invoice
+// GET /invoices/task/:taskId - Task uchun invoice (yo'q bo'lsa 200 + null)
 router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const taskId = parseInt(req.params.taskId);
@@ -147,6 +235,7 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
             id: true,
             title: true,
             status: true,
+            _count: { select: { errors: true } },
           }
         },
         branch: {
@@ -159,7 +248,7 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
     });
 
     if (!invoice) {
-      return res.status(404).json({ error: 'Invoice topilmadi' });
+      return res.status(200).json(null);
     }
 
     res.json({
@@ -168,6 +257,7 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
       items: invoice.items.map(item => ({
         ...item,
         quantity: Number(item.quantity),
+        packagesCount: item.packagesCount != null ? Number(item.packagesCount) : null,
         grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
         netWeight: item.netWeight ? Number(item.netWeight) : null,
         unitPrice: Number(item.unitPrice),
@@ -180,10 +270,134 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+// GET /invoices/:id/st1 - ST1 shabloniga invoys ma'lumotlarini yozib Excel yuklab olish (/:id dan oldin bo'lishi kerak)
+router.get('/:id/st1', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        items: {
+          orderBy: { orderIndex: 'asc' }
+        },
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const workbook = await generateST1Excel({
+      invoice,
+      items: invoice.items,
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });
+    const outputBuffer = Buffer.from(buffer as ArrayBuffer);
+    const fileName = `ST1_${invoice.invoiceNumber || invoice.id}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.setHeader('Content-Length', outputBuffer.length);
+    res.end(outputBuffer);
+  } catch (error: any) {
+    console.error('Error generating ST1 Excel:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/:id/commodity-ek — CommodityEk_New2.xlsx (Deklaratsiya) shabloniga ma'lumotlarni yozib Excel yuklab olish
+router.get('/:id/commodity-ek', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        items: {
+          orderBy: { orderIndex: 'asc' }
+        },
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    let contract: { specification: unknown; sellerInn?: string | null } | null = null;
+    if (invoice.contractId) {
+      const c = await prisma.contract.findUnique({
+        where: { id: invoice.contractId },
+        select: { specification: true, sellerInn: true },
+      });
+      if (c) contract = { specification: c.specification, sellerInn: c.sellerInn };
+    }
+    // H4 (Продавец INN): shartnomada INN bo'lmasa mijoz INN dan foydalanamiz
+    const hasSellerInn = contract?.sellerInn != null && String(contract.sellerInn).trim() !== '';
+    if (!hasSellerInn && invoice.clientId) {
+      const client = await prisma.client.findUnique({
+        where: { id: invoice.clientId },
+        select: { inn: true },
+      });
+      const clientInn = client?.inn ? String(client.inn).trim() : null;
+      if (clientInn) {
+        if (!contract) contract = { specification: null, sellerInn: clientInn };
+        else contract = { ...contract, sellerInn: clientInn };
+      }
+    }
+
+    const branch = await prisma.branch.findUnique({
+      where: { id: invoice.branchId },
+      select: { name: true },
+    });
+    const isOltiariqBranch = (branch?.name || '').toLowerCase().includes('oltiariq');
+
+    const workbook = await generateCommodityEkExcel({
+      invoice,
+      items: invoice.items,
+      contract,
+      forcedRegionInternalCode: isOltiariqBranch ? '1730203' : null,
+      branchName: branch?.name ?? null,
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });
+    const outputBuffer = Buffer.from(buffer as ArrayBuffer);
+    const fileName = `Deklaratsiya_${invoice.invoiceNumber || invoice.id}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.setHeader('Content-Length', outputBuffer.length);
+    res.end(outputBuffer);
+  } catch (error: any) {
+    console.error('Error generating CommodityEk Excel:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
 // GET /invoices/:id - Invoice ma'lumotlari
 router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
     
     const invoice = await prisma.invoice.findUnique({
       where: { id },
@@ -218,6 +432,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       items: invoice.items.map(item => ({
         ...item,
         quantity: Number(item.quantity),
+        packagesCount: item.packagesCount != null ? Number(item.packagesCount) : null,
         grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
         netWeight: item.netWeight ? Number(item.netWeight) : null,
         unitPrice: Number(item.unitPrice),
@@ -231,18 +446,22 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
 });
 
 // POST /invoices - Yangi invoice yaratish yoki mavjudni yangilash
-router.post('/', requireAuth(), async (req: AuthRequest, res) => {
+router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) => {
   try {
     const parsed = invoiceSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.flatten() });
+      const flat = parsed.error.flatten();
+      const firstFieldError = Object.values(flat.fieldErrors as Record<string, string[]>).flat()[0];
+      const firstFormError = flat.formErrors[0];
+      const errMsg = firstFieldError || firstFormError || 'Ma\'lumotlarda xatolik';
+      return res.status(400).json({ error: errMsg });
     }
 
     const { taskId, clientId, invoiceNumber, contractNumber, contractId, date, currency, totalAmount, notes, additionalInfo, items } = parsed.data;
 
     // Task va Client ma'lumotlarini olish
-    let task = null;
-    let client = null;
+    let task: any = null;
+    let client: any = null;
     let branchId: number | undefined = undefined;
 
     if (taskId) {
@@ -276,6 +495,17 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'taskId yoki clientId bo\'lishi kerak' });
     }
 
+    // Shartnoma: contractId bo'lmasa lekin contractNumber bo'lsa, mijoz bo'yicha shartnomani topib contractId ni o'rnatamiz (task modalda "Shartnoma" ko'rinishi uchun)
+    const currentClientId = task?.clientId || clientId;
+    let resolvedContractId: number | undefined = contractId ?? undefined;
+    if (resolvedContractId == null && contractNumber && String(contractNumber).trim() && currentClientId) {
+      const contractByNumber = await prisma.contract.findFirst({
+        where: { clientId: currentClientId, contractNumber: String(contractNumber).trim() },
+        select: { id: true },
+      });
+      if (contractByNumber) resolvedContractId = contractByNumber.id;
+    }
+
     // Mavjud invoice'ni tekshirish
     const existingInvoice = taskId 
       ? await prisma.invoice.findUnique({
@@ -289,13 +519,16 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       // Mavjud invoice'ni yangilash
       const finalInvoiceNumber = invoiceNumber || existingInvoice.invoiceNumber;
       
-      // Invoice raqami o'zgargan bo'lsa, unique tekshirish
+      // Invoice raqami o'zgargan bo'lsa, shartnoma bo'yicha unique tekshirish
       if (invoiceNumber && invoiceNumber !== existingInvoice.invoiceNumber) {
-        const duplicateInvoice = await prisma.invoice.findUnique({
-          where: { invoiceNumber: invoiceNumber }
+        const dupWhere = resolvedContractId
+          ? { contractId: resolvedContractId, invoiceNumber: invoiceNumber }
+          : { contractId: null, invoiceNumber: invoiceNumber };
+        const duplicateInvoice = await prisma.invoice.findFirst({
+          where: dupWhere,
         });
         if (duplicateInvoice && duplicateInvoice.id !== existingInvoice.id) {
-          return res.status(400).json({ error: 'Bu invoice raqami allaqachon mavjud' });
+          return res.status(400).json({ error: 'Bu invoice raqami allaqachon mavjud. Ozgartirish kerak' });
         }
       }
       
@@ -305,14 +538,25 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       });
 
       // Contract mavjudligini tekshirish
-      if (contractId) {
+      if (resolvedContractId) {
         const contract = await prisma.contract.findUnique({
-          where: { id: contractId }
+          where: { id: resolvedContractId }
         });
-        const currentClientId = task?.clientId || clientId;
         if (!contract || contract.clientId !== currentClientId) {
           return res.status(400).json({ error: 'Shartnoma topilmadi yoki bu mijozga tegishli emas' });
         }
+      }
+
+      // O'zgarishlar hisoboti (changeLog) ni saqlash: mavjud logga yangi qo'shiladi
+      const existingAi = (existingInvoice.additionalInfo && typeof existingInvoice.additionalInfo === 'object')
+        ? (existingInvoice.additionalInfo as Record<string, unknown>)
+        : {};
+      const incomingAi = (additionalInfo && typeof additionalInfo === 'object') ? (additionalInfo as Record<string, unknown>) : {};
+      const existingLog = Array.isArray(existingAi.changeLog) ? existingAi.changeLog : [];
+      const incomingLog = Array.isArray(incomingAi.changeLog) ? incomingAi.changeLog : [];
+      const mergedAdditionalInfo = { ...existingAi, ...incomingAi } as Record<string, unknown>;
+      if (incomingLog.length > 0) {
+        mergedAdditionalInfo.changeLog = [...existingLog, ...incomingLog];
       }
 
       // Invoice'ni yangilash
@@ -321,12 +565,12 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         data: {
           invoiceNumber: finalInvoiceNumber,
           contractNumber: contractNumber || client?.contractNumber || undefined,
-          contractId: contractId || undefined,
+          contractId: resolvedContractId || undefined,
           date: date ? new Date(date) : undefined,
           currency: currency || client?.dealAmountCurrency || 'USD',
           totalAmount: totalAmount || (task ? task.snapshotDealAmount : 0) || 0,
           notes: notes || undefined,
-          additionalInfo: additionalInfo || undefined,
+          additionalInfo: mergedAdditionalInfo as Prisma.InputJsonValue,
         },
         include: {
           items: true,
@@ -340,49 +584,63 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       let finalInvoiceNumber: string;
       
       if (invoiceNumber) {
-        // Foydalanuvchi invoice raqamini kiritgan
-        const duplicateInvoice = await prisma.invoice.findUnique({
-          where: { invoiceNumber: invoiceNumber }
+        // Foydalanuvchi invoice raqamini kiritgan — shartnoma bo'yicha unique tekshirish
+        const dupWhere = resolvedContractId
+          ? { contractId: resolvedContractId, invoiceNumber: invoiceNumber }
+          : { contractId: null, invoiceNumber: invoiceNumber };
+        const duplicateInvoice = await prisma.invoice.findFirst({
+          where: dupWhere,
         });
         if (duplicateInvoice) {
-          return res.status(400).json({ error: 'Bu invoice raqami allaqachon mavjud' });
+          return res.status(400).json({ error: 'Bu invoice raqami allaqachon mavjud. Ozgartirish kerak' });
         }
         finalInvoiceNumber = invoiceNumber;
       } else {
-        // Avtomatik invoice raqami generatsiya
-        const lastInvoice = await prisma.invoice.findFirst({
-          orderBy: { invoiceNumber: 'desc' }
-        });
-        
-        const lastNumber = lastInvoice ? parseInt(lastInvoice.invoiceNumber) : 0;
-        finalInvoiceNumber = (lastNumber + 1).toString();
+        // Avtomatik invoice raqami: contractId bor bo'lsa shartnoma bo'yicha, yo'q bo'lsa global
+        if (resolvedContractId) {
+          const lastInvoice = await prisma.invoice.findFirst({
+            where: { contractId: resolvedContractId },
+            orderBy: { createdAt: 'desc' },
+          });
+          finalInvoiceNumber = lastInvoice ? getNextInvoiceNumber(lastInvoice.invoiceNumber) : '1';
+        } else {
+          const lastInvoice = await prisma.invoice.findFirst({
+            orderBy: { invoiceNumber: 'desc' }
+          });
+          const lastNumber = lastInvoice ? parseInt(lastInvoice.invoiceNumber, 10) : 0;
+          finalInvoiceNumber = (isNaN(lastNumber) ? 0 : lastNumber + 1).toString();
+        }
       }
 
-      // Contract mavjudligini tekshirish
-      if (contractId) {
+      // Contract mavjudligini tekshirish (create path)
+      if (resolvedContractId) {
         const contract = await prisma.contract.findUnique({
-          where: { id: contractId }
+          where: { id: resolvedContractId }
         });
-        const currentClientId = task?.clientId || clientId;
         if (!contract || contract.clientId !== currentClientId) {
           return res.status(400).json({ error: 'Shartnoma topilmadi yoki bu mijozga tegishli emas' });
         }
       }
 
+      const invoiceData: any = {
+        invoiceNumber: finalInvoiceNumber,
+        contractNumber: contractNumber || client?.contractNumber || undefined,
+        contractId: resolvedContractId || undefined,
+        taskId: task?.id || undefined,
+        clientId: task?.clientId || clientId!,
+        date: date ? new Date(date) : new Date(),
+        currency: currency || client?.dealAmountCurrency || 'USD',
+        totalAmount: totalAmount || (task ? task.snapshotDealAmount : 0) || 0,
+        notes: notes || undefined,
+        additionalInfo: additionalInfo || undefined,
+      };
+      
+      if (branchId) {
+        invoiceData.branchId = branchId;
+      }
+
       invoice = await prisma.invoice.create({
-        data: {
-          invoiceNumber: finalInvoiceNumber,
-          contractNumber: contractNumber || client?.contractNumber || undefined,
-          contractId: contractId || undefined,
-          taskId: task?.id || undefined,
-          clientId: task?.clientId || clientId!,
-          branchId: branchId || undefined,
-          date: date ? new Date(date) : new Date(),
-          currency: currency || client?.dealAmountCurrency || 'USD',
-          totalAmount: totalAmount || (task ? task.snapshotDealAmount : 0) || 0,
-          notes: notes || undefined,
-          additionalInfo: additionalInfo || undefined,
-        },
+        data: invoiceData,
         include: {
           items: true,
           client: true,
@@ -403,6 +661,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
           packageType: item.packageType || undefined,
           unit: item.unit,
           quantity: item.quantity,
+          packagesCount: item.packagesCount ?? undefined,
           grossWeight: item.grossWeight || undefined,
           netWeight: item.netWeight || undefined,
           unitPrice: item.unitPrice,
@@ -425,6 +684,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
             id: true,
             title: true,
             status: true,
+            _count: { select: { errors: true } },
           }
         },
         branch: {
@@ -436,12 +696,28 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       }
     });
 
+    if (!updatedInvoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    if (updatedInvoice.taskId && req.user) {
+      await ensureCmrForInvoice({
+        invoiceId: updatedInvoice.id,
+        uploadedById: req.user.id,
+      });
+      await ensureTirForInvoice({
+        invoiceId: updatedInvoice.id,
+        uploadedById: req.user.id,
+      });
+    }
+
     res.json({
       ...updatedInvoice,
-      totalAmount: Number(updatedInvoice!.totalAmount),
-      items: updatedInvoice!.items.map(item => ({
+      totalAmount: Number(updatedInvoice.totalAmount),
+      items: updatedInvoice.items.map(item => ({
         ...item,
         quantity: Number(item.quantity),
+        packagesCount: item.packagesCount != null ? Number(item.packagesCount) : null,
         grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
         netWeight: item.netWeight ? Number(item.netWeight) : null,
         unitPrice: Number(item.unitPrice),
@@ -478,17 +754,8 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
 
     console.log('Invoice found, items count:', invoice.items.length);
 
-    // Company settings'ni olish
-    const companySettings = await prisma.companySettings.findFirst();
-    if (!companySettings) {
-      console.log('Company settings not found');
-      return res.status(400).json({ error: 'Kompaniya sozlamalari topilmadi. Iltimos, avval kompaniya ma\'lumotlarini kiriting.' });
-    }
-
-    console.log('Company settings found');
-
-    // Contract ma'lumotlarini olish
-    let contract = null;
+    // Contract ma'lumotlarini olish (asosiy manba - mijoz sahifasidan)
+    let contract: any = null;
     if (invoice.contractId) {
       try {
         contract = await prisma.contract.findUnique({
@@ -502,6 +769,75 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
       console.log('No contractId in invoice');
     }
 
+    // Agar invoice contractId bo'lmasa yoki topilmasa, contractNumber bo'yicha izlash
+    if (!contract && invoice.contractNumber) {
+      try {
+        contract = await prisma.contract.findFirst({
+          where: {
+            clientId: invoice.clientId,
+            contractNumber: invoice.contractNumber
+          }
+        });
+        console.log('Contract found by contractNumber:', contract ? `ID ${contract.id}` : 'not found');
+      } catch (contractError) {
+        console.error('Error fetching contract by contractNumber:', contractError);
+      }
+    }
+
+    // Agar hali ham topilmasa, mijozga biriktirilgan so'nggi shartnomani olish
+    if (!contract) {
+      try {
+        contract = await prisma.contract.findFirst({
+          where: { clientId: invoice.clientId },
+          orderBy: [
+            { contractDate: 'desc' },
+            { id: 'desc' }
+          ]
+        });
+        console.log('Fallback contract for client:', contract ? `ID ${contract.id}` : 'not found');
+      } catch (contractError) {
+        console.error('Error fetching fallback contract:', contractError);
+      }
+    }
+
+    // Company settings'ni olish - avval contract seller ma'lumotlaridan, keyin global settings
+    let companySettings: any = null;
+    
+    // Avval contract seller ma'lumotlaridan foydalanish (asosiy manba)
+    if (contract) {
+      console.log('Using company settings from contract seller information (mijoz sahifasidan)');
+      // Contract seller ma'lumotlaridan company settings yaratish
+      companySettings = {
+        id: 0, // Temporary ID
+        name: contract.sellerName || '',
+        legalAddress: contract.sellerLegalAddress || '',
+        actualAddress: contract.sellerLegalAddress || '',
+        inn: contract.sellerInn || null,
+        phone: null, // Contract'da phone yo'q
+        email: null, // Contract'da email yo'q
+        bankName: contract.sellerBankName || null,
+        bankAddress: contract.sellerBankAddress || null,
+        bankAccount: contract.sellerBankAccount || null,
+        swiftCode: contract.sellerBankSwift || null,
+        correspondentBank: contract.sellerCorrespondentBank || null,
+        correspondentBankAddress: null, // Contract'da bu maydon yo'q
+        correspondentBankSwift: contract.sellerCorrespondentBankSwift || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any;
+    } else {
+      // Fallback: global CompanySettings'ni tekshirish
+      console.log('Contract not found, trying global company settings');
+      companySettings = await prisma.companySettings.findFirst();
+      
+      if (!companySettings) {
+        console.log('Company settings not found and contract missing');
+        return res.status(400).json({ error: 'Kompaniya sozlamalari topilmadi. Iltimos, avval kompaniya ma\'lumotlarini kiriting yoki shartnoma ma\'lumotlarini to\'ldiring.' });
+      } else {
+        console.log('Using global company settings as fallback');
+      }
+    }
+
     // PDF generatsiya
     try {
       console.log('Starting PDF generation...');
@@ -511,14 +847,14 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
         doc = generateInvoicePDF({
         invoice: {
           ...invoice,
-          totalAmount: Number(invoice.totalAmount),
+          totalAmount: new Prisma.Decimal(Number(invoice.totalAmount)),
           items: invoice.items.map(item => ({
             ...item,
-            quantity: Number(item.quantity) || 0,
-            grossWeight: item.grossWeight ? Number(item.grossWeight) : null,
-            netWeight: item.netWeight ? Number(item.netWeight) : null,
-            unitPrice: Number(item.unitPrice) || 0,
-            totalPrice: Number(item.totalPrice) || 0,
+            quantity: new Prisma.Decimal(Number(item.quantity) || 0),
+            grossWeight: item.grossWeight ? new Prisma.Decimal(Number(item.grossWeight)) : null,
+            netWeight: item.netWeight ? new Prisma.Decimal(Number(item.netWeight)) : null,
+          unitPrice: new Prisma.Decimal(Number(item.unitPrice) || 0),
+          totalPrice: new Prisma.Decimal(Number(item.totalPrice) || 0),
           }))
         },
         client: invoice.client,
@@ -576,26 +912,294 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
   }
 });
 
-// DELETE /invoices/:id - Invoice o'chirish
-router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+// GET /invoices/:id/xlsx - Invoice Excel yuklab olish
+router.get('/:id/xlsx', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
     const invoice = await prisma.invoice.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        items: {
+          orderBy: { orderIndex: 'asc' }
+        },
+        client: true,
+      }
+    });
+
+    if (!invoice || !invoice.client) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    let contract: any = null;
+    if (invoice.contractId) {
+      contract = await prisma.contract.findUnique({
+        where: { id: invoice.contractId }
+      });
+    }
+
+    if (!contract && invoice.contractNumber) {
+      contract = await prisma.contract.findFirst({
+        where: {
+          clientId: invoice.clientId,
+          contractNumber: invoice.contractNumber
+        }
+      });
+    }
+
+    if (!contract) {
+      contract = await prisma.contract.findFirst({
+        where: { clientId: invoice.clientId },
+        orderBy: [
+          { contractDate: 'desc' },
+          { id: 'desc' }
+        ]
+      });
+    }
+
+    let companySettings: any = null;
+    if (!contract) {
+      companySettings = await prisma.companySettings.findFirst();
+      if (!companySettings) {
+        return res.status(400).json({ error: 'Kompaniya sozlamalari topilmadi. Iltimos, avval kompaniya ma\'lumotlarini kiriting yoki shartnoma ma\'lumotlarini to\'ldiring.' });
+      }
+    }
+
+    const workbook = await generateInvoiceExcel({
+      invoice,
+      client: invoice.client,
+      contract,
+      company: companySettings,
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });
+    const outputBuffer = Buffer.from(buffer as ArrayBuffer);
+    const fileName = `Invoice_${invoice.invoiceNumber || invoice.id}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.setHeader('Content-Length', outputBuffer.length);
+    res.end(outputBuffer);
+  } catch (error: any) {
+    console.error('Error generating Invoice Excel:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/:id/fss - Ichki FSS Excel yuklab olish
+router.get('/:id/fss', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        items: {
+          orderBy: { orderIndex: 'asc' }
+        },
+      },
     });
 
     if (!invoice) {
       return res.status(404).json({ error: 'Invoice topilmadi' });
     }
 
-    await prisma.invoice.delete({
-      where: { id }
+    const regionInternalCode =
+      typeof req.query.regionInternalCode === 'string'
+        ? req.query.regionInternalCode
+        : undefined;
+    const regionName =
+      typeof req.query.regionName === 'string' ? req.query.regionName : undefined;
+    const regionExternalCode =
+      typeof req.query.regionExternalCode === 'string'
+        ? req.query.regionExternalCode
+        : undefined;
+    const templateType =
+      req.query.template === 'ichki' ? 'ichki' : 'tashqi';
+
+    let contractForFss: { specification: unknown } | null = null;
+    if (invoice.contractId) {
+      const c = await prisma.contract.findUnique({
+        where: { id: invoice.contractId },
+        select: { specification: true },
+      });
+      if (c) contractForFss = { specification: c.specification };
+    }
+    if (!contractForFss && invoice.contractNumber && invoice.clientId) {
+      const c = await prisma.contract.findFirst({
+        where: { clientId: invoice.clientId, contractNumber: invoice.contractNumber },
+        select: { specification: true },
+      });
+      if (c) contractForFss = { specification: c.specification };
+    }
+    if (!contractForFss && invoice.clientId) {
+      const c = await prisma.contract.findFirst({
+        where: { clientId: invoice.clientId },
+        orderBy: [{ contractDate: 'desc' }, { id: 'desc' }],
+        select: { specification: true },
+      });
+      if (c) contractForFss = { specification: c.specification };
+    }
+
+    // Sozlamalar bo'limidagi qadoq turlari — har doim shu ro'yxatdan L3 to'ldiriladi (barcha userlar uchun bir xil)
+    let packagingTypeCodesFromSettings: Array<{ name: string; code: string }> = [];
+    try {
+      const packagingTypes = await prisma.packagingType.findMany({
+        orderBy: [{ orderIndex: 'asc' }, { id: 'asc' }],
+      });
+      packagingTypeCodesFromSettings = packagingTypes.map((p) => ({
+        name: p.name,
+        code: p.code || '',
+      }));
+    } catch (e) {
+      console.error('[invoices/fss] packagingType findMany failed:', (e as Error)?.message);
+    }
+
+    const workbook = await generateFssExcel({
+      invoice,
+      items: invoice.items,
+      regionInternalCode,
+      regionName,
+      regionExternalCode,
+      templateType,
+      contract: contractForFss,
+      packagingTypeCodesFromSettings,
     });
 
-    res.json({ message: 'Invoice muvaffaqiyatli o\'chirildi' });
+    const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });
+    const outputBuffer = Buffer.from(buffer as ArrayBuffer);
+    const fileName = `FSS_${invoice.invoiceNumber || invoice.id}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.setHeader('Content-Length', outputBuffer.length);
+    res.end(outputBuffer);
+  } catch (error: any) {
+    console.error('Error generating FSS Excel:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// DELETE /invoices/:id - Invoice va unga tegishli task o'chirish
+router.delete('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: { task: { select: { status: true, stages: { select: { name: true, status: true } } } } }
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoysStageReady = invoice.task?.stages?.some(
+      (s: { name: string; status: string }) => String(s.name).trim().toLowerCase() === 'invoys' && s.status === 'TAYYOR'
+    );
+    const taskNotBoshlanmagan = invoice.task?.status !== 'BOSHLANMAGAN';
+    if (invoysStageReady || taskNotBoshlanmagan) {
+      return res.status(400).json({ error: 'O\'chirish faqat task BOSHLANMAGAN va Invoys tayyor bo\'lmaganda mumkin' });
+    }
+
+    const taskId = invoice.taskId;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.invoice.delete({ where: { id } });
+      await tx.taskStage.deleteMany({ where: { taskId } });
+      await tx.taskError.deleteMany({ where: { taskId } });
+      await tx.kpiLog.deleteMany({ where: { taskId } });
+      await tx.task.delete({ where: { id: taskId } });
+    });
+
+    res.json({ message: 'Invoice va task muvaffaqiyatli o\'chirildi' });
   } catch (error: any) {
     console.error('Error deleting invoice:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/:id/cmr - CMR Excel yuklab olish
+router.get('/:id/cmr', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { fileName, outputPath } = await ensureCmrForInvoice({
+      invoiceId: id,
+      uploadedById: req.user.id,
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    const buffer = await fs.readFile(outputPath);
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+  } catch (error: any) {
+    console.error('Error generating CMR Excel:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/:id/tir - TIR Excel yuklab olish
+router.get('/:id/tir', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { fileName, outputPath } = await ensureTirForInvoice({
+      invoiceId: id,
+      uploadedById: req.user.id,
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.setHeader('Cache-Control', 'no-store');
+    const buffer = await fs.readFile(outputPath);
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+  } catch (error: any) {
+    console.error('Error generating TIR Excel:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });

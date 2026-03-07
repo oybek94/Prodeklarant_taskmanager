@@ -4,6 +4,9 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();
+const deliveryTermsSchema = z.object({
+  deliveryTerms: z.string().optional(),
+});
 
 // Contract yaratish/update uchun schema
 const contractSchema = z.object({
@@ -24,6 +27,7 @@ const contractSchema = z.object({
   sellerCorrespondentBankSwift: z.string().optional(),
   buyerName: z.string().min(1),
   buyerAddress: z.string().min(1),
+  destinationCountry: z.string().min(1),
   buyerDetails: z.string().optional(), // To'g'ridan-to'g'ri textarea ma'lumotlari
   buyerInn: z.string().optional(),
   buyerOgrn: z.string().optional(),
@@ -53,22 +57,62 @@ const contractSchema = z.object({
   consigneeBankAccount: z.string().optional(),
   consigneeBankSwift: z.string().optional(),
   deliveryTerms: z.string().optional(),
+  customsAddress: z.string().optional(),
   paymentMethod: z.string().optional(),
+  contractCurrency: z.string().optional(), // Shartnoma valyutasi (USD, RUB va boshqalar)
+  emails: z.string().optional(), // Email manzillar (vergul bilan ajratilgan)
   gln: z.string().optional(), // Глобальный идентификационный номер GS1 (GLN)
   supplierDirector: z.string().optional(), // Руководитель Поставщика
+  buyerDirector: z.string().optional(),
+  consigneeDirector: z.string().optional(),
   goodsReleasedBy: z.string().optional(), // Товар отпустил
+  signatureUrl: z.string().optional(),
+  sealUrl: z.string().optional(),
+  sellerSignatureUrl: z.string().optional(),
+  sellerSealUrl: z.string().optional(),
+  buyerSignatureUrl: z.string().optional(),
+  buyerSealUrl: z.string().optional(),
+  consigneeSignatureUrl: z.string().optional(),
+  consigneeSealUrl: z.string().optional(),
+  specification: z.array(z.object({
+    productName: z.string(),
+    botanicalName: z.string().optional(),
+    tnvedCode: z.string().optional(),
+    quantity: z.number(),
+    unit: z.string().optional(),
+    unitPrice: z.number().optional(),
+    totalPrice: z.number().optional(),
+    specNumber: z.string().optional(),
+    productNumber: z.string().optional(),
+  })).optional(),
 });
 
 // GET /contracts/client/:clientId - Mijozning barcha shartnomalari
 router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
     const clientId = parseInt(req.params.clientId);
-    
+
     const contracts = await prisma.contract.findMany({
       where: { clientId },
       orderBy: { contractDate: 'desc' }
     });
 
+    if (contracts.length > 0) {
+      const directors = await prisma.$queryRaw<Array<{ id: number; buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null }>>`
+        SELECT "id", "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy" FROM "Contract" WHERE "clientId" = ${clientId}
+      `;
+      const byId = Object.fromEntries((directors || []).map((d: any) => [
+        d.id,
+        {
+          buyerDirector: d.buyerDirector ?? null,
+          consigneeDirector: d.consigneeDirector ?? null,
+          supplierDirector: d.supplierDirector ?? null,
+          goodsReleasedBy: d.goodsReleasedBy ?? null,
+        }
+      ]));
+      const merged = contracts.map((c: any) => ({ ...c, ...byId[c.id] }));
+      return res.json(merged);
+    }
     res.json(contracts);
   } catch (error: any) {
     console.error('Error fetching contracts:', error);
@@ -80,7 +124,7 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Res
 router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    
+
     const contract = await prisma.contract.findUnique({
       where: { id },
       include: {
@@ -97,7 +141,13 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Shartnoma topilmadi' });
     }
 
-    res.json(contract);
+    const directors = await prisma.$queryRaw<Array<{ buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null }>>`
+      SELECT "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy" FROM "Contract" WHERE "id" = ${id}
+    `;
+    const result = directors?.[0]
+      ? { ...contract, buyerDirector: (directors[0] as any).buyerDirector, consigneeDirector: (directors[0] as any).consigneeDirector, supplierDirector: (directors[0] as any).supplierDirector, goodsReleasedBy: (directors[0] as any).goodsReleasedBy }
+      : contract;
+    res.json(result);
   } catch (error: any) {
     console.error('Error fetching contract:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
@@ -105,7 +155,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
 });
 
 // POST /contracts - Yangi shartnoma yaratish
-router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) => {
+router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
   try {
     const parsed = contractSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -145,6 +195,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
       sellerLegalAddress: data.sellerLegalAddress,
       buyerName: data.buyerName,
       buyerAddress: data.buyerAddress,
+      destinationCountry: data.destinationCountry,
     };
 
     // Add optional seller fields
@@ -195,10 +246,45 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
 
     // Add optional additional fields
     if (data.deliveryTerms !== undefined) contractData.deliveryTerms = data.deliveryTerms;
+    if (data.customsAddress !== undefined) contractData.customsAddress = data.customsAddress;
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
+    // Shartnoma valyutasi — yaratishda har doim saqlash
+    contractData.contractCurrency = (data.contractCurrency && String(data.contractCurrency).trim()) ? String(data.contractCurrency).trim() : 'USD';
+    if (data.emails !== undefined) contractData.emails = data.emails && String(data.emails).trim() ? String(data.emails).trim() : null;
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
+    if (data.signatureUrl !== undefined) contractData.signatureUrl = data.signatureUrl;
+    if (data.sealUrl !== undefined) contractData.sealUrl = data.sealUrl;
+    if (data.sellerSignatureUrl !== undefined) contractData.sellerSignatureUrl = data.sellerSignatureUrl;
+    if (data.sellerSealUrl !== undefined) contractData.sellerSealUrl = data.sellerSealUrl;
+    if (data.buyerSignatureUrl !== undefined) contractData.buyerSignatureUrl = data.buyerSignatureUrl;
+    if (data.buyerSealUrl !== undefined) contractData.buyerSealUrl = data.buyerSealUrl;
+    if (data.consigneeSignatureUrl !== undefined) contractData.consigneeSignatureUrl = data.consigneeSignatureUrl;
+    if (data.consigneeSealUrl !== undefined) contractData.consigneeSealUrl = data.consigneeSealUrl;
+    if (data.specification !== undefined) {
+      const spec = Array.isArray(data.specification) ? data.specification : [];
+      const toNum = (v: any): number | undefined => {
+        if (v == null) return undefined;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : undefined;
+      };
+      contractData.specification = spec.map((row: any) => ({
+        productName: String(row?.productName ?? ''),
+        botanicalName: row?.botanicalName != null ? String(row.botanicalName) : undefined,
+        tnvedCode: row?.tnvedCode != null ? String(row.tnvedCode) : undefined,
+        quantity: Number.isFinite(Number(row?.quantity)) ? Number(row.quantity) : 0,
+        unit: row?.unit != null ? String(row.unit) : undefined,
+        unitPrice: toNum(row?.unitPrice),
+        totalPrice: toNum(row?.totalPrice),
+        specNumber: row?.specNumber != null ? String(row.specNumber) : undefined,
+        productNumber: row?.productNumber != null ? String(row.productNumber) : undefined,
+      }));
+    }
+    const postBuyerDirector = data.buyerDirector;
+    const postConsigneeDirector = data.consigneeDirector;
+    const postSupplierDirector = data.supplierDirector;
+    const postGoodsReleasedBy = data.goodsReleasedBy;
 
     const contract = await prisma.contract.create({
       data: contractData,
@@ -211,8 +297,53 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
         }
       }
     });
+    let createdContract: any = contract;
+    if (postBuyerDirector !== undefined || postConsigneeDirector !== undefined || postSupplierDirector !== undefined || postGoodsReleasedBy !== undefined) {
+      await prisma.$executeRaw`
+        UPDATE "Contract"
+        SET "buyerDirector" = ${postBuyerDirector ?? null},
+            "consigneeDirector" = ${postConsigneeDirector ?? null},
+            "supplierDirector" = ${postSupplierDirector ?? null},
+            "goodsReleasedBy" = ${postGoodsReleasedBy ?? null}
+        WHERE "id" = ${contract.id}
+      `;
+      createdContract = {
+        ...contract,
+        buyerDirector: postBuyerDirector ?? null,
+        consigneeDirector: postConsigneeDirector ?? null,
+        supplierDirector: postSupplierDirector ?? null,
+        goodsReleasedBy: postGoodsReleasedBy ?? null,
+      };
+    }
+    if (contractData.specification !== undefined) {
+      const specJson = JSON.stringify(contractData.specification);
+      await prisma.$executeRaw`UPDATE "Contract" SET "specification" = ${specJson}::jsonb WHERE "id" = ${contract.id}`;
+      const refreshed = await prisma.contract.findUnique({
+        where: { id: contract.id },
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+            }
+          }
+        }
+      });
+      if (refreshed) {
+        createdContract = refreshed;
+        if (postBuyerDirector !== undefined || postConsigneeDirector !== undefined || postSupplierDirector !== undefined || postGoodsReleasedBy !== undefined) {
+          createdContract = {
+            ...createdContract,
+            buyerDirector: postBuyerDirector ?? null,
+            consigneeDirector: postConsigneeDirector ?? null,
+            supplierDirector: postSupplierDirector ?? null,
+            goodsReleasedBy: postGoodsReleasedBy ?? null,
+          };
+        }
+      }
+    }
 
-    res.json(contract);
+    res.json(createdContract);
   } catch (error: any) {
     console.error('Error creating contract:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
@@ -220,11 +351,11 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) =
 });
 
 // PUT /contracts/:id - Shartnoma yangilash
-router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) => {
+router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     const parsed = contractSchema.safeParse(req.body);
-    
+
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
@@ -264,7 +395,12 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
       sellerLegalAddress: data.sellerLegalAddress,
       buyerName: data.buyerName,
       buyerAddress: data.buyerAddress,
+      destinationCountry: data.destinationCountry,
     };
+    const putBuyerDirector = data.buyerDirector;
+    const putConsigneeDirector = data.consigneeDirector;
+    const putSupplierDirector = data.supplierDirector;
+    const putGoodsReleasedBy = data.goodsReleasedBy;
 
     // Add optional seller fields
     if (data.sellerDetails !== undefined) contractData.sellerDetails = data.sellerDetails;
@@ -314,10 +450,41 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
 
     // Add optional additional fields
     if (data.deliveryTerms !== undefined) contractData.deliveryTerms = data.deliveryTerms;
+    if (data.customsAddress !== undefined) contractData.customsAddress = data.customsAddress;
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
+    contractData.contractCurrency = (data.contractCurrency != null && String(data.contractCurrency).trim()) ? String(data.contractCurrency).trim() : 'USD';
+    if (data.emails !== undefined) contractData.emails = data.emails && String(data.emails).trim() ? String(data.emails).trim() : null;
     if (data.gln !== undefined) contractData.gln = data.gln;
     if (data.supplierDirector !== undefined) contractData.supplierDirector = data.supplierDirector;
     if (data.goodsReleasedBy !== undefined) contractData.goodsReleasedBy = data.goodsReleasedBy;
+    if (data.signatureUrl !== undefined) contractData.signatureUrl = data.signatureUrl;
+    if (data.sealUrl !== undefined) contractData.sealUrl = data.sealUrl;
+    if (data.sellerSignatureUrl !== undefined) contractData.sellerSignatureUrl = data.sellerSignatureUrl;
+    if (data.sellerSealUrl !== undefined) contractData.sellerSealUrl = data.sellerSealUrl;
+    if (data.buyerSignatureUrl !== undefined) contractData.buyerSignatureUrl = data.buyerSignatureUrl;
+    if (data.buyerSealUrl !== undefined) contractData.buyerSealUrl = data.buyerSealUrl;
+    if (data.consigneeSignatureUrl !== undefined) contractData.consigneeSignatureUrl = data.consigneeSignatureUrl;
+    if (data.consigneeSealUrl !== undefined) contractData.consigneeSealUrl = data.consigneeSealUrl;
+    if (data.specification !== undefined) {
+      const spec = Array.isArray(data.specification) ? data.specification : [];
+      const toNum = (v: any): number | undefined => {
+        if (v == null) return undefined;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : undefined;
+      };
+      contractData.specification = spec.map((row: any) => ({
+        productName: String(row?.productName ?? ''),
+        botanicalName: row?.botanicalName != null ? String(row.botanicalName) : undefined,
+        tnvedCode: row?.tnvedCode != null ? String(row.tnvedCode) : undefined,
+        quantity: Number.isFinite(Number(row?.quantity)) ? Number(row.quantity) : 0,
+        unit: row?.unit != null ? String(row.unit) : undefined,
+        unitPrice: toNum(row?.unitPrice),
+        totalPrice: toNum(row?.totalPrice),
+        specNumber: row?.specNumber != null ? String(row.specNumber) : undefined,
+        productNumber: row?.productNumber != null ? String(row.productNumber) : undefined,
+      }));
+      console.log('[contracts PUT] specification length:', contractData.specification.length);
+    }
 
     const contract = await prisma.contract.update({
       where: { id },
@@ -332,15 +499,75 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response)
       }
     });
 
-    res.json(contract);
+    if (putBuyerDirector !== undefined || putConsigneeDirector !== undefined || putSupplierDirector !== undefined || putGoodsReleasedBy !== undefined) {
+      await prisma.$executeRaw`
+        UPDATE "Contract"
+        SET "buyerDirector" = ${putBuyerDirector ?? null},
+            "consigneeDirector" = ${putConsigneeDirector ?? null},
+            "supplierDirector" = ${putSupplierDirector ?? null},
+            "goodsReleasedBy" = ${putGoodsReleasedBy ?? null}
+        WHERE "id" = ${id}
+      `;
+    }
+
+    if (contractData.specification !== undefined) {
+      console.log('[contracts PUT] saved specification length:', Array.isArray(contract.specification) ? (contract.specification as any[]).length : 'not array');
+    }
+    let updatedContract = contract;
+    if (putBuyerDirector !== undefined || putConsigneeDirector !== undefined || putSupplierDirector !== undefined || putGoodsReleasedBy !== undefined) {
+      (updatedContract as any).buyerDirector = putBuyerDirector ?? null;
+      (updatedContract as any).consigneeDirector = putConsigneeDirector ?? null;
+      (updatedContract as any).supplierDirector = putSupplierDirector ?? null;
+      (updatedContract as any).goodsReleasedBy = putGoodsReleasedBy ?? null;
+    }
+    if (contractData.specification !== undefined) {
+      const specJson = JSON.stringify(contractData.specification);
+      await prisma.$executeRaw`UPDATE "Contract" SET "specification" = ${specJson}::jsonb WHERE "id" = ${id}`;
+      const refreshed = await prisma.contract.findUnique({
+        where: { id },
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+            }
+          }
+        }
+      });
+      if (refreshed) {
+        updatedContract = refreshed;
+      }
+    }
+    res.json(updatedContract);
   } catch (error: any) {
     console.error('Error updating contract:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });
 
+// PATCH /contracts/:id/delivery-terms - Update delivery terms only (any authenticated user)
+router.patch('/:id/delivery-terms', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const parsed = deliveryTermsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+    const contract = await prisma.contract.update({
+      where: { id },
+      data: {
+        deliveryTerms: parsed.data.deliveryTerms ?? null,
+      },
+    });
+    res.json(contract);
+  } catch (error: any) {
+    console.error('Error updating delivery terms:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
 // DELETE /contracts/:id - Shartnoma o'chirish
-router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res: Response) => {
+router.delete('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id);
 

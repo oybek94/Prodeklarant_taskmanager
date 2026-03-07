@@ -8,9 +8,8 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: false, // For now, we'll use localStorage for refresh token
-  timeout: 30000, // 30 seconds timeout
-  validateStatus: (status) => status < 500, // Don't throw on 4xx errors
+  withCredentials: false,
+  timeout: 30000,
 });
 
 // Request interceptor: Add access token to headers
@@ -44,18 +43,54 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
 };
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    return response;
+  },
   async (error: AxiosError) => {
+    // Timeout error handling
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      const errorMsg = 'Backend serverga javob bermayapti. Iltimos, backend server ishlayotganini tekshiring (http://localhost:3001).';
+      console.error('Timeout Error:', errorMsg);
+      // Timeout bo'lsa, darhol login sahifasiga yo'naltiramiz (agar login sahifasida bo'lmasak)
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/client/login') {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        // Kichik kechikish bilan login sahifasiga yo'naltiramiz (xatolik xabari ko'rsatish uchun)
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 100);
+      }
+      return Promise.reject(new Error(errorMsg));
+    }
     // Network error handling
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
       console.error('Network Error: Backend serverga ulanib bo\'lmayapti. Iltimos, backend server ishlayotganini tekshiring.');
+      // Network xatolik bo'lsa ham, login sahifasiga yo'naltiramiz
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/client/login') {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+      }
       return Promise.reject(new Error('Backend serverga ulanib bo\'lmayapti. Iltimos, server ishlayotganini tekshiring.'));
     }
-    
+
     const originalRequest = error.config as any;
 
     // If 401 and not already retrying
     if (error.response?.status === 401 && !originalRequest._retry) {
+      const refreshToken = localStorage.getItem('refreshToken');
+
+      // Agar refresh token ham yo'q bo'lsa, darhol login sahifasiga yo'naltiramiz
+      if (!refreshToken) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        // Faqat login sahifasida bo'lmasak, login sahifasiga yo'naltiramiz
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/client/login') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // Queue the request
         return new Promise((resolve, reject) => {
@@ -72,14 +107,6 @@ apiClient.interceptors.response.use(
 
       originalRequest._retry = true;
       isRefreshing = true;
-
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        // No refresh token, redirect to login
-        localStorage.removeItem('accessToken');
-        window.location.href = '/login';
-        return Promise.reject(error);
-      }
 
       try {
         const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {

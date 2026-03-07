@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import CurrencyDisplay from '../components/CurrencyDisplay';
+import { Icon } from '@iconify/react';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -31,6 +33,8 @@ interface StageStat {
   receivedAmount: number;
   pendingAmount: number;
   percentage: number;
+  /** Har bir bosqich uchun amalda qo‘llanadigan to‘lov summasi (USD) — Sozlamalar tarifi */
+  tariffUsd?: number;
 }
 
 interface StageStats {
@@ -38,6 +42,7 @@ interface StageStats {
   stageStats: StageStat[];
   totals: {
     totalParticipation: number;
+    totalTasks?: number;
     totalEarned: number;
     totalReceived: number;
     totalPending: number;
@@ -58,13 +63,18 @@ const Profile = () => {
   const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [_stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [stageStats, setStageStats] = useState<StageStats | null>(null);
   const [errorStats, setErrorStats] = useState<any>(null);
-  const [_loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [stageStatsLoading, setStageStatsLoading] = useState(true);
   const [errorStatsLoading, setErrorStatsLoading] = useState(true);
-  const [period, setPeriod] = useState('month');
+  const [period, setPeriod] = useState('all');
+  const [previousYearDebt, setPreviousYearDebt] = useState<{
+    totalEarned: number;
+    totalPaid: number;
+    balance: number;
+  } | null>(null);
   const [workerDetail, setWorkerDetail] = useState<WorkerDetail | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -84,12 +94,53 @@ const Profile = () => {
       loadStats();
       loadStageStats();
       loadErrorStats();
+      loadPreviousYearDebt();
       if (id) {
         loadWorkerDetail();
       }
     }
     loadBranches();
   }, [workerId, period, id]);
+
+  const loadPreviousYearDebt = async () => {
+    if (!workerId) return;
+    try {
+      // Avval o'tgan yil (2024) uchun qidirib ko'ramiz
+      const previousYear = 2024;
+      console.log('Loading previous year debt for workerId:', workerId, 'year:', previousYear);
+      let response = await apiClient.get(`/workers/${workerId}/previous-year-debt?year=${previousYear}`);
+      console.log('Previous year debt API response (2024):', response.data);
+      
+      // Agar 2024 uchun topilmasa, 2025 uchun qidirib ko'ramiz
+      if (!response.data) {
+        const currentYear = new Date().getFullYear();
+        const lastYear = currentYear - 1;
+        if (lastYear !== previousYear) {
+          console.log('Trying year:', lastYear);
+          response = await apiClient.get(`/workers/${workerId}/previous-year-debt?year=${lastYear}`);
+          console.log('Previous year debt API response (' + lastYear + '):', response.data);
+        }
+      }
+      
+      if (response.data) {
+        const debtData = {
+          totalEarned: Number(response.data.totalEarned || 0),
+          totalPaid: Number(response.data.totalPaid || 0),
+          balance: Number(response.data.balance || 0),
+        };
+        console.log('Setting previous year debt:', debtData);
+        setPreviousYearDebt(debtData);
+      } else {
+        console.log('No previous year debt data found');
+        setPreviousYearDebt(null);
+      }
+    } catch (error: any) {
+      console.error('Error loading previous year debt:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      // O'tgan yil qarzi yo'q bo'lishi mumkin
+      setPreviousYearDebt(null);
+    }
+  };
 
   const loadBranches = async () => {
     try {
@@ -133,12 +184,14 @@ const Profile = () => {
   const loadStats = async () => {
     try {
       setLoading(true);
+      setStats(null); // Clear old stats when period changes
       const response = await apiClient.get(`/workers/${workerId}/stats`, {
         params: { period },
       });
       setStats(response.data);
     } catch (error) {
       console.error('Error loading stats:', error);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -240,25 +293,21 @@ const Profile = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Personal Cabinet</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Personal Cabinet</h1>
         {isAdmin && id && (
           <div className="flex gap-2">
             <button
               onClick={handleEdit}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
+              <Icon icon="lucide:pencil" className="w-4 h-4" />
               O'zgartirish
             </button>
             <button
               onClick={handleDelete}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+              <Icon icon="lucide:trash-2" className="w-4 h-4" />
               O'chirish
             </button>
           </div>
@@ -286,47 +335,123 @@ const Profile = () => {
 
         {stageStatsLoading ? (
           <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
-        ) : stageStats && stageStats.stageStats.length > 0 ? (
+        ) : (
           <>
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            {/* Summary Cards - Always show, even if no stage stats */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
               <div className="bg-blue-50 rounded-lg p-3">
-                <div className="text-xs text-blue-600 mb-1">Jami ishtirok</div>
+                <div className="text-xs text-blue-600 mb-1">Jami tasklarda ishtirok</div>
                 <div className="text-xl font-bold text-blue-800">
-                  {stageStats.totals.totalParticipation}
+                  {stageStats?.totals?.totalTasks ?? stageStats?.totals?.totalParticipation ?? 0}
                 </div>
               </div>
               <div className="bg-green-50 rounded-lg p-3">
-                <div className="text-xs text-green-600 mb-1">Ishlab topilgan</div>
+                <div className="text-xs text-green-600 mb-1">Jami ishlab topilgan</div>
                 <div className="text-xl font-bold text-green-800">
-                  ${Number(stageStats.totals.totalEarned).toFixed(2)}
+                  {loading ? (
+                    <span className="text-gray-400">Yuklanmoqda...</span>
+                  ) : (() => {
+                    // Jadvaldagi "Ishlab topilgan (summa)" ustunidagi qatorlar yig‘indisi — jami shu yig‘indiga teng
+                    const sumFromTable = stageStats?.stageStats?.length
+                      ? stageStats.stageStats.reduce((s, stat) => s + Number(stat.earnedAmount), 0)
+                      : 0;
+                    const currentEarned = stageStats?.stageStats?.length
+                      ? sumFromTable
+                      : (stats ? Number(stats.totalKPI) : (stageStats?.totals?.totalEarned || 0));
+                    const previousYearEarned = previousYearDebt?.totalEarned || 0;
+                    const totalEarned = currentEarned + previousYearEarned;
+                    return (
+                      <CurrencyDisplay
+                        amount={totalEarned}
+                        originalCurrency="USD"
+                      />
+                    );
+                  })()}
+                </div>
+              </div>
+              <div className="bg-red-50 rounded-lg p-3">
+                <div className="text-xs text-red-600 mb-1">Jami xatolar summasi</div>
+                <div className="text-xl font-bold text-red-800">
+                  {errorStatsLoading ? (
+                    <span className="text-gray-400">Yuklanmoqda...</span>
+                  ) : (
+                    <CurrencyDisplay
+                      amount={Number(errorStats?.totalErrorAmount || 0)}
+                      originalCurrency="USD"
+                    />
+                  )}
                 </div>
               </div>
               <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
                 <div className="text-xs text-purple-600 mb-1">Jami olingan</div>
                 <div className="text-xl font-bold text-purple-800">
-                  ${Number(stageStats.totals.totalReceived).toFixed(2)}
+                  {loading ? (
+                    <span className="text-gray-400">Yuklanmoqda...</span>
+                  ) : (() => {
+                    const currentReceived = stats 
+                      ? Number(stats.totalSalary)
+                      : (stageStats?.totals?.totalReceived || 0);
+                    const previousYearPaid = previousYearDebt?.totalPaid || 0;
+                    const totalReceived = currentReceived + previousYearPaid;
+                    return (
+                      <CurrencyDisplay
+                        amount={totalReceived}
+                        originalCurrency="USD"
+                      />
+                    );
+                  })()}
                 </div>
               </div>
-              <div className={`rounded-lg p-3 border-2 ${
-                stageStats.totals.totalPending > 0 
-                  ? 'bg-orange-50 border-orange-200' 
-                  : 'bg-gray-50 border-gray-200'
-              }`}>
-                <div className={`text-xs mb-1 ${
-                  stageStats.totals.totalPending > 0 ? 'text-orange-600' : 'text-gray-600'
-                }`}>
-                  Haqdorlik
-                </div>
-                <div className={`text-xl font-bold ${
-                  stageStats.totals.totalPending > 0 ? 'text-orange-800' : 'text-gray-800'
-                }`}>
-                  ${Number(stageStats.totals.totalPending).toFixed(2)}
-                </div>
-              </div>
+              {(() => {
+                const sumFromTable = stageStats?.stageStats?.length
+                  ? stageStats.stageStats.reduce((s, stat) => s + Number(stat.earnedAmount), 0)
+                  : 0;
+                const currentEarned = stageStats?.stageStats?.length
+                  ? sumFromTable
+                  : (stats ? Number(stats.totalKPI) : (stageStats?.totals?.totalEarned || 0));
+                const previousYearEarned = previousYearDebt?.totalEarned || 0;
+                const totalEarned = currentEarned + previousYearEarned;
+
+                const currentReceived = stats
+                  ? Number(stats.totalSalary)
+                  : (stageStats?.totals?.totalReceived || 0);
+                const previousYearPaid = previousYearDebt?.totalPaid || 0;
+                const totalReceived = currentReceived + previousYearPaid;
+
+                const totalErrors = Number(errorStats?.totalErrorAmount || 0);
+                const totalPending = totalEarned - totalErrors - totalReceived;
+                const hasPending = totalPending > 0;
+                
+                return (
+                  <div className={`rounded-lg p-3 border-2 ${
+                    hasPending
+                      ? 'bg-orange-50 border-orange-200' 
+                      : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <div className={`text-xs mb-1 ${
+                      hasPending ? 'text-orange-600' : 'text-gray-600'
+                    }`}>
+                      Qolgan haq
+                    </div>
+                    <div className={`text-xl font-bold ${
+                      hasPending ? 'text-orange-800' : 'text-gray-800'
+                    }`}>
+                      {loading || errorStatsLoading ? (
+                        <span className="text-gray-400">Yuklanmoqda...</span>
+                      ) : (
+                        <CurrencyDisplay
+                          amount={totalPending}
+                          originalCurrency="USD"
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* Stage Details Table and Pie Chart */}
+            {/* Stage Details Table and Pie Chart - Only show if there are stage stats */}
+            {stageStats && stageStats.stageStats.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Table - 50% */}
               <div className="overflow-x-auto">
@@ -336,27 +461,35 @@ const Profile = () => {
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Jarayon</th>
                     <th className="text-center py-3 px-4 font-semibold text-gray-700">Bosqich to'lovi</th>
                     <th className="text-center py-3 px-4 font-semibold text-gray-700">Ishtirok</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishlab topilgan</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishlab topilgan (summa)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {stageStats.stageStats.map((stat, idx) => {
-                      // Calculate stage payment per participation
-                      const stagePayment = stat.participationCount > 0 
-                        ? (Number(stat.earnedAmount) / stat.participationCount) 
-                        : 0;
+                      // Bosqich to'lovi — amalda qo‘llanadigan tarif (Sozlamalar), yoki o‘rtacha (eski API uchun)
+                      const stagePayment = stat.tariffUsd ?? (stat.participationCount > 0
+                        ? Number(stat.earnedAmount) / stat.participationCount
+                        : 0);
                       
                       return (
                       <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 font-medium text-gray-800">{stat.stageName}</td>
-                      <td className="py-3 px-4 text-center text-gray-800 font-semibold">
-                        {stagePayment > 0 ? `$${stagePayment.toFixed(2)}` : '-'}
+                        <td className="py-3 px-4 text-center text-gray-800 font-semibold">
+                        {stagePayment > 0 ? (
+                          <CurrencyDisplay
+                            amount={stagePayment}
+                            originalCurrency="USD"
+                          />
+                        ) : '-'}
                       </td>
                         <td className="py-3 px-4 text-center text-gray-800 font-semibold">
                           {stat.participationCount}
                         </td>
                         <td className="py-3 px-4 text-right text-green-600 font-semibold">
-                          ${Number(stat.earnedAmount).toFixed(2)}
+                          <CurrencyDisplay
+                            amount={Number(stat.earnedAmount)}
+                            originalCurrency="USD"
+                          />
                         </td>
                       </tr>
                     );
@@ -447,8 +580,10 @@ const Profile = () => {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Charts */}
+            {stageStats && stageStats.stageStats.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               {/* Participation Chart */}
               <div className="bg-gray-50 rounded-lg p-4">
@@ -542,9 +677,15 @@ const Profile = () => {
                 </div>
               </div>
             </div>
+            )}
+            
+            {/* Show message if no stage stats but summary cards are shown */}
+            {(!stageStats || stageStats.stageStats.length === 0) && (
+              <div className="text-center py-8 text-gray-400 mt-6">
+                Hozircha jarayonlar bo'yicha ma'lumotlar yo'q
+              </div>
+            )}
           </>
-        ) : (
-          <div className="text-center py-8 text-gray-400">Jarayonlar bo'yicha ma'lumotlar yo'q</div>
         )}
       </div>
 
@@ -569,13 +710,19 @@ const Profile = () => {
               <div className="bg-orange-50 rounded-lg p-3">
                 <div className="text-xs text-orange-600 mb-1">Jami undirilgan summa</div>
                 <div className="text-xl font-bold text-orange-800">
-                  ${Number(errorStats.totalErrorAmount).toFixed(2)}
+                  <CurrencyDisplay
+                    amount={Number(errorStats.totalErrorAmount)}
+                    originalCurrency="USD"
+                  />
                 </div>
               </div>
               <div className="bg-yellow-50 rounded-lg p-3">
                 <div className="text-xs text-yellow-600 mb-1">O'rtacha xato summasi</div>
                 <div className="text-xl font-bold text-yellow-800">
-                  ${errorStats.totalErrors > 0 ? (Number(errorStats.totalErrorAmount) / errorStats.totalErrors).toFixed(2) : '0.00'}
+                  <CurrencyDisplay
+                    amount={errorStats.totalErrors > 0 ? (Number(errorStats.totalErrorAmount) / errorStats.totalErrors) : 0}
+                    originalCurrency="USD"
+                  />
                 </div>
               </div>
             </div>
@@ -601,7 +748,10 @@ const Profile = () => {
                             {stage.count}
                           </td>
                           <td className="py-3 px-4 text-right text-red-600 font-semibold">
-                            ${Number(stage.totalAmount).toFixed(2)}
+                            <CurrencyDisplay
+                              amount={Number(stage.totalAmount)}
+                              originalCurrency="USD"
+                            />
                           </td>
                         </tr>
                       ))}
@@ -622,7 +772,7 @@ const Profile = () => {
                         <div className="flex-1">
                           <div className="font-medium text-gray-800">{error.taskTitle}</div>
                           <div className="text-sm text-gray-600 mt-1">
-                            Bosqich: {error.stageName} | Summa: ${Number(error.amount).toFixed(2)} | Sana: {new Date(error.date).toLocaleDateString()}
+                            Bosqich: {error.stageName} | Summa: <CurrencyDisplay amount={Number(error.amount)} originalCurrency="USD" /> | Sana: {new Date(error.date).toLocaleDateString()}
                           </div>
                           {error.comment && (
                             <div className="text-sm text-gray-600 mt-2">{error.comment}</div>

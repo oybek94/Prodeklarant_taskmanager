@@ -3,13 +3,21 @@ import { prisma } from '../prisma';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { Prisma, Currency } from '@prisma/client';
-import { fetchLatestRate, setManualRate, getExchangeRate } from '../services/currency';
+// ExchangeSource enum from Prisma schema
+type ExchangeSource = 'CBU' | 'MANUAL';
+import { Decimal } from '@prisma/client/runtime/library';
+import { upsertExchangeRate, getLatestExchangeRate, fetchAndSaveDailyRate, getExchangeRate } from '../services/exchange-rate';
+import { validateExchangeRateImmutability } from '../services/monetary-validation';
 
 const router = Router();
 
 // Balanslar - har bir valyuta uchun alohida
-router.get('/balance', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
+router.get('/balance', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
+    const { startDate, endDate, currency, view } = req.query;
+    const useAccountingView = view !== 'operational';
+
+    // Get account balances
     const balances = await prisma.accountBalance.findMany({
       orderBy: [{ currency: 'asc' }, { type: 'asc' }],
     });
@@ -39,6 +47,67 @@ router.get('/balance', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
     // CARD-USD balanslarini filtrlash (ko'rsatmaslik)
     const filteredBalances = balances.filter(b => !(b.type === 'CARD' && b.currency === 'USD'));
 
+    // Get transaction history if filters provided
+    let transactionHistory: any[] = [];
+    let exchangeRatesUsed: any[] = [];
+
+    if (startDate || endDate || currency) {
+      const txWhere: any = {};
+      if (startDate) txWhere.date = { ...txWhere.date, gte: new Date(startDate as string) };
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        txWhere.date = { ...txWhere.date, lte: end };
+      }
+      if (currency) txWhere.currency_universal = currency;
+
+      transactionHistory = await prisma.transaction.findMany({
+        where: txWhere,
+        select: {
+          id: true,
+          type: true,
+          amount_original: true,
+          currency_universal: true,
+          exchange_rate: true,
+          exchange_source: true,
+          amount_uzs: true,
+          date: true,
+          paymentMethod: true,
+        } as any,
+        orderBy: { date: 'desc' },
+        take: 100, // Limit to recent 100 transactions
+      });
+
+      // Aggregate exchange rates
+      const rateMap = new Map<string, { rate: number; source: string; count: number; dates: Date[] }>();
+      transactionHistory.forEach((tx: any) => {
+        if (tx.exchange_rate) {
+          const key = `${tx.exchange_rate}-${tx.exchange_source || 'CBU'}`;
+          if (!rateMap.has(key)) {
+            rateMap.set(key, {
+              rate: Number(tx.exchange_rate),
+              source: tx.exchange_source || 'CBU',
+              count: 0,
+              dates: [],
+            });
+          }
+          const entry = rateMap.get(key)!;
+          entry.count++;
+          entry.dates.push(tx.date);
+        }
+      });
+
+      exchangeRatesUsed = Array.from(rateMap.values()).map(entry => ({
+        rate: entry.rate,
+        source: entry.source,
+        transactionCount: entry.count,
+        dateRange: {
+          start: new Date(Math.min(...entry.dates.map(d => new Date(d).getTime()))),
+          end: new Date(Math.max(...entry.dates.map(d => new Date(d).getTime()))),
+        },
+      }));
+    }
+
     // Valyuta bo'yicha guruhlash (CARD-USD ni olib tashlash)
     const balancesByCurrency: Record<string, any[]> = {};
     filteredBalances.forEach(balance => {
@@ -49,15 +118,31 @@ router.get('/balance', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
       balancesByCurrency[currency].push(balance);
     });
 
-    res.json({
+    const response: any = {
+      view: useAccountingView ? 'accounting' : 'operational',
       byCurrency: balancesByCurrency,
       all: filteredBalances,
-    });
+    };
+
+    if (transactionHistory.length > 0) {
+      response.transactionHistory = transactionHistory;
+      response.exchangeRatesUsed = exchangeRatesUsed;
+      response.metadata = {
+        filters: {
+          startDate: startDate || null,
+          endDate: endDate || null,
+          currency: currency || null,
+        },
+        transactionCount: transactionHistory.length,
+      };
+    }
+
+    res.json(response);
   } catch (error: any) {
     console.error('Error fetching balances:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Balanslarni yuklashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -102,9 +187,104 @@ router.post('/balance', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     res.json(balance);
   } catch (error: any) {
     console.error('Error updating balance:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Balansni yangilashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
+    });
+  }
+});
+
+// Qarzdorlar ro'yxati (mijozlardan qarz)
+router.get('/debtors', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
+  try {
+    const allClients = await prisma.client.findMany({
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        dealAmount: true,
+        dealAmountCurrency: true,
+        dealAmount_currency: true,
+        creditType: true,
+        creditLimit: true,
+        creditStartDate: true,
+        initialDebt: true,
+        initialDebtCurrency: true,
+        initialDebtInUzs: true,
+        tasks: {
+          select: {
+            id: true,
+            createdAt: true,
+            hasPsr: true,
+            snapshotDealAmount: true,
+            snapshotPsrPrice: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        transactions: {
+          where: { type: 'INCOME' },
+          select: {
+            amount: true,
+            date: true,
+            currency: true,
+          },
+        },
+      }
+    });
+
+    const debtors = allClients
+      .map((client) => {
+        const dealCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
+        const dealAmount = Number(client.dealAmount || 0);
+
+        const totalDealAmount = client.tasks.reduce((sum: number, task: any) => {
+          const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
+          const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+          return sum + baseAmount + psrAmount;
+        }, 0);
+
+        const totalPaid = client.transactions
+          .filter((t: any) => t.currency === dealCurrency)
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+
+        let initialDebt = 0;
+        if ((client as any).initialDebt) {
+          const clientInitialDebtCurrency = (client as any).initialDebtCurrency || 'USD';
+          if (clientInitialDebtCurrency === dealCurrency) {
+            initialDebt = Number((client as any).initialDebt);
+          } else {
+            initialDebt = (client as any).initialDebtInUzs && dealCurrency === 'UZS'
+              ? Number((client as any).initialDebtInUzs)
+              : Number((client as any).initialDebt);
+          }
+        }
+
+        const currentDebt = totalDealAmount - totalPaid + initialDebt;
+
+        // If client has no debt, skip
+        if (currentDebt <= 0) {
+          return null;
+        }
+
+        return {
+          clientId: client.id,
+          clientName: client.name,
+          phone: client.phone,
+          creditType: client.creditType || null,
+          creditLimit: client.creditLimit ? Number(client.creditLimit) : null,
+          creditStartDate: client.creditStartDate || null,
+          currentDebt: currentDebt,
+          currency: dealCurrency,
+        };
+      })
+      .filter((debtor) => debtor !== null);
+
+    res.json(debtors);
+  } catch (error: any) {
+    console.error('Error fetching debtors:', error);
+    res.status(500).json({
+      error: 'Qarzdorlarni yuklashda xatolik yuz berdi',
+      details: error.message
     });
   }
 });
@@ -153,9 +333,9 @@ router.get('/debts', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
     res.json(debtsWithDetails);
   } catch (error: any) {
     console.error('Error fetching debts:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Qarzlarni yuklashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -191,9 +371,9 @@ router.post('/debt', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     res.status(201).json(debt);
   } catch (error: any) {
     console.error('Error creating debt:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Qarz qo\'shishda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -222,9 +402,9 @@ router.patch('/debt/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) =>
     res.json(debt);
   } catch (error: any) {
     console.error('Error updating debt:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Qarzni yangilashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -239,9 +419,9 @@ router.delete('/debt/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) =
     res.status(204).send();
   } catch (error: any) {
     console.error('Error deleting debt:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Qarzni o\'chirishda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -266,7 +446,7 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
         where: { currency },
       });
       const totalDebt = allDebts.reduce((sum, d) => sum + Number(d.amount), 0);
-      
+
       // Qarzlar bo'yicha guruhlash
       const debtsByType = allDebts.reduce((acc: any, debt) => {
         acc[debt.debtorType] = (acc[debt.debtorType] || 0) + Number(debt.amount);
@@ -286,7 +466,7 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
             },
           },
           transactions: {
-            where: { 
+            where: {
               type: 'INCOME',
               currency,
             },
@@ -305,7 +485,20 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
         const tasksWithPsr = client.tasks.filter(t => t.hasPsr).length;
         const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
         const totalPaid = client.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
-        const debt = totalDealAmount - totalPaid;
+
+        let initialDebt = 0;
+        if ((client as any).initialDebt) {
+          const clientInitialDebtCurrency = (client as any).initialDebtCurrency || 'USD';
+          if (clientInitialDebtCurrency === currency) {
+            initialDebt = Number((client as any).initialDebt);
+          } else {
+            initialDebt = (client as any).initialDebtInUzs && currency === 'UZS'
+              ? Number((client as any).initialDebtInUzs)
+              : Number((client as any).initialDebt);
+          }
+        }
+
+        const debt = totalDealAmount - totalPaid + initialDebt;
         if (debt > 0) {
           clientDebts += debt;
         }
@@ -333,9 +526,9 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
     res.json(statistics);
   } catch (error: any) {
     console.error('Error fetching statistics:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Statistikani yuklashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -343,7 +536,7 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
 // Valyuta kurslari
 router.get('/exchange-rates', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
   try {
-    const rates = await prisma.currencyExchangeRate.findMany({
+    const rates = await (prisma as any).exchangeRate.findMany({
       orderBy: { date: 'desc' },
       take: 30, // Oxirgi 30 ta kurs
     });
@@ -351,33 +544,150 @@ router.get('/exchange-rates', requireAuth('ADMIN'), async (_req: AuthRequest, re
     res.json(rates);
   } catch (error: any) {
     console.error('Error fetching exchange rates:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Kurslarni yuklashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });
 
-// Kurs yangilash (API'dan)
-router.post('/exchange-rates/fetch', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
+// Get exchange rate for a specific date
+router.get('/exchange-rates/for-date', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    await fetchLatestRate();
-    res.json({ message: 'Kurs muvaffaqiyatli yangilandi' });
+    const { date } = req.query;
+
+    console.log('[ExchangeRate] Request received:', { date, query: req.query });
+
+    if (!date) {
+      console.log('[ExchangeRate] Missing date parameter');
+      return res.status(400).json({ error: 'Date parameter is required' });
+    }
+
+    let targetDate: Date;
+    try {
+      // Parse date string and normalize to UTC midnight to avoid timezone issues
+      const dateStr = date as string;
+      targetDate = new Date(dateStr + 'T00:00:00.000Z'); // Parse as UTC
+      if (isNaN(targetDate.getTime())) {
+        console.log('[ExchangeRate] Invalid date format:', date);
+        return res.status(400).json({ error: 'Invalid date format' });
+      }
+      // Ensure it's at UTC midnight
+      targetDate.setUTCHours(0, 0, 0, 0);
+      console.log('[ExchangeRate] Parsed date (UTC):', targetDate.toISOString(), 'Original:', dateStr);
+    } catch (error) {
+      console.log('[ExchangeRate] Date parsing error:', error);
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    // Get exchange rate for the specified date (or most recent before that date)
+    let rate: Decimal;
+    try {
+      console.log('[ExchangeRate] Fetching rate for date:', targetDate.toISOString());
+      rate = await getExchangeRate(targetDate, 'USD', 'UZS');
+      console.log('[ExchangeRate] Rate found:', rate.toString());
+    } catch (error: any) {
+      console.error('[ExchangeRate] Error getting exchange rate from database:', error);
+      console.error('[ExchangeRate] Error stack:', error?.stack);
+
+      // If no rate found in database, try to fetch from CBU API directly
+      try {
+        console.log('[ExchangeRate] Trying to fetch from CBU API directly');
+        const { fetchRateFromCBU } = await import('../services/exchange-rate');
+        const cbuRate = await fetchRateFromCBU(targetDate);
+
+        if (cbuRate) {
+          console.log('[ExchangeRate] CBU API rate found:', cbuRate.toString());
+          // Save to database for future use
+          try {
+            await upsertExchangeRate(targetDate, cbuRate, 'CBU');
+            console.log('[ExchangeRate] Rate saved to database');
+          } catch (saveError) {
+            console.error('[ExchangeRate] Error saving rate to database:', saveError);
+          }
+
+          return res.status(200).json({
+            rate: Number(cbuRate),
+            date: targetDate.toISOString().split('T')[0],
+            currency: 'USD',
+            toCurrency: 'UZS',
+            source: 'CBU',
+            fallback: false,
+          });
+        }
+      } catch (cbuError: any) {
+        console.error('[ExchangeRate] CBU API fetch failed:', cbuError);
+      }
+
+      // If CBU API also failed, try to get the latest rate from database as fallback
+      try {
+        console.log('[ExchangeRate] Trying to get latest rate from database as fallback');
+        const latestRate = await getLatestExchangeRate('USD', 'UZS');
+        console.log('[ExchangeRate] Latest rate found:', latestRate.toString());
+        // Return 200 with fallback flag - don't return 404 if we have a fallback rate
+        return res.status(200).json({
+          rate: Number(latestRate),
+          date: targetDate.toISOString().split('T')[0],
+          currency: 'USD',
+          toCurrency: 'UZS',
+          fallback: true,
+          message: 'Berilgan sana uchun kurs topilmadi, eng so\'nggi kurs ishlatildi',
+        });
+      } catch (fallbackError: any) {
+        console.error('[ExchangeRate] Fallback also failed:', fallbackError);
+        return res.status(404).json({
+          error: 'Kurs topilmadi',
+          details: error.message || 'Berilgan sana uchun valyuta kursi topilmadi va eng so\'nggi kurs ham topilmadi'
+        });
+      }
+    }
+
+    res.json({
+      rate: Number(rate),
+      date: targetDate.toISOString().split('T')[0],
+      currency: 'USD',
+      toCurrency: 'UZS',
+    });
   } catch (error: any) {
-    console.error('Error fetching latest rate:', error);
-    res.status(500).json({ 
-      error: 'Kursni yangilashda xatolik yuz berdi',
-      details: error.message 
+    console.error('[ExchangeRate] Unexpected error:', error);
+    console.error('[ExchangeRate] Error stack:', error?.stack);
+    res.status(500).json({
+      error: 'Kursni yuklashda xatolik yuz berdi',
+      details: error.message
     });
   }
 });
 
-// Qo'lda kurs kiritish
+// Kurs yangilash (API'dan) - fetches from CBU and saves
+// Changed to requireAuth() instead of requireAuth('ADMIN') so Dashboard can fetch today's rate
+router.post('/exchange-rates/fetch', requireAuth(), async (_req: AuthRequest, res) => {
+  try {
+    // Always fetch today's rate
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    console.log('[ExchangeRate] Fetching today\'s rate from CBU API, date:', today.toISOString().split('T')[0]);
+    const rate = await fetchAndSaveDailyRate(today);
+
+    res.json({
+      message: 'Kurs muvaffaqiyatli yangilandi',
+      rate: Number(rate),
+      date: today.toISOString().split('T')[0],
+    });
+  } catch (error: any) {
+    console.error('[ExchangeRate] Error fetching latest rate:', error);
+    res.status(500).json({
+      error: 'Kursni yangilashda xatolik yuz berdi',
+      details: error.message
+    });
+  }
+});
+
+// Qo'lda kurs kiritish (manual rate entry)
 const setRateSchema = z.object({
-  fromCurrency: z.enum(['USD', 'UZS']),
-  toCurrency: z.enum(['USD', 'UZS']),
   rate: z.number().positive(),
   date: z.coerce.date().optional(),
+  source: z.enum(['CBU', 'MANUAL']).optional(),
 });
 
 router.post('/exchange-rates', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
@@ -387,19 +697,86 @@ router.post('/exchange-rates', requireAuth('ADMIN'), async (req: AuthRequest, re
       return res.status(400).json({ error: parsed.error.flatten() });
     }
 
-    await setManualRate(
-      parsed.data.fromCurrency,
-      parsed.data.toCurrency,
-      parsed.data.rate,
-      parsed.data.date
-    );
+    const date = parsed.data.date || new Date();
+    const rate = new Decimal(parsed.data.rate);
+    const source = (parsed.data.source as ExchangeSource) || 'MANUAL';
+
+    // Check immutability - cannot update rates for past dates
+    const existingRate = await (prisma as any).exchangeRate.findUnique({
+      where: {
+        currency_date: {
+          currency: 'USD',
+          date: date,
+        },
+      },
+    });
+
+    if (existingRate) {
+      const immutabilityCheck = validateExchangeRateImmutability(existingRate.date, date);
+      if (!immutabilityCheck.isValid) {
+        return res.status(400).json({
+          error: 'Exchange rate immutability violation',
+          details: immutabilityCheck.errors,
+        });
+      }
+    }
+
+    await upsertExchangeRate(date, rate, source);
 
     res.json({ message: 'Kurs muvaffaqiyatli saqlandi' });
   } catch (error: any) {
     console.error('Error setting rate:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Kursni saqlashda xatolik yuz berdi',
-      details: error.message 
+      details: error.message
+    });
+  }
+});
+
+// Update exchange rate (with immutability check)
+router.put('/exchange-rates/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const parsed = setRateSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+
+    const existingRate = await (prisma as any).exchangeRate.findUnique({
+      where: { id },
+    });
+
+    if (!existingRate) {
+      return res.status(404).json({ error: 'Exchange rate not found' });
+    }
+
+    // Check immutability - cannot update rates for past dates
+    const immutabilityCheck = validateExchangeRateImmutability(existingRate.date);
+    if (!immutabilityCheck.isValid) {
+      return res.status(400).json({
+        error: 'Cannot update historical exchange rate',
+        details: immutabilityCheck.errors,
+      });
+    }
+
+    const rate = new Decimal(parsed.data.rate);
+    const source = (parsed.data.source as ExchangeSource) || existingRate.source;
+
+    await (prisma as any).exchangeRate.update({
+      where: { id },
+      data: {
+        rate,
+        source,
+      },
+    });
+
+    res.json({ message: 'Kurs muvaffaqiyatli yangilandi' });
+  } catch (error: any) {
+    console.error('Error updating rate:', error);
+    res.status(500).json({
+      error: 'Kursni yangilashda xatolik yuz berdi',
+      details: error.message
     });
   }
 });
@@ -443,8 +820,12 @@ router.post('/convert-currency', requireAuth('ADMIN'), async (req: AuthRequest, 
       // Kursni saqlash (agar kerak bo'lsa)
       const targetDate = date || new Date();
       targetDate.setHours(0, 0, 0, 0);
-      
-      await setManualRate(fromCurrency, toCurrency, rate, targetDate);
+
+      // Kursni saqlash (correct way: use upsertExchangeRate service)
+      // Note: upsertExchangeRate only handles USD to UZS rates
+      if (fromCurrency === 'USD' && toCurrency === 'UZS') {
+        await upsertExchangeRate(targetDate, rate, 'MANUAL');
+      }
 
       // From balansni topish
       const fromBalance = await tx.accountBalance.findUnique({
@@ -500,7 +881,7 @@ router.post('/convert-currency', requireAuth('ADMIN'), async (req: AuthRequest, 
 
       // Konvertatsiya transaction'ini yaratish (EXPENSE va INCOME)
       const convertComment = comment || `Konvertatsiya: ${fromCurrency} -> ${toCurrency} (kurs: ${rate})`;
-      
+
       const expenseTransaction = await tx.transaction.create({
         data: {
           type: 'EXPENSE',
@@ -550,9 +931,9 @@ router.post('/convert-currency', requireAuth('ADMIN'), async (req: AuthRequest, 
     });
   } catch (error: any) {
     console.error('Error converting currency:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Valyuta konvertatsiyasida xatolik yuz berdi',
-      details: error.message 
+      details: error.message
     });
   }
 });

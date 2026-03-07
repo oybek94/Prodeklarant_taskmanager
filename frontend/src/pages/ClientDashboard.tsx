@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { Icon } from '@iconify/react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
@@ -65,6 +66,25 @@ interface Transaction {
   comment: string | null;
 }
 
+interface ExportStats {
+  month: string;
+  currency: string;
+  totals: {
+    totalQuantity: number;
+    totalValue: number;
+  };
+  products: Array<{
+    name: string;
+    totalQuantity: number;
+    totalValue: number;
+  }>;
+  countries: Array<{
+    country: string;
+    totalQuantity: number;
+    totalValue: number;
+  }>;
+}
+
 const ClientDashboard = () => {
   const [client, setClient] = useState<Client | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -74,6 +94,10 @@ const ClientDashboard = () => {
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isLoadingTaskDetail, setIsLoadingTaskDetail] = useState(false);
+  const [exportStats, setExportStats] = useState<ExportStats | null>(null);
+  const [exportStatsLoading, setExportStatsLoading] = useState(false);
+  const [exportStatsError, setExportStatsError] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -118,6 +142,33 @@ const ClientDashboard = () => {
 
     loadData();
   }, [navigate]);
+
+  useEffect(() => {
+    const loadExportStats = async () => {
+      if (!client) return;
+      try {
+        setExportStatsLoading(true);
+        setExportStatsError('');
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+          navigate('/client/login');
+          return;
+        }
+        const statsResponse = await axios.get(
+          `${API_BASE_URL}/clients/me/invoice-stats?month=${selectedMonth}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        setExportStats(statsResponse.data);
+      } catch (err: any) {
+        console.error('Error loading export stats:', err);
+        setExportStatsError('Eksport statistikasi yuklanmadi');
+      } finally {
+        setExportStatsLoading(false);
+      }
+    };
+
+    loadExportStats();
+  }, [client, selectedMonth, navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
@@ -215,7 +266,7 @@ const ClientDashboard = () => {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
               <p className="text-sm text-gray-500 mt-1">Xush kelibsiz, {client?.name}</p>
             </div>
             <button
@@ -240,15 +291,11 @@ const ClientDashboard = () => {
                 <p className="text-3xl font-bold text-gray-900">{completedTasks}</p>
               </div>
               <div className="w-16 h-16 bg-emerald-100 rounded-lg flex items-center justify-center">
-                <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Icon icon="lucide:check-circle-2" className="w-8 h-8 text-emerald-600" />
               </div>
             </div>
             <div className="flex items-center text-xs text-gray-500">
-              <svg className="w-4 h-4 mr-1 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+              <Icon icon="lucide:chevron-down" className="w-4 h-4 mr-1 text-emerald-500" />
               {tasks.length > 0 ? `${tasks.length} ta jami ish` : 'Ishlar mavjud emas'}
             </div>
           </div>
@@ -261,15 +308,11 @@ const ClientDashboard = () => {
                 <p className="text-3xl font-bold text-gray-900">{activeTasks}</p>
               </div>
               <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Icon icon="lucide:clock" className="w-8 h-8 text-blue-600" />
               </div>
             </div>
             <div className="flex items-center text-xs text-gray-500">
-              <svg className="w-4 h-4 mr-1 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+              <Icon icon="lucide:chevron-down" className="w-4 h-4 mr-1 text-blue-500" />
               {activeTasks > 0 ? `${activeTasks} ta ish jarayonda` : 'Jarayondagi ishlar yo\'q'}
             </div>
           </div>
@@ -284,18 +327,102 @@ const ClientDashboard = () => {
                 </p>
               </div>
               <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center">
-                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Icon icon="lucide:dollar-sign" className="w-8 h-8 text-purple-600" />
               </div>
             </div>
             <div className="flex items-center text-xs text-gray-500">
-              <svg className="w-4 h-4 mr-1 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+              <Icon icon="lucide:chevron-down" className="w-4 h-4 mr-1 text-purple-500" />
               {transactions.length} ta tranzaksiya
             </div>
           </div>
+        </div>
+
+        {/* Export Stats */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Eksport statistikasi</h2>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-500">Oy</label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+          </div>
+
+          {exportStatsLoading ? (
+            <div className="text-sm text-gray-500">Yuklanmoqda...</div>
+          ) : exportStatsError ? (
+            <div className="text-sm text-red-600">{exportStatsError}</div>
+          ) : !exportStats || (exportStats.products.length === 0 && exportStats.countries.length === 0) ? (
+            <div className="text-sm text-gray-500">Ma'lumotlar yo'q</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="text-xs text-gray-500 mb-1">Jami mahsulot soni</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {exportStats.totals.totalQuantity.toLocaleString()}
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="text-xs text-gray-500 mb-1">Jami qiymat</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {exportStats.totals.totalValue.toLocaleString('ru-RU', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    {exportStats.currency !== 'MIXED' ? exportStats.currency : ''}
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="text-xs text-gray-500 mb-1">Davlatlar soni</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {exportStats.countries.length}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">Mahsulotlar</div>
+                  <div className="space-y-2">
+                    {exportStats.products.map((product) => (
+                      <div key={product.name} className="flex items-center justify-between text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                        <span className="truncate">{product.name}</span>
+                        <span className="ml-3 whitespace-nowrap">
+                          {product.totalQuantity.toLocaleString()} /{' '}
+                          {product.totalValue.toLocaleString('ru-RU', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">Davlatlar</div>
+                  <div className="space-y-2">
+                    {exportStats.countries.map((country) => (
+                      <div key={country.country} className="flex items-center justify-between text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                        <span className="truncate">{country.country}</span>
+                        <span className="ml-3 whitespace-nowrap">
+                          {country.totalQuantity.toLocaleString()} /{' '}
+                          {country.totalValue.toLocaleString('ru-RU', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Main Content Grid */}
@@ -325,9 +452,7 @@ const ClientDashboard = () => {
                       >
                         <div className="flex items-start gap-4">
                           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
+                            <Icon icon="lucide:clipboard-list" className="w-5 h-5 text-blue-600" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-2">
@@ -337,9 +462,7 @@ const ClientDashboard = () => {
                                 </h3>
                                 <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                                   <span className="flex items-center gap-1">
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
+                                    <Icon icon="lucide:clock" className="w-3 h-3" />
                                     {new Date(task.createdAt).toLocaleDateString('uz-UZ', {
                                       month: 'short',
                                       day: 'numeric',
@@ -403,9 +526,7 @@ const ClientDashboard = () => {
                       className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                     >
                       <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-purple-600" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm">

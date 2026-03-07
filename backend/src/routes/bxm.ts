@@ -19,11 +19,21 @@ router.get('/current', requireAuth(), async (req, res) => {
         data: {
           year: currentYear,
           amount: 34.4,
+          amountUsd: 34.4,
+          amountUzs: 412000,
         },
       });
     }
 
-    res.json(bxm);
+    const amountUsd = bxm.amountUsd ?? bxm.amount;
+    const amountUzs = bxm.amountUzs ?? 412000;
+
+    res.json({
+      ...bxm,
+      amount: amountUsd,
+      amountUsd,
+      amountUzs,
+    });
   } catch (error: any) {
     console.error('Error fetching BXM:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
@@ -36,7 +46,18 @@ router.get('/', requireAuth('ADMIN'), async (req, res) => {
     const bxmConfigs = await prisma.bXMConfig.findMany({
       orderBy: { year: 'desc' },
     });
-    res.json(bxmConfigs);
+    res.json(
+      bxmConfigs.map((bxm) => {
+        const amountUsd = bxm.amountUsd ?? bxm.amount;
+        const amountUzs = bxm.amountUzs ?? 412000;
+        return {
+          ...bxm,
+          amount: amountUsd,
+          amountUsd,
+          amountUzs,
+        };
+      })
+    );
   } catch (error: any) {
     console.error('Error fetching BXM configs:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
@@ -45,8 +66,12 @@ router.get('/', requireAuth('ADMIN'), async (req, res) => {
 
 // Update BXM for a year
 const updateBXMSchema = z.object({
-  amount: z.number().min(0),
+  amount: z.number().min(0).optional(),
+  amountUsd: z.number().min(0).optional(),
+  amountUzs: z.number().min(0).optional(),
   year: z.number().int().min(2000).max(2100),
+}).refine((data) => data.amountUsd != null || data.amountUzs != null || data.amount != null, {
+  message: 'amountUsd yoki amountUzs kiritilishi kerak',
 });
 
 router.put('/:year', requireAuth('ADMIN'), async (req, res) => {
@@ -57,16 +82,30 @@ router.put('/:year', requireAuth('ADMIN'), async (req, res) => {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
 
+    const amountUsd = parsed.data.amountUsd ?? parsed.data.amount;
+    const amountUzs = parsed.data.amountUzs;
+
+    if (amountUsd == null || amountUzs == null) {
+      return res.status(400).json({ error: 'amountUsd va amountUzs ikkisi ham kiritilishi kerak' });
+    }
+
     const bxm = await prisma.bXMConfig.upsert({
       where: { year },
-      update: { amount: parsed.data.amount },
+      update: { amount: amountUsd, amountUsd, amountUzs },
       create: {
         year: parsed.data.year,
-        amount: parsed.data.amount,
+        amount: amountUsd,
+        amountUsd,
+        amountUzs,
       },
     });
 
-    res.json(bxm);
+    res.json({
+      ...bxm,
+      amount: amountUsd,
+      amountUsd,
+      amountUzs,
+    });
   } catch (error: any) {
     console.error('Error updating BXM:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });

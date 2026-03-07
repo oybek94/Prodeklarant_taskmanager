@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
+import { Icon } from '@iconify/react';
+import { useIsMobile } from '../utils/useIsMobile';
 
 interface Worker {
   id: number;
@@ -21,11 +23,17 @@ const Workers = () => {
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMobile = useIsMobile();
+  const isNewWorkerRoute = location.pathname === '/workers/new';
+  const editMatch = location.pathname.match(/^\/workers\/(\d+)\/edit$/);
+  const editWorkerId = editMatch ? Number(editMatch[1]) : null;
+  const showWorkerForm = showForm || (isMobile && isNewWorkerRoute);
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
   const [form, setForm] = useState({
     name: '',
     password: '',
-    role: 'DEKLARANT' as 'ADMIN' | 'MANAGER' | 'DEKLARANT',
+    role: 'DEKLARANT' as 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'SELLER',
     branchId: '',
     salary: '',
   });
@@ -48,22 +56,38 @@ const Workers = () => {
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && showForm) {
-        setShowForm(false);
+        if (isMobile && (isNewWorkerRoute || editWorkerId)) {
+          navigate('/workers');
+        } else {
+          setShowForm(false);
+        }
       }
     };
     window.addEventListener('keydown', handleEscKey);
     return () => {
       window.removeEventListener('keydown', handleEscKey);
     };
-  }, [showForm]);
+  }, [showForm, isMobile, isNewWorkerRoute, editWorkerId, navigate]);
 
   const loadWorkers = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/users');
-      setWorkers(response.data.filter((w: any) => w.role === 'DEKLARANT' || w.role === 'MANAGER'));
-    } catch (error) {
+      // Use /api/workers endpoint instead of /api/users
+      const response = await apiClient.get('/workers');
+      if (Array.isArray(response.data)) {
+        // Filter to show only DEKLARANT and MANAGER roles (exclude ADMIN)
+        setWorkers(response.data.filter((w: any) => w.role === 'DEKLARANT' || w.role === 'MANAGER' || w.role === 'SELLER'));
+      } else {
+        console.error('Invalid response format:', response.data);
+        setWorkers([]);
+      }
+    } catch (error: any) {
       console.error('Error loading workers:', error);
+      setWorkers([]);
+      // Show error message to user if it's not a 403 (forbidden)
+      if (error.response?.status !== 403) {
+        console.warn('Failed to load workers:', error.response?.data || error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -96,7 +120,11 @@ const Workers = () => {
           salary: form.salary ? parseFloat(form.salary) : undefined,
         });
       }
-      setShowForm(false);
+      if (isMobile && (isNewWorkerRoute || editWorkerId)) {
+        navigate('/workers');
+      } else {
+        setShowForm(false);
+      }
       setEditingWorker(null);
       setForm({
         name: '',
@@ -119,7 +147,7 @@ const Workers = () => {
     setForm({
       name: worker.name,
       password: '',
-      role: worker.role as 'ADMIN' | 'MANAGER' | 'DEKLARANT',
+      role: worker.role as 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'SELLER',
       branchId: worker.branch?.id ? worker.branch.id.toString() : '',
       salary: worker.salary ? Number(worker.salary).toString() : '',
     });
@@ -127,9 +155,18 @@ const Workers = () => {
     setShowForm(true);
   };
 
+  useEffect(() => {
+    if (!isMobile || !editWorkerId) return;
+    const worker = workers.find((w) => w.id === editWorkerId);
+    if (worker) {
+      handleEdit(worker);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, editWorkerId, workers]);
+
   const handleDelete = async (workerId: number) => {
     if (!confirm('Bu ishchini o\'chirishni xohlaysizmi? Bu amalni qaytarib bo\'lmaydi.')) return;
-    
+
     try {
       await apiClient.delete(`/users/${workerId}`);
       setOpenMenuId(null);
@@ -157,9 +194,15 @@ const Workers = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Workers</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Workers</h1>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            if (isMobile) {
+              navigate('/workers/new');
+            } else {
+              setShowForm(true);
+            }
+          }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           + Add New
@@ -211,38 +254,38 @@ const Workers = () => {
                       </div>
                     </div>
                     <div className="relative">
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenMenuId(openMenuId === worker.id ? null : worker.id);
                         }}
                         className="text-gray-400 hover:text-gray-600 p-1"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
+                        <Icon icon="lucide:more-vertical" className="w-5 h-5" />
                       </button>
                       {openMenuId === worker.id && (
-                        <div 
+                        <div
                           className="absolute right-0 top-8 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 min-w-[140px]"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
-                            onClick={() => handleEdit(worker)}
+                            onClick={() => {
+                              if (isMobile) {
+                                navigate(`/workers/${worker.id}/edit`);
+                              } else {
+                                handleEdit(worker);
+                              }
+                            }}
                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                           >
-                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
+                            <Icon icon="lucide:pencil" className="w-4 h-4 text-blue-600" />
                             O'zgartirish
                           </button>
                           <button
                             onClick={() => handleDelete(worker.id)}
                             className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            <Icon icon="lucide:trash-2" className="w-4 h-4" />
                             O'chirish
                           </button>
                         </div>
@@ -269,28 +312,33 @@ const Workers = () => {
                   {/* Email and Phone */}
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
+                      <Icon icon="lucide:mail" className="w-4 h-4 text-gray-400" />
                       <span className="truncate">{worker.email}</span>
                     </div>
                     {worker.phone && (
                       <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
+                        <Icon icon="lucide:phone" className="w-4 h-4 text-gray-400" />
                         <span>{worker.phone}</span>
                       </div>
                     )}
                   </div>
 
-                  {/* View Details Button */}
-                  <button
-                    onClick={() => navigate(`/workers/${worker.id}`)}
-                    className="w-full px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
-                  >
-                    View Details
-                  </button>
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => navigate(`/workers/${worker.id}/report`)}
+                      className="flex-1 flex justify-center items-center gap-1.5 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors border border-emerald-200"
+                    >
+                      <Icon icon="lucide:bar-chart-2" className="w-4 h-4" />
+                      Hisobot
+                    </button>
+                    <button
+                      onClick={() => navigate(`/workers/${worker.id}`)}
+                      className="flex-1 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
+                    >
+                      Batafsil
+                    </button>
+                  </div>
                 </div>
               );
             })
@@ -299,23 +347,27 @@ const Workers = () => {
       )}
 
       {/* Add Worker Modal */}
-      {showForm && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
+      {showWorkerForm && (
+        <div
+          className={isMobile && (isNewWorkerRoute || editWorkerId)
+            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+          style={isMobile && (isNewWorkerRoute || editWorkerId) ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setShowForm(false);
+              if (isMobile && (isNewWorkerRoute || editWorkerId)) {
+                navigate('/workers');
+              } else {
+                setShowForm(false);
+              }
             }
           }}
         >
-          <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-            }}
+          <div
+            className={isMobile && (isNewWorkerRoute || editWorkerId)
+              ? 'bg-white w-full h-full p-6 overflow-y-auto'
+              : 'bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4'}
+            style={isMobile && (isNewWorkerRoute || editWorkerId) ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-6">
@@ -324,7 +376,11 @@ const Workers = () => {
               </h2>
               <button
                 onClick={() => {
-                  setShowForm(false);
+                  if (isMobile && (isNewWorkerRoute || editWorkerId)) {
+                    navigate('/workers');
+                  } else {
+                    setShowForm(false);
+                  }
                   setEditingWorker(null);
                   setForm({
                     name: '',
@@ -376,11 +432,12 @@ const Workers = () => {
                 <select
                   required
                   value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value as 'ADMIN' | 'MANAGER' | 'DEKLARANT', branchId: e.target.value === 'MANAGER' ? '' : form.branchId })}
+                  onChange={(e) => setForm({ ...form, role: e.target.value as 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'SELLER', branchId: e.target.value === 'MANAGER' ? '' : form.branchId })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="DEKLARANT">DEKLARANT</option>
                   <option value="MANAGER">MANAGER</option>
+                  <option value="SELLER">SOTUVCHI (SELLER)</option>
                   <option value="ADMIN">ADMIN</option>
                 </select>
               </div>

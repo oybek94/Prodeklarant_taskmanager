@@ -5,10 +5,10 @@
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "types": ["vite/client"],
     "skipLibCheck": true,
+    "types": [],
 
-    /* Bundler mode */
+    /* Bundler mode - "bundler" respects package exports so /// <reference types="vite/client" /> resolves */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,

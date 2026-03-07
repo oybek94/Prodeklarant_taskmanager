@@ -40,7 +40,17 @@ function ensureUTF8(text: any): string {
   return result;
 }
 
-export function generateInvoicePDF(data: InvoiceData): PDFDocument {
+const resolveUploadImagePath = (url?: string | null): string | null => {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return null;
+  const clean = url.split('?')[0];
+  if (!clean.startsWith('/uploads/')) return null;
+  const relativePath = clean.replace(/^\//, '');
+  const absolutePath = path.resolve(process.cwd(), relativePath);
+  return fs.existsSync(absolutePath) ? absolutePath : null;
+};
+
+export function generateInvoicePDF(data: InvoiceData): any {
   // Reduce margins to fit more content on one page
   // PDFKit automatically handles UTF-8 encoding, but we ensure proper text handling
   const doc = new PDFDocument({ 
@@ -465,8 +475,8 @@ export function generateInvoicePDF(data: InvoiceData): PDFDocument {
   const hasTnvedCode = data.invoice.items?.some(item => item.tnvedCode && item.tnvedCode.trim() !== '');
   const hasPluCode = data.invoice.items?.some(item => item.pluCode && item.pluCode.trim() !== '');
   const hasPackageType = data.invoice.items?.some(item => item.packageType && item.packageType.trim() !== '');
-  const hasGrossWeight = data.invoice.items?.some(item => item.grossWeight && item.grossWeight > 0);
-  const hasNetWeight = data.invoice.items?.some(item => item.netWeight && item.netWeight > 0);
+  const hasGrossWeight = data.invoice.items?.some(item => item.grossWeight && Number(item.grossWeight) > 0);
+  const hasNetWeight = data.invoice.items?.some(item => item.netWeight && Number(item.netWeight) > 0);
   
   // Ustunlar pozitsiyasini hisoblash
   let currentX = startX;
@@ -634,7 +644,7 @@ export function generateInvoicePDF(data: InvoiceData): PDFDocument {
   // Now doc.y should be updated, so we can use moveDown for subsequent text
   doc.moveDown(1);
   
-  // Особые примечания
+  // Особые примечания - matn balandligi bo'yicha, pastda bo'sh joy qolmasin
   if (data.invoice.notes) {
     // Use explicit Y coordinate if doc.y is invalid
     let notesY = doc.y;
@@ -643,9 +653,12 @@ export function generateInvoicePDF(data: InvoiceData): PDFDocument {
     }
     
     doc.fontSize(8).text('Особые примечания', startX, notesY, { underline: true });
-    doc.fontSize(7).text(ensureUTF8(data.invoice.notes), startX, notesY + 10);
-    // Update doc.y for next section
-    doc.y = notesY + 25;
+    const notesText = ensureUTF8(data.invoice.notes);
+    const notesContentWidth = pageWidth - 2 * margin;
+    const notesTextHeight = doc.fontSize(7).heightOfString(notesText, { width: notesContentWidth });
+    doc.fontSize(7).text(notesText, startX, notesY + 10, { width: notesContentWidth });
+    // doc.y ni matn haqiqiy balandligi + kichik oraliq bilan yangilash
+    doc.y = notesY + 10 + notesTextHeight + 4;
   }
   
   // Imzolar
@@ -663,9 +676,22 @@ export function generateInvoicePDF(data: InvoiceData): PDFDocument {
   try {
     const supplierDirector = data.contract?.supplierDirector || '';
     const goodsReleasedBy = data.contract?.goodsReleasedBy || '';
+    const signaturePath = resolveUploadImagePath(data.contract?.signatureUrl);
+    const sealPath = resolveUploadImagePath(data.contract?.sealUrl);
     
     const supplierText = supplierDirector ? `Руководитель Поставщика: ${supplierDirector}` : 'Руководитель Поставщика _________________';
     doc.text(ensureUTF8(supplierText), startX, signatureY);
+
+    // Signature and seal images (to the right of director name)
+    let imageX = startX + doc.widthOfString(ensureUTF8(supplierText)) + 10;
+    const imageY = signatureY - 10;
+    if (signaturePath) {
+      doc.image(signaturePath, imageX, imageY, { height: 30 });
+      imageX += 90;
+    }
+    if (sealPath) {
+      doc.image(sealPath, imageX, imageY - 4, { height: 40 });
+    }
     
     if (goodsReleasedBy) {
       doc.text(ensureUTF8(`Товар отпустил: ${goodsReleasedBy}`), startX, signatureY + 30);

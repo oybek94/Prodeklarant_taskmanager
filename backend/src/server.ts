@@ -27,6 +27,7 @@ import taskAiChecksRouter from './routes/task-ai-checks';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 import path from 'path';
+import lmsRouter from './routes/lms';
 // import { fixDatabaseRoles } from './utils/fixDatabaseRoles'; // Vaqtinchalik o'chirilgan
 
 const app = express();
@@ -120,6 +121,9 @@ app.use('/api/finance', financeRouter);
 app.use('/api/invoices', requireAuth(), invoicesRouter);
 app.use('/api/company-settings', companySettingsRouter);
 app.use('/api/contracts', requireAuth(), contractsRouter);
+
+// LMS endpoints (v1) - stream token issuance and streaming proxy
+app.use('/api/v1', lmsRouter);
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

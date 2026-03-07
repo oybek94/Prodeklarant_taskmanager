@@ -23,6 +23,25 @@ npm run dev
 
 Backend server `http://localhost:3001` da ishlaydi.
 
+### Integration tests
+
+We provide a Postman collection and an automated integration test that runs in CI via Newman (Postman CLI).
+
+- Run locally (from repo root):
+
+```bash
+cd backend
+npm ci
+npm run test:integration
+```
+
+- CI: GitHub Action `LMS Integration Tests` runs migrations, seeds DB and executes the Postman collection.
+
+Files:
+- `backend/openapi/lms-postman-collection.json`
+- `backend/openapi/lms-postman-environment.json`
+- `.github/workflows/lms-integration-tests.yml`
+
 ### Frontend
 
 ```bash

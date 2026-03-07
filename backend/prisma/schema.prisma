@@ -743,3 +743,250 @@ model CompanySettings {
 
   @@unique([id]) // Faqat bitta sozlama bo'lishi kerak
 }
+
+// --------------------------
+// LMS models (Learning Management System)
+// --------------------------
+
+enum LmsRole {
+  ADMIN
+  LEARNER
+}
+
+enum MediaType {
+  VIDEO
+  AUDIO
+  IMAGE
+  FILE
+}
+
+enum TranscodeStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum ExamType {
+  SYSTEM
+  PRACTICAL
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  MATCHING
+}
+
+enum ExamStatus {
+  PENDING
+  PASSED
+  FAILED
+}
+
+model LmsLevel {
+  id          Int      @id @default(autoincrement())
+  name        String
+  orderIndex  Int      @default(0)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  courses     LmsCourse[]
+  userProfiles LmsUserProfile[]
+
+  @@unique([orderIndex])
+}
+
+model LmsUserProfile {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @unique
+  role            LmsRole   @default(LEARNER)
+  currentLevelId  Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentLevel    LmsLevel? @relation(fields: [currentLevelId], references: [id])
+  examResults     LmsExamResult[]
+  progress        LmsUserProgress[]
+
+  @@index([role])
+}
+
+model LmsCourse {
+  id             Int       @id @default(autoincrement())
+  title          String
+  description    String?
+  requiredLevelId Int?
+  isPublished    Boolean   @default(false)
+  createdById    Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  requiredLevel  LmsLevel? @relation(fields: [requiredLevelId], references: [id])
+  createdBy      User?     @relation(fields: [createdById], references: [id])
+  modules        LmsModule[]
+  exams          LmsExam[]
+
+  @@index([requiredLevelId])
+}
+
+model LmsModule {
+  id         Int       @id @default(autoincrement())
+  courseId   Int
+  title      String
+  description String?
+  orderIndex Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  course     LmsCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons    LmsLesson[]
+
+  @@unique([courseId, orderIndex])
+}
+
+model LmsLesson {
+  id                 Int       @id @default(autoincrement())
+  moduleId           Int
+  title              String
+  content            Json?
+  orderIndex         Int       @default(0)
+  requiresCompletion Boolean   @default(true)
+  minWatchPercent    Int?
+  createdAt          DateTime  @default(now())
+
+  module             LmsModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  media              LmsLessonMedia[]
+  progress           LmsUserProgress[]
+
+  @@unique([moduleId, orderIndex])
+}
+
+model LmsLessonMedia {
+  id             Int       @id @default(autoincrement())
+  lessonId       Int
+  type           MediaType
+  storageKey     String
+  contentType    String
+  sizeBytes      BigInt?
+  durationSeconds Int?
+  hlsManifestKey String?
+  variant        Json?
+  protected      Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+
+  lesson         LmsLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  transcodes     LmsMediaTranscode[]
+  streamSessions LmsMediaStreamSession[]
+
+  @@index([lessonId])
+}
+
+model LmsMediaTranscode {
+  id        Int       @id @default(autoincrement())
+  mediaId   Int
+  jobId     String?   @unique
+  status    TranscodeStatus
+  result    Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  media     LmsLessonMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+}
+
+model LmsMediaStreamSession {
+  id          String   @id @default(uuid())
+  userId      Int
+  mediaId     Int
+  sessionToken String  @unique
+  expiresAt   DateTime
+  revoked     Boolean  @default(false)
+  clientIp    String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media       LmsLessonMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([mediaId])
+}
+
+model LmsExam {
+  id             Int       @id @default(autoincrement())
+  courseId       Int?
+  moduleId       Int?
+  title          String
+  type           ExamType
+  passingScore   Int       @default(70)
+  attemptsAllowed Int?
+  active         Boolean   @default(true)
+  createdById    Int?
+  createdAt      DateTime  @default(now())
+
+  course         LmsCourse? @relation(fields: [courseId], references: [id])
+  module         LmsModule? @relation(fields: [moduleId], references: [id])
+  questions      LmsExamQuestion[]
+  results        LmsExamResult[]
+}
+
+model LmsExamQuestion {
+  id             Int       @id @default(autoincrement())
+  examId         Int
+  questionType   QuestionType
+  prompt         Json
+  options        Json?
+  points         Int       @default(1)
+  correctAnswer  Json?
+
+  exam           LmsExam   @relation(fields: [examId], references: [id], onDelete: Cascade)
+}
+
+model LmsExamResult {
+  id             Int       @id @default(autoincrement())
+  examId         Int
+  userId         Int
+  attemptNumber  Int       @default(1)
+  scorePercent   Decimal?  @db.Decimal(5,2)
+  details        Json?
+  status         ExamStatus
+  gradedById     Int?
+  gradedAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  exam           LmsExam   @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gradedBy       User?     @relation("LmsExamResultGrader", fields: [gradedById], references: [id])
+
+  @@index([userId])
+  @@index([examId])
+}
+
+model LmsUserProgress {
+  id               Int       @id @default(autoincrement())
+  userId           Int
+  lessonId         Int
+  completedAt      DateTime?
+  watchAggregates  Json?
+  lastHeartbeatAt  DateTime?
+  examResultId     Int?
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson           LmsLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  examResult       LmsExamResult? @relation(fields: [examResultId], references: [id])
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+}
+
+model LmsLessonSequenceLock {
+  id                 Int       @id @default(autoincrement())
+  lessonId           Int       @unique
+  unlockAfterLessonId Int?
+
+  lesson             LmsLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  unlockAfterLesson  LmsLesson? @relation(fields: [unlockAfterLessonId], references: [id])
+}
+
+// End of LMS models

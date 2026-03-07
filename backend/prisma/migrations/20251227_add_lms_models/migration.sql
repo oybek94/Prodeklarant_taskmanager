@@ -32,8 +32,8 @@ DO $$ BEGIN
 END$$;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'questiontype') THEN
-    CREATE TYPE "QuestionType" AS ENUM ('MULTIPLE_CHOICE','TRUE_FALSE','MATCHING');
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'lmsquestiontype') THEN
+    CREATE TYPE "LmsQuestionType" AS ENUM ('MULTIPLE_CHOICE','TRUE_FALSE','MATCHING');
   END IF;
 END$$;
 
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS "LmsExam" (
 CREATE TABLE IF NOT EXISTS "LmsExamQuestion" (
   id SERIAL PRIMARY KEY,
   "examId" INT NOT NULL REFERENCES "LmsExam"(id) ON DELETE CASCADE,
-  "questionType" "QuestionType" NOT NULL,
+  "questionType" "LmsQuestionType" NOT NULL,
   prompt JSONB NOT NULL,
   options JSONB,
   points INT NOT NULL DEFAULT 1,

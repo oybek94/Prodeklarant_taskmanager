@@ -109,42 +109,10 @@ export default function Exam() {
     setSubmitting(true);
 
     try {
-      let response;
-      try {
-        const answersObject: Record<string, any> = {};
-        answersArray.forEach(({ questionId, answer }) => {
-          answersObject[questionId.toString()] = answer;
-        });
-
-        response = await apiClient.post(`/exams/${id}/attempt`, {
-          answers: answersObject,
-        });
-
-        if (response.data.attempt && response.data.evaluation) {
-          navigate(`/exam/${id}/result`, {
-            state: {
-              result: {
-                attempt: response.data.attempt,
-                score: response.data.attempt.score,
-                maxScore: response.data.attempt.maxScore,
-                scorePercent: response.data.attempt.score,
-                passed: response.data.attempt.passed,
-                passingScore: 80,
-                evaluation: response.data.evaluation,
-              },
-            },
-          });
-          return;
-        }
-      } catch (aiError: any) {
-        if (aiError.response?.status === 404 || aiError.response?.status === 400) {
-          response = await apiClient.post(`/exams/${id}/submit`, {
-            answers: answersArray,
-          });
-        } else {
-          throw aiError;
-        }
-      }
+      // Always use /submit for exact answer matching (SINGLE_CHOICE questions)
+      const response = await apiClient.post(`/exams/${id}/submit`, {
+        answers: answersArray,
+      });
 
       navigate(`/exam/${id}/result`, {
         state: {
@@ -158,6 +126,7 @@ export default function Exam() {
       setSubmitting(false);
     }
   };
+
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

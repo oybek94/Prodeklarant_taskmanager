@@ -180,18 +180,30 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
 
       // To'g'ri javobni tekshirish
       if (question.type === 'SINGLE_CHOICE' || question.type === 'MULTIPLE_CHOICE') {
-        const correctAnswer = question.correctAnswer;
-        const userAnswerValue = userAnswer.answer;
+        const correctRaw = question.correctAnswer;
+        const userRaw = userAnswer.answer;
 
-        if (Array.isArray(correctAnswer) && Array.isArray(userAnswerValue)) {
-          // Multiple choice: ikkala array ham bir xil bo'lishi kerak
-          isCorrect = JSON.stringify(correctAnswer.sort()) === JSON.stringify(userAnswerValue.sort());
+        // Normalize: har ikkalasini ham massivga o'tkazish
+        const normalizeAnswer = (val: any): string[] => {
+          if (Array.isArray(val)) return val.map(String).sort();
+          if (val === null || val === undefined) return [];
+          return [String(val)];
+        };
+
+        const correctNorm = normalizeAnswer(correctRaw);
+        const userNorm = normalizeAnswer(userRaw);
+
+        if (question.type === 'SINGLE_CHOICE') {
+          // Single choice: bitta to'g'ri javob
+          const correctStr = correctNorm[0] || '';
+          const userStr = userNorm[0] || '';
+          isCorrect = correctStr.trim().toLowerCase() === userStr.trim().toLowerCase();
         } else {
-          isCorrect = JSON.stringify(correctAnswer) === JSON.stringify(userAnswerValue);
+          // Multiple choice: barcha javoblar mos kelishi kerak
+          isCorrect = JSON.stringify(correctNorm) === JSON.stringify(userNorm);
         }
       } else if (question.type === 'TEXT') {
-        // Text javoblar uchun keyinroq qo'lda tekshirish mumkin
-        isCorrect = false; // Hozircha false
+        isCorrect = false;
       }
 
       if (isCorrect) {
@@ -238,6 +250,16 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
         },
       },
     });
+
+    // Lesson yoki bosqich holatini yangilash
+    if (exam.lessonId) {
+      await LessonProgressionService.updateLessonStatusAfterExam(
+        req.user!.id,
+        exam.lessonId,
+        scorePercent,
+        passed
+      );
+    }
 
     res.json({
       attempt: updatedAttempt,

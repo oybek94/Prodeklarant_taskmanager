@@ -21,6 +21,7 @@ export default function RichTextEditor({
 
       <Editor
         tinymceScriptSrc="/tinymce/tinymce.min.js"
+        licenseKey="gpl"
         onInit={(_evt, editor) => editorRef.current = editor}
         value={content}
         onEditorChange={handleEditorChange}

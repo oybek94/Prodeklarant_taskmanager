@@ -331,6 +331,17 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     });
     const passedDummyStepIds = new Set(dummyStepProgress.map(p => p.lessonId));
 
+    // Check which stages the user has visited (read)
+    const visitedProgress = await prisma.trainingProgress.findMany({
+      where: {
+        userId: req.user!.id,
+        trainingId: training.id,
+        stageId: { not: null },
+        materialId: { not: null }, // Only stages where they actually read material
+      },
+    });
+    const visitedStageIds = new Set(visitedProgress.map((p: any) => p.stageId));
+
     const stagesWithLockStatus = training.stages
       .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
       .map((stage: any, index: number, array: any[]) => {
@@ -352,10 +363,13 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
           }
         }
 
+        const isRead = visitedStageIds.has(stage.id);
+
         return {
           ...stage,
           isUnlocked,
-          isPassed
+          isPassed,
+          isRead,
         };
       });
 
@@ -369,13 +383,19 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       take: 5,
     });
 
+    // Bosqichlarga asoslanib progress hisoblash
+    const totalStages = stagesWithLockStatus.length;
+    const passedStages = stagesWithLockStatus.filter((s: any) => s.isPassed).length;
+    const computedProgressPercent = totalStages > 0 ? Math.round((passedStages / totalStages) * 100) : 0;
+    const computedCompleted = passedStages === totalStages && totalStages > 0;
+
     res.json({
       ...training,
       stages: stagesWithLockStatus,
-      progress: progress || {
-        completed: false,
-        progressPercent: 0,
-        lastAccessedAt: null,
+      progress: {
+        ...(progress || { lastAccessedAt: null }),
+        progressPercent: computedProgressPercent,
+        completed: computedCompleted,
       },
       recentExamAttempts: examAttempts,
     });

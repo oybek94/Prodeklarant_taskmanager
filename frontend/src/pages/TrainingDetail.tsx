@@ -69,6 +69,7 @@ interface Stage {
   steps: Step[];
   isUnlocked?: boolean;
   isPassed?: boolean;
+  isRead?: boolean;
 }
 
 interface Exam {
@@ -296,9 +297,34 @@ export default function TrainingDetail() {
                   .filter(step => step.title !== '_AI_STAGE_EXAM')
                   .reduce((sum, step) => sum + (step.materials?.length || 0), 0);
 
-                const isRead = stage.isPassed || readStages.includes(stage.id);
+                const isPassed = stage.isPassed === true;
                 const isUnlocked = stage.isUnlocked ?? (index === 0);
-                const isActive = isUnlocked && !isRead;
+
+                // 3 holat: O'qilmagan | O'qilgan imtihon topshirilmagan | Tugallangan
+                // "O'qilgan imtihon topshirilmagan" - foydalanuvchi o'qigan (backend tracking)
+                // Hozircha localStorage'da tracking yo'q, shuning uchun faqat backend flag ishlatamiz
+                const isReadOnServer = stage.isRead === true;
+
+                const statusLabel = isPassed
+                  ? 'Tugallangan'
+                  : isReadOnServer
+                    ? "O'qilgan, imtihon topshirilmagan"
+                    : isUnlocked
+                      ? "O'qilmagan"
+                      : 'Qulflangan';
+
+                const statusColor = isPassed
+                  ? 'bg-green-500 border-green-600 text-white'
+                  : isReadOnServer
+                    ? 'bg-amber-500 border-amber-600 text-white'
+                    : isUnlocked
+                      ? 'bg-indigo-600 border-indigo-700 text-white'
+                      : 'bg-slate-100 border-slate-200 dark:bg-slate-700 dark:border-slate-600 text-slate-500';
+
+                // HTML teglardan xoli tekst
+                const plainDescription = stage.description
+                  ? stage.description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+                  : '';
 
                 return (
                   <div
@@ -308,7 +334,7 @@ export default function TrainingDetail() {
                         navigate(`/training/${id}/stage/${stage.id}`)
                       }
                     }}
-                    className={`group relative bg-white dark:bg-slate-800 rounded-3xl p-6 border-2 transition-all duration-300 ${isRead
+                    className={`group relative bg-white dark:bg-slate-800 rounded-3xl p-6 border-2 transition-all duration-300 ${isPassed
                       ? 'border-green-500/30 bg-green-50/10 cursor-pointer hover:shadow-2xl hover:-translate-y-2'
                       : isUnlocked
                         ? 'border-indigo-500 shadow-xl shadow-indigo-500/10 cursor-pointer hover:shadow-2xl hover:-translate-y-2'
@@ -317,20 +343,15 @@ export default function TrainingDetail() {
                   >
                     {/* Status Badge */}
                     <div className="absolute -top-3 left-6">
-                      <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border shadow-sm ${isRead
-                        ? 'bg-green-500 border-green-600 text-white'
-                        : isUnlocked
-                          ? 'bg-indigo-600 border-indigo-700 text-white'
-                          : 'bg-slate-100 border-slate-200 dark:bg-slate-700 dark:border-slate-600 text-slate-500'
-                        }`}>
-                        {isRead ? 'Tugallangan' : isUnlocked ? 'Faol Bosqich' : 'Qulflangan'}
+                      <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border shadow-sm ${statusColor}`}>
+                        {statusLabel}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-4 mb-4 mt-2">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-inner ${isRead
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-inner ${isPassed
                         ? 'bg-green-100 dark:bg-green-900/30 text-green-600'
-                        : isActive
+                        : isUnlocked
                           ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600'
                           : 'bg-slate-50 dark:bg-slate-700 text-slate-400'
                         }`}>
@@ -344,9 +365,9 @@ export default function TrainingDetail() {
                       </div>
                     </div>
 
-                    {stage.description && (
+                    {plainDescription && (
                       <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6 h-10 leading-snug">
-                        {stage.description}
+                        {plainDescription}
                       </p>
                     )}
 
@@ -354,7 +375,7 @@ export default function TrainingDetail() {
                       <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                         {isUnlocked ? 'Kirish' : 'Qulflangan'}
                       </span>
-                      <div className={`p-2 rounded-xl transition-all ${isRead
+                      <div className={`p-2 rounded-xl transition-all ${isPassed
                         ? 'bg-green-50 text-green-600'
                         : isUnlocked
                           ? 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white'

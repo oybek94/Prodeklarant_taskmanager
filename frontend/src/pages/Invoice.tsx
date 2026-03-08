@@ -197,6 +197,7 @@ interface Contract {
   buyerSealUrl?: string;
   consigneeSignatureUrl?: string;
   consigneeSealUrl?: string;
+  companyLogoUrl?: string;
   gln?: string; // GLN код
   specification?: Array<{ productName?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number }>;
 }
@@ -736,9 +737,9 @@ const Invoice = () => {
     pluCode: item.pluCode ?? undefined,
     packageType: item.packageType ?? undefined,
     quantity: item.quantity != null ? Number(item.quantity) : 0,
-    packagesCount: item.packagesCount != null && item.packagesCount !== '' ? Number(item.packagesCount) : undefined,
-    grossWeight: item.grossWeight != null && item.grossWeight !== '' ? Number(item.grossWeight) : undefined,
-    netWeight: item.netWeight != null && item.netWeight !== '' ? Number(item.netWeight) : undefined,
+    packagesCount: (item.packagesCount != null && Number(item.packagesCount) !== 0) ? Number(item.packagesCount) : undefined,
+    grossWeight: item.grossWeight != null ? Number(item.grossWeight) : undefined,
+    netWeight: item.netWeight != null ? Number(item.netWeight) : undefined,
     unitPrice: item.unitPrice != null ? Number(item.unitPrice) : 0,
     totalPrice: item.totalPrice != null ? Number(item.totalPrice) : 0,
   });
@@ -793,7 +794,7 @@ const Invoice = () => {
             paymentTerms: contract.deliveryTerms || prev.paymentTerms,
 
             date: new Date().toISOString().split('T')[0],
-            gln: contract.gln || prev.gln,
+            gln: contract.gln != null ? contract.gln : prev.gln,
 
           }));
 
@@ -835,6 +836,9 @@ const Invoice = () => {
               if (dupAi?.columnLabels && typeof dupAi.columnLabels === 'object') {
                 setColumnLabels((prev) => ({ ...prev, ...(dupAi.columnLabels as Record<string, string>) }));
               }
+              if (dupAi?.visibleAdditionalInfoFields && typeof dupAi.visibleAdditionalInfoFields === 'object') {
+                setAdditionalInfoVisible(dupAi.visibleAdditionalInfoFields as Record<string, boolean>);
+              }
               const todayIso = new Date().toISOString().split('T')[0];
               setForm(prev => ({
                 ...prev,
@@ -860,14 +864,14 @@ const Invoice = () => {
                 palletWeight: '',
                 trailerNumber: '',
                 smrNumber: '',
-                shipmentPlace: '',
+                shipmentPlace: String(dupAi?.shipmentPlace || ''),
                 customsAddress: '',
-                destination: '',
+                destination: String(dupAi?.destination || ''),
                 origin: 'Республика Узбекистан',
-                manufacturer: '',
+                manufacturer: String(dupAi?.manufacturer || ''),
                 orderNumber: '',
-                gln: '',
-                harvestYear: '',
+                gln: prev.gln, // Shartnomadan avtomatik to'ldirilgan GLN saqlanadi
+                harvestYear: String(dupAi?.harvestYear || ''),
                 documents: '',
                 carrier: '',
                 tirNumber: '',
@@ -951,7 +955,7 @@ const Invoice = () => {
                 contractNumber: contract.contractNumber,
 
                 paymentTerms: contract.deliveryTerms || prev.paymentTerms,
-                gln: contract.gln || prev.gln,
+                gln: contract.gln != null ? contract.gln : prev.gln,
 
               }));
 
@@ -1105,10 +1109,11 @@ const Invoice = () => {
                 setSelectedContractSpec(spec);
                 // Saqlangan invoysda foydalanuvchi kiritgan narx (unitPrice/totalPrice) ni spetsifikatsiya bilan ustidan yozmaymiz — faqat nom/TNVED sinxron qilinadi
                 // setItems(loadedItems) allaqachon yuqorida chaqirilgan; syncItemsFromSpec faqat shartnoma tanlanganda (handleContractSelect) ishlatiladi
-                // Faqat contractNumber — paymentTerms/gln saqlangan inv.additionalInfo dan qoladi
+                // contractNumber shartnomadan olinadi; gln — invoys additionalInfo bo'sh bo'lsa shartnomadan olinadi
                 setForm(prev => ({
                   ...prev,
                   contractNumber: contract.contractNumber,
+                  gln: prev.gln ? prev.gln : (contract.gln ?? prev.gln),
                 }));
                 // Modal uchun delivery terms ro'yxati
                 const deliveryTermsList = String(contract.deliveryTerms || '')
@@ -1792,7 +1797,7 @@ const Invoice = () => {
         paymentTerms: contract.deliveryTerms || '',
         deliveryTerms: firstDt || prev.deliveryTerms,
         customsAddress: pairedCustoms,
-        gln: contract.gln || prev.gln,
+        gln: contract.gln != null ? contract.gln : prev.gln,
       }));
       const deliveryTermsKey = getDeliveryTermsContractKey();
       const mergedDeliveryTerms = mergeDeliveryTerms(deliveryTermsList, loadDeliveryTerms(deliveryTermsKey));
@@ -2374,7 +2379,7 @@ const Invoice = () => {
       else if (th >= 5 && th <= 20) result += convertBlock(th) + ' тысяч ';
       else {
         const tMod = th % 100;
-        if (tMod === 1 && th % 10 === 1 && tMod !== 11) result += convertBlock(th) + ' тысяча ';
+        if (th % 10 === 1 && tMod !== 11) result += convertBlock(th) + ' тысяча ';
         else if ((tMod >= 2 && tMod <= 4) && (tMod < 10 || tMod >= 20)) result += convertBlock(th) + ' тысячи ';
         else result += convertBlock(th) + ' тысяч ';
       }
@@ -2836,8 +2841,8 @@ const Invoice = () => {
                   type="button"
                   onClick={() => setViewTab(tab.id)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${isActive
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                     }`}
                 >
                   {tab.label}
@@ -2853,11 +2858,11 @@ const Invoice = () => {
 
             {/* Invoice Header */}
 
-            <div className="grid grid-cols-2 gap-8 mb-0 invoice-header">
+            <div className="flex justify-between items-start w-full mb-0 invoice-header">
 
               {/* Left: Invoice raqami va sana */}
 
-              <div>
+              <div className="flex-1 min-w-0 pr-4">
 
                 <div className="space-y-1 mb-4">
                   <div className="flex items-center gap-1">
@@ -2929,11 +2934,28 @@ const Invoice = () => {
 
               </div>
 
-
+              {/* Middle: Company Logo */}
+              <div className="flex shrink-0 justify-center px-4">
+                {(() => {
+                  const activeContract = contracts.find(c => String(c.id) === String(selectedContractId || contractIdFromQuery));
+                  const logoUrl = activeContract?.companyLogoUrl;
+                  if (logoUrl) {
+                    return (
+                      <img
+                        src={resolveUploadUrl(logoUrl)}
+                        alt="Kompaniya logotipi"
+                        className="h-14 w-auto object-contain"
+                        crossOrigin="anonymous"
+                      />
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
 
               {/* Right: Invoice Info */}
 
-              <div className="text-right">
+              <div className="flex-1 min-w-0 pl-4 text-right">
 
                 <h1 className="text-5xl font-bold text-gray-800 dark:text-gray-100 mb-6">
                   {viewTab === 'invoice'
@@ -3251,8 +3273,8 @@ const Invoice = () => {
                         }
                       }}
                       className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-300 text-sm ${addressCopySuccess
-                          ? 'bg-green-500 text-white scale-110 shadow-lg shadow-green-500/40'
-                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        ? 'bg-green-500 text-white scale-110 shadow-lg shadow-green-500/40'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
                         }`}
                       title="Грузополучатель manzili + п/п. + Покупатель nomi + Покупатель manzili"
                     >
@@ -3289,6 +3311,7 @@ const Invoice = () => {
                   <>
                     {isAdditionalInfoVisible('vehicleNumber') && form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
                     {isAdditionalInfoVisible('shipmentPlace') && form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
+                    {isAdditionalInfoVisible('destination') && form.destination && <div><strong>Место назначения:</strong> {form.destination}</div>}
                     {isAdditionalInfoVisible('customsAddress') && form.customsAddress && <div><strong>Место там. очистки:</strong> {form.customsAddress}</div>}
                     {isAdditionalInfoVisible('origin') && <div><strong>Происхождение товара:</strong> {form.origin || 'Республика Узбекистан'}</div>}
                     {isAdditionalInfoVisible('manufacturer') && form.manufacturer && <div><strong>Производитель:</strong> {form.manufacturer}</div>}
@@ -3463,10 +3486,10 @@ const Invoice = () => {
                                 <td className="px-2 py-2">{item.packageType || ''}</td>
                               )}
                               {effectiveColumns.quantity && (
-                                <td className="px-2 py-2 text-right">{formatNumber(item.quantity)}</td>
+                                <td className="px-2 py-2 text-right">{item.quantity != null && item.quantity !== 0 ? formatNumber(item.quantity) : ''}</td>
                               )}
                               {effectiveColumns.packagesCount && (
-                                <td className="px-2 py-2 text-right">{formatNumber(item.packagesCount ?? 0)}</td>
+                                <td className="px-2 py-2 text-right">{item.packagesCount != null && item.packagesCount !== 0 ? formatNumber(item.packagesCount) : ''}</td>
                               )}
                               {effectiveColumns.gross && (
                                 <td className="px-2 py-2 text-right">{formatNumber(item.grossWeight || 0)}</td>
@@ -3494,7 +3517,7 @@ const Invoice = () => {
                             )}
                             {effectiveColumns.quantity && (
                               <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
-                                {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
+                                {(() => { const t = items.reduce((sum, item) => sum + item.quantity, 0); return t !== 0 ? formatNumber(t) : ''; })()}
                               </td>
                             )}
                             {effectiveColumns.packagesCount && (
@@ -3674,7 +3697,7 @@ const Invoice = () => {
                                 <td className="px-2 py-2">
                                   <input
                                     type="number"
-                                    value={item.quantity ?? 0}
+                                    value={item.quantity === 0 || item.quantity == null ? '' : item.quantity}
                                     onChange={(e) => {
                                       const v = e.target.value;
                                       handleItemChange(index, 'quantity', v === '' ? 0 : (parseFloat(v) || 0));
@@ -3694,8 +3717,8 @@ const Invoice = () => {
                                     value={item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount}
                                     onChange={(e) => {
                                       const raw = e.target.value;
-                                      const num = raw === '' ? undefined : (parseFloat(String(raw).replace(',', '.')) || 0);
-                                      handleItemChange(index, 'packagesCount', num ?? 0);
+                                      const num = raw === '' ? undefined : parseFloat(String(raw).replace(',', '.'));
+                                      handleItemChange(index, 'packagesCount', isNaN(num as number) ? undefined : num);
                                     }}
                                     className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
                                     min="0"
@@ -3794,7 +3817,7 @@ const Invoice = () => {
                             )}
                             {effectiveColumns.quantity && (
                               <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
-                                {formatNumber(items.reduce((sum, item) => sum + item.quantity, 0))}
+                                {(() => { const t = items.reduce((sum, item) => sum + item.quantity, 0); return t !== 0 ? formatNumber(t) : ''; })()}
                               </td>
                             )}
                             {effectiveColumns.packagesCount && (
@@ -3843,7 +3866,7 @@ const Invoice = () => {
                 const difference = maxWeight - goodsGross;
                 return (
                   <div className="mt-4 flex flex-wrap gap-4">
-                    <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm shrink-0">
+                    <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm w-1/2">
                       <div className="flex flex-wrap gap-x-6 gap-y-1">
                         <span>
                           <strong>Maks. og'irlik (кг):</strong> {formatNumber(maxWeight)}
@@ -3854,6 +3877,11 @@ const Invoice = () => {
                         <span className={totalGross > 40000 ? 'w-full text-red-700' : 'w-full'}>
                           <strong>Umumiy og'irlik (кг):</strong> {formatNumber(totalGross)}
                         </span>
+                        {(loader + trailer) > 0 && (
+                          <span className="w-full">
+                            <strong>Avto og'irlik (кг):</strong> {loader > 0 && trailer > 0 ? `${formatNumber(loader)} + ${formatNumber(trailer)} = ` : ''}{formatNumber(loader + trailer)}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm flex-1 min-w-0">

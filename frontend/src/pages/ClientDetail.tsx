@@ -42,6 +42,7 @@ interface Contract {
   paymentMethod?: string;
   signatureUrl?: string;
   sealUrl?: string;
+  companyLogoUrl?: string;
 }
 
 interface Client {
@@ -59,6 +60,7 @@ interface Client {
     tasksByBranch: Record<string, number>;
     totalTasks: number;
     tasksWithPsr?: number; // PSR bor bo'lgan tasklar soni
+    currency?: string;
   };
 }
 
@@ -147,6 +149,7 @@ const ClientDetail = () => {
     goodsReleasedBy: '', // Товар отпустил
     signatureUrl: '',
     sealUrl: '',
+    companyLogoUrl: '',
   });
 
   useEffect(() => {
@@ -180,7 +183,7 @@ const ClientDetail = () => {
     }
   };
 
-  const uploadContractImage = async (file: File, field: 'signatureUrl' | 'sealUrl') => {
+  const uploadContractImage = async (file: File, field: 'signatureUrl' | 'sealUrl' | 'companyLogoUrl') => {
     const formData = new FormData();
     formData.append('image', file);
     const response = await apiClient.post('/upload/image', formData, {
@@ -194,15 +197,15 @@ const ClientDetail = () => {
   // Helper function to parse details textarea
   const parseDetails = (detailsText: string) => {
     if (!detailsText || !detailsText.trim()) return {};
-    
+
     const lines = detailsText.split('\n').map(line => line.trim()).filter(line => line);
     const result: any = {};
     let currentSection = '';
-    
+
     lines.forEach((line) => {
       const lowerLine = line.toLowerCase();
       const originalLine = line;
-      
+
       // INN/ИНН - format: "INN: 123456" yoki "ИНН: 123456" yoki "INN 123456"
       if (lowerLine.includes('inn') || lowerLine.includes('инн')) {
         const match = originalLine.match(/(?:inn|инн)[:\s]*([^\n]+)/i);
@@ -213,7 +216,7 @@ const ClientDetail = () => {
         // Agar faqat raqamlar bo'lsa va INN/OGRN bo'lmagan bo'lsa
         result.inn = originalLine.trim();
       }
-      
+
       // OGRN/ОГРН - format: "OGRN: 123456" yoki "ОГРН: 123456"
       if (lowerLine.includes('ogrn') || lowerLine.includes('огрн')) {
         const match = originalLine.match(/(?:ogrn|огрн)[:\s]*([^\n]+)/i);
@@ -224,29 +227,29 @@ const ClientDetail = () => {
         // Agar 13-15 raqam bo'lsa va OGRN bo'lmagan bo'lsa
         result.ogrn = originalLine.trim();
       }
-      
+
       // Bank nomi - format: "Bank: Nomi" yoki "Банк: Nomi" yoki "Банковские реквизиты:" dan keyin
       if (lowerLine.includes('банковские') || lowerLine.includes('реквизиты')) {
         currentSection = 'bank';
-      } else if ((lowerLine.includes('bank') || lowerLine.includes('банк')) && 
-                 !lowerLine.includes('manzil') && !lowerLine.includes('address') && 
-                 !lowerLine.includes('адрес') && !lowerLine.includes('расчетный') && 
-                 !lowerLine.includes('валютный') && !lowerLine.includes('счет') &&
-                 !lowerLine.includes('korrespondent') && !lowerLine.includes('kor.') &&
-                 !lowerLine.includes('корреспондент')) {
+      } else if ((lowerLine.includes('bank') || lowerLine.includes('банк')) &&
+        !lowerLine.includes('manzil') && !lowerLine.includes('address') &&
+        !lowerLine.includes('адрес') && !lowerLine.includes('расчетный') &&
+        !lowerLine.includes('валютный') && !lowerLine.includes('счет') &&
+        !lowerLine.includes('korrespondent') && !lowerLine.includes('kor.') &&
+        !lowerLine.includes('корреспондент')) {
         const match = originalLine.match(/(?:bank|банк)[:\s]+(.+)/i);
         if (match && !result.bankName) {
           const bankName = match[1].trim();
           // Agar "Bank manzili" yoki "Bank address" bo'lmasa
-          if (!bankName.toLowerCase().includes('manzil') && 
-              !bankName.toLowerCase().includes('address') &&
-              !bankName.toLowerCase().includes('адрес') &&
-              !bankName.toLowerCase().includes('реквизиты')) {
+          if (!bankName.toLowerCase().includes('manzil') &&
+            !bankName.toLowerCase().includes('address') &&
+            !bankName.toLowerCase().includes('адрес') &&
+            !bankName.toLowerCase().includes('реквизиты')) {
             result.bankName = bankName;
           }
         }
       }
-      
+
       // Bank manzili - format: "Bank manzili: ..." yoki "Bank address: ..."
       if (lowerLine.includes('manzil') || lowerLine.includes('address') || lowerLine.includes('адрес')) {
         if (lowerLine.includes('bank') || lowerLine.includes('банк')) {
@@ -261,11 +264,11 @@ const ClientDetail = () => {
           }
         }
       }
-      
+
       // Hisob raqami - format: "Hisob: 123456" yoki "Расчетный счет: 123456" yoki "Валютный счет: 123456"
-      if (lowerLine.includes('hisob') || lowerLine.includes('account') || 
-          lowerLine.includes('расчетный') || lowerLine.includes('валютный') || 
-          lowerLine.includes('счет')) {
+      if (lowerLine.includes('hisob') || lowerLine.includes('account') ||
+        lowerLine.includes('расчетный') || lowerLine.includes('валютный') ||
+        lowerLine.includes('счет')) {
         // Расчетный счет (UZS)
         if (lowerLine.includes('расчетный') || (lowerLine.includes('счет') && lowerLine.includes('uzs'))) {
           const match = originalLine.match(/расчетный\s+счет[^:]*[:\s]*([^\n]+)/i);
@@ -294,7 +297,7 @@ const ClientDetail = () => {
         // Agar uzun raqamlar bo'lsa va hisob raqami bo'lmagan bo'lsa
         result.bankAccount = originalLine.trim();
       }
-      
+
       // МФО - format: "МФО: 123456"
       if (lowerLine.includes('мфо') || lowerLine.includes('mfo')) {
         const match = originalLine.match(/(?:мфо|mfo)[:\s]*([^\n]+)/i);
@@ -307,7 +310,7 @@ const ClientDetail = () => {
           }
         }
       }
-      
+
       // SWIFT - format: "SWIFT: ABCD" yoki "SWIFT ABCD"
       if (lowerLine.includes('swift') && !lowerLine.includes('korrespondent') && !lowerLine.includes('kor.') && !lowerLine.includes('корреспондент')) {
         const match = originalLine.match(/swift[:\s]*([^\n]+)/i);
@@ -318,7 +321,7 @@ const ClientDetail = () => {
         // Agar SWIFT formatida bo'lsa (8-11 belgi)
         result.bankSwift = originalLine.trim().toUpperCase();
       }
-      
+
       // Korrespondent bank - format: "Kor. bank: ..." yoki "Корреспондент банк: ..."
       if (lowerLine.includes('korrespondent') || lowerLine.includes('kor.') || lowerLine.includes('kor ') || lowerLine.includes('корреспондент')) {
         if (lowerLine.includes('bank') || lowerLine.includes('банк')) {
@@ -343,7 +346,7 @@ const ClientDetail = () => {
         }
       }
     });
-    
+
     return result;
   };
 
@@ -377,8 +380,9 @@ const ClientDetail = () => {
         gln: contractForm.gln || undefined, // Глобальный идентификационный номер GS1 (GLN)
         supplierDirector: contractForm.supplierDirector || undefined, // Руководитель Поставщика
         goodsReleasedBy: contractForm.goodsReleasedBy || undefined, // Товар отпустил
-        signatureUrl: contractForm.signatureUrl || undefined,
-        sealUrl: contractForm.sealUrl || undefined,
+        signatureUrl: (contractForm.signatureUrl?.trim() ?? '') === '' ? '' : contractForm.signatureUrl,
+        sealUrl: (contractForm.sealUrl?.trim() ?? '') === '' ? '' : contractForm.sealUrl,
+        companyLogoUrl: (contractForm.companyLogoUrl?.trim() ?? '') === '' ? '' : contractForm.companyLogoUrl,
       };
 
       if (editingContract) {
@@ -444,6 +448,7 @@ const ClientDetail = () => {
         goodsReleasedBy: '',
         signatureUrl: '',
         sealUrl: '',
+        companyLogoUrl: '',
       });
       await loadContracts();
     } catch (error: any) {
@@ -456,7 +461,7 @@ const ClientDetail = () => {
     apiClient.get(`/contracts/${contract.id}`)
       .then(response => {
         const contractData = response.data;
-        
+
         // Agar to'g'ridan-to'g'ri saqlangan ma'lumotlar bo'lsa, ularni ishlatish, aks holda eski maydonlardan birlashtirish
         const sellerDetails = contractData.sellerDetails || [
           contractData.sellerInn ? `INN: ${contractData.sellerInn}` : '',
@@ -469,7 +474,7 @@ const ClientDetail = () => {
           contractData.sellerCorrespondentBankAccount ? `Kor. hisob: ${contractData.sellerCorrespondentBankAccount}` : '',
           contractData.sellerCorrespondentBankSwift ? `Kor. SWIFT: ${contractData.sellerCorrespondentBankSwift}` : '',
         ].filter(line => line.trim()).join('\n');
-        
+
         const buyerDetails = contractData.buyerDetails || [
           contractData.buyerInn ? `INN: ${contractData.buyerInn}` : '',
           contractData.buyerOgrn ? `OGRN: ${contractData.buyerOgrn}` : '',
@@ -481,7 +486,7 @@ const ClientDetail = () => {
           contractData.buyerCorrespondentBankAccount ? `Kor. hisob: ${contractData.buyerCorrespondentBankAccount}` : '',
           contractData.buyerCorrespondentBankSwift ? `Kor. SWIFT: ${contractData.buyerCorrespondentBankSwift}` : '',
         ].filter(line => line.trim()).join('\n');
-        
+
         const shipperDetails = contractData.shipperDetails || [
           contractData.shipperInn ? `INN: ${contractData.shipperInn}` : '',
           contractData.shipperOgrn ? `OGRN: ${contractData.shipperOgrn}` : '',
@@ -490,7 +495,7 @@ const ClientDetail = () => {
           contractData.shipperBankAccount ? `Hisob: ${contractData.shipperBankAccount}` : '',
           contractData.shipperBankSwift ? `SWIFT: ${contractData.shipperBankSwift}` : '',
         ].filter(line => line.trim()).join('\n');
-        
+
         const consigneeDetails = contractData.consigneeDetails || [
           contractData.consigneeInn ? `INN: ${contractData.consigneeInn}` : '',
           contractData.consigneeOgrn ? `OGRN: ${contractData.consigneeOgrn}` : '',
@@ -499,7 +504,7 @@ const ClientDetail = () => {
           contractData.consigneeBankAccount ? `Hisob: ${contractData.consigneeBankAccount}` : '',
           contractData.consigneeBankSwift ? `SWIFT: ${contractData.consigneeBankSwift}` : '',
         ].filter(line => line.trim()).join('\n');
-        
+
         setContractForm({
           contractNumber: contractData.contractNumber || '',
           contractDate: contractData.contractDate ? contractData.contractDate.split('T')[0] : '',
@@ -558,6 +563,7 @@ const ClientDetail = () => {
           goodsReleasedBy: contractData.goodsReleasedBy || '',
           signatureUrl: contractData.signatureUrl || '',
           sealUrl: contractData.sealUrl || '',
+          companyLogoUrl: contractData.companyLogoUrl || '',
         });
         setEditingContract(contract);
         setShowContractForm(true);
@@ -570,7 +576,7 @@ const ClientDetail = () => {
 
   const handleDeleteContract = async (contractId: number) => {
     if (!confirm('Bu shartnomani o\'chirishni xohlaysizmi?')) return;
-    
+
     try {
       await apiClient.delete(`/contracts/${contractId}`);
       alert('Shartnoma muvaffaqiyatli o\'chirildi');
@@ -651,9 +657,8 @@ const ClientDetail = () => {
               <CurrencyDisplay
                 amount={Number(client.stats.balance)}
                 originalCurrency={(client.stats.currency || 'USD') as 'USD' | 'UZS'}
-                className={`font-medium ${
-                  Number(client.stats.balance) >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}
+                className={`font-medium ${Number(client.stats.balance) >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}
               />
             </div>
           </div>
@@ -717,6 +722,11 @@ const ClientDetail = () => {
                 deliveryTerms: '',
                 paymentMethod: '',
                 gln: '',
+                supplierDirector: '',
+                goodsReleasedBy: '',
+                signatureUrl: '',
+                sealUrl: '',
+                companyLogoUrl: '',
               });
               setShowContractForm(true);
             }}
@@ -778,147 +788,146 @@ const ClientDetail = () => {
 
       {/* Stats by Branch - MANAGER uchun ko'rinmasin */}
       {client.stats && (
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Filial bo'yicha statistika</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Object.entries(client.stats.tasksByBranch || {}).map(([branch, count]) => (
-            <div key={branch} className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-gray-800">{count}</div>
-              <div className="text-sm text-gray-500">{branch}</div>
-            </div>
-          ))}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4">Filial bo'yicha statistika</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(client.stats.tasksByBranch || {}).map(([branch, count]) => (
+              <div key={branch} className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-gray-800">{count}</div>
+                <div className="text-sm text-gray-500">{branch}</div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
       )}
 
       {/* Tasks - MANAGER uchun ko'rinmasin */}
       {!isManagerOnly && (
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Buyurtmalar ({client.tasks?.length ?? 0})</h2>
-        {(client.tasks?.length ?? 0) === 0 ? (
-          <div className="text-center py-8 text-gray-400">Buyurtmalar yo'q</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Task
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Filial
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Sana
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {(client.tasks || []).map((task) => (
-                  <tr key={task.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {task.title}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {task.branch.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          task.status === 'TAYYOR'
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4">Buyurtmalar ({client.tasks?.length ?? 0})</h2>
+          {(client.tasks?.length ?? 0) === 0 ? (
+            <div className="text-center py-8 text-gray-400">Buyurtmalar yo'q</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Task
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Filial
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Sana
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {(client.tasks || []).map((task) => (
+                    <tr key={task.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {task.title}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {task.branch.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${task.status === 'TAYYOR'
                             ? 'bg-green-100 text-green-800'
                             : task.status === 'JARAYONDA'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {task.status === 'TAYYOR'
-                          ? 'Completed'
-                          : task.status === 'JARAYONDA'
-                          ? 'In Progress'
-                          : 'Not Started'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(task.createdAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => navigate(`/tasks/${task.id}`)}
-                          className="text-blue-600 hover:text-blue-800"
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-gray-100 text-gray-800'
+                            }`}
                         >
-                          View
-                        </button>
-                        <button
-                          onClick={() => navigate(`/invoices/task/${task.id}`)}
-                          className="text-green-600 hover:text-green-800"
-                        >
-                          Invoice
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                          {task.status === 'TAYYOR'
+                            ? 'Completed'
+                            : task.status === 'JARAYONDA'
+                              ? 'In Progress'
+                              : 'Not Started'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatDate(task.createdAt)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => navigate(`/tasks/${task.id}`)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => navigate(`/invoices/task/${task.id}`)}
+                            className="text-green-600 hover:text-green-800"
+                          >
+                            Invoice
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Transactions - MANAGER uchun ko'rinmasin */}
       {!isManagerOnly && (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold mb-4">To'lovlar ({(client.transactions || []).length})</h2>
-        {(client.transactions?.length ?? 0) === 0 ? (
-          <div className="text-center py-8 text-gray-400">To'lovlar yo'q</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Summa
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Sana
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Comment
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {(client.transactions || []).map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      <CurrencyDisplay amount={Number(t.amount)} originalCurrency={t.currency as 'USD' | 'UZS'} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(t.date)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{t.comment || '-'}</td>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">To'lovlar ({(client.transactions || []).length})</h2>
+          {(client.transactions?.length ?? 0) === 0 ? (
+            <div className="text-center py-8 text-gray-400">To'lovlar yo'q</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Summa
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Sana
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Comment
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {(client.transactions || []).map((t) => (
+                    <tr key={t.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <CurrencyDisplay amount={Number(t.amount)} originalCurrency={t.currency as 'USD' | 'UZS'} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatDate(t.date)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{t.comment || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Contract Form Modal */}
       {showContractForm && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] backdrop-blur-sm overflow-y-auto py-4"
-          onClick={(e) => {
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
               setShowContractForm(false);
               setEditingContract(null);
@@ -1271,6 +1280,44 @@ const ClientDetail = () => {
                         <button
                           type="button"
                           onClick={() => setContractForm({ ...contractForm, sealUrl: '' })}
+                          className="text-sm text-red-600 hover:text-red-800"
+                        >
+                          O'chirish
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Kompaniya logotipi (PNG/JPG)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          await uploadContractImage(file, 'companyLogoUrl');
+                        } catch (error) {
+                          console.error('Error uploading logo:', error);
+                          alert('Logotipni yuklashda xatolik yuz berdi');
+                        } finally {
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    {contractForm.companyLogoUrl && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <img
+                          src={resolveUploadUrl(contractForm.companyLogoUrl)}
+                          alt="Kompaniya logotipi"
+                          className="h-[90px] w-auto object-contain border border-gray-200 rounded"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setContractForm({ ...contractForm, companyLogoUrl: '' })}
                           className="text-sm text-red-600 hover:text-red-800"
                         >
                           O'chirish

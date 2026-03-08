@@ -828,6 +828,7 @@ model Contract {
   consigneeDirector              String?
   contractCurrency               String?
   emails                         String?
+  companyLogoUrl                 String?
   client                         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   invoices                       Invoice[]
 

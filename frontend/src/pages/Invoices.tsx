@@ -632,7 +632,7 @@ const Invoices = () => {
       {canEdit && showCreateModal && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={(e) => {
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
               setShowCreateModal(false);
               setDuplicateInvoiceId(null);
@@ -839,7 +839,7 @@ const Invoices = () => {
       {showTnvedSettingsModal && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={(e) => {
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) setShowTnvedSettingsModal(false);
           }}
         >
@@ -1432,7 +1432,7 @@ const Invoices = () => {
       {showErrorModal && invoiceForErrorModal && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          onClick={(e) => {
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) setShowErrorModal(false);
           }}
         >
@@ -1587,7 +1587,7 @@ const Invoices = () => {
         <div
           className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 transition-opacity duration-200 ease-out ${deleteModalClosing || !deleteModalAnimated ? 'opacity-0' : 'opacity-100'
             }`}
-          onClick={(e) => {
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) setDeleteModalClosing(true);
           }}
         >

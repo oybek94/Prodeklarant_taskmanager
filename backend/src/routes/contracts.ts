@@ -74,6 +74,7 @@ const contractSchema = z.object({
   buyerSealUrl: z.string().optional(),
   consigneeSignatureUrl: z.string().optional(),
   consigneeSealUrl: z.string().optional(),
+  companyLogoUrl: z.string().optional(),
   specification: z.array(z.object({
     productName: z.string(),
     botanicalName: z.string().optional(),
@@ -98,8 +99,8 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Res
     });
 
     if (contracts.length > 0) {
-      const directors = await prisma.$queryRaw<Array<{ id: number; buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null }>>`
-        SELECT "id", "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy" FROM "Contract" WHERE "clientId" = ${clientId}
+      const directors = await prisma.$queryRaw<Array<{ id: number; buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null; companyLogoUrl: string | null }>>`
+        SELECT "id", "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy", "companyLogoUrl" FROM "Contract" WHERE "clientId" = ${clientId}
       `;
       const byId = Object.fromEntries((directors || []).map((d: any) => [
         d.id,
@@ -108,6 +109,7 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Res
           consigneeDirector: d.consigneeDirector ?? null,
           supplierDirector: d.supplierDirector ?? null,
           goodsReleasedBy: d.goodsReleasedBy ?? null,
+          companyLogoUrl: d.companyLogoUrl ?? null,
         }
       ]));
       const merged = contracts.map((c: any) => ({ ...c, ...byId[c.id] }));
@@ -141,11 +143,11 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Shartnoma topilmadi' });
     }
 
-    const directors = await prisma.$queryRaw<Array<{ buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null }>>`
-      SELECT "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy" FROM "Contract" WHERE "id" = ${id}
+    const directors = await prisma.$queryRaw<Array<{ buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null; companyLogoUrl: string | null }>>`
+      SELECT "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy", "companyLogoUrl" FROM "Contract" WHERE "id" = ${id}
     `;
     const result = directors?.[0]
-      ? { ...contract, buyerDirector: (directors[0] as any).buyerDirector, consigneeDirector: (directors[0] as any).consigneeDirector, supplierDirector: (directors[0] as any).supplierDirector, goodsReleasedBy: (directors[0] as any).goodsReleasedBy }
+      ? { ...contract, buyerDirector: (directors[0] as any).buyerDirector, consigneeDirector: (directors[0] as any).consigneeDirector, supplierDirector: (directors[0] as any).supplierDirector, goodsReleasedBy: (directors[0] as any).goodsReleasedBy, companyLogoUrl: (directors[0] as any).companyLogoUrl }
       : contract;
     res.json(result);
   } catch (error: any) {
@@ -262,6 +264,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
     if (data.buyerSealUrl !== undefined) contractData.buyerSealUrl = data.buyerSealUrl;
     if (data.consigneeSignatureUrl !== undefined) contractData.consigneeSignatureUrl = data.consigneeSignatureUrl;
     if (data.consigneeSealUrl !== undefined) contractData.consigneeSealUrl = data.consigneeSealUrl;
+    if (data.companyLogoUrl !== undefined) contractData.companyLogoUrl = data.companyLogoUrl;
     if (data.specification !== undefined) {
       const spec = Array.isArray(data.specification) ? data.specification : [];
       const toNum = (v: any): number | undefined => {
@@ -465,6 +468,7 @@ router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res
     if (data.buyerSealUrl !== undefined) contractData.buyerSealUrl = data.buyerSealUrl;
     if (data.consigneeSignatureUrl !== undefined) contractData.consigneeSignatureUrl = data.consigneeSignatureUrl;
     if (data.consigneeSealUrl !== undefined) contractData.consigneeSealUrl = data.consigneeSealUrl;
+    if (data.companyLogoUrl !== undefined) contractData.companyLogoUrl = data.companyLogoUrl;
     if (data.specification !== undefined) {
       const spec = Array.isArray(data.specification) ? data.specification : [];
       const toNum = (v: any): number | undefined => {

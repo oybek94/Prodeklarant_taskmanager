@@ -1,0 +1,162 @@
+{
+  "info": {
+    "name": "Prodeklarant LMS API",
+    "_postman_id": "lms-collection",
+    "description": "Postman collection for core LMS endpoints (Auth, Admin, Learner, Media streaming)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001/api/v1" },
+    { "key": "accessToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"password\": \"admin123\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  try {",
+              "    const json = pm.response.json();",
+              "    if (json.accessToken) pm.environment.set('accessToken', json.accessToken);",
+              "    if (json.refreshToken) pm.environment.set('refreshToken', json.refreshToken);",
+              "  } catch (e) { console.error('Failed to parse login response'); }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Auth - Refresh",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"<refreshToken>\"\n}" },
+        "url": { "raw": "{{baseUrl}}/auth/refresh", "host": ["{{baseUrl}}"], "path": ["auth","refresh"] }
+      }
+    },
+    {
+      "name": "Admin - Create Course",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"Intro to Company\",\n  \"description\": \"Onboarding course\",\n  \"requiredLevelId\": 1,\n  \"isPublished\": true\n}" },
+        "url": { "raw": "{{baseUrl}}/admin/courses", "host": ["{{baseUrl}}"], "path": ["admin","courses"] }
+      }
+    },
+    {
+      "name": "Admin - Upload Lesson Media (multipart)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "file", "type": "file", "src": "" },
+            { "key": "type", "value": "VIDEO" },
+            { "key": "contentType", "value": "video/mp4" }
+          ]
+        },
+        "url": { "raw": "{{baseUrl}}/admin/lessons/<<lessonId>>/media", "host": ["{{baseUrl}}"], "path": ["admin","lessons","<<lessonId>>","media"] }
+      }
+    },
+    {
+      "name": "Learner - List Courses",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/courses", "host": ["{{baseUrl}}"], "path": ["courses"] }
+      }
+    },
+    {
+      "name": "Learner - Get Lesson Details",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/lessons/<<lessonId>>", "host": ["{{baseUrl}}"], "path": ["lessons","<<lessonId>>"] }
+      }
+    },
+    {
+      "name": "Learner - Request Stream Token",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{ \"mediaId\": 1 }" },
+        "url": { "raw": "{{baseUrl}}/lessons/<<lessonId>>/stream-token", "host": ["{{baseUrl}}"], "path": ["lessons","<<lessonId>>","stream-token"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Stream token exists', function() {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.token).to.be.a('string');",
+              "  pm.expect(json.expiresAt).to.be.a('string');",
+              "  pm.environment.set('streamToken', json.token);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Streaming Proxy (example)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/media/stream/<<mediaId>>?token=<<TOKEN>>", "host": ["{{baseUrl}}"], "path": ["media","stream","<<mediaId>>"], "query": [ { "key": "token", "value": "<<TOKEN>>" } ] }
+      }
+    },
+    {
+      "name": "Get Exam",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/exams/<<examId>>", "host": ["{{baseUrl}}"], "path": ["exams","<<examId>>"] }
+      }
+    },
+    {
+      "name": "Submit Exam",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{ \"answers\": [ { \"questionId\": 1, \"answer\": \"A\" } ] }" },
+        "url": { "raw": "{{baseUrl}}/exams/<<examId>>/submit", "host": ["{{baseUrl}}"], "path": ["exams","<<examId>>","submit"] }
+      }
+    },
+    {
+      "name": "Admin - List Pending Exam Results",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/admin/exam-results?status=PENDING", "host": ["{{baseUrl}}"], "path": ["admin","exam-results"], "query": [ { "key": "status", "value": "PENDING" } ] }
+      }
+    },
+    {
+      "name": "Admin - Grade Practical Exam",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{ \"status\": \"PASSED\", \"notes\": \"Well done\" }" },
+        "url": { "raw": "{{baseUrl}}/admin/exam-results/<<resultId>>/grade", "host": ["{{baseUrl}}"], "path": ["admin","exam-results","<<resultId>>","grade"] }
+      }
+    }
+  ]
+}

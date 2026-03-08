@@ -40,12 +40,12 @@ import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 import OpenAIClient from './ai/openai.client';
 import path from 'path';
+import lmsRouter from './routes/lms';
 import { initializeExchangeRateScheduler } from './services/exchange-rate-scheduler';
 import { initializeProcessScheduler } from './services/process-scheduler';
 import processRouter from './routes/process';
 import notificationsRouter from './routes/notifications';
 import leadsRouter from './routes/leads';
-
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
@@ -188,6 +188,9 @@ app.use('/api/process', requireAuth(), processRouter);
 app.use('/api/notifications', requireAuth(), notificationsRouter);
 app.use('/api/leads', requireAuth(), leadsRouter);
 
+// LMS endpoints (v1) - stream token issuance and streaming proxy
+app.use('/api/v1', lmsRouter);
+
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Global error handler:', err);
@@ -276,4 +279,5 @@ process.on('SIGINT', async () => {
   await prisma.$disconnect();
   process.exit(0);
 });
+
 

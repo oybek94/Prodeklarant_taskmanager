@@ -20,6 +20,7 @@ interface ExamResultData {
         question: string;
         type: string;
         options: string[];
+        correctAnswer?: any;
         points: number;
       };
     }>;
@@ -163,110 +164,83 @@ export default function ExamResult() {
                 <h2 className="text-2xl font-black uppercase tracking-tight">AI Baholash va Tavsiyalar</h2>
               </div>
               <div className="prose prose-invert max-w-none text-indigo-50 font-medium leading-relaxed">
-                {result.evaluation.split('\n').map((line, i) => (
-                  <p key={i} className="mb-4">{line}</p>
-                ))}
+                {typeof result.evaluation === 'string' ? (
+                  result.evaluation.split('\n').map((line, i) => (
+                    <p key={i} className="mb-4">{line}</p>
+                  ))
+                ) : (
+                  <div className="space-y-6">
+                    {/* Yutuqlar */}
+                    {(result.evaluation as any).strengths && (result.evaluation as any).strengths.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-bold text-emerald-300 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:check-circle" /> Yutuqlar:
+                        </h3>
+                        <ul className="list-disc pl-5 space-y-1 text-sm md:text-base">
+                          {(result.evaluation as any).strengths.map((str: string, i: number) => <li key={i}>{str}</li>)}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Kamchiliklar */}
+                    {(result.evaluation as any).weaknesses && (result.evaluation as any).weaknesses.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-bold text-red-300 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:alert-circle" /> Kamchiliklar:
+                        </h3>
+                        <ul className="list-disc pl-5 space-y-1 text-sm md:text-base">
+                          {(result.evaluation as any).weaknesses.map((w: string, i: number) => <li key={i}>{w}</li>)}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Tavsiyalar */}
+                    {(result.evaluation as any).recommendation && (
+                      <div>
+                        <h3 className="text-lg font-bold text-yellow-300 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:lightbulb" /> Tavsiya:
+                        </h3>
+                        <p className="text-sm md:text-base pl-2 border-l-2 border-yellow-300/30">
+                          {(result.evaluation as any).recommendation}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Takrorlanishi kerak bo'lganlar */}
+                    {(result.evaluation as any).suggested_review && (result.evaluation as any).suggested_review.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-bold text-indigo-300 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:book-open" /> Qayta ko'rib chiqish tavsiya etiladi:
+                        </h3>
+                        <ul className="list-disc pl-5 space-y-1 text-sm md:text-base">
+                          {(result.evaluation as any).suggested_review.map((r: string, i: number) => <li key={i}>{r}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Detailed Review Section */}
-        <section className="space-y-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white">Javoblar Tahlili</h3>
-              <p className="text-slate-500 text-sm">Har bir savol bo'yicha batafsil hisobot</p>
-            </div>
-            <div className="flex gap-2">
-              <div className="px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-black">
-                {result.attempt.answers.filter(a => a.isCorrect).length} To'g'ri
-              </div>
-              <div className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-xs font-black">
-                {result.attempt.answers.filter(a => !a.isCorrect).length} Noto'g'ri
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            {result.attempt.answers.map((answer, index) => (
-              <div
-                key={answer.id}
-                className={`bg-white dark:bg-slate-800 rounded-[32px] p-8 border-l-[12px] shadow-xl shadow-slate-200/50 dark:shadow-none transition-all ${answer.isCorrect
-                    ? 'border-emerald-500 dark:border-emerald-600'
-                    : 'border-red-500 dark:border-red-600'
-                  }`}
-              >
-                <div className="flex items-start justify-between gap-6">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-black text-slate-500">
-                        {index + 1}
-                      </span>
-                      <h4 className="text-lg font-bold text-slate-900 dark:text-white">
-                        {answer.question.question}
-                      </h4>
-                    </div>
-
-                    {answer.question.type !== 'TEXT' ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
-                        {answer.question.options.map((option, optIdx) => {
-                          const isUserChoice = Array.isArray(answer.answer)
-                            ? answer.answer.includes(option)
-                            : answer.answer === option;
-
-                          return (
-                            <div
-                              key={optIdx}
-                              className={`p-4 rounded-2xl border-2 flex items-center gap-3 transition-colors ${isUserChoice
-                                  ? answer.isCorrect
-                                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
-                                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
-                                  : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800 text-slate-500'
-                                }`}
-                            >
-                              <Icon
-                                icon={isUserChoice ? (answer.isCorrect ? "lucide:check-circle-2" : "lucide:x-circle") : "lucide:circle"}
-                                className="w-5 h-5 flex-shrink-0"
-                              />
-                              <span className="text-sm font-bold">{option}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="mt-4 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Sizning Javobingiz</p>
-                        <p className="text-slate-700 dark:text-slate-300 font-bold whitespace-pre-wrap">
-                          {answer.answer || "(Javob berilmagan)"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="text-right flex flex-col items-end">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-2 ${answer.isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'
-                      }`}>
-                      <Icon icon={answer.isCorrect ? "lucide:check" : "lucide:x"} className="w-6 h-6" />
-                    </div>
-                    <p className="text-xl font-black text-slate-900 dark:text-white">{answer.points}</p>
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">ball</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
         {/* Action Buttons */}
         <div className="mt-16 flex flex-col sm:flex-row items-center justify-center gap-4">
-          {!result.passed && (
+          {!result.passed ? (
             <button
               onClick={() => navigate(`/exam/${id}`)}
               className="w-full sm:w-auto px-10 py-5 bg-indigo-600 text-white rounded-[24px] font-black shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-3"
             >
               <Icon icon="lucide:refresh-ccw" className="w-6 h-6" />
               Qayta Topshirish
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/training')} // To'g'ridan to'g'ri training ro'yxatiga qaytarsak, ochilgan yangi bosqichni o'sha yerdan tanlashi mumkin
+              className="w-full sm:w-auto px-10 py-5 bg-emerald-600 text-white rounded-[24px] font-black shadow-xl shadow-emerald-600/20 hover:bg-emerald-700 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-3"
+            >
+              <Icon icon="lucide:arrow-right" className="w-6 h-6" />
+              Keyingi Bosqich
             </button>
           )}
           <button
@@ -278,7 +252,7 @@ export default function ExamResult() {
           </button>
         </div>
       </main>
-    </div>
+    </div >
   );
 }
 

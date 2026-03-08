@@ -10,6 +10,7 @@ import {
   getSystemPrompt,
   generateUserPrompt,
   generateEvaluatorPrompt,
+  generateQuestionCountPrompt,
   type UserPromptInputs,
   type EvaluatorPromptInputs,
 } from '../prompts/exam-prompts';
@@ -97,14 +98,54 @@ export class ExamAIService {
         throw new Error('Invalid exam generation result: missing questions array');
       }
 
-      if (result.questions.length < 8 || result.questions.length > 12) {
-        throw new Error(`Invalid exam generation result: expected 8-12 questions, got ${result.questions.length}`);
+      if (result.questions.length < 5 || result.questions.length > 10) {
+        throw new Error(`Invalid exam generation result: expected 5-10 questions, got ${result.questions.length}`);
       }
 
       return result;
     } catch (error) {
       console.error('Error generating exam:', error);
       throw new Error(`Failed to generate exam: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Determine the optimal number of questions based on content length
+   */
+  static async determineQuestionCount(lessonTitle: string, lessonContent: string): Promise<number> {
+    try {
+      const client = OpenAIClient.getClient();
+      const systemPrompt = getSystemPrompt();
+      const prompt = generateQuestionCountPrompt(lessonTitle, lessonContent);
+
+      const response = await client.chat.completions.create({
+        model: this.MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+        temperature: this.TEMPERATURE,
+        max_tokens: 100,
+        response_format: { type: 'json_object' },
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No response from AI');
+      }
+
+      const result = JSON.parse(content) as { count: number };
+
+      let count = result.count;
+      if (typeof count !== 'number' || isNaN(count)) {
+        count = 5; // Fallback default
+      }
+
+      // Constrain between 3 and 15
+      return Math.max(3, Math.min(15, count));
+    } catch (error) {
+      console.error('Error determining question count:', error);
+      return 5; // Fallback default if AI fails
     }
   }
 

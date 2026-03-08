@@ -22,7 +22,7 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/tasks" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

@@ -1,0 +1,400 @@
+openapi: 3.0.3
+info:
+  title: Prodeklarant LMS API
+  version: 1.0.0
+  description: >-
+    Minimal OpenAPI 3.0 spec for LMS features (Admin + Learner). Authentication
+    uses Bearer JWT tokens. Admin-only endpoints require role=ADMIN authorization
+    enforced by server middleware.
+servers:
+  - url: /api/v1
+    description: Local API base path
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    AuthRequest:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+      example:
+        password: "admin123"
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserSummary'
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          type: string
+    Course:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        requiredLevelId: { type: integer, nullable: true }
+        isPublished: { type: boolean }
+    Module:
+      type: object
+      properties:
+        id: { type: integer }
+        courseId: { type: integer }
+        title: { type: string }
+        orderIndex: { type: integer }
+    Lesson:
+      type: object
+      properties:
+        id: { type: integer }
+        moduleId: { type: integer }
+        title: { type: string }
+        content: { type: object }
+        orderIndex: { type: integer }
+        requiresCompletion: { type: boolean }
+    LessonMedia:
+      type: object
+      properties:
+        id: { type: integer }
+        lessonId: { type: integer }
+        type: { type: string }
+        storageKey: { type: string }
+        contentType: { type: string }
+        hlsManifestKey: { type: string, nullable: true }
+    StreamTokenRequest:
+      type: object
+      required: [mediaId]
+      properties:
+        mediaId:
+          type: integer
+      example:
+        mediaId: 10
+    StreamTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    Exam:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        type: { type: string }
+        passingScore: { type: integer }
+    ExamQuestion:
+      type: object
+      properties:
+        id: { type: integer }
+        questionType: { type: string }
+        prompt: { type: object }
+        options: { type: object }
+    ExamSubmitRequest:
+      type: object
+      properties:
+        answers:
+          type: array
+          items: { type: object }
+      example:
+        answers: [{ questionId: 1, answer: "A" }]
+    ExamSubmitResponse:
+      type: object
+      properties:
+        scorePercent: { type: number }
+        status: { type: string }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+paths:
+  /auth/login:
+    post:
+      summary: Staff login (password-based)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Tokens + user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error'} } } }
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200': { description: 'New tokens', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } }
+  /admin/courses:
+    get:
+      summary: List all courses (Admin)
+      description: Requires ADMIN role
+      responses:
+        '200': { content: { 'application/json': { schema: { type: array, items: { $ref: '#/components/schemas/Course' } } } } }
+    post:
+      summary: Create course (Admin)
+      description: Requires ADMIN role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                requiredLevelId: { type: integer }
+                isPublished: { type: boolean }
+      responses:
+        '201': { description: 'Created', content: { 'application/json': { schema: { $ref: '#/components/schemas/Course' } } } }
+  /admin/courses/{courseId}:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      summary: Get course details (Admin)
+      responses:
+        '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Course' } } } }
+    put:
+      summary: Update course (Admin)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200': { description: 'Updated' }
+    delete:
+      summary: Delete course (Admin)
+      responses:
+        '204': { description: 'Deleted' }
+  /admin/modules/{moduleId}/lessons:
+    post:
+      summary: Create lesson under module (Admin)
+      parameters:
+        - name: moduleId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                content: { type: object }
+                orderIndex: { type: integer }
+      responses:
+        '201': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Lesson' } } } }
+  /admin/lessons/{lessonId}/media:
+    post:
+      summary: Upload media to lesson (Admin)
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                type: { type: string }
+                contentType: { type: string }
+      responses:
+        '201': { content: { 'application/json': { schema: { $ref: '#/components/schemas/LessonMedia' } } } }
+  /admin/media/{mediaId}/transcode:
+    post:
+      summary: Trigger transcode job for media (Admin)
+      parameters:
+        - name: mediaId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '202': { description: 'Transcode job queued' }
+  /courses:
+    get:
+      summary: List available courses (Learner view)
+      parameters:
+        - name: level
+          in: query
+          schema: { type: integer }
+      responses:
+        '200': { content: { 'application/json': { schema: { type: array, items: { $ref: '#/components/schemas/Course' } } } } }
+  /courses/{courseId}:
+    get:
+      summary: Get course with modules (Learner)
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Course' } } } }
+  /modules/{moduleId}/lessons:
+    get:
+      summary: List lessons in module (Learner)
+      parameters:
+        - name: moduleId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { content: { 'application/json': { schema: { type: array, items: { $ref: '#/components/schemas/Lesson' } } } } }
+  /lessons/{lessonId}:
+    get:
+      summary: Get lesson details and media (Learner)
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Lesson' } } } }
+    post:
+      summary: Mark lesson complete (Learner)
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: 'Marked completed' }
+  /lessons/{lessonId}/stream-token:
+    post:
+      summary: Request short-lived streaming token (Learner)
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StreamTokenRequest'
+      responses:
+        '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/StreamTokenResponse' } } } }
+  /media/stream/{mediaId}:
+    get:
+      summary: Streaming proxy endpoint (supports Range)
+      description: >-
+        Backend verifies session token or Authorization header and streams HLS
+        or MP4 bytes. This endpoint must validate token, check revocation,
+        and return appropriate Range headers.
+      parameters:
+        - name: mediaId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: 'Stream (partial content supported)' }
+        '401': { $ref: '#/components/schemas/Error' }
+  /exams/{examId}:
+    get:
+      summary: Get exam metadata (Learner)
+      parameters:
+        - name: examId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/Exam' } } } }
+  /exams/{examId}/submit:
+    post:
+      summary: Submit exam answers (Learner)
+      parameters:
+        - name: examId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExamSubmitRequest'
+      responses:
+        '200': { content: { 'application/json': { schema: { $ref: '#/components/schemas/ExamSubmitResponse' } } } }
+  /admin/exam-results:
+    get:
+      summary: List exam results (Admin)
+      description: Requires ADMIN role; accepts ?status=PENDING
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { content: { 'application/json': { schema: { type: array, items: { $ref: '#/components/schemas/Exam' } } } } }
+  /admin/exam-results/{resultId}/grade:
+    post:
+      summary: Grade practical exam (Admin)
+      parameters:
+        - name: resultId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [PASSED, FAILED] }
+                notes: { type: string }
+      responses:
+        '200': { description: 'Graded' }
+  /users/me/progress:
+    get:
+      summary: Get current user progress (Learner)
+      responses:
+        '200': { content: { 'application/json': { schema: { type: array, items: { $ref: '#/components/schemas/LmsUserProgress' } } } } }
+

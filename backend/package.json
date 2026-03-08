@@ -11,8 +11,11 @@
     "lint": "echo \"no lint configured\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
+    "test:integration": "newman run ./openapi/lms-postman-collection.json -e ./openapi/lms-postman-environment.json --delay-request 50",
+    "test:integration:ci": "npm run test:integration",
     "seed:lesson": "tsx src/scripts/seed-lesson-prodeklarant-intro.ts",
     "create:exam": "tsx src/scripts/create-exam-for-lesson.ts",
     "list:lessons": "tsx src/scripts/list-lessons.ts"
@@ -60,6 +63,7 @@
     "@types/nodemailer": "^7.0.9",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "newman": "^5.2.0"
   }
 }

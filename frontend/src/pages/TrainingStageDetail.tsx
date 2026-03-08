@@ -5,6 +5,7 @@ import { markArticleAsRead } from '../utils/articleStorage';
 import { useAuth } from '../contexts/AuthContext';
 import { Icon } from '@iconify/react';
 import RichTextEditor from '../components/RichTextEditor';
+import QuestionsModal from '../components/QuestionsModal';
 
 // Google Drive linkini rasm URL'iga o'tkazish
 const convertGoogleDriveUrl = (url: string): string => {
@@ -96,6 +97,10 @@ export default function TrainingStageDetail() {
   const [editingMaterialId, setEditingMaterialId] = useState<number | null>(null);
   const [editMaterialContent, setEditMaterialContent] = useState('');
   const [savingMaterial, setSavingMaterial] = useState(false);
+  const [generatingExam, setGeneratingExam] = useState<number | null>(null);
+
+  // Imtihon savollari
+  const [isQuestionsModalOpen, setIsQuestionsModalOpen] = useState(false);
 
   // Faqat ADMIN uchun tahrirlash imkoniyati
   const canEdit = user?.role === 'ADMIN';
@@ -208,18 +213,16 @@ export default function TrainingStageDetail() {
     }
   };
 
-  const handleMaterialComplete = async (materialId: number) => {
+  const handleStartStageExam = async () => {
     try {
-      await apiClient.post(`/training/${trainingId}/materials/${materialId}/complete`);
-      alert('Material muvaffaqiyatli yakunlandi!');
-      fetchData();
+      setGeneratingExam(-1);
+      const resp = await apiClient.post(`/exams/ai/generate-stage/${stageId}`);
+      navigate(`/exam/${resp.data.exam.id}`);
     } catch (error: any) {
-      console.error('Error completing material:', error);
-      if (error.response?.status === 400) {
-        alert(error.response.data.error);
-      } else {
-        alert('Xatolik yuz berdi');
-      }
+      console.error('Error starting exam:', error);
+      alert(error.response?.data?.error || 'Imtihon tuzishda xatolik yuz berdi');
+    } finally {
+      setGeneratingExam(null);
     }
   };
 
@@ -335,99 +338,45 @@ export default function TrainingStageDetail() {
   });
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
-      {/* Sidebar Navigation */}
-      <aside className="w-full lg:w-80 xl:w-96 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col sticky top-0 h-[calc(100vh-64px)] lg:h-screen z-20">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-700">
-          <button
-            onClick={() => navigate(`/training/${trainingId}`)}
-            className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 mb-6 transition-all font-semibold text-sm"
-          >
-            <Icon icon="lucide:arrow-left" className="w-4 h-4" />
-            Kursga qaytish
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/30">
-              <Icon icon="lucide:book-open" className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="font-black text-slate-900 dark:text-white leading-tight">{training.title}</h2>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mt-1">Bosqich #{stage.orderIndex}</p>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-          {stage.steps
-            .sort((a, b) => a.orderIndex - b.orderIndex)
-            .map((step, idx) => {
-              const lessonStatus = getLessonStatus(step.id);
-              const isActive = step.id === stage.steps[0].id; // Simple active check for now
-
-              return (
-                <div key={step.id} className="space-y-1">
-                  <div className={`p-4 rounded-2xl transition-all cursor-pointer border ${isActive
-                    ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800'
-                    : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-transparent'
-                    }`}>
-                    <div className="flex items-start gap-3">
-                      <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${lessonStatus?.status === 'COMPLETED'
-                        ? 'bg-green-500 text-white'
-                        : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
-                        }`}>
-                        {lessonStatus?.status === 'COMPLETED' ? <Icon icon="lucide:check" className="w-3.5 h-3.5" /> : idx + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className={`text-sm font-bold truncate ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                          {step.title}
-                        </h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          {getStatusBadge(lessonStatus?.status || 'NOT_STARTED')}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Material Sub-list */}
-                  <div className="ml-9 border-l border-slate-200 dark:border-slate-700 space-y-1">
-                    {step.materials.map(m => (
-                      <div key={m.id} className="pl-4 py-2 flex items-center gap-2 group cursor-pointer text-xs font-semibold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                        <Icon icon={`lucide:${m.type === 'VIDEO' ? 'play-circle' : m.type === 'AUDIO' ? 'mic' : m.type === 'IMAGE' ? 'image' : 'file-text'}`} className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
-                        <span className="truncate">{m.title || 'Material'}</span>
-                      </div>
-                    ))}
-                    {step.exams?.map(ex => (
-                      <div key={ex.id} className="pl-4 py-2 flex items-center gap-2 group cursor-pointer text-xs font-bold text-slate-400 hover:text-purple-600 transition-colors">
-                        <Icon icon="lucide:brain-circuit" className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
-                        <span className="truncate">{ex.title}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto h-screen bg-white dark:bg-slate-900 transition-colors duration-300">
+      <main className="overflow-y-auto min-h-screen bg-white dark:bg-slate-900 transition-colors duration-300">
         <div className="max-w-4xl mx-auto px-6 lg:px-12 py-12">
           {/* Main Title Section */}
           <div className="mb-12">
             <div className="flex items-center justify-between mb-6">
-              <span className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-widest">O'qitish Materiali</span>
-              {canEdit && (
+              <div className="flex items-center gap-3">
                 <button
-                  onClick={isEditing ? handleSaveEdit : handleStartEdit}
-                  disabled={saving}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 ${isEditing
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                  onClick={() => navigate(`/training/${trainingId}`)}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all"
                 >
-                  <Icon icon={isEditing ? 'lucide:save' : 'lucide:edit-3'} className="w-4 h-4" />
-                  {isEditing ? (saving ? 'Saqlanmoqda...' : 'Saqlash') : 'Kontentni Tahrirlash'}
+                  <Icon icon="lucide:arrow-left" className="w-5 h-5" />
                 </button>
+                <span className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-widest hidden sm:inline-block">O'qitish Materiali</span>
+              </div>
+              {canEdit && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setIsQuestionsModalOpen(true)}
+                    className="flex items-center gap-2 p-2.5 md:px-4 md:py-2 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  >
+                    <Icon icon="lucide:database" className="w-5 h-5 md:w-4 md:h-4" />
+                    <span className="hidden md:inline">Imtihon Savollari</span>
+                  </button>
+                  <button
+                    onClick={isEditing ? handleSaveEdit : handleStartEdit}
+                    disabled={saving}
+                    className={`flex items-center gap-2 p-2.5 md:px-4 md:py-2 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 ${isEditing
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                  >
+                    <Icon icon={isEditing ? 'lucide:save' : 'lucide:edit-3'} className="w-5 h-5 md:w-4 md:h-4" />
+                    <span className="hidden md:inline">{isEditing ? (saving ? 'Saqlanmoqda...' : 'Saqlash') : 'Kontentni Tahrirlash'}</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -473,12 +422,7 @@ export default function TrainingStageDetail() {
             ) : (
               stage.description && (
                 <div
-                  className="prose prose-slate dark:prose-invert max-w-none 
-                  prose-h2:text-3xl prose-h2:font-black prose-h2:tracking-tight prose-h2:mt-12
-                  prose-p:text-lg prose-p:leading-relaxed prose-p:text-slate-600 dark:prose-p:text-slate-300
-                  prose-img:rounded-3xl prose-img:shadow-2xl prose-img:border prose-img:border-slate-100
-                  prose-blockquote:border-l-4 prose-blockquote:border-indigo-600 prose-blockquote:bg-indigo-50/50 dark:prose-blockquote:bg-indigo-900/10 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:rounded-r-2xl prose-blockquote:italic
-                  "
+                  className="tinymce-content"
                   dangerouslySetInnerHTML={{ __html: stage.description }}
                 />
               )
@@ -486,6 +430,7 @@ export default function TrainingStageDetail() {
 
             {/* Steps Rendering */}
             {stage.steps
+              .filter(step => step.title !== '_AI_STAGE_EXAM')
               .sort((a, b) => a.orderIndex - b.orderIndex)
               .map(step => (
                 <div key={step.id} className="relative pt-12">
@@ -534,18 +479,10 @@ export default function TrainingStageDetail() {
                               </div>
                             ) : (
                               <div
-                                className="prose prose-slate dark:prose-invert max-w-none"
+                                className="tinymce-content"
                                 dangerouslySetInnerHTML={{ __html: material.content }}
                               />
                             )}
-
-                            <button
-                              onClick={() => handleMaterialComplete(material.id)}
-                              className="mt-8 w-full py-4 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-black shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
-                            >
-                              <Icon icon="lucide:check-circle" className="w-6 h-6" />
-                              Ushbu qismni o'qib bo'ldim
-                            </button>
                           </div>
                         )}
 
@@ -572,78 +509,46 @@ export default function TrainingStageDetail() {
                                 <div className="p-12"><audio src={material.fileUrl} controls className="w-full" /></div>
                               )}
                             </div>
-
-                            <div className="p-6 bg-white/5 backdrop-blur-md">
-                              <button
-                                onClick={() => handleMaterialComplete(material.id)}
-                                className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors"
-                              >
-                                <Icon icon="lucide:check" className="w-5 h-5" />
-                                Tugallash
-                              </button>
-                            </div>
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
 
-                  {/* Step Exams */}
-                  {step.exams && step.exams.length > 0 && (
-                    <div className="mt-12 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-[40px] p-8 shadow-xl shadow-indigo-600/20">
-                      <div className="flex items-center gap-4 mb-6">
-                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center border border-white/30 backdrop-blur-md">
-                          <Icon icon="lucide:award" className="w-6 h-6 text-white" />
-                        </div>
-                        <h3 className="text-2xl font-black text-white">Dars Imtihoni</h3>
-                      </div>
-                      <div className="space-y-4">
-                        {step.exams.map(exam => (
-                          <div key={exam.id} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 flex items-center justify-between gap-6">
-                            <div>
-                              <h4 className="text-xl font-bold text-white mb-2">{exam.title}</h4>
-                              {exam.description && <p className="text-indigo-100/70 text-sm line-clamp-1">{exam.description}</p>}
-                            </div>
-                            <button
-                              onClick={() => handleStartExam(exam.id)}
-                              className="flex-shrink-0 px-8 py-3 bg-white text-indigo-600 rounded-xl font-black shadow-lg hover:scale-105 active:scale-95 transition-all"
-                            >
-                              Boshlash
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
           </div>
 
-          {/* Footer Navigation */}
-          <div className="mt-24 pt-12 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          {/* Main Stage Exam Button at the bottom */}
+          <div className="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800">
             <button
-              onClick={() => navigate(`/training/${trainingId}`)}
-              className="px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2"
+              onClick={handleStartStageExam}
+              disabled={generatingExam === -1}
+              className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
             >
-              <Icon icon="lucide:chevron-left" className="w-5 h-5" />
-              Oldingi bosqich
+              {generatingExam === -1 ? (
+                <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin" />
+              ) : (
+                <Icon icon="lucide:brain-circuit" className="w-6 h-6" />
+              )}
+              <span className="text-lg">
+                {generatingExam === -1 ? "AI Savollar tuzmoqda (Kuting)..." : "Imtihon Topshirish"}
+              </span>
             </button>
-            <div className="text-center">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-2">Progress</span>
-              <div className="w-32 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div className="h-full bg-indigo-600 w-full animate-progress" />
-              </div>
-            </div>
-            <button
-              disabled
-              className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-bold opacity-50 cursor-not-allowed flex items-center gap-2 shadow-lg shadow-indigo-500/20"
-            >
-              Keyingi bosqich
-              <Icon icon="lucide:chevron-right" className="w-5 h-5" />
-            </button>
+            <p className="text-center text-slate-500 mt-4 text-sm font-medium">Ushbu mavzuni to'liq o'qib bo'lgach, O'zlashtirganingizni tekshirish uchun imtihon topshiring</p>
           </div>
+
         </div>
       </main>
+
+      {/* Savollar Modali */}
+      {isQuestionsModalOpen && stageId && trainingId && (
+        <QuestionsModal
+          stageId={stageId}
+          trainingId={trainingId}
+          onClose={() => setIsQuestionsModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -32,7 +32,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       where: {
         ...where,
         role: {
-          in: ['DEKLARANT', 'ADMIN', 'MANAGER', 'SELLER'],
+          in: ['DEKLARANT', 'ADMIN', 'SELLER', 'MANAGER'],
         },
       },
       select: {

@@ -93,8 +93,8 @@ router.post('/:id/start', requireAuth(), async (req: AuthRequest, res) => {
       });
 
       if (!trainingProgress || !trainingProgress.completed) {
-        return res.status(400).json({ 
-          error: 'Avval o\'qitishni tugallashingiz kerak' 
+        return res.status(400).json({
+          error: 'Avval o\'qitishni tugallashingiz kerak'
         });
       }
     }
@@ -180,18 +180,30 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
 
       // To'g'ri javobni tekshirish
       if (question.type === 'SINGLE_CHOICE' || question.type === 'MULTIPLE_CHOICE') {
-        const correctAnswer = question.correctAnswer;
-        const userAnswerValue = userAnswer.answer;
-        
-        if (Array.isArray(correctAnswer) && Array.isArray(userAnswerValue)) {
-          // Multiple choice: ikkala array ham bir xil bo'lishi kerak
-          isCorrect = JSON.stringify(correctAnswer.sort()) === JSON.stringify(userAnswerValue.sort());
+        const correctRaw = question.correctAnswer;
+        const userRaw = userAnswer.answer;
+
+        // Normalize: har ikkalasini ham massivga o'tkazish
+        const normalizeAnswer = (val: any): string[] => {
+          if (Array.isArray(val)) return val.map(String).sort();
+          if (val === null || val === undefined) return [];
+          return [String(val)];
+        };
+
+        const correctNorm = normalizeAnswer(correctRaw);
+        const userNorm = normalizeAnswer(userRaw);
+
+        if (question.type === 'SINGLE_CHOICE') {
+          // Single choice: bitta to'g'ri javob
+          const correctStr = correctNorm[0] || '';
+          const userStr = userNorm[0] || '';
+          isCorrect = correctStr.trim().toLowerCase() === userStr.trim().toLowerCase();
         } else {
-          isCorrect = JSON.stringify(correctAnswer) === JSON.stringify(userAnswerValue);
+          // Multiple choice: barcha javoblar mos kelishi kerak
+          isCorrect = JSON.stringify(correctNorm) === JSON.stringify(userNorm);
         }
       } else if (question.type === 'TEXT') {
-        // Text javoblar uchun keyinroq qo'lda tekshirish mumkin
-        isCorrect = false; // Hozircha false
+        isCorrect = false;
       }
 
       if (isCorrect) {
@@ -215,11 +227,11 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
     // Imtihon natijasini yangilash
     // Agar savollar bo'lmasa, maxScore 0 bo'ladi, shuning uchun tekshirish kerak
     if (attempt.maxScore === 0) {
-      return res.status(400).json({ 
-        error: 'Imtihonda savollar mavjud emas. Avval savollar qo\'shing.' 
+      return res.status(400).json({
+        error: 'Imtihonda savollar mavjud emas. Avval savollar qo\'shing.'
       });
     }
-    
+
     const scorePercent = Math.round((totalScore / attempt.maxScore) * 100);
     const passed = scorePercent >= exam.passingScore;
 
@@ -238,6 +250,16 @@ router.post('/:id/submit', requireAuth(), async (req: AuthRequest, res) => {
         },
       },
     });
+
+    // Lesson yoki bosqich holatini yangilash
+    if (exam.lessonId) {
+      await LessonProgressionService.updateLessonStatusAfterExam(
+        req.user!.id,
+        exam.lessonId,
+        scorePercent,
+        passed
+      );
+    }
 
     res.json({
       attempt: updatedAttempt,
@@ -431,13 +453,214 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 // ============================================================================
 
 /**
+ * POST /api/exams/stage/:stageId/init-manual-exam
+ * Initializes or retrieves the manual exam container for a particular Stage
+ */
+router.post('/stage/:stageId/init-manual-exam', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const stageId = parseInt(req.params.stageId);
+
+    // Get stage details
+    const stage = await prisma.trainingStage.findUnique({
+      where: { id: stageId },
+      include: {
+        steps: {
+          include: {
+            exams: {
+              where: { active: true },
+              include: { questions: { orderBy: { orderIndex: 'asc' } } }
+            }
+          },
+        },
+      },
+    });
+
+    if (!stage) {
+      return res.status(404).json({ error: 'Stage topilmadi' });
+    }
+
+    let dummyStep = stage.steps.find(s => s.title === '_AI_STAGE_EXAM');
+    let dummyStepId: number;
+
+    if (!dummyStep) {
+      const newDummyStep = await prisma.trainingStep.create({
+        data: {
+          stageId,
+          title: '_AI_STAGE_EXAM',
+          description: 'Auto-generated hidden step for stage exam',
+          isActive: false,
+          orderIndex: 9999
+        }
+      });
+      dummyStepId = newDummyStep.id;
+    } else {
+      dummyStepId = dummyStep.id;
+      if (dummyStep.exams && dummyStep.exams.length > 0) {
+        return res.json({ exam: dummyStep.exams[0], questions: dummyStep.exams[0].questions || [] });
+      }
+    }
+
+    // Create the exam container if it didn't exist
+    const exam = await prisma.exam.create({
+      data: {
+        lessonId: dummyStepId,
+        title: `${stage.title} - Mavzulashtirilgan Imtihon`,
+        description: `Mavzuga oid savollar bazasi`,
+        passingScore: 80,
+        questionCount: 0,
+        active: true,
+      },
+      include: {
+        questions: true,
+      }
+    });
+
+    res.json({ exam, questions: [] });
+  } catch (error: any) {
+    console.error('Error initializing manual exam:', error);
+    res.status(500).json({ error: 'Imtihon bazasini yaratishda xatolik', details: error.message });
+  }
+});
+
+/**
+ * POST /api/exams/ai/generate-stage/:stageId
+ * Start exam for a stage using manually-added questions (no AI generation)
+ */
+router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const stageId = parseInt(req.params.stageId);
+    const userId = req.user!.id;
+
+    // Get stage details with all steps and their exams/questions
+    const stage = await prisma.trainingStage.findUnique({
+      where: { id: stageId },
+      include: {
+        steps: {
+          include: {
+            exams: {
+              where: { active: true },
+              include: {
+                questions: {
+                  orderBy: { orderIndex: 'asc' },
+                }
+              }
+            }
+          },
+        },
+      },
+    });
+
+    if (!stage) {
+      return res.status(404).json({ error: 'Stage topilmadi' });
+    }
+
+    // Find the dummy step for this stage's exam
+    let dummyStep = stage.steps.find(s => s.title === '_AI_STAGE_EXAM');
+
+    let exam: any;
+
+    if (!dummyStep) {
+      // Create dummy step if it doesn't exist
+      dummyStep = await prisma.trainingStep.create({
+        data: {
+          stageId,
+          title: '_AI_STAGE_EXAM',
+          description: 'Auto-generated hidden step for stage exam',
+          isActive: false,
+          orderIndex: 9999
+        },
+        include: { exams: { include: { questions: true } }, materials: true }
+      }) as any;
+    }
+
+    // Get exam from dummy step
+    const existingExam = (dummyStep as any).exams?.[0];
+
+    if (!existingExam) {
+      // Create exam container if it doesn't exist
+      exam = await prisma.exam.create({
+        data: {
+          lessonId: (dummyStep as any).id,
+          title: `${stage.title} - Imtihon`,
+          description: `Bosqich imtihoni`,
+          passingScore: 80,
+          questionCount: 0,
+          active: true,
+        },
+        include: { questions: true }
+      });
+    } else {
+      // Load existing exam with questions freshly from DB
+      exam = await prisma.exam.findUnique({
+        where: { id: existingExam.id },
+        include: {
+          questions: {
+            orderBy: { orderIndex: 'asc' }
+          }
+        }
+      });
+    }
+
+    if (!exam || !exam.questions || exam.questions.length === 0) {
+      return res.status(400).json({
+        error: 'Bu bosqich uchun savollar qo\'shilmagan. Admin tomonidan savollar qo\'shilishi kerak.'
+      });
+    }
+
+    // Shuffle questions for variety on retakes
+    const shuffled = [...exam.questions].sort(() => Math.random() - 0.5);
+
+    // Strip out correctAnswer info to send to frontend
+    const questionsForUser = shuffled.map((q: any) => ({
+      id: q.id,
+      question: q.question,
+      type: q.type,
+      options: q.options,
+      points: q.points,
+    }));
+
+    const maxScore = questionsForUser.reduce((sum: number, q: any) => sum + (q.points || 1), 0);
+
+    res.json({
+      exam: {
+        id: exam.id,
+        title: exam.title,
+        description: exam.description,
+        passingScore: exam.passingScore,
+        timeLimitMin: exam.timeLimitMin,
+        isDynamic: true
+      },
+      questions: questionsForUser,
+      maxScore,
+    });
+  } catch (error: any) {
+    console.error('Error starting stage exam:', error);
+    res.status(500).json({
+      error: 'Imtihon tayyorlashda xatolik',
+      details: error.message,
+    });
+  }
+});
+
+
+/**
  * POST /api/exams/ai/generate/:lessonId
  * Generate AI-powered exam for a lesson
  */
-router.post('/ai/generate/:lessonId', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+router.post('/ai/generate/:lessonId', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const lessonId = parseInt(req.params.lessonId);
-    
+
+    // Check if exam already exists
+    const existingExam = await prisma.exam.findFirst({
+      where: { lessonId, active: true },
+    });
+
+    if (existingExam) {
+      // Just return the existing exam to save AI cost
+      return res.json({ exam: existingExam });
+    }
+
     // Get lesson details
     const lesson = await prisma.trainingStep.findUnique({
       where: { id: lessonId },

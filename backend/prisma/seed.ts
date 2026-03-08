@@ -52,6 +52,25 @@ async function main() {
     )
   );
 
+  // Seed LMS levels
+  const levelNames = ['Level 1', 'Level 2', 'Level 3'];
+  const levels = await Promise.all(
+    levelNames.map((name, idx) =>
+      prisma.lmsLevel.upsert({
+        where: { orderIndex: idx + 1 },
+        update: {},
+        create: { name, orderIndex: idx + 1 },
+      })
+    )
+  );
+
+  // Ensure admin has an LMS profile
+  await prisma.lmsUserProfile.upsert({
+    where: { userId: admin.id },
+    update: { role: 'ADMIN', currentLevelId: levels[0].id },
+    create: { userId: admin.id, role: 'ADMIN', currentLevelId: levels[0].id },
+  });
+
   // Seed default ProcessSettings (estimatedTime, reminder1, reminder2, reminder3 in minutes)
   await Promise.all([
     prisma.processSettings.upsert({
@@ -71,7 +90,7 @@ async function main() {
     }),
   ]);
 
-  console.log('Seed done', { admin: admin.email, branches: [branchT.name, branchO.name] });
+  console.log('Seed done', { admin: admin.email, branches: [branchT.name, branchO.name], lmsLevels: levels.map(l => ({ id: l.id, name: l.name })) });
 }
 
 main()

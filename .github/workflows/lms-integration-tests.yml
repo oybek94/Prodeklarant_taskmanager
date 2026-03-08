@@ -1,0 +1,68 @@
+name: LMS Integration Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: prodeklarant
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d prodeklarant" --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/prodeklarant?schema=public
+      PORT: 3001
+      JWT_SECRET: testsecret
+      JWT_REFRESH_SECRET: testrefresh
+      OPENAI_API_KEY: ""
+      ALLOWED_ORIGINS: http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Install backend deps
+        run: |
+          cd backend
+          npm ci
+      - name: Generate Prisma client
+        run: |
+          cd backend
+          npx prisma generate
+      - name: Run migrations
+        run: |
+          cd backend
+          npx prisma migrate deploy
+      - name: Seed DB
+        run: |
+          cd backend
+          npm run prisma:seed
+      - name: Build & start server
+        run: |
+          cd backend
+          npm run build
+          NODE_ENV=ci PORT=3001 npm run start:server &> server.log & echo $! > server.pid
+      - name: Wait for server
+        run: |
+          npx wait-on http://localhost:3001/health
+      - name: Run Newman tests
+        run: |
+          cd backend
+          npm run test:integration
+      - name: Upload server logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-log
+          path: backend/server.log

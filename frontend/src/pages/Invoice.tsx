@@ -1990,12 +1990,13 @@ const Invoice = () => {
     return entries;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, overrideForm?: typeof form) => {
+    if (e) e.preventDefault();
     if (!canEditEffective) return;
 
-    if (!form.deliveryTerms.trim() || !form.vehicleNumber.trim()) {
-      setAdditionalInfoError('Iltimos, "Условия поставки" va "Номер автотранспорта" maydonlarini to‘ldiring');
+    const currentForm = overrideForm || form;
+    if (!currentForm.deliveryTerms.trim() || !currentForm.vehicleNumber.trim()) {
+      setAdditionalInfoError('Iltimos, "Условия поставки" va "Номер avtotransport" maydonlarini to‘ldiring');
       setShowAdditionalInfoModal(true);
       return;
     }
@@ -2035,12 +2036,12 @@ const Invoice = () => {
 
       // Yangi invoys (taskId yo'q): avval task yaratamiz, keyin invoys saqlanadi
       if (!currentTaskId && clientId && newInvoiceTaskForm?.branchId) {
-        const taskTitle = `Invoice - ${newInvoiceTaskForm.contractNumber || form.contractNumber || 'yangi'}`;
+        const taskTitle = `Invoice - ${newInvoiceTaskForm.contractNumber || currentForm.contractNumber || 'yangi'}`;
         const taskResponse = await apiClient.post('/tasks', {
           clientId: Number(clientId),
           branchId: Number(newInvoiceTaskForm.branchId),
           title: taskTitle,
-          comments: newInvoiceTaskForm.comments || `Invoice yaratish. Shartnoma: ${form.contractNumber}`,
+          comments: newInvoiceTaskForm.comments || `Invoice yaratish. Shartnoma: ${currentForm.contractNumber}`,
           hasPsr: newInvoiceTaskForm.hasPsr ?? false,
           driverPhone: newInvoiceTaskForm.driverPhone || undefined,
         });
@@ -2080,57 +2081,57 @@ const Invoice = () => {
 
         clientId: clientId ? Number(clientId) : (currentTask?.client?.id ?? (currentTask as { clientId?: number })?.clientId) || undefined,
 
-        invoiceNumber: form.invoiceNumber && form.invoiceNumber.trim() !== '' ? form.invoiceNumber.trim() : undefined, // Agar bo'sh bo'lsa, backend avtomatik yaratadi
+        invoiceNumber: currentForm.invoiceNumber && currentForm.invoiceNumber.trim() !== '' ? currentForm.invoiceNumber.trim() : undefined, // Agar bo'sh bo'lsa, backend avtomatik yaratadi
 
-        date: form.date,
+        date: currentForm.date,
 
-        currency: form.currency,
+        currency: currentForm.currency,
 
-        contractNumber: form.contractNumber,
+        contractNumber: currentForm.contractNumber,
 
         contractId: selectedContractId ? Number(selectedContractId) : undefined,
 
         items: normalizedItems,
         totalAmount: normalizedItems.reduce((sum, item) => sum + item.totalPrice, 0),
 
-        notes: form.notes,
+        notes: currentForm.notes,
 
         additionalInfo: (() => {
           const base = {
-            paymentTerms: form.paymentTerms,
-            dueDate: form.dueDate,
-            poNumber: form.poNumber,
-            terms: form.terms,
-            tax: form.tax,
-            discount: form.discount,
-            shipping: form.shipping,
-            amountPaid: form.amountPaid,
-            paymentMethod: form.additionalInfo?.paymentMethod,
-            deliveryTerms: form.deliveryTerms,
-            vehicleNumber: form.vehicleNumber,
-            fssRegionInternalCode: form.fssRegionInternalCode,
-            fssRegionName: form.fssRegionName,
-            fssRegionExternalCode: form.fssRegionExternalCode,
+            paymentTerms: currentForm.paymentTerms,
+            dueDate: currentForm.dueDate,
+            poNumber: currentForm.poNumber,
+            terms: currentForm.terms,
+            tax: currentForm.tax,
+            discount: currentForm.discount,
+            shipping: currentForm.shipping,
+            amountPaid: currentForm.amountPaid,
+            paymentMethod: currentForm.additionalInfo?.paymentMethod,
+            deliveryTerms: currentForm.deliveryTerms,
+            vehicleNumber: currentForm.vehicleNumber,
+            fssRegionInternalCode: currentForm.fssRegionInternalCode,
+            fssRegionName: currentForm.fssRegionName,
+            fssRegionExternalCode: currentForm.fssRegionExternalCode,
             packagingTypeCodes: packagingTypes.map((entry) => ({
               name: entry.name,
               code: entry.code || '',
             })),
-            loaderWeight: form.loaderWeight,
-            trailerWeight: form.trailerWeight,
-            palletWeight: form.palletWeight,
-            trailerNumber: form.trailerNumber,
-            smrNumber: form.smrNumber,
-            shipmentPlace: form.shipmentPlace,
-            customsAddress: form.customsAddress ?? undefined,
-            destination: form.destination,
-            origin: form.origin || 'Республика Узбекистан',
-            manufacturer: form.manufacturer,
-            orderNumber: form.orderNumber,
-            gln: form.gln,
-            harvestYear: form.harvestYear,
-            documents: form.documents,
-            carrier: form.carrier,
-            tirNumber: form.tirNumber,
+            loaderWeight: currentForm.loaderWeight,
+            trailerWeight: currentForm.trailerWeight,
+            palletWeight: currentForm.palletWeight,
+            trailerNumber: currentForm.trailerNumber,
+            smrNumber: currentForm.smrNumber,
+            shipmentPlace: currentForm.shipmentPlace,
+            customsAddress: currentForm.customsAddress ?? undefined,
+            destination: currentForm.destination,
+            origin: currentForm.origin || 'Республика Узбекистан',
+            manufacturer: currentForm.manufacturer,
+            orderNumber: currentForm.orderNumber,
+            gln: currentForm.gln,
+            harvestYear: currentForm.harvestYear,
+            documents: currentForm.documents,
+            carrier: currentForm.carrier,
+            tirNumber: currentForm.tirNumber,
             customFields: customFields,
             specCustomFields: specCustomFields,
             visibleColumns,
@@ -2175,8 +2176,8 @@ const Invoice = () => {
         setSelectedContractId(savedInvoice.contractId.toString());
       }
       const nextTaskTitle = buildTaskTitle(
-        savedInvoice?.invoiceNumber || form.invoiceNumber,
-        form.vehicleNumber
+        savedInvoice?.invoiceNumber || currentForm.invoiceNumber,
+        currentForm.vehicleNumber
       );
       if (currentTaskId && nextTaskTitle && currentTask?.title !== nextTaskTitle) {
         try {
@@ -4679,15 +4680,20 @@ const Invoice = () => {
                       <button
                         key={region.id}
                         type="button"
-                        onClick={() => {
-                          setForm(prev => ({
-                            ...prev,
+                        onClick={async () => {
+                          const nextForm = {
+                            ...form,
                             fssRegionInternalCode: region.internalCode,
                             fssRegionName: region.name,
                             fssRegionExternalCode: region.externalCode,
-                          }));
+                          };
+                          setForm(nextForm);
                           setShowFssRegionModal(false);
                           setRegionSearch('');
+
+                          // Tumanni tanlagandan keyin avtomatik saqlash
+                          await handleSubmit(undefined, nextForm);
+
                           if (fssAutoDownload) {
                             generateFssExcel({
                               internalCode: region.internalCode,

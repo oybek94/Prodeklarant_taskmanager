@@ -239,7 +239,7 @@ export default function Exam() {
         </header>
 
         {/* Question Area */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-10 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 lg:p-10 pb-40 lg:pb-10 custom-scrollbar">
           <div className="max-w-3xl mx-auto py-10">
             <div className="flex items-center gap-4 mb-8">
               <span className="text-xs font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">Savol {currentQuestionIndex + 1}</span>

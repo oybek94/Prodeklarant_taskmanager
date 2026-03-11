@@ -117,7 +117,13 @@ interface TaskStats {
   daily: { current: number; previous: number };
 }
 
-const Tasks = () => {
+interface TasksProps {
+  isModalMode?: boolean;
+  modalTaskId?: number;
+  onCloseModal?: () => void;
+}
+
+const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onCloseModal }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -510,12 +516,19 @@ const Tasks = () => {
   ]);
 
   useEffect(() => {
+    if (isModalMode) return;
     loadTasks();
     loadClients();
     loadBranches();
     loadWorkers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showArchive, page, filters.status, filters.clientId, filters.branchId]);
+  }, [showArchive, page, filters.status, filters.clientId, filters.branchId, isModalMode]);
+
+  useEffect(() => {
+    if (isModalMode && modalTaskId) {
+      loadTaskDetail(modalTaskId);
+    }
+  }, [isModalMode, modalTaskId]);
 
   // Clear archive filters when switching tabs
   useEffect(() => {
@@ -561,8 +574,12 @@ const Tasks = () => {
             setShowEditModal(false);
           }
         } else if (showTaskModal) {
-          setShowTaskModal(false);
-          setSelectedTask(null);
+          if (isModalMode) {
+            onCloseModal?.();
+          } else {
+            setShowTaskModal(false);
+            setSelectedTask(null);
+          }
         } else if (showForm || isNewTaskRoute) {
           if (isMobile && isNewTaskRoute) {
             navigate('/tasks');
@@ -2479,8 +2496,10 @@ const Tasks = () => {
     : [];
 
   return (
-    <div className="max-w-[1920px] mx-auto px-2 sm:px-4 space-y-6 sm:space-y-8 font-sans pb-10">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mt-4">
+    <div className={isModalMode ? "" : "max-w-[1920px] mx-auto px-2 sm:px-4 space-y-6 sm:space-y-8 font-sans pb-10"}>
+      {!isModalMode && (
+        <div className="contents">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mt-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
@@ -2764,8 +2783,10 @@ const Tasks = () => {
               + Add Task
             </button>
           )}
-        </div>
       </div>
+      </div>
+      </div>
+      )}
 
       <div className="flex flex-col">
         {/* Modal for Add Task */}
@@ -2995,14 +3016,18 @@ const Tasks = () => {
             }}
             onClick={(e) => {
               if (e.target === e.currentTarget) {
-                setShowTaskModal(false);
-                setSelectedTask(null);
-                setShowFinancialReport(false);
+                if (isModalMode) {
+                  onCloseModal?.();
+                } else {
+                  setShowTaskModal(false);
+                  setSelectedTask(null);
+                  setShowFinancialReport(false);
+                }
               }
             }}
           >
             <div
-              className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/50 p-6 md:p-8 max-w-5xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar relative overflow-hidden"
+              className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/50 dark:border-slate-700/50 p-6 md:p-8 max-w-5xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar relative overflow-hidden"
               style={{
                 animation: 'modalFadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
               }}
@@ -3015,11 +3040,11 @@ const Tasks = () => {
 
               <div className="relative z-10 flex justify-between items-start mb-8 gap-4">
                 <div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight leading-tight">{selectedTask.title}</h2>
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight leading-tight">{selectedTask.title}</h2>
                   {selectedTask.createdBy && (
-                    <p className="text-sm text-gray-500 mt-1.5 flex items-center gap-1.5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5 flex items-center gap-1.5">
                       <Icon icon="lucide:user" className="w-4 h-4" />
-                      Yaratdi: <span className="font-medium text-gray-700">{selectedTask.createdBy.name}</span>
+                      Yaratdi: <span className="font-medium text-gray-700 dark:text-gray-300">{selectedTask.createdBy.name}</span>
                     </p>
                   )}
                 </div>
@@ -3036,7 +3061,7 @@ const Tasks = () => {
                       setEditingErrorId(null);
                       setShowErrorModal(true);
                     }}
-                    className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-600 hover:text-white transition-all shadow-sm ring-1 ring-orange-200"
+                    className="p-2.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl hover:bg-orange-600 hover:text-white transition-all shadow-sm ring-1 ring-orange-200 dark:ring-orange-800"
                     title="Xato"
                   >
                     <Icon icon="lucide:alert-circle" className="w-5 h-5" />
@@ -3061,7 +3086,7 @@ const Tasks = () => {
                           }
                         }
                       }}
-                      className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm ring-1 ring-blue-200"
+                      className="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm ring-1 ring-blue-200 dark:ring-blue-800"
                       title="O'zgartirish"
                     >
                       <Icon icon="lucide:pencil" className="w-5 h-5" />
@@ -3084,7 +3109,7 @@ const Tasks = () => {
                             }
                           }
                         }}
-                        className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm ring-1 ring-red-200"
+                        className="p-2.5 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm ring-1 ring-red-200 dark:ring-red-800"
                         title="O'chirish"
                       >
                         <Icon icon="lucide:trash-2" className="w-5 h-5" />
@@ -3103,7 +3128,7 @@ const Tasks = () => {
                       setSelectedTask(null);
                       setShowFinancialReport(false);
                     }}
-                    className="p-2 bg-gray-100 text-gray-500 rounded-full hover:bg-gray-200 hover:text-gray-900 transition-all ml-1"
+                    className="p-2 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white transition-all ml-1"
                   >
                     <Icon icon="lucide:x" className="w-5 h-5" />
                   </button>
@@ -3112,29 +3137,29 @@ const Tasks = () => {
 
               {/* Task Info Grid Elements */}
               <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 relative z-10">
-                <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Mijoz</div>
-                  <div className="font-bold text-gray-800 break-words">{selectedTask.client.name}</div>
+                <div className="bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl p-4 border border-gray-100 dark:border-slate-700/50">
+                  <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Mijoz</div>
+                  <div className="font-bold text-gray-800 dark:text-gray-200 break-words">{selectedTask.client.name}</div>
                 </div>
-                <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Filial</div>
-                  <div className="font-bold text-gray-800 break-words">{selectedTask.branch.name}</div>
+                <div className="bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl p-4 border border-gray-100 dark:border-slate-700/50">
+                  <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Filial</div>
+                  <div className="font-bold text-gray-800 dark:text-gray-200 break-words">{selectedTask.branch.name}</div>
                 </div>
-                <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Status</div>
+                <div className="bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl p-4 border border-gray-100 dark:border-slate-700/50">
+                  <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Status</div>
                   <div className="font-medium mt-1">
                     <span className={`px-3 py-1.5 text-xs font-bold rounded-full border ${getStatusInfo(selectedTask.status).color.replace('bg-', 'bg-opacity-20 border-').replace('text-', 'text-')}`}>
                       {getStatusInfo(selectedTask.status).label}
                     </span>
                   </div>
                 </div>
-                <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Yaratilgan</div>
-                  <div className="font-bold text-gray-800">{formatDate(selectedTask.createdAt)}</div>
+                <div className="bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl p-4 border border-gray-100 dark:border-slate-700/50">
+                  <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Yaratilgan</div>
+                  <div className="font-bold text-gray-800 dark:text-gray-200">{formatDate(selectedTask.createdAt)}</div>
                 </div>
-                <div className="md:col-span-4 bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Shartnoma</div>
-                  <div className="font-bold text-gray-800 font-mono">
+                <div className="md:col-span-4 bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl p-4 border border-gray-100 dark:border-slate-700/50">
+                  <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Shartnoma</div>
+                  <div className="font-bold text-gray-800 dark:text-gray-200 font-mono">
                     {selectedTask.invoice?.contract?.contractNumber
                       ? `№ ${selectedTask.invoice.contract.contractNumber}${selectedTask.invoice.contract.contractDate ? `, kun: ${new Date(selectedTask.invoice.contract.contractDate).toLocaleDateString('uz-UZ')}` : ''}`
                       : selectedTask.invoice?.contractNumber
@@ -3144,8 +3169,8 @@ const Tasks = () => {
                 </div>
               </div>
               {selectedTask.updatedBy && (
-                <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center justify-between text-sm text-gray-600">
+                <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-lg">
+                  <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
                     <div>
                       <span className="font-medium">Oxirgi o'zgartirilgan:</span> {selectedTask.updatedAt ? formatDate(selectedTask.updatedAt) : ''}
                       {selectedTask.updatedBy && <span className="ml-2">by {selectedTask.updatedBy.name}</span>}
@@ -3169,27 +3194,27 @@ const Tasks = () => {
               )}
 
               {/* PSR Information */}
-              <div className="mb-8 relative z-10 overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 p-5 md:p-6 shadow-[inset_0_0_20px_rgba(255,255,255,0.8)]">
-                <div className="flex items-center gap-3 mb-5 border-b border-blue-100/60 pb-3">
-                  <div className="p-2 bg-blue-100 rounded-lg text-blue-700 shadow-sm">
+              <div className="mb-8 relative z-10 overflow-hidden rounded-2xl border border-blue-100 dark:border-slate-700 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 dark:from-slate-800/80 dark:to-slate-800/50 p-5 md:p-6 shadow-[inset_0_0_20px_rgba(255,255,255,0.8)] dark:shadow-none">
+                <div className="flex items-center gap-3 mb-5 border-b border-blue-100/60 dark:border-slate-700/60 pb-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-700 dark:text-blue-400 shadow-sm">
                     <Icon icon="lucide:file-text" className="w-5 h-5" />
                   </div>
-                  <h3 className="text-base font-bold text-blue-900 tracking-tight">PSR Ma'lumotlari</h3>
+                  <h3 className="text-base font-bold text-blue-900 dark:text-blue-100 tracking-tight">PSR Ma'lumotlari</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl border border-blue-50">
-                    <span className="text-sm font-semibold text-gray-600">PSR mavjudligi:</span>
+                  <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-white/5 rounded-xl border border-blue-50 dark:border-slate-600/50">
+                    <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">PSR mavjudligi:</span>
                     <span className={`px-3 py-1 text-xs font-bold rounded-full border shadow-sm ${selectedTask.hasPsr
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-gray-50 text-gray-600 border-gray-200'
+                      ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                      : 'bg-gray-50 dark:bg-slate-700/50 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-600'
                       }`}>
                       {selectedTask.hasPsr ? 'Bor' : 'Yo\'q'}
                     </span>
                   </div>
 
                   {user?.role === 'ADMIN' && (
-                    <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl border border-blue-50">
-                      <span className="text-sm font-semibold text-gray-600">Qo'shimcha to'lov kelishuvi:</span>
+                    <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-white/5 rounded-xl border border-blue-50 dark:border-slate-600/50">
+                      <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Qo'shimcha to'lov kelishuvi:</span>
                       <span className={`px-3 py-1 text-xs font-bold rounded-full border shadow-sm ${String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY'
                         ? 'bg-purple-50 text-purple-700 border-purple-200'
                         : 'bg-blue-50 text-blue-700 border-blue-200'
@@ -3200,38 +3225,38 @@ const Tasks = () => {
                   )}
 
                   {selectedTask.afterHoursDeclaration && (
-                    <div className="flex items-center justify-between p-3 bg-amber-50/80 rounded-xl border border-amber-100 md:col-span-2">
-                      <span className="text-sm font-bold text-amber-800 flex items-center gap-2">
-                        <Icon icon="lucide:moon" className="w-4 h-4 text-amber-600" />
+                    <div className="flex items-center justify-between p-3 bg-amber-50/80 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800 md:col-span-2">
+                      <span className="text-sm font-bold text-amber-800 dark:text-amber-500 flex items-center gap-2">
+                        <Icon icon="lucide:moon" className="w-4 h-4 text-amber-600 dark:text-amber-500" />
                         Ish vaqtidan tashqari rasmiylashtiruv tasdiqlangan
                       </span>
-                      <span className="px-3 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800 shadow-sm border border-amber-200">Ha</span>
+                      <span className="px-3 py-1 text-xs font-bold rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-400 shadow-sm border border-amber-200 dark:border-amber-700">Ha</span>
                     </div>
                   )}
 
-                  <label className="flex items-center p-3 bg-white/60 rounded-xl border border-blue-50 gap-3 cursor-pointer group md:col-span-2 hover:bg-white transition-colors">
+                  <label className="flex items-center p-3 bg-white/60 dark:bg-slate-800/60 rounded-xl border border-blue-50 dark:border-slate-700 gap-3 cursor-pointer group md:col-span-2 hover:bg-white dark:hover:bg-slate-800 transition-colors">
                     <div className="relative flex items-center justify-center">
                       <input
                         type="checkbox"
                         checked={afterHoursDeclaration}
                         onChange={(e) => handleAfterHoursDeclarationChange(e.target.checked)}
-                        className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-slate-300 checked:border-blue-600 checked:bg-blue-600 transition-all focus:ring-0 focus:ring-offset-0"
+                        className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-slate-300 dark:border-slate-600 checked:border-blue-600 checked:bg-blue-600 transition-all focus:ring-0 focus:ring-offset-0"
                       />
                       <Icon icon="lucide:check" className="absolute w-3.5 h-3.5 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
                     </div>
-                    <span className="text-sm font-semibold text-gray-700 group-hover:text-gray-900 transition-colors">Ish vaqtidan tashqari rasmiylashtiruv</span>
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">Ish vaqtidan tashqari rasmiylashtiruv</span>
                   </label>
 
                   {selectedTask.driverPhone && (
-                    <div className="md:col-span-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 bg-white/80 rounded-xl border border-slate-100 shadow-sm">
+                    <div className="md:col-span-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
                       <div className="flex-1 flex items-center justify-between sm:justify-start sm:gap-4">
                         <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-slate-100 rounded-md">
-                            <Icon icon="lucide:phone" className="w-4 h-4 text-slate-600" />
+                          <div className="p-1.5 bg-slate-100 dark:bg-slate-700 rounded-md">
+                            <Icon icon="lucide:phone" className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                           </div>
-                          <span className="text-sm font-semibold text-gray-600">Sho'pir raqami:</span>
+                          <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Sho'pir raqami:</span>
                         </div>
-                        <span className="text-lg font-bold text-gray-900 font-mono tracking-tight">{selectedTask.driverPhone}</span>
+                        <span className="text-lg font-bold text-gray-900 dark:text-white font-mono tracking-tight">{selectedTask.driverPhone}</span>
                       </div>
                       <button
                         onClick={handleTelegramClick}
@@ -3247,7 +3272,7 @@ const Tasks = () => {
                     <button
                       type="button"
                       onClick={handleOpenSendEmailModal}
-                      className="w-full bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 text-emerald-700 px-5 py-3 rounded-xl flex items-center justify-center gap-2.5 transition-all font-bold text-sm shadow-sm active:scale-[0.99]"
+                      className="w-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-800/30 hover:border-emerald-300 dark:hover:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 px-5 py-3 rounded-xl flex items-center justify-center gap-2.5 transition-all font-bold text-sm shadow-sm active:scale-[0.99]"
                     >
                       <Icon icon="lucide:mail" className="w-5 h-5" />
                       <span>Hujjatlarni Email orqali yuborish</span>
@@ -3426,11 +3451,11 @@ const Tasks = () => {
                                 </div>
                               ))}
                             </div>
-                            <div className="pt-3 mt-3 border-t-2 border-emerald-100/50 flex items-center justify-between">
-                              <span className="text-sm font-black text-gray-900 uppercase tracking-wider">
+                            <div className="pt-3 mt-3 border-t-2 border-emerald-100/50 dark:border-emerald-900/30 flex items-center justify-between">
+                              <span className="text-sm font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider">
                                 Jami tushum:
                               </span>
-                              <span className="text-xl font-black text-emerald-600 tracking-tight">
+                              <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
                                 {new Intl.NumberFormat('uz-UZ', {
                                   style: 'currency',
                                   currency: 'USD',
@@ -3444,9 +3469,9 @@ const Tasks = () => {
 
                       {/* Agar KPI log'lar bo'lmasa */}
                       {user?.role !== 'ADMIN' && (!selectedTask.kpiLogs || selectedTask.kpiLogs.length === 0) && (
-                        <div className="p-4 bg-gray-50/80 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 text-center">
-                          <Icon icon="lucide:coins" className="w-6 h-6 text-gray-400" />
-                          <div className="text-sm font-medium text-gray-500">
+                        <div className="p-4 bg-gray-50/80 dark:bg-slate-800/80 rounded-xl border border-dashed border-gray-300 dark:border-slate-700 flex flex-col items-center justify-center gap-2 text-center">
+                          <Icon icon="lucide:coins" className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
                             Siz bu taskdan hozircha pul ishlab topmadingiz
                           </div>
                         </div>
@@ -3458,19 +3483,19 @@ const Tasks = () => {
 
               {selectedTask.comments && (
                 <div className="mb-6">
-                  <div className="text-sm text-gray-500 mb-1 flex items-center gap-2">
-                    <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
+                    <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     Izohlar
                   </div>
-                  <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
-                    <p className="text-sm text-gray-800 leading-relaxed">{selectedTask.comments}</p>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 rounded-r-lg">
+                    <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">{selectedTask.comments}</p>
                   </div>
                 </div>
               )}
 
               {/* Stages - Checklist */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Jarayonlar</h3>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Jarayonlar</h3>
                 <div className="space-y-2">
                   {selectedTask.stages && selectedTask.stages.length > 0 ? (
                     selectedTask.stages.map((stage) => {
@@ -3483,21 +3508,21 @@ const Tasks = () => {
                         : null;
 
                       // Rangni aniqlash
-                      let borderColor = 'border-gray-200';
-                      let bgColor = '';
+                      let borderColor = 'border-gray-200 dark:border-slate-700';
+                      let bgColor = 'dark:bg-slate-800/10';
                       if (stage.status === 'TAYYOR' && evaluation) {
                         if (evaluation.rating === 'alo') {
-                          borderColor = 'border-green-300';
-                          bgColor = 'bg-green-50';
+                          borderColor = 'border-green-300 dark:border-green-800/60';
+                          bgColor = 'bg-green-50 dark:bg-green-900/10';
                         } else if (evaluation.rating === 'ortacha') {
-                          borderColor = 'border-yellow-300';
-                          bgColor = 'bg-yellow-50';
+                          borderColor = 'border-yellow-300 dark:border-yellow-800/60';
+                          bgColor = 'bg-yellow-50 dark:bg-yellow-900/10';
                         } else {
-                          borderColor = 'border-red-300';
-                          bgColor = 'bg-red-50';
+                          borderColor = 'border-red-300 dark:border-red-800/60';
+                          bgColor = 'bg-red-50 dark:bg-red-900/10';
                         }
                       } else if (stage.status === 'TAYYOR') {
-                        bgColor = 'bg-gray-50';
+                        bgColor = 'bg-gray-50 dark:bg-slate-800/50';
                       }
 
                       return (
@@ -3508,13 +3533,13 @@ const Tasks = () => {
                               handleStageClick(stage);
                             }
                           }}
-                          className={`flex items-center justify-between p-3 border ${borderColor} rounded-lg hover:bg-gray-50 transition ${bgColor} ${updatingStage === stage.id ? 'cursor-wait' : 'cursor-pointer'}`}
+                          className={`flex items-center justify-between p-3 border ${borderColor} rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800/50 transition ${bgColor} ${updatingStage === stage.id ? 'cursor-wait' : 'cursor-pointer'}`}
                         >
                           <div className="flex items-center flex-1">
                             <div
                               className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${stage.status === 'TAYYOR'
                                 ? 'bg-green-500 border-green-500'
-                                : 'border-gray-300 bg-white hover:border-green-400'
+                                : 'border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-green-400 dark:hover:border-green-500'
                                 } ${updatingStage === stage.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                               style={{
                                 transition: stage.status === 'TAYYOR'
@@ -3535,8 +3560,8 @@ const Tasks = () => {
                             </div>
                             <label
                               className={`ml-3 text-sm font-medium flex-1 transition-all duration-300 ${stage.status === 'TAYYOR'
-                                ? 'line-through text-gray-400 opacity-60'
-                                : 'text-gray-900'
+                                ? 'line-through text-gray-400 dark:text-gray-500 opacity-60'
+                                : 'text-gray-900 dark:text-gray-200'
                                 }`}
                             >
                               {stage.name}
@@ -3550,14 +3575,14 @@ const Tasks = () => {
                                 : null;
 
                             return (
-                              <div className="text-xs text-gray-500 ml-4 flex items-center gap-2 flex-wrap">
+                              <div className="text-xs text-gray-500 dark:text-gray-400 ml-4 flex items-center gap-2 flex-wrap">
                                 {stage.assignedTo && (
-                                  <span className="font-medium text-gray-700">
+                                  <span className="font-medium text-gray-700 dark:text-gray-300">
                                     ({stage.assignedTo.name})
                                   </span>
                                 )}
                                 {deklarMultiplier != null && (
-                                  <span className="text-gray-700">
+                                  <span className="text-gray-700 dark:text-gray-300">
                                     BXM {deklarMultiplier} barobari
                                   </span>
                                 )}
@@ -3584,11 +3609,11 @@ const Tasks = () => {
               </div>
 
               {/* Documents Section */}
-              <div className="mt-6 border-t border-gray-200 pt-6">
+              <div className="mt-6 border-t border-gray-200 dark:border-slate-700 pt-6">
                 <div className="flex justify-between items-center mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-800">Hujjatlar</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">Emailga ilova qilinadigan fayllar manashu yerdan olinadi.</p>
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Hujjatlar</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Emailga ilova qilinadigan fayllar manashu yerdan olinadi.</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {taskDocuments.length > 0 && (
@@ -3672,17 +3697,17 @@ const Tasks = () => {
 
                       return (
                         <div key={doc.id} className="space-y-1">
-                          <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-slate-800/80 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
                             <div className="flex items-center gap-2 flex-1">
                               <div className="flex-shrink-0">
                                 {getFileIcon(doc.fileType, doc.name)}
                               </div>
                               <div className="flex-1">
-                                <div className="text-sm font-medium text-gray-900">{doc.name}</div>
+                                <div className="text-sm font-medium text-gray-900 dark:text-gray-200">{doc.name}</div>
                                 {doc.description && (
-                                  <div className="text-xs text-gray-500">{doc.description}</div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">{doc.description}</div>
                                 )}
-                                <div className="text-[11px] text-gray-400 mt-0.5">
+                                <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
                                   {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt).toLocaleDateString('uz-UZ')}
                                 </div>
                               </div>
@@ -3691,7 +3716,7 @@ const Tasks = () => {
                               {canPreview(doc.fileType) && (
                                 <button
                                   onClick={() => openPreview(doc.fileUrl, doc.fileType, doc.name)}
-                                  className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
+                                  className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-purple-200 dark:border-purple-800/60 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
                                   title="Ko'rish"
                                 >
                                   <Icon icon="lucide:eye" className="w-4 h-4" />
@@ -4149,10 +4174,13 @@ const Tasks = () => {
                 )}
               </div>
 
-              {/* BXM Multiplier Modal */}
+            </div>
+          </div>
+        )}
+
               {showBXMModal && selectedStageForReminder && (
                 <div
-                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] backdrop-blur-sm"
+                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[120] backdrop-blur-sm"
                   style={{
                     animation: 'backdropFadeIn 0.3s ease-out'
                   }}
@@ -4165,17 +4193,17 @@ const Tasks = () => {
                   }}
                 >
                   <div
-                    className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+                    className="bg-white dark:bg-slate-900 dark:text-gray-100 rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
                     style={{
                       animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
                     }}
                   >
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Deklaratsiya To'lovi</h3>
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Deklaratsiya To'lovi</h3>
                     <div className="mb-4">
                       <select
                         value={bxmMultiplier}
                         onChange={(e) => setBxmMultiplier(e.target.value)}
-                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                        className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
                       >
                         <option value="1">BXM 1 barobari ({formatBxmAmountInSum(1)})</option>
                         <option value="1.5">BXM 1.5 barobari ({formatBxmAmountInSum(1.5)})</option>
@@ -4183,7 +4211,7 @@ const Tasks = () => {
                         <option value="4">BXM 4 barobari ({formatBxmAmountInSum(4)})</option>
                       </select>
                     </div>
-                    <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={afterHoursDeclaration}
@@ -4205,7 +4233,7 @@ const Tasks = () => {
                           setAfterHoursDeclaration(false);
                           setSelectedStageForReminder(null);
                         }}
-                        className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                        className="flex-1 px-4 py-2 bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-700 transition-colors font-medium"
                       >
                         Bekor qilish
                       </button>
@@ -4232,18 +4260,18 @@ const Tasks = () => {
                   }}
                 >
                   <div
-                    className={`bg-white rounded-lg shadow-2xl p-6 w-full mx-4 ${fileUploadStageName === 'ST' && aiCheckResult
-                      ? 'max-w-2xl max-h-[90vh] overflow-y-auto'
+                    className={`bg-white dark:bg-slate-900 rounded-lg shadow-2xl p-6 w-full mx-4 ${fileUploadStageName === 'ST' && aiCheckResult
+                      ? 'max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar'
                       : 'max-w-md'
                       }`}
                     style={{
                       animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
                     }}
                   >
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
                       {fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName === 'Sertifikat olib chiqish' ? fileUploadName : fileUploadStageName} PDF/JPG yuklash
                     </h3>
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       {fileUploadStageName === 'Sertifikat olib chiqish' ? 'Sertifikat olib chiqish' : fileUploadStageName} stage'ini tayyor qilish uchun hujjat yuklanishi shart.
                       {(fileUploadStageName === 'ST' || (fileUploadStageName === 'Sertifikat olib chiqish' && fileUploadName === 'ST')) && <span> Yuklangandan keyin AI tekshiruvdan o'tkaziladi.</span>}
                     </p>
@@ -4251,14 +4279,14 @@ const Tasks = () => {
                     {!aiCheckResult ? (
                       <>
                         <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             {fileUploadStageName === 'Sertifikat olib chiqish' ? 'Sertifikat turi' : 'Hujjat nomi'}
                           </label>
                           {fileUploadStageName === 'Sertifikat olib chiqish' ? (
                             <select
                               value={fileUploadName}
                               onChange={(e) => setFileUploadName(e.target.value)}
-                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                              className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
                             >
                               <option value="ST">ST</option>
                               <option value="Fito">Fito</option>
@@ -4268,14 +4296,14 @@ const Tasks = () => {
                               type="text"
                               value={fileUploadName}
                               onChange={(e) => setFileUploadName(e.target.value)}
-                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                              className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
                               placeholder={fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName}
                             />
                           )}
                         </div>
 
                         <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             PDF yoki JPG fayl
                           </label>
                           <input
@@ -4437,11 +4465,6 @@ const Tasks = () => {
                 </div>
               )}
 
-
-            </div>
-          </div>
-        )}
-
         {/* Send Documents by Email Modal */}
         {showSendEmailModal && selectedTask && (
           <div
@@ -4455,13 +4478,13 @@ const Tasks = () => {
             }}
           >
             <div
-              className="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
+              className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto custom-scrollbar"
               style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
             >
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Send Documents by Email</h3>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Send Documents by Email</h3>
               <form onSubmit={handleSendTaskEmail} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Subject <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -4469,22 +4492,22 @@ const Tasks = () => {
                     value={sendEmailForm.subject}
                     onChange={(e) => setSendEmailForm((f) => ({ ...f, subject: e.target.value }))}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                     placeholder="Email subject"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Message (optional)</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message (optional)</label>
                   <textarea
                     value={sendEmailForm.body}
                     onChange={(e) => setSendEmailForm((f) => ({ ...f, body: e.target.value }))}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none"
                     placeholder="Message body"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Recipients <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -4492,29 +4515,29 @@ const Tasks = () => {
                     value={sendEmailForm.recipients}
                     onChange={(e) => setSendEmailForm((f) => ({ ...f, recipients: e.target.value }))}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                     placeholder="email1@example.com, email2@example.com"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CC (optional)</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CC (optional)</label>
                   <input
                     type="text"
                     value={sendEmailForm.cc}
                     onChange={(e) => setSendEmailForm((f) => ({ ...f, cc: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                     placeholder="cc@example.com"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ilova qilinadigan fayllar</label>
-                  <ul className="mt-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700 list-disc list-inside">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ilova qilinadigan fayllar</label>
+                  <ul className="mt-1 px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-800/50 text-sm text-gray-700 dark:text-gray-300 list-disc list-inside">
                     {taskDocuments.length > 0 ? (
                       taskDocuments.map((doc: { id: number; name?: string }) => (
                         <li key={doc.id}>{doc.name || `Hujjat #${doc.id}`}</li>
                       ))
                     ) : (
-                      <li className="list-none text-gray-500">Hujjatlar yo&apos;q</li>
+                      <li className="list-none text-gray-500 dark:text-gray-400">Hujjatlar yo&apos;q</li>
                     )}
                   </ul>
                 </div>
@@ -4538,7 +4561,7 @@ const Tasks = () => {
                       setSendEmailError(null);
                     }}
                     disabled={sendingEmail}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-700 transition-colors font-medium disabled:opacity-50"
                   >
                     Cancel
                   </button>

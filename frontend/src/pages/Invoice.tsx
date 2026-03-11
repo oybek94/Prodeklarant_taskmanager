@@ -1990,7 +1990,7 @@ const Invoice = () => {
     return entries;
   };
 
-  const handleSubmit = async (e?: React.FormEvent, overrideForm?: typeof form) => {
+  const handleSubmit = async (e?: React.FormEvent, overrideForm?: typeof form, silent: boolean = false) => {
     if (e) e.preventDefault();
     if (!canEditEffective) return;
 
@@ -2189,7 +2189,9 @@ const Invoice = () => {
       }
 
       setMarkSnapshotAfterSave(true);
-      alert(invoice ? 'Invoice muvaffaqiyatli yangilandi' : 'Invoice muvaffaqiyatli yaratildi');
+      if (!silent) {
+        alert(invoice ? 'Invoice muvaffaqiyatli yangilandi' : 'Invoice muvaffaqiyatli yaratildi');
+      }
 
       // Yangi task yaratilgan bo'lsa, URL ni /invoices/task/:taskId ga o'zgartirish (state tozalanadi)
       if (!taskId && currentTaskId) {
@@ -4692,7 +4694,7 @@ const Invoice = () => {
                           setRegionSearch('');
 
                           // Tumanni tanlagandan keyin avtomatik saqlash
-                          await handleSubmit(undefined, nextForm);
+                          await handleSubmit(undefined, nextForm, true);
 
                           if (fssAutoDownload) {
                             generateFssExcel({

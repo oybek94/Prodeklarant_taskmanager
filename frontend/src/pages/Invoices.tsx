@@ -4,6 +4,8 @@ import apiClient from '../lib/api';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { useAuth } from '../contexts/AuthContext';
+import Tasks from './Tasks';
+import Clients from './Clients';
 import { Icon } from '@iconify/react';
 import {
   getTnvedProducts,
@@ -98,6 +100,9 @@ const Invoices = () => {
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<number | null>(null);
   const [deleteModalAnimated, setDeleteModalAnimated] = useState(false);
   const [deleteModalClosing, setDeleteModalClosing] = useState(false);
+  const [showTaskModalId, setShowTaskModalId] = useState<number | null>(null);
+  const [showClientModalId, setShowClientModalId] = useState<number | null>(null);
+  const [showContractModalId, setShowContractModalId] = useState<number | null>(null);
   const [workers, setWorkers] = useState<{ id: number; name: string; role?: string }[]>([]);
   const [errorForm, setErrorForm] = useState({
     workerId: '',
@@ -1256,7 +1261,10 @@ const Invoices = () => {
                         {invoice.clientId ? (
                           <button
                             type="button"
-                            onClick={() => navigate('/clients', { state: { openClientId: invoice.clientId } })}
+                            onClick={() => {
+                              setShowClientModalId(invoice.clientId);
+                              setShowContractModalId(null);
+                            }}
                             className="text-left w-full hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline focus:outline-none focus:ring-0"
                           >
                             {invoice.client?.name || '-'}
@@ -1277,7 +1285,10 @@ const Invoices = () => {
                         {invoice.clientId ? (
                           <button
                             type="button"
-                            onClick={() => navigate('/clients', { state: { openClientId: invoice.clientId, ...(invoice.contractId != null ? { openContractId: invoice.contractId } : {}) } })}
+                            onClick={() => {
+                              setShowClientModalId(invoice.clientId);
+                              setShowContractModalId(invoice.contractId || null);
+                            }}
                             className="text-left w-full hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline focus:outline-none focus:ring-0 truncate block"
                           >
                             {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
@@ -1298,7 +1309,7 @@ const Invoices = () => {
                       <td className="px-6 py-2 whitespace-nowrap text-sm">
                         <button
                           type="button"
-                          onClick={() => navigate('/tasks', { state: { openTaskId: invoice.taskId } })}
+                          onClick={() => setShowTaskModalId(invoice.taskId)}
                           className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-300 transition-shadow ${getStatusBadgeClass(invoice.task?.status)}`}
                           title="Jarayonlar (task tafsilotlari)"
                         >
@@ -1632,6 +1643,17 @@ const Invoices = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {showTaskModalId && (
+        <Tasks isModalMode={true} modalTaskId={showTaskModalId} onCloseModal={() => setShowTaskModalId(null)} />
+      )}
+
+      {showClientModalId && (
+        <Clients isModalMode={true} modalClientId={showClientModalId} modalContractId={showContractModalId || undefined} onCloseModal={() => {
+          setShowClientModalId(null);
+          setShowContractModalId(null);
+        }} />
       )}
     </div>
   );

@@ -282,7 +282,14 @@ const allCountries = [
   'Zimbabwe',
 ];
 
-const Clients = () => {
+interface ClientsProps {
+  isModalMode?: boolean;
+  modalClientId?: number;
+  modalContractId?: number;
+  onCloseModal?: () => void;
+}
+
+const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, modalContractId, onCloseModal }) => {
   const { user } = useAuth();
   const isManagerOnly = user?.role === 'MANAGER';
   const [clients, setClients] = useState<Client[]>([]);
@@ -356,6 +363,7 @@ const Clients = () => {
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [editingContractId, setEditingContractId] = useState<number | null>(null);
   const [contractModalTab, setContractModalTab] = useState<'main' | 'spec' | 'terms' | 'customs'>('main');
+  const [clientModalTab, setClientModalTab] = useState<'overview' | 'contracts' | 'tasks' | 'transactions'>('overview');
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [transactionForm, setTransactionForm] = useState({
     amount: '',
@@ -531,6 +539,7 @@ const Clients = () => {
 
   // Invoices sahifasidan Mijoz yoki Shartnoma ustiga bosilganda ochilgan oynalarni ochish
   useEffect(() => {
+    if (isModalMode) return;
     const state = location.state as { openClientId?: number; openContractId?: number } | null;
     const openClientId = state?.openClientId;
     const openContractId = state?.openContractId;
@@ -542,7 +551,17 @@ const Clients = () => {
       });
       navigate('/clients', { replace: true, state: {} });
     }
-  }, [location.state]);
+  }, [location.state, isModalMode]);
+
+  useEffect(() => {
+    if (isModalMode && modalClientId) {
+      loadClientDetail(modalClientId).then(() => {
+        if (modalContractId) {
+          openContractEditById(modalContractId);
+        }
+      });
+    }
+  }, [isModalMode, modalClientId, modalContractId]);
 
   // MANAGER: faqat shartnomalar; mijoz qo'shish/tahrirlash sahifalariga kirishni taqiqlash
   useEffect(() => {
@@ -559,8 +578,12 @@ const Clients = () => {
         if (showContractModal) {
           setShowContractModal(false);
         } else if (showClientModal) {
-          setShowClientModal(false);
-          setSelectedClient(null);
+          if (isModalMode) {
+            onCloseModal?.();
+          } else {
+            setShowClientModal(false);
+            setSelectedClient(null);
+          }
         } else if (showForm || isNewClientRoute) {
           if (isMobile && isNewClientRoute) {
             navigate('/clients');
@@ -1409,476 +1432,492 @@ const Clients = () => {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   }) : [];
 
+  useEffect(() => {
+    if (isModalMode && modalClientId && !showClientModal) {
+      loadClientDetail(modalClientId);
+    }
+  }, [isModalMode, modalClientId, showClientModal]);
+
+  useEffect(() => {
+    if (isModalMode && modalContractId && selectedClient && showClientModal) {
+      openContractEditById(modalContractId);
+    }
+  }, [isModalMode, modalContractId, selectedClient, showClientModal]);
+
   return (
-    <div>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Clients</h1>
-          <div className="text-sm text-gray-500 mt-1">Home &gt; Clients</div>
-        </div>
-        {!isManagerOnly && (
-          <button
-            onClick={() => {
-              if (isMobile) {
-                navigate('/clients/new');
-              } else {
-                setShowForm(true);
-              }
-            }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-          >
-            <Icon icon="lucide:plus" className="w-5 h-5" />
-            Add New
-          </button>
-        )}
-      </div>
-
-      {/* Stats Cards - faqat ADMIN uchun; MANAGER uchun ko'rinmasin */}
-      {!isManagerOnly && stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          {/* Total Clients */}
-          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
-            {/* Decorative pattern */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-
-            <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.total.change >= 0
-                ? 'bg-green-100 text-green-800'
-                : 'bg-red-100 text-red-800'
-                }`}>
-                <span className="inline-flex items-center">
-                  <span className="mr-1">{stats.total.change >= 0 ? '↑' : '↓'}</span>
-                  {formatChange(stats.total.change)}
-                </span>
-              </div>
+    <div className={isModalMode ? "" : "max-w-7xl mx-auto space-y-6"}>
+      {!isModalMode && (
+        <div className="contents">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Clients</h1>
+              <div className="text-sm text-gray-500 mt-1">Home &gt; Clients</div>
             </div>
-            <div className="flex items-center gap-3 mb-3 relative z-10">
-              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="lucide:users" className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.total.current}</div>
-            <div className="text-sm text-blue-100 relative z-10 font-medium">Jami mijozlar</div>
-          </div>
-
-          {/* Active Clients */}
-          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
-            {/* Decorative pattern */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-
-            <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.active.change >= 0
-                ? 'bg-green-100 text-green-800'
-                : 'bg-red-100 text-red-800'
-                }`}>
-                <span className="inline-flex items-center">
-                  <span className="mr-1">{stats.active.change >= 0 ? '↑' : '↓'}</span>
-                  {formatChange(stats.active.change)}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 mb-3 relative z-10">
-              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="lucide:check-circle-2" className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.active.current}</div>
-            <div className="text-sm text-blue-100 relative z-10 font-medium">Faol mijozlar</div>
-          </div>
-
-          {/* Inactive Clients */}
-          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
-            {/* Decorative pattern */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-
-            <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.inactive.change >= 0
-                ? 'bg-green-100 text-green-800'
-                : 'bg-red-100 text-red-800'
-                }`}>
-                <span className="inline-flex items-center">
-                  <span className="mr-1">{stats.inactive.change >= 0 ? '↑' : '↓'}</span>
-                  {formatChange(stats.inactive.change)}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 mb-3 relative z-10">
-              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="lucide:x-circle" className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.inactive.current}</div>
-            <div className="text-sm text-blue-100 relative z-10 font-medium">Nofaol mijozlar</div>
-          </div>
-
-          {/* Archived Clients */}
-          <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
-            {/* Decorative pattern */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-
-            <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.archived.change >= 0
-                ? 'bg-green-100 text-green-800'
-                : 'bg-red-100 text-red-800'
-                }`}>
-                <span className="inline-flex items-center">
-                  <span className="mr-1">{stats.archived.change >= 0 ? '↑' : '↓'}</span>
-                  {formatChange(stats.archived.change)}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 mb-3 relative z-10">
-              <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                <Icon icon="lucide:archive" className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.archived.current}</div>
-            <div className="text-sm text-blue-100 relative z-10 font-medium">Arxivlangan mijozlar</div>
-          </div>
-        </div>
-      )}
-
-
-      {/* Add Client Modal */}
-      {showClientForm && (
-        <div
-          className={isMobile && isNewClientRoute
-            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
-            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
-          style={isMobile && isNewClientRoute ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) {
-              if (isMobile && isNewClientRoute) {
-                navigate('/clients');
-              } else {
-                setShowForm(false);
-              }
-            }
-          }}
-        >
-          <div
-            className={isMobile && isNewClientRoute
-              ? 'bg-white w-full h-full p-6 overflow-y-auto'
-              : 'bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
-            style={isMobile && isNewClientRoute ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Yangi mijoz</h2>
+            {!isManagerOnly && (
               <button
                 onClick={() => {
+                  if (isMobile) {
+                    navigate('/clients/new');
+                  } else {
+                    setShowForm(true);
+                  }
+                }}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Icon icon="lucide:plus" className="w-5 h-5" />
+                Add New
+              </button>
+            )}
+          </div>
+
+          {/* Stats Cards - faqat ADMIN uchun; MANAGER uchun ko'rinmasin */}
+          {!isManagerOnly && stats && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+              {/* Total Clients */}
+              <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
+                {/* Decorative pattern */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
+
+                <div className="absolute top-3 right-3">
+                  <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.total.change >= 0
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                    }`}>
+                    <span className="inline-flex items-center">
+                      <span className="mr-1">{stats.total.change >= 0 ? '↑' : '↓'}</span>
+                      {formatChange(stats.total.change)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mb-3 relative z-10">
+                  <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
+                    <Icon icon="lucide:users" className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.total.current}</div>
+                <div className="text-sm text-blue-100 relative z-10 font-medium">Jami mijozlar</div>
+              </div>
+
+              {/* Active Clients */}
+              <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
+                {/* Decorative pattern */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
+
+                <div className="absolute top-3 right-3">
+                  <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.active.change >= 0
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                    }`}>
+                    <span className="inline-flex items-center">
+                      <span className="mr-1">{stats.active.change >= 0 ? '↑' : '↓'}</span>
+                      {formatChange(stats.active.change)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mb-3 relative z-10">
+                  <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
+                    <Icon icon="lucide:check-circle-2" className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.active.current}</div>
+                <div className="text-sm text-blue-100 relative z-10 font-medium">Faol mijozlar</div>
+              </div>
+
+              {/* Inactive Clients */}
+              <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
+                {/* Decorative pattern */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
+
+                <div className="absolute top-3 right-3">
+                  <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.inactive.change >= 0
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                    }`}>
+                    <span className="inline-flex items-center">
+                      <span className="mr-1">{stats.inactive.change >= 0 ? '↑' : '↓'}</span>
+                      {formatChange(stats.inactive.change)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mb-3 relative z-10">
+                  <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
+                    <Icon icon="lucide:x-circle" className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.inactive.current}</div>
+                <div className="text-sm text-blue-100 relative z-10 font-medium">Nofaol mijozlar</div>
+              </div>
+
+              {/* Archived Clients */}
+              <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
+                {/* Decorative pattern */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
+
+                <div className="absolute top-3 right-3">
+                  <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.archived.change >= 0
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                    }`}>
+                    <span className="inline-flex items-center">
+                      <span className="mr-1">{stats.archived.change >= 0 ? '↑' : '↓'}</span>
+                      {formatChange(stats.archived.change)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mb-3 relative z-10">
+                  <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
+                    <Icon icon="lucide:archive" className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.archived.current}</div>
+                <div className="text-sm text-blue-100 relative z-10 font-medium">Arxivlangan mijozlar</div>
+              </div>
+            </div>
+          )}
+
+
+          {/* Add Client Modal */}
+          {showClientForm && (
+            <div
+              className={isMobile && isNewClientRoute
+                ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
+                : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+              style={isMobile && isNewClientRoute ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) {
                   if (isMobile && isNewClientRoute) {
                     navigate('/clients');
                   } else {
                     setShowForm(false);
                   }
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
+                }
+              }}
+            >
+              <div
+                className={isMobile && isNewClientRoute
+                  ? 'bg-white w-full h-full p-6 overflow-y-auto'
+                  : 'bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
+                style={isMobile && isNewClientRoute ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
               >
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
-              </div>
-              <MonetaryInput
-                amount={form.dealAmount || ''}
-                currency={form.dealAmountCurrency || 'USD'}
-                exchangeRate={form.dealAmountExchangeRate || ''}
-                date={new Date().toISOString().split('T')[0]} // Use current date for deal amount
-                onAmountChange={(value) => {
-                  setForm({ ...form, dealAmount: value });
-                  setMonetaryErrors({ ...monetaryErrors, amount: undefined });
-                }}
-                onCurrencyChange={(value) => {
-                  setForm({ ...form, dealAmountCurrency: value });
-                  setMonetaryErrors({ ...monetaryErrors, currency: undefined });
-                }}
-                onExchangeRateChange={(value) => {
-                  setForm({ ...form, dealAmountExchangeRate: value });
-                  setMonetaryErrors({ ...monetaryErrors, exchangeRate: undefined });
-                }}
-                label="Deal Amount"
-                required={false}
-                showLabels={true}
-                currencyRules={{
-                  exchangeRateRequired: true,
-                }}
-                errors={monetaryErrors}
-              />
-              <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/50">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">O'tgan yilgi / eski qarzdorlik (ixtiyoriy)</h3>
-                <MonetaryInput
-                  amount={form.initialDebt || ''}
-                  currency={form.initialDebtCurrency || 'USD'}
-                  exchangeRate={''}
-                  date={new Date().toISOString().split('T')[0]}
-                  onAmountChange={(value) => {
-                    setForm({ ...form, initialDebt: value });
-                  }}
-                  onCurrencyChange={(value) => {
-                    setForm({ ...form, initialDebtCurrency: value as 'USD' | 'UZS' });
-                  }}
-                  onExchangeRateChange={() => { }} // Initial debt does not enforce exchange rate typing strictly on client side
-                  label="Oldingi qarz summasi"
-                  required={false}
-                  showLabels={false}
-                  currencyRules={{ exchangeRateRequired: false }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
-              </div>
-
-              {/* Nasiya shartlari */}
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya turi</label>
-                    <select
-                      value={form.creditType}
-                      onChange={(e) => setForm({ ...form, creditType: e.target.value as 'TASK_COUNT' | 'AMOUNT' | '' })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="">Nasiya yo'q</option>
-                      <option value="TASK_COUNT">Ma'lum bir ish sonigacha</option>
-                      <option value="AMOUNT">Ma'lum bir summagacha</option>
-                    </select>
-                  </div>
-                  {form.creditType && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {form.creditType === 'TASK_COUNT' ? 'Ish soni' : 'Summa (USD)'}
-                        </label>
-                        <input
-                          type="number"
-                          step={form.creditType === 'TASK_COUNT' ? '1' : '0.01'}
-                          value={form.creditLimit}
-                          onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
-                          required={!!form.creditType}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                          placeholder={form.creditType === 'TASK_COUNT' ? 'Masalan: 5' : 'Masalan: 1000'}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya boshlangan sana</label>
-                        <DateInput
-                          value={form.creditStartDate}
-                          onChange={(value) => setForm({ ...form, creditStartDate: value })}
-                          required={!!form.creditType}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                >
-                  Saqlash
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
-                >
-                  Bekor
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Clients Table */}
-      {loading ? (
-        <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Client
-                </th>
-                {!isManagerOnly && (
-                  <>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Deal Amount
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Phone
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      No of Projects
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Mijoz qardorligi
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {sortedClients.length === 0 ? (
-                <tr>
-                  <td colSpan={isManagerOnly ? 1 : 7} className="px-6 py-4 text-center text-gray-400">
-                    Ma'lumotlar yo'q
-                  </td>
-                </tr>
-              ) : (
-                sortedClients.map((client) => (
-                  <tr
-                    key={client.id}
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => loadClientDetail(client.id)}
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-gray-800">Yangi mijoz</h2>
+                  <button
+                    onClick={() => {
+                      if (isMobile && isNewClientRoute) {
+                        navigate('/clients');
+                      } else {
+                        setShowForm(false);
+                      }
+                    }}
+                    className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div
-                          className={`w-10 h-10 rounded-full ${getAvatarColor(
-                            client.name
-                          )} flex items-center justify-center text-sm font-semibold text-white mr-3`}
+                    ×
+                  </button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <MonetaryInput
+                    amount={form.dealAmount || ''}
+                    currency={form.dealAmountCurrency || 'USD'}
+                    exchangeRate={form.dealAmountExchangeRate || ''}
+                    date={new Date().toISOString().split('T')[0]} // Use current date for deal amount
+                    onAmountChange={(value) => {
+                      setForm({ ...form, dealAmount: value });
+                      setMonetaryErrors({ ...monetaryErrors, amount: undefined });
+                    }}
+                    onCurrencyChange={(value) => {
+                      setForm({ ...form, dealAmountCurrency: value });
+                      setMonetaryErrors({ ...monetaryErrors, currency: undefined });
+                    }}
+                    onExchangeRateChange={(value) => {
+                      setForm({ ...form, dealAmountExchangeRate: value });
+                      setMonetaryErrors({ ...monetaryErrors, exchangeRate: undefined });
+                    }}
+                    label="Deal Amount"
+                    required={false}
+                    showLabels={true}
+                    currencyRules={{
+                      exchangeRateRequired: true,
+                    }}
+                    errors={monetaryErrors}
+                  />
+                  <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/50">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">O'tgan yilgi / eski qarzdorlik (ixtiyoriy)</h3>
+                    <MonetaryInput
+                      amount={form.initialDebt || ''}
+                      currency={form.initialDebtCurrency || 'USD'}
+                      exchangeRate={''}
+                      date={new Date().toISOString().split('T')[0]}
+                      onAmountChange={(value) => {
+                        setForm({ ...form, initialDebt: value });
+                      }}
+                      onCurrencyChange={(value) => {
+                        setForm({ ...form, initialDebtCurrency: value as 'USD' | 'UZS' });
+                      }}
+                      onExchangeRateChange={() => { }} // Initial debt does not enforce exchange rate typing strictly on client side
+                      label="Oldingi qarz summasi"
+                      required={false}
+                      showLabels={false}
+                      currencyRules={{ exchangeRateRequired: false }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+
+                  {/* Nasiya shartlari */}
+                  <div className="border-t border-gray-200 pt-4 mt-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya turi</label>
+                        <select
+                          value={form.creditType}
+                          onChange={(e) => setForm({ ...form, creditType: e.target.value as 'TASK_COUNT' | 'AMOUNT' | '' })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         >
-                          {getInitials(client.name)}
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{client.name}</div>
-                          {isManagerOnly && (
-                            <div className="text-xs text-gray-500 mt-0.5">Shartnomalar uchun bosing</div>
-                          )}
-                        </div>
+                          <option value="">Nasiya yo'q</option>
+                          <option value="TASK_COUNT">Ma'lum bir ish sonigacha</option>
+                          <option value="AMOUNT">Ma'lum bir summagacha</option>
+                        </select>
                       </div>
-                    </td>
+                      {form.creditType && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              {form.creditType === 'TASK_COUNT' ? 'Ish soni' : 'Summa (USD)'}
+                            </label>
+                            <input
+                              type="number"
+                              step={form.creditType === 'TASK_COUNT' ? '1' : '0.01'}
+                              value={form.creditLimit}
+                              onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
+                              required={!!form.creditType}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              placeholder={form.creditType === 'TASK_COUNT' ? 'Masalan: 5' : 'Masalan: 1000'}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya boshlangan sana</label>
+                            <DateInput
+                              value={form.creditStartDate}
+                              onChange={(value) => setForm({ ...form, creditStartDate: value })}
+                              required={!!form.creditType}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                    >
+                      Saqlash
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowForm(false)}
+                      className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
+                    >
+                      Bekor
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Clients Table */}
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
+          ) : (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Client
+                    </th>
                     {!isManagerOnly && (
                       <>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {client.dealAmount ? (
-                            <CurrencyDisplay
-                              amount={Number(client.dealAmount)}
-                              originalCurrency={(client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
-                            />
-                          ) : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {client.phone || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {client.tasks?.length || 0}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {(() => {
-                            // Get balance from client data
-                            const balance = typeof client.balance === 'number' ? client.balance :
-                              (client.balance !== undefined && client.balance !== null ? Number(client.balance) : null);
-
-                            if (balance !== null && balance !== undefined && !isNaN(balance)) {
-                              return (
-                                <span className={`font-medium ${balance > 0
-                                  ? 'text-red-600'
-                                  : balance === 0
-                                    ? 'text-gray-600'
-                                    : 'text-green-600'
-                                  }`}>
-                                  <CurrencyDisplay
-                                    amount={Number(balance)}
-                                    originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
-                                  />
-                                </span>
-                              );
-                            }
-
-                            // Fallback: calculate balance if not provided
-                            const dealAmount = Number(client.dealAmount || 0);
-                            const totalTasks = client.tasks?.length || 0;
-                            const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
-                            const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
-                            const initialDebt = Number(client.initialDebt || 0);
-                            const calculatedBalance = totalDealAmount + initialDebt;
-
-                            return (
-                              <span className={`font-medium ${calculatedBalance > 0
-                                ? 'text-red-600'
-                                : calculatedBalance === 0
-                                  ? 'text-gray-600'
-                                  : 'text-green-600'
-                                }`}>
-                                <CurrencyDisplay
-                                  amount={Number(calculatedBalance)}
-                                  originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
-                                />
-                              </span>
-                            );
-                          })()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                            Active
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          {!isManagerOnly && (
-                            <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                onClick={() => {
-                                  if (isMobile) {
-                                    navigate(`/clients/${client.id}/edit`);
-                                  } else {
-                                    handleEdit(client);
-                                  }
-                                }}
-                                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
-                                title="O'zgartirish"
-                              >
-                                <Icon icon="lucide:pencil" className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(client.id)}
-                                className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
-                                title="O'chirish"
-                              >
-                                <Icon icon="lucide:trash-2" className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
-                        </td>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Deal Amount
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Phone
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          No of Projects
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Mijoz qardorligi
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                          Actions
+                        </th>
                       </>
                     )}
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sortedClients.length === 0 ? (
+                    <tr>
+                      <td colSpan={isManagerOnly ? 1 : 7} className="px-6 py-4 text-center text-gray-400">
+                        Ma'lumotlar yo'q
+                      </td>
+                    </tr>
+                  ) : (
+                    sortedClients.map((client) => (
+                      <tr
+                        key={client.id}
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => loadClientDetail(client.id)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div
+                              className={`w-10 h-10 rounded-full ${getAvatarColor(
+                                client.name
+                              )} flex items-center justify-center text-sm font-semibold text-white mr-3`}
+                            >
+                              {getInitials(client.name)}
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{client.name}</div>
+                              {isManagerOnly && (
+                                <div className="text-xs text-gray-500 mt-0.5">Shartnomalar uchun bosing</div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        {!isManagerOnly && (
+                          <>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {client.dealAmount ? (
+                                <CurrencyDisplay
+                                  amount={Number(client.dealAmount)}
+                                  originalCurrency={(client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                                />
+                              ) : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {client.phone || '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {client.tasks?.length || 0}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              {(() => {
+                                // Get balance from client data
+                                const balance = typeof client.balance === 'number' ? client.balance :
+                                  (client.balance !== undefined && client.balance !== null ? Number(client.balance) : null);
+
+                                if (balance !== null && balance !== undefined && !isNaN(balance)) {
+                                  return (
+                                    <span className={`font-medium ${balance > 0
+                                      ? 'text-red-600'
+                                      : balance === 0
+                                        ? 'text-gray-600'
+                                        : 'text-green-600'
+                                      }`}>
+                                      <CurrencyDisplay
+                                        amount={Number(balance)}
+                                        originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                                      />
+                                    </span>
+                                  );
+                                }
+
+                                // Fallback: calculate balance if not provided
+                                const dealAmount = Number(client.dealAmount || 0);
+                                const totalTasks = client.tasks?.length || 0;
+                                const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
+                                const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+                                const initialDebt = Number(client.initialDebt || 0);
+                                const calculatedBalance = totalDealAmount + initialDebt;
+
+                                return (
+                                  <span className={`font-medium ${calculatedBalance > 0
+                                    ? 'text-red-600'
+                                    : calculatedBalance === 0
+                                      ? 'text-gray-600'
+                                      : 'text-green-600'
+                                    }`}>
+                                    <CurrencyDisplay
+                                      amount={Number(calculatedBalance)}
+                                      originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                                    />
+                                  </span>
+                                );
+                              })()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                                Active
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              {!isManagerOnly && (
+                                <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    onClick={() => {
+                                      if (isMobile) {
+                                        navigate(`/clients/${client.id}/edit`);
+                                      } else {
+                                        handleEdit(client);
+                                      }
+                                    }}
+                                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                                    title="O'zgartirish"
+                                  >
+                                    <Icon icon="lucide:pencil" className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(client.id)}
+                                    className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
+                                    title="O'chirish"
+                                  >
+                                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -1891,8 +1930,12 @@ const Clients = () => {
           }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
-              setShowClientModal(false);
-              setSelectedClient(null);
+              if (isModalMode) {
+                onCloseModal?.();
+              } else {
+                setShowClientModal(false);
+                setSelectedClient(null);
+              }
             }
           }}
         >
@@ -1919,6 +1962,26 @@ const Clients = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {!isManagerOnly && (
+                  <button
+                    onClick={() => {
+                      if (isMobile) {
+                        navigate(`/clients/${selectedClient.id}/edit`);
+                      } else {
+                        handleEdit(selectedClient as unknown as Client); // Passing the minimum fields
+                      }
+                      if (isModalMode) {
+                        // Keep modal open or not? We might just overlay the edit modal
+                      } else {
+                        setShowClientModal(false);
+                      }
+                    }}
+                    className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center shrink-0"
+                    title="Tahrirlash"
+                  >
+                    <Icon icon="lucide:pencil" className="w-5 h-5" />
+                  </button>
+                )}
                 <button
                   onClick={async () => {
                     resetContractForm();
@@ -1927,333 +1990,462 @@ const Clients = () => {
                     }
                     setShowContractModal(true);
                   }}
-                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium whitespace-nowrap"
                 >
                   + Shartnoma qo'shish
                 </button>
                 <button
                   onClick={() => {
-                    setShowClientModal(false);
-                    setSelectedClient(null);
+                    if (isModalMode) {
+                      onCloseModal?.();
+                    } else {
+                      setShowClientModal(false);
+                      setSelectedClient(null);
+                    }
                   }}
-                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors shrink-0"
                 >
-                  ×
+                  <Icon icon="lucide:x" className="w-6 h-6" />
                 </button>
               </div>
             </div>
 
-            {/* Top Financial Summary - faqat ADMIN */}
-            {!isManagerOnly && selectedClient.stats && (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-                    <div className="text-sm text-gray-600 mb-1">Barcha loyihalar summasi (PSR hisobga olingan)</div>
-                    <div className="text-2xl font-bold text-gray-900">
-                      ${selectedClient.stats.totalDealAmount !== undefined
-                        ? Number(selectedClient.stats.totalDealAmount).toFixed(2)
-                        : (Number(selectedClient.stats.totalTasks) * Number(selectedClient.stats.dealAmount)).toFixed(2)}
+            {/* Client Tabs */}
+            <div className="flex gap-2 mb-6 border-b border-gray-100 overflow-x-auto hide-scrollbar">
+              <button
+                type="button"
+                onClick={() => setClientModalTab('overview')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'overview' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+              >
+                Umumiy
+              </button>
+              <button
+                type="button"
+                onClick={() => setClientModalTab('contracts')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'contracts' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+              >
+                Shartnomalar ({contracts.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setClientModalTab('tasks')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'tasks' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+              >
+                Ishlar ({selectedClient.tasks?.length || 0})
+              </button>
+              <button
+                type="button"
+                onClick={() => setClientModalTab('transactions')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'transactions' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+              >
+                Tranzaksiyalar ({selectedClient.transactions?.length || 0})
+              </button>
+            </div>
+
+            {/* TAB: OVERVIEW */}
+            {clientModalTab === 'overview' && (
+              <div className="space-y-6">
+                {/* Top Financial Summary - faqat ADMIN */}
+                {!isManagerOnly && selectedClient.stats && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 p-5 rounded-2xl shadow-sm">
+                        <div className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:calculator" className="w-4 h-4 text-blue-500" />
+                          Barcha loyihalar summasi
+                        </div>
+                        <div className="text-3xl font-bold text-gray-900">
+                          ${selectedClient.stats.totalDealAmount !== undefined
+                            ? Number(selectedClient.stats.totalDealAmount).toFixed(2)
+                            : (Number(selectedClient.stats.totalTasks) * Number(selectedClient.stats.dealAmount)).toFixed(2)}
+                        </div>
+                        {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
+                          <div className="text-xs font-medium text-blue-600 mt-2 bg-blue-100/50 inline-block px-2 py-1 rounded-md">
+                            ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +<CurrencyDisplay amount={selectedClient.stats.tasksWithPsr * 10} originalCurrency="USD" />)
+                          </div>
+                        )}
+                      </div>
+                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 p-5 rounded-2xl shadow-sm">
+                        <div className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:dollar-sign" className="w-4 h-4 text-green-500" />
+                          Jami to'lovlar
+                        </div>
+                        <div className="text-3xl font-bold text-green-600">
+                          <CurrencyDisplay amount={Number(selectedClient.stats.totalIncome)} originalCurrency="USD" />
+                        </div>
+                      </div>
+                      <div className={`p-5 rounded-2xl shadow-sm border ${selectedClient.stats.balance > 0
+                        ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-200'
+                        : selectedClient.stats.balance === 0
+                          ? 'bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200'
+                          : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
+                        }`}>
+                        <div className={`text-sm font-medium mb-2 flex items-center gap-2 ${selectedClient.stats.balance > 0 ? 'text-red-700' : selectedClient.stats.balance === 0 ? 'text-yellow-700' : 'text-green-700'}`}>
+                          <Icon icon="lucide:scale" className="w-4 h-4" />
+                          Qarzdorligi
+                        </div>
+                        <div className={`text-3xl font-bold ${selectedClient.stats.balance > 0
+                          ? 'text-red-600'
+                          : selectedClient.stats.balance === 0
+                            ? 'text-yellow-600'
+                            : 'text-green-600'
+                          }`}>
+                          <CurrencyDisplay amount={Number(selectedClient.stats.balance)} originalCurrency={selectedClient.balanceCurrency || 'USD'} />
+                        </div>
+                      </div>
                     </div>
-                    {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +<CurrencyDisplay amount={selectedClient.stats.tasksWithPsr * 10} originalCurrency="USD" />)
+                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between">
+                      <div className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <Icon icon="lucide:info" className="w-4 h-4 text-gray-400" />
+                        Qo'shimcha to'lovni (After Hours) kim to'laydi:
+                      </div>
+                      <div className="text-sm font-semibold text-gray-900 bg-white px-3 py-1.5 rounded-lg border border-gray-100 shadow-sm">
+                        {(selectedClient as any).defaultAfterHoursPayer === 'COMPANY' ? 'Men (kompaniya)' : 'Mijoz to\'laydi'}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Client Info - faqat ADMIN */}
+                {!isManagerOnly && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm">
+                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Telefon</div>
+                      <div className="font-semibold text-gray-900 text-lg flex items-center gap-2">
+                        <Icon icon="lucide:phone" className="w-4 h-4 text-gray-400" />
+                        {selectedClient.phone || '-'}
+                      </div>
+                    </div>
+                    <div className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm">
+                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Asosiy shartnoma summasi (1 ta task)</div>
+                      <div className="font-semibold text-gray-900 text-lg flex items-center gap-2">
+                        <Icon icon="lucide:file-text" className="w-4 h-4 text-gray-400" />
+                        {selectedClient.dealAmount ? (
+                          <CurrencyDisplay amount={Number(selectedClient.dealAmount)} originalCurrency="USD" />
+                        ) : '-'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Kelishuv shartlari (Nasiya shartlari) - faqat ADMIN */}
+                {!isManagerOnly && (selectedClient.creditType || selectedClient.creditLimit) && (
+                  <div className="bg-white border border-blue-100 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2 relative z-10">
+                      <Icon icon="lucide:shield-check" className="w-5 h-5 text-blue-500" />
+                      Nasiya shartlari
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <div className="text-xs font-medium text-gray-500 mb-1">Nasiya turi</div>
+                        <div className="font-semibold text-gray-900">
+                          {selectedClient.creditType === 'TASK_COUNT'
+                            ? 'Ma\'lum bir ish sonigacha'
+                            : selectedClient.creditType === 'AMOUNT'
+                              ? 'Ma\'lum bir summagacha'
+                              : 'Nasiya yo\'q'}
+                        </div>
+                      </div>
+                      {selectedClient.creditLimit && (
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <div className="text-xs font-medium text-gray-500 mb-1">
+                            {selectedClient.creditType === 'TASK_COUNT' ? 'Ish soni limiti' : 'Summa limiti'}
+                          </div>
+                          <div className="font-bold text-blue-600 text-lg">
+                            {selectedClient.creditType === 'TASK_COUNT'
+                              ? `${Number(selectedClient.creditLimit)} ta ish`
+                              : <CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />}
+                          </div>
+                        </div>
+                      )}
+                      {selectedClient.creditStartDate && (
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <div className="text-xs font-medium text-gray-500 mb-1">Boshlangan sana</div>
+                          <div className="font-semibold text-gray-900 flex items-center gap-2">
+                            <Icon icon="lucide:calendar" className="w-4 h-4 text-gray-400" />
+                            {new Date(selectedClient.creditStartDate).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {selectedClient.creditType && selectedClient.creditLimit && (
+                      <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100 relative z-10 flex items-start gap-3">
+                        <Icon icon="lucide:info" className="w-5 h-5 text-blue-500 mt-0.5" />
+                        <div className="text-sm text-blue-900">
+                          <span className="font-semibold block mb-0.5">Shart tafsiloti:</span>
+                          {selectedClient.creditType === 'TASK_COUNT'
+                            ? `${Number(selectedClient.creditLimit)} ta ishdan keyin to'lov qilish kerak`
+                            : `Qarzdorlik ${<CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />} ga yetganda to'lov qilish kerak`}
+                        </div>
                       </div>
                     )}
                   </div>
-                  <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
-                    <div className="text-sm text-gray-600 mb-1">Jami to'lovlar</div>
-                    <div className="text-2xl font-bold text-green-600">
-                      <CurrencyDisplay amount={Number(selectedClient.stats.totalIncome)} originalCurrency="USD" />
-                    </div>
-                  </div>
-                  <div className={`p-4 rounded-lg border ${selectedClient.stats.balance > 0
-                    ? 'bg-red-50 border-red-200'
-                    : selectedClient.stats.balance === 0
-                      ? 'bg-yellow-50 border-yellow-200'
-                      : 'bg-green-50 border-green-200'
-                    }`}>
-                    <div className="text-sm text-gray-600 mb-1">Qarzorligi</div>
-                    <div className={`text-2xl font-bold ${selectedClient.stats.balance > 0
-                      ? 'text-red-600'
-                      : selectedClient.stats.balance === 0
-                        ? 'text-yellow-600'
-                        : 'text-green-600'
-                      }`}>
-                      <CurrencyDisplay amount={Number(selectedClient.stats.balance)} originalCurrency={selectedClient.balanceCurrency || 'USD'} />
-                    </div>
-                  </div>
-                </div>
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Qo'shimcha to'lovni kim to'laydi</div>
-                  <div className="text-sm font-medium text-gray-800">
-                    {(selectedClient as any).defaultAfterHoursPayer === 'COMPANY' ? 'Men to\'layman (kompaniya)' : 'Mijoz to\'laydi'}
-                  </div>
-                </div>
-              </>
-            )}
+                )}
 
-            {/* Client Info - faqat ADMIN */}
-            {!isManagerOnly && (
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Telefon</div>
-                  <div className="font-medium text-gray-900">{selectedClient.phone || '-'}</div>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Shartnoma summasi (bitta task)</div>
-                  <div className="font-medium text-gray-900">
-                    {selectedClient.dealAmount ? (
-                      <CurrencyDisplay amount={Number(selectedClient.dealAmount)} originalCurrency="USD" />
-                    ) : '-'}
-                  </div>
-                  {selectedClient.stats?.totalDealAmount !== undefined && (
-                    <>
-                      <div className="text-sm text-gray-500 mb-1 mt-2">Jami shartnoma summasi (PSR hisobga olingan)</div>
-                      <div className="font-medium text-blue-600">
-                        <CurrencyDisplay amount={Number(selectedClient.stats.totalDealAmount)} originalCurrency="USD" />
+                {/* Stats Summary - faqat ADMIN */}
+                {!isManagerOnly && selectedClient.stats && (
+                  <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                      <Icon icon="lucide:bar-chart-2" className="w-5 h-5 text-indigo-500" />
+                      Mijoz statistikasi
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <div className="text-xs font-medium text-gray-500 mb-1">Jami loyihalar</div>
+                        <div className="text-2xl font-bold text-gray-900">{selectedClient.stats.totalTasks} <span className="text-sm font-medium text-gray-400">ta</span></div>
                       </div>
-                      {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +<CurrencyDisplay amount={selectedClient.stats.tasksWithPsr * 10} originalCurrency="USD" />)
+                      {Object.entries(selectedClient.stats.tasksByBranch).map(([branch, count]) => (
+                        <div key={branch} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <div className="text-xs font-medium text-gray-500 mb-1">{branch} filiali</div>
+                          <div className="text-2xl font-bold text-indigo-600">{count} <span className="text-sm font-medium text-indigo-300">ta</span></div>
                         </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Kelishuv shartlari (Nasiya shartlari) - faqat ADMIN */}
-            {!isManagerOnly && (selectedClient.creditType || selectedClient.creditLimit) && (
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <Icon icon="lucide:shield-check" className="w-5 h-5 text-blue-600" />
-                  Kelishuv shartlari (Nasiya)
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
-                    <div className="text-xs text-gray-600 mb-1">Nasiya turi</div>
-                    <div className="font-semibold text-gray-900">
-                      {selectedClient.creditType === 'TASK_COUNT'
-                        ? 'Ma\'lum bir ish sonigacha'
-                        : selectedClient.creditType === 'AMOUNT'
-                          ? 'Ma\'lum bir summagacha'
-                          : 'Nasiya yo\'q'}
-                    </div>
-                  </div>
-                  {selectedClient.creditLimit && (
-                    <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
-                      <div className="text-xs text-gray-600 mb-1">
-                        {selectedClient.creditType === 'TASK_COUNT' ? 'Ish soni limiti' : 'Summa limiti'}
-                      </div>
-                      <div className="font-semibold text-gray-900">
-                        {selectedClient.creditType === 'TASK_COUNT'
-                          ? `${Number(selectedClient.creditLimit)} ta ish`
-                          : <CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />}
-                      </div>
-                    </div>
-                  )}
-                  {selectedClient.creditStartDate && (
-                    <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
-                      <div className="text-xs text-gray-600 mb-1">Nasiya boshlangan sana</div>
-                      <div className="font-semibold text-gray-900">
-                        {new Date(selectedClient.creditStartDate).toLocaleDateString('uz-UZ', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {selectedClient.creditType && selectedClient.creditLimit && (
-                  <div className="mt-4 p-3 bg-blue-100/50 rounded-lg border border-blue-200">
-                    <div className="text-sm text-gray-700">
-                      <span className="font-medium">Shart:</span>{' '}
-                      {selectedClient.creditType === 'TASK_COUNT'
-                        ? `${Number(selectedClient.creditLimit)} ta ishdan keyin to'lov qilish kerak`
-                        : `Qardorlik $${Number(selectedClient.creditLimit).toFixed(2)} ga yetganda to'lov qilish kerak`}
+                      ))}
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Stats Summary - faqat ADMIN */}
-            {!isManagerOnly && selectedClient.stats && (
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">Statistika</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <div className="text-sm text-gray-600">Jami loyihalar</div>
-                    <div className="text-xl font-bold text-gray-900">{selectedClient.stats.totalTasks}</div>
+            {/* TAB: CONTRACTS */}
+            {clientModalTab === 'contracts' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <Icon icon="lucide:file-signature" className="w-5 h-5 text-gray-500" />
+                    Shartnomalar ro'yxati
+                  </h3>
+                  <button
+                    onClick={async () => {
+                      resetContractForm();
+                      if (selectedClient) {
+                        await loadContracts(selectedClient.id);
+                      }
+                      setShowContractModal(true);
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm flex items-center gap-2"
+                  >
+                    <Icon icon="lucide:plus" className="w-4 h-4" />
+                    Yangi qo'shish
+                  </button>
+                </div>
+                {loadingContracts ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                    <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin mb-2 text-blue-500" />
+                    <span>Yuklanmoqda...</span>
                   </div>
-                  {Object.entries(selectedClient.stats.tasksByBranch).map(([branch, count]) => (
-                    <div key={branch}>
-                      <div className="text-sm text-gray-600">{branch} filiali</div>
-                      <div className="text-xl font-bold text-gray-900">{count}</div>
+                ) : contracts.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 bg-gray-50 rounded-xl border border-gray-100 border-dashed">
+                    <Icon icon="lucide:file-x-2" className="w-10 h-10 mb-3 text-gray-300" />
+                    <span className="text-sm font-medium">Ushbu mijozga tegishli shartnomalar yo'q</span>
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50/80 backdrop-blur-sm">
+                          <tr>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Shartnoma raqami</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sana</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sotuvchi</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sotib oluvchi</th>
+                            <th className="px-5 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amallar</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                          {contracts.map((contract) => (
+                            <tr key={contract.id} className="hover:bg-blue-50/50 transition-colors group">
+                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-100 text-gray-800">
+                                  {contract.contractNumber}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {new Date(contract.contractDate).toLocaleDateString('uz-UZ')}
+                              </td>
+                              <td className="px-5 py-4 text-sm text-gray-600 max-w-[200px] truncate" title={contract.sellerName}>{contract.sellerName}</td>
+                              <td className="px-5 py-4 text-sm text-gray-600 max-w-[200px] truncate" title={contract.buyerName}>{contract.buyerName}</td>
+                              <td className="px-5 py-4 whitespace-nowrap text-sm text-right">
+                                <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditContract(contract)}
+                                    className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors ring-1 ring-transparent hover:ring-blue-200"
+                                    title="Tahrirlash"
+                                  >
+                                    <Icon icon="lucide:pencil" className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteContract(contract.id)}
+                                    className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors ring-1 ring-transparent hover:ring-red-200"
+                                    title="O'chirish"
+                                  >
+                                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Shartnomalar ro'yxati */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-semibold text-gray-800">Shartnomalar</h3>
-                <button
-                  onClick={async () => {
-                    resetContractForm();
-                    if (selectedClient) {
-                      await loadContracts(selectedClient.id);
-                    }
-                    setShowContractModal(true);
-                  }}
-                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  + Shartnoma qo'shish
-                </button>
-              </div>
-              {loadingContracts ? (
-                <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-              ) : contracts.length === 0 ? (
-                <div className="text-center py-4 text-gray-400">Shartnomalar yo'q</div>
-              ) : (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shartnoma raqami</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sana</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sotuvchi</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sotib oluvchi</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amallar</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {contracts.map((contract) => (
-                          <tr key={contract.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{contract.contractNumber}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                              {new Date(contract.contractDate).toLocaleDateString('uz-UZ')}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{contract.sellerName}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{contract.buyerName}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm">
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditContract(contract)}
-                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                  title="Tahrirlash"
-                                >
-                                  <Icon icon="lucide:pencil" className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteContract(contract.id)}
-                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                  title="O'chirish"
-                                >
-                                  <Icon icon="lucide:trash-2" className="w-4 h-4" />
-                                </button>
+            {/* TAB: TASKS */}
+            {clientModalTab === 'tasks' && (
+              <div className="space-y-6">
+                {/* Monthly Tasks Chart */}
+                {monthlyTasks.length > 0 && (
+                  <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+                    <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                      <Icon icon="lucide:activity" className="w-5 h-5 text-indigo-500" />
+                      Oylik ishlar dinamikasi
+                    </h3>
+                    <div className="flex items-end justify-between gap-2 h-64">
+                      {monthlyTasks.map((item, index) => {
+                        const maxCount = Math.max(...monthlyTasks.map(m => m.count), 1);
+                        const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+                        return (
+                          <div key={index} className="flex-1 flex flex-col items-center gap-3 min-w-0 group relative">
+                            <div className="w-full flex flex-col items-center justify-end relative h-[200px]">
+                              <div
+                                onClick={() => {
+                                  if (item.year !== undefined && item.monthIndex !== undefined) {
+                                    setSelectedMonthForTasks({ label: item.month, year: item.year, monthIndex: item.monthIndex });
+                                    // You could potentially switch back to general list and filter by this, or just rely on existing modal filtering logic
+                                  }
+                                }}
+                                className="w-full bg-indigo-100 rounded-t-lg transition-all duration-300 group-hover:bg-indigo-300 cursor-pointer relative"
+                                style={{
+                                  height: `${height}%`,
+                                  minHeight: item.count > 0 ? '4px' : '0px'
+                                }}
+                              >
+                                {item.count > 0 && (
+                                  <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs font-bold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {item.count}
+                                  </div>
+                                )}
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Monthly Tasks Chart */}
-            {monthlyTasks.length > 0 && (
-              <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Oylik ishlar soni</h3>
-                <div className="flex items-end justify-between gap-1 h-64">
-                  {monthlyTasks.map((item, index) => {
-                    const maxCount = Math.max(...monthlyTasks.map(m => m.count), 1);
-                    const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-                    return (
-                      <div key={index} className="flex-1 flex flex-col items-center gap-2 min-w-0">
-                        <div className="w-full flex flex-col items-center justify-end relative" style={{ height: '200px' }}>
-                          {item.count > 0 && (
-                            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 whitespace-nowrap">
-                              {item.count}
                             </div>
-                          )}
-                          <div
-                            onClick={() => {
-                              if (item.year !== undefined && item.monthIndex !== undefined) {
-                                setSelectedMonthForTasks({ label: item.month, year: item.year, monthIndex: item.monthIndex });
-                              }
-                            }}
-                            className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t transition-all duration-500 hover:from-blue-600 hover:to-blue-500 cursor-pointer relative"
-                            style={{
-                              height: `${height}%`,
-                              minHeight: item.count > 0 ? '4px' : '0px'
-                            }}
-                            title={`${item.month}: ${item.count} ish`}
-                          />
-                        </div>
-                        <div className="text-xs text-gray-600 text-center w-full truncate" style={{ maxWidth: '100%' }}>
-                          {item.month}
-                        </div>
-                      </div>
-                    );
-                  })}
+                            <div className="text-xs font-medium text-gray-500 text-center w-full truncate border-t border-gray-100 pt-2" title={item.month}>
+                              {item.month.substring(0, 3)} {/* Showing shorter month names for spacing */}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tasks List */}
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                  <div className="flex justify-between items-center p-5 border-b border-gray-100">
+                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                      <Icon icon="lucide:check-circle" className="w-5 h-5 text-gray-400" />
+                      Oxirgi ishlar
+                    </h3>
+                  </div>
+                  {!selectedClient.tasks || selectedClient.tasks.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-400 bg-gray-50 rounded-b-xl border border-gray-100 border-dashed m-4">
+                      <Icon icon="lucide:inbox" className="w-10 h-10 mb-3 text-gray-300" />
+                      <span className="text-sm font-medium">Bajarilgan ishlar mavjud emas</span>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-100">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sarlavha</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Filial</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sanasi</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-50">
+                          {selectedClient.tasks.map(task => (
+                            <tr key={task.id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-l-[3px] border-transparent hover:border-blue-500">#{task.id}</td>
+                              <td className="px-5 py-4 text-sm text-gray-700 max-w-[200px] truncate" title={task.title}>{task.title || '-'}</td>
+                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-md">{task.branch?.name || '-'}</span>
+                              </td>
+                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(task.createdAt).toLocaleDateString('uz-UZ')}</td>
+                              <td className="px-5 py-4 whitespace-nowrap">
+                                <span className="px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-100 drop-shadow-sm">
+                                  {task.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Transactions */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-semibold text-gray-800">Tranzaksiyalar ({selectedClient.transactions.length})</h3>
-                <button
-                  onClick={() => setShowTransactionModal(true)}
-                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  + Tranzaksiya qo'shish
-                </button>
-              </div>
-              {selectedClient.transactions.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">Tranzaksiyalar yo'q</div>
-              ) : (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="overflow-y-auto" style={{ maxHeight: '300px' }}>
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50 sticky top-0 z-10">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Summa</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sana</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Izoh</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {selectedClient.transactions.map((transaction) => (
-                          <tr key={transaction.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-600">
-                              +${Number(transaction.amount).toFixed(2)} {transaction.currency}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                              {formatDate(transaction.date)}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {transaction.comment || '-'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+            {/* TAB: TRANSACTIONS */}
+            {clientModalTab === 'transactions' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <Icon icon="lucide:receipt" className="w-5 h-5 text-gray-500" />
+                    Tranzaksiyalar tarixi
+                  </h3>
+                  <button
+                    onClick={() => setShowTransactionModal(true)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm flex items-center gap-2"
+                  >
+                    <Icon icon="lucide:plus" className="w-4 h-4" />
+                    Joriy to'lov qabul qilish
+                  </button>
                 </div>
-              )}
-            </div>
+                {selectedClient.transactions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 bg-gray-50 rounded-xl border border-gray-100 border-dashed">
+                    <Icon icon="lucide:circle-dollar-sign" className="w-10 h-10 mb-3 text-gray-300" />
+                    <span className="text-sm font-medium">To'lovlar tarixi yo'q</span>
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="overflow-y-auto max-h-[400px]">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50/90 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
+                          <tr>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Summa</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sana</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Izoh</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                          {selectedClient.transactions.map((transaction) => (
+                            <tr key={transaction.id} className="hover:bg-green-50/30 transition-colors">
+                              <td className="px-5 py-4 whitespace-nowrap">
+                                <div className="text-sm font-bold text-green-600 bg-green-50 inline-block px-3 py-1 rounded-lg border border-green-100">
+                                  +${Number(transaction.amount).toFixed(2)} {transaction.currency}
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-600">
+                                {formatDate(transaction.date)}
+                              </td>
+                              <td className="px-5 py-4 text-sm text-gray-700 max-w-md break-words">
+                                {transaction.comment || <span className="text-gray-400 italic">Izohsiz</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2274,21 +2466,15 @@ const Clients = () => {
             className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
             style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800">
-                  {editingContractId ? 'Shartnomani tahrirlash' : 'Yangi shartnoma qo\'shish'}
-                </h3>
-                <p className="text-sm text-gray-500">{selectedClient.name}</p>
-              </div>
+            <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+              <h3 className="text-xl font-bold text-gray-800">
+                {editingContractId ? 'Shartnomani tahrirlash' : 'Yangi shartnoma qo\'shish'}
+              </h3>
               <button
-                onClick={() => {
-                  setShowContractModal(false);
-                  resetContractForm();
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                onClick={() => setShowContractModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-xl transition-colors"
               >
-                ×
+                <Icon icon="lucide:x" className="w-6 h-6" />
               </button>
             </div>
 

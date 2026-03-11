@@ -306,35 +306,34 @@ export default function Exam() {
                   placeholder="Sizning javobingiz..."
                 />
               )}
+              {/* Question Navigation Buttons - Moved here from footer */}
+            </div>
+            <div className="flex items-center justify-between mt-12 gap-4">
+              <button
+                onClick={handlePrev}
+                disabled={currentQuestionIndex === 0}
+                className="flex items-center gap-2 px-6 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex-1 justify-center"
+              >
+                <Icon icon="lucide:chevron-left" className="w-5 h-5" />
+                Oldingi
+              </button>
+
+              <button
+                onClick={currentQuestionIndex === questions.length - 1 ? handleSubmit : handleNext}
+                className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 flex-1 justify-center ${currentQuestionIndex === questions.length - 1
+                  ? 'bg-green-600 text-white shadow-green-600/20 hover:bg-green-700'
+                  : 'bg-indigo-600 text-white shadow-indigo-600/20 hover:bg-indigo-700'
+                  }`}
+              >
+                {currentQuestionIndex === questions.length - 1 ? (
+                  <>Topshirish <Icon icon="lucide:send" className="w-5 h-5" /></>
+                ) : (
+                  <>Keyingi <Icon icon="lucide:chevron-right" className="w-5 h-5" /></>
+                )}
+              </button>
             </div>
           </div>
         </div>
-
-        {/* Footer Navigation Area - Fixed height with safe area padding */}
-        <footer className="h-20 lg:h-24 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-4 lg:px-10 flex items-center justify-between pb-safe">
-          <button
-            onClick={handlePrev}
-            disabled={currentQuestionIndex === 0}
-            className="flex items-center gap-2 px-4 lg:px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs lg:text-sm hover:bg-slate-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <Icon icon="lucide:chevron-left" className="w-5 h-5" />
-            Oldingi Savol
-          </button>
-
-          <button
-            onClick={currentQuestionIndex === questions.length - 1 ? handleSubmit : handleNext}
-            className={`flex items-center gap-2 px-4 lg:px-10 py-4 rounded-2xl font-black text-xs lg:text-sm shadow-xl transition-all active:scale-95 ${currentQuestionIndex === questions.length - 1
-              ? 'bg-green-600 text-white shadow-green-600/20 hover:bg-green-700'
-              : 'bg-indigo-600 text-white shadow-indigo-600/20 hover:bg-indigo-700'
-              }`}
-          >
-            {currentQuestionIndex === questions.length - 1 ? (
-              <>Topshirish <Icon icon="lucide:send" className="w-5 h-5" /></>
-            ) : (
-              <>Keyingi Savol <Icon icon="lucide:chevron-right" className="w-5 h-5" /></>
-            )}
-          </button>
-        </footer>
       </main>
 
       {/* Checking Answers Modal Overlay */}

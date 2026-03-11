@@ -11,7 +11,7 @@ const NOTIFICATIONS_ENABLED = false;
 
 const Layout = () => {
   const { user, logout } = useAuth();
-  const { notifications, confirmProcess, rejectProcess, refresh } = useNotifications();
+  const { notifications, confirmProcess, rejectProcess } = useNotifications();
   const { theme, toggleTheme } = useTheme();
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -34,6 +34,7 @@ const Layout = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [notifications.length]);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,13 +59,10 @@ const Layout = () => {
     const handleResize = () => {
       const desktop = window.innerWidth >= 768;
       setIsDesktop(desktop);
-      // Desktop'ga o'tganda ochiq, Mobile'ga o'tganda yopiq
       setSidebarOpen(desktop);
     };
 
-    // Initial check
     handleResize();
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -77,7 +75,7 @@ const Layout = () => {
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
-  const isSettingsPage = location.pathname.startsWith('/settings');
+
   const isInvoicesPage = location.pathname === '/invoices';
   const isExamPage = location.pathname.startsWith('/exam');
 
@@ -99,237 +97,154 @@ const Layout = () => {
   ];
 
   return (
-    <div className="flex h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900 relative">
+    <div className="flex h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900 relative text-gray-900 dark:text-gray-100">
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-12' : 'w-0'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 overflow-hidden relative`}>
-        {/* Desktop: Sidebar yopiq bo'lganda - Toggle button tepada */}
-        {isDesktop && !sidebarOpen && (
-          <div className="p-3 border-b border-gray-200 flex justify-center">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-              aria-label="Toggle sidebar"
-            >
-              <Icon icon="lucide:menu" className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
-        )}
-
-        {/* Logo/Header with Toggle Button - Desktop ochiq */}
-        {sidebarOpen && isDesktop && (
-          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-            <div>
+      {!isExamPage && (
+        <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-12' : 'w-0'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 overflow-hidden relative`}>
+          {/* Desktop/Mobile Header in Sidebar */}
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className={`${sidebarOpen ? 'block' : 'hidden'}`}>
               <img src="/logo.png" alt="Prodeklarant" className="h-8 w-auto" />
-              <h1 className="sr-only">Prodeklarant</h1>
-              {user && (
-                <p className="text-sm text-gray-500 mt-2">{user.name}</p>
-              )}
+              {user && <p className="text-sm text-gray-500 mt-2">{user.name}</p>}
             </div>
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
-              aria-label="Toggle sidebar"
-            >
-              <Icon icon="lucide:x" className="w-5 h-5 text-gray-600" />
-            </button>
+            {(sidebarOpen || !isDesktop) && (
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0"
+              >
+                <Icon icon={sidebarOpen ? "lucide:x" : "lucide:menu"} className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              </button>
+            )}
           </div>
-        )}
 
-        {/* Mobile: Toggle button yonida sahifa nomi - sidebar yopiq bo'lganda */}
-        {!isDesktop && !sidebarOpen && (
-          <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 p-4 flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
-              aria-label="Toggle sidebar"
-            >
-              <Icon icon="lucide:menu" className="w-5 h-5 text-gray-600" />
-            </button>
-            <img src="/logo.png" alt="Prodeklarant" className="h-6 w-auto" />
-            <h1 className="sr-only">Prodeklarant</h1>
-            <div className="flex-1" />
+          {!isDesktop && !sidebarOpen && (
+            <div className="p-3 border-b border-gray-200 flex justify-center">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <Icon icon="lucide:menu" className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto p-4">
+            <ul className="space-y-2">
+              {navItems.map((item) => (
+                <li key={item.path}>
+                  <button
+                    onClick={() => {
+                      navigate(item.path);
+                      if (!isDesktop) setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg transition-colors ${isActive(item.path)
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      }`}
+                    title={!sidebarOpen ? item.label : ''}
+                  >
+                    <Icon icon={item.icon} className="w-5 h-5 flex-shrink-0" />
+                    {sidebarOpen && <span className="truncate">{item.label}</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          {/* Logout Button */}
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              aria-label="Chiqish"
-              title="Chiqish"
+              className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}
+              title={!sidebarOpen ? 'Chiqish' : ''}
             >
-              <Icon icon="lucide:log-out" className="w-5 h-5" />
+              <Icon icon="lucide:log-out" className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span>Chiqish</span>}
             </button>
           </div>
-        )}
-
-        {/* Mobile: Sidebar ochiq bo'lganda header */}
-        {!isDesktop && sidebarOpen && (
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <div>
-              <img src="/logo.png" alt="Prodeklarant" className="h-8 w-auto" />
-              <h1 className="sr-only">Prodeklarant</h1>
-              {user && (
-                <p className="text-sm text-gray-500 mt-2">{user.name}</p>
-              )}
-            </div>
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
-              aria-label="Toggle sidebar"
-            >
-              <Icon icon="lucide:x" className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
-        )}
-
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4">
-          <ul className="space-y-2">
-            {navItems.map((item) => (
-              <li key={item.path}>
-                <button
-                  onClick={() => {
-                    navigate(item.path);
-                    // Mobile'da navigation'dan keyin sidebar'ni yopish
-                    if (!isDesktop) {
-                      setSidebarOpen(false);
-                    }
-                  }}
-                  className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg transition-colors ${isActive(item.path)
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                    }`}
-                  title={!sidebarOpen ? item.label : ''}
-                >
-                  <Icon icon={item.icon} className="w-5 h-5 flex-shrink-0" />
-                  {sidebarOpen && <span>{item.label}</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        {/* Logout Button */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={handleLogout}
-            className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}
-            title={!sidebarOpen ? 'Chiqish' : ''}
-          >
-            <Icon icon="lucide:log-out" className="w-5 h-5 flex-shrink-0" />
-            {sidebarOpen && <span>Chiqish</span>}
-          </button>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden text-gray-900 dark:text-gray-100">
-        {/* Header; bildirishnoma qo'ng'irog'i NOTIFICATIONS_ENABLED = true qilinganda ko'rinadi */}
-        <header className="flex-shrink-0 flex items-center justify-end gap-2 px-4 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <button
-            onClick={toggleTheme}
-            className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title={theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}
-            aria-label={theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}
-          >
-            <Icon icon={theme === 'dark' ? "lucide:sun" : "lucide:moon"} className="w-5 h-5" />
-          </button>
-          {NOTIFICATIONS_ENABLED && (
-            <div className="relative" ref={panelRef}>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Mobile/Desktop Header (Redundant on Exam Page) */}
+        {!isExamPage && (
+          <header className="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            {!isDesktop && (
               <button
-                onClick={() => {
-                  setNotificationPanelOpen(!notificationPanelOpen);
-                  requestNotificationPermission();
-                }}
-                className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Bildirishnomalar"
-                title="Bildirishnomalar"
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
               >
-                <Icon icon="lucide:bell" className="w-5 h-5" />
-                {notifications.length > 0 && (
-                  <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-xs font-medium text-white bg-red-500 rounded-full">
-                    {notifications.length > 9 ? '9+' : notifications.length}
-                  </span>
-                )}
+                <Icon icon="lucide:menu" className="w-5 h-5" />
               </button>
-              {notificationPanelOpen && (
-                <div className="absolute right-0 mt-1 w-96 max-h-[28rem] overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl z-50">
-                  <div className="flex items-center gap-2 p-4 border-b border-gray-100 bg-gray-50 rounded-t-xl">
-                    <Icon icon="lucide:bell-ring" className="w-5 h-5 text-indigo-600" />
-                    <span className="font-semibold text-gray-800">Bildirishnomalar</span>
+            )}
+            <div className="flex-1" />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleTheme}
+                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title={theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}
+              >
+                <Icon icon={theme === 'dark' ? "lucide:sun" : "lucide:moon"} className="w-5 h-5" />
+              </button>
+              {NOTIFICATIONS_ENABLED && (
+                <div className="relative" ref={panelRef}>
+                  <button
+                    onClick={() => setNotificationPanelOpen(!notificationPanelOpen)}
+                    className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <Icon icon="lucide:bell" className="w-5 h-5" />
                     {notifications.length > 0 && (
-                      <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-full">
-                        {notifications.length}
+                      <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-xs font-medium text-white bg-red-500 rounded-full">
+                        {notifications.length > 9 ? '9+' : notifications.length}
                       </span>
                     )}
-                  </div>
-                  {notifications.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 px-4 text-gray-400">
-                      <Icon icon="lucide:bell-off" className="w-12 h-12 mb-3 opacity-50" />
-                      <p className="text-sm font-medium">Bildirishnomalar yo'q</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-gray-100">
-                      {notifications.map((n) => (
-                        <div key={n.id} className="p-4 hover:bg-gray-50/80 transition-colors">
-                          <div className="flex gap-3 mb-3">
-                            <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center">
-                              <Icon icon="lucide:file-question" className="w-4 h-4 text-indigo-600" />
+                  </button>
+                  {notificationPanelOpen && (
+                    <div className="absolute right-0 mt-1 w-80 sm:w-96 max-h-[28rem] overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50">
+                      <div className="flex items-center gap-2 p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-xl">
+                        <Icon icon="lucide:bell-ring" className="w-5 h-5 text-indigo-600" />
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">Bildirishnomalar</span>
+                      </div>
+                      <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {notifications.length === 0 ? (
+                          <div className="p-12 text-center text-gray-400">
+                            <Icon icon="lucide:bell-off" className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                            <p className="text-sm font-medium">Bildirishnomalar yo'q</p>
+                          </div>
+                        ) : (
+                          notifications.map((n) => (
+                            <div key={n.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                              <p className="text-sm text-gray-800 dark:text-gray-200 mb-3">{getNotificationDisplayMessage(n)}</p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => confirmProcess(n.taskProcessId)}
+                                  className="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                >
+                                  Tasdiqlash
+                                </button>
+                                <button
+                                  onClick={() => rejectProcess(n.taskProcessId)}
+                                  className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                >
+                                  Rad etish
+                                </button>
+                              </div>
                             </div>
-                            <p className="text-sm text-gray-800 leading-relaxed flex-1 min-w-0">{getNotificationDisplayMessage(n)}</p>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await confirmProcess(n.taskProcessId);
-                                  if (notifications.length <= 1) setNotificationPanelOpen(false);
-                                } catch (err: any) {
-                                  toast.error(err.message || "Xatolik ro'y berdi");
-                                }
-                              }}
-                              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                            >
-                              <Icon icon="lucide:check" className="w-4 h-4" />
-                              Ha
-                            </button>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await rejectProcess(n.taskProcessId);
-                                  if (notifications.length <= 1) setNotificationPanelOpen(false);
-                                } catch (err: any) {
-                                  toast.error(err.message || "Xatolik ro'y berdi");
-                                }
-                              }}
-                              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                            >
-                              <Icon icon="lucide:x" className="w-4 h-4" />
-                              Yo'q
-                            </button>
-                            {n.actionUrl && (
-                              <button
-                                onClick={() => {
-                                  navigate(n.actionUrl!);
-                                  setNotificationPanelOpen(false);
-                                }}
-                                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                              >
-                                <Icon icon="lucide:external-link" className="w-4 h-4" />
-                                Vazifaga
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                          ))
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
               )}
             </div>
-          )}
-        </header>
-        {/* Mobile: Sidebar yopiq bo'lganda top padding qo'shish */}
-        <main
-          className={`flex-1 ${isInvoicesPage || isExamPage ? 'overflow-hidden flex flex-col min-h-0' : 'overflow-y-auto'} ${isExamPage ? 'p-0' : 'p-6'} ${!isDesktop && !sidebarOpen ? 'pt-20' : ''}`}
-        >
+          </header>
+        )}
+
+        {/* Main Content Outlet */}
+        <main className={`flex-1 ${isInvoicesPage || isExamPage ? 'overflow-hidden flex flex-col min-h-0' : 'overflow-y-auto'} ${isExamPage ? 'p-0' : 'p-4 md:p-6'}`}>
           <Outlet />
         </main>
       </div>

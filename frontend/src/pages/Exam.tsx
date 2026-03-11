@@ -161,7 +161,7 @@ export default function Exam() {
   const currentAnswer = answers[currentQuestion.id];
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+    <div className="flex flex-col lg:flex-row h-full min-h-0 bg-slate-50 dark:bg-slate-900 transition-colors duration-300 relative">
       {/* Sidebar - Question Navigation - Hidden on mobile */}
       <aside className="hidden lg:flex lg:w-80 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col z-20">
         <div className="p-6 border-b border-slate-100 dark:border-slate-700">
@@ -216,7 +216,7 @@ export default function Exam() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         {/* Top Header Section */}
         <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-10">
           <div className="flex items-center gap-4">
@@ -310,8 +310,8 @@ export default function Exam() {
           </div>
         </div>
 
-        {/* Footer Navigation Area */}
-        <footer className="h-24 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-4 lg:px-10 flex items-center justify-between">
+        {/* Footer Navigation Area - Fixed height with safe area padding */}
+        <footer className="h-20 lg:h-24 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-4 lg:px-10 flex items-center justify-between pb-safe">
           <button
             onClick={handlePrev}
             disabled={currentQuestionIndex === 0}

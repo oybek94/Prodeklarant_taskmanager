@@ -79,6 +79,7 @@ const Layout = () => {
   };
   const isSettingsPage = location.pathname.startsWith('/settings');
   const isInvoicesPage = location.pathname === '/invoices';
+  const isExamPage = location.pathname.startsWith('/exam');
 
   const navItems = [
     ...(user?.role === 'ADMIN' ? [{ path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' }] : []),
@@ -94,11 +95,11 @@ const Layout = () => {
     ...(user?.role === 'ADMIN' ? [{ path: '/training/manage', label: 'O\'qitish Boshqaruvi', icon: 'lucide:book-open-check' }] : []),
     ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'lucide:user-cog' }] : []),
     ...(user?.role === 'ADMIN' ? [{ path: '/settings', label: 'Sozlamalar', icon: 'lucide:settings' }] : []),
-    ...(user?.role !== 'SELLER' ? [{ path: '/profile', label: 'Profil', icon: 'lucide:user' }] : []),
+    { path: '/profile', label: 'Profil', icon: 'lucide:user' },
   ];
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 relative">
+    <div className="flex h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900 relative">
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-12' : 'w-0'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 overflow-hidden relative`}>
         {/* Desktop: Sidebar yopiq bo'lganda - Toggle button tepada */}
@@ -146,6 +147,15 @@ const Layout = () => {
             </button>
             <img src="/logo.png" alt="Prodeklarant" className="h-6 w-auto" />
             <h1 className="sr-only">Prodeklarant</h1>
+            <div className="flex-1" />
+            <button
+              onClick={handleLogout}
+              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              aria-label="Chiqish"
+              title="Chiqish"
+            >
+              <Icon icon="lucide:log-out" className="w-5 h-5" />
+            </button>
           </div>
         )}
 
@@ -318,7 +328,7 @@ const Layout = () => {
         </header>
         {/* Mobile: Sidebar yopiq bo'lganda top padding qo'shish */}
         <main
-          className={`flex-1 ${isInvoicesPage ? 'overflow-hidden flex flex-col min-h-0' : 'overflow-y-auto'} p-6 ${!isDesktop && !sidebarOpen ? 'pt-20' : ''}`}
+          className={`flex-1 ${isInvoicesPage ? 'overflow-hidden flex flex-col min-h-0' : 'overflow-y-auto'} ${isExamPage ? 'p-0' : 'p-6'} ${!isDesktop && !sidebarOpen ? 'pt-20' : ''}`}
         >
           <Outlet />
         </main>

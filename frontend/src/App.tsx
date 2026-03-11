@@ -273,7 +273,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-        <Route path="/profile" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Profile /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER', 'SELLER']}><Profile /></ProtectedRoute>} />
       </Route>
       <Route
         path="/"

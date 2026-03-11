@@ -162,8 +162,8 @@ export default function Exam() {
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
-      {/* Sidebar - Question Navigation */}
-      <aside className="w-full lg:w-80 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col z-20">
+      {/* Sidebar - Question Navigation - Hidden on mobile */}
+      <aside className="hidden lg:flex lg:w-80 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col z-20">
         <div className="p-6 border-b border-slate-100 dark:border-slate-700">
           <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Savollar Navigatsiyasi</h2>
           <div className="grid grid-cols-5 gap-2">
@@ -218,7 +218,7 @@ export default function Exam() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header Section */}
-        <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-10">
+        <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-10">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/30">
               <Icon icon="lucide:file-question" className="w-6 h-6 text-white" />
@@ -239,7 +239,7 @@ export default function Exam() {
         </header>
 
         {/* Question Area */}
-        <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 lg:p-10 custom-scrollbar">
           <div className="max-w-3xl mx-auto py-10">
             <div className="flex items-center gap-4 mb-8">
               <span className="text-xs font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">Savol {currentQuestionIndex + 1}</span>
@@ -311,11 +311,11 @@ export default function Exam() {
         </div>
 
         {/* Footer Navigation Area */}
-        <footer className="h-24 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-10 flex items-center justify-between">
+        <footer className="h-24 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-4 lg:px-10 flex items-center justify-between">
           <button
             onClick={handlePrev}
             disabled={currentQuestionIndex === 0}
-            className="flex items-center gap-2 px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 lg:px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs lg:text-sm hover:bg-slate-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Icon icon="lucide:chevron-left" className="w-5 h-5" />
             Oldingi Savol
@@ -323,7 +323,7 @@ export default function Exam() {
 
           <button
             onClick={currentQuestionIndex === questions.length - 1 ? handleSubmit : handleNext}
-            className={`flex items-center gap-2 px-10 py-4 rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 ${currentQuestionIndex === questions.length - 1
+            className={`flex items-center gap-2 px-4 lg:px-10 py-4 rounded-2xl font-black text-xs lg:text-sm shadow-xl transition-all active:scale-95 ${currentQuestionIndex === questions.length - 1
               ? 'bg-green-600 text-white shadow-green-600/20 hover:bg-green-700'
               : 'bg-indigo-600 text-white shadow-indigo-600/20 hover:bg-indigo-700'
               }`}

@@ -343,7 +343,7 @@ export default function TrainingStageDetail() {
 
       {/* Main Content Area */}
       <main className="overflow-y-auto min-h-screen bg-white dark:bg-slate-900 transition-colors duration-300">
-        <div className="max-w-4xl mx-auto px-6 lg:px-12 py-12">
+        <div className="max-w-5xl mx-auto px-4 md:px-8 lg:px-12 py-12">
           {/* Main Title Section */}
           <div className="mb-12">
             <div className="flex items-center justify-between mb-6">

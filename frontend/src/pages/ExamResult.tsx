@@ -112,7 +112,7 @@ export default function ExamResult() {
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full translate-x-1/2 translate-y-1/2 blur-3xl" />
         </div>
 
-        <div className="max-w-4xl mx-auto px-6 relative z-10 text-center">
+        <div className="max-w-4xl mx-auto px-4 lg:px-6 relative z-10 text-center">
           <div className={`w-28 h-28 mx-auto mb-8 rounded-[40px] flex items-center justify-center shadow-2xl border-4 border-white/20 backdrop-blur-xl ${result.passed ? 'bg-white/20' : 'bg-red-500/20'
             }`}>
             <Icon
@@ -148,7 +148,7 @@ export default function ExamResult() {
       </section>
 
       {/* Content Section */}
-      <main className="max-w-4xl mx-auto px-6 -mt-16 relative z-20">
+      <main className="max-w-4xl mx-auto px-4 lg:px-6 -mt-16 relative z-20">
 
         {/* AI Evaluation / Feedback Card */}
         {result.evaluation && (

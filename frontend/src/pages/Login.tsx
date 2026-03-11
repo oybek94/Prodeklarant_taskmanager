@@ -18,8 +18,15 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/');
+      const user = await login(email, password) as any;
+      const role = user?.role;
+      if (role === 'ADMIN') {
+        navigate('/dashboard');
+      } else if (role === 'SELLER') {
+        navigate('/crm');
+      } else {
+        navigate('/tasks');
+      }
     } catch (err: any) {
       const errorMessage = err.response?.data?.error || err.message || 'Login xatolik';
       setError(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
@@ -30,61 +37,61 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 relative overflow-hidden font-sans">
-      {/* Background Decorative Elements */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600 rounded-full mix-blend-multiply filter blur-[120px] opacity-70 animate-blob"></div>
-      <div className="absolute top-[20%] right-[-10%] w-[40%] h-[40%] bg-purple-600 rounded-full mix-blend-multiply filter blur-[120px] opacity-70 animate-blob" style={{ animationDelay: '2s' }}></div>
-      <div className="absolute bottom-[-20%] left-[20%] w-[50%] h-[50%] bg-indigo-600 rounded-full mix-blend-multiply filter blur-[120px] opacity-70 animate-blob" style={{ animationDelay: '4s' }}></div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 relative overflow-hidden font-sans">
+      {/* Background Decorative Elements - Bright & Vibrant */}
+      <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-indigo-200/40 rounded-full mix-blend-multiply filter blur-[120px] opacity-70 animate-pulse"></div>
+      <div className="absolute top-[10%] right-[-10%] w-[40%] h-[40%] bg-violet-200/40 rounded-full mix-blend-multiply filter blur-[120px] opacity-70 animate-pulse" style={{ animationDelay: '2s' }}></div>
+      <div className="absolute bottom-[-10%] left-[10%] w-[50%] h-[50%] bg-blue-200/40 rounded-full mix-blend-multiply filter blur-[120px] opacity-70 animate-pulse" style={{ animationDelay: '4s' }}></div>
 
       <div className="w-full max-w-md px-6 relative z-10">
-        {/* Card Container */}
-        <div className="bg-white/10 backdrop-blur-3xl border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] rounded-3xl p-8 sm:p-10 relative overflow-hidden">
-          {/* Subtle top glare */}
-          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/50 to-transparent"></div>
+        {/* Card Container - White Glassmorphism */}
+        <div className="bg-white/80 backdrop-blur-2xl border border-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[40px] p-10 sm:p-12 relative overflow-hidden group">
 
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center p-4 bg-gradient-to-br from-white/10 to-transparent rounded-2xl backdrop-blur-lg border border-white/20 shadow-xl mb-6 ring-1 ring-white/10 shadow-blue-500/20">
-              <Icon icon="lucide:zap" className="w-10 h-10 text-blue-400 drop-shadow-[0_0_15px_rgba(96,165,250,0.5)]" />
+          {/* Top Decorative Line */}
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-3xl shadow-xl shadow-slate-200/50 mb-6 transform group-hover:scale-110 transition-transform duration-500 border border-slate-100">
+              <img src="/favicon.png" alt="ProDeklarant Logo" className="w-12 h-12 object-contain" />
             </div>
-            <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-100 to-white tracking-tight mb-2 drop-shadow-md">
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-3">
               ProDeklarant
             </h1>
-            <p className="text-blue-200 text-sm font-medium opacity-80">
-              Tizimga kirish uchun parolingizni kiriting
+            <p className="text-slate-500 text-sm font-semibold tracking-wide uppercase opacity-70">
+              Xush kelibsiz!
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Hidden Email Input (Maintained for logic compatibility) */}
             <div className="hidden">
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email manzilingizni kiriting"
-                className="w-full bg-white/5 border border-white/10 text-white px-5 py-3.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder-gray-400"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-blue-100/90 ml-1">
-                Parol
+            <div className="space-y-3">
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+                Tizim Paroli
               </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Icon icon="lucide:lock" className="h-5 w-5 text-blue-300 group-focus-within:text-blue-400 transition-colors" />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                  <Icon icon="lucide:lock" className="h-5 w-5 text-slate-300 transition-colors" />
                 </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  placeholder="Parolingizni kiriting"
-                  className="w-full bg-black/20 border border-white/10 text-white px-5 py-3.5 pl-11 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 transition-all placeholder-blue-200/50 shadow-inner backdrop-blur-md hover:bg-black/30"
+                  placeholder="••••••••"
+                  className="w-full bg-slate-50 border-2 border-slate-100 text-slate-900 px-6 py-4 pl-14 rounded-2xl focus:outline-none focus:ring-0 focus:border-indigo-500 transition-all placeholder-slate-300 font-bold"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-blue-300 hover:text-white transition-colors focus:outline-none"
+                  className="absolute inset-y-0 right-0 pr-5 flex items-center text-slate-300 hover:text-indigo-500 transition-colors focus:outline-none"
                 >
                   <Icon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} className="h-5 w-5" />
                 </button>
@@ -92,35 +99,34 @@ const Login = () => {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm animate-fadeIn backdrop-blur-md">
+              <div className="flex items-center gap-3 p-4 bg-red-50 border-2 border-red-100 rounded-2xl text-red-600 text-sm animate-shake">
                 <Icon icon="lucide:alert-circle" className="w-5 h-5 flex-shrink-0" />
-                <span className="font-medium">{error}</span>
+                <span className="font-bold">{error}</span>
               </div>
             )}
 
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center items-center py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500 transition-all duration-200 shadow-[0_0_20px_rgba(79,70,229,0.4)] disabled:opacity-70 disabled:cursor-not-allowed hover:shadow-[0_0_30px_rgba(79,70,229,0.6)] overflow-hidden"
+              className="group relative w-full flex justify-center items-center py-5 px-6 rounded-2xl text-base font-black text-white bg-slate-900 hover:bg-slate-800 focus:outline-none shadow-xl shadow-slate-200 transition-all duration-300 active:scale-[0.98] disabled:opacity-50"
             >
-              <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-500 -translate-x-full skew-x-12"></div>
               {isLoading ? (
-                <div className="flex items-center gap-2 relative z-10">
+                <div className="flex items-center gap-3">
                   <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" />
-                  <span>Tekshirilmoqda...</span>
+                  <span>Kutilmoqda...</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 relative z-10">
-                  <span>Tizimga kirish</span>
-                  <Icon icon="lucide:arrow-right" className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <div className="flex items-center gap-2">
+                  <span>Kirish</span>
+                  <Icon icon="lucide:arrow-right" className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </div>
               )}
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-white/10 text-center">
-            <p className="text-xs text-blue-200/60 font-medium">
-              ProDeklarant &copy; {new Date().getFullYear()} Barcha huquqlar himoyalangan.
+          <div className="mt-12 text-center">
+            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
+              Powered by ProDeklarant Engine
             </p>
           </div>
         </div>

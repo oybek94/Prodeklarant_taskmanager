@@ -12,7 +12,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -135,6 +135,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       setUser(userData);
+      return userData;
     } catch (error: any) {
       console.error('Login API error:', error);
       // Timeout yoki network xatolik bo'lsa, maxsus xabar qaytaramiz

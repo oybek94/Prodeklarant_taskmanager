@@ -537,6 +537,7 @@ router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthReques
       include: {
         steps: {
           include: {
+            materials: true,
             exams: {
               where: { active: true },
               include: {
@@ -602,9 +603,67 @@ router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthReques
     }
 
     if (!exam || !exam.questions || exam.questions.length === 0) {
-      return res.status(400).json({
-        error: 'Bu bosqich uchun savollar qo\'shilmagan. Admin tomonidan savollar qo\'shilishi kerak.'
-      });
+      // If no manually added questions, try to generate via AI from stage content
+      try {
+        console.log(`No manual questions for stage ${stageId}, attempting AI generation...`);
+
+        // Collect all text material content from all steps in the stage
+        const stageContent = stage.steps
+          .filter(step => step.title !== '_AI_STAGE_EXAM')
+          .flatMap(step => step.materials)
+          .filter(m => m.type === 'TEXT' && m.content)
+          .map(m => m.content)
+          .join('\n\n');
+
+        if (!stageContent || stageContent.trim().length < 50) {
+          return res.status(400).json({
+            error: 'Ushbu bosqichda yetarli matnli material yo\'q. Iltimos, admin tomonidan savollar qo\'shilishi kerak.'
+          });
+        }
+
+        // Generate questions using AI
+        const generationResult = await ExamAIService.generateExam(
+          stageId, // Using stageId as a pseudo-lessonId
+          stage.title,
+          stageContent
+        );
+
+        // Find or create the exam container again to be sure
+        const examToUpdate = await prisma.exam.findFirst({
+          where: { lessonId: dummyStep!.id }
+        });
+
+        if (examToUpdate) {
+          // Create the generated questions
+          await Promise.all(
+            generationResult.questions.map((q, index) =>
+              prisma.examQuestion.create({
+                data: {
+                  examId: examToUpdate.id,
+                  question: q.question,
+                  type: q.type as any,
+                  options: q.options || [],
+                  correctAnswer: q.correct_answer,
+                  points: q.points || 1,
+                  orderIndex: index,
+                },
+              })
+            )
+          );
+
+          // Re-fetch the exam with new questions
+          const freshExam = await prisma.exam.findUnique({
+            where: { id: examToUpdate.id },
+            include: { questions: { orderBy: { orderIndex: 'asc' } } }
+          });
+          exam = freshExam;
+        }
+      } catch (aiError: any) {
+        console.error('AI Stage Exam Generation Error:', aiError);
+        return res.status(400).json({
+          error: 'Bu bosqich uchun savollar qo\'shilmagan va AI orqali yaratib bo\'lmadi. Admin tomonidan savollar qo\'shilishi kerak.'
+        });
+      }
     }
 
     // Shuffle questions for variety on retakes

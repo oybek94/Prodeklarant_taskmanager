@@ -3303,31 +3303,71 @@ const Invoice = () => {
                 className="p-4 pt-0 rounded-lg text-base text-black space-y-1"
                 style={{ backgroundColor: 'var(--tw-ring-offset-color)', background: 'unset' }}
               >
-                {isAdditionalInfoVisible('deliveryTerms') && form.deliveryTerms && <div><strong>Условия поставки:</strong> {form.deliveryTerms}</div>}
-                {viewTab === 'spec' ? (
-                  specCustomFields.map((field) => (
-                    field.value ? (
-                      <div key={field.id}><strong>{field.label}:</strong> {field.value}</div>
-                    ) : null
-                  ))
-                ) : (
-                  <>
-                    {isAdditionalInfoVisible('vehicleNumber') && form.vehicleNumber && <div><strong>Номер автотранспорта:</strong> {form.vehicleNumber}</div>}
-                    {isAdditionalInfoVisible('shipmentPlace') && form.shipmentPlace && <div><strong>Место отгрузки груза:</strong> {form.shipmentPlace}</div>}
-                    {isAdditionalInfoVisible('destination') && form.destination && <div><strong>Место назначения:</strong> {form.destination}</div>}
-                    {isAdditionalInfoVisible('customsAddress') && form.customsAddress && <div><strong>Место там. очистки:</strong> {form.customsAddress}</div>}
-                    {isAdditionalInfoVisible('origin') && <div><strong>Происхождение товара:</strong> {form.origin || 'Республика Узбекистан'}</div>}
-                    {isAdditionalInfoVisible('manufacturer') && form.manufacturer && <div><strong>Производитель:</strong> {form.manufacturer}</div>}
-                    {isAdditionalInfoVisible('orderNumber') && form.orderNumber && <div><strong>Номер заказа:</strong> {form.orderNumber}</div>}
-                    {isAdditionalInfoVisible('gln') && form.gln && <div><strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}</div>}
-                    {isAdditionalInfoVisible('harvestYear') && form.harvestYear && <div><strong>Урожай:</strong> {form.harvestYear} года</div>}
-                    {customFields.map((field) => (
-                      isAdditionalInfoVisible(`custom_${field.id}`) && field.value ? (
-                        <div key={field.id}><strong>{field.label}:</strong> {field.value}</div>
-                      ) : null
-                    ))}
-                  </>
+                {isAdditionalInfoVisible('deliveryTerms') && form.deliveryTerms && (
+                  <div>
+                    <strong>Условия поставки:</strong> {form.deliveryTerms}
+                  </div>
                 )}
+                {isAdditionalInfoVisible('vehicleNumber') && form.vehicleNumber && (
+                  <div>
+                    <strong>Номер автотранспорта:</strong> {form.vehicleNumber}
+                  </div>
+                )}
+                {isAdditionalInfoVisible('shipmentPlace') && form.shipmentPlace && (
+                  <div>
+                    <strong>Место отгрузки груза:</strong> {form.shipmentPlace}
+                  </div>
+                )}
+                {isAdditionalInfoVisible('destination') && form.destination && (
+                  <div>
+                    <strong>Место назначения:</strong> {form.destination}
+                  </div>
+                )}
+                {isAdditionalInfoVisible('customsAddress') && form.customsAddress && (
+                  <div>
+                    <strong>Место там. очистки:</strong> {form.customsAddress}
+                  </div>
+                )}
+                {isAdditionalInfoVisible('origin') && (
+                  <div>
+                    <strong>Происхождение товара:</strong> {form.origin || 'Республика Узбекистан'}
+                  </div>
+                )}
+                {isAdditionalInfoVisible('manufacturer') && form.manufacturer && (
+                  <div>
+                    <strong>Производитель:</strong> {form.manufacturer}
+                  </div>
+                )}
+                {isAdditionalInfoVisible('orderNumber') && form.orderNumber && (
+                  <div>
+                    <strong>Номер заказа:</strong> {form.orderNumber}
+                  </div>
+                )}
+                {isAdditionalInfoVisible('gln') && form.gln && (
+                  <div>
+                    <strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}
+                  </div>
+                )}
+                {isAdditionalInfoVisible('harvestYear') && form.harvestYear && (
+                  <div>
+                    <strong>Урожай:</strong> {form.harvestYear} года
+                  </div>
+                )}
+                {viewTab === 'spec'
+                  ? specCustomFields.map((field) =>
+                      isAdditionalInfoVisible(`spec_${field.id}`) && field.value ? (
+                        <div key={field.id}>
+                          <strong>{field.label}:</strong> {field.value}
+                        </div>
+                      ) : null
+                    )
+                  : customFields.map((field) =>
+                      isAdditionalInfoVisible(`custom_${field.id}`) && field.value ? (
+                        <div key={field.id}>
+                          <strong>{field.label}:</strong> {field.value}
+                        </div>
+                      ) : null
+                    )}
               </div>
             </div>
 

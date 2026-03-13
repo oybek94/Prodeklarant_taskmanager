@@ -8,8 +8,13 @@ const router = Router();
 // Barcha o'qitish kurslarini olish
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
+    const where: any = {};
+    if (req.user?.role !== 'ADMIN') {
+      where.active = true;
+    }
+
     const trainings = await prisma.training.findMany({
-      where: { active: true },
+      where,
       orderBy: { orderIndex: 'asc' },
       include: {
         materials: {
@@ -306,6 +311,10 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'O\'qitish topilmadi' });
     }
 
+    if (!training.active && req.user?.role !== 'ADMIN') {
+      return res.status(404).json({ error: 'O\'qitish hozirda nofaol' });
+    }
+
     // Foydalanuvchining progressini olish
     const progress = await prisma.trainingProgress.findUnique({
       where: {
@@ -577,6 +586,41 @@ router.post('/:id/materials/:materialId/complete', requireAuth(), async (req: Au
   }
 });
 
+// Imtixonsiz kursni yakunlash (Telegram orqali)
+router.post('/:id/complete-no-exam', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const trainingId = parseInt(req.params.id);
+
+    // Progressni 100% qilib belgilash
+    const updatedProgress = await prisma.trainingProgress.upsert({
+      where: {
+        userId_trainingId: {
+          userId: req.user!.id,
+          trainingId: trainingId,
+        },
+      },
+      create: {
+        userId: req.user!.id,
+        trainingId: trainingId,
+        completed: true,
+        progressPercent: 100,
+        completedAt: new Date(),
+      },
+      update: {
+        completed: true,
+        progressPercent: 100,
+        completedAt: new Date(),
+        lastAccessedAt: new Date(),
+      },
+    });
+
+    res.json(updatedProgress);
+  } catch (error) {
+    console.error('Error completing course without exam:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
+  }
+});
+
 // Admin: Yangi o'qitish kursi yaratish
 router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
@@ -606,24 +650,25 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const trainingId = parseInt(req.params.id);
-    const schema = z.object({
-      title: z.string().min(1).optional(),
-      description: z.string().optional(),
-      orderIndex: z.number().optional(),
-      active: z.boolean().optional(),
-      requiresExam: z.preprocess(
-        (v) => (v === 'false' || v === false ? false : v === 'true' || v === true ? true : undefined),
-        z.boolean().optional()
-      ),
-    });
+    console.log('--- Training Update Start ---');
+    console.log('ID:', trainingId);
+    console.log('Body:', JSON.stringify(req.body, null, 2));
 
-    const data = schema.parse(req.body);
+    const data: any = {};
+    if (req.body.title !== undefined) data.title = req.body.title;
+    if (req.body.description !== undefined) data.description = req.body.description;
+    if (req.body.orderIndex !== undefined) data.orderIndex = req.body.orderIndex;
+    if (req.body.active !== undefined) data.active = req.body.active;
+    if (req.body.requiresExam !== undefined) data.requiresExam = req.body.requiresExam === true || req.body.requiresExam === 'true';
+
+    console.log('Final data to Prisma:', JSON.stringify(data, null, 2));
 
     const training = await prisma.training.update({
       where: { id: trainingId },
       data,
     });
 
+    console.log('Update successful. New state:', JSON.stringify(training, null, 2));
     res.json(training);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
@@ -638,6 +683,34 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       });
     }
     res.status(500).json({ error: 'Xatolik yuz berdi', details: msg });
+  }
+});
+
+// Admin: O'qitish kursini butunlay o'chirish
+router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const trainingId = parseInt(req.params.id);
+    
+    // O'chirishdan oldin bazada borligini tekshirish
+    const training = await prisma.training.findUnique({
+      where: { id: trainingId }
+    });
+
+    if (!training) {
+      return res.status(404).json({ error: 'Kurs topilmadi' });
+    }
+
+    await prisma.training.delete({
+      where: { id: trainingId },
+    });
+
+    res.json({ message: 'Kurs muvaffaqiyatli o\'chirildi' });
+  } catch (error) {
+    console.error('Error deleting training:', error);
+    res.status(500).json({ 
+      error: 'Xatolik yuz berdi. Balki kursda o\'chirib bo\'lmaydigan bog\'langan ma\'lumotlar bordir.',
+      details: error instanceof Error ? error.message : String(error)
+    });
   }
 });
 

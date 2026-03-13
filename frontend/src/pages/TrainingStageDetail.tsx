@@ -76,6 +76,7 @@ interface Training {
   id: number;
   title: string;
   description?: string;
+  requiresExam?: boolean;
 }
 
 export default function TrainingStageDetail() {
@@ -221,6 +222,20 @@ export default function TrainingStageDetail() {
     } catch (error: any) {
       console.error('Error starting exam:', error);
       alert(error.response?.data?.error || 'Imtihon tuzishda xatolik yuz berdi');
+    } finally {
+      setGeneratingExam(null);
+    }
+  };
+
+  const handleFinishNoExam = async () => {
+    try {
+      setGeneratingExam(-2); // Special state for finishing
+      await apiClient.post(`/training/${trainingId}/complete-no-exam`);
+      window.open('https://t.me/oybek94', '_blank');
+      navigate(`/training/${trainingId}`);
+    } catch (error: any) {
+      console.error('Error finishing course:', error);
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
     } finally {
       setGeneratingExam(null);
     }
@@ -521,21 +536,43 @@ export default function TrainingStageDetail() {
 
           {/* Main Stage Exam Button at the bottom */}
           <div className="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800">
-            <button
-              onClick={handleStartStageExam}
-              disabled={generatingExam === -1}
-              className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-              {generatingExam === -1 ? (
-                <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin" />
-              ) : (
-                <Icon icon="lucide:brain-circuit" className="w-6 h-6" />
-              )}
-              <span className="text-lg">
-                {generatingExam === -1 ? "AI Savollar tuzmoqda (Kuting)..." : "Imtihon Topshirish"}
-              </span>
-            </button>
-            <p className="text-center text-slate-500 mt-4 text-sm font-medium">Ushbu mavzuni to'liq o'qib bo'lgach, O'zlashtirganingizni tekshirish uchun imtihon topshiring</p>
+            {training.requiresExam !== false ? (
+              <>
+                <button
+                  onClick={handleStartStageExam}
+                  disabled={generatingExam === -1}
+                  className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  {generatingExam === -1 ? (
+                    <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <Icon icon="lucide:brain-circuit" className="w-6 h-6" />
+                  )}
+                  <span className="text-lg">
+                    {generatingExam === -1 ? "AI Savollar tuzmoqda (Kuting)..." : "Imtihon Topshirish"}
+                  </span>
+                </button>
+                <p className="text-center text-slate-500 mt-4 text-sm font-medium">Ushbu mavzuni to'liq o'qib bo'lgach, O'zlashtirganingizni tekshirish uchun imtihon topshiring</p>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleFinishNoExam}
+                  disabled={generatingExam === -2}
+                  className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  {generatingExam === -2 ? (
+                    <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <Icon icon="lucide:send" className="w-6 h-6" />
+                  )}
+                  <span className="text-lg">
+                    {generatingExam === -2 ? "Yakunlanmoqda..." : "Tugatish va Telegram'ga o'tish"}
+                  </span>
+                </button>
+                <p className="text-center text-slate-500 mt-4 text-sm font-medium">Kursni yakunlash uchun ushbu tugmani bosing va ustozga xabar bering</p>
+              </>
+            )}
           </div>
 
         </div>

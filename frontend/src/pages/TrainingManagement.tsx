@@ -118,10 +118,10 @@ export default function TrainingManagement() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('O\'qitish kursini o\'chirishni tasdiqlaysizmi?')) return;
+    if (!confirm('O\'qitish kursini butunlay o\'chirishni tasdiqlaysizmi? Bu amalni orqaga qaytarib bo\'lmaydi!')) return;
 
     try {
-      await apiClient.put(`/training/${id}`, { active: false });
+      await apiClient.delete(`/training/${id}`);
       fetchTrainings();
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');

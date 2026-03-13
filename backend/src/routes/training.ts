@@ -617,32 +617,12 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       ),
     });
 
-    const parsed = schema.parse(req.body);
-    const data: Record<string, unknown> = {};
-    if (parsed.title !== undefined) data.title = parsed.title;
-    if (parsed.description !== undefined) data.description = parsed.description;
-    if (parsed.orderIndex !== undefined) data.orderIndex = parsed.orderIndex;
-    if (parsed.active !== undefined) data.active = parsed.active;
-    if (parsed.requiresExam !== undefined) data.requiresExam = parsed.requiresExam;
+    const data = schema.parse(req.body);
 
-    let training: any;
-    try {
-      training = await prisma.training.update({
-        where: { id: trainingId },
-        data: data as any,
-      });
-    } catch (dbError: any) {
-      const msg = dbError?.message || String(dbError);
-      if (parsed.requiresExam !== undefined && (msg.includes('requiresExam') || (msg.includes('column') && msg.includes('does not exist')))) {
-        delete data.requiresExam;
-        training = await prisma.training.update({
-          where: { id: trainingId },
-          data: data as any,
-        });
-        return res.json({ ...training, requiresExam: parsed.requiresExam });
-      }
-      throw dbError;
-    }
+    const training = await prisma.training.update({
+      where: { id: trainingId },
+      data,
+    });
 
     res.json(training);
   } catch (error: any) {
@@ -653,12 +633,14 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     const msg = error?.message || String(error);
     if (msg.includes('requiresExam') || (msg.includes('column') && msg.includes('does not exist'))) {
       return res.status(503).json({
-        error: 'Training jadvalida requiresExam maydoni yo\'q. Iltimos, migratsiyani ishga tushiring: cd backend && npx prisma migrate deploy',
+        error: "Ma'lumotlar bazasida 'requiresExam' maydoni topilmadi. Iltimos, migratsiyani bajaring.",
+        details: "Terminalda ushbu buyruqni ishga tushiring: cd backend && npx prisma migrate deploy"
       });
     }
     res.status(500).json({ error: 'Xatolik yuz berdi', details: msg });
   }
 });
+
 
 // Admin: Material qo'shish
 router.post('/:id/materials', requireAuth('ADMIN'), async (req: AuthRequest, res) => {

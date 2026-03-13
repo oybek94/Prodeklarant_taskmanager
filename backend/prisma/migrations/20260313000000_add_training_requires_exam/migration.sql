@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Training" ADD COLUMN IF NOT EXISTS "requiresExam" BOOLEAN NOT NULL DEFAULT true;

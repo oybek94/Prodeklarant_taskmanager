@@ -8,6 +8,7 @@ interface Training {
   title: string;
   description?: string;
   orderIndex: number;
+  requiresExam?: boolean;
   progress: {
     completed: boolean;
     progressPercent: number;
@@ -86,8 +87,19 @@ export default function Training() {
                   <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 transition-colors duration-300">
                     <Icon icon="lucide:layout" className="w-7 h-7 text-indigo-600 dark:text-indigo-400 group-hover:text-white transition-colors duration-300" />
                   </div>
-                  <div className="px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-full text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Kurs #{training.orderIndex}
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-full text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Kurs #{training.orderIndex}
+                    </span>
+                    {training.requiresExam === false ? (
+                      <span className="px-3 py-1 bg-slate-200 dark:bg-slate-600 rounded-full text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                        Imtixonsiz
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 rounded-full text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                        Imtihonli
+                      </span>
+                    )}
                   </div>
                 </div>
 

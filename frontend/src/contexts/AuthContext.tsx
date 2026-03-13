@@ -49,8 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Avval access token bilan urinib ko'ramiz
           const response = await apiClient.get(endpoint);
           if (response.status >= 400 || response.data?.error) {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
+            // 401 interceptor orqali refresh qilinadi; boshqa xatolarda tokenni saqlaymiz, faqat user null
             setUser(null);
             setIsLoading(false);
             return;
@@ -64,17 +63,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           setUser(userData);
         } catch (error: any) {
-          // Timeout yoki network xatolik bo'lsa, darhol user null qilamiz
+          // Timeout yoki tarmoq xatosi — tokenni tozalamaymiz; sahifa yangilanganda yoki qayta urinilganda ishlashi mumkin
           if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
             console.error('Timeout/Network error in checkAuth:', error.message);
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
             setUser(null);
             setIsLoading(false);
             return;
           }
-          // Agar access token eskirgan bo'lsa, refresh token bilan yangilashga harakat qilamiz
-          if (refreshToken && error.response?.status === 401) {
+          // Faqat 401 (kirish rad etilgan) bo'lsa refresh urinib ko'ramiz
+          if (error.response?.status === 401 && refreshToken) {
             try {
               const refreshResponse = await axios.post(
                 `${import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')}/auth/refresh`,
@@ -85,29 +82,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               if (newRefreshToken) {
                 localStorage.setItem('refreshToken', newRefreshToken);
               }
-              // Determine endpoint from new token
               const newRole = newAccessToken ? getRoleFromToken(newAccessToken) : null;
               const endpoint = newRole === 'CLIENT' ? '/auth/client/me' : '/auth/me';
-              // Yangi token bilan user ma'lumotlarini olamiz
               const userResponse = await apiClient.get(endpoint);
               const userData = userResponse.data;
 
-              // For CLIENT, add role from token since backend doesn't return it
               if (newRole === 'CLIENT') {
                 userData.role = 'CLIENT';
               }
 
               setUser(userData);
             } catch (refreshError) {
-              // Refresh ham ishlamasa, logout qilamiz
+              // Refresh muvaffaqiyatsiz — token haqiqatan ham eskirgan, tozalaymiz
               localStorage.removeItem('accessToken');
               localStorage.removeItem('refreshToken');
               setUser(null);
             }
           } else {
-            // Boshqa xatolik bo'lsa, tokenlarni tozalaymiz
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
+            // Boshqa xatolik (500, 403 va h.k.) — tokenlarni saqlaymiz, faqat user null (sahifa yangilanganda qayta uriniladi)
             setUser(null);
           }
         }

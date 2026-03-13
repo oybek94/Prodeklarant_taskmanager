@@ -9,6 +9,7 @@ interface Training {
   description?: string;
   orderIndex: number;
   active: boolean;
+  requiresExam: boolean;
   materials: Material[];
   exams: Exam[];
   _count: {
@@ -50,6 +51,7 @@ export default function TrainingManagement() {
     description: '',
     orderIndex: 0,
     active: true,
+    requiresExam: true,
   });
 
   useEffect(() => {
@@ -73,6 +75,7 @@ export default function TrainingManagement() {
       description: '',
       orderIndex: trainings.length,
       active: true,
+      requiresExam: true,
     });
     setShowAddModal(true);
   };
@@ -84,6 +87,7 @@ export default function TrainingManagement() {
       description: training.description || '',
       orderIndex: training.orderIndex,
       active: training.active,
+      requiresExam: training.requiresExam !== false,
     });
     setShowEditModal(true);
   };
@@ -92,8 +96,14 @@ export default function TrainingManagement() {
     e.preventDefault();
     try {
       if (selectedTraining) {
-        // Edit
-        await apiClient.put(`/training/${selectedTraining.id}`, formData);
+        // Edit — requiresExam ni aniq yuboramiz (false bo'lsa ham)
+        await apiClient.put(`/training/${selectedTraining.id}`, {
+          title: formData.title,
+          description: formData.description || undefined,
+          orderIndex: formData.orderIndex,
+          active: formData.active,
+          requiresExam: formData.requiresExam,
+        });
       } else {
         // Add
         await apiClient.post('/training', formData);
@@ -176,7 +186,7 @@ export default function TrainingManagement() {
             >
               {/* Card Header with Gradient */}
               <div className="h-32 bg-gradient-to-br from-blue-600 to-indigo-700 p-6 relative">
-                <div className="absolute top-4 right-4">
+                <div className="absolute top-4 right-4 flex flex-wrap gap-1 justify-end">
                   <span
                     className={`px-3 py-1 text-xs font-bold rounded-full backdrop-blur-md ${training.active
                       ? 'bg-green-500/20 text-green-100 border border-green-500/30'
@@ -184,6 +194,14 @@ export default function TrainingManagement() {
                       }`}
                   >
                     {training.active ? 'Faol' : 'Nofaol'}
+                  </span>
+                  <span
+                    className={`px-3 py-1 text-xs font-bold rounded-full backdrop-blur-md ${training.requiresExam !== false
+                      ? 'bg-amber-500/20 text-amber-100 border border-amber-500/30'
+                      : 'bg-slate-400/20 text-slate-100 border border-slate-400/30'
+                      }`}
+                  >
+                    {training.requiresExam !== false ? 'Imtihonli' : 'Imtixonsiz'}
                   </span>
                 </div>
                 <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30">
@@ -307,16 +325,29 @@ export default function TrainingManagement() {
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.active}
-                    onChange={(e) =>
-                      setFormData({ ...formData, active: e.target.checked })
-                    }
-                    className="mr-2"
-                  />
-                  <label className="text-sm text-gray-700">Faol</label>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.active}
+                      onChange={(e) =>
+                        setFormData({ ...formData, active: e.target.checked })
+                      }
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm text-gray-700">Faol</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.requiresExam}
+                      onChange={(e) =>
+                        setFormData({ ...formData, requiresExam: e.target.checked })
+                      }
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm text-gray-700">Imtihonli kurs</span>
+                  </label>
                 </div>
               </div>
               <div className="flex gap-2 mt-6">
@@ -389,16 +420,29 @@ export default function TrainingManagement() {
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.active}
-                    onChange={(e) =>
-                      setFormData({ ...formData, active: e.target.checked })
-                    }
-                    className="mr-2"
-                  />
-                  <label className="text-sm text-gray-700">Faol</label>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.active}
+                      onChange={(e) =>
+                        setFormData({ ...formData, active: e.target.checked })
+                      }
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm text-gray-700">Faol</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.requiresExam}
+                      onChange={(e) =>
+                        setFormData({ ...formData, requiresExam: e.target.checked })
+                      }
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm text-gray-700">Imtihonli kurs</span>
+                  </label>
                 </div>
               </div>
               <div className="flex gap-2 mt-6">

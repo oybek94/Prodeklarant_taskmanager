@@ -3,13 +3,14 @@ import axios, { AxiosError } from 'axios';
 // Production'da faqat environment variable yoki /api, development'da localhost
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
+// Timeout 60s — sekin backend yoki tarmoqda so'rovlar tugashiga vaqt beradi; token faqat 401/refresh muvaffaqiyatsiz bo'lganda tozalanadi
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: false,
-  timeout: 30000,
+  timeout: 60000,
 });
 
 // Request interceptor: Add access token to headers
@@ -47,31 +48,17 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    // Timeout error handling
+    // Timeout — tokenni tozalamaymiz, faqat xato qaytaramiz (foydalanuvchi sahifani yangilashi yoki qayta urinishi mumkin)
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-      const errorMsg = 'Backend serverga javob bermayapti. Iltimos, backend server ishlayotganini tekshiring (http://localhost:3001).';
+      const errorMsg = 'Server javob bermadi (vaqt tugadi). Iltimos, sahifani yangilang yoki keyinroq qayta urinib ko\'ring.';
       console.error('Timeout Error:', errorMsg);
-      // Timeout bo'lsa, darhol login sahifasiga yo'naltiramiz (agar login sahifasida bo'lmasak)
-      if (window.location.pathname !== '/login' && window.location.pathname !== '/client/login') {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        // Kichik kechikish bilan login sahifasiga yo'naltiramiz (xatolik xabari ko'rsatish uchun)
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 100);
-      }
       return Promise.reject(new Error(errorMsg));
     }
-    // Network error handling
+    // Tarmoq xatosi — tokenni tozalamaymiz (vaqtincha tarmoq uzilishi bo‘lishi mumkin)
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-      console.error('Network Error: Backend serverga ulanib bo\'lmayapti. Iltimos, backend server ishlayotganini tekshiring.');
-      // Network xatolik bo'lsa ham, login sahifasiga yo'naltiramiz
-      if (window.location.pathname !== '/login' && window.location.pathname !== '/client/login') {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        window.location.href = '/login';
-      }
-      return Promise.reject(new Error('Backend serverga ulanib bo\'lmayapti. Iltimos, server ishlayotganini tekshiring.'));
+      const errorMsg = 'Serverga ulanib bo\'lmadi. Internetingiz va serverni tekshiring, sahifani yangilang yoki keyinroq qayta urinib ko\'ring.';
+      console.error('Network Error:', errorMsg);
+      return Promise.reject(new Error(errorMsg));
     }
 
     const originalRequest = error.config as any;

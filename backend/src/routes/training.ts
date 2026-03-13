@@ -316,64 +316,94 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       },
     });
 
-    // Dummy steplarning progressini olish
-    const dummyStepIds = training.stages
-      .flatMap((stage: any) => stage.steps)
-      .filter((step: any) => step.title === '_AI_STAGE_EXAM')
-      .map((step: any) => step.id);
+    const requiresExam = (training as any).requiresExam !== false;
 
-    const dummyStepProgress = await prisma.lessonProgress.findMany({
-      where: {
-        userId: req.user!.id,
-        lessonId: { in: dummyStepIds },
-        status: 'COMPLETED'
-      }
-    });
-    const passedDummyStepIds = new Set(dummyStepProgress.map(p => p.lessonId));
+    // Imtixonsiz kursda progress materiallar asosida, imtihonli kursda bosqich/imtihon asosida
+    let stagesWithLockStatus: any[];
+    let computedProgressPercent: number;
+    let computedCompleted: boolean;
 
-    // Check which stages the user has visited (read)
-    const visitedProgress = await prisma.trainingProgress.findMany({
-      where: {
-        userId: req.user!.id,
-        trainingId: training.id,
-        stageId: { not: null },
-        materialId: { not: null }, // Only stages where they actually read material
-      },
-    });
-    const visitedStageIds = new Set(visitedProgress.map((p: any) => p.stageId));
+    if (!requiresExam) {
+      // Imtixonsiz: barcha bosqichlar ochiq, tugash faqat materiallar 100% bo'lganda
+      const progressPercent = progress?.progressPercent ?? 0;
+      const materialCompleted = progress?.completed ?? false;
+      computedProgressPercent = progressPercent;
+      computedCompleted = materialCompleted;
 
-    const stagesWithLockStatus = training.stages
-      .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-      .map((stage: any, index: number, array: any[]) => {
-        let isUnlocked = false;
-        let isPassed = false;
-        const dummyStep = stage.steps.find((s: any) => s.title === '_AI_STAGE_EXAM');
-        if (dummyStep && passedDummyStepIds.has(dummyStep.id)) {
-          isPassed = true;
-        }
+      const visitedStageIds = new Set<number>();
+      if (progress?.stageId != null) visitedStageIds.add(progress.stageId);
 
-        if (index === 0) {
-          isUnlocked = true;
-        } else {
-          // Check if previous stage is passed
-          const prevStage = array[index - 1];
-          const prevDummyStep = prevStage.steps.find((s: any) => s.title === '_AI_STAGE_EXAM');
-          if (prevDummyStep && passedDummyStepIds.has(prevDummyStep.id)) {
-            isUnlocked = true;
-          }
-        }
-
-        const isRead = visitedStageIds.has(stage.id);
-
-        return {
+      stagesWithLockStatus = training.stages
+        .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+        .map((stage: any) => ({
           ...stage,
-          isUnlocked,
-          isPassed,
-          isRead,
-        };
-      });
+          isUnlocked: true,
+          isPassed: computedCompleted,
+          isRead: visitedStageIds.has(stage.id),
+        }));
+    } else {
+      // Imtihonli: dummy step (imtihon) orqali bosqich qulflari
+      const dummyStepIds = training.stages
+        .flatMap((stage: any) => stage.steps)
+        .filter((step: any) => step.title === '_AI_STAGE_EXAM')
+        .map((step: any) => step.id);
 
-    // Imtihon natijalarini olish
+      const dummyStepProgress = await prisma.lessonProgress.findMany({
+        where: {
+          userId: req.user!.id,
+          lessonId: { in: dummyStepIds },
+          status: 'COMPLETED'
+        }
+      });
+      const passedDummyStepIds = new Set(dummyStepProgress.map(p => p.lessonId));
+
+      const visitedProgressList = await prisma.trainingProgress.findMany({
+        where: {
+          userId: req.user!.id,
+          trainingId: training.id,
+          stageId: { not: null },
+          materialId: { not: null },
+        },
+      });
+      const visitedStageIds = new Set(visitedProgressList.map((p: any) => p.stageId));
+
+      stagesWithLockStatus = training.stages
+        .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+        .map((stage: any, index: number, array: any[]) => {
+          let isUnlocked = false;
+          let isPassed = false;
+          const dummyStep = stage.steps.find((s: any) => s.title === '_AI_STAGE_EXAM');
+          if (dummyStep && passedDummyStepIds.has(dummyStep.id)) {
+            isPassed = true;
+          }
+
+          if (index === 0) {
+            isUnlocked = true;
+          } else {
+            const prevStage = array[index - 1];
+            const prevDummyStep = prevStage.steps.find((s: any) => s.title === '_AI_STAGE_EXAM');
+            if (prevDummyStep && passedDummyStepIds.has(prevDummyStep.id)) {
+              isUnlocked = true;
+            }
+          }
+
+          const isRead = visitedStageIds.has(stage.id);
+
+          return {
+            ...stage,
+            isUnlocked,
+            isPassed,
+            isRead,
+          };
+        });
+
+      const totalStages = stagesWithLockStatus.length;
+      const passedStages = stagesWithLockStatus.filter((s: any) => s.isPassed).length;
+      computedProgressPercent = totalStages > 0 ? Math.round((passedStages / totalStages) * 100) : 0;
+      computedCompleted = passedStages === totalStages && totalStages > 0;
+    }
+
+    // Imtihon natijalarini olish (faqat imtihonli kursda mazmuni bor)
     const examAttempts = await prisma.examAttempt.findMany({
       where: {
         userId: req.user!.id,
@@ -382,12 +412,6 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       orderBy: { startedAt: 'desc' },
       take: 5,
     });
-
-    // Bosqichlarga asoslanib progress hisoblash
-    const totalStages = stagesWithLockStatus.length;
-    const passedStages = stagesWithLockStatus.filter((s: any) => s.isPassed).length;
-    const computedProgressPercent = totalStages > 0 ? Math.round((passedStages / totalStages) * 100) : 0;
-    const computedCompleted = passedStages === totalStages && totalStages > 0;
 
     res.json({
       ...training,
@@ -560,6 +584,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       title: z.string().min(1),
       description: z.string().optional(),
       orderIndex: z.number().default(0),
+      requiresExam: z.boolean().optional().default(true),
     });
 
     const data = schema.parse(req.body);
@@ -586,21 +611,52 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       description: z.string().optional(),
       orderIndex: z.number().optional(),
       active: z.boolean().optional(),
+      requiresExam: z.preprocess(
+        (v) => (v === 'false' || v === false ? false : v === 'true' || v === true ? true : undefined),
+        z.boolean().optional()
+      ),
     });
 
-    const data = schema.parse(req.body);
-    const training = await prisma.training.update({
-      where: { id: trainingId },
-      data,
-    });
+    const parsed = schema.parse(req.body);
+    const data: Record<string, unknown> = {};
+    if (parsed.title !== undefined) data.title = parsed.title;
+    if (parsed.description !== undefined) data.description = parsed.description;
+    if (parsed.orderIndex !== undefined) data.orderIndex = parsed.orderIndex;
+    if (parsed.active !== undefined) data.active = parsed.active;
+    if (parsed.requiresExam !== undefined) data.requiresExam = parsed.requiresExam;
+
+    let training: any;
+    try {
+      training = await prisma.training.update({
+        where: { id: trainingId },
+        data: data as any,
+      });
+    } catch (dbError: any) {
+      const msg = dbError?.message || String(dbError);
+      if (parsed.requiresExam !== undefined && (msg.includes('requiresExam') || (msg.includes('column') && msg.includes('does not exist')))) {
+        delete data.requiresExam;
+        training = await prisma.training.update({
+          where: { id: trainingId },
+          data: data as any,
+        });
+        return res.json({ ...training, requiresExam: parsed.requiresExam });
+      }
+      throw dbError;
+    }
 
     res.json(training);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues });
     }
     console.error('Error updating training:', error);
-    res.status(500).json({ error: 'Xatolik yuz berdi' });
+    const msg = error?.message || String(error);
+    if (msg.includes('requiresExam') || (msg.includes('column') && msg.includes('does not exist'))) {
+      return res.status(503).json({
+        error: 'Training jadvalida requiresExam maydoni yo\'q. Iltimos, migratsiyani ishga tushiring: cd backend && npx prisma migrate deploy',
+      });
+    }
+    res.status(500).json({ error: 'Xatolik yuz berdi', details: msg });
   }
 });
 

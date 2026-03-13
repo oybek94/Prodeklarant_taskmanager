@@ -348,17 +348,18 @@ model BXMConfig {
 }
 
 model Training {
-  id          Int                @id @default(autoincrement())
-  title       String
-  description String?
-  orderIndex  Int                @default(0)
-  active      Boolean            @default(true)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  exams       Exam[]
-  materials   TrainingMaterial[]
-  progress    TrainingProgress[]
-  stages      TrainingStage[]
+  id           Int                @id @default(autoincrement())
+  title        String
+  description  String?
+  orderIndex   Int                @default(0)
+  active       Boolean            @default(true)
+  requiresExam Boolean           @default(true) // true = imtihonli, false = imtixonsiz
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  exams        Exam[]
+  materials    TrainingMaterial[]
+  progress     TrainingProgress[]
+  stages       TrainingStage[]
 }
 
 model TrainingStage {

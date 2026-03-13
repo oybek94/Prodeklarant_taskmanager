@@ -87,6 +87,7 @@ interface Training {
   id: number;
   title: string;
   description?: string;
+  requiresExam: boolean;
   stages: Stage[];
   materials: Material[]; // Eski materiallar (backward compatibility)
   exams: Exam[];
@@ -253,9 +254,16 @@ export default function TrainingDetail() {
 
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
             <div className="max-w-3xl">
-              <h1 className="text-4xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">
-                {training.title}
-              </h1>
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+                  {training.title}
+                </h1>
+                {training.requiresExam === false && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200">
+                    Imtixonsiz kurs
+                  </span>
+                )}
+              </div>
               {training.description && (
                 <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed">
                   {training.description}
@@ -280,7 +288,11 @@ export default function TrainingDetail() {
                 </div>
               </div>
               <p className="text-xs text-slate-400 text-center font-medium">
-                {training.progress.completed ? 'Tabriklaymiz! Kurs yakunlandi' : 'Keyingi bosqichga o\'tish uchun materiallarni o\'rganing'}
+                {training.progress.completed
+                  ? 'Tabriklaymiz! Kurs yakunlandi'
+                  : training.requiresExam !== false
+                    ? "Keyingi bosqichga o'tish uchun materiallarni o'rganing"
+                    : "Barcha materiallarni o'qiganingizdan keyin kurs yakunlanadi (imtixonsiz)"}
               </p>
             </div>
           </div>
@@ -308,7 +320,7 @@ export default function TrainingDetail() {
                 const statusLabel = isPassed
                   ? 'Tugallangan'
                   : isReadOnServer
-                    ? "O'qilgan, imtihon topshirilmagan"
+                    ? (training.requiresExam !== false ? "O'qilgan, imtihon topshirilmagan" : "O'qilgan")
                     : isUnlocked
                       ? "O'qilmagan"
                       : 'Qulflangan';
@@ -390,8 +402,8 @@ export default function TrainingDetail() {
           </div>
         </div>
 
-        {/* Exams Section */}
-        {training.exams.length > 0 && (
+        {/* Exams Section — faqat imtihonli kurslarda ko'rsatiladi */}
+        {training.requiresExam !== false && training.exams.length > 0 && (
           <div className="bg-slate-900 rounded-[40px] p-10 relative overflow-hidden shadow-2xl">
             {/* Background Decoration */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/20 blur-[100px] rounded-full" />

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <title>AutoFill Form</title>
+  <style>
+    body {
+      width: 300px;
+      padding: 15px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      margin: 0;
+    }
+    h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      color: #1e293b;
+      text-align: center;
+      font-size: 18px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #2563eb;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    #status {
+      margin-top: 15px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 500;
+      min-height: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h3>SingleWindow.uz AutoFill</h3>
+  <button id="fillFormBtn">Shaklni to'ldirish</button>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

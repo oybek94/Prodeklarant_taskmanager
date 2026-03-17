@@ -647,6 +647,39 @@ const Invoice = () => {
   const [editingNetWeight, setEditingNetWeight] = useState<{ index: number; value: string } | null>(null);
   const [addressCopySuccess, setAddressCopySuccess] = useState(false);
 
+  // --- AutoFill Extension Integration ---
+  useEffect(() => {
+    if (form && items.length > 0) {
+      const selectedContract = contracts.find(c => c.id.toString() === selectedContractId);
+      const exppn_nm = selectedContract ? selectedContract.sellerName : '';
+      const exppn_txpr_uniq_no = selectedContract ? selectedContract.sellerInn : '';
+      const exppn_rppn_nm = selectedContract ? selectedContract.supplierDirector : '';
+      const exppn_addr = selectedContract ? selectedContract.sellerLegalAddress : '';
+      // We don't have a direct field for EXPPN_TELNO, EXPPN_REGN_TP_NM in the contract, 
+      // but we will provide what we can based on the existing fields.
+      
+      const imppn_nm = selectedContract ? selectedContract.buyerName : '';
+      const imppn_addr = selectedContract ? selectedContract.buyerAddress : '';
+
+      const exportData = {
+        // Sotuvchi
+        EXPPN_NM: exppn_nm || '',
+        EXPPN_TXPR_UNIQ_NO: exppn_txpr_uniq_no || '',
+        EXPPN_RPPN_NM: exppn_rppn_nm || '',
+        EXPPN_ADDR: exppn_addr || '',
+        EXPPN_TELNO: '',
+        EXPPN_REGN_TP_NM: form.fssRegionName || '', // FSS hudud nomi (shartli)
+        
+        // Sotib oluvchi
+        IMPPN_NM: imppn_nm || '',
+        IMPPN_ADDR: imppn_addr || ''
+      };
+      
+      localStorage.setItem('current_export_invoice', JSON.stringify(exportData));
+    }
+  }, [form, items, contracts, selectedContractId]);
+  // --------------------------------------
+
   useEffect(() => {
 
     loadData();

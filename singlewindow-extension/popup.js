@@ -10,9 +10,10 @@ document.getElementById('fillFormBtn').addEventListener('click', async () => {
         
         let mockData = null;
 
-        if (appTabs && appTabs.length > 0) {
-            // Pick the first matching tab
-            const targetTabId = appTabs[0].id;
+        const validTabs = appTabs.filter(t => t.url && t.url.includes('/invoices/task/'));
+
+        if (validTabs && validTabs.length > 0) {
+            const targetTabId = validTabs[0].id;
             
             // Execute script in the context of the web app tab to get the localStorage data
             const injectionResults = await chrome.scripting.executeScript({
@@ -38,7 +39,7 @@ document.getElementById('fillFormBtn').addEventListener('click', async () => {
                 return;
             }
         } else {
-            statusDiv.textContent = "Prodeklarant dasturi ochilmagan!";
+            statusDiv.textContent = "Prodeklarant dasturida biron invoys ochilmagan!";
             statusDiv.style.color = "#ef4444";
             return;
         }

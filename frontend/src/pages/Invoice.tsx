@@ -674,6 +674,10 @@ const Invoice = () => {
         IMPPN_NM: imppn_nm || '',
         IMPPN_ADDR: imppn_addr || '',
 
+        // Shartnoma raqami va sanasi (kengaytma tekshirishi uchun)
+        EXP_CTDC_NO: (selectedContract ? selectedContract.contractNumber : form.contractNumber) || '',
+        EXP_CVNT_DT: (selectedContract ? selectedContract.contractDate : '') || '',
+
         // Avtomobil raqami (kengaytma tekshirishi uchun)
         vehicleNumber: form.vehicleNumber || '',
 

@@ -172,13 +172,16 @@ function checkData(data) {
         "EXPPN_ADDR": data.EXPPN_ADDR,
         "EXPPN_TELNO": "+998911187007", // fillForm() da bor bo'lgani uchun
         "IMPPN_NM": data.IMPPN_NM,
-        "IMPPN_ADDR": data.IMPPN_ADDR
+        "IMPPN_ADDR": data.IMPPN_ADDR,
+        "EXP_CTDC_NO": data.EXP_CTDC_NO,
+        "EXP_CVNT_DT": data.EXP_CVNT_DT ? String(data.EXP_CVNT_DT).split('T')[0] : ''
     };
 
     for (const [name, expectedValue] of Object.entries(fieldsMap)) {
         if (expectedValue === undefined || expectedValue === null) continue;
         
-        const el = document.querySelector(`[name="${name}"]`);
+        // Formada yoki ID yoxud NAME orqali topish
+        const el = document.getElementById(name) || document.querySelector(`[name="${name}"]`);
         if (el) {
             el.style.backgroundColor = '';
             el.style.borderColor = '';

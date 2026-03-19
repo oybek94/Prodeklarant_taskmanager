@@ -230,20 +230,57 @@ function checkProducts(items) {
         if (!item) return;
 
         const tds = row.querySelectorAll('td');
-        // Agarda jami tdlar 7 tadan kam bo'lsa chetlab o'tamiz (masalan boshqa satrlar bo'lsa)
-        if (tds.length < 7) return;
+        // Agarda jami tdlar eng kamida 8 tadan kam bo'lsa chetlab o'tamiz
+        if (tds.length < 8) return;
 
-        const tdTnved = tds[0];     // td[1]
-        const tdName = tds[1];      // td[2]
-        const tdNet = tds[4];       // td[5]
-        const tdGross = tds[5];     // td[6]
-        const tdQuantity = tds[6];  // td[7]
+        // Tahrirlangan haqiqiy indekslar: (Screenshot bo'yicha)
+        // 0 = №, 1 = Код ТН ВЭД, 2 = Наименование, 3 = Ботаническое название
+        // 4 = Страна происхождения, 5 = Вес нетто, 6 = Вес брутто
+        // 7 = Количество мест, 8 = Доп.количество мест
+        const tdTnved = tds[1];     
+        const tdName = tds[2];      
+        const tdNet = tds[5];       
+        const tdGross = tds[6];     
+        const tdQuantity = tds[7];  
+        const tdExtraQuantity = tds[8]; 
 
         checkMatch(tdTnved, item.tnved);
+        // Наименование может отличаться обрезкой, если нужно точное:
         checkMatch(tdName, item.name);
         checkMatch(tdNet, item.net, true);
         checkMatch(tdGross, item.gross, true);
-        checkMatch(tdQuantity, item.quantity, true);
+
+        // Количество мест tekshirish (uzb prodeklarant.uz dagi packgesCount yoki quantity bilan)
+        if (tdQuantity) {
+            const cellQty = cleanNumber(tdQuantity.innerText);
+            if (cellQty === Number(item.quantity) || cellQty === Number(item.packagesCount)) {
+                tdQuantity.style.backgroundColor = '#dcfce7'; 
+                tdQuantity.style.borderColor = '#22c55e';
+            } else {
+                tdQuantity.style.backgroundColor = '#fee2e2'; 
+                tdQuantity.style.borderColor = '#ef4444';
+                errorsCount++;
+            }
+            tdQuantity.style.borderWidth = '2px';
+            tdQuantity.style.borderStyle = 'solid';
+        }
+        
+        // Agar kiritilgan bo'lsa
+        if (tdExtraQuantity) {
+            const extraQty = cleanNumber(tdExtraQuantity.innerText);
+            if (extraQty === Number(item.quantity) || extraQty === Number(item.packagesCount)) {
+                tdExtraQuantity.style.backgroundColor = '#dcfce7'; 
+                tdExtraQuantity.style.borderColor = '#22c55e';
+            } else if (extraQty !== null && !isNaN(extraQty)) {
+                // Fikrlashishcha qizil yonmay tursin gar majburiy bo'lmasa, user so'rashi mumkin.
+                // Lekin aniqlik uchun, agar qiymat bo'lsa:
+                tdExtraQuantity.style.backgroundColor = '#fee2e2'; 
+                tdExtraQuantity.style.borderColor = '#ef4444';
+                errorsCount++;
+            }
+            tdExtraQuantity.style.borderWidth = '2px';
+            tdExtraQuantity.style.borderStyle = 'solid';
+        }
     });
 
     return { success: true, errors: errorsCount };

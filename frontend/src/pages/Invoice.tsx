@@ -680,7 +680,8 @@ const Invoice = () => {
             name: item.name || '',
             net: item.netWeight || '',
             gross: item.grossWeight || '',
-            quantity: item.quantity || 0
+            quantity: item.quantity || 0,
+            packagesCount: item.packagesCount || 0
         }))
       };
       

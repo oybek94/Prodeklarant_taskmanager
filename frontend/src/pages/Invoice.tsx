@@ -672,7 +672,16 @@ const Invoice = () => {
         
         // Sotib oluvchi
         IMPPN_NM: imppn_nm || '',
-        IMPPN_ADDR: imppn_addr || ''
+        IMPPN_ADDR: imppn_addr || '',
+
+        // Mahsulotlar ro'yxati (kengaytma tekshirishi uchun)
+        items: items.map(item => ({
+            tnved: item.tnvedCode || '',
+            name: item.name || '',
+            net: item.netWeight || '',
+            gross: item.grossWeight || '',
+            quantity: item.quantity || 0
+        }))
       };
       
       localStorage.setItem('current_export_invoice', JSON.stringify(exportData));

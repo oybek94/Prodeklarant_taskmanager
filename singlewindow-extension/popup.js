@@ -1,21 +1,15 @@
-document.getElementById('fillFormBtn').addEventListener('click', async () => {
-    const statusDiv = document.getElementById('status');
+async function getProdeklarantData(statusDiv) {
     statusDiv.textContent = "Ma'lumotlar olinmoqda...";
     statusDiv.style.color = "#475569";
-    
     try {
-        // Find the user's web app tab to read localStorage from.
-        // We look for any tab that might be running the Prodeklarant app (localhost or prodeklarant.uz)
         const appTabs = await chrome.tabs.query({ url: ["http://localhost/*", "https://*.prodeklarant.uz/*", "https://prodeklarant.uz/*"] });
         
         let mockData = null;
-
         const validTabs = appTabs.filter(t => t.url && t.url.includes('/invoices/task/'));
 
         if (validTabs && validTabs.length > 0) {
             const targetTabId = validTabs[0].id;
             
-            // Execute script in the context of the web app tab to get the localStorage data
             const injectionResults = await chrome.scripting.executeScript({
                 target: { tabId: targetTabId },
                 func: () => {
@@ -32,47 +26,78 @@ document.getElementById('fillFormBtn').addEventListener('click', async () => {
             });
 
             if (injectionResults && injectionResults[0] && injectionResults[0].result) {
-                mockData = injectionResults[0].result;
+                return injectionResults[0].result;
             } else {
                 statusDiv.textContent = "Prodeklarant dasturida ochilgan invoys topilmadi!";
                 statusDiv.style.color = "#ef4444";
-                return;
+                return null;
             }
         } else {
             statusDiv.textContent = "Prodeklarant dasturida biron invoys ochilmagan!";
             statusDiv.style.color = "#ef4444";
-            return;
+            return null;
         }
-
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs && tabs[0]) {
-                const url = tabs[0].url;
-                if (!url.includes('singlewindow.uz')) {
-                    statusDiv.textContent = "Bu kengaytma faqat singlewindow.uz saytida ishlaydi.";
-                    statusDiv.style.color = "#ef4444";
-                    return;
-                }
-
-                chrome.tabs.sendMessage(tabs[0].id, {
-                    action: "fill_form",
-                    data: mockData
-                }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        statusDiv.textContent = "Xatolik! Sayt to'liq yuklanganini tekshiring.";
-                        statusDiv.style.color = "#ef4444";
-                    } else if (response && response.success) {
-                        statusDiv.textContent = "Shakl muvaffaqiyatli to'ldirildi!";
-                        statusDiv.style.color = "#10b981";
-                    } else {
-                        statusDiv.textContent = "Noma'lum xatolik yuz berdi.";
-                        statusDiv.style.color = "#ef4444";
-                    }
-                });
-            }
-        });
     } catch (err) {
         console.error(err);
-        statusDiv.textContent = "Ma'lumotlarni olishda xatolik!";
+        statusDiv.textContent = "Ma'lumotlarni olishda xatolik! Saytni yangilab qaytadan urinib ko'ring.";
         statusDiv.style.color = "#ef4444";
+        return null;
     }
+}
+
+function sendToContentScript(action, mockData, statusDiv) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0]) {
+            const url = tabs[0].url;
+            if (!url.includes('singlewindow.uz')) {
+                statusDiv.textContent = "Bu kengaytma faqat singlewindow.uz saytida ishlaydi.";
+                statusDiv.style.color = "#ef4444";
+                return;
+            }
+
+            chrome.tabs.sendMessage(tabs[0].id, {
+                action: action,
+                data: mockData
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    statusDiv.textContent = "Xatolik! Sayt to'liq yuklanganini tekshiring.";
+                    statusDiv.style.color = "#ef4444";
+                } else if (response && response.success) {
+                    if (action === "fill_form") {
+                        statusDiv.textContent = "Shakl muvaffaqiyatli to'ldirildi!";
+                        statusDiv.style.color = "#10b981";
+                    } else if (action === "check_products") {
+                        if (response.errors === 0) {
+                            statusDiv.textContent = "Barcha ma'lumotlar to'g'ri!";
+                            statusDiv.style.color = "#10b981";
+                        } else {
+                            statusDiv.textContent = `${response.errors} ta xatolik topildi.`;
+                            statusDiv.style.color = "#ef4444";
+                        }
+                    }
+                } else {
+                    if (action === "check_products" && response && response.errorMsg) {
+                        statusDiv.textContent = response.errorMsg;
+                    } else {
+                        statusDiv.textContent = "Noma'lum xatolik yuz berdi.";
+                    }
+                    statusDiv.style.color = "#ef4444";
+                }
+            });
+        }
+    });
+}
+
+document.getElementById('fillFormBtn').addEventListener('click', async () => {
+    const statusDiv = document.getElementById('status');
+    const mockData = await getProdeklarantData(statusDiv);
+    if (!mockData) return;
+    sendToContentScript("fill_form", mockData, statusDiv);
+});
+
+document.getElementById('checkDataBtn').addEventListener('click', async () => {
+    const statusDiv = document.getElementById('status');
+    const mockData = await getProdeklarantData(statusDiv);
+    if (!mockData) return;
+    sendToContentScript("check_products", mockData, statusDiv);
 });

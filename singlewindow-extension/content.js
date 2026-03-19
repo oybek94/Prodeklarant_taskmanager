@@ -7,9 +7,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         } else {
             sendResponse({ success: false });
         }
+    } else if (request.action === "check_products") {
+        const data = request.data;
+        console.log("Kengaytma qabul qilgan data:", data);
+        
+        let itemsArray = null;
+        if (data) {
+            itemsArray = data.items || data.products || data.goods;
+        }
+
+        if (itemsArray && Array.isArray(itemsArray)) {
+            const result = checkProducts(itemsArray);
+            sendResponse(result);
+        } else {
+            sendResponse({ success: false, errorMsg: "Invoysda mahsulotlar topilmadi! (F12 ni bosib Console'ni ko'ring)" });
+        }
     }
-    // Asinxron javobni kutuvchi funksiyalar uchun return true kerak emas, 
-    // chunki darhol javob qaytaramiz.
+    return true; // add return true for async if needed in future
 });
 
 function fillForm(data) {
@@ -151,4 +165,86 @@ function getTodayDate() {
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const yyyy = today.getFullYear();
     return `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD
+}
+
+function checkProducts(items) {
+    const table = document.querySelector('#example tbody');
+    if (!table) {
+        return { success: false, errorMsg: "Jadval (#example) topilmadi!" };
+    }
+
+    const rows = table.querySelectorAll('tr');
+    let errorsCount = 0;
+
+    // Eskiroq fon yoki chegaralarni tozalash (masalan qaytadan bosilganda xato yo'qolgan bo'lishi mumkin)
+    const allCells = table.querySelectorAll('td');
+    allCells.forEach(td => {
+        td.style.backgroundColor = '';
+        td.style.borderColor = '';
+        td.style.borderWidth = '';
+        td.style.borderStyle = '';
+    });
+
+    // Jadvaldagi raqamni tozalaydigan yordamchi funksiya ("3400.000 (кг)" -> 3400)
+    const cleanNumber = (str) => {
+        // Bo'sh joylarni olib tashlash va faqat to'g'ri raqam qismini ushlash
+        const match = str.replace(/\s+/g, '').match(/^[\d\.]+/);
+        return match ? parseFloat(match[0]) : null;
+    };
+
+    const checkMatch = (tdElement, sourceValue, isNumber = false) => {
+        if (!tdElement) return;
+        const cellValue = tdElement.innerText.trim();
+        let matches = false;
+
+        // Agar kutilayotgan qiymat bo'lmasa, uni skipp qilamiz
+        if (sourceValue === undefined || sourceValue === null) {
+            return;
+        }
+
+        if (isNumber) {
+            const cellNum = cleanNumber(cellValue);
+            const sourceNum = parseFloat(sourceValue);
+            matches = (cellNum === sourceNum);
+        } else {
+            // ToString orqali qisman taqqoslash (masalan string <=> number konflikt)
+            matches = (cellValue == sourceValue); 
+        }
+
+        if (!matches) {
+            tdElement.style.backgroundColor = '#fee2e2'; // qizil fon
+            tdElement.style.borderColor = '#ef4444';     // qizil border
+            tdElement.style.borderWidth = '2px';
+            tdElement.style.borderStyle = 'solid';
+            errorsCount++;
+        } else {
+            tdElement.style.backgroundColor = '#dcfce7'; // yashil fon
+            tdElement.style.borderColor = '#22c55e';
+            tdElement.style.borderWidth = '2px';
+            tdElement.style.borderStyle = 'solid';
+        }
+    };
+
+    rows.forEach((row, index) => {
+        const item = items[index];
+        if (!item) return;
+
+        const tds = row.querySelectorAll('td');
+        // Agarda jami tdlar 7 tadan kam bo'lsa chetlab o'tamiz (masalan boshqa satrlar bo'lsa)
+        if (tds.length < 7) return;
+
+        const tdTnved = tds[0];     // td[1]
+        const tdName = tds[1];      // td[2]
+        const tdNet = tds[4];       // td[5]
+        const tdGross = tds[5];     // td[6]
+        const tdQuantity = tds[6];  // td[7]
+
+        checkMatch(tdTnved, item.tnved);
+        checkMatch(tdName, item.name);
+        checkMatch(tdNet, item.net, true);
+        checkMatch(tdGross, item.gross, true);
+        checkMatch(tdQuantity, item.quantity, true);
+    });
+
+    return { success: true, errors: errorsCount };
 }

@@ -4483,14 +4483,24 @@ const Invoice = () => {
                       <label className="block text-sm font-medium text-gray-700">
                         Место отгрузки груза:
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, shipmentPlace: '' })}
-                        className="text-red-500 hover:text-red-700 text-sm"
-                        title="O'chirish"
-                      >
-                        ✕
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleAdditionalInfoVisible('shipmentPlace')}
+                          className={`${isAdditionalInfoVisible('shipmentPlace') ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'} text-sm`}
+                          title={isAdditionalInfoVisible('shipmentPlace') ? 'Invoysda yashirish' : "Invoysda ko'rsatish"}
+                        >
+                          <Icon icon={isAdditionalInfoVisible('shipmentPlace') ? 'mdi:eye' : 'mdi:eye-off'} className="text-lg" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, shipmentPlace: '' })}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                          title="O'chirish"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
                     <input
                       type="text"
@@ -4505,14 +4515,24 @@ const Invoice = () => {
                       <label className="block text-sm font-medium text-gray-700">
                         Место назначения:
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, destination: '' })}
-                        className="text-red-500 hover:text-red-700 text-sm"
-                        title="O'chirish"
-                      >
-                        ✕
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleAdditionalInfoVisible('destination')}
+                          className={`${isAdditionalInfoVisible('destination') ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'} text-sm`}
+                          title={isAdditionalInfoVisible('destination') ? 'Invoysda yashirish' : "Invoysda ko'rsatish"}
+                        >
+                          <Icon icon={isAdditionalInfoVisible('destination') ? 'mdi:eye' : 'mdi:eye-off'} className="text-lg" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, destination: '' })}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                          title="O'chirish"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
                     <input
 

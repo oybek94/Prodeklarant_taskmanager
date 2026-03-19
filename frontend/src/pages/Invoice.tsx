@@ -3051,7 +3051,7 @@ const Invoice = () => {
 
                       {contracts.find(c => c.id.toString() === selectedContractId)?.sellerLegalAddress && (
 
-                        <div>{contracts.find(c => c.id.toString() === selectedContractId)?.sellerLegalAddress}</div>
+                        <div className="whitespace-pre-line">{contracts.find(c => c.id.toString() === selectedContractId)?.sellerLegalAddress}</div>
 
                       )}
 
@@ -3183,7 +3183,7 @@ const Invoice = () => {
 
                       {contracts.find(c => c.id.toString() === selectedContractId)?.buyerAddress && (
 
-                        <div>{contracts.find(c => c.id.toString() === selectedContractId)?.buyerAddress}</div>
+                        <div className="whitespace-pre-line">{contracts.find(c => c.id.toString() === selectedContractId)?.buyerAddress}</div>
 
                       )}
 

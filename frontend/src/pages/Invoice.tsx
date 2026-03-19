@@ -674,6 +674,9 @@ const Invoice = () => {
         IMPPN_NM: imppn_nm || '',
         IMPPN_ADDR: imppn_addr || '',
 
+        // Avtomobil raqami (kengaytma tekshirishi uchun)
+        vehicleNumber: form.vehicleNumber || '',
+
         // Mahsulotlar ro'yxati (kengaytma tekshirishi uchun)
         items: items.map(item => ({
             tnved: item.tnvedCode || '',

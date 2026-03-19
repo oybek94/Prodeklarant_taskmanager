@@ -10,17 +10,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "check_products") {
         const data = request.data;
         console.log("Kengaytma qabul qilgan data:", data);
-        
-        let itemsArray = null;
         if (data) {
-            itemsArray = data.items || data.products || data.goods;
-        }
-
-        if (itemsArray && Array.isArray(itemsArray)) {
-            const result = checkProducts(itemsArray);
+            const result = checkData(data);
             sendResponse(result);
         } else {
-            sendResponse({ success: false, errorMsg: "Invoysda mahsulotlar topilmadi! (F12 ni bosib Console'ni ko'ring)" });
+            sendResponse({ success: false, errorMsg: "Ma'lumotlar kelmadi!" });
         }
     }
     return true; // add return true for async if needed in future
@@ -167,16 +161,59 @@ function getTodayDate() {
     return `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD
 }
 
-function checkProducts(items) {
+function checkData(data) {
+    let errorsCount = 0;
+
+    // 1. Sotuvchi va Sotib oluvchi maydonlarini tekshirish
+    const fieldsMap = {
+        "EXPPN_NM": data.EXPPN_NM,
+        "EXPPN_TXPR_UNIQ_NO": data.EXPPN_TXPR_UNIQ_NO,
+        "EXPPN_RPPN_NM": data.EXPPN_RPPN_NM,
+        "EXPPN_ADDR": data.EXPPN_ADDR,
+        "EXPPN_TELNO": "+998911187007", // fillForm() da bor bo'lgani uchun
+        "IMPPN_NM": data.IMPPN_NM,
+        "IMPPN_ADDR": data.IMPPN_ADDR
+    };
+
+    for (const [name, expectedValue] of Object.entries(fieldsMap)) {
+        if (expectedValue === undefined || expectedValue === null) continue;
+        
+        const el = document.querySelector(`[name="${name}"]`);
+        if (el) {
+            el.style.backgroundColor = '';
+            el.style.borderColor = '';
+            el.style.borderWidth = '';
+            el.style.borderStyle = '';
+
+            const actualValue = el.value ? String(el.value).trim() : '';
+            // Probel, enter va keraksiz boshqa joylarni o'chirib tekshirish
+            const normalizeStr = (str) => String(str).replace(/\s+/g, ' ').trim();
+
+            if (normalizeStr(actualValue) === normalizeStr(expectedValue)) {
+                el.style.backgroundColor = '#dcfce7'; 
+                el.style.borderColor = '#22c55e';
+            } else {
+                el.style.backgroundColor = '#fee2e2'; 
+                el.style.borderColor = '#ef4444';
+                errorsCount++;
+            }
+            el.style.borderWidth = '2px';
+            el.style.borderStyle = 'solid';
+        }
+    }
+
+    // 2. Mahsulotlarni jadvaldan (#example) tekshirish
+    const items = data.items || data.products || data.goods || [];
     const table = document.querySelector('#example tbody');
     if (!table) {
-        return { success: false, errorMsg: "Jadval (#example) topilmadi!" };
+        if (items.length > 0) {
+            return { success: false, errorMsg: "Jadval (#example) topilmadi!" };
+        }
+        return { success: true, errors: errorsCount };
     }
 
     const rows = table.querySelectorAll('tr');
-    let errorsCount = 0;
 
-    // Eskiroq fon yoki chegaralarni tozalash (masalan qaytadan bosilganda xato yo'qolgan bo'lishi mumkin)
     const allCells = table.querySelectorAll('td');
     allCells.forEach(td => {
         td.style.backgroundColor = '';
@@ -185,9 +222,7 @@ function checkProducts(items) {
         td.style.borderStyle = '';
     });
 
-    // Jadvaldagi raqamni tozalaydigan yordamchi funksiya ("3400.000 (кг)" -> 3400)
     const cleanNumber = (str) => {
-        // Bo'sh joylarni olib tashlash va faqat to'g'ri raqam qismini ushlash
         const match = str.replace(/\s+/g, '').match(/^[\d\.]+/);
         return match ? parseFloat(match[0]) : null;
     };
@@ -197,28 +232,24 @@ function checkProducts(items) {
         const cellValue = tdElement.innerText.trim();
         let matches = false;
 
-        // Agar kutilayotgan qiymat bo'lmasa, uni skipp qilamiz
-        if (sourceValue === undefined || sourceValue === null) {
-            return;
-        }
+        if (sourceValue === undefined || sourceValue === null) return;
 
         if (isNumber) {
             const cellNum = cleanNumber(cellValue);
             const sourceNum = parseFloat(sourceValue);
             matches = (cellNum === sourceNum);
         } else {
-            // ToString orqali qisman taqqoslash (masalan string <=> number konflikt)
             matches = (cellValue == sourceValue); 
         }
 
         if (!matches) {
-            tdElement.style.backgroundColor = '#fee2e2'; // qizil fon
-            tdElement.style.borderColor = '#ef4444';     // qizil border
+            tdElement.style.backgroundColor = '#fee2e2'; 
+            tdElement.style.borderColor = '#ef4444';     
             tdElement.style.borderWidth = '2px';
             tdElement.style.borderStyle = 'solid';
             errorsCount++;
         } else {
-            tdElement.style.backgroundColor = '#dcfce7'; // yashil fon
+            tdElement.style.backgroundColor = '#dcfce7'; 
             tdElement.style.borderColor = '#22c55e';
             tdElement.style.borderWidth = '2px';
             tdElement.style.borderStyle = 'solid';
@@ -230,27 +261,26 @@ function checkProducts(items) {
         if (!item) return;
 
         const tds = row.querySelectorAll('td');
-        // Agarda jami tdlar eng kamida 8 tadan kam bo'lsa chetlab o'tamiz
-        if (tds.length < 8) return;
+        if (tds.length < 11) return;
 
-        // Tahrirlangan haqiqiy indekslar: (Screenshot bo'yicha)
-        // 0 = №, 1 = Код ТН ВЭД, 2 = Наименование, 3 = Ботаническое название
-        // 4 = Страна происхождения, 5 = Вес нетто, 6 = Вес брутто
-        // 7 = Количество мест, 8 = Доп.количество мест
         const tdTnved = tds[1];     
         const tdName = tds[2];      
         const tdNet = tds[5];       
         const tdGross = tds[6];     
         const tdQuantity = tds[7];  
         const tdExtraQuantity = tds[8]; 
+        const tdVehicleNumber = tds[10];
 
         checkMatch(tdTnved, item.tnved);
-        // Наименование может отличаться обрезкой, если нужно точное:
         checkMatch(tdName, item.name);
         checkMatch(tdNet, item.net, true);
         checkMatch(tdGross, item.gross, true);
+        
+        // Avtomobil raqamini tekshirish (agar bo'lsa)
+        if (data.vehicleNumber) {
+            checkMatch(tdVehicleNumber, data.vehicleNumber);
+        }
 
-        // Количество мест tekshirish (uzb prodeklarant.uz dagi packgesCount yoki quantity bilan)
         if (tdQuantity) {
             const cellQty = cleanNumber(tdQuantity.innerText);
             if (cellQty === Number(item.quantity) || cellQty === Number(item.packagesCount)) {
@@ -265,15 +295,12 @@ function checkProducts(items) {
             tdQuantity.style.borderStyle = 'solid';
         }
         
-        // Agar kiritilgan bo'lsa
         if (tdExtraQuantity) {
             const extraQty = cleanNumber(tdExtraQuantity.innerText);
             if (extraQty === Number(item.quantity) || extraQty === Number(item.packagesCount)) {
                 tdExtraQuantity.style.backgroundColor = '#dcfce7'; 
                 tdExtraQuantity.style.borderColor = '#22c55e';
             } else if (extraQty !== null && !isNaN(extraQty)) {
-                // Fikrlashishcha qizil yonmay tursin gar majburiy bo'lmasa, user so'rashi mumkin.
-                // Lekin aniqlik uchun, agar qiymat bo'lsa:
                 tdExtraQuantity.style.backgroundColor = '#fee2e2'; 
                 tdExtraQuantity.style.borderColor = '#ef4444';
                 errorsCount++;

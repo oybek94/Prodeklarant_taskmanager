@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
+import { useFileHelpers } from '../components/tasks/useFileHelpers';
 
 interface ArchiveDocument {
   id: number;
@@ -113,39 +114,7 @@ const Archive = () => {
     return <Icon icon="lucide:file" className="w-10 h-10 text-gray-500" />;
   };
 
-  const downloadFile = async (fileUrl: string, originalName: string) => {
-    // /uploads/documents/file.pdf → /api/secure-uploads/documents/file.pdf
-    const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-    const baseOrigin = baseUrl.replace(/\/api$/, '');
-
-    const securePath = fileUrl.replace(/^\/uploads\//, '');
-    const urlParts = securePath.split('/');
-    const fileNameFromUrl = urlParts[urlParts.length - 1];
-    const encodedFileName = encodeURIComponent(decodeURIComponent(fileNameFromUrl));
-    const folderPath = urlParts.slice(0, -1).join('/');
-    const encodedUrl = `${baseOrigin}/api/secure-uploads/${folderPath}/${encodedFileName}`;
-
-    // JWT token bilan authenticated fetch
-    try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(encodedUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) throw new Error(`Fayl topilmadi (${response.status})`);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = originalName || fileNameFromUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      console.error('Download error:', error);
-      alert('Faylni yuklab olishda xatolik yuz berdi');
-    }
-  };
+  const { downloadFile } = useFileHelpers();
 
   // Unique client va branch nomlarini olish
   const uniqueClients = Array.from(new Set(documents.map(d => d.clientName))).sort();

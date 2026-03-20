@@ -6,6 +6,12 @@ import * as XLSX from 'xlsx';
 import { Icon } from '@iconify/react';
 import { useIsMobile } from '../utils/useIsMobile';
 import DateInput from '../components/DateInput';
+import { useFileHelpers } from '../components/tasks/useFileHelpers';
+import {
+  formatDate, formatFileSize, formatDuration, formatMoney, getClientCurrency,
+  getStatusInfo, getFileIcon, canPreview, canShowOCR,
+  getAvatarColor, getInitials, calculateStageDuration, evaluateStageTime,
+} from '../components/tasks/taskHelpers';
 
 interface Task {
   id: number;
@@ -124,6 +130,7 @@ interface TasksProps {
 }
 
 const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onCloseModal }) => {
+  const { downloadFile, getPreviewBlobUrl } = useFileHelpers();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1199,30 +1206,10 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   };
 
   const openPreview = async (fileUrl: string, fileType: string, fileName: string) => {
-    // /uploads/documents/file.pdf → /api/secure-uploads/documents/file.pdf
-    const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-    const baseOrigin = baseUrl.replace(/\/api$/, '');
-    
-    const securePath = fileUrl.replace(/^\/uploads\//, '');
-    const urlParts = securePath.split('/');
-    const fileNamePart = urlParts[urlParts.length - 1];
-    const encodedFileName = encodeURIComponent(decodeURIComponent(fileNamePart));
-    const folderPath = urlParts.slice(0, -1).join('/');
-    const secureUrl = `${baseOrigin}/api/secure-uploads/${folderPath}/${encodedFileName}`;
-
-    // JWT token bilan fetch qilib, blob URL yaratamiz
-    // (img/iframe src tag'lari custom header yubora olmaydi)
-    try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(secureUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) throw new Error(`Fayl topilmadi (${response.status})`);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
+    const blobUrl = await getPreviewBlobUrl(fileUrl);
+    if (blobUrl) {
       setPreviewDocument({ url: blobUrl, type: fileType, name: fileName });
-    } catch (error) {
-      console.error('Preview error:', error);
+    } else {
       alert('Faylni ko\'rishda xatolik yuz berdi');
     }
   };
@@ -1244,60 +1231,9 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   };
 
   const downloadDocument = async (fileUrl: string, originalName?: string) => {
-    // /uploads/documents/file.pdf → /api/secure-uploads/documents/file.pdf
-    const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-    const baseOrigin = baseUrl.replace(/\/api$/, '');
-    
-    // fileUrl: /uploads/documents/file.pdf → securePath: documents/file.pdf
-    const securePath = fileUrl.replace(/^\/uploads\//, '');
-    const urlParts = securePath.split('/');
-    const fileNameFromUrl = urlParts[urlParts.length - 1];
-    const encodedFileName = encodeURIComponent(decodeURIComponent(fileNameFromUrl));
-    const folderPath = urlParts.slice(0, -1).join('/');
-    const encodedUrl = `${baseOrigin}/api/secure-uploads/${folderPath}/${encodedFileName}`;
-
-    // JWT token bilan authenticated fetch - faqat login qilgan foydalanuvchilar yuklay oladi
-    try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(encodedUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) throw new Error(`Fayl topilmadi (${response.status})`);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = originalName || fileNameFromUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      console.error('Download error:', error);
-      alert('Faylni yuklab olishda xatolik yuz berdi');
-    }
+    await downloadFile(fileUrl, originalName);
   };
 
-  const canPreview = (fileType: string) => {
-    return fileType?.includes('image') ||
-      fileType?.includes('pdf') ||
-      fileType?.includes('video') ||
-      fileType?.includes('audio');
-  };
-
-  // Check if document supports OCR (PDF or JPG)
-  const canShowOCR = (fileType: string, fileName: string) => {
-    const lowerType = (fileType || '').toLowerCase();
-    const lowerName = (fileName || '').toLowerCase();
-    return (
-      lowerType.includes('pdf') ||
-      lowerType.includes('jpeg') ||
-      lowerType.includes('jpg') ||
-      lowerName.endsWith('.pdf') ||
-      lowerName.endsWith('.jpg') ||
-      lowerName.endsWith('.jpeg')
-    );
-  };
 
   // Format invoice extracted text - convert product table to formatted view
   const formatInvoiceExtractedText = (text: string, documentType?: string): string => {
@@ -1466,89 +1402,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     return formattedLines.join('\n');
   };
 
-  const getFileIcon = (fileType: string, fileName?: string) => {
-    const lowerType = fileType?.toLowerCase() || '';
-    const lowerName = fileName?.toLowerCase() || '';
-    const base = 'inline-flex h-8 w-8 items-center justify-center rounded-lg border';
-    const icon = 'w-4 h-4';
 
-    if (lowerType.includes('pdf') || lowerName.endsWith('.pdf')) {
-      return (
-        <span className={`${base} border-red-200 bg-red-50 text-red-600`}>
-          <Icon icon="lucide:file-text" className={icon} />
-        </span>
-      );
-    }
-    if (lowerType.includes('excel') || lowerType.includes('spreadsheet') ||
-      lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx')) {
-      return (
-        <span className={`${base} border-emerald-200 bg-emerald-50 text-emerald-600`}>
-          <Icon icon="lucide:file-spreadsheet" className={icon} />
-        </span>
-      );
-    }
-    if (lowerType.includes('word') || lowerType.includes('document') ||
-      lowerName.endsWith('.doc') || lowerName.endsWith('.docx')) {
-      return (
-        <span className={`${base} border-blue-200 bg-blue-50 text-blue-600`}>
-          <Icon icon="lucide:file-text" className={icon} />
-        </span>
-      );
-    }
-    if (lowerType.includes('jpeg') || lowerType.includes('jpg') ||
-      lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') ||
-      lowerType.includes('png') || lowerName.endsWith('.png') ||
-      lowerType.includes('image') || lowerType.includes('gif') || lowerType.includes('webp') ||
-      lowerName.match(/\.(gif|webp|bmp|svg)$/i)) {
-      return (
-        <span className={`${base} border-amber-200 bg-amber-50 text-amber-600`}>
-          <Icon icon="lucide:image" className={icon} />
-        </span>
-      );
-    }
-    if (lowerType.includes('powerpoint') || lowerType.includes('presentation') ||
-      lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx')) {
-      return (
-        <span className={`${base} border-orange-200 bg-orange-50 text-orange-600`}>
-          <Icon icon="lucide:presentation" className={icon} />
-        </span>
-      );
-    }
-    if (lowerType.includes('rar') || lowerName.endsWith('.rar') ||
-      lowerType.includes('zip') || lowerName.endsWith('.zip')) {
-      return (
-        <span className={`${base} border-gray-200 bg-gray-50 text-gray-600`}>
-          <Icon icon="lucide:archive" className={icon} />
-        </span>
-      );
-    }
-    if (lowerType.includes('video') || lowerName.match(/\.(mp4|avi|mov|wmv|flv|mkv)$/i)) {
-      return (
-        <span className={`${base} border-rose-200 bg-rose-50 text-rose-600`}>
-          <Icon icon="lucide:video" className={icon} />
-        </span>
-      );
-    }
-    if (lowerType.includes('audio') || lowerName.match(/\.(mp3|wav|ogg|m4a)$/i)) {
-      return (
-        <span className={`${base} border-purple-200 bg-purple-50 text-purple-600`}>
-          <Icon icon="lucide:music" className={icon} />
-        </span>
-      );
-    }
-    return (
-      <span className={`${base} border-gray-200 bg-gray-50 text-gray-600`}>
-        <Icon icon="lucide:file" className={icon} />
-      </span>
-    );
-  };
-
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'N/A';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  };
 
   const loadTaskVersions = async (taskId: number) => {
     try {
@@ -1840,15 +1694,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = date.toLocaleDateString('en-GB', { month: 'short' });
-    const year = date.getFullYear();
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${day} ${month} ${year}; ${hours}:${minutes}`;
-  };
+
 
   // Jarayon uchun vaqtni hisoblash
   const calculateStageDuration = (stage: TaskStage, allStages: TaskStage[], taskCreatedAt: string): number | null => {
@@ -1950,30 +1796,9 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     return Math.floor(diffMs / 60000); // daqiqalarda
   };
 
-  // Vaqtni formatlash (soat, daqiqa)
-  const formatDuration = (minutes: number | null): string => {
-    if (minutes === null || minutes < 0) return '';
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours > 0 && mins > 0) {
-      return `${hours} soat, ${mins} daqiqa`;
-    } else if (hours > 0) {
-      return `${hours} soat`;
-    } else {
-      return `${mins} daqiqa`;
-    }
-  };
 
-  const getClientCurrency = (client?: { dealAmount_currency?: 'USD' | 'UZS'; dealAmountCurrency?: 'USD' | 'UZS' }) =>
-    client?.dealAmount_currency || client?.dealAmountCurrency || 'USD';
 
-  const formatMoney = (amount: number, currency: 'USD' | 'UZS') => {
-    const formatted = new Intl.NumberFormat('uz-UZ', {
-      minimumFractionDigits: currency === 'USD' ? 2 : 0,
-      maximumFractionDigits: currency === 'USD' ? 2 : 0,
-    }).format(amount).replace(/,/g, ' ');
-    return currency === 'USD' ? `$ ${formatted}` : `UZS ${formatted}`;
-  };
+
 
   const getPsrAmount = (task?: { hasPsr?: boolean; snapshotPsrPrice?: number | null }) =>
     task?.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
@@ -2063,102 +1888,9 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   };
 
   // Jarayon vaqtini baholash
-  const evaluateStageTime = (stageName: string, minutes: number | null): { rating: 'alo' | 'ortacha' | 'yomon', color: string, icon: string } => {
-    if (minutes === null || minutes < 0) {
-      return { rating: 'yomon', color: 'text-red-500', icon: 'fa-hourglass-half' };
-    }
 
-    let threshold: { alo: number; ortacha: number };
-    switch (stageName) {
-      case 'Invoys':
-        threshold = { alo: 10, ortacha: 20 };
-        break;
-      case 'Zayavka':
-      case 'TIR-SMR':
-        threshold = { alo: 15, ortacha: 20 };
-        break;
-      case 'Sertifikat olib chiqish':
-      case 'ST':
-      case 'Fito':
-      case 'FITO':
-        threshold = { alo: 30, ortacha: 60 };
-        break;
-      case 'Deklaratsiya':
-        threshold = { alo: 20, ortacha: 30 };
-        break;
-      case 'Tekshirish':
-        threshold = { alo: 5, ortacha: 10 };
-        break;
-      case 'Topshirish':
-      case 'Xujjat_topshirish':
-      case 'Xujjat topshirish':
-        threshold = { alo: 30, ortacha: 60 };
-        break;
-      case 'Pochta':
-        threshold = { alo: 60, ortacha: 120 };
-        break;
-      default:
-        threshold = { alo: 30, ortacha: 60 };
-    }
 
-    if (minutes < threshold.alo) {
-      return { rating: 'alo', color: 'text-green-500', icon: 'fa-fire' };
-    } else if (minutes < threshold.ortacha) {
-      return { rating: 'ortacha', color: 'text-yellow-500', icon: 'fa-circle-half-stroke' };
-    } else {
-      return { rating: 'yomon', color: 'text-red-500', icon: 'fa-clock' };
-    }
-  };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const formatDurationMinutes = (minutes?: number) => {
-    if (!minutes) return '-';
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours > 0) return `${hours} soat ${mins} daqiqa`;
-    return `${mins} daqiqa`;
-  };
-
-  const getStatusInfo = (status: string) => {
-    switch (status) {
-      case 'BOSHLANMAGAN':
-        return { label: 'Boshlanmagan', color: 'bg-red-100 text-red-800' };
-      case 'JARAYONDA':
-        return { label: 'Jarayonda', color: 'bg-yellow-100 text-yellow-800' };
-      case 'TAYYOR':
-        return { label: 'Xujjat tayyor', color: 'bg-blue-100 text-blue-800' };
-      case 'TEKSHIRILGAN':
-        return { label: 'Xujjat tekshirilgan', color: 'bg-purple-100 text-purple-800' };
-      case 'TOPSHIRILDI':
-        return { label: 'Xujjat topshirildi', color: 'bg-indigo-100 text-indigo-800' };
-      case 'YAKUNLANDI':
-        return { label: 'Yakunlandi', color: 'bg-green-100 text-green-800' };
-      default:
-        return { label: 'Noma\'lum', color: 'bg-gray-100 text-gray-800' };
-    }
-  };
-
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      'bg-yellow-200',
-      'bg-pink-200',
-      'bg-blue-200',
-      'bg-blue-200',
-      'bg-green-200',
-      'bg-indigo-200',
-    ];
-    const index = name.charCodeAt(0) % colors.length;
-    return colors[index];
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   // Calculate total duration for a task: Sum of all stages' durationMin
   const calculateTotalDuration = (task: Task): { text: string; color: string } => {

@@ -113,19 +113,36 @@ const Archive = () => {
     return <Icon icon="lucide:file" className="w-10 h-10 text-gray-500" />;
   };
 
-  const downloadFile = (fileUrl: string, _fileName: string) => {
+  const downloadFile = async (fileUrl: string, originalName: string) => {
     // URL'ni to'g'ri qurish - baseURL'dan /api ni olib tashlaymiz
     const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
     const serverBaseUrl = baseUrl.replace('/api', '') || (import.meta.env.PROD ? '' : 'http://localhost:3001');
     
     const urlParts = fileUrl.split('/');
-    const fileNamePart = urlParts[urlParts.length - 1];
-    const path = urlParts.slice(0, -1).join('/');
+    const fileNameFromUrl = urlParts[urlParts.length - 1];
+    const filePath = urlParts.slice(0, -1).join('/');
     
     // Fayl nomini encode qilamiz
-    const encodedFileName = encodeURIComponent(decodeURIComponent(fileNamePart));
-    const url = `${serverBaseUrl}${path}/${encodedFileName}`;
-    window.open(url, '_blank');
+    const encodedFileName = encodeURIComponent(decodeURIComponent(fileNameFromUrl));
+    const url = `${serverBaseUrl}${filePath}/${encodedFileName}`;
+
+    // Asl nomi bilan yuklab olish - brauzerda ochmasdan
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Fayl topilmadi');
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = originalName || fileNameFromUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download error:', error);
+      window.open(url, '_blank');
+    }
   };
 
   // Unique client va branch nomlarini olish

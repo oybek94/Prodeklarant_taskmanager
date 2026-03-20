@@ -9,12 +9,42 @@ import { compareInvoiceST1 } from '../ai/document.analyzer';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 
 const router = Router();
 
-// Configure multer for file uploads
+// Uploads papkasi uchun absolute path
+const uploadsDir = path.join(__dirname, '../../uploads');
+const documentsDir = path.join(uploadsDir, 'documents');
+
+// Papkalarni yaratish (mavjud bo'lmasa)
+[documentsDir].forEach(dir => {
+  if (!fsSync.existsSync(dir)) {
+    fsSync.mkdirSync(dir, { recursive: true });
+  }
+});
+
+// Configure multer for file uploads - documents papkasiga saqlaymiz
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, documentsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    let name = path.basename(file.originalname, ext)
+      .replace(/[^a-zA-Z0-9\u0400-\u04FF]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    if (!name || name.length === 0) {
+      name = 'file';
+    }
+    cb(null, `${name}-${uniqueSuffix}${ext}`);
+  }
+});
+
 const upload = multer({
-  dest: 'uploads/tasks/',
+  storage: storage,
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB limit
   },
@@ -123,7 +153,7 @@ router.post(
           const documentData: any = {
             taskId,
             name: originalFileName,
-            fileUrl: `/uploads/tasks/${req.file!.filename}`,
+            fileUrl: `/uploads/documents/${req.file!.filename}`,
             fileType: fileType,
             fileSize: req.file!.size,
             description: parsed.data.description,

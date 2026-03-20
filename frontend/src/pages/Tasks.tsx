@@ -1199,17 +1199,19 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   };
 
   const openPreview = (fileUrl: string, fileType: string, fileName: string) => {
-    // URL'ni to'g'ri qurish - baseURL'dan /api ni olib tashlaymiz
+    // API base URL'dan uploads URL'ni quramiz
+    // Backend /api/uploads yo'lini ham serve qiladi (server.ts'da sozlangan)
     const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-    const serverBaseUrl = baseUrl.replace('/api', '') || (import.meta.env.PROD ? '' : 'http://localhost:3001');
-
-    const urlParts = fileUrl.split('/');
-    const fileNamePart = urlParts[urlParts.length - 1];
-    const path = urlParts.slice(0, -1).join('/');
+    // /uploads/documents/... -> /api/uploads/documents/...
+    const uploadsPath = fileUrl.replace(/^\/uploads\//, '/api/uploads/');
+    const baseOrigin = baseUrl.replace(/\/api$/, '');
 
     // Fayl nomini encode qilamiz
+    const urlParts = uploadsPath.split('/');
+    const fileNamePart = urlParts[urlParts.length - 1];
     const encodedFileName = encodeURIComponent(decodeURIComponent(fileNamePart));
-    const url = `${serverBaseUrl}${path}/${encodedFileName}`;
+    const pathWithoutFile = urlParts.slice(0, -1).join('/');
+    const url = `${baseOrigin}${pathWithoutFile}/${encodedFileName}`;
     setPreviewDocument({ url, type: fileType, name: fileName });
   };
 
@@ -1230,23 +1232,23 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   };
 
   const downloadDocument = async (fileUrl: string, originalName?: string) => {
-    // URL'ni to'g'ri qurish - baseURL'dan /api ni olib tashlaymiz
+    // API base URL'dan uploads URL'ni quramiz
+    // Backend /api/uploads yo'lini ham serve qiladi (server.ts'da sozlangan)
     const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-    const serverBaseUrl = baseUrl.replace('/api', '') || (import.meta.env.PROD ? '' : 'http://localhost:3001');
-
-    // Fayl URL'i /uploads/documents/... ko'rinishida
-    const urlParts = fileUrl.split('/');
-    const fileNameFromUrl = urlParts[urlParts.length - 1];
-    const filePath = urlParts.slice(0, -1).join('/');
+    // baseUrl = 'http://localhost:3001/api' yoki '/api' (production'da)
+    // Faylning /uploads/documents/... qismini /api/uploads/documents/... ga o'zgartiramiz
+    const uploadsPath = fileUrl.replace(/^\/uploads\//, '/api/uploads/');
+    const url = `${baseUrl.replace(/\/api$/, '')}${uploadsPath}`;
 
     // Fayl nomini encode qilamiz
-    const encodedFileName = encodeURIComponent(decodeURIComponent(fileNameFromUrl));
-    const url = `${serverBaseUrl}${filePath}/${encodedFileName}`;
+    const urlParts = url.split('/');
+    const fileNameFromUrl = urlParts[urlParts.length - 1];
+    const encodedUrl = urlParts.slice(0, -1).join('/') + '/' + encodeURIComponent(decodeURIComponent(fileNameFromUrl));
 
     // Asl nomi (originalName) bilan yuklab olish - brauzerda ochmasdan
     try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Fayl topilmadi');
+      const response = await fetch(encodedUrl);
+      if (!response.ok) throw new Error(`Fayl topilmadi (${response.status})`);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -1260,7 +1262,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     } catch (error) {
       console.error('Download error:', error);
       // Fallback: brauzerda ochish
-      window.open(url, '_blank');
+      window.open(encodedUrl, '_blank');
     }
   };
 

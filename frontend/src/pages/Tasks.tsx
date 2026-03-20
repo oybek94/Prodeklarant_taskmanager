@@ -12,6 +12,13 @@ import {
   getStatusInfo, getFileIcon, canPreview, canShowOCR,
   getAvatarColor, getInitials, calculateStageDuration, evaluateStageTime,
 } from '../components/tasks/taskHelpers';
+import PreviewModal from '../components/tasks/PreviewModal';
+import ErrorModal from '../components/tasks/ErrorModal';
+import SendEmailModal from '../components/tasks/SendEmailModal';
+import EditTaskModal from '../components/tasks/EditTaskModal';
+import DocumentUploadModal from '../components/tasks/DocumentUploadModal';
+import CreateTaskModal from '../components/tasks/CreateTaskModal';
+import BXMModal from '../components/tasks/BxmModal';
 
 interface Task {
   id: number;
@@ -1454,6 +1461,23 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     }
   };
 
+  const handleBXMEdit = async (stage: TaskStage) => {
+    try {
+      const bxmResponse = await apiClient.get('/bxm/current');
+      const amountUsd = Number(bxmResponse.data.amountUsd ?? bxmResponse.data.amount ?? 34.4);
+      const amountUzs = Number(bxmResponse.data.amountUzs ?? 412000);
+      setCurrentBxmUsd(amountUsd);
+      setCurrentBxmUzs(amountUzs);
+    } catch {
+      setCurrentBxmUsd(34.4);
+      setCurrentBxmUzs(412000);
+    }
+    const current = selectedTask?.customsPaymentMultiplier;
+    setBxmMultiplier(current != null ? String(current) : '1.5');
+    setAfterHoursDeclaration(Boolean(selectedTask?.afterHoursDeclaration));
+    setSelectedStageForReminder(stage);
+    setShowBXMModal(true);
+  };
 
   const updateStageToReady = async (
     stage: TaskStage,
@@ -1696,108 +1720,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
 
 
 
-  // Jarayon uchun vaqtni hisoblash
-  const calculateStageDuration = (stage: TaskStage, allStages: TaskStage[], taskCreatedAt: string): number | null => {
-    if (!stage.completedAt) return null;
-
-    const completedAt = new Date(stage.completedAt);
-    let startTime: Date | null = null;
-
-    switch (stage.name) {
-      case 'Invoys':
-        startTime = new Date(taskCreatedAt);
-        break;
-      case 'Zayavka':
-        const invoysStage = allStages.find(s => s.name === 'Invoys' && s.status === 'TAYYOR');
-        if (invoysStage?.completedAt) {
-          startTime = new Date(invoysStage.completedAt);
-        } else {
-          startTime = new Date(taskCreatedAt);
-        }
-        break;
-      case 'TIR-SMR':
-        const invoysStage2 = allStages.find(s => s.name === 'Invoys' && s.status === 'TAYYOR');
-        if (invoysStage2?.completedAt) {
-          startTime = new Date(invoysStage2.completedAt);
-        } else {
-          startTime = new Date(taskCreatedAt);
-        }
-        break;
-      case 'Sertifikat olib chiqish':
-      case 'ST':
-      case 'Fito':
-      case 'FITO':
-        const zayavkaStage = allStages.find(s => s.name === 'Zayavka' && s.status === 'TAYYOR');
-        if (zayavkaStage?.completedAt) {
-          startTime = new Date(zayavkaStage.completedAt);
-        } else {
-          startTime = new Date(taskCreatedAt);
-        }
-        break;
-      case 'Deklaratsiya':
-        const sertifikatStage = allStages.find(s =>
-          (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO')
-          && s.status === 'TAYYOR'
-        );
-        if (sertifikatStage?.completedAt) {
-          startTime = new Date(sertifikatStage.completedAt);
-        } else {
-          startTime = new Date(taskCreatedAt);
-        }
-        break;
-      case 'Tekshirish':
-        const deklaratsiyaStage = allStages.find(s => s.name === 'Deklaratsiya' && s.status === 'TAYYOR');
-        if (deklaratsiyaStage?.completedAt) {
-          startTime = new Date(deklaratsiyaStage.completedAt);
-        } else {
-          const sertifikatStage2 = allStages.find(s =>
-            (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO')
-            && s.status === 'TAYYOR'
-          );
-          if (sertifikatStage2?.completedAt) {
-            startTime = new Date(sertifikatStage2.completedAt);
-          } else {
-            startTime = new Date(taskCreatedAt);
-          }
-        }
-        break;
-      case 'Topshirish':
-      case 'Xujjat_topshirish':
-      case 'Xujjat topshirish':
-        const deklaratsiyaStage2 = allStages.find(s => s.name === 'Deklaratsiya' && s.status === 'TAYYOR');
-        if (deklaratsiyaStage2?.completedAt) {
-          startTime = new Date(deklaratsiyaStage2.completedAt);
-        } else {
-          const sertifikatStage3 = allStages.find(s =>
-            (s.name === 'Sertifikat olib chiqish' || s.name === 'ST' || s.name === 'Fito' || s.name === 'FITO')
-            && s.status === 'TAYYOR'
-          );
-          if (sertifikatStage3?.completedAt) {
-            startTime = new Date(sertifikatStage3.completedAt);
-          } else {
-            startTime = new Date(taskCreatedAt);
-          }
-        }
-        break;
-      case 'Pochta':
-        const deklaratsiyaStage3 = allStages.find(s => s.name === 'Deklaratsiya' && s.status === 'TAYYOR');
-        if (deklaratsiyaStage3?.completedAt) {
-          startTime = new Date(deklaratsiyaStage3.completedAt);
-        } else {
-          startTime = new Date(taskCreatedAt);
-        }
-        break;
-      default:
-        startTime = new Date(taskCreatedAt);
-    }
-
-    if (!startTime) return null;
-    const diffMs = completedAt.getTime() - startTime.getTime();
-    return Math.floor(diffMs / 60000); // daqiqalarda
-  };
-
-
-
 
 
   const getPsrAmount = (task?: { hasPsr?: boolean; snapshotPsrPrice?: number | null }) =>
@@ -1866,13 +1788,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     return base + extra;
   };
 
-  const canEditError = (error: TaskError) => {
-    if (!user) return false;
-    if (user.role === 'ADMIN') return true;
-    const createdAt = new Date(error.createdAt).getTime();
-    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-    return error.createdById === user.id && Date.now() - createdAt <= twoDaysMs;
-  };
 
   const formatBxmAmount = (multiplier: number) => {
     const currency = getClientCurrency(selectedTask?.client);
@@ -2553,223 +2468,19 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
       )}
 
       <div className="flex flex-col">
-        {/* Modal for Add Task */}
-        {showTaskForm && (
-          <div
-            className={isMobile && isNewTaskRoute
-              ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
-              : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
-            style={isMobile && isNewTaskRoute ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                if (isMobile && isNewTaskRoute) {
-                  navigate('/tasks');
-                } else {
-                  setShowForm(false);
-                }
-              }
-            }}
-          >
-            <div
-              className={isMobile && isNewTaskRoute
-                ? 'bg-white w-full h-full px-6 py-6 overflow-y-auto'
-                : 'bg-white rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto'}
-              style={isMobile && isNewTaskRoute ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Yangi task</h2>
-                <button
-                  onClick={() => {
-                    if (isMobile && isNewTaskRoute) {
-                      navigate('/tasks');
-                    } else {
-                      setShowForm(false);
-                    }
-                  }}
-                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
-                >
-                  ×
-                </button>
-              </div>
-              <form onSubmit={handleSubmit}>
-                <div className="space-y-3">
-                  {/* 1. Task name */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
-                      Task name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={form.title}
-                      onChange={(e) => setForm({ ...form, title: e.target.value })}
-                      required
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
-                      placeholder="Type here"
-                    />
-                  </div>
+        <CreateTaskModal
+          show={showTaskForm}
+          form={form}
+          setForm={setForm}
+          clients={clients}
+          branches={branches}
+          isMobile={isMobile}
+          isNewTaskRoute={isNewTaskRoute}
+          onClose={() => setShowForm(false)}
+          onSubmit={handleSubmit}
+        />
 
-                  {/* 2. Mijoz */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:user" className="w-4 h-4 text-blue-600" />
-                      Mijoz <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={form.clientId}
-                      onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-                      required
-                      className="w-full px-3 py-2 pr-10 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none appearance-none bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.5rem_center] bg-[length:12px_12px] text-sm"
-                    >
-                      <option value="">Tanlang...</option>
-                      {Array.isArray(clients) && clients.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
 
-                  {/* 3. Filial - Button style */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
-                      Filial <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {Array.isArray(branches) && branches.length > 0 ? (
-                        branches.map((branch) => (
-                          <button
-                            key={branch.id}
-                            type="button"
-                            onClick={() => {
-                              setForm({ ...form, branchId: branch.id.toString() });
-                            }}
-                            className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${form.branchId === branch.id.toString()
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                              }`}
-                          >
-                            {branch.name}
-                          </button>
-                        ))
-                      ) : (
-                        <div className="text-sm text-gray-500 py-2">Filiallar yuklanmoqda...</div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 4. PSR - Button style */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
-                      PSR <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, hasPsr: true })}
-                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${form.hasPsr === true
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                          }`}
-                      >
-                        Bor
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, hasPsr: false })}
-                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${form.hasPsr === false
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                          }`}
-                      >
-                        Yo'q
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 5. Qo'shimcha to'lov kelishuvi */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:handshake" className="w-4 h-4 text-blue-600" />
-                      Qo'shimcha to'lov kelishuvi
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, afterHoursPayer: 'CLIENT' })}
-                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${form.afterHoursPayer === 'CLIENT'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                          }`}
-                      >
-                        Mijoz to'laydi
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, afterHoursPayer: 'COMPANY' })}
-                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${form.afterHoursPayer === 'COMPANY'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                          }`}
-                      >
-                        Men to'layman
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 6. Sho'pir telefon raqami */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
-                      Sho'pir tel raqami
-                    </label>
-                    <input
-                      type="tel"
-                      value={form.driverPhone}
-                      onChange={(e) => setForm({ ...form, driverPhone: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
-                      placeholder="+998901234567"
-                    />
-                  </div>
-
-                  {/* 7. Comments */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
-                      Comments
-                    </label>
-                    <textarea
-                      value={form.comments}
-                      onChange={(e) => setForm({ ...form, comments: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm resize-none"
-                      rows={4}
-                      placeholder="Type here"
-                    />
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-                  >
-                    Saqlash
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
-                  >
-                    Bekor
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
         {/* Modal for Task Detail */}
         {showTaskModal && selectedTask && (
@@ -3346,8 +3057,21 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                                   </span>
                                 )}
                                 {deklarMultiplier != null && (
-                                  <span className="text-gray-700 dark:text-gray-300">
+                                  <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1">
                                     BXM {deklarMultiplier} barobari
+                                    {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+                                      <button
+                                        type="button"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          await handleBXMEdit(stage);
+                                        }}
+                                        className="ml-1 p-0.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                                        title="BXM ni o'zgartirish"
+                                      >
+                                        <Icon icon="lucide:pencil" className="w-3 h-3" />
+                                      </button>
+                                    )}
                                   </span>
                                 )}
                                 {durationText && <span>{durationText}</span>}
@@ -3942,69 +3666,20 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
           </div>
         )}
 
-              {showBXMModal && selectedStageForReminder && (
-                <div
-                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[120] backdrop-blur-sm"
-                  style={{
-                    animation: 'backdropFadeIn 0.3s ease-out'
-                  }}
-                  onClick={(e) => {
-                    if (e.target === e.currentTarget) {
-                      setShowBXMModal(false);
-                      setAfterHoursDeclaration(false);
-                      setSelectedStageForReminder(null);
-                    }
-                  }}
-                >
-                  <div
-                    className="bg-white dark:bg-slate-900 dark:text-gray-100 rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
-                    style={{
-                      animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                    }}
-                  >
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Deklaratsiya To'lovi</h3>
-                    <div className="mb-4">
-                      <select
-                        value={bxmMultiplier}
-                        onChange={(e) => setBxmMultiplier(e.target.value)}
-                        className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                      >
-                        <option value="1">BXM 1 barobari ({formatBxmAmountInSum(1)})</option>
-                        <option value="1.5">BXM 1.5 barobari ({formatBxmAmountInSum(1.5)})</option>
-                        <option value="2.5">BXM 2.5 barobari ({formatBxmAmountInSum(2.5)})</option>
-                        <option value="4">BXM 4 barobari ({formatBxmAmountInSum(4)})</option>
-                      </select>
-                    </div>
-                    <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={afterHoursDeclaration}
-                        onChange={(e) => setAfterHoursDeclaration(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      Ish vaqtidan tashqari rasmiylashtiruv
-                    </label>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={handleBXMConfirm}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                      >
-                        Tasdiqlash
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowBXMModal(false);
-                          setAfterHoursDeclaration(false);
-                          setSelectedStageForReminder(null);
-                        }}
-                        className="flex-1 px-4 py-2 bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-700 transition-colors font-medium"
-                      >
-                        Bekor qilish
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <BXMModal
+                show={showBXMModal && !!selectedStageForReminder}
+                bxmMultiplier={bxmMultiplier}
+                setBxmMultiplier={setBxmMultiplier}
+                afterHoursDeclaration={afterHoursDeclaration}
+                setAfterHoursDeclaration={setAfterHoursDeclaration}
+                formatBxmAmountInSum={formatBxmAmountInSum}
+                onConfirm={handleBXMConfirm}
+                onClose={() => {
+                  setShowBXMModal(false);
+                  setAfterHoursDeclaration(false);
+                  setSelectedStageForReminder(null);
+                }}
+              />
 
               {/* Umumiy file upload modali (Invoice, ST, Fito uchun) */}
               {showFileUploadModal && selectedTask && fileUploadStageName && (
@@ -4229,795 +3904,67 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                 </div>
               )}
 
-        {/* Send Documents by Email Modal */}
-        {showSendEmailModal && selectedTask && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm"
-            style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget && !sendingEmail) {
-                setShowSendEmailModal(false);
-                setSendEmailError(null);
-              }
-            }}
-          >
-            <div
-              className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto custom-scrollbar"
-              style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-            >
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Send Documents by Email</h3>
-              <form onSubmit={handleSendTaskEmail} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Subject <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={sendEmailForm.subject}
-                    onChange={(e) => setSendEmailForm((f) => ({ ...f, subject: e.target.value }))}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                    placeholder="Email subject"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message (optional)</label>
-                  <textarea
-                    value={sendEmailForm.body}
-                    onChange={(e) => setSendEmailForm((f) => ({ ...f, body: e.target.value }))}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none"
-                    placeholder="Message body"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Recipients <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={sendEmailForm.recipients}
-                    onChange={(e) => setSendEmailForm((f) => ({ ...f, recipients: e.target.value }))}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                    placeholder="email1@example.com, email2@example.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CC (optional)</label>
-                  <input
-                    type="text"
-                    value={sendEmailForm.cc}
-                    onChange={(e) => setSendEmailForm((f) => ({ ...f, cc: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                    placeholder="cc@example.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ilova qilinadigan fayllar</label>
-                  <ul className="mt-1 px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-800/50 text-sm text-gray-700 dark:text-gray-300 list-disc list-inside">
-                    {taskDocuments.length > 0 ? (
-                      taskDocuments.map((doc: { id: number; name?: string }) => (
-                        <li key={doc.id}>{doc.name || `Hujjat #${doc.id}`}</li>
-                      ))
-                    ) : (
-                      <li className="list-none text-gray-500 dark:text-gray-400">Hujjatlar yo&apos;q</li>
-                    )}
-                  </ul>
-                </div>
-                {sendEmailError && (
-                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-                    {sendEmailError}
-                  </div>
-                )}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="submit"
-                    disabled={sendingEmail}
-                    className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {sendingEmail ? 'Sending...' : 'Send'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSendEmailModal(false);
-                      setSendEmailError(null);
-                    }}
-                    disabled={sendingEmail}
-                    className="flex-1 px-4 py-2 bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-700 transition-colors font-medium disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <SendEmailModal
+          show={showSendEmailModal}
+          selectedTask={selectedTask}
+          sendEmailForm={sendEmailForm}
+          setSendEmailForm={setSendEmailForm}
+          sendingEmail={sendingEmail}
+          sendEmailError={sendEmailError}
+          setSendEmailError={setSendEmailError}
+          taskDocuments={taskDocuments}
+          onClose={() => setShowSendEmailModal(false)}
+          onSubmit={handleSendTaskEmail}
+        />
 
-        {/* Modal for Edit Task */}
-        {showEditTaskForm && selectedTask && (
-          <div
-            className={isMobile && editTaskId
-              ? 'fixed inset-0 bg-white flex items-start justify-center z-[110]'
-              : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm'}
-            style={isMobile && editTaskId ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                if (isMobile && editTaskId) {
-                  navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
-                } else {
-                  setShowEditModal(false);
-                }
-              }
-            }}
-          >
-            <div
-              className={isMobile && editTaskId
-                ? 'bg-white w-full h-full px-6 py-6 overflow-y-auto'
-                : 'bg-white rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto'}
-              style={isMobile && editTaskId ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Taskni tahrirlash</h2>
-                <button
-                  onClick={() => {
-                    if (isMobile && editTaskId) {
-                      navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
-                    } else {
-                      setShowEditModal(false);
-                    }
-                  }}
-                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
-                >
-                  ×
-                </button>
-              </div>
-              <form onSubmit={handleEditSubmit}>
-                <div className="space-y-3">
-                  {/* 1. Task name */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
-                      Task name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm.title}
-                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                      required
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
-                      placeholder="Type here"
-                    />
-                  </div>
+        <EditTaskModal
+          show={showEditTaskForm && !!selectedTask}
+          editForm={editForm}
+          setEditForm={setEditForm}
+          clients={clients}
+          branches={branches}
+          isMobile={isMobile}
+          editTaskId={editTaskId}
+          isArchiveRoute={isArchiveRoute}
+          onClose={() => setShowEditModal(false)}
+          onSubmit={handleEditSubmit}
+        />
 
-                  {/* 2. Mijoz */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:user" className="w-4 h-4 text-blue-600" />
-                      Mijoz <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={editForm.clientId}
-                      onChange={(e) => setEditForm({ ...editForm, clientId: e.target.value })}
-                      required
-                      className="w-full px-3 py-2 pr-10 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none appearance-none bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.5rem_center] bg-[length:12px_12px] text-sm"
-                    >
-                      <option value="">Tanlang...</option>
-                      {Array.isArray(clients) && clients.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+        <DocumentUploadModal
+          show={showDocumentUpload && !!selectedTask}
+          uploadFiles={uploadFiles}
+          setUploadFiles={setUploadFiles}
+          documentNames={documentNames}
+          setDocumentNames={setDocumentNames}
+          documentDescriptions={documentDescriptions}
+          setDocumentDescriptions={setDocumentDescriptions}
+          selectedStageForReminder={selectedStageForReminder}
+          setSelectedStageForReminder={setSelectedStageForReminder}
+          onClose={() => setShowDocumentUpload(false)}
+          onFileSelect={handleFileSelect}
+          onUpload={handleDocumentUpload}
+        />
 
-                  {/* 3. Filial - Button style */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
-                      Filial <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {Array.isArray(branches) && branches.length > 0 ? (
-                        branches.map((branch) => (
-                          <button
-                            key={branch.id}
-                            type="button"
-                            onClick={() => {
-                              setEditForm({ ...editForm, branchId: branch.id.toString() });
-                            }}
-                            className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.branchId === branch.id.toString()
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                              }`}
-                          >
-                            {branch.name}
-                          </button>
-                        ))
-                      ) : (
-                        <div className="text-sm text-gray-500 py-2">Filiallar yuklanmoqda...</div>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* 4. PSR - Button style */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
-                      PSR <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditForm({ ...editForm, hasPsr: true })}
-                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.hasPsr === true
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                          }`}
-                      >
-                        Bor
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditForm({ ...editForm, hasPsr: false })}
-                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.hasPsr === false
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                          }`}
-                      >
-                        Yo'q
-                      </button>
-                    </div>
-                  </div>
 
-                  {/* 5. Qo'shimcha to'lov kelishuvi */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:handshake" className="w-4 h-4 text-blue-600" />
-                      Qo'shimcha to'lov kelishuvi
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'CLIENT' })}
-                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.afterHoursPayer === 'CLIENT'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                          }`}
-                      >
-                        Mijoz to'laydi
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'COMPANY' })}
-                        className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.afterHoursPayer === 'COMPANY'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                          }`}
-                      >
-                        Men to'layman
-                      </button>
-                    </div>
-                  </div>
+        <PreviewModal
+          previewDocument={previewDocument}
+          onClose={() => setPreviewDocument(null)}
+        />
 
-                  {/* 6. Sho'pir telefon raqami */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
-                      Sho'pir tel raqami
-                    </label>
-                    <input
-                      type="tel"
-                      value={editForm.driverPhone}
-                      onChange={(e) => setEditForm({ ...editForm, driverPhone: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
-                      placeholder="+998901234567"
-                    />
-                  </div>
-
-                  {/* 7. Comments */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                      <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
-                      Comments
-                    </label>
-                    <textarea
-                      value={editForm.comments}
-                      onChange={(e) => setEditForm({ ...editForm, comments: e.target.value })}
-                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm resize-none"
-                      rows={4}
-                      placeholder="Type here"
-                    />
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-                  >
-                    Saqlash
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowEditModal(false)}
-                    className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
-                  >
-                    Bekor
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Document Upload Modal */}
-        {showDocumentUpload && selectedTask && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setShowDocumentUpload(false);
-              }
-            }}
-          >
-            <div
-              className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">
-                  {selectedStageForReminder && selectedStageForReminder.name === 'Pochta'
-                    ? 'Pochta jarayoni uchun hujjatlar yuklash'
-                    : 'Hujjat yuklash (bir nechta fayl)'}
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowDocumentUpload(false);
-                    setUploadFiles([]);
-                    setDocumentNames([]);
-                    setDocumentDescriptions([]);
-                    if (selectedStageForReminder && selectedStageForReminder.name === 'Pochta') {
-                      setSelectedStageForReminder(null);
-                    }
-                  }}
-                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-                >
-                  ×
-                </button>
-              </div>
-              {selectedStageForReminder && selectedStageForReminder.name === 'Pochta' && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    <strong>Eslatma:</strong> Pochta jarayonini tayyor qilish uchun hujjatlarni yuklang.
-                    Hujjatlar yuklangandan keyin Pochta jarayoni avtomatik tayyor bo'ladi.
-                  </p>
-                </div>
-              )}
-
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  // Validation - fayllar mavjudligini tekshiramiz
-                  if (uploadFiles.length === 0) {
-                    alert('Kamida bitta faylni tanlang');
-                    return;
-                  }
-                  handleDocumentUpload();
-                }}
-                className="space-y-4"
-                noValidate
-              >
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fayllar (bir nechta tanlash mumkin)
-                  </label>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleFileSelect}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {uploadFiles.length > 0 && (
-                    <div className="mt-4">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                        {uploadFiles.map((file, index) => (
-                          <div key={index} className="relative flex flex-col items-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
-                            <button
-                              onClick={() => {
-                                const newFiles = uploadFiles.filter((_, i) => i !== index);
-                                const newNames = documentNames.filter((_, i) => i !== index);
-                                const newDescriptions = documentDescriptions.filter((_, i) => i !== index);
-                                setUploadFiles(newFiles);
-                                setDocumentNames(newNames);
-                                setDocumentDescriptions(newDescriptions);
-                              }}
-                              className="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 z-10"
-                              title="O&#39;chirish"
-                            >
-                              <Icon icon="lucide:x" className="w-3.5 h-3.5" />
-                            </button>
-                            <div className="flex-shrink-0 mb-2">
-                              {getFileIcon(file.type || '', file.name)}
-                            </div>
-                            <div className="text-center w-full">
-                              <p className="text-xs font-medium text-gray-700 truncate px-1" title={file.name}>
-                                {file.name}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">{formatFileSize(file.size)}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
-                  >
-                    Yuklash ({uploadFiles.length} fayl)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowDocumentUpload(false);
-                      setUploadFiles([]);
-                      setDocumentNames([]);
-                      setDocumentDescriptions([]);
-                    }}
-                    className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
-                  >
-                    Bekor
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Document Preview Modal */}
-        {previewDocument && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[120] backdrop-blur-sm"
-            onClick={() => setPreviewDocument(null)}
-          >
-            <div
-              className="bg-white rounded-lg shadow-2xl p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">{previewDocument.name}</h2>
-                <button
-                  onClick={() => setPreviewDocument(null)}
-                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-                >
-                  ×
-                </button>
-              </div>
-              <div className="flex justify-center items-center min-h-[400px]">
-                {previewDocument.type?.includes('image') ? (
-                  <img
-                    src={previewDocument.url}
-                    alt={previewDocument.name}
-                    className="max-w-full max-h-[70vh] object-contain"
-                  />
-                ) : previewDocument.type?.includes('pdf') ? (
-                  <iframe
-                    src={previewDocument.url}
-                    className="w-full h-[70vh] border-0"
-                    title={previewDocument.name}
-                  />
-                ) : previewDocument.type?.includes('video') ? (
-                  <video
-                    src={previewDocument.url}
-                    controls
-                    className="max-w-full max-h-[70vh]"
-                  >
-                    Sizning brauzeringiz video elementini qo'llab-quvvatlamaydi.
-                  </video>
-                ) : previewDocument.type?.includes('audio') ? (
-                  <audio
-                    src={previewDocument.url}
-                    controls
-                    className="w-full"
-                  >
-                    Sizning brauzeringiz audio elementini qo'llab-quvvatlamaydi.
-                  </audio>
-                ) : (
-                  <div className="text-center text-gray-500">
-                    <p className="mb-4">Bu fayl turini dasturdan ko'rish mumkin emas.</p>
-                    <a
-                      href={previewDocument.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 underline"
-                    >
-                      Yuklab olish
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error Modal */}
-        {showErrorModal && selectedTask && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setShowErrorModal(false);
-              }
-            }}
-          >
-            <div
-              className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Xatolar</h2>
-                <button
-                  onClick={() => {
-                    setEditingErrorId(null);
-                    setShowErrorModal(false);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-                >
-                  ×
-                </button>
-              </div>
-
-              {selectedTask.errors && selectedTask.errors.length > 0 ? (
-                <div className="mb-4 space-y-2">
-                  {selectedTask.errors.map((error) => {
-                    const workerName = workers.find((w) => w.id === error.workerId)?.name || `#${error.workerId}`;
-                    return (
-                      <div key={error.id} className="p-3 border rounded-lg bg-gray-50 flex items-start justify-between">
-                        <div>
-                          <div className="text-sm font-medium text-gray-800">
-                            {error.stageName} — {formatMoney(Number(error.amount), 'USD')}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            Xato qildi: {workerName} • Sana: {new Date(error.date).toLocaleDateString('uz-UZ')}
-                          </div>
-                          {error.comment && (
-                            <div className="text-xs text-gray-600 mt-2">{error.comment}</div>
-                          )}
-                        </div>
-                        {canEditError(error) && (
-                          <div className="ml-4 flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingErrorId(error.id);
-                                setErrorForm({
-                                  workerId: error.workerId.toString(),
-                                  stageName: error.stageName,
-                                  amount: String(error.amount),
-                                  comment: error.comment || '',
-                                  date: new Date(error.date).toISOString().split('T')[0],
-                                });
-                              }}
-                              className="text-blue-600 hover:text-blue-800 text-sm"
-                              title="Tahrirlash"
-                            >
-                              <i className="fas fa-pen"></i>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (!confirm('Xatoni o\'chirishni xohlaysizmi?')) return;
-                                try {
-                                  await apiClient.delete(`/tasks/${selectedTask.id}/errors/${error.id}`);
-                                  const response = await apiClient.get(`/tasks/${selectedTask.id}`);
-                                  setSelectedTask(response.data);
-                                  await loadTasks();
-                                } catch (error: any) {
-                                  alert(error.response?.data?.error || 'Xatolik yuz berdi');
-                                }
-                              }}
-                              className="text-red-600 hover:text-red-800 text-sm"
-                              title="O'chirish"
-                            >
-                              <i className="fas fa-trash"></i>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="mb-4 text-sm text-gray-500">Xatolar yo'q</div>
-              )}
-
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  try {
-                    const amountValue = errorForm.amount.trim();
-
-                    if (!/^\d{1,4}$/.test(amountValue)) {
-                      alert('Summa faqat USD bo\'lishi va 4 xonagacha bo\'lishi kerak');
-                      return;
-                    }
-
-                    if (editingErrorId) {
-                      await apiClient.patch(`/tasks/${selectedTask.id}/errors/${editingErrorId}`, {
-                        workerId: parseInt(errorForm.workerId),
-                        stageName: errorForm.stageName,
-                        amount: parseFloat(amountValue),
-                        comment: errorForm.comment,
-                        date: new Date(errorForm.date),
-                      });
-                    } else {
-                      await apiClient.post(`/tasks/${selectedTask.id}/errors`, {
-                        taskTitle: selectedTask.title,
-                        workerId: parseInt(errorForm.workerId),
-                        stageName: errorForm.stageName,
-                        amount: parseFloat(amountValue),
-                        comment: errorForm.comment,
-                        date: new Date(errorForm.date),
-                      });
-                    }
-                    setShowErrorModal(false);
-                    setEditingErrorId(null);
-                    setErrorForm({
-                      workerId: '',
-                      stageName: '',
-                      amount: '',
-                      comment: '',
-                      date: new Date().toISOString().split('T')[0],
-                    });
-                    // Reload task to show updated data
-                    if (selectedTask) {
-                      const response = await apiClient.get(`/tasks/${selectedTask.id}`);
-                      setSelectedTask(response.data);
-                    }
-                    await loadTasks();
-                    alert('Xato muvaffaqiyatli qo\'shildi');
-                  } catch (error: any) {
-                    alert(error.response?.data?.error || 'Xatolik yuz berdi');
-                  }
-                }}
-                className="space-y-4"
-              >
-                {/* Task nomi (read-only) */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Task nomi
-                  </label>
-                  <input
-                    type="text"
-                    value={selectedTask.title}
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
-                  />
-                </div>
-
-                {/* Ishchi */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ishchi <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    required
-                    value={errorForm.workerId}
-                    onChange={(e) => setErrorForm({ ...errorForm, workerId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="">Ishchini tanlang</option>
-                    {workers.map((worker) => (
-                      <option key={worker.id} value={worker.id.toString()}>
-                        {worker.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Bosqich */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bosqich <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    required
-                    value={errorForm.stageName}
-                    onChange={(e) => setErrorForm({ ...errorForm, stageName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="">Bosqichni tanlang</option>
-                    <option value="Invoys">Invoys</option>
-                    <option value="Zayavka">Zayavka</option>
-                    <option value="TIR-SMR">TIR-SMR</option>
-                    <option value="ST">ST</option>
-                    <option value="Fito">Fito</option>
-                    <option value="Deklaratsiya">Deklaratsiya</option>
-                    <option value="Tekshirish">Tekshirish</option>
-                    <option value="Topshirish">Topshirish</option>
-                    <option value="Pochta">Pochta</option>
-                  </select>
-                </div>
-
-                {/* Summa */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Summa <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    required
-                    value={errorForm.amount}
-                    onChange={(e) => {
-                      const nextValue = e.target.value;
-
-                      if (nextValue === '') {
-                        setErrorForm({ ...errorForm, amount: '' });
-                        return;
-                      }
-
-                      if (/^\d{0,4}$/.test(nextValue)) {
-                        setErrorForm({ ...errorForm, amount: nextValue });
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    placeholder="0"
-                  />
-                </div>
-
-                {/* Tavsif */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tavsif
-                  </label>
-                  <textarea
-                    value={errorForm.comment}
-                    onChange={(e) => setErrorForm({ ...errorForm, comment: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    rows={3}
-                    placeholder="Xato haqida batafsil ma'lumot"
-                  />
-                </div>
-
-                {/* Sana */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sana <span className="text-red-500">*</span>
-                  </label>
-                  <DateInput
-                    required
-                    value={errorForm.date}
-                    onChange={(value) => setErrorForm({ ...errorForm, date: value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowErrorModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Bekor qilish
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                  >
-                    Saqlash
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <ErrorModal
+          show={showErrorModal}
+          selectedTask={selectedTask}
+          workers={workers}
+          user={user}
+          errorForm={errorForm}
+          setErrorForm={setErrorForm}
+          editingErrorId={editingErrorId}
+          setEditingErrorId={setEditingErrorId}
+          onClose={() => { setEditingErrorId(null); setShowErrorModal(false); }}
+          onSuccess={loadTasks}
+          setSelectedTask={setSelectedTask}
+        />
 
         {/* Tasklar jadvali - Mobil versiyada tepada */}
         <div className="order-1 md:order-2">

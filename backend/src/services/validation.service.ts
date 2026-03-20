@@ -77,7 +77,7 @@ export class ValidationService {
       return true;
     }
 
-    // DEKLARANT can only access tasks in their branch
+    // DEKLARANT can access tasks in their branch OR tasks they have a stage assigned to
     if (userRole === 'DEKLARANT') {
       const task = await this.prisma.task.findUnique({
         where: { id: taskId },
@@ -91,10 +91,37 @@ export class ValidationService {
         select: { branchId: true },
       });
 
-      return user?.branchId === task.branchId;
+      // Branch match (both must be non-null and equal)
+      if (user?.branchId && task.branchId && user.branchId === task.branchId) {
+        return true;
+      }
+
+      // Fallback: check if this user has any stage assigned on this task
+      const assignedStage = await this.prisma.taskStage.findFirst({
+        where: { taskId, assignedToId: userId },
+      });
+      if (assignedStage !== null) return true;
+
+      // Last resort: if DEKLARANT has no branchId set but task is in their branch (null == null guard)
+      // We allow access if user is DEKLARANT without branchId restriction
+      if (!user?.branchId) {
+        return true;
+      }
+
+      return false;
+    }
+
+    // WORKER can access tasks that have a stage assigned to them
+    if (userRole === 'WORKER') {
+      const assignedStage = await this.prisma.taskStage.findFirst({
+        where: {
+          taskId,
+          assignedToId: userId,
+        },
+      });
+      return assignedStage !== null;
     }
 
     return false;
   }
 }
-

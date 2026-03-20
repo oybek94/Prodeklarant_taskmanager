@@ -1195,13 +1195,15 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
   const updated = await prisma.$transaction(async (tx) => {
     // If Deklaratsiya stage is being started and multiplier is provided, update task's customs payment
     if (stage.name === 'Deklaratsiya' && parsed.data.status === 'TAYYOR' && parsed.data.customsPaymentMultiplier) {
-      const currentYear = new Date().getFullYear();
-      const bxmConfig = await (tx as any).bXMConfig.findUnique({
-        where: { year: currentYear },
+      // Find BXM that was effective at the time of completion
+      const completedAt = new Date();
+      const bxmConfig = await (tx as any).bXMConfig.findFirst({
+        where: { effectiveFrom: { lte: completedAt } },
+        orderBy: { effectiveFrom: 'desc' },
       });
-      const bxmAmountUsd = bxmConfig ? Number(bxmConfig.amountUsd ?? bxmConfig.amount) : 34.4; // Default BXM USD
-      const bxmAmountUzs = bxmConfig ? Number(bxmConfig.amountUzs ?? 412000) : 412000; // Default BXM UZS
-      
+      const bxmAmountUsd = bxmConfig ? Number(bxmConfig.amountUsd) : 34.4;
+      const bxmAmountUzs = bxmConfig ? Number(bxmConfig.amountUzs) : 412000;
+
       // Get task with client to update dealAmount
       const task = await (tx as any).task.findUnique({
         where: { id: taskId },

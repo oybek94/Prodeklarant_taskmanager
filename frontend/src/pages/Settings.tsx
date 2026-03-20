@@ -17,12 +17,11 @@ interface PackagingTypeItem {
 
 interface BXMConfig {
   id: number;
-  year: number;
-  amount: number;
-  amountUsd?: number;
-  amountUzs?: number;
+  amountUsd: number;
+  amountUzs: number;
+  effectiveFrom: string;
+  note?: string;
   createdAt: string;
-  updatedAt: string;
 }
 
 interface StatePayment {
@@ -183,9 +182,14 @@ const Settings = () => {
   const [bxmConfigs, setBxmConfigs] = useState<BXMConfig[]>([]);
   const [currentBXM, setCurrentBXM] = useState<BXMConfig | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editingYear, setEditingYear] = useState<number | null>(null);
+  const [editingBxmId, setEditingBxmId] = useState<number | null>(null);
   const [editAmountUsd, setEditAmountUsd] = useState<string>('');
   const [editAmountUzs, setEditAmountUzs] = useState<string>('');
+  const [showAddBXMForm, setShowAddBXMForm] = useState(false);
+  const [newBxmUsd, setNewBxmUsd] = useState('');
+  const [newBxmUzs, setNewBxmUzs] = useState('');
+  const [newBxmEffective, setNewBxmEffective] = useState(() => new Date().toISOString().slice(0, 16));
+  const [newBxmNote, setNewBxmNote] = useState('');
   const [statePayments, setStatePayments] = useState<StatePayment[]>([]);
   const [loadingStatePayments, setLoadingStatePayments] = useState(true);
   const [showStatePaymentForm, setShowStatePaymentForm] = useState(false);
@@ -312,13 +316,19 @@ const Settings = () => {
     }
   };
 
-  const handleEdit = (config: BXMConfig) => {
-    setEditingYear(config.year);
-    setEditAmountUsd((config.amountUsd ?? config.amount).toString());
-    setEditAmountUzs((config.amountUzs ?? 412000).toString());
+  const handleEditBxm = (config: BXMConfig) => {
+    setEditingBxmId(config.id);
+    setEditAmountUsd(config.amountUsd.toString());
+    setEditAmountUzs(config.amountUzs.toString());
   };
 
-  const handleSave = async (year: number) => {
+  const cancelEditBxm = () => {
+    setEditingBxmId(null);
+    setEditAmountUsd('');
+    setEditAmountUzs('');
+  };
+
+  const handleSaveBxm = async (id: number) => {
     try {
       const amountUsd = parseFloat(editAmountUsd);
       const amountUzs = parseFloat(editAmountUzs);
@@ -327,36 +337,47 @@ const Settings = () => {
         return;
       }
 
-      await apiClient.put(`/bxm/${year}`, { amountUsd, amountUzs });
-      await loadBXMConfigs();
-      await loadCurrentBXM();
-      setEditingYear(null);
-      setEditAmountUsd('');
-      setEditAmountUzs('');
+      await apiClient.put(`/bxm/${id}`, { amountUsd, amountUzs });
+      await Promise.all([loadBXMConfigs(), loadCurrentBXM()]);
+      cancelEditBxm();
       alert('BXM muvaffaqiyatli yangilandi');
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
   };
 
-  const handleAddNewYear = async () => {
+  const handleAddBXM = async () => {
     try {
-      const currentYear = new Date().getFullYear();
-      const newYear = currentYear + 1;
-      const amountUsd = parseFloat(editAmountUsd);
-      const amountUzs = parseFloat(editAmountUzs);
-
+      const amountUsd = parseFloat(newBxmUsd);
+      const amountUzs = parseFloat(newBxmUzs);
       if (isNaN(amountUsd) || amountUsd < 0 || isNaN(amountUzs) || amountUzs < 0) {
         alert('Noto\'g\'ri summa');
         return;
       }
 
-      await apiClient.put(`/bxm/${newYear}`, { amountUsd, amountUzs });
-      await loadBXMConfigs();
-      setEditingYear(null);
-      setEditAmountUsd('');
-      setEditAmountUzs('');
-      alert('Yangi yil uchun BXM muvaffaqiyatli qo\'shildi');
+      await apiClient.post('/bxm', {
+        amountUsd,
+        amountUzs,
+        effectiveFrom: newBxmEffective ? new Date(newBxmEffective).toISOString() : new Date().toISOString(),
+        note: newBxmNote || undefined,
+      });
+      await Promise.all([loadBXMConfigs(), loadCurrentBXM()]);
+      setShowAddBXMForm(false);
+      setNewBxmUsd('');
+      setNewBxmUzs('');
+      setNewBxmEffective(new Date().toISOString().slice(0, 16));
+      setNewBxmNote('');
+      alert('Yangi BXM qo\'shildi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleDeleteBxm = async (id: number) => {
+    if (!confirm('Ushbu BXM yozuvini o\'chirishni istaysizmi?')) return;
+    try {
+      await apiClient.delete(`/bxm/${id}`);
+      await Promise.all([loadBXMConfigs(), loadCurrentBXM()]);
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
@@ -901,40 +922,6 @@ const Settings = () => {
                 </div>
 
                 <div className="space-y-6">
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-center mb-5">
-                      <h2 className="text-base font-bold text-gray-800 flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center"><Icon icon="lucide:coins" className="w-4 h-4 text-indigo-600" /></span>
-                        Joriy BXM
-                      </h2>
-                      {currentBXM && (
-                        <button
-                          onClick={() => handleEdit(currentBXM)}
-                          className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                          aria-label="O'zgartirish"
-                          title="O'zgartirish"
-                        >
-                          <IconEdit />
-                          <span className="sr-only">O'zgartirish</span>
-                        </button>
-                      )}
-                    </div>
-                    {loading ? (
-                      <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-                    ) : currentBXM ? (
-                      <div>
-                        <div className="text-sm text-gray-500 mb-1">Yil: {currentBXM.year}</div>
-                        <div className="text-2xl font-bold text-indigo-600">
-                          {formatCurrency(Number(currentBXM.amountUsd ?? currentBXM.amount), 'USD')}
-                        </div>
-                        <div className="text-sm text-gray-500 mt-1">
-                          {formatCurrency(Number(currentBXM.amountUzs ?? 412000), 'UZS')}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-gray-400">BXM topilmadi</div>
-                    )}
-                  </div>
 
                   <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-center mb-5">
@@ -981,9 +968,73 @@ const Settings = () => {
                 </div>
                 <h2 className="text-xl font-bold text-gray-800">Moliyaviy Sozlamalar</h2>
               </div>
+              {/* ═══ JORIY BXM Hero Card ═══ */}
+              <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-2xl p-6 text-white shadow-lg">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icon icon="lucide:coins" className="w-5 h-5 text-indigo-200" />
+                      <span className="text-indigo-200 text-sm font-medium">Joriy BXM</span>
+                    </div>
+                    {loading ? (
+                      <div className="text-indigo-200 animate-pulse">Yuklanmoqda...</div>
+                    ) : currentBXM ? (
+                      <>
+                        <div className="text-4xl font-bold">{formatCurrency(Number(currentBXM.amountUsd), 'USD')}</div>
+                        <div className="text-indigo-200 text-lg mt-0.5">{formatCurrency(Number(currentBXM.amountUzs), 'UZS')}</div>
+                        <div className="text-indigo-300 text-xs mt-2 flex items-center gap-1.5">
+                          <Icon icon="lucide:calendar-check" className="w-3.5 h-3.5" />
+                          {formatDate(currentBXM.effectiveFrom)} dan boshlab kuchda
+                        </div>
+                        {currentBXM.note && (
+                          <div className="text-indigo-300 text-xs mt-1 italic">{currentBXM.note}</div>
+                        )}
+                      </>
+                    ) : <div className="text-indigo-200">BXM topilmadi</div>}
+                  </div>
+                  <div>
+                    {editingBxmId === currentBXM?.id ? (
+                      <button onClick={cancelEditBxm} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-medium transition-colors">Bekor</button>
+                    ) : (
+                      <button onClick={() => currentBXM && handleEditBxm(currentBXM)} className="flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-700 hover:bg-indigo-50 rounded-xl text-sm font-semibold transition-colors shadow">
+                        <Icon icon="lucide:pencil" className="w-4 h-4" />
+                        O'zgartirish
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {editingBxmId === currentBXM?.id && (
+                  <div className="mt-5 pt-5 border-t border-white/20">
+                    <div className="text-sm text-indigo-200 font-medium mb-3">Yangi qiymat kiriting:</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-indigo-300 mb-1 block">BXM (USD)</label>
+                        <input type="number" step="0.01" value={editAmountUsd} onChange={(e) => setEditAmountUsd(e.target.value)} className="w-full px-4 py-2.5 bg-white/10 border border-white/30 rounded-xl text-white placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="34.4" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-indigo-300 mb-1 block">BXM (UZS)</label>
+                        <input type="number" step="1" value={editAmountUzs} onChange={(e) => setEditAmountUzs(e.target.value)} className="w-full px-4 py-2.5 bg-white/10 border border-white/30 rounded-xl text-white placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="412000" />
+                      </div>
+                    </div>
+                    <div className="flex gap-3 mt-3">
+                      <button onClick={() => currentBXM && handleSaveBxm(currentBXM.id)} className="flex-1 py-2.5 bg-white text-indigo-700 rounded-xl font-semibold hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2">
+                        <Icon icon="lucide:check" className="w-4 h-4" />Saqlash
+                      </button>
+                      <button onClick={cancelEditBxm} className="px-5 py-2.5 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors">Bekor</button>
+                    </div>
+                  </div>
+                )}
+                <div className="mt-4 pt-3 border-t border-white/20 flex items-start gap-2 text-xs text-indigo-300">
+                  <Icon icon="lucide:info" className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>BXM yil davomida istalgan vaqt o'zgarishi mumkin. Yangi qiymat kiritilgandan keyin bajariladigan Deklaratsiya tasklari yangi BXM bilan hisoblanadi.</span>
+                </div>
+              </div>
+
+              {/* ═══ GRID: BXM tarixi + Sertifikatchi ═══ */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* BXM tarixi */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-center mb-5">
+                  <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                         <Icon icon="lucide:history" className="w-4 h-4 text-emerald-600" />
@@ -991,171 +1042,116 @@ const Settings = () => {
                       <h2 className="text-base font-bold text-gray-800">BXM tarixi</h2>
                     </div>
                     <button
-                      onClick={() => {
-                        const currentYear = new Date().getFullYear();
-                        setEditingYear(currentYear + 1);
-                        setEditAmountUsd('34.4');
-                        setEditAmountUzs('412000');
-                      }}
-                      className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                      aria-label="Yangi yil qo'shish"
-                      title="Yangi yil qo'shish"
+                      onClick={() => { setShowAddBXMForm(true); setNewBxmEffective(new Date().toISOString().slice(0, 16)); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-medium"
                     >
-                      <IconAdd />
-                      <span className="sr-only">Yangi yil qo'shish</span>
+                      <Icon icon="lucide:plus" className="w-3.5 h-3.5" />Yangi
                     </button>
                   </div>
-                  <div className="space-y-3">
+
+                  {/* Add new BXM form */}
+                  {showAddBXMForm && (
+                    <div className="mb-4 p-4 border-2 border-emerald-200 rounded-xl bg-emerald-50">
+                      <div className="text-sm font-semibold text-emerald-700 mb-3">Yangi BXM qiymati</div>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">USD</label>
+                          <input type="number" step="0.01" value={newBxmUsd} onChange={(e) => setNewBxmUsd(e.target.value)} className="w-full px-3 py-2 border border-emerald-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" placeholder="34.4" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">UZS</label>
+                          <input type="number" step="1" value={newBxmUzs} onChange={(e) => setNewBxmUzs(e.target.value)} className="w-full px-3 py-2 border border-emerald-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" placeholder="412000" />
+                        </div>
+                      </div>
+                      <div className="mb-2">
+                        <label className="text-xs text-gray-500 mb-1 block">Kuchga kirish sanasi</label>
+                        <input type="datetime-local" value={newBxmEffective} onChange={(e) => setNewBxmEffective(e.target.value)} className="w-full px-3 py-2 border border-emerald-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+                      </div>
+                      <div className="mb-3">
+                        <label className="text-xs text-gray-500 mb-1 block">Izoh (ixtiyoriy)</label>
+                        <input type="text" value={newBxmNote} onChange={(e) => setNewBxmNote(e.target.value)} className="w-full px-3 py-2 border border-emerald-200 rounded-lg text-sm focus:outline-none" placeholder="Masalan: Prezident qarori 123" />
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={handleAddBXM} className="flex-1 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">Qo'shish</button>
+                        <button onClick={() => setShowAddBXMForm(false)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">Bekor</button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
                     {bxmConfigs.map((config) => (
-                      <div
-                        key={config.id}
-                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-                      >
-                        {editingYear === config.year ? (
-                          <div className="flex items-center gap-3 flex-1">
-                            <span className="text-sm font-medium text-gray-700 w-20">{config.year}</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={editAmountUsd}
-                              onChange={(e) => setEditAmountUsd(e.target.value)}
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="BXM USD"
-                            />
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={editAmountUzs}
-                              onChange={(e) => setEditAmountUzs(e.target.value)}
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="BXM UZS"
-                            />
-                            <button
-                              onClick={() => handleSave(config.year)}
-                              className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                              aria-label="Saqlash"
-                              title="Saqlash"
-                            >
-                              <IconSave />
-                              <span className="sr-only">Saqlash</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingYear(null);
-                                setEditAmountUsd('');
-                                setEditAmountUzs('');
-                              }}
-                              className="inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-                              aria-label="Bekor qilish"
-                              title="Bekor qilish"
-                            >
-                              <IconCancel />
-                              <span className="sr-only">Bekor qilish</span>
-                            </button>
+                      <div key={config.id}>
+                        {editingBxmId === config.id && editingBxmId !== currentBXM?.id ? (
+                          <div className="p-4 border-2 border-indigo-200 rounded-xl bg-indigo-50">
+                            <div className="text-sm font-semibold text-indigo-700 mb-3">{formatDate(config.effectiveFrom)} — Tahrirlash</div>
+                            <div className="grid grid-cols-2 gap-2 mb-3">
+                              <input type="number" step="0.01" value={editAmountUsd} onChange={(e) => setEditAmountUsd(e.target.value)} className="px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="USD" />
+                              <input type="number" step="1" value={editAmountUzs} onChange={(e) => setEditAmountUzs(e.target.value)} className="px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="UZS" />
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => handleSaveBxm(config.id)} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">Saqlash</button>
+                              <button onClick={cancelEditBxm} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">Bekor</button>
+                            </div>
                           </div>
                         ) : (
-                          <>
+                          <div className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors group ${config.id === currentBXM?.id ? 'border-indigo-200 bg-indigo-50' : 'border-gray-100 hover:bg-gray-50'}`}>
                             <div>
-                              <div className="text-sm font-medium text-gray-800">{config.year} yil</div>
-                              <div className="text-lg font-bold text-blue-600">
-                                {formatCurrency(Number(config.amountUsd ?? config.amount), 'USD')}
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm font-bold text-blue-600">{formatCurrency(Number(config.amountUsd), 'USD')}</div>
+                                {config.id === currentBXM?.id && <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full">Joriy</span>}
                               </div>
-                              <div className="text-sm text-gray-600">
-                                {formatCurrency(Number(config.amountUzs ?? 412000), 'UZS')}
+                              <div className="text-xs text-gray-400">{formatCurrency(Number(config.amountUzs), 'UZS')}</div>
+                              <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                                <Icon icon="lucide:calendar" className="w-3 h-3" />
+                                {formatDate(config.effectiveFrom)}
+                                {config.note && <span className="ml-1 italic">— {config.note}</span>}
                               </div>
                             </div>
-                            <button
-                              onClick={() => handleEdit(config)}
-                              className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                              aria-label="O'zgartirish"
-                              title="O'zgartirish"
-                            >
-                              <IconEdit />
-                              <span className="sr-only">O'zgartirish</span>
-                            </button>
-                          </>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => handleEditBxm(config)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="O'zgartirish">
+                                <Icon icon="lucide:pencil" className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleDeleteBxm(config.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="O'chirish">
+                                <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     ))}
-                    {editingYear && editingYear > Math.max(...bxmConfigs.map(c => c.year), 0) && (
-                      <div className="flex items-center gap-3 p-3 border-2 border-green-300 rounded-lg bg-green-50">
-                        <span className="text-sm font-medium text-gray-700 w-20">{editingYear}</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={editAmountUsd}
-                          onChange={(e) => setEditAmountUsd(e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="BXM USD"
-                        />
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={editAmountUzs}
-                          onChange={(e) => setEditAmountUzs(e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="BXM UZS"
-                        />
-                        <button
-                          onClick={handleAddNewYear}
-                          className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                          aria-label="Qo'shish"
-                          title="Qo'shish"
-                        >
-                          <IconAdd />
-                          <span className="sr-only">Qo'shish</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingYear(null);
-                            setEditAmountUsd('');
-                            setEditAmountUzs('');
-                          }}
-                          className="inline-flex items-center justify-center p-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-                          aria-label="Bekor qilish"
-                          title="Bekor qilish"
-                        >
-                          <IconCancel />
-                          <span className="sr-only">Bekor qilish</span>
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
-                <div className="space-y-6">
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-center mb-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
-                          <Icon icon="lucide:percent" className="w-4 h-4 text-orange-600" />
-                        </div>
-                        <h2 className="text-base font-bold text-gray-800">Sertifikatchi tariflari (Oltiariq)</h2>
-                      </div>
-                      <button
-                        onClick={() => setShowCertifierFeeForm(true)}
-                        className="inline-flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                        aria-label={certifierFeeConfig ? "O'zgartirish" : "Qo'shish"}
-                        title={certifierFeeConfig ? "O'zgartirish" : "Qo'shish"}
-                      >
-                        {certifierFeeConfig ? <IconEdit /> : <IconAdd />}
-                        <span className="sr-only">{certifierFeeConfig ? 'O\'zgartirish' : 'Qo\'shish'}</span>
-                      </button>
-                    </div>
 
-                    {loadingCertifierFeeConfig ? (
-                      <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-                    ) : certifierFeeConfig ? (
-                      <div className="space-y-2 text-sm">
-                        <div><span className="font-semibold">ST-1:</span> {formatCurrency(Number(certifierFeeConfig.st1Rate), 'UZS')}</div>
-                        <div><span className="font-semibold">FITO:</span> {formatCurrency(Number(certifierFeeConfig.fitoRate), 'UZS')}</div>
-                        <div><span className="font-semibold">AKT:</span> {formatCurrency(Number(certifierFeeConfig.aktRate), 'UZS')}</div>
+                {/* Sertifikatchi tariflari */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+                        <Icon icon="lucide:percent" className="w-4 h-4 text-orange-600" />
                       </div>
-                    ) : (
-                      <div className="text-center py-4 text-gray-400">
-                        Sertifikatchi tariflari kiritilmagan.
-                      </div>
-                    )}
+                      <h2 className="text-base font-bold text-gray-800">Sertifikatchi tariflari</h2>
+                    </div>
+                    <button onClick={() => setShowCertifierFeeForm(true)} className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors" title={certifierFeeConfig ? "O'zgartirish" : "Qo'shish"}>
+                      {certifierFeeConfig ? <IconEdit /> : <IconAdd />}
+                    </button>
                   </div>
+                  {loadingCertifierFeeConfig ? (
+                    <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+                  ) : certifierFeeConfig ? (
+                    <div className="space-y-2">
+                      {[{ label: 'ST-1', value: certifierFeeConfig.st1Rate }, { label: 'FITO', value: certifierFeeConfig.fitoRate }, { label: 'AKT', value: certifierFeeConfig.aktRate }].map(item => (
+                        <div key={item.label} className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50">
+                          <span className="text-sm font-semibold text-gray-500">{item.label}</span>
+                          <span className="text-base font-bold text-gray-800">{formatCurrency(Number(item.value), 'UZS')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-400">
+                      <Icon icon="lucide:plus-circle" className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      <div className="text-sm">Sertifikatchi tariflari kiritilmagan</div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">

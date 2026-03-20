@@ -162,7 +162,7 @@ const registerSchema = z.object({
   branchId: z.number(),
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', requireAuth('ADMIN'), async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const exists = await prisma.user.findUnique({ where: { email: parsed.data.email } });

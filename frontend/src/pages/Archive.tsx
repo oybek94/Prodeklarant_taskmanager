@@ -114,21 +114,23 @@ const Archive = () => {
   };
 
   const downloadFile = async (fileUrl: string, originalName: string) => {
-    // API base URL'dan uploads URL'ni quramiz
-    // Backend /api/uploads yo'lini ham serve qiladi (server.ts'da sozlangan)
+    // /uploads/documents/file.pdf → /api/secure-uploads/documents/file.pdf
     const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-    // /uploads/documents/... -> /api/uploads/documents/...
-    const uploadsPath = fileUrl.replace(/^\/uploads\//, '/api/uploads/');
-    const url = `${baseUrl.replace(/\/api$/, '')}${uploadsPath}`;
+    const baseOrigin = baseUrl.replace(/\/api$/, '');
 
-    // Fayl nomini encode qilamiz
-    const urlParts = url.split('/');
+    const securePath = fileUrl.replace(/^\/uploads\//, '');
+    const urlParts = securePath.split('/');
     const fileNameFromUrl = urlParts[urlParts.length - 1];
-    const encodedUrl = urlParts.slice(0, -1).join('/') + '/' + encodeURIComponent(decodeURIComponent(fileNameFromUrl));
+    const encodedFileName = encodeURIComponent(decodeURIComponent(fileNameFromUrl));
+    const folderPath = urlParts.slice(0, -1).join('/');
+    const encodedUrl = `${baseOrigin}/api/secure-uploads/${folderPath}/${encodedFileName}`;
 
-    // Asl nomi bilan yuklab olish - brauzerda ochmasdan
+    // JWT token bilan authenticated fetch
     try {
-      const response = await fetch(encodedUrl);
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(encodedUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!response.ok) throw new Error(`Fayl topilmadi (${response.status})`);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
@@ -141,7 +143,7 @@ const Archive = () => {
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error('Download error:', error);
-      window.open(encodedUrl, '_blank');
+      alert('Faylni yuklab olishda xatolik yuz berdi');
     }
   };
 

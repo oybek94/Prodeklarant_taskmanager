@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { prisma } from './prisma';
 import authRouter from './routes/auth';
 import clientsRouter from './routes/clients';
@@ -40,6 +41,7 @@ import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 import OpenAIClient from './ai/openai.client';
 import path from 'path';
+import fs from 'fs';
 import lmsRouter from './routes/lms';
 import { initializeExchangeRateScheduler } from './services/exchange-rate-scheduler';
 import { initializeProcessScheduler } from './services/process-scheduler';
@@ -93,9 +95,71 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Static file serving - uploads papkasini serve qilish
+// Static file serving - /uploads (internal, himoyasiz - faqat Nginx/lokal)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
+// /api/uploads eski static endi o'chirildi - /api/secure-uploads ishlatiladi
+
+// Himoyalangan fayl yuklash endpoint - JWT token talab qiladi
+const uploadsRootDir = path.resolve(path.join(__dirname, '../uploads'));
+
+app.get('/api/secure-uploads/*path', requireAuth(), (req, res) => {
+  const rawParam = req.params.path;
+  const relativePath = decodeURIComponent(
+    Array.isArray(rawParam) ? rawParam.join('/') : (rawParam as string) || ''
+  );
+
+  console.log('[secure-uploads] uploadsRootDir:', uploadsRootDir);
+  console.log('[secure-uploads] rawParam:', rawParam);
+  console.log('[secure-uploads] relativePath:', relativePath);
+
+  if (!relativePath) {
+    return res.status(400).json({ error: 'Fayl yo\'li ko\'rsatilmagan' });
+  }
+
+  // Path traversal hujumidan himoya
+  const absolutePath = path.resolve(path.join(uploadsRootDir, relativePath));
+  console.log('[secure-uploads] absolutePath:', absolutePath);
+  console.log('[secure-uploads] exists:', fs.existsSync(absolutePath));
+
+  if (!absolutePath.startsWith(uploadsRootDir)) {
+    return res.status(403).json({ error: 'Ruxsat berilmagan yo\'l' });
+  }
+
+  if (!fs.existsSync(absolutePath)) {
+    // Papkadagi fayllarni ko'rsatish (debug uchun)
+    const dir = path.dirname(absolutePath);
+    if (fs.existsSync(dir)) {
+      const files = fs.readdirSync(dir).slice(0, 5);
+      console.log('[secure-uploads] Dir exists, first 5 files:', files);
+    } else {
+      console.log('[secure-uploads] Dir does NOT exist:', dir);
+    }
+    return res.status(404).json({ error: 'Fayl topilmadi', path: relativePath });
+  }
+
+  res.sendFile(absolutePath);
+});
+
+
+// Rate limiting — brute force va DDoS dan himoya
+// Login uchun: 15 daqiqada max 10 urinish
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 daqiqa
+  max: 10,
+  message: { error: 'Juda ko\'p urinish. 15 daqiqadan keyin qayta urinib ko\'ring.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Umumiy API: 1 daqiqada max 200 so\'rov
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 daqiqa
+  max: 200,
+  message: { error: 'Juda ko\'p so\'rov. Bir daqiqadan keyin qayta urinib ko\'ring.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/uploads') || req.path.startsWith('/api/uploads'),
+});
 
 app.get('/', (_req, res) => {
   res.json({
@@ -144,6 +208,11 @@ app.get('/health/db', async (_req, res) => {
     res.status(500).json({ status: 'error', error: String(err) });
   }
 });
+
+// Rate limiting qo'llash
+app.use('/api/auth/login', loginLimiter);         // Login uchun qat'iy limit
+app.use('/api/auth/client/login', loginLimiter);  // Client login uchun ham
+app.use('/api', apiLimiter);                      // Barcha API uchun umumiy limit
 
 app.use('/api/auth', authRouter);
 // AI endpoints (protected, requires authentication)

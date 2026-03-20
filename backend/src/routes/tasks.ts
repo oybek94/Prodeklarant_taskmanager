@@ -18,28 +18,7 @@ import { ensureTirForInvoice } from '../services/tir-service';
 
 const router = Router();
 
-// Helper function for debug logging
-const getDebugLogPath = () => {
-  if (process.platform === 'win32') {
-    return 'g:\\Prodeklarant\\.cursor\\debug.log';
-  }
-  // Linux server path
-  return '/var/www/app/.cursor/debug.log';
-};
 
-const debugLog = (data: any) => {
-  const logEntry = JSON.stringify(data) + '\n';
-  const logPath = getDebugLogPath();
-  // Write to file (async, but we don't await to avoid blocking)
-  fs.appendFile(logPath, logEntry).catch((err) => {
-    // If file doesn't exist, create it first
-    if (err.code === 'ENOENT') {
-      fs.writeFile(logPath, logEntry).catch(() => {});
-    }
-  });
-  // Also log to console for immediate visibility
-  console.log('[DEBUG]', logEntry.trim());
-};
 
 // Helper function to calculate task status from stages array (optimized version)
 function calculateTaskStatusFromStages(stages: Array<{name: string, status: string}>): TaskStatus {
@@ -266,22 +245,12 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
 });
 
 router.post('/', requireAuth(), async (req: AuthRequest, res) => {
-  // #region agent log
-  const logEntry = {location:'tasks.ts:124',message:'POST /tasks entry',data:{hasUser:!!req.user,userId:req.user?.id,body:req.body},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'};
-  console.log('[DEBUG]', JSON.stringify(logEntry));
-  fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntry)}).catch(()=>{});
-  // #endregion
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const parsed = createTaskSchema.safeParse(req.body);
-    // #region agent log
-    const logValidation = {location:'tasks.ts:131',message:'Schema validation',data:{success:parsed.success,parsedData:parsed.success?parsed.data:null,errors:parsed.success?null:parsed.error.flatten()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'};
-    console.log('[DEBUG]', JSON.stringify(logValidation));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logValidation)}).catch(()=>{});
-    // #endregion
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
     const task = await prisma.$transaction(async (tx) => {
@@ -1137,15 +1106,10 @@ const updateStageSchema = z.object({
 });
 
 router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest, res) => {
-  // #region agent log
-  debugLog({location:'tasks.ts:484',message:'PATCH stage entry',data:{taskId:req.params.taskId,stageId:req.params.stageId,body:req.body},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
-  // #endregion
   const taskId = Number(req.params.taskId);
   const stageId = Number(req.params.stageId);
   const parsed = updateStageSchema.safeParse(req.body);
-  // #region agent log
-  debugLog({location:'tasks.ts:490',message:'Schema validation result',data:{success:parsed.success,errors:parsed.success?null:parsed.error.flatten()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
-  // #endregion
+
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
   const user = req.user;
@@ -1177,9 +1141,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         },
       },
     });
-    // #region agent log
-    debugLog({location:'tasks.ts:540',message:'Stage found',data:{stageFound:!!stage,stageId,stageName:stage?.name,stageStatus:stage?.status,stageTaskId:stage?.taskId,taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
-    // #endregion
+
     if (!stage || stage.taskId !== taskId) return res.status(404).json({ error: 'Stage not found' });
 
     // Barcha stage'lar oddiy jarayon sifatida ishlaydi - PDF/JPG validation olib tashlandi
@@ -1229,9 +1191,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
   }
 
   const now = new Date();
-  // #region agent log
-  debugLog({location:'tasks.ts:758',message:'Before transaction',data:{taskId,stageId,newStatus:parsed.data.status,stageName:stage.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
-  // #endregion
+
   const updated = await prisma.$transaction(async (tx) => {
     // If Deklaratsiya stage is being started and multiplier is provided, update task's customs payment
     if (stage.name === 'Deklaratsiya' && parsed.data.status === 'TAYYOR' && parsed.data.customsPaymentMultiplier) {
@@ -1368,9 +1328,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
       });
     }
     
-    // #region agent log
-    debugLog({location:'tasks.ts:796',message:'Before stage update',data:{stageId,newStatus:parsed.data.status,userId:req.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
-    // #endregion
+
     const upd = await (tx as any).taskStage.update({
       where: { id: stageId },
       data: {
@@ -1388,9 +1346,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         },
       },
     });
-    // #region agent log
-    debugLog({location:'tasks.ts:816',message:'Stage updated successfully',data:{stageId,newStatus:upd.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
-    // #endregion
+
 
     // Create version for stage change
     if (req.user && stage.status !== parsed.data.status) {
@@ -1437,9 +1393,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
       maxWait: 30000, // 30 seconds max wait for transaction to start
       timeout: 30000, // 30 seconds timeout for transaction to complete (remote database uchun)
     });
-  // #region agent log
-  debugLog({location:'tasks.ts:824',message:'Transaction completed',data:{taskId,stageId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
-  // #endregion
+
 
   // Generate QR token after transaction commits (non-blocking, idempotent)
   if (updated.needsQrToken) {
@@ -1473,9 +1427,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
 
     res.json(updated.updated);
   } catch (error: any) {
-  // #region agent log
-  debugLog({location:'tasks.ts:830',message:'PATCH stage error',data:{errorMessage:error?.message,errorCode:error?.code,taskId,stageId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'});
-  // #endregion
+
     console.error('Error updating stage:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
     res.status(500).json({ 

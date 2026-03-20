@@ -1198,21 +1198,33 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     e.target.value = '';
   };
 
-  const openPreview = (fileUrl: string, fileType: string, fileName: string) => {
-    // API base URL'dan uploads URL'ni quramiz
-    // Backend /api/uploads yo'lini ham serve qiladi (server.ts'da sozlangan)
+  const openPreview = async (fileUrl: string, fileType: string, fileName: string) => {
+    // /uploads/documents/file.pdf → /api/secure-uploads/documents/file.pdf
     const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-    // /uploads/documents/... -> /api/uploads/documents/...
-    const uploadsPath = fileUrl.replace(/^\/uploads\//, '/api/uploads/');
     const baseOrigin = baseUrl.replace(/\/api$/, '');
-
-    // Fayl nomini encode qilamiz
-    const urlParts = uploadsPath.split('/');
+    
+    const securePath = fileUrl.replace(/^\/uploads\//, '');
+    const urlParts = securePath.split('/');
     const fileNamePart = urlParts[urlParts.length - 1];
     const encodedFileName = encodeURIComponent(decodeURIComponent(fileNamePart));
-    const pathWithoutFile = urlParts.slice(0, -1).join('/');
-    const url = `${baseOrigin}${pathWithoutFile}/${encodedFileName}`;
-    setPreviewDocument({ url, type: fileType, name: fileName });
+    const folderPath = urlParts.slice(0, -1).join('/');
+    const secureUrl = `${baseOrigin}/api/secure-uploads/${folderPath}/${encodedFileName}`;
+
+    // JWT token bilan fetch qilib, blob URL yaratamiz
+    // (img/iframe src tag'lari custom header yubora olmaydi)
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(secureUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error(`Fayl topilmadi (${response.status})`);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      setPreviewDocument({ url: blobUrl, type: fileType, name: fileName });
+    } catch (error) {
+      console.error('Preview error:', error);
+      alert('Faylni ko\'rishda xatolik yuz berdi');
+    }
   };
 
   const handleDeleteDocument = async (documentId: number) => {
@@ -1232,28 +1244,29 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   };
 
   const downloadDocument = async (fileUrl: string, originalName?: string) => {
-    // API base URL'dan uploads URL'ni quramiz
-    // Backend /api/uploads yo'lini ham serve qiladi (server.ts'da sozlangan)
+    // /uploads/documents/file.pdf → /api/secure-uploads/documents/file.pdf
     const baseUrl = apiClient.defaults.baseURL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-    // baseUrl = 'http://localhost:3001/api' yoki '/api' (production'da)
-    // Faylning /uploads/documents/... qismini /api/uploads/documents/... ga o'zgartiramiz
-    const uploadsPath = fileUrl.replace(/^\/uploads\//, '/api/uploads/');
-    const url = `${baseUrl.replace(/\/api$/, '')}${uploadsPath}`;
-
-    // Fayl nomini encode qilamiz
-    const urlParts = url.split('/');
+    const baseOrigin = baseUrl.replace(/\/api$/, '');
+    
+    // fileUrl: /uploads/documents/file.pdf → securePath: documents/file.pdf
+    const securePath = fileUrl.replace(/^\/uploads\//, '');
+    const urlParts = securePath.split('/');
     const fileNameFromUrl = urlParts[urlParts.length - 1];
-    const encodedUrl = urlParts.slice(0, -1).join('/') + '/' + encodeURIComponent(decodeURIComponent(fileNameFromUrl));
+    const encodedFileName = encodeURIComponent(decodeURIComponent(fileNameFromUrl));
+    const folderPath = urlParts.slice(0, -1).join('/');
+    const encodedUrl = `${baseOrigin}/api/secure-uploads/${folderPath}/${encodedFileName}`;
 
-    // Asl nomi (originalName) bilan yuklab olish - brauzerda ochmasdan
+    // JWT token bilan authenticated fetch - faqat login qilgan foydalanuvchilar yuklay oladi
     try {
-      const response = await fetch(encodedUrl);
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(encodedUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!response.ok) throw new Error(`Fayl topilmadi (${response.status})`);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
-      // Asl fayl nomini ishlatamiz (timestamp'siz)
       link.download = originalName || fileNameFromUrl;
       document.body.appendChild(link);
       link.click();
@@ -1261,8 +1274,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error('Download error:', error);
-      // Fallback: brauzerda ochish
-      window.open(encodedUrl, '_blank');
+      alert('Faylni yuklab olishda xatolik yuz berdi');
     }
   };
 

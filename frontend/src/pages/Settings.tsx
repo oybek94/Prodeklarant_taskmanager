@@ -248,6 +248,10 @@ const Settings = () => {
   const [newKpiEffective, setNewKpiEffective] = useState(() => new Date().toISOString().slice(0, 16));
   const [newKpiNote, setNewKpiNote] = useState('');
   const [newKpiPrices, setNewKpiPrices] = useState<Record<string, string>>({});
+  const [activeKpiStages, setActiveKpiStages] = useState<{ stageName: string; price: number }[]>([]);
+  const [showAddStageForm, setShowAddStageForm] = useState(false);
+  const [newStageName, setNewStageName] = useState('');
+  const [newStagePrice, setNewStagePrice] = useState('0');
   const [showBranchForm, setShowBranchForm] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
   const [deletingBranchId, setDeletingBranchId] = useState<number | null>(null);
@@ -762,15 +766,23 @@ const Settings = () => {
     try {
       setLoadingKpiConfigs(true);
       const response = await apiClient.get('/kpi/configs/current');
-      const configMap = new Map<string, number>(
-        response.data.map((config: KpiConfig) => [config.stageName, Number(config.price)])
-      );
-      const edits: Record<string, string> = {};
-      STAGE_PRICE_DEFAULTS.forEach((stage) => {
-        const value = configMap.get(stage.stageName) ?? stage.price;
-        edits[stage.stageName] = value.toString();
-      });
-      setKpiConfigEdits(edits);
+      const configs: KpiConfig[] = response.data;
+
+      // Backend'dan kelgan aktual stagelarni set qilamiz
+      const stages = configs.map(c => ({ stageName: c.stageName, price: Number(c.price) }));
+
+      // Agar bazada hech narsa yo'q bo'lsa, defaultlarni ko'rsatamiz
+      if (stages.length === 0) {
+        setActiveKpiStages(STAGE_PRICE_DEFAULTS);
+        const edits: Record<string, string> = {};
+        STAGE_PRICE_DEFAULTS.forEach(s => { edits[s.stageName] = s.price.toString(); });
+        setKpiConfigEdits(edits);
+      } else {
+        setActiveKpiStages(stages);
+        const edits: Record<string, string> = {};
+        stages.forEach(s => { edits[s.stageName] = s.price.toString(); });
+        setKpiConfigEdits(edits);
+      }
     } catch (error) {
       console.error('Error loading KPI configs:', error);
     } finally {
@@ -790,7 +802,7 @@ const Settings = () => {
   const handleSaveKpiConfigs = async () => {
     try {
       setSavingKpiConfigs(true);
-      const payload = STAGE_PRICE_DEFAULTS.map((stage) => {
+      const payload = activeKpiStages.map((stage) => {
         const rawValue = kpiConfigEdits[stage.stageName];
         const price = parseFloat(rawValue);
         if (isNaN(price) || price < 0) {
@@ -811,7 +823,7 @@ const Settings = () => {
   const handleAddKpiBatch = async () => {
     try {
       setSavingKpiConfigs(true);
-      const prices = STAGE_PRICE_DEFAULTS.map((stage) => {
+      const prices = activeKpiStages.map((stage) => {
         const rawValue = newKpiPrices[stage.stageName];
         const price = parseFloat(rawValue);
         if (isNaN(price) || price < 0) {
@@ -834,6 +846,38 @@ const Settings = () => {
       alert(error.response?.data?.error || error.message || 'Xatolik yuz berdi');
     } finally {
       setSavingKpiConfigs(false);
+    }
+  };
+
+  const handleAddStage = async () => {
+    if (!newStageName.trim()) {
+      alert('Jarayon nomini kiriting');
+      return;
+    }
+    const price = parseFloat(newStagePrice);
+    if (isNaN(price) || price < 0) {
+      alert('Noto\'g\'ri narx');
+      return;
+    }
+    try {
+      await apiClient.post('/kpi/stages', { stageName: newStageName.trim(), price });
+      await loadKpiConfigs();
+      setShowAddStageForm(false);
+      setNewStageName('');
+      setNewStagePrice('0');
+      alert(`"${newStageName.trim()}" jarayoni qo'shildi`);
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleDeleteStage = async (stageName: string) => {
+    if (!confirm(`"${stageName}" jarayonini o'chirishni istaysizmi?\n\nEslatma: Tarixiy hisob-kitoblar (KPI log) saqlanib qoladi.`)) return;
+    try {
+      await apiClient.delete(`/kpi/stages/${encodeURIComponent(stageName)}`);
+      await loadKpiConfigs();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
   };
 
@@ -1810,7 +1854,7 @@ const Settings = () => {
                       </div>
                       <p className="text-violet-200 text-sm">Har bir bosqich uchun to'lanadigan summa (USD). Narxlar o'zgartirilganda eski tasklar oldingi narxda qoladi.</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={() => { setShowKpiHistoryModal(true); loadKpiHistory(); }}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
@@ -1820,18 +1864,50 @@ const Settings = () => {
                       <button
                         onClick={() => {
                           const prices: Record<string, string> = {};
-                          STAGE_PRICE_DEFAULTS.forEach(s => { prices[s.stageName] = (kpiConfigEdits[s.stageName] ?? s.price).toString(); });
+                          activeKpiStages.forEach(s => { prices[s.stageName] = (kpiConfigEdits[s.stageName] ?? s.price).toString(); });
                           setNewKpiPrices(prices);
                           setShowAddKpiForm(true);
                           setNewKpiEffective(new Date().toISOString().slice(0, 16));
                         }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        <Icon icon="lucide:calendar-plus" className="w-3.5 h-3.5" />Yangi tarif
+                      </button>
+                      <button
+                        onClick={() => setShowAddStageForm(true)}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-indigo-700 hover:bg-indigo-50 rounded-lg text-sm font-semibold transition-colors shadow"
                       >
-                        <Icon icon="lucide:plus" className="w-3.5 h-3.5" />Yangi tarif
+                        <Icon icon="lucide:plus" className="w-3.5 h-3.5" />Jarayon
                       </button>
                     </div>
                   </div>
                 </div>
+
+                {/* Add new stage form */}
+                {showAddStageForm && (
+                  <div className="mx-6 mt-4 mb-2 p-5 border-2 border-emerald-200 rounded-xl bg-emerald-50">
+                    <div className="text-sm font-bold text-emerald-700 mb-3 flex items-center gap-2">
+                      <Icon icon="lucide:layers" className="w-4 h-4" />
+                      Yangi jarayon (bosqich) qo'shish
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-2">
+                        <label className="text-xs text-gray-500 mb-1 block">Jarayon nomi</label>
+                        <input type="text" value={newStageName} onChange={(e) => setNewStageName(e.target.value)} className="w-full px-3 py-2 border border-emerald-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" placeholder="Masalan: Qayta tekshirish" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Boshlang'ich narx ($)</label>
+                        <input type="number" step="0.01" min="0" value={newStagePrice} onChange={(e) => setNewStagePrice(e.target.value)} className="w-full px-3 py-2 border border-emerald-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 text-center font-semibold" placeholder="0" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={handleAddStage} className="flex-1 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center justify-center gap-2">
+                        <Icon icon="lucide:check" className="w-4 h-4" />Qo'shish
+                      </button>
+                      <button onClick={() => { setShowAddStageForm(false); setNewStageName(''); setNewStagePrice('0'); }} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">Bekor</button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Add new KPI batch form */}
                 {showAddKpiForm && (
@@ -1851,7 +1927,7 @@ const Settings = () => {
                       </div>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-                      {STAGE_PRICE_DEFAULTS.map((stage) => (
+                      {activeKpiStages.map((stage) => (
                         <div key={stage.stageName} className="bg-white rounded-lg p-3 border border-violet-100">
                           <label className="text-xs text-gray-500 mb-1 block truncate" title={stage.stageName}>{stage.stageName}</label>
                           <input
@@ -1885,7 +1961,9 @@ const Settings = () => {
                   ) : (
                     <>
                       <div className="flex items-center justify-between mb-4">
-                        <div className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Hozirgi narxlar</div>
+                        <div className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                          Hozirgi narxlar — {activeKpiStages.length} ta jarayon
+                        </div>
                         <button
                           onClick={handleSaveKpiConfigs}
                           disabled={savingKpiConfigs}
@@ -1900,9 +1978,17 @@ const Settings = () => {
                         </button>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {STAGE_PRICE_DEFAULTS.map((stage) => (
-                          <div key={stage.stageName} className="bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-colors group">
-                            <div className="text-xs font-semibold text-gray-500 mb-2 truncate group-hover:text-indigo-600 transition-colors" title={stage.stageName}>
+                        {activeKpiStages.map((stage) => (
+                          <div key={stage.stageName} className="bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-colors group relative">
+                            {/* Delete button */}
+                            <button
+                              onClick={() => handleDeleteStage(stage.stageName)}
+                              className="absolute top-2 right-2 p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-md opacity-0 group-hover:opacity-100 transition-all"
+                              title="Jarayonni o'chirish"
+                            >
+                              <Icon icon="lucide:x" className="w-3.5 h-3.5" />
+                            </button>
+                            <div className="text-xs font-semibold text-gray-500 mb-2 truncate group-hover:text-indigo-600 transition-colors pr-5" title={stage.stageName}>
                               {stage.stageName}
                             </div>
                             <div className="flex items-center gap-1">
@@ -1921,10 +2007,18 @@ const Settings = () => {
                             </div>
                           </div>
                         ))}
+                        {/* Yangi jarayon qo'shish card */}
+                        <button
+                          onClick={() => setShowAddStageForm(true)}
+                          className="bg-gray-50 rounded-xl p-4 border-2 border-dashed border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-indigo-500 min-h-[90px]"
+                        >
+                          <Icon icon="lucide:plus-circle" className="w-6 h-6" />
+                          <span className="text-xs font-medium">Yangi jarayon</span>
+                        </button>
                       </div>
                       <div className="mt-4 pt-3 border-t border-gray-100 flex items-start gap-2 text-xs text-gray-400">
                         <Icon icon="lucide:info" className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                        <span>Narxlarni "Saqlash" tugmasidan o'zgartirsangiz, hozirgi sanadan boshlab kuchga kiradi. Tarixdan o'tgan sanalar uchun narx qo'shish uchun "Yangi tarif" tugmasini ishlating.</span>
+                        <span>Jarayonni o'chirsangiz, oldingi tarix va hisob-kitoblar saqlanib qoladi. Narxlarni "Saqlash" tugmasidan o'zgartirsangiz, hozirgi sanadan boshlab kuchga kiradi.</span>
                       </div>
                     </>
                   )}

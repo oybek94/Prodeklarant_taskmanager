@@ -6,6 +6,60 @@ import { getWorkerKpiStats } from '../services/kpi';
 
 const router = Router();
 
+// ─── Barcha aktiv stage nomlarini olish (distinct) ───
+router.get('/stages', requireAuth(), async (_req, res) => {
+  const configs = await prisma.kpiConfig.findMany({
+    select: { stageName: true },
+    distinct: ['stageName'],
+    orderBy: { stageName: 'asc' },
+  });
+  res.json(configs.map(c => c.stageName));
+});
+
+// ─── Yangi stage qo'shish (boshlang'ich narx bilan) ───
+router.post('/stages', requireAuth('ADMIN'), async (req, res) => {
+  const schema = z.object({
+    stageName: z.string().min(1),
+    price: z.number().nonnegative(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  // Tekshiruv — allaqachon mavjudmi
+  const existing = await prisma.kpiConfig.findFirst({
+    where: { stageName: parsed.data.stageName },
+  });
+  if (existing) {
+    return res.status(400).json({ error: 'Bu nomdagi jarayon allaqachon mavjud' });
+  }
+
+  const result = await prisma.kpiConfig.create({
+    data: {
+      stageName: parsed.data.stageName,
+      price: parsed.data.price,
+      effectiveFrom: new Date(),
+      note: 'Yangi jarayon qo\'shildi',
+    },
+  });
+  res.json(result);
+});
+
+// ─── Stage'ni o'chirish (KpiConfig yozuvlarini o'chirish, KpiLog'lar saqlanadi) ───
+router.delete('/stages/:stageName', requireAuth('ADMIN'), async (req, res) => {
+  const stageName = decodeURIComponent(req.params.stageName);
+
+  // KpiLog'dagi tarixiy yozuvlar saqlanadi — faqat KpiConfig'lar o'chiriladi
+  const deleted = await prisma.kpiConfig.deleteMany({
+    where: { stageName },
+  });
+
+  res.json({
+    success: true,
+    deletedCount: deleted.count,
+    message: `"${stageName}" jarayoni o'chirildi. Tarixiy hisob-kitoblar saqlanib qoldi.`,
+  });
+});
+
 // ─── Joriy narxlarni olish (har bir stage uchun eng so'nggi effectiveFrom <= now) ───
 router.get('/configs/current', requireAuth(), async (_req, res) => {
   const now = new Date();

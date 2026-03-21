@@ -19,6 +19,7 @@ import EditTaskModal from '../components/tasks/EditTaskModal';
 import DocumentUploadModal from '../components/tasks/DocumentUploadModal';
 import CreateTaskModal from '../components/tasks/CreateTaskModal';
 import BXMModal from '../components/tasks/BxmModal';
+import FileUploadModal from '../components/tasks/FileUploadModal';
 
 interface Task {
   id: number;
@@ -190,16 +191,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   const [fileUploadName, setFileUploadName] = useState<string>('');
   const [fileUploadStageName, setFileUploadStageName] = useState<string>('');
   const [uploadingFile, setUploadingFile] = useState(false);
-  const [aiCheckResult, setAiCheckResult] = useState<{
-    result: 'PASS' | 'FAIL';
-    findings: Array<{
-      field: string;
-      invoice_value: any;
-      st_value: any;
-      severity: 'critical' | 'warning';
-      explanation: string;
-    }>;
-  } | null>(null);
   const [previewDocument, setPreviewDocument] = useState<{ url: string; type: string; name: string } | null>(null);
   const [showSendEmailModal, setShowSendEmailModal] = useState(false);
   const [sendEmailForm, setSendEmailForm] = useState({
@@ -1089,62 +1080,45 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
 
     try {
       setUploadingFile(true);
-      setAiCheckResult(null);
 
       const formData = new FormData();
       formData.append('file', fileUploadFile);
       formData.append('name', fileUploadName);
 
       // Document type'ni stage nomiga qarab aniqlaymiz
-      // "Sertifikat olib chiqish" stage'i uchun fileUploadName'dan document type'ni aniqlaymiz
       let documentType = 'OTHER';
       if (fileUploadStageName === 'Invoys') {
         documentType = 'INVOICE';
       } else if (fileUploadStageName === 'Sertifikat olib chiqish') {
-        // fileUploadName'dan aniqlaymiz: 'ST' yoki 'Fito'
         if (fileUploadName === 'ST') {
           documentType = 'ST';
         } else if (fileUploadName === 'Fito') {
           documentType = 'FITO';
         } else {
-          // Default: ST
           documentType = 'ST';
         }
       } else if (fileUploadStageName === 'ST') {
-        // Backward compatibility
         documentType = 'ST';
       } else if (fileUploadStageName === 'Fito' || fileUploadStageName === 'FITO') {
-        // Backward compatibility
         documentType = 'FITO';
       }
       formData.append('documentType', documentType);
 
-      const response = await apiClient.post(`/tasks/${selectedTask.id}/documents`, formData, {
+      await apiClient.post(`/tasks/${selectedTask.id}/documents`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      // AI tekshiruv natijasini ko'rsatish (faqat ST uchun)
-      if ((fileUploadStageName === 'ST' || (fileUploadStageName === 'Sertifikat olib chiqish' && fileUploadName === 'ST')) && response.data.aiCheck) {
-        setAiCheckResult(response.data.aiCheck);
-      }
+      // Fayl yuklangandan keyin modal'ni yopish va stage'ni tayyor qilish
+      setShowFileUploadModal(false);
+      setFileUploadFile(null);
+      setFileUploadName('');
+      setFileUploadStageName('');
 
-      // Fayl yuklangandan keyin stage'ni tayyor qilishga harakat qilamiz
       if (selectedStageForReminder) {
-        setShowFileUploadModal(false);
-        setFileUploadFile(null);
-        setFileUploadName('');
-        setFileUploadStageName('');
-        // Fayl yuklangandan keyin stage'ni tayyor qilish
-        if (selectedStageForReminder) {
-          await updateStageToReady(selectedStageForReminder);
-        }
+        await updateStageToReady(selectedStageForReminder);
       } else {
-        setShowFileUploadModal(false);
-        setFileUploadFile(null);
-        setFileUploadName('');
-        setFileUploadStageName('');
         await loadTaskDetail(selectedTask.id);
         await loadTaskDocuments(selectedTask.id);
       }
@@ -3682,227 +3656,37 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
               />
 
               {/* Umumiy file upload modali (Invoice, ST, Fito uchun) */}
-              {showFileUploadModal && selectedTask && fileUploadStageName && (
-                <div
-                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] backdrop-blur-sm"
-                  style={{
-                    animation: 'fadeIn 0.2s ease-out'
-                  }}
-                  onClick={(e) => {
-                    if (e.target === e.currentTarget && !aiCheckResult) {
-                      setShowFileUploadModal(false);
-                      setFileUploadFile(null);
-                      setFileUploadName('');
-                      setFileUploadStageName('');
-                      setAiCheckResult(null);
+              <FileUploadModal
+                show={showFileUploadModal && !!selectedTask}
+                stageName={fileUploadStageName}
+                fileName={fileUploadName}
+                file={fileUploadFile}
+                uploading={uploadingFile}
+                selectedStageForReminder={selectedStageForReminder}
+                onFileNameChange={setFileUploadName}
+                onFileChange={setFileUploadFile}
+                onUpload={handleFileUpload}
+                onSkipValidation={async () => {
+                  try {
+                    if (selectedStageForReminder) {
+                      await updateStageToReady(selectedStageForReminder, undefined, true);
                     }
-                  }}
-                >
-                  <div
-                    className={`bg-white dark:bg-slate-900 rounded-lg shadow-2xl p-6 w-full mx-4 ${fileUploadStageName === 'ST' && aiCheckResult
-                      ? 'max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar'
-                      : 'max-w-md'
-                      }`}
-                    style={{
-                      animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                    }}
-                  >
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-                      {fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName === 'Sertifikat olib chiqish' ? fileUploadName : fileUploadStageName} PDF/JPG yuklash
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      {fileUploadStageName === 'Sertifikat olib chiqish' ? 'Sertifikat olib chiqish' : fileUploadStageName} stage'ini tayyor qilish uchun hujjat yuklanishi shart.
-                      {(fileUploadStageName === 'ST' || (fileUploadStageName === 'Sertifikat olib chiqish' && fileUploadName === 'ST')) && <span> Yuklangandan keyin AI tekshiruvdan o'tkaziladi.</span>}
-                    </p>
-
-                    {!aiCheckResult ? (
-                      <>
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {fileUploadStageName === 'Sertifikat olib chiqish' ? 'Sertifikat turi' : 'Hujjat nomi'}
-                          </label>
-                          {fileUploadStageName === 'Sertifikat olib chiqish' ? (
-                            <select
-                              value={fileUploadName}
-                              onChange={(e) => setFileUploadName(e.target.value)}
-                              className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                            >
-                              <option value="ST">ST</option>
-                              <option value="Fito">Fito</option>
-                            </select>
-                          ) : (
-                            <input
-                              type="text"
-                              value={fileUploadName}
-                              onChange={(e) => setFileUploadName(e.target.value)}
-                              className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                              placeholder={fileUploadStageName === 'Invoys' ? 'Invoice' : fileUploadStageName}
-                            />
-                          )}
-                        </div>
-
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            PDF yoki JPG fayl
-                          </label>
-                          <input
-                            type="file"
-                            accept=".pdf,application/pdf,.jpg,.jpeg,image/jpeg,image/jpg"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                // Fayl nomi va MIME type'ni tekshiramiz
-                                const fileName = file.name.toLowerCase();
-                                const fileType = file.type.toLowerCase();
-                                const validExtensions = ['.pdf', '.jpg', '.jpeg'];
-                                const validMimeTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/pjpeg'];
-
-                                const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
-                                const hasValidMimeType = validMimeTypes.includes(fileType) || fileType === '';
-
-                                if (!hasValidExtension && !hasValidMimeType) {
-                                  alert('Faqat PDF va JPG fayllar qabul qilinadi');
-                                  e.target.value = ''; // Input'ni tozalaymiz
-                                  return;
-                                }
-
-                                setFileUploadFile(file);
-                                // Auto-fill file name if empty or default
-                                const defaultName = fileUploadStageName === 'Invoys'
-                                  ? 'Invoice'
-                                  : fileUploadStageName === 'Sertifikat olib chiqish'
-                                    ? fileUploadName || 'ST'
-                                    : fileUploadStageName;
-                                // Pochtaga yuborishda yuklangan fayl nomi saqlansin: to'liq asl fayl nomini (kengaytma bilan) yuboramiz
-                                if (!fileUploadName || fileUploadName === fileUploadStageName || fileUploadName === defaultName) {
-                                  setFileUploadName(file.name);
-                                }
-                              }
-                            }}
-                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                          />
-                          {fileUploadFile && (
-                            <p className="mt-2 text-sm text-gray-600">
-                              Tanlangan: {fileUploadFile.name}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="flex flex-col gap-3">
-                          <div className="flex gap-3">
-                            <button
-                              onClick={handleFileUpload}
-                              disabled={!fileUploadFile || uploadingFile}
-                              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {uploadingFile ? 'Yuklanmoqda...' : 'Yuklash va tayyor qilish'}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setShowFileUploadModal(false);
-                                setFileUploadFile(null);
-                                setFileUploadName('');
-                                setFileUploadStageName('');
-                                setSelectedStageForReminder(null);
-                                setAiCheckResult(null);
-                              }}
-                              className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                            >
-                              Bekor qilish
-                            </button>
-                          </div>
-                          {selectedStageForReminder && (
-                            <button
-                              onClick={async () => {
-                                try {
-                                  if (selectedStageForReminder) {
-                                    await updateStageToReady(selectedStageForReminder, undefined, true);
-                                  }
-                                  setShowFileUploadModal(false);
-                                  setFileUploadFile(null);
-                                  setFileUploadName('');
-                                  setFileUploadStageName('');
-                                } catch (error) {
-                                  console.error('Error skipping validation:', error);
-                                }
-                              }}
-                              className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
-                            >
-                              O'tkazib yuborish va tayyor qilish
-                            </button>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <div>
-                        <div className={`mb-4 p-4 rounded-lg ${aiCheckResult.result === 'PASS'
-                          ? 'bg-green-50 border-2 border-green-200'
-                          : 'bg-red-50 border-2 border-red-200'
-                          }`}>
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`text-lg font-semibold ${aiCheckResult.result === 'PASS' ? 'text-green-700' : 'text-red-700'
-                              }`}>
-                              {aiCheckResult.result === 'PASS' ? '✓' : '✗'}
-                            </span>
-                            <h4 className={`text-lg font-semibold ${aiCheckResult.result === 'PASS' ? 'text-green-700' : 'text-red-700'
-                              }`}>
-                              AI Tekshiruv Natijasi: {aiCheckResult.result === 'PASS' ? 'TO\'G\'RI' : 'XATO'}
-                            </h4>
-                          </div>
-                          {aiCheckResult.findings.length > 0 && (
-                            <div className="mt-3 space-y-2">
-                              {aiCheckResult.findings.map((finding, idx) => (
-                                <div
-                                  key={idx}
-                                  className={`p-3 rounded ${finding.severity === 'critical'
-                                    ? 'bg-red-100 border border-red-300'
-                                    : 'bg-yellow-100 border border-yellow-300'
-                                    }`}
-                                >
-                                  <div className="font-medium text-sm mb-1">
-                                    {finding.severity === 'critical' ? '🔴 Kritik:' : '⚠️ Ogohlantirish:'} {finding.field}
-                                  </div>
-                                  <div className="text-xs text-gray-700">
-                                    {finding.explanation}
-                                  </div>
-                                  <div className="text-xs text-gray-600 mt-1">
-                                    Invoice: {JSON.stringify(finding.invoice_value)} | ST: {JSON.stringify(finding.st_value)}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {aiCheckResult.findings.length === 0 && (
-                            <p className="text-sm text-green-700">
-                              Barcha ma'lumotlar to'g'ri keladi. Xatolik topilmadi.
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={async () => {
-                              setShowFileUploadModal(false);
-                              setFileUploadFile(null);
-                              setFileUploadName('');
-                              setFileUploadStageName('');
-                              setAiCheckResult(null);
-                              if (selectedStageForReminder) {
-                                await updateStageToReady(selectedStageForReminder);
-                              } else {
-                                await loadTaskDetail(selectedTask.id);
-                                await loadTaskDocuments(selectedTask.id);
-                              }
-                            }}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                          >
-                            Yopish
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                    setShowFileUploadModal(false);
+                    setFileUploadFile(null);
+                    setFileUploadName('');
+                    setFileUploadStageName('');
+                  } catch (error) {
+                    console.error('Error skipping validation:', error);
+                  }
+                }}
+                onClose={() => {
+                  setShowFileUploadModal(false);
+                  setFileUploadFile(null);
+                  setFileUploadName('');
+                  setFileUploadStageName('');
+                  setSelectedStageForReminder(null);
+                }}
+              />
 
         <SendEmailModal
           show={showSendEmailModal}

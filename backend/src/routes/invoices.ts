@@ -12,6 +12,7 @@ import { ensureTirForInvoice } from '../services/tir-service';
 import { generateST1Excel } from '../services/st1-excel';
 import { generateCommodityEkExcel } from '../services/commodity-ek-excel';
 import fs from 'fs/promises';
+import { socketEmitter } from '../services/socketEmitter';
 
 const router = Router();
 
@@ -724,6 +725,15 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
         totalPrice: Number(item.totalPrice),
       }))
     });
+    // Real-time: invoice saqlangani haqida xabar berish
+    if (req.user) {
+      socketEmitter.broadcastExcept(req.user.id, 'invoice:saved', {
+        invoiceId: updatedInvoice.id,
+        taskId: updatedInvoice.taskId,
+        isNew: !existingInvoice,
+        savedBy: req.user.name,
+      });
+    }
   } catch (error: any) {
     console.error('Error creating/updating invoice:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
@@ -1129,6 +1139,10 @@ router.delete('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, 
     });
 
     res.json({ message: 'Invoice va task muvaffaqiyatli o\'chirildi' });
+    // Real-time: invoice o'chirilishi haqida xabar berish
+    if (req.user) {
+      socketEmitter.broadcastExcept(req.user.id, 'invoice:deleted', { invoiceId: id, taskId, deletedBy: req.user.name });
+    }
   } catch (error: any) {
     console.error('Error deleting invoice:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });

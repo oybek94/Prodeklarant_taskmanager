@@ -3,15 +3,17 @@ import { Icon } from '@iconify/react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications, getNotificationDisplayMessage, requestNotificationPermission } from '../hooks/useNotifications';
+import { usePresence, getPageLabel } from '../hooks/usePresence';
 import { useTheme } from '../contexts/ThemeContext';
 import toast from 'react-hot-toast';
 
 /** Hozircha bildirishnomalar o‘chirilgan; keyin yoqish uchun true qiling */
-const NOTIFICATIONS_ENABLED = false;
+const NOTIFICATIONS_ENABLED = true;
 
 const Layout = () => {
   const { user, logout } = useAuth();
   const { notifications, confirmProcess, rejectProcess } = useNotifications();
+  const { onlineUsers } = usePresence();
   const { theme, toggleTheme } = useTheme();
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -151,6 +153,31 @@ const Layout = () => {
               ))}
             </ul>
           </nav>
+
+          {/* Online foydalanuvchilar */}
+          {sidebarOpen && onlineUsers.length > 0 && (
+            <div className="px-4 pb-2 border-t border-gray-200 dark:border-gray-700 pt-3">
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase mb-2 flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                Online ({onlineUsers.length})
+              </p>
+              <ul className="space-y-1 max-h-28 overflow-y-auto">
+                {onlineUsers.map(u => (
+                  <li key={u.id} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 py-0.5">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0" />
+                    <span className="truncate font-medium">{u.name}{u.id === user?.id ? ' (Siz)' : ''}</span>
+                    {u.page && <span className="text-gray-400 dark:text-gray-500 truncate">• {getPageLabel(u.page)}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {!sidebarOpen && onlineUsers.length > 0 && (
+            <div className="flex flex-col items-center gap-1 py-2 border-t border-gray-200 dark:border-gray-700" title={`${onlineUsers.length} ta foydalanuvchi online`}>
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-[10px] text-gray-400">{onlineUsers.length}</span>
+            </div>
+          )}
 
           {/* Logout Button */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">

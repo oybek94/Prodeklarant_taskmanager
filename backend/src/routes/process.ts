@@ -6,6 +6,7 @@ import { ProcessType, TaskProcessLogAction } from '@prisma/client';
 import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
 import { updateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
+import { socketEmitter } from '../services/socketEmitter';
 
 const router = Router();
 
@@ -291,6 +292,10 @@ router.post('/reject', requireAuth(), async (req: AuthRequest, res) => {
           })
         ),
       ]);
+      // Socket: adminlarga real-time xabarnoma
+      for (const a of admins) {
+        socketEmitter.toUser(a.id, 'notification:new', { message, actionUrl });
+      }
     } else {
       await prisma.$transaction([
         prisma.tasksProcess.update({

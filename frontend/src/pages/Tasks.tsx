@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSocket } from '../contexts/SocketContext';
+import toast from 'react-hot-toast';
 import { useTaskData } from '../components/tasks/useTaskData';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
@@ -93,6 +95,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     loadTaskDetail, loadTaskStages, loadTaskVersions, loadTaskDocuments,
     loadAiChecks, loadExtractedText, toggleDocumentExpansion
   } = useTaskData(user?.role);
+  const socket = useSocket();
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
@@ -423,6 +426,38 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     loadWorkers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showArchive, page, filters.status, filters.clientId, filters.branchId, isModalMode]);
+
+  // Socket.io: real-time task yangilanishlarni tinglash
+  useEffect(() => {
+    if (!socket || isModalMode) return;
+    const refresh = () => loadTasks(showArchive, filters as any);
+    const onTaskCreated = (data: { createdBy: string }) => {
+      toast(`${data.createdBy} yangi task yaratdi`, { icon: '📋' });
+      refresh();
+    };
+    const onTaskUpdated = (data: { updatedBy: string }) => {
+      toast(`${data.updatedBy} taskni yangiladi`, { icon: '✏️' });
+      refresh();
+    };
+    const onTaskDeleted = (data: { deletedBy: string }) => {
+      toast(`${data.deletedBy} taskni o'chirdi`, { icon: '🗑️' });
+      refresh();
+    };
+    const onStageUpdated = (data: { updatedBy: string }) => {
+      toast(`${data.updatedBy} jarayonni yangiladi`, { icon: '🔄' });
+      refresh();
+    };
+    socket.on('task:created', onTaskCreated);
+    socket.on('task:updated', onTaskUpdated);
+    socket.on('task:deleted', onTaskDeleted);
+    socket.on('task:stageUpdated', onStageUpdated);
+    return () => {
+      socket.off('task:created', onTaskCreated);
+      socket.off('task:updated', onTaskUpdated);
+      socket.off('task:deleted', onTaskDeleted);
+      socket.off('task:stageUpdated', onStageUpdated);
+    };
+  }, [socket, showArchive, filters, isModalMode]);
 
   useEffect(() => {
     if (isModalMode && modalTaskId) {

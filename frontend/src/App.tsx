@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SocketProvider } from './contexts/SocketContext';
 import { Toaster } from 'react-hot-toast';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Layout from './components/Layout';
@@ -299,8 +300,10 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
-          <AppRoutes />
-          <Toaster position="top-right" />
+          <SocketProvider>
+            <AppRoutes />
+            <Toaster position="top-right" />
+          </SocketProvider>
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>

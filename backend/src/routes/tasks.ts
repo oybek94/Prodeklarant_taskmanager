@@ -15,6 +15,7 @@ import { calculateAmountUzs } from '../services/monetary-validation';
 import fs from 'fs/promises';
 import { ensureCmrForInvoice } from '../services/cmr-service';
 import { ensureTirForInvoice } from '../services/tir-service';
+import { socketEmitter } from '../services/socketEmitter';
 
 const router = Router();
 
@@ -486,6 +487,8 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   });
 
     res.status(201).json(task);
+    // Real-time: barcha foydalanuvchilarga yangi task haqida xabar berish
+    socketEmitter.broadcastExcept(req.user!.id, 'task:created', { task, createdBy: req.user!.name });
   } catch (error: any) {
     console.error('Error creating task:', error);
     res.status(500).json({ 
@@ -1306,6 +1309,8 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
   }
 
     res.json(updated.updated);
+    // Real-time: stage o'zgarishi haqida xabar berish
+    socketEmitter.broadcastExcept(user.id, 'task:stageUpdated', { taskId, stageId, stage: updated.updated, updatedBy: user.name });
   } catch (error: any) {
 
     console.error('Error updating stage:', error);
@@ -1753,6 +1758,8 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
   });
 
   res.json(updated);
+  // Real-time: task yangilanishi haqida xabar berish
+  socketEmitter.broadcastExcept(user.id, 'task:updated', { taskId: id, changes: parsed.data, updatedBy: user.name });
 });
 
 router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
@@ -1799,6 +1806,8 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
   });
 
   res.status(204).send();
+  // Real-time: task o'chirilishi haqida xabar berish
+  socketEmitter.broadcastExcept(user.id, 'task:deleted', { taskId: id, deletedBy: user.name });
 });
 
 export default router;

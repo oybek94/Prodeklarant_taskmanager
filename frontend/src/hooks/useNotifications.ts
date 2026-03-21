@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '../lib/api';
+import { useSocket } from '../contexts/SocketContext';
 
 const NOTIFICATION_TAG = 'prodeklarant-notification';
 
@@ -109,9 +110,25 @@ export function useNotifications() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000); // poll every 60s
+    const interval = setInterval(fetchNotifications, 60000); // polling fallback
     return () => clearInterval(interval);
   }, [fetchNotifications]);
+
+  // Socket.io: real-time xabarnomalar
+  const socket = useSocket();
+  useEffect(() => {
+    if (!socket) return;
+    const onNewNotification = (data: { message?: string }) => {
+      // Darhol yangilanishlarni olish
+      fetchNotifications();
+      // Browser notification
+      if (data.message && document.visibilityState === 'hidden') {
+        showBrowserNotification('Prodeklarant', data.message);
+      }
+    };
+    socket.on('notification:new', onNewNotification);
+    return () => { socket.off('notification:new', onNewNotification); };
+  }, [socket, fetchNotifications]);
 
   const confirmProcess = async (taskProcessId: number) => {
     try {

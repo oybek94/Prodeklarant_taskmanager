@@ -1,5 +1,6 @@
 import { prisma } from '../prisma';
 import { TaskProcessLogAction } from '@prisma/client';
+import { socketEmitter } from './socketEmitter';
 
 const PROCESS_TYPE_LABELS: Record<string, string> = {
   TIR: 'TIR-SMR',
@@ -157,6 +158,10 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
       }
 
       await prisma.$transaction(txOps);
+      // Socket: har bir qabul qiluvchiga real-time xabarnoma
+      for (const userId of recipientIds) {
+        socketEmitter.toUser(userId, 'notification:new', { message, actionUrl });
+      }
       processed++;
       console.log(`[Process Reminder] Bildirishnoma yuborildi: ${recipientIds.size} kishiga, taskId=${tp.taskId}, processType=${tp.processType}`);
     } catch (err) {

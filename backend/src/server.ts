@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
+import { createServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { prisma } from './prisma';
@@ -50,6 +52,7 @@ import notificationsRouter from './routes/notifications';
 import leadsRouter from './routes/leads';
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 
 // CORS sozlamalari
@@ -293,9 +296,79 @@ validateEnvironment();
 initializeExchangeRateScheduler();
 initializeProcessScheduler();
 
-// Server'ni darhol ishga tushirish - database ulanishini kutmasdan
-app.listen(PORT, '0.0.0.0', () => {
+// ===== Socket.io =====
+import { verifyAccessToken } from './utils/jwt';
+
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      if (process.env.NODE_ENV !== 'production' && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) return callback(null, true);
+      if (process.env.NODE_ENV === 'production') return callback(null, true);
+      callback(null, true);
+    },
+    credentials: true,
+  },
+  transports: ['websocket', 'polling'],
+});
+
+// JWT autentifikatsiya — faqat ruxsat berilgan foydalanuvchilar ulanishi mumkin
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error('Authentication token required'));
+  try {
+    const payload = verifyAccessToken(token);
+    socket.data.user = { id: payload.sub, role: payload.role, name: payload.name, branchId: payload.branchId };
+    next();
+  } catch {
+    next(new Error('Invalid or expired token'));
+  }
+});
+
+io.on('connection', (socket) => {
+  const user = socket.data.user;
+  socket.join(`user:${user.id}`);
+  console.log(`🔌 Socket connected: ${user.name} (id: ${user.id})`);
+
+  // Presence: foydalanuvchi ulanganda online ro'yxatiga qo'shish
+  broadcastPresence();
+
+  // Sahifa o'zgarganida
+  socket.on('page:view', (data: { page: string }) => {
+    socket.data.currentPage = data.page;
+    broadcastPresence();
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`🔌 Socket disconnected: ${user.name} (id: ${user.id})`);
+    broadcastPresence();
+  });
+});
+
+/** Online foydalanuvchilar ro'yxatini barcha ulanganlarga yuborish */
+function broadcastPresence() {
+  const onlineUsers: { id: number; name: string; role: string; page?: string }[] = [];
+  const seen = new Set<number>();
+  for (const [, socket] of io.sockets.sockets) {
+    const u = socket.data.user;
+    if (!u || seen.has(u.id)) continue;
+    seen.add(u.id);
+    onlineUsers.push({
+      id: u.id,
+      name: u.name,
+      role: u.role,
+      page: socket.data.currentPage || undefined,
+    });
+  }
+  io.emit('presence:update', onlineUsers);
+}
+
+export { io };
+
+// Server'ni ishga tushirish
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ API listening on http://localhost:${PORT}`);
+  console.log(`✅ Socket.io ready`);
   console.log(`✅ Server ishga tushdi!`);
 
   // Database ulanishini tekshirish (async, server ishga tushgandan keyin)

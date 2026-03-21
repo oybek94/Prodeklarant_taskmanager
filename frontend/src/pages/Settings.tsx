@@ -89,6 +89,9 @@ interface KpiConfig {
   id: number;
   stageName: string;
   price: number;
+  effectiveFrom: string;
+  note?: string;
+  createdAt: string;
   updatedAt: string;
 }
 
@@ -239,6 +242,12 @@ const Settings = () => {
   const [kpiConfigEdits, setKpiConfigEdits] = useState<Record<string, string>>({});
   const [loadingKpiConfigs, setLoadingKpiConfigs] = useState(true);
   const [savingKpiConfigs, setSavingKpiConfigs] = useState(false);
+  const [kpiHistory, setKpiHistory] = useState<KpiConfig[]>([]);
+  const [showKpiHistoryModal, setShowKpiHistoryModal] = useState(false);
+  const [showAddKpiForm, setShowAddKpiForm] = useState(false);
+  const [newKpiEffective, setNewKpiEffective] = useState(() => new Date().toISOString().slice(0, 16));
+  const [newKpiNote, setNewKpiNote] = useState('');
+  const [newKpiPrices, setNewKpiPrices] = useState<Record<string, string>>({});
   const [showBranchForm, setShowBranchForm] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
   const [deletingBranchId, setDeletingBranchId] = useState<number | null>(null);
@@ -752,7 +761,7 @@ const Settings = () => {
   const loadKpiConfigs = async () => {
     try {
       setLoadingKpiConfigs(true);
-      const response = await apiClient.get('/kpi/configs');
+      const response = await apiClient.get('/kpi/configs/current');
       const configMap = new Map<string, number>(
         response.data.map((config: KpiConfig) => [config.stageName, Number(config.price)])
       );
@@ -766,6 +775,15 @@ const Settings = () => {
       console.error('Error loading KPI configs:', error);
     } finally {
       setLoadingKpiConfigs(false);
+    }
+  };
+
+  const loadKpiHistory = async () => {
+    try {
+      const response = await apiClient.get('/kpi/configs/history');
+      setKpiHistory(response.data);
+    } catch (error) {
+      console.error('Error loading KPI history:', error);
     }
   };
 
@@ -783,6 +801,35 @@ const Settings = () => {
       await apiClient.put('/kpi/configs', payload);
       await loadKpiConfigs();
       alert('Jarayonlar bo\'yicha summalar saqlandi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || error.message || 'Xatolik yuz berdi');
+    } finally {
+      setSavingKpiConfigs(false);
+    }
+  };
+
+  const handleAddKpiBatch = async () => {
+    try {
+      setSavingKpiConfigs(true);
+      const prices = STAGE_PRICE_DEFAULTS.map((stage) => {
+        const rawValue = newKpiPrices[stage.stageName];
+        const price = parseFloat(rawValue);
+        if (isNaN(price) || price < 0) {
+          throw new Error(`Noto'g'ri summa: ${stage.stageName}`);
+        }
+        return { stageName: stage.stageName, price };
+      });
+      await apiClient.post('/kpi/configs/batch', {
+        effectiveFrom: newKpiEffective ? new Date(newKpiEffective).toISOString() : new Date().toISOString(),
+        note: newKpiNote || undefined,
+        prices,
+      });
+      await loadKpiConfigs();
+      setShowAddKpiForm(false);
+      setNewKpiPrices({});
+      setNewKpiNote('');
+      setNewKpiEffective(new Date().toISOString().slice(0, 16));
+      alert('Yangi KPI narxlari qo\'shildi');
     } catch (error: any) {
       alert(error.response?.data?.error || error.message || 'Xatolik yuz berdi');
     } finally {
@@ -1752,71 +1799,191 @@ const Settings = () => {
               )}
 
               {/* KPI / Worker payments section */}
-              <div className="border-t pt-6">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800">Ishchilarga to'lovlar (KPI)</h3>
-                    <p className="text-sm text-gray-500 mt-0.5">Har bir bosqich uchun to'lanadigan summa (BXM bilan)</p>
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-5 text-white">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Icon icon="lucide:wallet" className="w-5 h-5 text-violet-200" />
+                        <h3 className="text-lg font-bold">Ishchilarga to'lovlar (KPI)</h3>
+                      </div>
+                      <p className="text-violet-200 text-sm">Har bir bosqich uchun to'lanadigan summa (USD). Narxlar o'zgartirilganda eski tasklar oldingi narxda qoladi.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setShowKpiHistoryModal(true); loadKpiHistory(); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        <Icon icon="lucide:history" className="w-3.5 h-3.5" />Tarix
+                      </button>
+                      <button
+                        onClick={() => {
+                          const prices: Record<string, string> = {};
+                          STAGE_PRICE_DEFAULTS.forEach(s => { prices[s.stageName] = (kpiConfigEdits[s.stageName] ?? s.price).toString(); });
+                          setNewKpiPrices(prices);
+                          setShowAddKpiForm(true);
+                          setNewKpiEffective(new Date().toISOString().slice(0, 16));
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-indigo-700 hover:bg-indigo-50 rounded-lg text-sm font-semibold transition-colors shadow"
+                      >
+                        <Icon icon="lucide:plus" className="w-3.5 h-3.5" />Yangi tarif
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={handleSaveKpiConfigs}
-                    disabled={savingKpiConfigs}
-                    className="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {savingKpiConfigs ? (
-                      <>
-                        <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
-                        Saqlanmoqda...
-                      </>
-                    ) : (
-                      <>
-                        <Icon icon="lucide:save" className="w-4 h-4" />
-                        Saqlash
-                      </>
-                    )}
-                  </button>
                 </div>
 
-                {loadingKpiConfigs ? (
-                  <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
-                ) : (
-                  <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-indigo-50 border-b border-indigo-100">
-                            <th className="text-left py-3 px-6 font-semibold text-gray-700">Bosqich nomi</th>
-                            <th className="text-center py-3 px-6 font-semibold text-gray-700">Narxi (BXM)</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {STAGE_PRICE_DEFAULTS.map((stage) => (
-                            <tr key={stage.stageName} className="hover:bg-gray-50/50 transition-colors">
-                              <td className="py-3 px-6 font-medium text-gray-800">{stage.stageName}</td>
-                              <td className="py-3 px-6">
-                                <div className="flex justify-center">
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={kpiConfigEdits[stage.stageName] ?? stage.price}
-                                    onChange={(e) => setKpiConfigEdits({
-                                      ...kpiConfigEdits,
-                                      [stage.stageName]: e.target.value
-                                    })}
-                                    className="w-28 px-3 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 outline-none text-center"
-                                  />
-                                </div>
-                              </td>
-
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                {/* Add new KPI batch form */}
+                {showAddKpiForm && (
+                  <div className="mx-6 mt-4 mb-2 p-5 border-2 border-violet-200 rounded-xl bg-violet-50">
+                    <div className="text-sm font-bold text-violet-700 mb-4 flex items-center gap-2">
+                      <Icon icon="lucide:calendar-plus" className="w-4 h-4" />
+                      Yangi narx to'plami (sanadan boshlab kuchga kiradi)
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Kuchga kirish sanasi</label>
+                        <input type="datetime-local" value={newKpiEffective} onChange={(e) => setNewKpiEffective(e.target.value)} className="w-full px-3 py-2 border border-violet-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Izoh (ixtiyoriy)</label>
+                        <input type="text" value={newKpiNote} onChange={(e) => setNewKpiNote(e.target.value)} className="w-full px-3 py-2 border border-violet-200 rounded-lg text-sm focus:outline-none" placeholder="Masalan: Yangi tarif rejasi" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                      {STAGE_PRICE_DEFAULTS.map((stage) => (
+                        <div key={stage.stageName} className="bg-white rounded-lg p-3 border border-violet-100">
+                          <label className="text-xs text-gray-500 mb-1 block truncate" title={stage.stageName}>{stage.stageName}</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={newKpiPrices[stage.stageName] ?? stage.price}
+                            onChange={(e) => setNewKpiPrices({ ...newKpiPrices, [stage.stageName]: e.target.value })}
+                            className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-violet-500 outline-none text-center font-semibold"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={handleAddKpiBatch} disabled={savingKpiConfigs} className="flex-1 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                        {savingKpiConfigs ? <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" /> : <Icon icon="lucide:check" className="w-4 h-4" />}
+                        Qo'shish
+                      </button>
+                      <button onClick={() => setShowAddKpiForm(false)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">Bekor</button>
                     </div>
                   </div>
                 )}
+
+                {/* Current prices */}
+                <div className="p-6">
+                  {loadingKpiConfigs ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin mx-auto mb-2" />
+                      Yuklanmoqda...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Hozirgi narxlar</div>
+                        <button
+                          onClick={handleSaveKpiConfigs}
+                          disabled={savingKpiConfigs}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium disabled:opacity-50"
+                        >
+                          {savingKpiConfigs ? (
+                            <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Icon icon="lucide:save" className="w-4 h-4" />
+                          )}
+                          Saqlash
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {STAGE_PRICE_DEFAULTS.map((stage) => (
+                          <div key={stage.stageName} className="bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-colors group">
+                            <div className="text-xs font-semibold text-gray-500 mb-2 truncate group-hover:text-indigo-600 transition-colors" title={stage.stageName}>
+                              {stage.stageName}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-gray-400">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={kpiConfigEdits[stage.stageName] ?? stage.price}
+                                onChange={(e) => setKpiConfigEdits({
+                                  ...kpiConfigEdits,
+                                  [stage.stageName]: e.target.value
+                                })}
+                                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-center font-bold text-lg bg-white"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-gray-100 flex items-start gap-2 text-xs text-gray-400">
+                        <Icon icon="lucide:info" className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>Narxlarni "Saqlash" tugmasidan o'zgartirsangiz, hozirgi sanadan boshlab kuchga kiradi. Tarixdan o'tgan sanalar uchun narx qo'shish uchun "Yangi tarif" tugmasini ishlating.</span>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
+
+              {/* KPI History Modal */}
+              {showKpiHistoryModal && (
+                <div
+                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+                  onClick={(e) => { if (e.target === e.currentTarget) setShowKpiHistoryModal(false); }}
+                >
+                  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden">
+                    <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Icon icon="lucide:history" className="w-5 h-5" />
+                        <h3 className="text-lg font-bold">KPI narxlar tarixi</h3>
+                      </div>
+                      <button onClick={() => setShowKpiHistoryModal(false)} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+                        <Icon icon="lucide:x" className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="p-6 overflow-y-auto max-h-[calc(80vh-80px)]">
+                      {kpiHistory.length === 0 ? (
+                        <div className="text-center py-8 text-gray-400">Tarix topilmadi</div>
+                      ) : (
+                        <div className="space-y-2">
+                          {(() => {
+                            // Guruhlab ko'rsatish — effectiveFrom bo'yicha
+                            const groups = new Map<string, KpiConfig[]>();
+                            kpiHistory.forEach(cfg => {
+                              const key = cfg.effectiveFrom;
+                              if (!groups.has(key)) groups.set(key, []);
+                              groups.get(key)!.push(cfg);
+                            });
+                            return Array.from(groups.entries()).map(([dateStr, configs]) => (
+                              <div key={dateStr} className="border border-gray-100 rounded-xl overflow-hidden">
+                                <div className="bg-gray-50 px-4 py-2.5 flex items-center gap-2 border-b border-gray-100">
+                                  <Icon icon="lucide:calendar" className="w-3.5 h-3.5 text-gray-400" />
+                                  <span className="text-sm font-semibold text-gray-600">{formatDate(dateStr)}</span>
+                                  {configs[0]?.note && <span className="text-xs text-gray-400 italic ml-2">— {configs[0].note}</span>}
+                                </div>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-px bg-gray-100">
+                                  {configs.map(cfg => (
+                                    <div key={cfg.id} className="bg-white px-3 py-2.5">
+                                      <div className="text-xs text-gray-500 truncate">{cfg.stageName}</div>
+                                      <div className="text-sm font-bold text-blue-600">${Number(cfg.price).toFixed(2)}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -6,11 +6,83 @@ import { getWorkerKpiStats } from '../services/kpi';
 
 const router = Router();
 
-router.get('/configs', requireAuth(), async (_req, res) => {
-  const cfg = await prisma.kpiConfig.findMany({ orderBy: { stageName: 'asc' } });
-  res.json(cfg);
+// ─── Joriy narxlarni olish (har bir stage uchun eng so'nggi effectiveFrom <= now) ───
+router.get('/configs/current', requireAuth(), async (_req, res) => {
+  const now = new Date();
+  const allConfigs = await prisma.kpiConfig.findMany({
+    where: { effectiveFrom: { lte: now } },
+    orderBy: [{ stageName: 'asc' }, { effectiveFrom: 'desc' }],
+  });
+
+  // Har bir stageName uchun eng so'nggi yozuvni olish
+  const currentMap = new Map<string, typeof allConfigs[0]>();
+  for (const cfg of allConfigs) {
+    if (!currentMap.has(cfg.stageName)) {
+      currentMap.set(cfg.stageName, cfg);
+    }
+  }
+
+  res.json(Array.from(currentMap.values()));
 });
 
+// ─── Barcha tarixni olish (guruhlab) ───
+router.get('/configs/history', requireAuth(), async (_req, res) => {
+  const configs = await prisma.kpiConfig.findMany({
+    orderBy: [{ effectiveFrom: 'desc' }, { stageName: 'asc' }],
+  });
+  res.json(configs);
+});
+
+// ─── Eski endpoint - backward compat ───
+router.get('/configs', requireAuth(), async (_req, res) => {
+  const now = new Date();
+  const allConfigs = await prisma.kpiConfig.findMany({
+    where: { effectiveFrom: { lte: now } },
+    orderBy: [{ stageName: 'asc' }, { effectiveFrom: 'desc' }],
+  });
+
+  const currentMap = new Map<string, typeof allConfigs[0]>();
+  for (const cfg of allConfigs) {
+    if (!currentMap.has(cfg.stageName)) {
+      currentMap.set(cfg.stageName, cfg);
+    }
+  }
+
+  res.json(Array.from(currentMap.values()));
+});
+
+// ─── Yangi narxlar to'plami qo'shish (bir vaqtda barcha stagelar uchun) ───
+const batchCreateSchema = z.object({
+  effectiveFrom: z.string().transform((s) => new Date(s)),
+  note: z.string().optional(),
+  prices: z.array(z.object({
+    stageName: z.string(),
+    price: z.number().nonnegative(),
+  })),
+});
+
+router.post('/configs/batch', requireAuth('ADMIN'), async (req, res) => {
+  const parsed = batchCreateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const { effectiveFrom, note, prices } = parsed.data;
+
+  const result = await prisma.$transaction(
+    prices.map((item) =>
+      prisma.kpiConfig.create({
+        data: {
+          stageName: item.stageName,
+          price: item.price,
+          effectiveFrom,
+          note: note || null,
+        },
+      })
+    )
+  );
+  res.json(result);
+});
+
+// ─── Eski PUT endpoint (backward compat - joriy narxlarni yangilash) ───
 const updateSchema = z.object({
   stageName: z.string(),
   price: z.number().nonnegative(),
@@ -22,16 +94,47 @@ router.put('/configs', requireAuth('ADMIN'), async (req, res) => {
 
   const result = await prisma.$transaction(
     parsed.data.map((item) =>
-      prisma.kpiConfig.upsert({
-        where: { stageName: item.stageName },
-        update: { price: item.price },
-        create: { stageName: item.stageName, price: item.price },
+      prisma.kpiConfig.create({
+        data: {
+          stageName: item.stageName,
+          price: item.price,
+          effectiveFrom: new Date(),
+        },
       })
     )
   );
   res.json(result);
 });
 
+// ─── Yozuvni yangilash ───
+router.put('/configs/:id', requireAuth('ADMIN'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "Noto'g'ri ID" });
+
+  const schema = z.object({
+    price: z.number().nonnegative().optional(),
+    note: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const updated = await prisma.kpiConfig.update({
+    where: { id },
+    data: parsed.data,
+  });
+  res.json(updated);
+});
+
+// ─── Yozuvni o'chirish ───
+router.delete('/configs/:id', requireAuth('ADMIN'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "Noto'g'ri ID" });
+
+  await prisma.kpiConfig.delete({ where: { id } });
+  res.json({ success: true });
+});
+
+// ─── KPI Logs ───
 router.get('/logs', requireAuth('ADMIN'), async (_req, res) => {
   const logs = await prisma.kpiLog.findMany({
     orderBy: { createdAt: 'desc' },
@@ -40,7 +143,7 @@ router.get('/logs', requireAuth('ADMIN'), async (_req, res) => {
   res.json(logs);
 });
 
-// Yangi API: Worker Performance Stats
+// ─── Worker Performance Stats ───
 router.get('/worker-stats/:workerId', requireAuth(), async (req, res) => {
   try {
     const workerId = parseInt(req.params.workerId, 10);
@@ -69,4 +172,3 @@ router.get('/worker-stats/:workerId', requireAuth(), async (req, res) => {
 });
 
 export default router;
-

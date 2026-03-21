@@ -38,28 +38,39 @@ export async function logKpiForStage(
     normalizedStageName = 'Topshirish';
   }
 
-  // Narxni aniqlash
-  const price = STAGE_PRICES[normalizedStageName] ?? STAGE_PRICES[stageName] ?? 0;
+  // Narxni aniqlash - effectiveFrom <= completedAt bo'lgan eng so'nggi yozuvdan
+  const completionDate = completedAt || new Date();
 
-  // KpiConfig'dan foydalanish (mavjud bo'lsa o'zgartirmaymiz)
-  const existingConfig = await (tx as any).kpiConfig.findUnique({
-    where: { stageName: normalizedStageName },
+  const existingConfig = await (tx as any).kpiConfig.findFirst({
+    where: {
+      stageName: normalizedStageName,
+      effectiveFrom: { lte: completionDate },
+    },
+    orderBy: { effectiveFrom: 'desc' },
   });
 
+  // Agar topilmasa, hardcoded default'dan foydalanish va config yaratish
+  let amount: number;
   if (!existingConfig) {
+    const defaultPrice = STAGE_PRICES[normalizedStageName] ?? STAGE_PRICES[stageName] ?? 0;
     await (tx as any).kpiConfig.create({
-      data: { stageName: normalizedStageName, price },
+      data: {
+        stageName: normalizedStageName,
+        price: defaultPrice,
+        effectiveFrom: new Date('2020-01-01'),
+        note: 'Avtomatik yaratilgan default narx',
+      },
     });
+    amount = defaultPrice;
+  } else {
+    amount = Number(existingConfig.price);
   }
-
-  const amount = existingConfig?.price ?? price;
 
   // KPI amounts are in USD by default
   const currency: Currency = 'USD';
   const amountDecimal = new Decimal(amount);
 
   // Get exchange rate at stage completion time
-  const completionDate = completedAt || new Date();
   let exchangeRate: Decimal;
   const exchangeSource: ExchangeSource = 'CBU';
 

@@ -241,10 +241,15 @@ model Transaction {
 }
 
 model KpiConfig {
-  id        Int      @id @default(autoincrement())
-  stageName String   @unique
-  price     Decimal  @default(0) @db.Decimal(12, 2)
-  updatedAt DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  stageName     String
+  price         Decimal  @default(0) @db.Decimal(12, 2)
+  effectiveFrom DateTime @default(now())
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([stageName, effectiveFrom])
 }
 
 model PackagingType {

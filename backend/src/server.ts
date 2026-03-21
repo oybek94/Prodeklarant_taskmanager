@@ -339,8 +339,51 @@ io.on('connection', (socket) => {
     broadcastPresence();
   });
 
+  // Invoice tahrirlash boshlanishi
+  socket.on('invoice:editing', (data: { invoiceId: number }) => {
+    const { invoiceId } = data;
+    socket.data.editingInvoiceId = invoiceId;
+
+    // Tekshirish: boshqa kim shu invoysni tahrirlayapti?
+    const editors: { id: number; name: string }[] = [];
+    for (const [, s] of io.sockets.sockets) {
+      if (s.id !== socket.id && s.data.editingInvoiceId === invoiceId && s.data.user) {
+        editors.push({ id: s.data.user.id, name: s.data.user.name });
+      }
+    }
+    // Agar boshqa kimdir tahrirlayotgan bo'lsa — foydalanuvchiga xabar
+    if (editors.length > 0) {
+      socket.emit('invoice:editingConflict', { invoiceId, editors });
+    }
+    // Boshqa foydalanuvchilarga xabar berish
+    socket.broadcast.emit('invoice:editingBy', {
+      invoiceId,
+      editor: { id: user.id, name: user.name },
+    });
+  });
+
+  // Invoice tahrirlashdan chiqish
+  socket.on('invoice:editingDone', () => {
+    const invoiceId = socket.data.editingInvoiceId;
+    socket.data.editingInvoiceId = undefined;
+    if (invoiceId) {
+      socket.broadcast.emit('invoice:editingLeft', {
+        invoiceId,
+        editor: { id: user.id, name: user.name },
+      });
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`🔌 Socket disconnected: ${user.name} (id: ${user.id})`);
+    // Invoice editing cleanup
+    const invoiceId = socket.data.editingInvoiceId;
+    if (invoiceId) {
+      socket.broadcast.emit('invoice:editingLeft', {
+        invoiceId,
+        editor: { id: user.id, name: user.name },
+      });
+    }
     broadcastPresence();
   });
 });

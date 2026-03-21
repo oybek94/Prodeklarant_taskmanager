@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useSocket } from '../contexts/SocketContext';
+import toast from 'react-hot-toast';
 
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 
@@ -69,6 +71,10 @@ const Invoice = () => {
   const [sertifikatStageCompleted, setSertifikatStageCompleted] = useState(false);
   const [taskHasErrors, setTaskHasErrors] = useState(false);
   const canEditEffective = canEdit && !viewOnly && (!sertifikatStageCompleted || taskHasErrors);
+
+  // Socket.io: invoice tahrirlash konflikti
+  const socket = useSocket();
+  const [editingConflictEditors, setEditingConflictEditors] = useState<{ id: number; name: string }[]>([]);
 
   const [searchParams] = useSearchParams();
 
@@ -153,6 +159,46 @@ const Invoice = () => {
       }
     }
   }, [invoice?.id, invoice?.additionalInfo, duplicateInvoiceIdFromState]);
+
+  // Socket.io: invoice tahrirlash tracking
+  useEffect(() => {
+    if (!socket || !invoice?.id) return;
+    // Serverga xabar berish: shu invoysni tahrirlayapman
+    socket.emit('invoice:editing', { invoiceId: invoice.id });
+
+    const onConflict = (data: { invoiceId: number; editors: { id: number; name: string }[] }) => {
+      if (data.invoiceId === invoice.id) {
+        setEditingConflictEditors(data.editors);
+        const names = data.editors.map(e => e.name).join(', ');
+        toast(`⚠️ ${names} ham shu invoysni tahrirlayapti!`, { icon: '⚠️', duration: 6000 });
+      }
+    };
+    const onEditingBy = (data: { invoiceId: number; editor: { id: number; name: string } }) => {
+      if (data.invoiceId === invoice.id) {
+        setEditingConflictEditors(prev => {
+          if (prev.some(e => e.id === data.editor.id)) return prev;
+          return [...prev, data.editor];
+        });
+        toast(`⚠️ ${data.editor.name} shu invoysni ochdi!`, { icon: '⚠️', duration: 4000 });
+      }
+    };
+    const onEditingLeft = (data: { invoiceId: number; editor: { id: number; name: string } }) => {
+      if (data.invoiceId === invoice.id) {
+        setEditingConflictEditors(prev => prev.filter(e => e.id !== data.editor.id));
+      }
+    };
+
+    socket.on('invoice:editingConflict', onConflict);
+    socket.on('invoice:editingBy', onEditingBy);
+    socket.on('invoice:editingLeft', onEditingLeft);
+
+    return () => {
+      socket.emit('invoice:editingDone');
+      socket.off('invoice:editingConflict', onConflict);
+      socket.off('invoice:editingBy', onEditingBy);
+      socket.off('invoice:editingLeft', onEditingLeft);
+    };
+  }, [socket, invoice?.id]);
 
   // Toggle paytida faqat state yangilanadi; saqlashda additionalInfo.visibleColumns serverga yuboriladi
   const setVisibleColumnsAndPersist = useCallback(
@@ -1708,6 +1754,16 @@ const Invoice = () => {
     <div className="min-h-screen bg-gray-50 py-8">
 
       <div className="max-w-6xl mx-auto px-4">
+        {/* Invoice tahrirlash konflikti xabari */}
+        {editingConflictEditors.length > 0 && (
+          <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg flex items-center gap-2">
+            <Icon icon="lucide:alert-triangle" className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <span className="text-sm text-amber-800 dark:text-amber-200">
+              <strong>Diqqat!</strong> {editingConflictEditors.map(e => e.name).join(', ')} ham shu invoysni tahrirlayapti.
+              O'zgarishlar bir-birini yo'qotishi mumkin.
+            </span>
+          </div>
+        )}
         <style>
           {`
             .invoice-form input[type="number"]::-webkit-outer-spin-button,

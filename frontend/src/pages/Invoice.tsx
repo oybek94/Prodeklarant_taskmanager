@@ -4,11 +4,13 @@ import { useParams, useNavigate, useSearchParams, useLocation } from 'react-rout
 
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../lib/api';
+import axios from 'axios';
 import DateInput from '../components/DateInput';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { getTnvedProducts } from '../utils/tnvedProducts';
 import { Icon } from '@iconify/react';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 import type {
   InvoiceItem,
@@ -171,49 +173,12 @@ const Invoice = () => {
   const sertifikatlarDropdownRef = useRef<HTMLDivElement>(null);
   const [invoysDropdownOpen, setInvoysDropdownOpen] = useState(false);
   const invoysDropdownRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!columnsDropdownOpen) return;
-    const closeOnClickOutside = (e: MouseEvent) => {
-      if (columnsDropdownRef.current && !columnsDropdownRef.current.contains(e.target as Node)) {
-        setColumnsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', closeOnClickOutside);
-    return () => document.removeEventListener('mousedown', closeOnClickOutside);
-  }, [columnsDropdownOpen]);
-  useEffect(() => {
-    if (!tirSmrDropdownOpen) return;
-    const closeOnClickOutside = (e: MouseEvent) => {
-      if (tirSmrDropdownRef.current && !tirSmrDropdownRef.current.contains(e.target as Node)) {
-        setTirSmrDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', closeOnClickOutside);
-    return () => document.removeEventListener('mousedown', closeOnClickOutside);
-  }, [tirSmrDropdownOpen]);
-  useEffect(() => {
-    if (!sertifikatlarDropdownOpen) return;
-    const closeOnClickOutside = (e: MouseEvent) => {
-      if (sertifikatlarDropdownRef.current && !sertifikatlarDropdownRef.current.contains(e.target as Node)) {
-        setSertifikatlarDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', closeOnClickOutside);
-    return () => document.removeEventListener('mousedown', closeOnClickOutside);
-  }, [sertifikatlarDropdownOpen]);
-  useEffect(() => {
-    if (!invoysDropdownOpen) return;
-    const closeOnClickOutside = (e: MouseEvent) => {
-      if (invoysDropdownRef.current && !invoysDropdownRef.current.contains(e.target as Node)) {
-        setInvoysDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', closeOnClickOutside);
-    return () => document.removeEventListener('mousedown', closeOnClickOutside);
-  }, [invoysDropdownOpen]);
+  useClickOutside(columnsDropdownRef, columnsDropdownOpen, useCallback(() => setColumnsDropdownOpen(false), []));
+  useClickOutside(tirSmrDropdownRef, tirSmrDropdownOpen, useCallback(() => setTirSmrDropdownOpen(false), []));
+  useClickOutside(sertifikatlarDropdownRef, sertifikatlarDropdownOpen, useCallback(() => setSertifikatlarDropdownOpen(false), []));
+  useClickOutside(invoysDropdownRef, invoysDropdownOpen, useCallback(() => setInvoysDropdownOpen(false), []));
 
   const [form, setForm] = useState({
-
     invoiceNumber: undefined as string | undefined,
 
     date: new Date().toISOString().split('T')[0],
@@ -240,7 +205,7 @@ const Invoice = () => {
 
     amountPaid: 0,
 
-    additionalInfo: {} as any,
+    additionalInfo: {} as Record<string, unknown>,
 
     // Дополнительная информация
     deliveryTerms: '', // Условия поставки
@@ -305,7 +270,7 @@ const Invoice = () => {
       const exppn_addr = selectedContract ? selectedContract.sellerLegalAddress : '';
       // We don't have a direct field for EXPPN_TELNO, EXPPN_REGN_TP_NM in the contract, 
       // but we will provide what we can based on the existing fields.
-      
+
       const imppn_nm = selectedContract ? selectedContract.buyerName : '';
       const imppn_addr = selectedContract ? selectedContract.buyerAddress : '';
 
@@ -317,7 +282,7 @@ const Invoice = () => {
         EXPPN_ADDR: exppn_addr || '',
         EXPPN_TELNO: '',
         EXPPN_REGN_TP_NM: form.fssRegionName || '', // FSS hudud nomi (shartli)
-        
+
         // Sotib oluvchi
         IMPPN_NM: imppn_nm || '',
         IMPPN_ADDR: imppn_addr || '',
@@ -331,24 +296,25 @@ const Invoice = () => {
 
         // Mahsulotlar ro'yxati (kengaytma tekshirishi uchun)
         items: items.map(item => ({
-            tnved: item.tnvedCode || '',
-            name: item.name || '',
-            net: item.netWeight || '',
-            gross: item.grossWeight || '',
-            quantity: item.quantity || 0,
-            packagesCount: item.packagesCount || 0
+          tnved: item.tnvedCode || '',
+          name: item.name || '',
+          net: item.netWeight || '',
+          gross: item.grossWeight || '',
+          quantity: item.quantity || 0,
+          packagesCount: item.packagesCount || 0
         }))
       };
-      
-      localStorage.setItem('current_export_invoice', JSON.stringify(exportData));
+
+      sessionStorage.setItem('current_export_invoice', JSON.stringify(exportData));
     }
   }, [form, items, contracts, selectedContractId]);
   // --------------------------------------
 
   useEffect(() => {
-
-    loadData();
-
+    let cancelled = false;
+    loadData(() => cancelled);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId, clientId, contractIdFromQuery]);
 
   useEffect(() => {
@@ -394,9 +360,15 @@ const Invoice = () => {
     return tnvedProducts;
   }, [selectedContractSpec, tnvedProducts]);
 
+  const lastPackagingLoadRef = useRef<number>(0);
   useEffect(() => {
-    window.addEventListener('focus', loadPackagingTypes);
-    return () => window.removeEventListener('focus', loadPackagingTypes);
+    const throttledLoad = () => {
+      if (Date.now() - lastPackagingLoadRef.current < 60_000) return;
+      lastPackagingLoadRef.current = Date.now();
+      loadPackagingTypes();
+    };
+    window.addEventListener('focus', throttledLoad);
+    return () => window.removeEventListener('focus', throttledLoad);
   }, [loadPackagingTypes]);
 
   // Invoice raqam takroriy yoki yo'qligini tekshirish (debounce 300ms)
@@ -429,27 +401,22 @@ const Invoice = () => {
     };
   }, [form.invoiceNumber, selectedContractId, invoice?.id]);
 
-  const loadData = async () => {
-
+  const loadData = async (isCancelled: () => boolean = () => false) => {
     try {
-
       setLoading(true);
 
       // Agar clientId va contractId bo'lsa, yangi invoice yaratish
 
       if (clientId && contractIdFromQuery) {
-
         // Mijozning shartnomalarini olish
 
         try {
-
           const contractsResponse = await apiClient.get(`/contracts/client/${clientId}`);
+          if (isCancelled()) return;
 
           setContracts(contractsResponse.data);
-
-        } catch (error: any) {
+        } catch (error) {
           console.error('Error loading contracts:', error);
-
         }
 
         // Tanlangan shartnomani o'rnatish
@@ -459,13 +426,12 @@ const Invoice = () => {
         // Shartnoma ma'lumotlarini yuklash va form'ga to'ldirish
 
         try {
-
           const contractResponse = await apiClient.get(`/contracts/${contractIdFromQuery}`);
+          if (isCancelled()) return;
 
           const contract = contractResponse.data;
 
           setForm(prev => ({
-
             ...prev,
 
             contractNumber: contract.contractNumber,
@@ -474,7 +440,6 @@ const Invoice = () => {
 
             date: new Date().toISOString().split('T')[0],
             gln: contract.gln != null ? contract.gln : prev.gln,
-
           }));
 
           // Shartnoma ma'lumotlarini avtomatik to'ldirish
@@ -493,6 +458,7 @@ const Invoice = () => {
                 // next-number olinmasa bo'sh qoladi
               }
               const dupRes = await apiClient.get(`/invoices/${duplicateInvoiceId}`);
+              if (isCancelled()) return;
               const dup = dupRes.data as {
                 date?: string;
                 currency?: string;
@@ -567,116 +533,92 @@ const Invoice = () => {
                   : []
               );
               // dublikat yuklanmasa oddiy yangi invoice qoldiramiz
-              // dublikat yuklanmasa oddiy yangi invoice qoldiramiz
             } catch (e) {
               console.error('Error loading duplicate invoice:', e);
             }
           }
-
         } catch (error) {
-
           console.error('Error loading contract:', error);
-
         }
 
         setLoading(false);
 
         return;
-
       }
 
       // Eski usul: taskId orqali
 
       if (taskId) {
-
         // Task ma'lumotlarini olish
 
         const taskResponse = await apiClient.get(`/tasks/${taskId}`);
+        if (isCancelled()) return;
 
         setTask(taskResponse.data);
 
         // Mijozning shartnomalarini olish
 
         try {
-
           const contractsResponse = await apiClient.get(`/contracts/client/${taskResponse.data.clientId}`);
+          if (isCancelled()) return;
 
           setContracts(contractsResponse.data);
 
           // Agar URL'da contractId bo'lsa, uni tanlash
 
           if (contractIdFromQuery) {
-
             setSelectedContractId(contractIdFromQuery);
 
             // Contract ma'lumotlarini yuklash — form faqat invoice yo'q bo'lsa to'ldiriladi (pastda)
 
             try {
-
               const contractResponse = await apiClient.get(`/contracts/${contractIdFromQuery}`);
 
               const contract = contractResponse.data;
 
               setForm(prev => ({
-
                 ...prev,
 
                 contractNumber: contract.contractNumber,
 
                 paymentTerms: contract.deliveryTerms || prev.paymentTerms,
                 gln: contract.gln != null ? contract.gln : prev.gln,
-
               }));
 
               // handleContractSelect faqat invoice yo'q bo'lganda chaqiriladi (saqlangan ma'lumotlarni ustidan yozmaslik uchun)
-
             } catch (error) {
-
               console.error('Error loading contract:', error);
-
             }
-
           }
-
-        } catch (error: any) {
+        } catch (error) {
           console.error('Error loading contracts:', error);
-
         }
 
         // Invoice ma'lumotlarini olish (yo'q bo'lsa 200 + null qaytadi)
 
         try {
-
           const invoiceResponse = await apiClient.get(`/invoices/task/${taskId}`);
+          if (isCancelled()) return;
 
           const inv = invoiceResponse.data;
 
           if (!inv) {
-
             setInvoice(null);
 
             if (taskResponse.data?.client?.contractNumber) {
-
               setForm(prev => ({
-
                 ...prev,
 
                 contractNumber: taskResponse.data.client.contractNumber,
-
               }));
-
             }
 
             // Yangi invoice — shartnoma ma'lumotlari bilan form'ni to'ldirish
 
             if (contractIdFromQuery) {
-
               handleContractSelect(contractIdFromQuery);
-
             }
-
           } else {
-
             setInvoice(inv);
 
             setForm(prev => ({
@@ -763,6 +705,7 @@ const Invoice = () => {
               setSelectedContractId(inv.contractId.toString());
               try {
                 const contractResponse = await apiClient.get(`/contracts/${inv.contractId}`);
+                if (isCancelled()) return;
                 const contract = contractResponse.data;
                 const contractCurrency = (contract.contractCurrency && ['USD', 'RUB', 'EUR'].includes(contract.contractCurrency)) ? contract.contractCurrency : 'USD';
                 setSelectedContractCurrency(contractCurrency);
@@ -795,13 +738,9 @@ const Invoice = () => {
                 console.error('Error loading contract:', error);
               }
             }
-
           }
-
-        } catch (error: any) {
-
-          if (error.response?.status === 404) {
-
+        } catch (error) {
+          if (axios.isAxiosError(error) && error.response?.status === 404) {
             setInvoice(null);
             if (taskResponse.data?.client?.contractNumber) {
               setForm(prev => ({
@@ -809,70 +748,59 @@ const Invoice = () => {
                 contractNumber: taskResponse.data.client.contractNumber,
               }));
             }
-
           } else {
-
             console.error('Error loading invoice:', error);
-
           }
-
         }
-
       }
-
     } catch (error) {
-
       console.error('Error loading data:', error);
 
       alert('Ma\'lumotlarni yuklashda xatolik yuz berdi');
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
-  const handleItemChange = (index: number, field: keyof InvoiceItem, value: any) => {
+  const handleItemChange = useCallback((index: number, field: keyof InvoiceItem, value: string | number | undefined) => {
+    setItems((prev) => {
+      const newItems = [...prev];
 
-    const newItems = [...items];
+      newItems[index] = { ...newItems[index], [field]: value };
 
-    newItems[index] = { ...newItems[index], [field]: value };
+      // Foydalanuvchi nettoni qo'lda o'zgartirganda formulani tozalash
+      if (field === 'netWeight') {
+        newItems[index].netWeightFormula = undefined;
+      }
 
-    // Foydalanuvchi nettoni qo'lda o'zgartirganda formulani tozalash
-    if (field === 'netWeight') {
-      newItems[index].netWeightFormula = undefined;
-    }
-
-    // Brutto yoki Кол-во упаковки o'zgarganda: agar netto formulasi bor bo'lsa, formula bo'yicha yangilash; yo'q bo'lsa nettoni tozalash
-    if (field === 'grossWeight' || field === 'packagesCount') {
-      setEditingNetWeight((prev) => (prev?.index === index ? null : prev));
-      const formula = newItems[index].netWeightFormula?.trim();
-      if (formula?.startsWith('*')) {
-        const mult = parseFloat(formula.slice(1).trim().replace(',', '.'));
-        if (!Number.isNaN(mult)) {
-          const gross = field === 'grossWeight' ? (value ?? 0) : (newItems[index].grossWeight ?? 0);
-          const pkgCount = field === 'packagesCount' ? (value ?? 0) : (newItems[index].packagesCount ?? 0);
-          newItems[index].netWeight = Math.round(gross - mult * pkgCount);
+      // Brutto yoki Кол-во упаковки o'zgarganda: agar netto formulasi bor bo'lsa, formula bo'yicha yangilash; yo'q bo'lsa nettoni tozalash
+      if (field === 'grossWeight' || field === 'packagesCount') {
+        setEditingNetWeight((p) => (p?.index === index ? null : p));
+        const formula = newItems[index].netWeightFormula?.trim();
+        if (formula?.startsWith('*')) {
+          const mult = parseFloat(formula.slice(1).trim().replace(',', '.'));
+          if (!Number.isNaN(mult)) {
+            const gross = field === 'grossWeight' ? (value ?? 0) : (newItems[index].grossWeight ?? 0);
+            const pkgCount = field === 'packagesCount' ? (value ?? 0) : (newItems[index].packagesCount ?? 0);
+            newItems[index].netWeight = Math.round(Number(gross) - mult * Number(pkgCount));
+          } else {
+            newItems[index].netWeight = undefined;
+          }
         } else {
           newItems[index].netWeight = undefined;
         }
-      } else {
-        newItems[index].netWeight = undefined;
       }
-    }
 
-    // Total price ni hisoblash: Нетто * Цена за ед.изм.
-    if (field === 'netWeight' || field === 'unitPrice' || field === 'grossWeight' || field === 'packagesCount') {
-      const netWeight = newItems[index].netWeight ?? 0;
-      const unitPrice = newItems[index].unitPrice ?? 0;
-      newItems[index].totalPrice = netWeight * unitPrice;
-    }
+      // Total price ni hisoblash: Нетто * Цена за ед.изм.
+      if (field === 'netWeight' || field === 'unitPrice' || field === 'grossWeight' || field === 'packagesCount') {
+        const netWeight = newItems[index].netWeight ?? 0;
+        const unitPrice = newItems[index].unitPrice ?? 0;
+        newItems[index].totalPrice = netWeight * unitPrice;
+      }
 
-    setItems(newItems);
-
-  };
+      return newItems;
+    });
+  }, []);
 
   const handleNameChange = (index: number, value: string) => {
     const newItems = [...items];
@@ -1186,52 +1114,36 @@ const Invoice = () => {
     }
   }, [invoice?.id, savedSnapshot, currentSnapshot, markSnapshotAfterSave]);
 
-  useEffect(() => {
-    if (!showPdfMenu) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!pdfMenuRef.current) return;
-      if (pdfMenuRef.current.contains(event.target as Node)) return;
-      setShowPdfMenu(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showPdfMenu]);
+  useClickOutside(pdfMenuRef, showPdfMenu, useCallback(() => setShowPdfMenu(false), []));
 
-  const generateSmrExcel = async () => {
+  const downloadTemplate = async (
+    endpoint: string,
+    filePrefix: string,
+    errorLabel: string,
+    processType?: 'TIR' | 'CERT' | 'DECLARATION',
+    overrideFileName?: string
+  ) => {
     if (!invoice?.id) {
       alert('Invoice topilmadi');
       return;
     }
     try {
-      const response = await apiClient.get(`/invoices/${invoice.id}/cmr`, {
+      const response = await apiClient.get(`/invoices/${invoice.id}/${endpoint}`, {
         responseType: 'blob',
       });
-      const fileName = `${buildDownloadBase('SMR')}.xlsx`;
-      await downloadExcelResponse(response, fileName, 'CMR yuklab olishda xatolik yuz berdi');
-      trackProcessDownload('TIR');
+      const fileName = overrideFileName || `${buildDownloadBase(filePrefix)}.xlsx`;
+      await downloadExcelResponse(response, fileName, `${errorLabel} yuklab olishda xatolik yuz berdi`);
+      if (processType) trackProcessDownload(processType);
     } catch (error) {
-      console.error('Error downloading CMR:', error);
-      alert(error instanceof Error ? error.message : 'CMR yuklab olishda xatolik yuz berdi');
+      console.error(`Error downloading ${errorLabel}:`, error);
+      alert(error instanceof Error ? error.message : `${errorLabel} yuklab olishda xatolik yuz berdi`);
     }
   };
 
-  const generateTirExcel = async () => {
-    if (!invoice?.id) {
-      alert('Invoice topilmadi');
-      return;
-    }
-    try {
-      const response = await apiClient.get(`/invoices/${invoice.id}/tir`, {
-        responseType: 'blob',
-      });
-      const fileName = `${buildDownloadBase('TIR')}.xlsx`;
-      await downloadExcelResponse(response, fileName, 'TIR yuklab olishda xatolik yuz berdi');
-      trackProcessDownload('TIR');
-    } catch (error) {
-      console.error('Error downloading TIR:', error);
-      alert(error instanceof Error ? error.message : 'TIR yuklab olishda xatolik yuz berdi');
-    }
-  };
+  const generateSmrExcel = () => downloadTemplate('cmr', 'SMR', 'CMR', 'TIR');
+  const generateTirExcel = () => downloadTemplate('tir', 'TIR', 'TIR', 'TIR');
+  const generateST1Excel = () => downloadTemplate('st1', 'ST1', 'ST-1 shabloni', 'CERT');
+  const generateCommodityEkExcel = () => downloadTemplate('commodity-ek', 'COMMODITY', 'Deklaratsiya shabloni', 'DECLARATION', 'CommodityEk_New.xlsx');
 
   const generateFssExcel = async (override?: {
     internalCode?: string;
@@ -1240,16 +1152,11 @@ const Invoice = () => {
     filePrefix?: FssFilePrefix;
     templateType?: 'ichki' | 'tashqi';
   }) => {
-    if (!invoice?.id) {
-      alert('Invoice topilmadi');
-      return;
-    }
+    if (!invoice?.id) { alert('Invoice topilmadi'); return; }
     try {
       const query = buildFssQuery(override);
       const url = query ? `/invoices/${invoice.id}/fss?${query}` : `/invoices/${invoice.id}/fss`;
-      const response = await apiClient.get(url, {
-        responseType: 'blob',
-      });
+      const response = await apiClient.get(url, { responseType: 'blob' });
       const prefix = override?.filePrefix || fssFilePrefix || 'Ichki';
       const fileName = `${buildDownloadBase(prefix.toUpperCase())}.xlsx`;
       await downloadExcelResponse(response, fileName, 'FSS yuklab olishda xatolik yuz berdi');
@@ -1261,14 +1168,9 @@ const Invoice = () => {
   };
 
   const generateInvoiceExcel = async () => {
-    if (!invoice?.id) {
-      alert('Invoice topilmadi');
-      return;
-    }
+    if (!invoice?.id) { alert('Invoice topilmadi'); return; }
     try {
-      const response = await apiClient.get(`/invoices/${invoice.id}/xlsx`, {
-        responseType: 'blob',
-      });
+      const response = await apiClient.get(`/invoices/${invoice.id}/xlsx`, { responseType: 'blob' });
       const fileName = `${buildInvoiceDownloadBase()}.xlsx`;
       await downloadExcelResponse(response, fileName, 'Invoys Excel yuklab olishda xatolik yuz berdi');
     } catch (error) {
@@ -1277,58 +1179,17 @@ const Invoice = () => {
     }
   };
 
-  const generateST1Excel = async () => {
-    if (!invoice?.id) {
-      alert('Invoice topilmadi');
-      return;
-    }
-    try {
-      const response = await apiClient.get(`/invoices/${invoice.id}/st1`, {
-        responseType: 'blob',
-      });
-      const fileName = `${buildDownloadBase('ST1')}.xlsx`;
-      await downloadExcelResponse(response, fileName, 'ST-1 shabloni yuklab olishda xatolik yuz berdi');
-      trackProcessDownload('CERT');
-    } catch (error) {
-      console.error('Error downloading ST-1 Excel:', error);
-      alert(error instanceof Error ? error.message : 'ST-1 shabloni yuklab olishda xatolik yuz berdi');
-    }
-  };
-
-  const generateCommodityEkExcel = async () => {
-    if (!invoice?.id) {
-      alert('Invoice topilmadi');
-      return;
-    }
-    try {
-      const response = await apiClient.get(`/invoices/${invoice.id}/commodity-ek`, {
-        responseType: 'blob',
-      });
-      const fileName = 'CommodityEk_New.xlsx';
-      await downloadExcelResponse(response, fileName, 'Deklaratsiya shabloni yuklab olishda xatolik yuz berdi');
-      trackProcessDownload('DECLARATION');
-    } catch (error) {
-      console.error('Error downloading Deklaratsiya Excel:', error);
-      alert(error instanceof Error ? error.message : 'Deklaratsiya shabloni yuklab olishda xatolik yuz berdi');
-    }
-  };
-
   const addItem = () => {
     setItems([...items, { ...createDefaultItem(), tnvedCode: '', pluCode: '', packageType: '', grossWeight: undefined, netWeight: undefined }]);
   };
 
   const removeItem = (index: number) => {
-
     if (items.length > 1) {
-
       setItems(items.filter((_, i) => i !== index));
-
     }
-
   };
 
   const handleContractSelect = async (contractId: string) => {
-
     setSelectedContractId(contractId);
 
     if (!contractId) {
@@ -1338,7 +1199,6 @@ const Invoice = () => {
     }
 
     try {
-
       const response = await apiClient.get(`/contracts/${contractId}`);
 
       const contract = response.data;
@@ -1380,30 +1240,21 @@ const Invoice = () => {
       // AdditionalInfo'ga to'lov usulini qo'shish
 
       if (contract.paymentMethod) {
-
         setForm(prev => ({
-
           ...prev,
 
           additionalInfo: {
-
             ...prev.additionalInfo,
 
             paymentMethod: contract.paymentMethod,
-
           }
-
         }));
-
       }
-
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading contract:', error);
 
       alert('Shartnoma ma\'lumotlarini yuklashda xatolik yuz berdi');
-
     }
-
   };
 
   const handleMarkInvoysReady = async () => {
@@ -1593,7 +1444,6 @@ const Invoice = () => {
     }
 
     try {
-
       setSaving(true);
 
       let currentTaskId = taskId ? Number(taskId) : undefined;
@@ -1622,8 +1472,6 @@ const Invoice = () => {
         return;
       }
 
-      const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);
-
       const normalizedItems = items.map((item, index) => {
         const normalized = normalizeItem(item);
         const qty = normalized.quantity != null ? Number(normalized.quantity) : 0;
@@ -1641,7 +1489,6 @@ const Invoice = () => {
       });
 
       const invoiceData = {
-
         taskId: currentTaskId,
 
         clientId: clientId ? Number(clientId) : (currentTask?.client?.id ?? (currentTask as { clientId?: number })?.clientId) || undefined,
@@ -1704,16 +1551,17 @@ const Invoice = () => {
             visibleAdditionalInfoFields: additionalInfoVisible,
           };
           if (invoice) {
-            const taskErrorsCount = (invoice as any).task?._count?.errors ?? 0;
+            const taskErrorsCount = ((invoice as unknown as Record<string, unknown>).task as { _count?: { errors?: number } } | undefined)?._count?.errors ?? 0;
             const onlyLogAfterError = taskErrorsCount > 0;
             const newEntries = onlyLogAfterError ? buildChangeLog() : [];
-            const existingLog = (invoice.additionalInfo && typeof invoice.additionalInfo === 'object' && Array.isArray((invoice.additionalInfo as any).changeLog))
-              ? (invoice.additionalInfo as any).changeLog
+            const ai = invoice.additionalInfo && typeof invoice.additionalInfo === 'object' ? invoice.additionalInfo as Record<string, unknown> : null;
+            const existingLog = (ai && Array.isArray(ai.changeLog))
+              ? ai.changeLog
               : [];
             if (newEntries.length > 0) {
-              (base as any).changeLog = [...existingLog, ...newEntries];
+              (base as Record<string, unknown>).changeLog = [...existingLog, ...newEntries];
             } else if (existingLog.length > 0) {
-              (base as any).changeLog = existingLog;
+              (base as Record<string, unknown>).changeLog = existingLog;
             }
           }
           return base;
@@ -1745,9 +1593,9 @@ const Invoice = () => {
       if (currentTaskId && nextTaskTitle && currentTask?.title !== nextTaskTitle) {
         try {
           await apiClient.patch(`/tasks/${currentTaskId}`, { title: nextTaskTitle });
-        } catch (error: any) {
+        } catch (error) {
           console.error('Error updating task title:', error);
-          alert(error.response?.data?.error || 'Task nomini yangilashda xatolik yuz berdi');
+          alert(axios.isAxiosError(error) && error.response?.data?.error ? error.response.data.error : 'Task nomini yangilashda xatolik yuz berdi');
         }
       }
 
@@ -1760,23 +1608,17 @@ const Invoice = () => {
       if (!taskId && currentTaskId) {
         navigate(`/invoices/task/${currentTaskId}${selectedContractId ? `?contractId=${selectedContractId}` : ''}`, { replace: true });
       }
-
-    } catch (error: any) {
-
+    } catch (error) {
       console.error('Error saving invoice:', error);
 
-      const errMsg = error.response?.data?.error || 'Invoice saqlashda xatolik yuz berdi';
+      const errMsg = (axios.isAxiosError(error) && error.response?.data?.error) ? error.response.data.error : 'Invoice saqlashda xatolik yuz berdi';
       if (typeof errMsg === 'string' && errMsg.includes('invoice raqami allaqachon mavjud')) {
         setInvoiceNumberWarning('Bu raqam allaqachon mavjud. Ozgartirish kerak');
       }
       alert(errMsg);
-
     } finally {
-
       setSaving(false);
-
     }
-
   };
 
   const filteredRegionCodes = regionCodes.filter((region) => {
@@ -1790,7 +1632,6 @@ const Invoice = () => {
   });
 
   if (loading) {
-
     return (
 
       <div className="flex items-center justify-center min-h-screen">
@@ -1800,11 +1641,9 @@ const Invoice = () => {
       </div>
 
     );
-
   }
 
   if (!task && taskId) {
-
     return (
 
       <div className="p-6">
@@ -1826,7 +1665,6 @@ const Invoice = () => {
       </div>
 
     );
-
   }
 
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -2802,19 +2640,19 @@ const Invoice = () => {
                 )}
                 {viewTab === 'spec'
                   ? specCustomFields.map((field) =>
-                      isAdditionalInfoVisible(`spec_${field.id}`) && field.value ? (
-                        <div key={field.id}>
-                          <strong>{field.label}:</strong> {field.value}
-                        </div>
-                      ) : null
-                    )
+                    isAdditionalInfoVisible(`spec_${field.id}`) && field.value ? (
+                      <div key={field.id}>
+                        <strong>{field.label}:</strong> {field.value}
+                      </div>
+                    ) : null
+                  )
                   : customFields.map((field) =>
-                      isAdditionalInfoVisible(`custom_${field.id}`) && field.value ? (
-                        <div key={field.id}>
-                          <strong>{field.label}:</strong> {field.value}
-                        </div>
-                      ) : null
-                    )}
+                    isAdditionalInfoVisible(`custom_${field.id}`) && field.value ? (
+                      <div key={field.id}>
+                        <strong>{field.label}:</strong> {field.value}
+                      </div>
+                    ) : null
+                  )}
               </div>
             </div>
 
@@ -4328,8 +4166,6 @@ const Invoice = () => {
     </div>
 
   );
-
 };
 
 export default Invoice;
-

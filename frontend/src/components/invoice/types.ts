@@ -145,6 +145,12 @@ export type SpecRow = {
   totalPrice?: number;
 };
 
+export interface CustomField {
+  id: string;
+  label: string;
+  value: string;
+}
+
 export type ChangeLogEntry = {
   fieldLabel: string;
   oldValue: string;

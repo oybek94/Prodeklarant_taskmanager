@@ -13,7 +13,7 @@ async function getProdeklarantData(statusDiv) {
             const injectionResults = await chrome.scripting.executeScript({
                 target: { tabId: targetTabId },
                 func: () => {
-                   const data = localStorage.getItem('current_export_invoice');
+                   const data = sessionStorage.getItem('current_export_invoice');
                    if (data) {
                        try {
                            return JSON.parse(data);

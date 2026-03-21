@@ -10,250 +10,49 @@ import { jsPDF } from 'jspdf';
 import { getTnvedProducts } from '../utils/tnvedProducts';
 import { Icon } from '@iconify/react';
 
-const resolveUploadUrl = (url?: string | null) => {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const base = apiClient.defaults.baseURL || '';
-  if (!base || base.startsWith('/')) return url;
-  const origin = base.replace(/\/api\/?$/, '');
-  return `${origin}${url}`;
-};
-
-
-
-interface InvoiceItem {
-
-  id?: number;
-
-  tnvedCode?: string;
-
-  pluCode?: string;
-
-  name: string;
-
-  packageType?: string;
-
-  unit: string;
-
-  quantity: number;
-
-  packagesCount?: number;
-
-  grossWeight?: number;
-
-  netWeight?: number;
-
-  /** Netto formulasi, masalan "*1.2" — Brutto/Кол-во упаковки o'zgarganda shu bo'yicha qayta hisoblanadi */
-  netWeightFormula?: string;
-
-  unitPrice: number;
-
-  totalPrice: number;
-
-  orderIndex?: number;
-
-}
-
-
-
-interface Invoice {
-
-  id: number;
-
-  invoiceNumber: string;
-
-  contractNumber?: string;
-
-  taskId: number;
-
-  clientId: number;
-
-  branchId: number;
-
-  date: string;
-
-  currency: 'USD' | 'UZS';
-
-  totalAmount: number;
-
-  notes?: string;
-
-  additionalInfo?: any;
-
-}
-
-interface RegionCode {
-  id: number;
-  name: string;
-  internalCode: string;
-  externalCode: string;
-}
-
-
-
-interface Contract {
-
-  id: number;
-
-  contractNumber: string;
-
-  contractDate: string;
-
-  sellerName: string;
-
-  sellerLegalAddress: string;
-
-  sellerDetails?: string;
-  sellerInn?: string;
-
-  sellerOgrn?: string;
-
-  sellerBankName?: string;
-
-  sellerBankAddress?: string;
-
-  sellerBankAccount?: string;
-
-  sellerBankSwift?: string;
-
-  sellerCorrespondentBank?: string;
-
-  sellerCorrespondentBankAccount?: string;
-
-  sellerCorrespondentBankSwift?: string;
-
-  buyerName: string;
-
-  buyerAddress: string;
-
-  buyerDetails?: string;
-  buyerInn?: string;
-
-  buyerOgrn?: string;
-
-  buyerBankName?: string;
-
-  buyerBankAddress?: string;
-
-  buyerBankAccount?: string;
-
-  buyerBankSwift?: string;
-
-  buyerCorrespondentBank?: string;
-
-  buyerCorrespondentBankAccount?: string;
-
-  buyerCorrespondentBankSwift?: string;
-
-  shipperName?: string;
-
-  shipperAddress?: string;
-
-  shipperDetails?: string;
-  shipperInn?: string;
-
-  shipperOgrn?: string;
-
-  shipperBankName?: string;
-
-  shipperBankAddress?: string;
-
-  shipperBankAccount?: string;
-
-  shipperBankSwift?: string;
-
-  consigneeName?: string;
-
-  consigneeAddress?: string;
-
-  consigneeDetails?: string;
-  consigneeInn?: string;
-
-  consigneeOgrn?: string;
-
-  consigneeBankName?: string;
-
-  consigneeBankAddress?: string;
-
-  consigneeBankAccount?: string;
-
-  consigneeBankSwift?: string;
-
-  deliveryTerms?: string;
-
-  customsAddress?: string;
-
-  paymentMethod?: string;
-
-  contractCurrency?: string; // Shartnoma valyutasi (USD, RUB, EUR)
-
-  supplierDirector?: string; // Руководитель Поставщика
-  goodsReleasedBy?: string; // Товар отпустил
-  signatureUrl?: string;
-  sealUrl?: string;
-  sellerSignatureUrl?: string;
-  sellerSealUrl?: string;
-  buyerSignatureUrl?: string;
-  buyerSealUrl?: string;
-  consigneeSignatureUrl?: string;
-  consigneeSealUrl?: string;
-  companyLogoUrl?: string;
-  gln?: string; // GLN код
-  specification?: Array<{ productName?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number }>;
-}
-
-
-
-interface Task {
-
-  id: number;
-
-  title: string;
-
-  client: {
-
-    id: number;
-
-    name: string;
-
-    address?: string;
-
-    inn?: string;
-
-    phone?: string;
-
-    email?: string;
-
-    bankName?: string;
-
-    bankAddress?: string;
-
-    bankAccount?: string;
-
-    transitAccount?: string;
-
-    bankSwift?: string;
-
-    correspondentBank?: string;
-
-    correspondentBankAccount?: string;
-
-    correspondentBankSwift?: string;
-
-    contractNumber?: string;
-
-  };
-
-  branch?: {
-    id: number;
-    name: string;
-  };
-
-}
-
-
-
-const canEditInvoices = (role: string | undefined) => role === 'ADMIN' || role === 'MANAGER';
+import type {
+  InvoiceItem,
+  Invoice as InvoiceType,
+  Contract,
+  Task,
+  RegionCode,
+  SpecRow,
+  ChangeLogEntry,
+  ViewTab,
+  FssFilePrefix,
+  VisibleColumns,
+  ColumnLabels,
+  ColumnLabelKey,
+} from '../components/invoice/types';
+
+import {
+  resolveUploadUrl,
+  canEditInvoices,
+  getVisibleColumnsFromPayload,
+  createDefaultItem,
+  UNIT_OPTIONS,
+  DEFAULT_VISIBLE_COLUMNS,
+  DEFAULT_COLUMN_LABELS,
+} from '../components/invoice/types';
+
+import {
+  formatDate,
+  formatNumber,
+  formatNumberFixed,
+  normalizeItem,
+  syncItemsFromSpec,
+  getTareRange,
+  isTareInRange,
+  numberToWordsRu,
+  waitForPaint,
+  getVehiclePlate,
+  buildTaskTitle,
+  sanitizeFileName,
+  extractBlobErrorMessage,
+  downloadExcelResponse,
+} from '../components/invoice/invoiceUtils';
+
+import { useDeliveryTerms } from '../components/invoice/useDeliveryTerms';
 
 const Invoice = () => {
   const { user } = useAuth();
@@ -273,22 +72,10 @@ const Invoice = () => {
 
   const navigate = useNavigate();
 
-
-
   // URL'dan contractId ni olish (query parameter sifatida)
 
   const contractIdFromQuery = searchParams.get('contractId') || contractId;
 
-
-  // Sana formatlash funksiyasi (DD.MM.YYYY)
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}.${month}.${year}`;
-  };
   const [loading, setLoading] = useState(true);
 
   const [saving, setSaving] = useState(false);
@@ -296,82 +83,45 @@ const Invoice = () => {
 
   const [task, setTask] = useState<Task | null>(null);
 
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [invoice, setInvoice] = useState<InvoiceType | null>(null);
 
   const [contracts, setContracts] = useState<Contract[]>([]);
 
   const [selectedContractId, setSelectedContractId] = useState<string>('');
 
   const [selectedContractCurrency, setSelectedContractCurrency] = useState<string>('USD');
-  type SpecRow = { productName?: string; tnvedCode?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number };
   const [selectedContractSpec, setSelectedContractSpec] = useState<SpecRow[]>([]);
 
-  /** Shartnoma spetsifikatsiyasidagi nom va boshqa maydonlarni invoys qatorlariga (indeks bo‘yicha) yozadi. */
-  const syncItemsFromSpec = (currentItems: InvoiceItem[], spec: SpecRow[]): InvoiceItem[] =>
-    currentItems.map((item, i) => {
-      const row = spec[i];
-      if (!row) return item;
-      const next = { ...item };
-      if (row.productName != null && String(row.productName).trim() !== '') next.name = String(row.productName).trim();
-      if (row.tnvedCode != null && String(row.tnvedCode).trim() !== '') next.tnvedCode = String(row.tnvedCode).trim();
-      if (row.unitPrice != null) next.unitPrice = Number(row.unitPrice);
-      if (row.totalPrice != null) next.totalPrice = Number(row.totalPrice);
-      return next;
-    });
+  // Delivery terms va Column labels hook
+  const {
+    deliveryTermsOptions,
+    setDeliveryTermsOptions,
+    contractDeliveryTerms,
+    setContractDeliveryTerms,
+    columnLabels,
+    setColumnLabels,
+    addDeliveryTermOption,
+    mergeDeliveryTerms,
+    loadDeliveryTerms,
+    loadColumnLabels,
+    getContractKey: getDeliveryTermsContractKey,
+  } = useDeliveryTerms({ selectedContractId, contractIdFromQuery });
 
   const invoiceRef = useRef<HTMLDivElement | null>(null);
-  type ChangeLogEntry = { fieldLabel: string; oldValue: string; newValue: string; changedAt?: string };
   const initialForChangeLogRef = useRef<{ form: Record<string, unknown>; items: InvoiceItem[] } | null>(null);
   const [isPdfMode, setIsPdfMode] = useState(false);
-  const [viewTab, setViewTab] = useState<'invoice' | 'spec' | 'packing'>('invoice');
+  const [viewTab, setViewTab] = useState<ViewTab>('invoice');
   const [pdfIncludeSeal, setPdfIncludeSeal] = useState(true);
   const [showPdfMenu, setShowPdfMenu] = useState(false);
   const pdfMenuRef = useRef<HTMLDivElement | null>(null);
 
-  const [items, setItems] = useState<InvoiceItem[]>([
-
-    {
-
-      name: '',
-
-      unit: 'кг',
-
-      quantity: 0,
-
-      packagesCount: undefined,
-
-      unitPrice: 0,
-
-      totalPrice: 0,
-
-    }
-
-  ]);
-  const UNIT_OPTIONS = ['кг', 'шт', 'л', 'м', 'т', 'упак.', 'ящ.', 'кор.', 'меш.', 'бут.', 'банк.'];
-  const defaultVisibleColumns = {
-    index: true,
-    tnved: true,
-    plu: true,
-    name: true,
-    package: true,
-    packagesCount: true,
-    unit: true,
-    quantity: true,
-    gross: true,
-    net: true,
-    unitPrice: true,
-    total: true,
-    actions: true,
-  };
-  // Ustunlar tanlovi backendda (additionalInfo.visibleColumns / columnLabels) saqlanadi — invoysni har safar ochganda serverdan yuklanadi
-  const getVisibleColumnsFromPayload = (payload: Record<string, unknown> | null | undefined): typeof defaultVisibleColumns | null => {
-    if (!payload || typeof payload !== 'object' || !payload.visibleColumns || typeof payload.visibleColumns !== 'object') return null;
-    const v = payload.visibleColumns as Record<string, boolean>;
-    return { ...defaultVisibleColumns, ...v };
-  };
+  const [items, setItems] = useState<InvoiceItem[]>([createDefaultItem()]);
+  // Alias for backward compatibility within this file
+  const defaultVisibleColumns = DEFAULT_VISIBLE_COLUMNS;
+  // Ustunlar tanlovi backendda (additionalInfo.visibleColumns / columnLabels) saqlanadi
   const [visibleColumns, setVisibleColumns] = useState(defaultVisibleColumns);
   const lastInvoiceIdRef = useRef<number | null>(null);
-  const latestVisibleColumnsRef = useRef<typeof defaultVisibleColumns>(defaultVisibleColumns);
+  const latestVisibleColumnsRef = useRef<VisibleColumns>(defaultVisibleColumns);
   latestVisibleColumnsRef.current = visibleColumns;
 
   const duplicateInvoiceIdFromState = (location.state as { duplicateInvoiceId?: number })?.duplicateInvoiceId ?? null;
@@ -461,108 +211,6 @@ const Invoice = () => {
     document.addEventListener('mousedown', closeOnClickOutside);
     return () => document.removeEventListener('mousedown', closeOnClickOutside);
   }, [invoysDropdownOpen]);
-  const getDeliveryTermsKey = (contractKey: string) => `invoice_delivery_terms_${contractKey}`;
-  const getDeliveryTermsContractKey = () => String(selectedContractId || contractIdFromQuery || 'default');
-  const loadDeliveryTerms = (contractKey: string): string[] => {
-    try {
-      const raw = localStorage.getItem(getDeliveryTermsKey(contractKey));
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed.filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
-      }
-      return [];
-    } catch {
-      return [];
-    }
-  };
-  const mergeDeliveryTerms = (contractTerms: string[], storedTerms: string[]) => {
-    const merged: string[] = [];
-    const seen = new Set<string>();
-    const addUnique = (value: string) => {
-      const trimmed = value.trim();
-      if (!trimmed) return;
-      if (seen.has(trimmed)) return;
-      seen.add(trimmed);
-      merged.push(trimmed);
-    };
-    contractTerms.forEach(addUnique);
-    storedTerms.forEach(addUnique);
-    return merged;
-  };
-  const [deliveryTermsOptions, setDeliveryTermsOptions] = useState(() => loadDeliveryTerms(getDeliveryTermsContractKey()));
-  const [contractDeliveryTerms, setContractDeliveryTerms] = useState<string[]>([]);
-  useEffect(() => {
-    const key = getDeliveryTermsContractKey();
-    localStorage.setItem(getDeliveryTermsKey(key), JSON.stringify(deliveryTermsOptions));
-  }, [deliveryTermsOptions, selectedContractId, contractIdFromQuery]);
-  const persistDeliveryTermsToContract = async (terms: string[]): Promise<boolean> => {
-    const contractIdValue = selectedContractId || contractIdFromQuery;
-    const contractIdNumber = contractIdValue ? Number(contractIdValue) : NaN;
-    if (!Number.isFinite(contractIdNumber)) return false;
-    try {
-      await apiClient.patch(`/contracts/${contractIdNumber}/delivery-terms`, {
-        deliveryTerms: terms.join('\n') || undefined,
-      });
-      return true;
-    } catch (error) {
-      console.error('Error saving delivery terms:', error);
-      return false;
-    }
-  };
-  const addDeliveryTermOption = async (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    if (contractDeliveryTerms.includes(trimmed)) return;
-    const next = [...contractDeliveryTerms, trimmed];
-    setContractDeliveryTerms(next);
-    setDeliveryTermsOptions(next);
-    const key = getDeliveryTermsContractKey();
-    localStorage.setItem(getDeliveryTermsKey(key), JSON.stringify(next));
-    const ok = await persistDeliveryTermsToContract(next);
-    if (!ok) {
-      alert("Условия поставки shartnomaga saqlanmadi. Qaytadan urinib ko'ring yoki administrator bilan bog'laning.");
-    }
-  };
-
-  const defaultColumnLabels = {
-    index: '№',
-    tnved: 'Код ТН ВЭД',
-    plu: 'Код PLU',
-    name: 'Наименование товара',
-    package: 'Вид упаковки',
-    packagesCount: 'Кол-во упаковки',
-    unit: 'Ед. изм.',
-    quantity: 'Мест',
-    gross: 'Брутто (кг)',
-    net: 'Нетто (кг)',
-    unitPrice: 'Цена за ед.изм.',
-    total: 'Сумма с НДС',
-    actions: 'Amallar',
-  };
-  type ColumnLabelKey = keyof typeof defaultColumnLabels;
-  const getColumnLabelsKey = (contractKey: string) => `invoice_column_labels_${contractKey}`;
-  const loadColumnLabels = (contractKey: string): typeof defaultColumnLabels => {
-    try {
-      const raw = localStorage.getItem(getColumnLabelsKey(contractKey));
-      if (!raw) return { ...defaultColumnLabels };
-      const parsed = JSON.parse(raw) as Record<string, string>;
-      return { ...defaultColumnLabels, ...parsed };
-    } catch {
-      return { ...defaultColumnLabels };
-    }
-  };
-  const [columnLabels, setColumnLabels] = useState(() => loadColumnLabels('default'));
-  useEffect(() => {
-    const key = String(selectedContractId || 'default');
-    localStorage.setItem(getColumnLabelsKey(key), JSON.stringify(columnLabels));
-  }, [columnLabels, selectedContractId]);
-
-  useEffect(() => {
-    const key = getDeliveryTermsContractKey();
-    setColumnLabels(loadColumnLabels(key));
-    setDeliveryTermsOptions(mergeDeliveryTerms(contractDeliveryTerms, loadDeliveryTerms(key)));
-  }, [selectedContractId, contractIdFromQuery, contractDeliveryTerms]);
 
   const [form, setForm] = useState({
 
@@ -639,7 +287,7 @@ const Invoice = () => {
   const [regionCodesLoading, setRegionCodesLoading] = useState(false);
   const [regionSearch, setRegionSearch] = useState('');
   const [showFssRegionModal, setShowFssRegionModal] = useState(false);
-  const [fssFilePrefix, setFssFilePrefix] = useState<'Ichki' | 'Tashqi'>('Ichki');
+  const [fssFilePrefix, setFssFilePrefix] = useState<FssFilePrefix>('Ichki');
   const [fssAutoDownload, setFssAutoDownload] = useState(true);
   const [tnvedProducts, setTnvedProducts] = useState<Array<{ id: string; name: string; code: string }>>([]);
   const [packagingTypes, setPackagingTypes] = useState<Array<{ id: string; name: string; code?: string }>>([]);
@@ -781,26 +429,11 @@ const Invoice = () => {
     };
   }, [form.invoiceNumber, selectedContractId, invoice?.id]);
 
-  const normalizeItem = (item: InvoiceItem): InvoiceItem => ({
-    ...item,
-    tnvedCode: item.tnvedCode ?? undefined,
-    pluCode: item.pluCode ?? undefined,
-    packageType: item.packageType ?? undefined,
-    quantity: item.quantity != null ? Number(item.quantity) : 0,
-    packagesCount: (item.packagesCount != null && Number(item.packagesCount) !== 0) ? Number(item.packagesCount) : undefined,
-    grossWeight: item.grossWeight != null ? Number(item.grossWeight) : undefined,
-    netWeight: item.netWeight != null ? Number(item.netWeight) : undefined,
-    unitPrice: item.unitPrice != null ? Number(item.unitPrice) : 0,
-    totalPrice: item.totalPrice != null ? Number(item.totalPrice) : 0,
-  });
-
   const loadData = async () => {
 
     try {
 
       setLoading(true);
-
-
 
       // Agar clientId va contractId bo'lsa, yangi invoice yaratish
 
@@ -819,13 +452,9 @@ const Invoice = () => {
 
         }
 
-
-
         // Tanlangan shartnomani o'rnatish
 
         setSelectedContractId(contractIdFromQuery);
-
-
 
         // Shartnoma ma'lumotlarini yuklash va form'ga to'ldirish
 
@@ -847,8 +476,6 @@ const Invoice = () => {
             gln: contract.gln != null ? contract.gln : prev.gln,
 
           }));
-
-
 
           // Shartnoma ma'lumotlarini avtomatik to'ldirish
 
@@ -952,15 +579,11 @@ const Invoice = () => {
 
         }
 
-
-
         setLoading(false);
 
         return;
 
       }
-
-
 
       // Eski usul: taskId orqali
 
@@ -972,8 +595,6 @@ const Invoice = () => {
 
         setTask(taskResponse.data);
 
-
-
         // Mijozning shartnomalarini olish
 
         try {
@@ -981,8 +602,6 @@ const Invoice = () => {
           const contractsResponse = await apiClient.get(`/contracts/client/${taskResponse.data.clientId}`);
 
           setContracts(contractsResponse.data);
-
-
 
           // Agar URL'da contractId bo'lsa, uni tanlash
 
@@ -1023,8 +642,6 @@ const Invoice = () => {
           console.error('Error loading contracts:', error);
 
         }
-
-
 
         // Invoice ma'lumotlarini olish (yo'q bo'lsa 200 + null qaytadi)
 
@@ -1174,7 +791,6 @@ const Invoice = () => {
                 const deliveryTermsKey = inv.contractId.toString();
                 const merged = mergeDeliveryTerms(deliveryTermsList, loadDeliveryTerms(deliveryTermsKey));
                 setDeliveryTermsOptions(merged);
-                localStorage.setItem(getDeliveryTermsKey(deliveryTermsKey), JSON.stringify(merged));
               } catch (error) {
                 console.error('Error loading contract:', error);
               }
@@ -1217,8 +833,6 @@ const Invoice = () => {
     }
 
   };
-
-
 
   const handleItemChange = (index: number, field: keyof InvoiceItem, value: any) => {
 
@@ -1377,33 +991,14 @@ const Invoice = () => {
     return item.netWeight !== undefined && item.netWeight !== null ? String(item.netWeight) : '';
   };
 
-  const waitForPaint = () =>
-    new Promise<void>((resolve) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => resolve());
-      });
-    });
-  const getVehiclePlate = (value?: string) => {
-    if (!value) return '';
-    return value.split('/')[0].trim();
-  };
-  const buildTaskTitle = (invoiceNumber?: string, vehicleNumber?: string) => {
-    const safeInvoice = invoiceNumber?.trim();
-    const plate = getVehiclePlate(vehicleNumber);
-    if (!safeInvoice || !plate) return '';
-    return `${safeInvoice} АВТО ${plate}`;
-  };
-
   const buildDownloadBase = (type: string) => {
-    const sanitize = (value: string) => value.replace(/[\\/:*?"<>|]+/g, '_').trim();
-    const plate = sanitize(getVehiclePlate(form.vehicleNumber) || (invoice?.invoiceNumber || form.invoiceNumber || 'N')).replace(/\s+/g, '_');
+    const plate = sanitizeFileName(getVehiclePlate(form.vehicleNumber) || (invoice?.invoiceNumber || form.invoiceNumber || 'N')).replace(/\s+/g, '_');
     return `${type}_${plate}`;
   };
 
   /** Invoys PDF va Invoys Excel uchun: "DZA-157 АВТО 40232BAA" ko'rinishi */
   const buildInvoiceDownloadBase = () => {
-    const sanitize = (value: string) => value.replace(/[\\/:*?"<>|]+/g, '_').trim();
-    const inv = sanitize(invoice?.invoiceNumber || form.invoiceNumber || 'Invoice');
+    const inv = sanitizeFileName(invoice?.invoiceNumber || form.invoiceNumber || 'Invoice');
     const plate = getVehiclePlate(form.vehicleNumber)?.trim() || '';
     return plate ? `${inv} АВТО ${plate}` : inv;
   };
@@ -1455,50 +1050,6 @@ const Invoice = () => {
     }
   };
 
-  const extractBlobErrorMessage = async (blob: Blob, fallback: string) => {
-    try {
-      const text = await blob.text();
-      if (!text) {
-        return fallback;
-      }
-      try {
-        const parsed = JSON.parse(text);
-        if (parsed?.error) {
-          return String(parsed.error);
-        }
-      } catch {
-        // Not JSON, fall back to raw text
-      }
-      return text;
-    } catch {
-      return fallback;
-    }
-  };
-
-  const downloadExcelResponse = async (
-    response: { data: Blob; status: number; headers?: any },
-    fileName: string,
-    fallbackError: string
-  ) => {
-    if (response.status >= 400) {
-      const message = await extractBlobErrorMessage(response.data, fallbackError);
-      throw new Error(message);
-    }
-    const contentType = String(response.headers?.['content-type'] || response.headers?.['Content-Type'] || '');
-    if (!contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-      const message = await extractBlobErrorMessage(response.data, fallbackError);
-      throw new Error(message);
-    }
-    const url = window.URL.createObjectURL(response.data);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-  };
-
   const trackProcessDownload = (processType: 'TIR' | 'CERT' | 'DECLARATION') => {
     const tid = taskId ? Number(taskId) : invoice?.taskId;
     if (!tid || !Number.isFinite(tid)) return;
@@ -1529,7 +1080,7 @@ const Invoice = () => {
     });
   };
 
-  const openFssRegionPicker = async (prefix: 'Ichki' | 'Tashqi' = 'Ichki') => {
+  const openFssRegionPicker = async (prefix: FssFilePrefix = 'Ichki') => {
     setFssFilePrefix(prefix);
     setFssAutoDownload(true);
     const hasSavedRegion =
@@ -1686,7 +1237,7 @@ const Invoice = () => {
     internalCode?: string;
     name?: string;
     externalCode?: string;
-    filePrefix?: 'Ichki' | 'Tashqi';
+    filePrefix?: FssFilePrefix;
     templateType?: 'ichki' | 'tashqi';
   }) => {
     if (!invoice?.id) {
@@ -1763,31 +1314,8 @@ const Invoice = () => {
   };
 
   const addItem = () => {
-
-    setItems([...items, {
-
-      name: '',
-
-      unit: 'кг',
-
-      quantity: 0,
-
-      packagesCount: undefined,
-
-      unitPrice: 0,
-
-      totalPrice: 0,
-
-      tnvedCode: '',
-      pluCode: '',
-      packageType: '',
-      grossWeight: undefined,
-      netWeight: undefined,
-    }]);
-
+    setItems([...items, { ...createDefaultItem(), tnvedCode: '', pluCode: '', packageType: '', grossWeight: undefined, netWeight: undefined }]);
   };
-
-
 
   const removeItem = (index: number) => {
 
@@ -1799,8 +1327,6 @@ const Invoice = () => {
 
   };
 
-
-
   const handleContractSelect = async (contractId: string) => {
 
     setSelectedContractId(contractId);
@@ -1810,8 +1336,6 @@ const Invoice = () => {
       setSelectedContractCurrency('USD');
       return;
     }
-
-
 
     try {
 
@@ -1852,9 +1376,6 @@ const Invoice = () => {
       const deliveryTermsKey = getDeliveryTermsContractKey();
       const mergedDeliveryTerms = mergeDeliveryTerms(deliveryTermsList, loadDeliveryTerms(deliveryTermsKey));
       setDeliveryTermsOptions(mergedDeliveryTerms);
-      localStorage.setItem(getDeliveryTermsKey(deliveryTermsKey), JSON.stringify(mergedDeliveryTerms));
-
-
 
       // AdditionalInfo'ga to'lov usulini qo'shish
 
@@ -1884,8 +1405,6 @@ const Invoice = () => {
     }
 
   };
-
-
 
   const handleMarkInvoysReady = async () => {
     const tid = taskId || invoice?.taskId;
@@ -2060,8 +1579,6 @@ const Invoice = () => {
       return;
     }
 
-
-
     const hasValidItems =
       items.length > 0 &&
       items.every(
@@ -2074,8 +1591,6 @@ const Invoice = () => {
       alert('Iltimos, barcha tovarlarni to\'liq to\'ldiring (Наименование, Мест yoki Кол-во упаковки, Цена за ед.изм.)');
       return;
     }
-
-
 
     try {
 
@@ -2205,8 +1720,6 @@ const Invoice = () => {
         })(),
       };
 
-
-
       const response = invoice
         ? await apiClient.post(`/invoices`, { ...invoiceData, id: invoice.id })
         : await apiClient.post('/invoices', invoiceData);
@@ -2290,8 +1803,6 @@ const Invoice = () => {
 
   }
 
-
-
   if (!task && taskId) {
 
     return (
@@ -2317,8 +1828,6 @@ const Invoice = () => {
     );
 
   }
-
-
 
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
 
@@ -2352,113 +1861,6 @@ const Invoice = () => {
     if (!isPackingView) return base;
     return { ...base, unitPrice: false, total: false };
   })();
-  const formatNumber = (value?: number) =>
-    value !== undefined && value !== null && !Number.isNaN(value)
-      ? value.toLocaleString('ru-RU', {
-        minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
-        maximumFractionDigits: 2,
-      })
-      : '';
-  const formatNumberFixed = (value?: number) =>
-    value !== undefined && value !== null && !Number.isNaN(value)
-      ? value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : '';
-
-  /** Qadoq turi bo'yicha tara (кг) ruxsat etilgan oralig'i. Oraliqdan tashqarida bo'lsa tekshiruvda qizil. */
-  const getTareRange = (packageType: string): { min: number; max: number } | null => {
-    const key = (packageType || '').trim().toLowerCase().replace(/\s+/g, '');
-    const ranges: Record<string, { min: number; max: number }> = {
-      'дер.ящик': { min: 0.8, max: 2.5 },
-      'пласт.ящик': { min: 0.3, max: 0.7 },
-      'пласт.ящик.': { min: 0.3, max: 0.7 },
-      'мешки': { min: 0.01, max: 0.1 },
-      'картон.короб.': { min: 0.3, max: 2.5 },
-      'картон.короб': { min: 0.3, max: 2.5 },
-      'навалом': { min: 0, max: 0 },
-    };
-    return ranges[key] ?? null;
-  };
-  const isTareInRange = (tareKg: number, packageType: string): boolean => {
-    const range = getTareRange(packageType);
-    if (!range) return true;
-    if (range.min === 0 && range.max === 0) return Math.abs(tareKg) < 1e-6;
-    const eps = 1e-9;
-    return tareKg >= range.min - eps && tareKg <= range.max + eps;
-  };
-
-  const numberToWordsRu = (num: number, currency: string): string => {
-    const cur = currency && String(currency).trim() ? String(currency).trim().toUpperCase() : 'USD';
-    const ones = ['', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять'];
-    const tens = ['', '', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто'];
-    const teens = ['десять', 'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать'];
-    const hundreds = ['', 'сто', 'двести', 'триста', 'четыреста', 'пятьсот', 'шестьсот', 'семьсот', 'восемьсот', 'девятьсот'];
-    /** 0–999 oralig'ini so'zda ifodalaydi */
-    const convertBlock = (n: number): string => {
-      if (n === 0) return '';
-      let r = '';
-      const h = Math.floor(n / 100);
-      if (h > 0 && h <= 9) r += hundreds[h] + ' ';
-      const rem = n % 100;
-      if (rem >= 10 && rem < 20) return (r + teens[rem - 10]).trim();
-      const t = Math.floor(rem / 10), o = rem % 10;
-      if (t > 0) r += tens[t] + ' ';
-      if (o > 0) r += ones[o];
-      return r.trim();
-    };
-    const zeroPhrase = cur === 'USD' ? 'ноль долларов США' : cur === 'RUB' ? 'ноль рублей РФ' : cur === 'EUR' ? 'ноль евро' : 'ноль сумов';
-    if (!Number.isFinite(num) || num < 0) return zeroPhrase;
-    if (num === 0) return zeroPhrase;
-    const whole = Math.floor(num);
-    const dec = Math.round((num - whole) * 100);
-    let result = '';
-    const millions = Math.floor(whole / 1_000_000);
-    const restAfterMillions = whole % 1_000_000;
-    const th = Math.floor(restAfterMillions / 1000);
-    const rem = whole % 1000;
-    if (millions > 0) {
-      if (millions === 1) result += 'один миллион ';
-      else if (millions >= 2 && millions <= 4) result += convertBlock(millions) + ' миллиона ';
-      else if (millions >= 5 && millions <= 20) result += convertBlock(millions) + ' миллионов ';
-      else {
-        const mMod = millions % 100;
-        if (mMod === 1 && millions % 10 === 1 && (millions % 100) !== 11) result += convertBlock(millions) + ' миллион ';
-        else if ((mMod >= 2 && mMod <= 4) && (mMod < 10 || mMod >= 20)) result += convertBlock(millions) + ' миллиона ';
-        else result += convertBlock(millions) + ' миллионов ';
-      }
-    }
-    if (th > 0) {
-      if (th === 1) result += 'одна тысяча ';
-      else if (th >= 2 && th <= 4) result += convertBlock(th) + ' тысячи ';
-      else if (th >= 5 && th <= 20) result += convertBlock(th) + ' тысяч ';
-      else {
-        const tMod = th % 100;
-        if (th % 10 === 1 && tMod !== 11) result += convertBlock(th) + ' тысяча ';
-        else if ((tMod >= 2 && tMod <= 4) && (tMod < 10 || tMod >= 20)) result += convertBlock(th) + ' тысячи ';
-        else result += convertBlock(th) + ' тысяч ';
-      }
-    }
-    if (rem > 0) result += convertBlock(rem);
-    if (cur === 'USD') {
-      if (whole === 1) result += ' доллар США';
-      else if (whole < 5) result += ' доллара США';
-      else result += ' долларов США';
-    } else if (cur === 'RUB') {
-      if (whole === 1) result += ' рубль РФ';
-      else if (whole >= 2 && whole <= 4) result += ' рубля РФ';
-      else result += ' рублей РФ';
-    } else if (cur === 'EUR') {
-      if (whole === 1) result += ' евро';
-      else if (whole >= 2 && whole <= 4) result += ' евро';
-      else result += ' евро';
-    } else {
-      if (whole === 1) result += ' сум';
-      else if (whole < 5) result += ' сума';
-      else result += ' сумов';
-    }
-    const fracWord = cur === 'USD' ? 'центов' : cur === 'RUB' ? 'копеек' : cur === 'EUR' ? 'евроцентов' : 'тиин';
-    if (dec > 0) result += ` ${dec} ${fracWord}`;
-    return result.charAt(0).toUpperCase() + result.slice(1);
-  };
 
   const invoiceCurrency = selectedContractCurrency || form.currency || 'USD';
   const totalColumnLabel = invoiceCurrency === 'USD' ? 'Общая сумма в Долл. США' : invoiceCurrency === 'RUB' ? 'Общая сумма Рубли РФ' : invoiceCurrency === 'EUR' ? 'Общая сумма в Евро' : columnLabels.total;
@@ -2826,8 +2228,6 @@ const Invoice = () => {
 
         </div>
 
-
-
         <form onSubmit={handleSubmit} className={`invoice-form${!canEditEffective ? ' invoice-form-readonly' : ''}`}>
 
           <datalist id="invoice-tnved-products">
@@ -3022,10 +2422,8 @@ const Invoice = () => {
 
             </div>
 
-
             {/* Ajratuvchi chiziq */}
             <div className="border-t border-gray-300 mb-8"></div>
-
 
             {/* Sotuvchi va Sotib oluvchi Info */}
 
@@ -3292,7 +2690,6 @@ const Invoice = () => {
 
             </div>
 
-
             {/* Дополнительная информация */}
             <div className="mb-0">
               <div className="flex items-center justify-between mb-4">
@@ -3421,7 +2818,6 @@ const Invoice = () => {
               </div>
             </div>
 
-
             {/* Items Table */}
 
             <div className="mb-8">
@@ -3461,7 +2857,7 @@ const Invoice = () => {
                                 value={columnLabels[key]}
                                 onChange={(e) => setColumnLabels((prev) => ({ ...prev, [key]: e.target.value }))}
                                 className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-xs"
-                                placeholder={defaultColumnLabels[key]}
+                                placeholder={DEFAULT_COLUMN_LABELS[key]}
                               />
                             </div>
                           ))}
@@ -3485,8 +2881,6 @@ const Invoice = () => {
                 )}
 
               </div>
-
-
 
               <>
                 {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
@@ -4002,8 +3396,6 @@ const Invoice = () => {
 
             </div>
 
-
-
             {/* Notes (Spetsifikatsiya tabida ko'rinmas) */}
 
             {viewTab !== 'spec' && (
@@ -4027,8 +3419,6 @@ const Invoice = () => {
 
               </div>
             )}
-
-
 
             {/* Руководитель Поставщика va Товар отпустил */}
             {viewTab !== 'spec' && selectedContractId && contracts.find(c => c.id.toString() === selectedContractId) && (
@@ -4168,8 +3558,6 @@ const Invoice = () => {
         </form>
 
       </div>
-
-
 
       {/* Дополнительная информация Modal */}
       {showAdditionalInfoModal && (
@@ -4942,8 +4330,6 @@ const Invoice = () => {
   );
 
 };
-
-
 
 export default Invoice;
 

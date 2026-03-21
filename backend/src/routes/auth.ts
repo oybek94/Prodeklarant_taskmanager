@@ -130,7 +130,7 @@ router.post('/login', async (req, res) => {
         error: 'Database rollarida muammo. Iltimos, backend/fix-roles.sql faylini pgAdmin orqali bajarishingiz kerak.'
       });
     }
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -226,7 +226,7 @@ router.post('/client/login', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Client login error:', error);
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -252,7 +252,7 @@ router.get('/client/me', requireAuth(), async (req: AuthRequest, res) => {
     res.json(client);
   } catch (error: any) {
     console.error('Client me error:', error);
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 

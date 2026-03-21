@@ -109,18 +109,8 @@ const createUserSchema = z.object({
 });
 
 router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
-  // #region agent log
-  const logEntry = { location: 'users.ts:72', message: 'POST /users entry', data: { hasUser: !!req.user, userId: req.user?.id, body: req.body }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' };
-  console.log('[DEBUG]', JSON.stringify(logEntry));
-  fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logEntry) }).catch(() => { });
-  // #endregion
   try {
     const parsed = createUserSchema.safeParse(req.body);
-    // #region agent log
-    const logValidation = { location: 'users.ts:74', message: 'Schema validation', data: { success: parsed.success, parsedData: parsed.success ? parsed.data : null, errors: parsed.success ? null : parsed.error.flatten() }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' };
-    console.log('[DEBUG]', JSON.stringify(logValidation));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logValidation) }).catch(() => { });
-    // #endregion
     if (!parsed.success) {
       console.error('Validation error:', parsed.error);
       return res.status(400).json({ error: parsed.error.flatten() });
@@ -197,12 +187,6 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       userData.salary = parsed.data.salary;
     }
 
-    // #region agent log
-    const logBeforeCreate = { location: 'users.ts:133', message: 'userData before Prisma create', data: { userData: JSON.parse(JSON.stringify({ ...userData, passwordHash: '[HIDDEN]' })), userDataTypes: Object.keys(userData).reduce((acc, key) => { acc[key] = typeof userData[key]; return acc; }, {}) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' };
-    console.log('[DEBUG]', JSON.stringify(logBeforeCreate));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logBeforeCreate) }).catch(() => { });
-    // #endregion
-
     const user = await prisma.user.create({
       data: userData,
       select: {
@@ -216,24 +200,10 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       },
     });
 
-    // #region agent log
-    const logAfterCreate = { location: 'users.ts:153', message: 'User created successfully', data: { userId: user.id }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' };
-    console.log('[DEBUG]', JSON.stringify(logAfterCreate));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logAfterCreate) }).catch(() => { });
-    // #endregion
-
     res.status(201).json(user);
   } catch (error: any) {
-    // #region agent log
-    const logError = { location: 'users.ts:160', message: 'Error creating user', data: { errorMessage: error?.message, errorName: error?.name, errorCode: error?.code, prismaError: error?.meta, prismaClientVersion: error?.clientVersion, errorStack: error instanceof Error ? error.stack : 'No stack' }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'ALL' };
-    console.log('[DEBUG ERROR]', JSON.stringify(logError, null, 2));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logError) }).catch(() => { });
-    // #endregion
     console.error('Error creating user:', error);
-    return res.status(500).json({
-      error: error.message || 'Xatolik yuz berdi. Iltimos, database migration bajarilganligini tekshiring.',
-      details: error instanceof Error ? error.message : String(error)
-    });
+    return res.status(500).json({ error: 'Xatolik yuz berdi' });
   }
 });
 

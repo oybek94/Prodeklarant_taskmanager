@@ -8,6 +8,7 @@ interface FileUploadModalProps {
   fileName: string;
   file: File | null;
   uploading: boolean;
+  uploadProgress?: number;
   selectedStageForReminder: TaskStage | null;
   onFileNameChange: (name: string) => void;
   onFileChange: (file: File | null) => void;
@@ -25,6 +26,7 @@ export default function FileUploadModal({
   fileName,
   file,
   uploading,
+  uploadProgress = 0,
   selectedStageForReminder,
   onFileNameChange,
   onFileChange,
@@ -251,7 +253,7 @@ export default function FileUploadModal({
                 {uploading ? (
                   <>
                     <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
-                    Yuklanmoqda...
+                    Yuklanmoqda... {uploadProgress > 0 ? `${uploadProgress}%` : ''}
                   </>
                 ) : (
                   <>
@@ -267,6 +269,22 @@ export default function FileUploadModal({
                 Bekor
               </button>
             </div>
+
+            {/* Upload Progress Bar */}
+            {uploading && (
+              <div className="mt-1">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Yuklash jarayoni</span>
+                  <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full bg-gradient-to-r ${gradientClass} transition-all duration-300 ease-out`}
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
             {selectedStageForReminder && (
               <button
                 onClick={onSkipValidation}

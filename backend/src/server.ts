@@ -95,8 +95,9 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Static file serving - /uploads (internal, himoyasiz - faqat Nginx/lokal)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Static file serving - himoyalangan
+// /uploads endi faqat autentifikatsiya bilan ochiladi
+app.use('/uploads', requireAuth(), express.static(path.join(__dirname, '../uploads')));
 // /api/uploads eski static endi o'chirildi - /api/secure-uploads ishlatiladi
 
 // Himoyalangan fayl yuklash endpoint - JWT token talab qiladi
@@ -108,33 +109,19 @@ app.get('/api/secure-uploads/*path', requireAuth(), (req, res) => {
     Array.isArray(rawParam) ? rawParam.join('/') : (rawParam as string) || ''
   );
 
-  console.log('[secure-uploads] uploadsRootDir:', uploadsRootDir);
-  console.log('[secure-uploads] rawParam:', rawParam);
-  console.log('[secure-uploads] relativePath:', relativePath);
-
   if (!relativePath) {
     return res.status(400).json({ error: 'Fayl yo\'li ko\'rsatilmagan' });
   }
 
   // Path traversal hujumidan himoya
   const absolutePath = path.resolve(path.join(uploadsRootDir, relativePath));
-  console.log('[secure-uploads] absolutePath:', absolutePath);
-  console.log('[secure-uploads] exists:', fs.existsSync(absolutePath));
 
   if (!absolutePath.startsWith(uploadsRootDir)) {
     return res.status(403).json({ error: 'Ruxsat berilmagan yo\'l' });
   }
 
   if (!fs.existsSync(absolutePath)) {
-    // Papkadagi fayllarni ko'rsatish (debug uchun)
-    const dir = path.dirname(absolutePath);
-    if (fs.existsSync(dir)) {
-      const files = fs.readdirSync(dir).slice(0, 5);
-      console.log('[secure-uploads] Dir exists, first 5 files:', files);
-    } else {
-      console.log('[secure-uploads] Dir does NOT exist:', dir);
-    }
-    return res.status(404).json({ error: 'Fayl topilmadi', path: relativePath });
+    return res.status(404).json({ error: 'Fayl topilmadi' });
   }
 
   res.sendFile(absolutePath);

@@ -16,6 +16,8 @@ interface DocumentUploadModalProps {
   onClose: () => void;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onUpload: () => void;
+  uploading?: boolean;
+  uploadProgress?: number;
 }
 
 const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
@@ -25,6 +27,8 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   documentDescriptions, setDocumentDescriptions,
   selectedStageForReminder, setSelectedStageForReminder,
   onClose, onFileSelect, onUpload,
+  uploading = false,
+  uploadProgress = 0,
 }) => {
   if (!show) return null;
 
@@ -131,9 +135,17 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
             <button
               type="submit"
-              className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
+              disabled={uploading}
+              className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              Yuklash ({uploadFiles.length} fayl)
+              {uploading ? (
+                <>
+                  <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
+                  Yuklanmoqda... {uploadProgress > 0 ? `${uploadProgress}%` : ''}
+                </>
+              ) : (
+                <>Yuklash ({uploadFiles.length} fayl)</>
+              )}
             </button>
             <button
               type="button"
@@ -148,6 +160,22 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               Bekor
             </button>
           </div>
+
+          {/* Upload Progress Bar */}
+          {uploading && (
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-gray-600">Yuklash jarayoni</span>
+                <span className="text-xs font-bold text-gray-700">{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-300 ease-out"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
         </form>
       </div>
     </div>

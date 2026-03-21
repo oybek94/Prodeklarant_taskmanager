@@ -1,5 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useTaskData } from '../components/tasks/useTaskData';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,7 +21,7 @@ import CreateTaskModal from '../components/tasks/CreateTaskModal';
 import BXMModal from '../components/tasks/BxmModal';
 import FileUploadModal from '../components/tasks/FileUploadModal';
 import TaskDetailPanel from '../components/tasks/TaskDetailPanel';
-import TaskTable, { calculateTotalDuration } from '../components/tasks/TaskTable';
+import TaskTable from '../components/tasks/TaskTable';
 import ArchiveFiltersPanel from '../components/tasks/ArchiveFiltersPanel';
 import type { ArchiveFiltersState } from '../components/tasks/ArchiveFiltersPanel';
 
@@ -33,15 +32,24 @@ import type {
 
 const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onCloseModal }) => {
   const { downloadFile, getPreviewBlobUrl } = useFileHelpers();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
+  const [loadingTask, setLoadingTask] = useState(false);
   // Pagination state
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalTasks, setTotalTasks] = useState(0);
   const limit = 50; // Har bir sahifada 50 ta task
   const archiveLimit = 20; // Arxivda har sahifada 20 ta task
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [updatingStage, setUpdatingStage] = useState<number | null>(null);
+  const [taskVersions, setTaskVersions] = useState<TaskVersion[]>([]);
   const [showVersions, setShowVersions] = useState(false);
+  const [loadingVersions, setLoadingVersions] = useState(false);
   const [selectedStageForReminder, setSelectedStageForReminder] = useState<TaskStage | null>(null);
   const [showBXMModal, setShowBXMModal] = useState(false);
   const [showFinancialReport, setShowFinancialReport] = useState(false);
@@ -58,7 +66,14 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     comment: '',
     date: new Date().toISOString().split('T')[0],
   });
+  const [taskDocuments, setTaskDocuments] = useState<any[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [aiChecks, setAiChecks] = useState<any[]>([]);
+  const [loadingAiChecks, setLoadingAiChecks] = useState(false);
   // OCR extracted text state
+  const [expandedDocuments, setExpandedDocuments] = useState<Set<number>>(new Set());
+  const [documentExtractedTexts, setDocumentExtractedTexts] = useState<Map<number, string>>(new Map());
+  const [loadingExtractedTexts, setLoadingExtractedTexts] = useState<Set<number>>(new Set());
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [documentNames, setDocumentNames] = useState<string[]>([]);
@@ -69,7 +84,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   const [fileUploadName, setFileUploadName] = useState<string>('');
   const [fileUploadStageName, setFileUploadStageName] = useState<string>('');
   const [uploadingFile, setUploadingFile] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [previewDocument, setPreviewDocument] = useState<{ url: string; type: string; name: string } | null>(null);
   const [showSendEmailModal, setShowSendEmailModal] = useState(false);
   const [sendEmailForm, setSendEmailForm] = useState({
@@ -81,30 +95,14 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   });
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendEmailError, setSendEmailError] = useState<string | null>(null);
+  const [workers, setWorkers] = useState<{ id: number; name: string; role: string }[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [stats, setStats] = useState<TaskStats | null>(null);
   const { user } = useAuth();
-  const {
-    tasks, loading, clients, branches, workers,
-    page, setPage, totalPages, totalTasks,
-    selectedTask, setSelectedTask, loadingTask, setLoadingTask,
-    taskDocuments, setTaskDocuments, loadingDocuments,
-    aiChecks, loadingAiChecks, taskVersions, setTaskVersions, loadingVersions, setLoadingVersions,
-    expandedDocuments, documentExtractedTexts, loadingExtractedTexts,
-    loadTasks, loadClients, loadBranches, loadWorkers,
-    loadTaskDetail, loadTaskStages, loadTaskVersions, loadTaskDocuments,
-    loadAiChecks, loadExtractedText, toggleDocumentExpansion
-  } = useTaskData(user?.role);
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
-
-  const handleTaskClick = (taskId: number) => {
-    loadTaskDetail(taskId, {
-      onLoaded: (taskData) => {
-        setAfterHoursDeclaration(Boolean(taskData.afterHoursDeclaration));
-        setShowTaskModal(true);
-      }
-    });
-  };
 
   // Helper function to clean phone number (remove spaces, keep + sign)
   const cleanPhoneNumber = (phone: string): string => {
@@ -273,7 +271,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
       setShowSendEmailModal(false);
       setShowTaskModal(false);
       setSelectedTask(null);
-      await loadTasks(showArchive, filters as any);
+      await loadTasks();
       alert('Email sent successfully.');
     } catch (err: any) {
       const msg = sendTaskEmailErrorToMessage(
@@ -417,7 +415,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
 
   useEffect(() => {
     if (isModalMode) return;
-    loadTasks(showArchive, filters as any);
+    loadTasks();
     loadClients();
     loadBranches();
     loadWorkers();
@@ -513,6 +511,460 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     navigate,
   ]);
 
+  const loadBranches = async () => {
+    try {
+      const response = await apiClient.get('/branches');
+      if (Array.isArray(response.data) && response.data.length > 0) {
+        setBranches(response.data);
+      } else {
+        // Fallback to default branches if API returns empty
+        setBranches([
+          { id: 1, name: 'Toshkent' },
+          { id: 2, name: 'Oltiariq' },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error loading branches:', error);
+      // Fallback to default branches on error
+      setBranches([
+        { id: 1, name: 'Toshkent' },
+        { id: 2, name: 'Oltiariq' },
+      ]);
+    }
+  };
+
+  const loadClients = async () => {
+    try {
+      const response = await apiClient.get('/clients');
+      if (Array.isArray(response.data)) {
+        setClients(response.data);
+      } else {
+        setClients([]);
+      }
+    } catch (error) {
+      console.error('Error loading clients:', error);
+      setClients([]);
+    }
+  };
+
+  const loadWorkers = async () => {
+    try {
+      // Admin bo'lsa /users, aks holda /workers endpoint'ini ishlatamiz
+      if (user?.role === 'ADMIN') {
+        const response = await apiClient.get('/users');
+        setWorkers(Array.isArray(response.data) ? response.data : []);
+      } else {
+        const response = await apiClient.get('/workers');
+        setWorkers(Array.isArray(response.data) ? response.data : []);
+      }
+    } catch (error) {
+      console.error('Error loading workers:', error);
+      setWorkers([]);
+    }
+  };
+
+  const loadTasks = async () => {
+    try {
+      setLoading(true);
+      const params: any = {};
+      if (showArchive) {
+        // Arxiv bo'limida faqat YAKUNLANDI statusidagi tasklar
+        params.status = 'YAKUNLANDI';
+        // Fetch all archive tasks for client-side pagination/filtering
+      } else {
+        // Barcha ishlar bo'limida YAKUNLANDI dan tashqari barcha tasklar (pagination yo'q, barchasi bir sahifada)
+        if (filters.status) params.status = filters.status;
+        params.page = '1';
+        params.limit = '5000';
+      }
+      if (filters.clientId) params.clientId = filters.clientId;
+      if (filters.branchId) params.branchId = filters.branchId;
+
+      const response = await apiClient.get('/tasks', { params });
+
+      // Backward compatibility: agar pagination bor bo'lsa
+      if (response.data.pagination) {
+        const { tasks: tasksData, pagination } = response.data;
+        let filteredTasks = tasksData;
+
+        // Agar arxiv bo'lsa, faqat YAKUNLANDI statusidagilarni ko'rsatish
+        // Agar barcha ishlar bo'lsa, YAKUNLANDI dan tashqarilarini ko'rsatish
+        if (showArchive) {
+          filteredTasks = tasksData.filter((task: Task) => task.status === 'YAKUNLANDI');
+        } else {
+          filteredTasks = tasksData.filter((task: Task) => task.status !== 'YAKUNLANDI');
+        }
+
+        setTasks(filteredTasks);
+        setTotalPages(1);
+        setTotalTasks(filteredTasks.length);
+
+        // Stats faqat barcha ishlar bo'limida hisoblanadi
+        if (!showArchive) {
+          calculateStats(tasksData);
+        }
+      } else if (Array.isArray(response.data)) {
+        // Eski format - backward compatibility
+        let filteredTasks = response.data;
+        if (showArchive) {
+          filteredTasks = response.data.filter((task: Task) => task.status === 'YAKUNLANDI');
+        } else {
+          filteredTasks = response.data.filter((task: Task) => task.status !== 'YAKUNLANDI');
+        }
+        setTasks(filteredTasks);
+        setTotalPages(1);
+        setTotalTasks(filteredTasks.length);
+
+        if (!showArchive) {
+          calculateStats(response.data);
+        }
+      } else {
+        setTasks([]);
+        setTotalPages(1);
+        setTotalTasks(0);
+        if (!showArchive) {
+          calculateStats([]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      setTasks([]);
+      setTotalPages(1);
+      setTotalTasks(0);
+      if (!showArchive) {
+        calculateStats([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateStats = (tasksData: Task[]) => {
+    if (!Array.isArray(tasksData)) {
+      setStats({ yearly: { current: 0, previous: 0 }, monthly: { current: 0, previous: 0 }, weekly: { current: 0, previous: 0 }, daily: { current: 0, previous: 0 } });
+      return;
+    }
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay()); // Hafta boshini topish (Yakshanba)
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+
+    // Oldingi davrlar
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const lastWeekStart = new Date(weekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const lastWeekEnd = new Date(weekStart);
+    lastWeekEnd.setDate(lastWeekEnd.getDate() - 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
+    const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31);
+
+    const isInRange = (date: Date, start: Date, end: Date) => {
+      return date >= start && date <= end;
+    };
+
+    const yearly = {
+      current: tasksData.filter((task) => {
+        const taskDate = new Date(task.createdAt);
+        return taskDate >= yearStart;
+      }).length,
+      previous: tasksData.filter((task) => {
+        const taskDate = new Date(task.createdAt);
+        return isInRange(taskDate, lastYearStart, lastYearEnd);
+      }).length,
+    };
+
+    const monthly = {
+      current: tasksData.filter((task) => {
+        const taskDate = new Date(task.createdAt);
+        return taskDate >= monthStart;
+      }).length,
+      previous: tasksData.filter((task) => {
+        const taskDate = new Date(task.createdAt);
+        return isInRange(taskDate, lastMonthStart, lastMonthEnd);
+      }).length,
+    };
+
+    const weekly = {
+      current: tasksData.filter((task) => {
+        const taskDate = new Date(task.createdAt);
+        return taskDate >= weekStart;
+      }).length,
+      previous: tasksData.filter((task) => {
+        const taskDate = new Date(task.createdAt);
+        return isInRange(taskDate, lastWeekStart, lastWeekEnd);
+      }).length,
+    };
+
+    const daily = {
+      current: tasksData.filter((task) => {
+        const taskDate = new Date(task.createdAt);
+        return taskDate >= today;
+      }).length,
+      previous: tasksData.filter((task) => {
+        const taskDate = new Date(task.createdAt);
+        return taskDate >= yesterday && taskDate < today;
+      }).length,
+    };
+
+    setStats({ yearly, monthly, weekly, daily });
+  };
+
+  const calculateChange = (current: number, previous: number): number => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  };
+
+  const getPageNumbers = (current: number, total: number) => {
+    const delta = 2;
+    const start = Math.max(1, current - delta);
+    const end = Math.min(total, current + delta);
+    const pages: number[] = [];
+    for (let i = start; i <= end; i += 1) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
+  const formatChange = (change: number): { text: string; color: string; bgColor: string } => {
+    const sign = change >= 0 ? '+' : '';
+    const text = `${sign}${change.toFixed(1)}%`;
+    if (change >= 0) {
+      return { text, color: 'text-green-700', bgColor: 'bg-green-100' };
+    } else {
+      return { text, color: 'text-red-700', bgColor: 'bg-red-100' };
+    }
+  };
+
+  const loadTaskStages = async (taskId: number) => {
+    try {
+      const response = await apiClient.get(`/tasks/${taskId}/stages`);
+      // selectedTask state'ni yangilash - functional update ishlatamiz
+      setSelectedTask((prevTask) => {
+        if (!prevTask || prevTask.id !== taskId) {
+          return prevTask;
+        }
+        return {
+          ...prevTask,
+          stages: response.data,
+        };
+      });
+    } catch (error) {
+      console.error('Error loading task stages:', error);
+      // Stages yuklanmasa ham, task ma'lumotlari ko'rsatiladi
+      setSelectedTask((prevTask) => {
+        if (!prevTask || prevTask.id !== taskId) {
+          return prevTask;
+        }
+        return {
+          ...prevTask,
+          stages: [],
+        };
+      });
+    }
+  };
+
+  const loadTaskDetail = async (taskId: number) => {
+    try {
+      setLoadingTask(true);
+      const response = await apiClient.get(`/tasks/${taskId}`);
+      const taskData = { ...response.data };
+
+      // Stages'ni lazy load qilish uchun, avval stages'ni bo'sh qilamiz
+      // Lekin agar backend'dan stages kelgan bo'lsa, ularni saqlab qolamiz
+      // (backward compatibility uchun)
+      if (!taskData.stages || taskData.stages.length === 0) {
+        taskData.stages = [];
+      } else {
+        // Agar stages bor bo'lsa, ularni saqlab qolamiz (eski format)
+        // Lekin lazy load ham qilamiz (yangilanish uchun)
+      }
+
+      setSelectedTask(taskData);
+      setAfterHoursDeclaration(Boolean(taskData.afterHoursDeclaration));
+      setShowTaskModal(true);
+
+      // Load stages lazily (parallel)
+      Promise.all([
+        loadTaskStages(taskId),
+        loadTaskVersions(taskId),
+        loadTaskDocuments(taskId),
+        // loadAiChecks(taskId), // Temporarily disabled - AI results section hidden
+      ]).catch((error) => {
+        console.error('Error loading task details:', error);
+      });
+    } catch (error) {
+      console.error('Error loading task detail:', error);
+      alert('Task ma\'lumotlarini yuklashda xatolik');
+    } finally {
+      setLoadingTask(false);
+    }
+  };
+
+  const loadTaskDetailForEdit = async (taskId: number) => {
+    try {
+      setLoadingTask(true);
+      const response = await apiClient.get(`/tasks/${taskId}`);
+      const taskData = { ...response.data };
+      if (!taskData.stages || taskData.stages.length === 0) {
+        taskData.stages = [];
+      }
+      setSelectedTask(taskData);
+      setAfterHoursDeclaration(Boolean(taskData.afterHoursDeclaration));
+      setEditForm({
+        title: taskData.title,
+        clientId: taskData.client.id.toString(),
+        branchId: taskData.branch.id.toString(),
+        comments: taskData.comments || '',
+        hasPsr: taskData.hasPsr || false,
+        afterHoursPayer: taskData.afterHoursPayer || 'CLIENT',
+        driverPhone: taskData.driverPhone || '',
+      });
+      setShowEditModal(true);
+    } catch (error) {
+      console.error('Error loading task detail for edit:', error);
+      alert('Task ma\'lumotlarini yuklashda xatolik');
+    } finally {
+      setLoadingTask(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isMobile || !editTaskId) return;
+    if (selectedTask?.id === editTaskId && showEditModal) return;
+    loadTaskDetailForEdit(editTaskId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, editTaskId]);
+
+  // Desktop: /tasks/:id/edit dan kelganda edit modali ochish (masalan Invoices dan "Taskni tahrirlash")
+  useEffect(() => {
+    if (isMobile || !editTaskId) return;
+    if (selectedTask?.id === editTaskId && showEditModal) return;
+    loadTaskDetailForEdit(editTaskId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editTaskId]);
+
+  // Invoices sahifasidan status bosilganda: task tafsilotlari modali ochish
+  const openTaskIdFromState = (location.state as { openTaskId?: number })?.openTaskId;
+  useEffect(() => {
+    if (openTaskIdFromState == null) return;
+    let cancelled = false;
+    loadTaskDetail(openTaskIdFromState).then(() => {
+      if (!cancelled) navigate(location.pathname, { replace: true, state: {} });
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openTaskIdFromState]);
+
+  const loadAiChecks = async (taskId: number) => {
+    try {
+      setLoadingAiChecks(true);
+      const response = await apiClient.get(`/tasks/${taskId}/ai-checks`);
+      console.log('[AI Checks] Response:', response.data);
+      if (response.data.success && Array.isArray(response.data.checks)) {
+        console.log('[AI Checks] Found checks:', response.data.checks.length);
+        setAiChecks(response.data.checks);
+      } else {
+        console.warn('[AI Checks] No checks found or invalid response format');
+        setAiChecks([]);
+      }
+    } catch (error) {
+      console.error('Error loading AI checks:', error);
+      setAiChecks([]);
+    } finally {
+      setLoadingAiChecks(false);
+    }
+  };
+
+  const loadTaskDocuments = async (taskId: number) => {
+    try {
+      setLoadingDocuments(true);
+      // Avval task'ning statusini tekshiramiz
+      const taskResponse = await apiClient.get(`/tasks/${taskId}`);
+      const task = taskResponse.data;
+
+      // Agar task yakunlangan bo'lsa, arxiv hujjatlarini yuklaymiz
+      // Hujjatlar doim TaskDocument'dan olinadi, arxivga o'tgunga qadar
+      const response = await apiClient.get(`/documents/task/${taskId}`);
+      setTaskDocuments(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error loading task documents:', error);
+      setTaskDocuments([]);
+    } finally {
+      setLoadingDocuments(false);
+    }
+  };
+
+  // Load extracted text for a document
+  const loadExtractedText = async (documentId: number) => {
+    if (!selectedTask) return;
+
+    // Check if already loaded
+    if (documentExtractedTexts.has(documentId)) {
+      return;
+    }
+
+    try {
+      setLoadingExtractedTexts((prev) => new Set(prev).add(documentId));
+
+      const response = await apiClient.get(
+        `/tasks/${selectedTask.id}/documents/${documentId}/extracted-text`
+      );
+
+      const extractedText = response.data.extractedText || '';
+      setDocumentExtractedTexts((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(documentId, extractedText);
+        return newMap;
+      });
+    } catch (error) {
+      console.error('Error loading extracted text:', error);
+      // Set empty text on error
+      setDocumentExtractedTexts((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(documentId, '');
+        return newMap;
+      });
+    } finally {
+      setLoadingExtractedTexts((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(documentId);
+        return newSet;
+      });
+    }
+  };
+
+  // Toggle document expansion
+  const toggleDocumentExpansion = async (documentId: number) => {
+    const isExpanded = expandedDocuments.has(documentId);
+
+    if (isExpanded) {
+      // Collapse
+      setExpandedDocuments((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(documentId);
+        return newSet;
+      });
+    } else {
+      // Expand - load text if not already loaded
+      setExpandedDocuments((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(documentId);
+        return newSet;
+      });
+
+      if (!documentExtractedTexts.has(documentId)) {
+        await loadExtractedText(documentId);
+      }
+    }
+  };
+
+  // Umumiy file upload handler (Invoice, ST, Fito uchun)
   const handleFileUpload = async () => {
     if (!selectedTask || !fileUploadFile || !fileUploadStageName) {
       alert('Faylni tanlang');
@@ -521,7 +973,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
 
     try {
       setUploadingFile(true);
-      setUploadProgress(0);
 
       const formData = new FormData();
       formData.append('file', fileUploadFile);
@@ -550,12 +1001,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(percent);
-          }
-        },
       });
 
       // Fayl yuklangandan keyin modal'ni yopish va stage'ni tayyor qilish
@@ -576,7 +1021,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
       alert(error.response?.data?.error || `${stageDisplayName} yuklashda xatolik yuz berdi`);
     } finally {
       setUploadingFile(false);
-      setUploadProgress(0);
     }
   };
 
@@ -587,8 +1031,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     }
 
     try {
-      setUploadingFile(true);
-      setUploadProgress(0);
       const formData = new FormData();
 
       // Barcha fayllarni qo'shamiz
@@ -605,12 +1047,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(percent);
-          }
-        },
       });
 
       // Agar Pochta jarayoni uchun hujjatlar yuklanganda, jarayonni tayyor qilamiz
@@ -626,9 +1062,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     } catch (error: any) {
       console.error('Error uploading documents:', error);
       alert(error.response?.data?.error || 'Hujjat yuklashda xatolik');
-    } finally {
-      setUploadingFile(false);
-      setUploadProgress(0);
     }
   };
 
@@ -845,6 +1278,17 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
 
 
 
+  const loadTaskVersions = async (taskId: number) => {
+    try {
+      setLoadingVersions(true);
+      const response = await apiClient.get(`/tasks/${taskId}/versions`);
+      setTaskVersions(response.data);
+    } catch (error) {
+      console.error('Error loading task versions:', error);
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
 
 
   const handleStageClick = async (stage: TaskStage) => {
@@ -934,7 +1378,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
       }
 
       await loadTaskDetail(selectedTask.id);
-      await loadTasks(showArchive, filters as any);
+      await loadTasks();
       setShowBXMModal(false);
       setAfterHoursDeclaration(false);
       setShowFileUploadModal(false);
@@ -1020,7 +1464,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
         afterHoursDeclaration: checked,
       });
       await loadTaskDetail(selectedTask.id);
-      await loadTasks(showArchive, filters as any);
+      await loadTasks();
     } catch (error: any) {
       setAfterHoursDeclaration(previous);
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
@@ -1054,7 +1498,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
         setShowEditModal(false);
       }
       await loadTaskDetail(selectedTask.id);
-      await loadTasks(showArchive, filters as any);
+      await loadTasks();
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
@@ -1081,7 +1525,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
       }
 
       await loadTaskDetail(selectedTask.id);
-      await loadTasks(showArchive, filters as any);
+      await loadTasks();
     } catch (error: any) {
       console.error('Error updating stage:', error);
       // Handle network errors, timeouts, etc.
@@ -1135,7 +1579,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
         afterHoursPayer: 'CLIENT',
         driverPhone: ''
       });
-      await loadTasks(showArchive, filters as any);
+      await loadTasks();
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
@@ -1392,13 +1836,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     ? (Array.isArray(tasks) ? tasks.filter((task) => task.branch.id === user.branchId) : [])
     : [];
 
-  const getPageNumbers = (current: number, total: number) => {
-    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-    if (current <= 4) return [1, 2, 3, 4, 5, '...', total];
-    if (current >= total - 3) return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
-    return [1, '...', current - 1, current, current + 1, '...', total];
-  };
-
   return (
     <div className={isModalMode ? "" : "max-w-[1920px] mx-auto px-2 sm:px-4 space-y-6 sm:space-y-8 font-sans pb-10"}>
       {!isModalMode && (
@@ -1611,7 +2048,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                   await apiClient.delete(`/tasks/${selectedTask.id}`);
                   setShowTaskModal(false);
                   setSelectedTask(null);
-                  await loadTasks(showArchive, filters as any);
+                  await loadTasks();
                 } catch (error: any) {
                   alert(error.response?.data?.error || 'Xatolik yuz berdi');
                 }
@@ -1628,7 +2065,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
             onOpenPreview={openPreview}
             onLoadVersions={loadTaskVersions}
             onLoadAiChecks={loadAiChecks}
-            onRefreshTasks={() => loadTasks(showArchive, filters as any)}
+            onRefreshTasks={loadTasks}
             formatInvoiceExtractedText={formatInvoiceExtractedText}
             formatBxmAmountInSum={formatBxmAmountInSum}
           />
@@ -1656,7 +2093,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                 fileName={fileUploadName}
                 file={fileUploadFile}
                 uploading={uploadingFile}
-                uploadProgress={uploadProgress}
                 selectedStageForReminder={selectedStageForReminder}
                 onFileNameChange={setFileUploadName}
                 onFileChange={setFileUploadFile}
@@ -1722,8 +2158,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
           onClose={() => setShowDocumentUpload(false)}
           onFileSelect={handleFileSelect}
           onUpload={handleDocumentUpload}
-          uploading={uploadingFile}
-          uploadProgress={uploadProgress}
         />
 
 
@@ -1743,7 +2177,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
           editingErrorId={editingErrorId}
           setEditingErrorId={setEditingErrorId}
           onClose={() => { setEditingErrorId(null); setShowErrorModal(false); }}
-          onSuccess={() => loadTasks(showArchive, filters as any)}
+          onSuccess={loadTasks}
           setSelectedTask={setSelectedTask}
         />
 
@@ -1754,7 +2188,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
           ) : showArchive ? (
             // Arxiv bo'limida barcha tasklar bitta jadvalda, har sahifada 20 ta (pagination)
             <div>
-              <TaskTable tasks={archivePageTasks} branchName='Arxiv' onTaskClick={handleTaskClick} />
+              <TaskTable tasks={archivePageTasks} branchName='Arxiv' onTaskClick={loadTaskDetail} />
               {!loading && archiveTotalPages > 1 && (
                 <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200">
                   <div className="text-sm text-gray-600">
@@ -1773,11 +2207,11 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                     >
                       Oldingi
                     </button>
-                    {getPageNumbers(page, archiveTotalPages).map((p: number | string) => (
+                    {getPageNumbers(page, archiveTotalPages).map((p) => (
                       <button
                         key={`archive-page-${p}`}
                         type="button"
-                        onClick={() => typeof p === 'number' && setPage(p)}
+                        onClick={() => setPage(p)}
                         className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${p === page
                           ? 'bg-blue-600 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -1806,7 +2240,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
             isDeklarantWithBranch && userBranch ? (
               // DEKLARANT uchun faqat o'zining filiali to'liq kenglikda
               <div className="w-full">
-                <TaskTable tasks={userBranchTasks} branchName={userBranch.name} onTaskClick={handleTaskClick} />
+                <TaskTable tasks={userBranchTasks} branchName={userBranch.name} onTaskClick={loadTaskDetail} />
               </div>
             ) : (
               // ADMIN/MANAGER uchun barcha filiallar - dinamik
@@ -1815,7 +2249,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                   const branchTasks = tasksByBranch.get(branch.name) || [];
                   return (
                     <div key={branch.id}>
-                      <TaskTable tasks={branchTasks} branchName={branch.name} branchColorIndex={index} onTaskClick={handleTaskClick} />
+                      <TaskTable tasks={branchTasks} branchName={branch.name} branchColorIndex={index} onTaskClick={loadTaskDetail} />
                     </div>
                   );
                 })}
@@ -1830,5 +2264,3 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
 };
 
 export default Tasks;
-
-

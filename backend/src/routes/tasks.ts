@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
-import { updateTaskStatus, calculateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
+import { updateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
 import { TaskStatus, Currency, ExchangeSource } from '@prisma/client';
 
 type AfterHoursPayerType = 'CLIENT' | 'COMPANY';
@@ -19,63 +19,6 @@ import { ensureTirForInvoice } from '../services/tir-service';
 const router = Router();
 
 
-
-// Helper function to calculate task status from stages array (optimized version)
-function calculateTaskStatusFromStages(stages: Array<{name: string, status: string}>): TaskStatus {
-  if (stages.length === 0) {
-    return TaskStatus.BOSHLANMAGAN;
-  }
-
-  // Create a map of stage names to status
-  const stageMap = new Map(stages.map(s => [s.name, s.status]));
-  
-  // Helper function to check if stage is TAYYOR
-  const isReady = (name: string): boolean => {
-    return stageMap.get(name) === 'TAYYOR';
-  };
-
-  // 1. Check if all stages are blank (BOSHLANMAGAN)
-  const allBlank = stages.every(s => s.status === 'BOSHLANMAGAN');
-  if (allBlank) {
-    return TaskStatus.BOSHLANMAGAN;
-  }
-
-  const allReady = stages.every(s => s.status === 'TAYYOR');
-  if (allReady) {
-    return TaskStatus.YAKUNLANDI;
-  }
-
-  // 4. Topshirish = TAYYOR → TOPSHIRILDI
-  if (isReady('Topshirish')) {
-    return TaskStatus.TOPSHIRILDI;
-  }
-
-  // 3. Tekshirish = TAYYOR → TEKSHIRILGAN
-  if (isReady('Tekshirish')) {
-    return TaskStatus.TEKSHIRILGAN;
-  }
-
-  // 2. Deklaratsiya = TAYYOR → TAYYOR
-  if (isReady('Deklaratsiya')) {
-    return TaskStatus.TAYYOR;
-  }
-
-  // 6. Invoys, Zayavka, TIR-SMR, Sertifikat olib chiqish TAYYOR → JARAYONDA
-  const earlyStages = ['Invoys', 'Zayavka', 'TIR-SMR', 'Sertifikat olib chiqish', 'ST', 'Fito', 'FITO']; // ST va Fito backward compatibility uchun
-  const hasEarlyStageReady = earlyStages.some(name => isReady(name));
-  if (hasEarlyStageReady) {
-    return TaskStatus.JARAYONDA;
-  }
-
-  // If any other stage is TAYYOR, also return JARAYONDA
-  const hasAnyReady = stages.some(s => s.status === 'TAYYOR');
-  if (hasAnyReady) {
-    return TaskStatus.JARAYONDA;
-  }
-
-  // Otherwise -> BOSHLANMAGAN
-  return TaskStatus.BOSHLANMAGAN;
-}
 
 const stageTemplates = [
   'Invoys',
@@ -184,44 +127,8 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       pageNum && limitNum ? prisma.task.count({ where }) : Promise.resolve(0),
     ]);
     
-    // Calculate and update status for each task using the new formula
-    // NOTE: We only recalculate if status filter is not set, to avoid overriding user's filter
-    // If status filter is set, we trust the database value
-    if (!status && tasks.length > 0) {
-      // Only recalculate if no status filter is applied
-      // Use stages from task object (already included in select)
-      // Calculate status for each task
-      const updates: Array<{id: number, status: TaskStatus}> = [];
-      for (const task of tasks) {
-        const stages = (task as any).stages || [];
-        const stageStatuses = stages.map((s: any) => ({ name: s.name, status: s.status }));
-        const calculatedStatus = await calculateTaskStatusFromStages(stageStatuses);
-        
-        // Update task object for response
-        (task as any).status = calculatedStatus;
-        
-        // Collect updates to batch them
-        if (task.status !== calculatedStatus) {
-          updates.push({ id: task.id, status: calculatedStatus });
-        }
-      }
-      
-      // Batch update all tasks with new status
-      if (updates.length > 0) {
-        await Promise.all(updates.map(update => 
-          prisma.task.update({
-            where: { id: update.id },
-            data: { status: update.status },
-          })
-        ));
-      }
-    } else {
-      // If status filter is set, use database status directly
-      // This ensures that when user filters by YAKUNLANDI, they get YAKUNLANDI tasks
-      for (const task of tasks) {
-        (task as any).status = task.status;
-      }
-    }
+    // Status DB'da saqlangan qiymatdan olinadi (recalculate qilinmaydi)
+    // Status faqat stage o'zgarganda updateTaskStatus() orqali yangilanadi
     
     // Backward compatibility: agar pagination parametrlari yo'q bo'lsa, eski format qaytariladi
     if (pageNum && limitNum && total > 0) {
@@ -564,26 +471,9 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     if (parsed.data.customsPaymentMultiplier != null) {
       taskData.customsPaymentMultiplier = parsed.data.customsPaymentMultiplier;
     }
-    // #region agent log
-    const logBeforeCreate = {location:'tasks.ts:199',message:'taskData before Prisma create',data:{taskData:JSON.parse(JSON.stringify(taskData)),taskDataTypes:Object.keys(taskData).reduce((acc,key)=>{acc[key]=typeof taskData[key];return acc;},{})},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
-    console.log('[DEBUG]', JSON.stringify(logBeforeCreate));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logBeforeCreate)}).catch(()=>{});
-    // #endregion
-
     const createdTask = await tx.task.create({
       data: taskData,
     });
-    // #region agent log
-    const logAfterCreate = {location:'tasks.ts:203',message:'Task created successfully',data:{taskId:createdTask.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'};
-    console.log('[DEBUG]', JSON.stringify(logAfterCreate));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logAfterCreate)}).catch(()=>{});
-    // #endregion
-    // #region agent log
-    const logBeforeStages = {location:'tasks.ts:225',message:'Before creating task stages',data:{taskId:createdTask.id,stageCount:stageTemplates.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
-    console.log('[DEBUG]', JSON.stringify(logBeforeStages));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logBeforeStages)}).catch(()=>{});
-    // #endregion
-    
     await tx.taskStage.createMany({
       data: stageTemplates.map((name, idx) => ({
         taskId: createdTask.id,
@@ -592,24 +482,12 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       })),
     });
     
-    // #region agent log
-    const logAfterStages = {location:'tasks.ts:235',message:'Task stages created successfully',data:{taskId:createdTask.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
-    console.log('[DEBUG]', JSON.stringify(logAfterStages));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logAfterStages)}).catch(()=>{});
-    // #endregion
-    
     return createdTask;
   });
 
     res.status(201).json(task);
   } catch (error: any) {
-    // #region agent log
-    const logError = {location:'tasks.ts:215',message:'Error caught',data:{errorMessage:error?.message,errorName:error?.name,errorCode:error?.code,prismaError:error?.meta,prismaClientVersion:error?.clientVersion,errorStack:error instanceof Error?error.stack:'No stack'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'};
-    console.log('[DEBUG ERROR]', JSON.stringify(logError, null, 2));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logError)}).catch(()=>{});
-    // #endregion
     console.error('Error creating task:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
     res.status(500).json({ 
       error: 'Xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)

@@ -456,12 +456,6 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       },
     });
 
-    // #region agent log
-    const logAfterQuery = { location: 'clients.ts:99', message: 'After Prisma query', data: { clientFound: !!client, hasTasks: !!client?.tasks, hasTransactions: !!client?.transactions, tasksCount: client?.tasks?.length, transactionsCount: client?.transactions?.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' };
-    console.log('[DEBUG]', JSON.stringify(logAfterQuery));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logAfterQuery) }).catch(() => { });
-    // #endregion
-
     if (!client) return res.status(404).json({ error: 'Not found' });
 
     // Calculate stats
@@ -509,12 +503,6 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       return acc;
     }, {});
 
-    // #region agent log
-    const logBeforeResponse = { location: 'clients.ts:135', message: 'Before sending response', data: { totalIncome, totalTasks, dealAmount, totalDealAmount, balance }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' };
-    console.log('[DEBUG]', JSON.stringify(logBeforeResponse));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logBeforeResponse) }).catch(() => { });
-    // #endregion
-
     res.json({
       ...client,
       stats: {
@@ -528,11 +516,6 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       },
     });
   } catch (error: any) {
-    // #region agent log
-    const logError = { location: 'clients.ts:150', message: 'Error in GET /:id', data: { errorMessage: error?.message, errorName: error?.name, errorCode: error?.code, prismaError: error?.meta, errorStack: error instanceof Error ? error.stack : 'No stack' }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'ALL' };
-    console.log('[DEBUG ERROR]', JSON.stringify(logError, null, 2));
-    fetch('http://127.0.0.1:7242/ingest/b7a51d95-4101-49e2-84b0-71f2f18445f2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(logError) }).catch(() => { });
-    // #endregion
     console.error('Error fetching client:', error);
     res.status(500).json({
       error: 'Xatolik yuz berdi',

@@ -1,6 +1,6 @@
 import apiClient from '../../lib/api';
 import { getClientCurrency, formatMoney } from './taskHelpers';
-import type { TaskDetail } from './types';
+import type { TaskDetail, Branch } from './types';
 
 // ==================================================================
 // Phone helper
@@ -14,20 +14,8 @@ export const cleanPhoneNumber = (phone: string): string =>
 // Telegram
 // ==================================================================
 
-/** Branch telefon raqamlari va xarita manzili (hardcoded) */
-const branchInfo: Record<string, { address: string; phones: string[] }> = {
-  'Oltiariq': {
-    address: 'https://yandex.ru/maps/-/CLWAuE5H',
-    phones: ['+998939079017', '+998339077778', '+998947877475'],
-  },
-  'Toshkent': {
-    address: 'https://yandex.ru/maps/-/CLWAy4Y9',
-    phones: ['+998976616121', '+998939079017', '+998339077778'],
-  },
-};
-
-/** Telegram xabar matnini yaratish */
-export const generateTelegramMessage = (task: TaskDetail): string => {
+/** Telegram xabar matnini yaratish — branch ma'lumotlari API dan keladi */
+export const generateTelegramMessage = (task: TaskDetail, branches: Branch[]): string => {
   const taskName = task.title;
   const branchName = task.branch.name;
   const baseUrl =
@@ -36,16 +24,20 @@ export const generateTelegramMessage = (task: TaskDetail): string => {
     window.location.origin;
   const documentsUrl = task.qrToken ? `${baseUrl}/q/${task.qrToken}` : null;
 
-  const branch = branchInfo[branchName] || branchInfo['Oltiariq'];
-  const phoneLines = branch.phones.map((phone) => `📞 Tel: ${phone}`).join('\n');
+  // API dan kelgan branch metadata
+  const branch = branches.find((b) => b.name === branchName);
+  const phones = branch?.phones || [];
+  const address = branch?.address || '';
+  const phoneLines = phones.map((phone) => `📞 Tel: ${phone}`).join('\n');
 
-  return `📄 *HUJJATINGIZ TAYYOR* ✅\n━━━━━━━━━━━━━━━━━━\n🆔 *Hujjat raqami:*\n${taskName}\n\n${phoneLines}\n📌 Xarita: ${branch.address}\n\n📎 *Elektron hujjatlar*\n👇 Yuklab olish / ko'rish:\n🔗 ${documentsUrl || ''}\n\n🤝 Savollaringiz bo'lsa — bemalol murojaat qiling!`;
+  return `📄 *HUJJATINGIZ TAYYOR* ✅\n━━━━━━━━━━━━━━━━━━\n🆔 *Hujjat raqami:*\n${taskName}\n\n${phoneLines}\n📌 Xarita: ${address}\n\n📎 *Elektron hujjatlar*\n👇 Yuklab olish / ko'rish:\n🔗 ${documentsUrl || ''}\n\n🤝 Savollaringiz bo'lsa — bemalol murojaat qiling!`;
 };
 
 /** Telegram linkni ochish (QR token kerak bo'lsa avval generatsiya) */
 export const handleTelegramClick = async (
   selectedTask: TaskDetail,
   setSelectedTask: (task: TaskDetail) => void,
+  branches: Branch[],
 ) => {
   if (!selectedTask.driverPhone) return;
 
@@ -63,7 +55,7 @@ export const handleTelegramClick = async (
     } catch { /* fallback to existing data */ }
   }
 
-  const message = generateTelegramMessage(taskForMessage);
+  const message = generateTelegramMessage(taskForMessage, branches);
   const encodedMessage = encodeURIComponent(message);
   const phoneWithPlus = cleanedPhone.startsWith('+') ? cleanedPhone : `+${cleanedPhone}`;
   const telegramUrl = `https://t.me/${phoneWithPlus}?text=${encodedMessage}`;

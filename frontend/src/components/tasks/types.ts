@@ -108,6 +108,8 @@ export interface Client {
 export interface Branch {
   id: number;
   name: string;
+  phones?: string[];
+  address?: string;
 }
 
 export interface TaskStats {
@@ -128,8 +130,42 @@ export interface TaskDocument {
   name: string;
   fileUrl: string;
   fileType: string;
+  fileSize?: number;
   description?: string;
+  documentType?: string;
+  uploadedById?: number;
   uploadedBy?: { id: number; name: string };
+  createdAt: string;
+  archivedAt?: string;
+}
+
+export interface AiCheckError {
+  field?: string;
+  description?: string;
+  invoice?: string;
+  st?: string;
+  st1?: string;
+}
+
+export interface AiCheckFinding {
+  field?: string;
+  severity?: 'critical' | 'warning';
+  explanation?: string;
+  invoice_value?: unknown;
+  st_value?: unknown;
+}
+
+export interface AiCheckDetails {
+  status?: 'OK' | 'ERROR' | 'XATO';
+  errors?: AiCheckError[];
+  findings?: AiCheckFinding[];
+}
+
+export interface AiCheck {
+  id: number;
+  checkType: string;
+  result: 'PASS' | 'FAIL' | string;
+  details: AiCheckDetails | string;
   createdAt: string;
 }
 

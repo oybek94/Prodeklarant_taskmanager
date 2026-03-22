@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React from 'react';
 import { Icon } from '@iconify/react';
 import { getFileIcon, formatFileSize } from './taskHelpers';
@@ -81,7 +82,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           onSubmit={(e) => {
             e.preventDefault();
             if (uploadFiles.length === 0) {
-              alert('Kamida bitta faylni tanlang');
+              toast.error('Kamida bitta faylni tanlang');
               return;
             }
             onUpload();

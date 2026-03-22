@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React from 'react';
 import apiClient from '../../lib/api';
 import DateInput from '../DateInput';
@@ -46,7 +47,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
     e.preventDefault();
     const amountValue = errorForm.amount.trim();
     if (!/^\d{1,4}$/.test(amountValue)) {
-      alert("Summa faqat USD bo'lishi va 4 xonagacha bo'lishi kerak");
+      toast.error("Summa faqat USD bo'lishi va 4 xonagacha bo'lishi kerak");
       return;
     }
     try {
@@ -74,9 +75,9 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
       const response = await apiClient.get(`/tasks/${selectedTask.id}`);
       setSelectedTask(response.data);
       onSuccess();
-      alert("Xato muvaffaqiyatli qo'shildi");
+      toast.success("Xato muvaffaqiyatli qo'shildi");
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+      toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
     }
   };
 
@@ -136,7 +137,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
                             setSelectedTask(response.data);
                             onSuccess();
                           } catch (err: any) {
-                            alert(err.response?.data?.error || 'Xatolik yuz berdi');
+                            toast.error(err.response?.data?.error || 'Xatolik yuz berdi');
                           }
                         }}
                         className="text-red-600 hover:text-red-800 text-sm"

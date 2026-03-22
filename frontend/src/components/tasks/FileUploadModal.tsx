@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React, { useState, useRef, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import type { TaskStage } from './types';
@@ -55,7 +56,7 @@ export default function FileUploadModal({
 
   const handleFileSelect = (f: File) => {
     if (!validateFile(f)) {
-      alert('Faqat PDF va JPG fayllar qabul qilinadi');
+      toast.error('Faqat PDF va JPG fayllar qabul qilinadi');
       return;
     }
     onFileChange(f);

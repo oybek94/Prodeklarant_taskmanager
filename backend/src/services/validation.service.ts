@@ -111,8 +111,8 @@ export class ValidationService {
       return false;
     }
 
-    // WORKER can access tasks that have a stage assigned to them
-    if (userRole === 'WORKER') {
+    // WORKER, CERTIFICATE_WORKER — faqat o'ziga tayinlangan stage'lar bo'lsa
+    if (userRole === 'WORKER' || userRole === 'CERTIFICATE_WORKER') {
       const assignedStage = await this.prisma.taskStage.findFirst({
         where: {
           taskId,
@@ -120,6 +120,32 @@ export class ValidationService {
         },
       });
       return assignedStage !== null;
+    }
+
+    // OPERATOR, ACCOUNTANT, OWNER — o'z filialidagi tasklarga kirishi mumkin
+    if (userRole === 'OPERATOR' || userRole === 'ACCOUNTANT' || userRole === 'OWNER') {
+      const task = await this.prisma.task.findUnique({
+        where: { id: taskId },
+        select: { branchId: true },
+      });
+      if (!task) return false;
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { branchId: true },
+      });
+
+      // Filial mos kelsa — ruxsat
+      if (user?.branchId && task.branchId && user.branchId === task.branchId) {
+        return true;
+      }
+
+      // Filial belgilanmagan bo'lsa — ruxsat
+      if (!user?.branchId) {
+        return true;
+      }
+
+      return false;
     }
 
     return false;

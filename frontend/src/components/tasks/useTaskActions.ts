@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import toast from 'react-hot-toast';
 import apiClient from '../../lib/api';
 import { useFileHelpers } from './useFileHelpers';
 import { getClientCurrency, formatMoney } from './taskHelpers';
@@ -37,7 +38,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
     user, branches, isMobile, isNewTaskRoute, isArchiveRoute, editTaskId, navigate,
   } = params;
 
-  const { downloadFile, getPreviewBlobUrl } = useFileHelpers();
+  const { downloadFile, downloadBlob, getPreviewBlobUrl } = useFileHelpers();
 
   // ==================================================================
   // Stage Handlerlari
@@ -62,7 +63,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       });
 
       if (response.status >= 400) {
-        alert(response.data?.error || 'Xatolik yuz berdi');
+        toast.error(response.data?.error || 'Xatolik yuz berdi');
         modals.setUpdatingStage(null);
         return;
       }
@@ -76,11 +77,11 @@ export function useTaskActions(params: UseTaskActionsParams) {
     } catch (error: any) {
       console.error('Error updating stage:', error);
       if (error.response) {
-        alert(error.response.data?.error || error.message || 'Xatolik yuz berdi');
+        toast.error(error.response.data?.error || error.message || 'Xatolik yuz berdi');
       } else if (error.request) {
-        alert('Serverga javob kelmadi. Iltimos, qayta urinib ko\'ring.');
+        toast.error('Serverga javob kelmadi. Iltimos, qayta urinib ko\'ring.');
       } else {
-        alert(error.message || 'Xatolik yuz berdi');
+        toast.error(error.message || 'Xatolik yuz berdi');
       }
     } finally {
       modals.setUpdatingStage(null);
@@ -89,7 +90,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
 
   const handleStageClick = useCallback(async (stage: TaskStage) => {
     if (!user) {
-      alert('Login qiling');
+      toast.error('Login qiling');
       return;
     }
     if (stage.status === 'BOSHLANMAGAN') {
@@ -121,7 +122,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
 
   const handleStageToggle = useCallback(async (stageId: number, currentStatus: string) => {
     if (!selectedTask || !user) {
-      alert('Login qiling');
+      toast.error('Login qiling');
       return;
     }
     try {
@@ -132,7 +133,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       });
 
       if (response.status >= 400) {
-        alert(response.data?.error || 'Xatolik yuz berdi');
+        toast.error(response.data?.error || 'Xatolik yuz berdi');
         modals.setUpdatingStage(null);
         return;
       }
@@ -142,11 +143,11 @@ export function useTaskActions(params: UseTaskActionsParams) {
     } catch (error: any) {
       console.error('Error updating stage:', error);
       if (error.response) {
-        alert(error.response.data?.error || error.message || 'Xatolik yuz berdi');
+        toast.error(error.response.data?.error || error.message || 'Xatolik yuz berdi');
       } else if (error.request) {
-        alert('Serverga javob kelmadi. Iltimos, qayta urinib ko\'ring.');
+        toast.error('Serverga javob kelmadi. Iltimos, qayta urinib ko\'ring.');
       } else {
-        alert(error.message || 'Xatolik yuz berdi');
+        toast.error(error.message || 'Xatolik yuz berdi');
       }
     } finally {
       modals.setUpdatingStage(null);
@@ -176,7 +177,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
   const handleBXMConfirm = useCallback(async () => {
     const multiplier = parseFloat(modals.bxmMultiplier);
     if (isNaN(multiplier) || multiplier < 0.5 || multiplier > 4) {
-      alert('Multiplier 0.5 dan 4 gacha bo\'lishi kerak');
+      toast.error('Multiplier 0.5 dan 4 gacha bo\'lishi kerak');
       return;
     }
 
@@ -222,7 +223,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
 
   const handleFileUpload = useCallback(async () => {
     if (!selectedTask || !modals.fileUploadFile || !modals.fileUploadStageName) {
-      alert('Faylni tanlang');
+      toast.error('Faylni tanlang');
       return;
     }
 
@@ -265,7 +266,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       }
     } catch (error: any) {
       console.error('Error uploading file:', error);
-      alert(error.response?.data?.error || `${modals.fileUploadStageName || 'Fayl'} yuklashda xatolik yuz berdi`);
+      toast.error(error.response?.data?.error || `${modals.fileUploadStageName || 'Fayl'} yuklashda xatolik yuz berdi`);
     } finally {
       modals.setUploadingFile(false);
       modals.setUploadProgress(0);
@@ -274,7 +275,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
 
   const handleDocumentUpload = useCallback(async () => {
     if (!selectedTask || modals.uploadFiles.length === 0) {
-      alert('Kamida bitta faylni tanlang');
+      toast.error('Kamida bitta faylni tanlang');
       return;
     }
 
@@ -303,7 +304,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       await loadTaskDocuments(selectedTask.id);
     } catch (error: any) {
       console.error('Error uploading documents:', error);
-      alert(error.response?.data?.error || 'Hujjat yuklashda xatolik');
+      toast.error(error.response?.data?.error || 'Hujjat yuklashda xatolik');
     } finally {
       modals.setUploadingFile(false);
       modals.setUploadProgress(0);
@@ -328,7 +329,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
     if (blobUrl) {
       modals.setPreviewDocument({ url: blobUrl, type: fileType, name: fileName });
     } else {
-      alert('Faylni ko\'rishda xatolik yuz berdi');
+      toast.error('Faylni ko\'rishda xatolik yuz berdi');
     }
   }, [getPreviewBlobUrl, modals]);
 
@@ -339,7 +340,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       if (selectedTask) await loadTaskDocuments(selectedTask.id);
     } catch (error: any) {
       console.error('Error deleting document:', error);
-      alert(error.response?.data?.error || 'Hujjatni o\'chirishda xatolik');
+      toast.error(error.response?.data?.error || 'Hujjatni o\'chirishda xatolik');
     }
   }, [selectedTask, loadTaskDocuments]);
 
@@ -363,14 +364,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
 
       const blobType = response.data.type || 'image/png';
       const blob = new Blob([response.data], { type: blobType.includes('image') ? blobType : 'image/png' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `sticker-${taskId}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 100);
+      downloadBlob(blob, `sticker-${taskId}.png`);
     } catch (error: any) {
       console.error('Error downloading sticker:', error);
       let errorMessage = 'Stiker yuklab olishda xatolik yuz berdi';
@@ -385,9 +379,9 @@ export function useTaskActions(params: UseTaskActionsParams) {
       } else {
         errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || errorMessage;
       }
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
-  }, []);
+  }, [downloadBlob]);
 
   // ==================================================================
   // After Hours Declaration
@@ -403,7 +397,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       await loadTasks(showArchive, filters as any);
     } catch (error: any) {
       modals.setAfterHoursDeclaration(previous);
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+      toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
     }
   }, [selectedTask, modals, showArchive, filters, loadTaskDetail, loadTasks]);
 
@@ -418,7 +412,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
   ) => {
     e.preventDefault();
     if (!form.branchId) {
-      alert('Filialni tanlang');
+      toast.error('Filialni tanlang');
       return;
     }
     try {
@@ -439,7 +433,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       resetForm();
       await loadTasks(showArchive, filters as any);
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+      toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
     }
   }, [isMobile, isNewTaskRoute, navigate, modals, showArchive, filters, loadTasks]);
 
@@ -450,7 +444,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
     e.preventDefault();
     if (!selectedTask) return;
     if (!editForm.branchId) {
-      alert('Filialni tanlang');
+      toast.error('Filialni tanlang');
       return;
     }
     try {
@@ -471,7 +465,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       await loadTaskDetail(selectedTask.id);
       await loadTasks(showArchive, filters as any);
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+      toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
     }
   }, [selectedTask, isMobile, editTaskId, isArchiveRoute, navigate, modals, showArchive, filters, loadTaskDetail, loadTasks]);
 
@@ -552,7 +546,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       modals.setShowTaskModal(false);
       setSelectedTask(null);
       await loadTasks(showArchive, filters as any);
-      alert('Email sent successfully.');
+      toast.success('Email muvaffaqiyatli yuborildi');
     } catch (err: any) {
       modals.setSendEmailError(sendTaskEmailErrorToMessage(err.response?.data, err.response?.data?.error || err.message || "Email jonatib bo'lmadi."));
     } finally {

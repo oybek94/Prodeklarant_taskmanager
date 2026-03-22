@@ -5,7 +5,7 @@ import { AuthRequest, requireAuth } from '../middleware/auth';
 import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
 import { updateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
-import { TaskStatus, Currency, ExchangeSource } from '@prisma/client';
+import { TaskStatus, Currency, ExchangeSource, Prisma } from '@prisma/client';
 
 type AfterHoursPayerType = 'CLIENT' | 'COMPANY';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -49,10 +49,16 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const { branchId, status, clientId, page, limit } = req.query;
     const where: any = {};
+
+    /** Query param'ni xavfsiz int'ga aylantirish — NaN bo'lsa undefined qaytaradi */
+    const safeInt = (val: unknown): number | undefined => {
+      const n = Number(val);
+      return Number.isFinite(n) ? Math.floor(n) : undefined;
+    };
     
     // Pagination parametrlari
-    const pageNum = page ? parseInt(page as string, 10) : undefined;
-    const limitNum = limit ? parseInt(limit as string, 10) : undefined;
+    const pageNum = safeInt(page);
+    const limitNum = safeInt(limit);
     const skip = pageNum && limitNum ? (pageNum - 1) * limitNum : undefined;
     const take = limitNum || undefined;
     
@@ -65,20 +71,24 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       } else if (user.role === 'MANAGER') {
         // Manager barcha filiallardagi ishlarni ko'radi (branchId filter qo'llanmaydi)
         // Agar query'da branchId bo'lsa, uni qo'llaymiz (filter uchun)
-        if (branchId) where.branchId = Number(branchId);
+        const bid = safeInt(branchId);
+        if (bid) where.branchId = bid;
       } else if (user.role === 'ADMIN') {
         // Admin ham barcha filiallarni ko'radi
-        if (branchId) where.branchId = Number(branchId);
+        const bid = safeInt(branchId);
+        if (bid) where.branchId = bid;
       } else {
         // Boshqa rollar uchun o'z filialidagi ishlar
         if (user.branchId) where.branchId = user.branchId;
       }
     } else {
       // Agar user bo'lmasa, query'dan branchId olinadi
-      if (branchId) where.branchId = Number(branchId);
+      const bid = safeInt(branchId);
+      if (bid) where.branchId = bid;
     }
     
-    if (clientId) where.clientId = Number(clientId);
+    const cid = safeInt(clientId);
+    if (cid) where.clientId = cid;
     if (status) {
       // Validate status against enum values
       const validStatuses = ['BOSHLANMAGAN', 'JARAYONDA', 'TAYYOR', 'TEKSHIRILGAN', 'TOPSHIRILDI', 'YAKUNLANDI'];
@@ -149,6 +159,91 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     }
   } catch (error) {
     console.error('Error fetching tasks:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ==========================================
+// GET /stats — Task statistikasi (server-side hisob)
+// Har bir davr uchun joriy va oldingi countni qaytaradi
+// ==========================================
+router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const user = req.user;
+    const { branchId } = req.query;
+
+    // Base where clause — RBAC rules (GET / bilan bir xil)
+    const baseWhere: any = {};
+
+    if (user) {
+      if (user.role === 'DEKLARANT' && user.branchId) {
+        baseWhere.branchId = user.branchId;
+      } else if (user.role === 'MANAGER' || user.role === 'ADMIN') {
+        if (branchId) baseWhere.branchId = Number(branchId);
+      } else {
+        if (user.branchId) baseWhere.branchId = user.branchId;
+      }
+    } else {
+      if (branchId) baseWhere.branchId = Number(branchId);
+    }
+
+    // Vaqt diapazonlarini hisoblash
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Hafta boshi (Yakshanba)
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay());
+
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+
+    // Oldingi davrlar
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const yesterdayEnd = new Date(yesterday);
+    yesterdayEnd.setHours(23, 59, 59, 999);
+
+    const lastWeekStart = new Date(weekStart);
+    lastWeekStart.setDate(weekStart.getDate() - 7);
+    const lastWeekEnd = new Date(weekStart);
+    lastWeekEnd.setMilliseconds(-1); // weekStart dan 1ms oldin
+
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
+    const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+
+    // Parallel count so'rovlar — tez va samarali
+    const [
+      yearlyCurrent, yearlyPrevious,
+      monthlyCurrent, monthlyPrevious,
+      weeklyCurrent, weeklyPrevious,
+      dailyCurrent, dailyPrevious,
+    ] = await Promise.all([
+      // Yillik
+      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: yearStart, lte: now } } }),
+      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: lastYearStart, lte: lastYearEnd } } }),
+      // Oylik
+      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: monthStart, lte: now } } }),
+      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } } }),
+      // Haftalik
+      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: weekStart, lte: now } } }),
+      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: lastWeekStart, lte: lastWeekEnd } } }),
+      // Kunlik
+      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: today, lte: now } } }),
+      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: yesterday, lte: yesterdayEnd } } }),
+    ]);
+
+    res.json({
+      yearly: { current: yearlyCurrent, previous: yearlyPrevious },
+      monthly: { current: monthlyCurrent, previous: monthlyPrevious },
+      weekly: { current: weeklyCurrent, previous: weeklyPrevious },
+      daily: { current: dailyCurrent, previous: dailyPrevious },
+    });
+  } catch (error) {
+    console.error('Error fetching task stats:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -356,7 +451,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     // Prisma data object - faqat mavjud field'larni qo'shamiz
-    const taskData: any = {
+    const taskData: Partial<Prisma.TaskUncheckedCreateInput> = {
       clientId: parsed.data.clientId,
       branchId: parsed.data.branchId,
       title: parsed.data.title,
@@ -474,7 +569,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       taskData.customsPaymentMultiplier = parsed.data.customsPaymentMultiplier;
     }
     const createdTask = await tx.task.create({
-      data: taskData,
+      data: taskData as Prisma.TaskUncheckedCreateInput,
     });
     await tx.taskStage.createMany({
       data: stageTemplates.map((name, idx) => ({
@@ -506,7 +601,9 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     console.error('Error creating task:', error);
     res.status(500).json({ 
       error: 'Xatolik yuz berdi',
-      details: error instanceof Error ? error.message : String(error)
+      ...(process.env.NODE_ENV !== 'production' && {
+        details: error instanceof Error ? error.message : String(error)
+      })
     });
   }
 });
@@ -555,7 +652,7 @@ router.get('/:id/stages', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
   const task = await prisma.task.findUnique({
     where: { id },
@@ -973,7 +1070,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Get task versions
-router.get('/:id/versions', async (req, res) => {
+router.get('/:id/versions', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
   const versions = await prisma.taskVersion.findMany({
     where: { taskId: id },
@@ -1330,7 +1427,9 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
     res.status(500).json({ 
       error: 'Stage yangilashda xatolik yuz berdi',
-      details: error instanceof Error ? error.message : String(error)
+      ...(process.env.NODE_ENV !== 'production' && {
+        details: error instanceof Error ? error.message : String(error)
+      })
     });
   }
 });
@@ -1351,7 +1450,7 @@ const updateErrorSchema = z.object({
   date: z.coerce.date().optional(),
 });
 
-router.get('/:taskId/errors', async (req, res) => {
+router.get('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
   const taskId = Number(req.params.taskId);
   const errors = await prisma.taskError.findMany({
     where: { taskId },
@@ -1793,6 +1892,11 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
     },
   });
   if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  // RBAC: Faqat ADMIN yoki task yaratuvchisi o'chirishi mumkin
+  if (user.role !== 'ADMIN' && task.createdById !== user.id) {
+    return res.status(403).json({ error: 'Ruxsat yo\'q — faqat admin yoki task yaratuvchisi o\'chirishi mumkin' });
+  }
 
   // Agar task Jarayonda bo'lsa, o'chirish mumkin emas
   if (task.status === 'JARAYONDA') {

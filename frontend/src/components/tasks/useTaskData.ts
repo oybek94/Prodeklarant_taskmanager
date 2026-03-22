@@ -1,6 +1,7 @@
+import toast from 'react-hot-toast';
 import { useState, useCallback } from 'react';
 import apiClient from '../../lib/api';
-import type { Task, TaskDetail, TaskVersion, Client, Branch, TaskStats } from './types';
+import type { Task, TaskDetail, TaskVersion, TaskDocument, AiCheck, Client, Branch, TaskStats } from './types';
 
 /**
  * useTaskData — Tasks sahifasi uchun asosiy data-fetching hook.
@@ -27,11 +28,11 @@ export function useTaskData(userRole?: string) {
   const [loadingTask, setLoadingTask] = useState(false);
 
   // === Task documents ===
-  const [taskDocuments, setTaskDocuments] = useState<any[]>([]);
+  const [taskDocuments, setTaskDocuments] = useState<TaskDocument[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
 
   // === AI Checks ===
-  const [aiChecks, setAiChecks] = useState<any[]>([]);
+  const [aiChecks, setAiChecks] = useState<AiCheck[]>([]);
   const [loadingAiChecks, setLoadingAiChecks] = useState(false);
 
   // === Task versions ===
@@ -96,75 +97,25 @@ export function useTaskData(userRole?: string) {
     }
   }, [userRole]);
 
-  const calculateStats = useCallback((tasksData: Task[]) => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay());
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const yearStart = new Date(now.getFullYear(), 0, 1);
-
-    // Previous periods
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const lastWeekStart = new Date(weekStart);
-    lastWeekStart.setDate(weekStart.getDate() - 7);
-    const lastWeekEnd = new Date(weekStart);
-    lastWeekEnd.setDate(weekStart.getDate() - 1);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-    const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
-    const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31);
-
-    const isInRange = (date: Date, start: Date, end: Date) => {
-      return date >= start && date <= end;
-    };
-
-    const yearly = {
-      current: tasksData.filter((task) => {
-        const taskDate = new Date(task.createdAt);
-        return isInRange(taskDate, yearStart, now);
-      }).length,
-      previous: tasksData.filter((task) => {
-        const taskDate = new Date(task.createdAt);
-        return isInRange(taskDate, lastYearStart, lastYearEnd);
-      }).length,
-    };
-
-    const monthly = {
-      current: tasksData.filter((task) => {
-        const taskDate = new Date(task.createdAt);
-        return isInRange(taskDate, monthStart, now);
-      }).length,
-      previous: tasksData.filter((task) => {
-        const taskDate = new Date(task.createdAt);
-        return isInRange(taskDate, lastMonthStart, lastMonthEnd);
-      }).length,
-    };
-
-    const weekly = {
-      current: tasksData.filter((task) => {
-        const taskDate = new Date(task.createdAt);
-        return isInRange(taskDate, weekStart, now);
-      }).length,
-      previous: tasksData.filter((task) => {
-        const taskDate = new Date(task.createdAt);
-        return isInRange(taskDate, lastWeekStart, lastWeekEnd);
-      }).length,
-    };
-
-    const daily = {
-      current: tasksData.filter((task) => {
-        const taskDate = new Date(task.createdAt);
-        return isInRange(taskDate, today, now);
-      }).length,
-      previous: tasksData.filter((task) => {
-        const taskDate = new Date(task.createdAt);
-        return isInRange(taskDate, yesterday, yesterday);
-      }).length,
-    };
-
-    setStats({ yearly, monthly, weekly, daily });
+  /**
+   * Server-side task statistikasi — SQL COUNT so'rovlari bilan tez hisoblash.
+   * Client-side calculateStats o'rniga backend /tasks/stats endpointini chaqiradi.
+   * Bu pagination dan mustaqil va CPUni yuklamaydi.
+   */
+  const loadStats = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/tasks/stats');
+      setStats(response.data);
+    } catch (error) {
+      console.error('Error loading task stats:', error);
+      // Xatolik bo'lsa bo'sh stats qo'yamiz
+      setStats({
+        yearly: { current: 0, previous: 0 },
+        monthly: { current: 0, previous: 0 },
+        weekly: { current: 0, previous: 0 },
+        daily: { current: 0, previous: 0 },
+      });
+    }
   }, []);
 
   const loadTasks = useCallback(async (
@@ -197,7 +148,7 @@ export function useTaskData(userRole?: string) {
         setTasks(filteredTasks);
         setTotalPages(1);
         setTotalTasks(filteredTasks.length);
-        if (!showArchive) calculateStats(tasksData);
+        if (!showArchive) loadStats();
       } else if (Array.isArray(response.data)) {
         let filteredTasks = response.data;
         if (showArchive) {
@@ -208,23 +159,23 @@ export function useTaskData(userRole?: string) {
         setTasks(filteredTasks);
         setTotalPages(1);
         setTotalTasks(filteredTasks.length);
-        if (!showArchive) calculateStats(response.data);
+        if (!showArchive) loadStats();
       } else {
         setTasks([]);
         setTotalPages(1);
         setTotalTasks(0);
-        if (!showArchive) calculateStats([]);
+        if (!showArchive) loadStats();
       }
     } catch (error) {
       console.error('Error loading tasks:', error);
       setTasks([]);
       setTotalPages(1);
       setTotalTasks(0);
-      if (!showArchive) calculateStats([]);
+      if (!showArchive) loadStats();
     } finally {
       setLoading(false);
     }
-  }, [calculateStats]);
+  }, [loadStats]);
 
   const loadTaskStages = useCallback(async (taskId: number) => {
     try {
@@ -258,8 +209,6 @@ export function useTaskData(userRole?: string) {
   const loadTaskDocuments = useCallback(async (taskId: number) => {
     try {
       setLoadingDocuments(true);
-      const taskResponse = await apiClient.get(`/tasks/${taskId}`);
-      const task = taskResponse.data;
       const response = await apiClient.get(`/documents/task/${taskId}`);
       setTaskDocuments(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
@@ -314,7 +263,7 @@ export function useTaskData(userRole?: string) {
       });
     } catch (error) {
       console.error('Error loading task detail:', error);
-      alert("Task ma'lumotlarini yuklashda xatolik");
+      toast.error("Task ma'lumotlarini yuklashda xatolik");
     } finally {
       setLoadingTask(false);
     }
@@ -415,7 +364,7 @@ export function useTaskData(userRole?: string) {
     loadAiChecks,
     loadExtractedText,
     toggleDocumentExpansion,
-    calculateStats,
+    loadStats,
   };
 }
 

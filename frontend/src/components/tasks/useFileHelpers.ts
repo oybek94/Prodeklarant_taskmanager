@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 // Tasks sahifasidagi fayl yuklab olish va ko'rish uchun helper hook
 
 import apiClient from '../../lib/api';
@@ -41,17 +42,10 @@ export const useFileHelpers = () => {
       if (!response.ok) throw new Error(`Fayl topilmadi (${response.status})`);
 
       const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = originalName || fileNameFromUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
+      downloadBlob(blob, originalName || fileNameFromUrl);
     } catch (error) {
       console.error('Download error:', error);
-      alert('Faylni yuklab olishda xatolik yuz berdi');
+      toast.error('Faylni yuklab olishda xatolik yuz berdi');
     }
   };
 
@@ -80,5 +74,23 @@ export const useFileHelpers = () => {
     }
   };
 
-  return { downloadFile, getPreviewBlobUrl, buildSecureUrl };
+  /**
+   * Blob'dan faylni yuklab olish — markazlashtirilgan utility.
+   * createElement('a') → click → cleanup logikasini bitta joyda saqlash.
+   * 
+   * @param blob - Yuklab olinadigan Blob
+   * @param filename - Fayl nomi (masalan: "sticker-123.png")
+   */
+  const downloadBlob = (blob: Blob, filename: string): void => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => window.URL.revokeObjectURL(url), 100);
+  };
+
+  return { downloadFile, downloadBlob, getPreviewBlobUrl, buildSecureUrl };
 };

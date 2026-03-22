@@ -7,6 +7,7 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
+import TaskErrorBoundary from './components/tasks/TaskErrorBoundary';
 import TaskDetail from './pages/TaskDetail';
 import Transactions from './pages/Transactions';
 import Clients from './pages/Clients';
@@ -111,14 +112,16 @@ const AppRoutes = () => {
           path="/tasks"
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
-              <Tasks />
+              <TaskErrorBoundary>
+                <Tasks />
+              </TaskErrorBoundary>
             </ProtectedRoute>
           }
         />
-        <Route path="/tasks/new" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Tasks /></ProtectedRoute>} />
-        <Route path="/tasks/archive" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Tasks /></ProtectedRoute>} />
-        <Route path="/tasks/archive/filters" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Tasks /></ProtectedRoute>} />
-        <Route path="/tasks/:id/edit" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Tasks /></ProtectedRoute>} />
+        <Route path="/tasks/new" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><TaskErrorBoundary><Tasks /></TaskErrorBoundary></ProtectedRoute>} />
+        <Route path="/tasks/archive" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><TaskErrorBoundary><Tasks /></TaskErrorBoundary></ProtectedRoute>} />
+        <Route path="/tasks/archive/filters" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><TaskErrorBoundary><Tasks /></TaskErrorBoundary></ProtectedRoute>} />
+        <Route path="/tasks/:id/edit" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><TaskErrorBoundary><Tasks /></TaskErrorBoundary></ProtectedRoute>} />
         <Route path="/tasks/:id" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><TaskDetail /></ProtectedRoute>} />
         <Route
           path="/transactions"

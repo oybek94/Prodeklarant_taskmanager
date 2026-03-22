@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { getBranchMeta } from '../config/branch-metadata';
 
 const router = Router();
 
@@ -15,7 +16,12 @@ router.get('/', async (_req, res) => {
     const branches = await prisma.branch.findMany({
       orderBy: { name: 'asc' },
     });
-    res.json(branches);
+    // Branch metadata (telefon, xarita) qo'shish
+    const enriched = branches.map((b) => {
+      const meta = getBranchMeta(b.name);
+      return { ...b, phones: meta.phones, address: meta.address };
+    });
+    res.json(enriched);
   } catch (error: any) {
     console.error('Error fetching branches:', error);
     res.status(500).json({ error: 'Filiallarni yuklashda xatolik yuz berdi' });

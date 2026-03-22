@@ -1,13 +1,15 @@
+import toast from 'react-hot-toast';
 import React from 'react';
 
 import apiClient from '../../lib/api';
+import { useFileHelpers } from './useFileHelpers';
 import { Icon } from '@iconify/react';
 import {
   formatDate, formatFileSize, formatDuration, formatMoney, getClientCurrency,
   getStatusInfo, getFileIcon, canPreview, canShowOCR,
   calculateStageDuration, evaluateStageTime,
 } from './taskHelpers';
-import type { TaskDetail, TaskStage, TaskVersion } from './types';
+import type { TaskDetail, TaskStage, TaskVersion, TaskDocument, AiCheck, AiCheckDetails, AiCheckError, AiCheckFinding } from './types';
 
 const AFTER_HOURS_EXTRA_USD = 8.5;
 const AFTER_HOURS_EXTRA_UZS = 103000;
@@ -72,7 +74,7 @@ interface TaskDetailPanelProps {
   showFinancialReport: boolean;
   setShowFinancialReport: (v: boolean) => void;
   afterHoursDeclaration: boolean;
-  taskDocuments: any[];
+  taskDocuments: TaskDocument[];
   taskVersions: TaskVersion[];
   showVersions: boolean;
   setShowVersions: (v: boolean) => void;
@@ -83,7 +85,7 @@ interface TaskDetailPanelProps {
   user: { id: number; role: string; name?: string; email?: string } | null;
   isMobile: boolean;
   isModalMode: boolean;
-  aiChecks: any[];
+  aiChecks: AiCheck[];
   loadingAiChecks: boolean;
   expandedDocuments: Set<number>;
   documentExtractedTexts: Map<number, string>;
@@ -152,7 +154,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   formatInvoiceExtractedText,
   formatBxmAmountInSum,
 }) => {
-
+  const { downloadBlob } = useFileHelpers();
 
   return (
     <div
@@ -756,14 +758,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
                       const blobType = response.data?.type || 'application/zip';
                       const blob = new Blob([response.data], { type: blobType });
-                      const downloadUrl = window.URL.createObjectURL(blob);
-                      const link = document.createElement('a');
-                      link.href = downloadUrl;
-                      link.download = `${selectedTask?.title || 'task'}.zip`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                      window.URL.revokeObjectURL(downloadUrl);
+                      downloadBlob(blob, `${selectedTask?.title || 'task'}.zip`);
                     } catch (error: any) {
                       console.error('Error downloading ZIP:', error);
                       let message = error?.message || 'Yuklab olishda xatolik';
@@ -776,7 +771,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                           // ignore
                         }
                       }
-                      alert(message);
+                      toast.error(message);
                     }
                   }}
                   className="px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs font-semibold flex items-center gap-1.5 shadow-sm"
@@ -822,7 +817,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             <div className="text-xs text-gray-500 dark:text-gray-400">{doc.description}</div>
                           )}
                           <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
-                            {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt).toLocaleDateString('uz-UZ')}
+                            {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt || '').toLocaleDateString('uz-UZ')}
                           </div>
                         </div>
                       </div>
@@ -856,7 +851,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                           }
 
                           // Vaqtni hisoblash (2 kungacha o'chirish mumkin)
-                          const uploadTime = new Date(doc.createdAt || doc.archivedAt);
+                          const uploadTime = new Date(doc.createdAt || doc.archivedAt || '');
                           const now = new Date();
                           const diffInMs = now.getTime() - uploadTime.getTime();
                           const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
@@ -913,7 +908,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             onClick={() => {
                               if (extractedText) {
                                 navigator.clipboard.writeText(extractedText);
-                                alert('Matn nusxalandi!');
+                                toast.success('Matn nusxalandi!');
                               }
                             }}
                             className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
@@ -975,16 +970,18 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
               </div>
             ) : (
               <div className="space-y-4">
-                {aiChecks.map((check: any) => {
+                {aiChecks.map((check) => {
                   // Parse details if it's a JSON string
-                  let details = check.details;
-                  if (typeof details === 'string') {
+                  let parsedDetails: AiCheckDetails;
+                  if (typeof check.details === 'string') {
                     try {
-                      details = JSON.parse(details);
+                      parsedDetails = JSON.parse(check.details) as AiCheckDetails;
                     } catch (e) {
-                      console.error('Error parsing AI check details:', e, 'Raw details:', details);
-                      details = {};
+                      console.error('Error parsing AI check details:', e, 'Raw details:', check.details);
+                      parsedDetails = {};
                     }
+                  } else {
+                    parsedDetails = check.details;
                   }
 
                   // Debug log
@@ -992,18 +989,18 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                     id: check.id,
                     checkType: check.checkType,
                     result: check.result,
-                    details: details,
-                    detailsType: typeof details,
+                    details: parsedDetails,
+                    detailsType: typeof parsedDetails,
                   });
 
                   // Handle new format: {status: "OK"|"ERROR"|"XATO", errors: []}
                   // or legacy format: {findings: []}
-                  const errors = details?.errors || [];
-                  const status = details?.status || (check.result === 'PASS' ? 'OK' : 'ERROR');
+                  const errors = parsedDetails?.errors || [];
+                  const status = parsedDetails?.status || (check.result === 'PASS' ? 'OK' : 'ERROR');
                   const isPass = status === 'OK' || check.result === 'PASS';
 
                   // For backward compatibility with old format
-                  const legacyFindings = details?.findings || [];
+                  const legacyFindings = parsedDetails?.findings || [];
 
                   // Determine if there are errors (handle both new and legacy formats)
                   const hasErrors =
@@ -1064,7 +1061,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             Topilgan muammolar ({errors.length || legacyFindings.length}):
                           </div>
                           {/* New format: errors array */}
-                          {errors.map((error: any, idx: number) => (
+                          {errors.map((error: AiCheckError, idx: number) => (
                             <div
                               key={idx}
                               className="p-3 rounded bg-red-100 border border-red-300"
@@ -1098,7 +1095,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             </div>
                           ))}
                           {/* Legacy format: findings array (for backward compatibility) */}
-                          {legacyFindings.length > 0 && errors.length === 0 && legacyFindings.map((finding: any, idx: number) => (
+                          {legacyFindings.length > 0 && errors.length === 0 && legacyFindings.map((finding: AiCheckFinding, idx: number) => (
                             <div
                               key={idx}
                               className={`p-3 rounded ${finding.severity === 'critical'
@@ -1154,13 +1151,13 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                       )}
 
                       {/* Show raw details if available for debugging */}
-                      {import.meta.env.MODE === 'development' && details && Object.keys(details).length > 0 && (
+                      {import.meta.env.MODE === 'development' && parsedDetails && Object.keys(parsedDetails).length > 0 && (
                         <details className="mt-3 text-xs">
                           <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
                             Batafsil ma'lumot (debug)
                           </summary>
                           <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto max-h-40">
-                            {JSON.stringify(details, null, 2)}
+                            {JSON.stringify(parsedDetails, null, 2)}
                           </pre>
                         </details>
                       )}

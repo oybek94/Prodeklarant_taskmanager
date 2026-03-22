@@ -24,6 +24,7 @@ import CreateTaskModal from '../components/tasks/CreateTaskModal';
 import BXMModal from '../components/tasks/BxmModal';
 import FileUploadModal from '../components/tasks/FileUploadModal';
 import TaskDetailPanel from '../components/tasks/TaskDetailPanel';
+import { StatsCardsSkeleton, TaskTableSkeleton, TaskDetailSkeleton } from '../components/tasks/Skeletons';
 import TaskTable, { calculateTotalDuration } from '../components/tasks/TaskTable';
 import ArchiveFiltersPanel from '../components/tasks/ArchiveFiltersPanel';
 import type { ArchiveFiltersState } from '../components/tasks/ArchiveFiltersPanel';
@@ -82,7 +83,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   } = useTaskModals();
   const { user } = useAuth();
   const {
-    tasks, loading, clients, branches, workers,
+    tasks, loading, clients, branches, workers, stats,
     page, setPage, totalPages, totalTasks,
     selectedTask, setSelectedTask, loadingTask, setLoadingTask,
     taskDocuments, setTaskDocuments, loadingDocuments,
@@ -222,7 +223,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
 
   const handleTelegramClick = async () => {
     if (!selectedTask) return;
-    await handleTelegramClickHelper(selectedTask, setSelectedTask);
+    await handleTelegramClickHelper(selectedTask, setSelectedTask, branches);
   };
 
   const formatBxmAmount = (multiplier: number) =>
@@ -305,12 +306,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
       socket.off('task:stageUpdated', onStageUpdated);
     };
   }, [socket, showArchive, filters, isModalMode]);
-
-  useEffect(() => {
-    if (isModalMode && modalTaskId) {
-      loadTaskDetail(modalTaskId);
-    }
-  }, [isModalMode, modalTaskId]);
 
   // Clear archive filters when switching tabs
   useEffect(() => {
@@ -486,7 +481,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     const tasksToExport = showArchive ? filteredArchiveTasks : (Array.isArray(tasks) ? tasks : []);
 
     if (tasksToExport.length === 0) {
-      alert('Eksport qilish uchun ma\'lumotlar yo\'q');
+      toast.error('Eksport qilish uchun ma\'lumotlar yo\'q');
       return;
     }
 
@@ -596,9 +591,8 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
           onMouseDown={(e) => { if (e.target === e.currentTarget) onCloseModal?.(); }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md text-center">
-            <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-gray-600 font-medium">Yuklanmoqda...</p>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-auto">
+            <TaskDetailSkeleton />
           </div>
         </div>
       )}
@@ -724,6 +718,47 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
       </div>
       )}
 
+      {/* Statistika kartlari — faqat faol ishlar tabda */}
+      {!isModalMode && !showArchive && (
+        stats ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {([
+            { label: 'Yillik', icon: 'lucide:calendar', data: stats.yearly, bgIcon: 'bg-indigo-100 dark:bg-indigo-900/30', textIcon: 'text-indigo-600 dark:text-indigo-400' },
+            { label: 'Oylik', icon: 'lucide:calendar-days', data: stats.monthly, bgIcon: 'bg-emerald-100 dark:bg-emerald-900/30', textIcon: 'text-emerald-600 dark:text-emerald-400' },
+            { label: 'Haftalik', icon: 'lucide:calendar-range', data: stats.weekly, bgIcon: 'bg-amber-100 dark:bg-amber-900/30', textIcon: 'text-amber-600 dark:text-amber-400' },
+            { label: 'Bugungi', icon: 'lucide:calendar-clock', data: stats.daily, bgIcon: 'bg-rose-100 dark:bg-rose-900/30', textIcon: 'text-rose-600 dark:text-rose-400' },
+          ] as const).map(({ label, icon, data, bgIcon, textIcon }) => {
+            const change = data.previous > 0
+              ? Math.round(((data.current - data.previous) / data.previous) * 100)
+              : data.current > 0 ? 100 : 0;
+            const isPositive = change >= 0;
+            return (
+              <div
+                key={label}
+                className="relative overflow-hidden bg-white dark:bg-slate-800/80 rounded-2xl p-4 sm:p-5 border border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-all duration-300"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${bgIcon}`}>
+                    <Icon icon={icon} className={`w-4.5 h-4.5 ${textIcon}`} />
+                  </div>
+                  {data.previous > 0 && (
+                    <span className={`text-xs font-bold px-2 py-1 rounded-lg ${isPositive ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                      {isPositive ? '↑' : '↓'} {Math.abs(change)}%
+                    </span>
+                  )}
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{data.current}</div>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{label} vazifalar</div>
+                <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Oldingi: {data.previous}</div>
+              </div>
+            );
+          })}
+        </div>
+        ) : (
+          <StatsCardsSkeleton />
+        )
+      )}
+
       <div className="flex flex-col">
         <CreateTaskModal
           show={showTaskForm}
@@ -817,7 +852,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                   setSelectedTask(null);
                   await loadTasks(showArchive, filters as any);
                 } catch (error: any) {
-                  alert(error.response?.data?.error || 'Xatolik yuz berdi');
+                  toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
                 }
               }
             }}
@@ -954,7 +989,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
         {/* Tasklar jadvali - Mobil versiyada tepada */}
         <div className="order-1 md:order-2">
           {loading ? (
-            <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
+            <TaskTableSkeleton rows={6} />
           ) : showArchive ? (
             // Arxiv bo'limida barcha tasklar bitta jadvalda, har sahifada 20 ta (pagination)
             <div>

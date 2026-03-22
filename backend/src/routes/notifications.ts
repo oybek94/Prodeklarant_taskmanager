@@ -1,63 +1,31 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { NOTIFICATION_CONFIG } from '../services/notificationService';
 
 const router = Router();
 
-function getCarNumber(vehicleNumber?: string | null): string {
-  if (!vehicleNumber || typeof vehicleNumber !== 'string') return '';
-  return vehicleNumber.split('/')[0].trim() || '';
-}
-
-function getCarNumberFromTaskTitle(title?: string | null): string {
-  if (!title || typeof title !== 'string') return '';
-  const parts = title.split(/\s+АВТО\s+/i);
-  if (parts.length >= 2) {
-    const plate = (parts[1].trim().split(/\s/)[0] || parts[1].trim());
-    if (plate) return plate;
-  }
-  const beforeSlash = title.split('/')[0]?.trim();
-  if (beforeSlash && beforeSlash.length <= 20) return beforeSlash;
-  return '';
-}
-
-// GET / - Get unread notifications for current user
+// GET / - Foydalanuvchining bildirishnomalarini olish
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const userId = req.user!.id;
-    const notifications = await prisma.inAppNotification.findMany({
-      where: { userId, read: false },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        taskProcess: {
-          select: {
-            id: true,
-            taskId: true,
-            processType: true,
-            status: true,
-            task: { select: { id: true, title: true } },
-          },
-        },
-      },
-    });
+    const onlyUnread = req.query.unread === 'true';
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 
-    // Avtomobil raqamini Invoice.additionalInfo.vehicleNumber dan olish
-    const taskIds = [...new Set(notifications.map((n) => n.taskId))];
-    const invoices = await prisma.invoice.findMany({
-      where: { taskId: { in: taskIds } },
-      select: { taskId: true, additionalInfo: true },
-    });
-    const carNumberByTaskId = new Map<number, string>();
-    for (const inv of invoices) {
-      const info = inv.additionalInfo as { vehicleNumber?: string } | null;
-      const plate = getCarNumber(info?.vehicleNumber);
-      if (plate) carNumberByTaskId.set(inv.taskId, plate);
-    }
+    const whereClause = onlyUnread
+      ? `WHERE "userId" = ${userId} AND "read" = false`
+      : `WHERE "userId" = ${userId}`;
 
-    const result = notifications.map((n) => {
-      const carNumber = carNumberByTaskId.get(n.taskId) || getCarNumberFromTaskTitle(n.taskProcess?.task?.title);
-      return { ...n, carNumber };
-    });
+    const rows: any[] = await prisma.$queryRawUnsafe(
+      `SELECT "id", "userId", "type"::text, "title", "message", "actionUrl", "read", "taskId", "metadata", "createdAt" FROM "Notification" ${whereClause} ORDER BY "createdAt" DESC LIMIT ${limit}`
+    );
+
+    const result = rows.map(n => ({
+      ...n,
+      icon: (NOTIFICATION_CONFIG as any)[n.type]?.icon || 'ℹ️',
+      color: (NOTIFICATION_CONFIG as any)[n.type]?.color || 'gray',
+    }));
+
     res.json(result);
   } catch (error: any) {
     console.error('Notifications get error:', error);
@@ -65,7 +33,20 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
-// PATCH /:id/read - Mark notification as read
+// GET /unread-count - O'qilmagan bildirishnomalar soni
+router.get('/unread-count', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.id;
+    const result: any[] = await prisma.$queryRawUnsafe(
+      `SELECT COUNT(*)::int as count FROM "Notification" WHERE "userId" = ${userId} AND "read" = false`
+    );
+    res.json({ count: result[0]?.count || 0 });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH /:id/read - Bitta bildirishnomani o'qilgan deb belgilash
 router.patch('/:id/read', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -74,25 +55,59 @@ router.patch('/:id/read', requireAuth(), async (req: AuthRequest, res) => {
     }
     const userId = req.user!.id;
 
-    const notif = await prisma.inAppNotification.findUnique({
-      where: { id },
-    });
-    if (!notif) {
+    const rows: any[] = await prisma.$queryRawUnsafe(
+      `SELECT "id", "userId" FROM "Notification" WHERE "id" = ${id}`
+    );
+    if (rows.length === 0) {
       return res.status(404).json({ error: 'Bildirishnoma topilmadi' });
     }
-    if (notif.userId !== userId) {
-      return res.status(403).json({ error: 'Boshqa foydalanuvchi bildirishnomasini o\'zgartira olmaysiz' });
+    if (rows[0].userId !== userId) {
+      return res.status(403).json({ error: 'Ruxsat yo\'q' });
     }
 
-    await prisma.inAppNotification.update({
-      where: { id },
-      data: { read: true },
-    });
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Notification" SET "read" = true WHERE "id" = ${id}`
+    );
 
-    res.status(200).json({ success: true });
+    res.json({ success: true });
   } catch (error: any) {
     console.error('Notification read error:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// PATCH /read-all - Barcha bildirishnomalarni o'qilgan deb belgilash
+router.patch('/read-all', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.id;
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Notification" SET "read" = true WHERE "userId" = ${userId} AND "read" = false`
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /:id - Bitta bildirishnomani o'chirish
+router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'Noto\'g\'ri ID' });
+    }
+    const userId = req.user!.id;
+
+    const rows: any[] = await prisma.$queryRawUnsafe(
+      `SELECT "id", "userId" FROM "Notification" WHERE "id" = ${id}`
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Topilmadi' });
+    if (rows[0].userId !== userId) return res.status(403).json({ error: 'Ruxsat yo\'q' });
+
+    await prisma.$executeRawUnsafe(`DELETE FROM "Notification" WHERE "id" = ${id}`);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 

@@ -33,6 +33,7 @@ import QRVerification from './pages/QRVerification';
 import Leads from './pages/Leads';
 import LeadDetail from './pages/LeadDetail';
 import CrmDashboard from './pages/CrmDashboard';
+import Notifications from './pages/Notifications';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -275,6 +276,7 @@ const AppRoutes = () => {
           }
         />
         <Route path="/profile" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER', 'SELLER']}><Profile /></ProtectedRoute>} />
+        <Route path="/notifications" element={<Notifications />} />
       </Route>
       <Route
         path="/"

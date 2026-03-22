@@ -1,6 +1,6 @@
 import { prisma } from '../prisma';
 import { TaskProcessLogAction } from '@prisma/client';
-import { socketEmitter } from './socketEmitter';
+import { notify, getAdminUserIds } from './notificationService';
 
 const PROCESS_TYPE_LABELS: Record<string, string> = {
   TIR: 'TIR-SMR',
@@ -9,20 +9,18 @@ const PROCESS_TYPE_LABELS: Record<string, string> = {
 };
 
 const PROCESS_TYPE_QUESTIONS: Record<string, string> = {
-  TIR: 'Ishlar bajarildimi?',
+  TIR: 'Tayyor bo\'ldimi?',
   CERT: 'Zayavkalar jo\'natildimi?',
-  DECLARATION: 'Ishlar bajarildimi?',
+  DECLARATION: 'Tayyor bo\'ldimi?',
 };
 
 function getCarNumberFromTitle(title: string): string {
   if (!title || typeof title !== 'string') return '';
-  // Format: "12345 АВТО 01A123BC" - avtomobil raqami "АВТО" dan keyin
   const parts = title.split(/\s+АВТО\s+/i);
   if (parts.length >= 2) {
     const plate = parts[1].trim().split(/\s/)[0] || parts[1].trim();
     if (plate) return plate;
   }
-  // Fallback: "/" dan oldingi qism (vehicleNumber format)
   const beforeSlash = title.split('/')[0]?.trim();
   if (beforeSlash && beforeSlash.length <= 20) return beforeSlash;
   return '';
@@ -60,10 +58,11 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
       const reminder3 = settings?.reminder3 ?? 40;
 
       const label = PROCESS_TYPE_LABELS[tp.processType] || tp.processType;
-      const question = PROCESS_TYPE_QUESTIONS[tp.processType] || 'Ishlar bajarildimi?';
+      const question = PROCESS_TYPE_QUESTIONS[tp.processType] || 'Tayyor bo\'ldimi?';
       const carNumber = getCarNumberFromTitle(tp.task?.title || '');
-      const prefix = carNumber ? `${carNumber} - ` : `Task #${tp.taskId} - `;
-      const message = `${prefix}${label}. ${question}`;
+      const prefix = carNumber || `Task #${tp.taskId}`;
+      const title = `${prefix} — ${label}`;
+      const message = question;
       const actionUrl = `/tasks/${tp.taskId}`;
 
       const newRemindersSent = tp.remindersSent + 1;
@@ -73,9 +72,8 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
       } else if (newRemindersSent === 2) {
         nextReminderTime = new Date(tp.downloadedAt.getTime() + reminder3 * 60 * 1000);
       }
-      // remindersSent==3: no more reminders, will escalate
 
-      // Bildirishnoma: yuklab olgan ishchi (tp.userId) + vazifa filialidagi barcha faol ishchilar
+      // Qabul qiluvchilar: yuklab olgan ishchi + filial ishchilari
       const recipientIds = new Set<number>([tp.userId]);
       if (tp.task?.branchId != null) {
         const branchUsers = await prisma.user.findMany({
@@ -84,19 +82,8 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
         });
         branchUsers.forEach((u) => recipientIds.add(u.id));
       }
+
       const txOps: any[] = [
-        ...Array.from(recipientIds).map((userId) =>
-          prisma.inAppNotification.create({
-            data: {
-              userId,
-              taskId: tp.taskId,
-              taskProcessId: tp.id,
-              message,
-              actionUrl,
-              read: false,
-            },
-          })
-        ),
         prisma.taskProcessLog.create({
           data: {
             taskProcessId: tp.id,
@@ -107,27 +94,21 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
       ];
 
       if (newRemindersSent >= 3) {
-        // Escalate: notify admins, set status=ESCALATED
-        const admins = await prisma.user.findMany({
-          where: { role: 'ADMIN', active: true },
-          select: { id: true },
+        // Escalate: notify admins
+        const adminIds = await getAdminUserIds();
+        const escalateTitle = `${prefix} — ${label}`;
+        const escalateMessage = 'Ish bajarilmadi! Admin e\'tiboriga yuborildi.';
+
+        await notify({
+          userIds: adminIds,
+          type: 'PROCESS_ESCALATED',
+          title: escalateTitle,
+          message: escalateMessage,
+          actionUrl,
+          taskId: tp.taskId,
+          metadata: { taskProcessId: tp.id, processType: tp.processType },
         });
-        const escalatePrefix = carNumber ? `${carNumber} - ` : `Task #${tp.taskId} - `;
-        const escalateMessage = `${escalatePrefix}${label}. Ish bajarilmadi, administratorlarga yuborildi.`;
-        for (const a of admins) {
-          txOps.push(
-            prisma.inAppNotification.create({
-              data: {
-                userId: a.id,
-                taskId: tp.taskId,
-                taskProcessId: tp.id,
-                message: escalateMessage,
-                actionUrl,
-                read: false,
-              },
-            })
-          );
-        }
+
         txOps.push(
           prisma.tasksProcess.update({
             where: { id: tp.id },
@@ -158,10 +139,18 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
       }
 
       await prisma.$transaction(txOps);
-      // Socket: har bir qabul qiluvchiga real-time xabarnoma
-      for (const userId of recipientIds) {
-        socketEmitter.toUser(userId, 'notification:new', { message, actionUrl });
-      }
+
+      // Eslatma bildirishnomasi
+      await notify({
+        userIds: Array.from(recipientIds),
+        type: 'PROCESS_REMINDER',
+        title,
+        message,
+        actionUrl,
+        taskId: tp.taskId,
+        metadata: { taskProcessId: tp.id, processType: tp.processType },
+      });
+
       processed++;
       console.log(`[Process Reminder] Bildirishnoma yuborildi: ${recipientIds.size} kishiga, taskId=${tp.taskId}, processType=${tp.processType}`);
     } catch (err) {

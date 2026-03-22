@@ -52,6 +52,7 @@ model User {
   transactions       Transaction[]            @relation("TransactionWorker")
   branch             Branch?                  @relation(fields: [branchId], references: [id])
   workerPayments     WorkerPayment[]          @relation("WorkerPayment")
+  notifications      Notification[]
 }
 
 model Client {
@@ -951,6 +952,37 @@ model InAppNotification {
 
   @@index([userId])
   @@index([read])
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  type      NotificationType
+  title     String
+  message   String
+  actionUrl String?
+  read      Boolean          @default(false)
+  taskId    Int?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  TASK_CREATED
+  TASK_UPDATED
+  TASK_COMPLETED
+  TASK_DELETED
+  STAGE_UPDATED
+  PROCESS_REMINDER
+  PROCESS_ESCALATED
+  INVOICE_SAVED
+  INVOICE_CONFLICT
+  ERROR_ADDED
+  SYSTEM
 }
 
 model CurrencyExchangeRate {

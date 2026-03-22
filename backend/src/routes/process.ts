@@ -7,6 +7,7 @@ import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
 import { updateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
 import { socketEmitter } from '../services/socketEmitter';
+import { notify, getAdminUserIds } from '../services/notificationService';
 
 const router = Router();
 
@@ -141,7 +142,6 @@ router.post('/confirm', requireAuth(), async (req: AuthRequest, res) => {
 
     const tp = await prisma.tasksProcess.findUnique({
       where: { id: taskProcessId },
-      include: { notifications: true },
     });
     if (!tp) {
       return res.status(404).json({ error: 'Task process topilmadi' });
@@ -169,6 +169,7 @@ router.post('/confirm', requireAuth(), async (req: AuthRequest, res) => {
           action: TaskProcessLogAction.CONFIRM,
         },
       });
+      // Eski InAppNotification: o'qilgan deb belgilash
       await tx.inAppNotification.updateMany({
         where: { taskProcessId },
         data: { read: true },
@@ -292,10 +293,16 @@ router.post('/reject', requireAuth(), async (req: AuthRequest, res) => {
           })
         ),
       ]);
-      // Socket: adminlarga real-time xabarnoma
-      for (const a of admins) {
-        socketEmitter.toUser(a.id, 'notification:new', { message, actionUrl });
-      }
+      // Yangi notification tizimi orqali ham yuborish
+      notify({
+        userIds: admins.map(a => a.id),
+        type: 'PROCESS_ESCALATED',
+        title: `Task #${tp.taskId} — ${tp.processType}`,
+        message,
+        actionUrl: actionUrl || undefined,
+        taskId: tp.taskId,
+        metadata: { taskProcessId, processType: tp.processType },
+      });
     } else {
       await prisma.$transaction([
         prisma.tasksProcess.update({

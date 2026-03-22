@@ -2,68 +2,55 @@ import { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useNotifications, getNotificationDisplayMessage, requestNotificationPermission } from '../hooks/useNotifications';
+import { useNotifications, getNotifStyle, requestNotificationPermission } from '../hooks/useNotifications';
+import type { AppNotification } from '../hooks/useNotifications';
 import { usePresence, getPageLabel } from '../hooks/usePresence';
 import { useTheme } from '../contexts/ThemeContext';
 import toast from 'react-hot-toast';
 
-/** Hozircha bildirishnomalar o‘chirilgan; keyin yoqish uchun true qiling */
-const NOTIFICATIONS_ENABLED = true;
-
 const Layout = () => {
   const { user, logout } = useAuth();
-  const { notifications, confirmProcess, rejectProcess } = useNotifications();
+  const { notifications, unreadCount, confirmProcess, rejectProcess, markRead, markAllRead, dismissNotification } = useNotifications();
   const { onlineUsers } = usePresence();
   const { theme, toggleTheme } = useTheme();
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Bildirishnoma ruxsati so'rash
   useEffect(() => {
-    if (!NOTIFICATIONS_ENABLED) return;
-    if (notifications.length > 0) {
-      setNotificationPanelOpen(true);
-    }
-  }, [notifications.length]);
+    requestNotificationPermission();
+  }, []);
 
+  // Tashqarini bosganda panelni yopish
   useEffect(() => {
-    if (!NOTIFICATIONS_ENABLED) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (notifications.length > 0) return;
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         setNotificationPanelOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [notifications.length]);
+  }, []);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Desktop: default ochiq, Mobile: default yopiq
   const [sidebarOpen, setSidebarOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 768; // md breakpoint
-    }
+    if (typeof window !== 'undefined') return window.innerWidth >= 768;
     return true;
   });
 
-  // Window size'ni kuzatish
   const [isDesktop, setIsDesktop] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 768;
-    }
+    if (typeof window !== 'undefined') return window.innerWidth >= 768;
     return true;
   });
 
-  // Window resize'da sidebar holatini yangilash
   useEffect(() => {
     const handleResize = () => {
       const desktop = window.innerWidth >= 768;
       setIsDesktop(desktop);
       setSidebarOpen(desktop);
     };
-
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -98,12 +85,57 @@ const Layout = () => {
     { path: '/profile', label: 'Profil', icon: 'lucide:user' },
   ];
 
+  // Process Reminder bildirishnoma uchun action tugmalar
+  const handleProcessConfirm = async (n: AppNotification) => {
+    const processId = (n.metadata as any)?.taskProcessId;
+    if (!processId) return;
+    try {
+      await confirmProcess(processId);
+      toast.success('Tayyor deb belgilandi!');
+    } catch (err: any) {
+      toast.error(err.message || 'Xatolik');
+    }
+  };
+
+  const handleProcessReject = async (n: AppNotification) => {
+    const processId = (n.metadata as any)?.taskProcessId;
+    if (!processId) return;
+    try {
+      await rejectProcess(processId);
+      toast('Hali yo\'q deb belgilandi', { icon: '⏳' });
+    } catch (err: any) {
+      toast.error(err.message || 'Xatolik');
+    }
+  };
+
+  // Bildirishnoma bosilganda — actionUrl ga o'tish
+  const handleNotificationClick = (n: AppNotification) => {
+    if (n.actionUrl) {
+      navigate(n.actionUrl);
+      setNotificationPanelOpen(false);
+    }
+    markRead(n.id);
+  };
+
+  // Vaqt formatini olish
+  const timeAgo = (dateStr: string): string => {
+    const now = new Date();
+    const date = new Date(dateStr);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'hozir';
+    if (diffMin < 60) return `${diffMin} daq.`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr} soat`;
+    const diffDay = Math.floor(diffHr / 24);
+    return `${diffDay} kun`;
+  };
+
   return (
     <div className="flex h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900 relative text-gray-900 dark:text-gray-100">
       {/* Sidebar */}
       {!isExamPage && (
         <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-12' : 'w-0'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 overflow-hidden relative`}>
-          {/* Desktop/Mobile Header in Sidebar */}
           <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <div className={`${sidebarOpen ? 'block' : 'hidden'}`}>
               <img src="/logo.png" alt="Prodeklarant" className="h-8 w-auto" />
@@ -195,7 +227,7 @@ const Layout = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Mobile/Desktop Header (Redundant on Exam Page) */}
+        {/* Top Header */}
         {!isExamPage && (
           <header className="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             {!isDesktop && (
@@ -215,57 +247,128 @@ const Layout = () => {
               >
                 <Icon icon={theme === 'dark' ? "lucide:sun" : "lucide:moon"} className="w-5 h-5" />
               </button>
-              {NOTIFICATIONS_ENABLED && (
-                <div className="relative" ref={panelRef}>
-                  <button
-                    onClick={() => setNotificationPanelOpen(!notificationPanelOpen)}
-                    className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                  >
-                    <Icon icon="lucide:bell" className="w-5 h-5" />
-                    {notifications.length > 0 && (
-                      <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-xs font-medium text-white bg-red-500 rounded-full">
-                        {notifications.length > 9 ? '9+' : notifications.length}
-                      </span>
-                    )}
-                  </button>
-                  {notificationPanelOpen && (
-                    <div className="absolute right-0 mt-1 w-80 sm:w-96 max-h-[28rem] overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50">
-                      <div className="flex items-center gap-2 p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-xl">
+
+              {/* 🔔 Bildirishnoma Bell */}
+              <div className="relative" ref={panelRef}>
+                <button
+                  onClick={() => setNotificationPanelOpen(!notificationPanelOpen)}
+                  className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <Icon icon="lucide:bell" className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-xs font-medium text-white bg-red-500 rounded-full animate-pulse">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Bildirishnoma Panel */}
+                {notificationPanelOpen && (
+                  <div className="absolute right-0 mt-1 w-80 sm:w-[26rem] max-h-[32rem] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 flex flex-col">
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-xl">
+                      <div className="flex items-center gap-2">
                         <Icon icon="lucide:bell-ring" className="w-5 h-5 text-indigo-600" />
                         <span className="font-semibold text-gray-800 dark:text-gray-200">Bildirishnomalar</span>
-                      </div>
-                      <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                        {notifications.length === 0 ? (
-                          <div className="p-12 text-center text-gray-400">
-                            <Icon icon="lucide:bell-off" className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                            <p className="text-sm font-medium">Bildirishnomalar yo'q</p>
-                          </div>
-                        ) : (
-                          notifications.map((n) => (
-                            <div key={n.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                              <p className="text-sm text-gray-800 dark:text-gray-200 mb-3">{getNotificationDisplayMessage(n)}</p>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => confirmProcess(n.taskProcessId)}
-                                  className="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                >
-                                  Tasdiqlash
-                                </button>
-                                <button
-                                  onClick={() => rejectProcess(n.taskProcessId)}
-                                  className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                                >
-                                  Rad etish
-                                </button>
-                              </div>
-                            </div>
-                          ))
+                        {unreadCount > 0 && (
+                          <span className="text-xs bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full">{unreadCount}</span>
                         )}
                       </div>
+                      {notifications.length > 0 && (
+                        <button
+                          onClick={markAllRead}
+                          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                        >
+                          Barchasini o'qish
+                        </button>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
+
+                    {/* Notifications List */}
+                    <div className="overflow-y-auto flex-1">
+                      {notifications.length === 0 ? (
+                        <div className="p-10 text-center text-gray-400">
+                          <Icon icon="lucide:bell-off" className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                          <p className="text-sm font-medium">Bildirishnomalar yo'q</p>
+                          <p className="text-xs mt-1 text-gray-400">Yangi xabarlar shu yerda ko'rinadi</p>
+                        </div>
+                      ) : (
+                        notifications.slice(0, 10).map((n) => {
+                          const style = getNotifStyle(n.color);
+                          const isProcessReminder = n.type === 'PROCESS_REMINDER';
+                          const isEscalation = n.type === 'PROCESS_ESCALATED';
+                          return (
+                            <div
+                              key={n.id}
+                              className={`p-3 border-b border-gray-50 dark:border-gray-700/50 ${style.bg} ${style.darkBg} transition-colors`}
+                            >
+                              <div className="flex items-start gap-2.5">
+                                <span className="text-lg flex-shrink-0 mt-0.5">{n.icon}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <button
+                                      onClick={() => handleNotificationClick(n)}
+                                      className={`text-sm font-semibold ${style.text} ${style.darkText} hover:underline text-left truncate`}
+                                    >
+                                      {n.title}
+                                    </button>
+                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                      <span className="text-[10px] text-gray-400">{timeAgo(n.createdAt)}</span>
+                                      <button
+                                        onClick={() => dismissNotification(n.id)}
+                                        className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
+                                        title="Yopish"
+                                      >
+                                        <Icon icon="lucide:x" className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <p className={`text-xs mt-0.5 ${style.text} ${style.darkText} opacity-80`}>{n.message}</p>
+
+                                  {/* Process Reminder action tugmalari */}
+                                  {(isProcessReminder || isEscalation) && (
+                                    <div className="flex gap-2 mt-2">
+                                      <button
+                                        onClick={() => handleProcessConfirm(n)}
+                                        className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                                      >
+                                        <Icon icon="lucide:check" className="w-3 h-3" />
+                                        Tayyor
+                                      </button>
+                                      <button
+                                        onClick={() => handleProcessReject(n)}
+                                        className="px-3 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors flex items-center gap-1"
+                                      >
+                                        <Icon icon="lucide:clock" className="w-3 h-3" />
+                                        Hali yo'q
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Footer */}
+                    {notifications.length > 10 && (
+                      <div className="p-3 border-t border-gray-100 dark:border-gray-700 text-center">
+                        <button
+                          onClick={() => {
+                            navigate('/notifications');
+                            setNotificationPanelOpen(false);
+                          }}
+                          className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                        >
+                          Hammasini ko'rish ({notifications.length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </header>
         )}

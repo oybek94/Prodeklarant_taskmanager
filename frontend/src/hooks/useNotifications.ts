@@ -34,69 +34,96 @@ function showBrowserNotification(title: string, body: string, tag?: string) {
   }
 }
 
-export interface InAppNotification {
+// Bildirishnoma turlari
+export type NotificationType =
+  | 'TASK_CREATED'
+  | 'TASK_UPDATED'
+  | 'TASK_COMPLETED'
+  | 'TASK_DELETED'
+  | 'STAGE_UPDATED'
+  | 'PROCESS_REMINDER'
+  | 'PROCESS_ESCALATED'
+  | 'INVOICE_SAVED'
+  | 'INVOICE_CONFLICT'
+  | 'ERROR_ADDED'
+  | 'SYSTEM';
+
+export interface AppNotification {
   id: number;
   userId: number;
-  taskId: number;
-  taskProcessId: number;
+  type: NotificationType;
+  title: string;
   message: string;
   actionUrl: string | null;
   read: boolean;
+  taskId: number | null;
+  metadata: Record<string, any> | null;
   createdAt: string;
-  carNumber?: string;
-  taskProcess?: {
-    id: number;
-    taskId: number;
-    processType: string;
-    status: string;
-    task?: { id: number; title: string };
-  };
+  icon: string;
+  color: 'green' | 'blue' | 'yellow' | 'red' | 'purple' | 'gray';
 }
 
-function getCarNumberFromTitle(title?: string): string {
-  if (!title || typeof title !== 'string') return '';
-  const parts = title.split(/\s+АВТО\s+/i);
-  if (parts.length >= 2) {
-    const plate = (parts[1].trim().split(/\s/)[0] || parts[1].trim());
-    if (plate) return plate;
-  }
-  const beforeSlash = title.split('/')[0]?.trim();
-  if (beforeSlash && beforeSlash.length <= 20) return beforeSlash;
-  return '';
-}
+// Bildirishnoma turi bo'yicha rang konfiguratsiyasi (CSS classlari uchun)
+export const NOTIFICATION_STYLES: Record<string, {
+  bg: string;
+  border: string;
+  text: string;
+  darkBg: string;
+  darkBorder: string;
+  darkText: string;
+}> = {
+  green: {
+    bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-800',
+    darkBg: 'dark:bg-emerald-900/30', darkBorder: 'dark:border-emerald-700', darkText: 'dark:text-emerald-200',
+  },
+  blue: {
+    bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800',
+    darkBg: 'dark:bg-blue-900/30', darkBorder: 'dark:border-blue-700', darkText: 'dark:text-blue-200',
+  },
+  yellow: {
+    bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800',
+    darkBg: 'dark:bg-amber-900/30', darkBorder: 'dark:border-amber-700', darkText: 'dark:text-amber-200',
+  },
+  red: {
+    bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-800',
+    darkBg: 'dark:bg-red-900/30', darkBorder: 'dark:border-red-700', darkText: 'dark:text-red-200',
+  },
+  purple: {
+    bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-800',
+    darkBg: 'dark:bg-purple-900/30', darkBorder: 'dark:border-purple-700', darkText: 'dark:text-purple-200',
+  },
+  gray: {
+    bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-800',
+    darkBg: 'dark:bg-gray-800', darkBorder: 'dark:border-gray-700', darkText: 'dark:text-gray-200',
+  },
+};
 
-export function getNotificationDisplayMessage(n: InAppNotification): string {
-  const carNumber = n.carNumber || getCarNumberFromTitle(n.taskProcess?.task?.title);
-  if (carNumber && n.message.startsWith('Task #')) {
-    return n.message.replace(/^Task #\d+\s*-\s*/, `${carNumber} - `);
-  }
-  return n.message;
+export function getNotifStyle(color: string) {
+  return NOTIFICATION_STYLES[color] || NOTIFICATION_STYLES.gray;
 }
 
 export function useNotifications() {
-  const [notifications, setNotifications] = useState<InAppNotification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const prevIdsRef = useRef<Set<number>>(new Set());
   const isFirstFetchRef = useRef(true);
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const response = await apiClient.get('/notifications');
-      const data = Array.isArray(response.data) ? response.data : [];
+      const response = await apiClient.get('/notifications?unread=true');
+      const data: AppNotification[] = Array.isArray(response.data) ? response.data : [];
       const newOnes = data.filter((n) => !prevIdsRef.current.has(n.id));
-      const hadData = prevIdsRef.current.size > 0;
       prevIdsRef.current = new Set(data.map((n) => n.id));
       setNotifications(data);
+      setUnreadCount(data.length);
 
-      // Brauzer bildirishnomasi: yangi bildirishnoma kelganda (birinchi yuklashda emas)
-      if (!isFirstFetchRef.current && newOnes.length > 0 && typeof Notification !== 'undefined') {
-        const title = 'Prodeklarant';
-        if (document.visibilityState === 'hidden') {
-          if (newOnes.length === 1) {
-            showBrowserNotification(title, getNotificationDisplayMessage(newOnes[0]), `notif-${newOnes[0].id}`);
-          } else {
-            showBrowserNotification(title, `Sizda ${newOnes.length} ta yangi bildirishnoma`);
-          }
+      // Brauzer bildirishnomasi: yangi bo'lsa va tab yashirin bo'lsa
+      if (!isFirstFetchRef.current && newOnes.length > 0 && document.visibilityState === 'hidden') {
+        if (newOnes.length === 1) {
+          showBrowserNotification('Prodeklarant', `${newOnes[0].icon} ${newOnes[0].title}`, `notif-${newOnes[0].id}`);
+        } else {
+          showBrowserNotification('Prodeklarant', `Sizda ${newOnes.length} ta yangi bildirishnoma`);
         }
       }
       if (isFirstFetchRef.current) isFirstFetchRef.current = false;
@@ -110,59 +137,79 @@ export function useNotifications() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000); // polling fallback
+    const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
-  // Socket.io: real-time xabarnomalar
+  // Socket.io: real-time push
   const socket = useSocket();
   useEffect(() => {
     if (!socket) return;
-    const onNewNotification = (data: { message?: string }) => {
-      // Darhol yangilanishlarni olish
+    const onNewNotification = () => {
       fetchNotifications();
-      // Browser notification
-      if (data.message && document.visibilityState === 'hidden') {
-        showBrowserNotification('Prodeklarant', data.message);
-      }
     };
     socket.on('notification:new', onNewNotification);
     return () => { socket.off('notification:new', onNewNotification); };
   }, [socket, fetchNotifications]);
 
-  const confirmProcess = async (taskProcessId: number) => {
+  const markRead = useCallback(async (id: number) => {
+    try {
+      await apiClient.patch(`/notifications/${id}/read`);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification read:', error);
+    }
+  }, []);
+
+  const markAllRead = useCallback(async () => {
+    try {
+      await apiClient.patch('/notifications/read-all');
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all read:', error);
+    }
+  }, []);
+
+  const dismissNotification = useCallback(async (id: number) => {
+    try {
+      await apiClient.patch(`/notifications/${id}/read`);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error dismissing notification:', error);
+    }
+  }, []);
+
+  // Process confirm/reject uchun mos API (eski sistemadan saqlab qolish)
+  const confirmProcess = useCallback(async (taskProcessId: number) => {
     try {
       await apiClient.post('/process/confirm', { taskProcessId });
       await fetchNotifications();
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Tasdiqlashda xatolik');
     }
-  };
+  }, [fetchNotifications]);
 
-  const rejectProcess = async (taskProcessId: number) => {
+  const rejectProcess = useCallback(async (taskProcessId: number) => {
     try {
       await apiClient.post('/process/reject', { taskProcessId });
       await fetchNotifications();
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Rad etishda xatolik');
     }
-  };
-
-  const markRead = async (id: number) => {
-    try {
-      await apiClient.patch(`/notifications/${id}/read`);
-      await fetchNotifications();
-    } catch (error) {
-      console.error('Error marking notification read:', error);
-    }
-  };
+  }, [fetchNotifications]);
 
   return {
     notifications,
+    unreadCount,
     loading,
     refresh: fetchNotifications,
+    markRead,
+    markAllRead,
+    dismissNotification,
     confirmProcess,
     rejectProcess,
-    markRead,
   };
 }

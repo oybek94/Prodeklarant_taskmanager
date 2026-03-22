@@ -16,6 +16,7 @@ import fs from 'fs/promises';
 import { ensureCmrForInvoice } from '../services/cmr-service';
 import { ensureTirForInvoice } from '../services/tir-service';
 import { socketEmitter } from '../services/socketEmitter';
+import { notify, getAllActiveUserIds } from '../services/notificationService';
 
 const router = Router();
 
@@ -489,6 +490,18 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     res.status(201).json(task);
     // Real-time: barcha foydalanuvchilarga yangi task haqida xabar berish
     socketEmitter.broadcastExcept(req.user!.id, 'task:created', { task, createdBy: req.user!.name });
+    // Bildirishnoma
+    getAllActiveUserIds().then(userIds => {
+      notify({
+        userIds,
+        type: 'TASK_CREATED',
+        title: `Yangi task: ${task.title || 'Task #' + task.id}`,
+        message: `${req.user!.name} yangi task yaratdi`,
+        actionUrl: `/tasks/${task.id}`,
+        taskId: task.id,
+        excludeUserId: req.user!.id,
+      });
+    });
   } catch (error: any) {
     console.error('Error creating task:', error);
     res.status(500).json({ 
@@ -1808,6 +1821,16 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
   res.status(204).send();
   // Real-time: task o'chirilishi haqida xabar berish
   socketEmitter.broadcastExcept(user.id, 'task:deleted', { taskId: id, deletedBy: user.name });
+  // Bildirishnoma
+  getAllActiveUserIds().then(userIds => {
+    notify({
+      userIds,
+      type: 'TASK_DELETED',
+      title: `Task o'chirildi`,
+      message: `${user.name} task #${id} ni o'chirdi`,
+      excludeUserId: user.id,
+    });
+  });
 });
 
 export default router;

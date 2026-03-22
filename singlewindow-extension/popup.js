@@ -13,15 +13,23 @@ async function getProdeklarantData(statusDiv) {
             const injectionResults = await chrome.scripting.executeScript({
                 target: { tabId: targetTabId },
                 func: () => {
-                   const data = sessionStorage.getItem('current_export_invoice');
-                   if (data) {
-                       try {
-                           return JSON.parse(data);
-                       } catch (e) {
-                           return null;
-                       }
-                   }
-                   return null;
+                    return new Promise((resolve) => {
+                        const timeout = setTimeout(() => {
+                            window.removeEventListener('message', handler);
+                            resolve(null);
+                        }, 3000);
+
+                        function handler(event) {
+                            if (event.data?.type === 'PRODEKLARANT_INVOICE_DATA') {
+                                clearTimeout(timeout);
+                                window.removeEventListener('message', handler);
+                                resolve(event.data.payload || null);
+                            }
+                        }
+
+                        window.addEventListener('message', handler);
+                        window.postMessage({ type: 'PRODEKLARANT_REQUEST_INVOICE' }, '*');
+                    });
                 }
             });
 

@@ -32,7 +32,7 @@ router.get('/next-number', requireAuth(), async (req: AuthRequest, res) => {
     res.json({ nextNumber });
   } catch (error: any) {
     console.error('Error getting next invoice number:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
@@ -57,7 +57,7 @@ router.get('/check-number', requireAuth(), async (req: AuthRequest, res) => {
     res.json({ available });
   } catch (error: any) {
     console.error('Error checking invoice number:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
@@ -137,7 +137,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     res.json(invoicesWithContract);
   } catch (error: any) {
     console.error('Error fetching invoices:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
@@ -153,7 +153,67 @@ const invoiceSchema = z.object({
   currency: z.enum(['USD', 'UZS']).optional().nullable().transform((v) => v ?? undefined),
   totalAmount: z.number().optional(),
   notes: optionalString(),
-  additionalInfo: z.any().optional(),
+  additionalInfo: z.object({
+    // To'lov va shartnoma
+    paymentTerms: z.string().max(500).optional(),
+    dueDate: z.string().max(50).optional(),
+    poNumber: z.string().max(100).optional(),
+    terms: z.string().max(2000).optional(),
+    tax: z.number().min(0).max(1e9).optional(),
+    discount: z.number().min(0).max(1e9).optional(),
+    shipping: z.number().min(0).max(1e9).optional(),
+    amountPaid: z.number().min(0).max(1e9).optional(),
+    paymentMethod: z.string().max(100).optional(),
+    // Transport va logistika
+    deliveryTerms: z.string().max(500).optional(),
+    vehicleNumber: z.string().max(200).optional(),
+    trailerNumber: z.string().max(200).optional(),
+    smrNumber: z.string().max(100).optional(),
+    tirNumber: z.string().max(100).optional(),
+    carrier: z.string().max(500).optional(),
+    loaderWeight: z.union([z.string().max(50), z.number()]).optional(),
+    trailerWeight: z.union([z.string().max(50), z.number()]).optional(),
+    palletWeight: z.union([z.string().max(50), z.number()]).optional(),
+    // Joylar
+    shipmentPlace: z.string().max(500).optional(),
+    customsAddress: z.string().max(500).optional(),
+    destination: z.string().max(500).optional(),
+    origin: z.string().max(500).optional(),
+    // Mahsulot
+    manufacturer: z.string().max(500).optional(),
+    orderNumber: z.string().max(100).optional(),
+    gln: z.string().max(100).optional(),
+    harvestYear: z.string().max(20).optional(),
+    documents: z.string().max(2000).optional(),
+    // FSS
+    fssRegionInternalCode: z.string().max(50).optional(),
+    fssRegionName: z.string().max(200).optional(),
+    fssRegionExternalCode: z.string().max(50).optional(),
+    // Qadoq kodlari
+    packagingTypeCodes: z.array(z.object({
+      name: z.string().max(200),
+      code: z.string().max(50),
+    })).max(100).optional(),
+    // Custom fieldlar
+    customFields: z.array(z.object({
+      label: z.string().max(200),
+      value: z.string().max(1000),
+    })).max(20).optional(),
+    specCustomFields: z.array(z.object({
+      label: z.string().max(200),
+    })).max(20).optional(),
+    // Ustunlar sozlamalari
+    visibleColumns: z.record(z.string(), z.boolean()).optional(),
+    columnLabels: z.record(z.string(), z.string().max(200)).optional(),
+    visibleAdditionalInfoFields: z.record(z.string(), z.boolean()).optional(),
+    // O'zgarishlar jurnali
+    changeLog: z.array(z.object({
+      timestamp: z.string().max(50).optional(),
+      field: z.string().max(200).optional(),
+      oldValue: z.unknown().optional(),
+      newValue: z.unknown().optional(),
+    }).passthrough()).max(500).optional(),
+  }).passthrough().optional(),
   items: z.array(z.object({
     tnvedCode: z.string().optional().nullable().transform(v => v ?? undefined),
     pluCode: z.string().optional().nullable().transform(v => v ?? undefined),
@@ -175,8 +235,11 @@ const invoiceSchema = z.object({
 // GET /invoices/client/:clientId - Mijozning barcha invoice'lari
 router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const clientId = parseInt(req.params.clientId);
-    
+    const clientId = parseInt(req.params.clientId, 10);
+    if (!Number.isFinite(clientId)) {
+      return res.status(400).json({ error: 'Noto\'g\'ri clientId' });
+    }
+
     const invoices = await prisma.invoice.findMany({
       where: { clientId },
       include: {
@@ -215,15 +278,18 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res) => 
     })));
   } catch (error: any) {
     console.error('Error fetching invoices:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
 // GET /invoices/task/:taskId - Task uchun invoice (yo'q bo'lsa 200 + null)
 router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const taskId = parseInt(req.params.taskId);
-    
+    const taskId = parseInt(req.params.taskId, 10);
+    if (!Number.isFinite(taskId)) {
+      return res.status(400).json({ error: 'Noto\'g\'ri taskId' });
+    }
+
     const invoice = await prisma.invoice.findUnique({
       where: { taskId },
       include: {
@@ -267,7 +333,7 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
     });
   } catch (error: any) {
     console.error('Error fetching invoice:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
@@ -312,7 +378,7 @@ router.get('/:id/st1', requireAuth(), async (req: AuthRequest, res: Response) =>
     res.end(outputBuffer);
   } catch (error: any) {
     console.error('Error generating ST1 Excel:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
@@ -388,7 +454,7 @@ router.get('/:id/commodity-ek', requireAuth(), async (req: AuthRequest, res: Res
     res.end(outputBuffer);
   } catch (error: any) {
     console.error('Error generating CommodityEk Excel:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
@@ -442,12 +508,12 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     });
   } catch (error: any) {
     console.error('Error fetching invoice:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
 // POST /invoices - Yangi invoice yaratish yoki mavjudni yangilash
-router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) => {
+router.post('/', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthRequest, res) => {
   try {
     const parsed = invoiceSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -736,14 +802,17 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) 
     }
   } catch (error: any) {
     console.error('Error creating/updating invoice:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
 // GET /invoices/:id/pdf - Invoice PDF yuklab olish
 router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
     console.log('Generating PDF for invoice ID:', id);
     
     const invoice = await prisma.invoice.findUnique({
@@ -917,7 +986,7 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
   } catch (error: any) {
     console.error('Error generating invoice PDF:', error);
     if (!res.headersSent) {
-      res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+      res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
     }
   }
 });
@@ -1000,7 +1069,7 @@ router.get('/:id/xlsx', requireAuth(), async (req: AuthRequest, res: Response) =
     res.end(outputBuffer);
   } catch (error: any) {
     console.error('Error generating Invoice Excel:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
@@ -1102,15 +1171,18 @@ router.get('/:id/fss', requireAuth(), async (req: AuthRequest, res: Response) =>
     res.end(outputBuffer);
   } catch (error: any) {
     console.error('Error generating FSS Excel:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
 // DELETE /invoices/:id - Invoice va unga tegishli task o'chirish
-router.delete('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res) => {
+router.delete('/:id', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
-    
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'Noto\'g\'ri id' });
+    }
+
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: { task: { select: { status: true, stages: { select: { name: true, status: true } } } } }
@@ -1145,7 +1217,7 @@ router.delete('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, 
     }
   } catch (error: any) {
     console.error('Error deleting invoice:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
@@ -1179,7 +1251,7 @@ router.get('/:id/cmr', requireAuth(), async (req: AuthRequest, res: Response) =>
     res.end(buffer);
   } catch (error: any) {
     console.error('Error generating CMR Excel:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 
@@ -1214,7 +1286,7 @@ router.get('/:id/tir', requireAuth(), async (req: AuthRequest, res: Response) =>
     res.end(buffer);
   } catch (error: any) {
     console.error('Error generating TIR Excel:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 

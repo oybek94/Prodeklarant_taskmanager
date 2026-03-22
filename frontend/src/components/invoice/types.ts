@@ -216,7 +216,7 @@ export const resolveUploadUrl = (url?: string | null) => {
 };
 
 /** Foydalanuvchi roli invoys tahrirlash uchun yetarlimi */
-export const canEditInvoices = (role: string | undefined) => role === 'ADMIN' || role === 'MANAGER';
+export const canEditInvoices = (role: string | undefined) => role === 'ADMIN' || role === 'MANAGER' || role === 'DEKLARANT';
 
 /** Invoice additionalInfo dan visibleColumns ni olish */
 export const getVisibleColumnsFromPayload = (

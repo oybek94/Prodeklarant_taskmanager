@@ -68,7 +68,7 @@ interface Branch {
   name: string;
 }
 
-const canEditInvoices = (role: string | undefined) => role === 'ADMIN' || role === 'MANAGER';
+const canEditInvoices = (role: string | undefined) => role === 'ADMIN' || role === 'MANAGER' || role === 'DEKLARANT';
 
 const Invoices = () => {
   const { user } = useAuth();

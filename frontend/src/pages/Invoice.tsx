@@ -307,52 +307,44 @@ const Invoice = () => {
   const [addressCopySuccess, setAddressCopySuccess] = useState(false);
 
   // --- AutoFill Extension Integration ---
+  // Extension ma'lumotni so'raganda xabar yuboradi, biz javob qaytaramiz.
+  // sessionStorage ga doimiy yozish o'rniga, faqat so'rov kelganda javob beramiz.
   useEffect(() => {
-    if (form && items.length > 0) {
-      const selectedContract = contracts.find(c => c.id.toString() === selectedContractId);
-      const exppn_nm = selectedContract ? selectedContract.sellerName : '';
-      const exppn_txpr_uniq_no = selectedContract ? selectedContract.sellerInn : '';
-      const exppn_rppn_nm = selectedContract ? selectedContract.supplierDirector : '';
-      const exppn_addr = selectedContract ? selectedContract.sellerLegalAddress : '';
-      // We don't have a direct field for EXPPN_TELNO, EXPPN_REGN_TP_NM in the contract, 
-      // but we will provide what we can based on the existing fields.
+    const handleExtensionRequest = (event: MessageEvent) => {
+      if (event.data?.type !== 'PRODEKLARANT_REQUEST_INVOICE') return;
+      if (!form || items.length === 0) return;
 
-      const imppn_nm = selectedContract ? selectedContract.buyerName : '';
-      const imppn_addr = selectedContract ? selectedContract.buyerAddress : '';
+      const selectedContract = contracts.find(c => c.id.toString() === selectedContractId);
 
       const exportData = {
-        // Sotuvchi
-        EXPPN_NM: exppn_nm || '',
-        EXPPN_TXPR_UNIQ_NO: exppn_txpr_uniq_no || '',
-        EXPPN_RPPN_NM: exppn_rppn_nm || '',
-        EXPPN_ADDR: exppn_addr || '',
-        EXPPN_TELNO: '',
-        EXPPN_REGN_TP_NM: form.fssRegionName || '', // FSS hudud nomi (shartli)
-
-        // Sotib oluvchi
-        IMPPN_NM: imppn_nm || '',
-        IMPPN_ADDR: imppn_addr || '',
-
-        // Shartnoma raqami va sanasi (kengaytma tekshirishi uchun)
-        EXP_CTDC_NO: (selectedContract ? selectedContract.contractNumber : form.contractNumber) || '',
-        EXP_CVNT_DT: (selectedContract ? selectedContract.contractDate : '') || '',
-
-        // Avtomobil raqami (kengaytma tekshirishi uchun)
+        EXPPN_NM: selectedContract?.sellerName || '',
+        EXPPN_ADDR: selectedContract?.sellerLegalAddress || '',
+        EXPPN_REGN_TP_NM: form.fssRegionName || '',
+        IMPPN_NM: selectedContract?.buyerName || '',
+        IMPPN_ADDR: selectedContract?.buyerAddress || '',
+        EXP_CTDC_NO: (selectedContract?.contractNumber || form.contractNumber) || '',
+        EXP_CVNT_DT: (selectedContract?.contractDate || '') || '',
         vehicleNumber: form.vehicleNumber || '',
-
-        // Mahsulotlar ro'yxati (kengaytma tekshirishi uchun)
         items: items.map(item => ({
           tnved: item.tnvedCode || '',
           name: item.name || '',
           net: item.netWeight || '',
           gross: item.grossWeight || '',
           quantity: item.quantity || 0,
-          packagesCount: item.packagesCount || 0
-        }))
+          packagesCount: item.packagesCount || 0,
+        })),
       };
 
-      sessionStorage.setItem('current_export_invoice', JSON.stringify(exportData));
-    }
+      // Extension ga javob yuborish
+      window.postMessage({ type: 'PRODEKLARANT_INVOICE_DATA', payload: exportData }, '*');
+    };
+
+    window.addEventListener('message', handleExtensionRequest);
+    return () => {
+      window.removeEventListener('message', handleExtensionRequest);
+      // Sahifa yopilganda eski ma'lumotni tozalash
+      sessionStorage.removeItem('current_export_invoice');
+    };
   }, [form, items, contracts, selectedContractId]);
   // --------------------------------------
 

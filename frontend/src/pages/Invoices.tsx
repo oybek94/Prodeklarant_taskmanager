@@ -259,9 +259,18 @@ const Invoices = () => {
     }
   }, [selectedClientId]);
 
+  const loadTnvedProducts = useCallback(async () => {
+    try {
+      const products = await getTnvedProducts();
+      setTnvedProductsState(products);
+    } catch {
+      setTnvedProductsState([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (showTnvedSettingsModal) {
-      setTnvedProductsState(getTnvedProducts());
+      loadTnvedProducts();
       loadPackagingTypes();
       setEditingTnvedId(null);
       setNewTnvedName('');
@@ -269,7 +278,7 @@ const Invoices = () => {
       setEditingPackagingId(null);
       setNewPackagingName('');
     }
-  }, [showTnvedSettingsModal, loadPackagingTypes]);
+  }, [showTnvedSettingsModal, loadPackagingTypes, loadTnvedProducts]);
 
   const loadInvoices = async () => {
     try {
@@ -922,10 +931,10 @@ const Invoices = () => {
                   <div className="sm:col-span-2">
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         if (newTnvedName.trim() && newTnvedCode.trim()) {
-                          addTnvedProduct(newTnvedName, newTnvedCode);
-                          setTnvedProductsState(getTnvedProducts());
+                          await addTnvedProduct(newTnvedName, newTnvedCode);
+                          await loadTnvedProducts();
                           setNewTnvedName('');
                           setNewTnvedCode('');
                         }
@@ -981,9 +990,9 @@ const Invoices = () => {
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    updateTnvedProduct(p.id, editTnvedName, editTnvedCode);
-                                    setTnvedProductsState(getTnvedProducts());
+                                  onClick={async () => {
+                                    await updateTnvedProduct(p.id, editTnvedName, editTnvedCode);
+                                    await loadTnvedProducts();
                                     setEditingTnvedId(null);
                                   }}
                                   className="text-blue-600 hover:text-blue-800 p-1"
@@ -1016,10 +1025,10 @@ const Invoices = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => {
+                                  onClick={async () => {
                                     if (window.confirm(`"${p.name}" o'chirilsinmi?`)) {
-                                      deleteTnvedProduct(p.id);
-                                      setTnvedProductsState(getTnvedProducts());
+                                      await deleteTnvedProduct(p.id);
+                                      await loadTnvedProducts();
                                     }
                                   }}
                                   className="text-red-600 hover:text-red-800 p-1"

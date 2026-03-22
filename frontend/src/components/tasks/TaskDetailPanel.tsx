@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import apiClient from '../../lib/api';
 import { useFileHelpers } from './useFileHelpers';
@@ -155,6 +155,39 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   formatBxmAmountInSum,
 }) => {
   const { downloadBlob } = useFileHelpers();
+
+  // Moliyaviy hisoblashlarni bir marta bajarish (10+ IIFE ni almashtiradi)
+  const financial = useMemo(() => {
+    const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+    const dealAmountBase = getDealAmountBaseDisplay(selectedTask, afterHoursDeclaration);
+    const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
+    const psrAmount = getPsrAmount(selectedTask);
+    const netProfit = dealAmount - branchPayments;
+    const currency = getClientCurrency(selectedTask.client);
+    const isPositive = netProfit >= 0;
+    const totalProfit = netProfit + Number(selectedTask.adminEarnedAmount || 0);
+
+    // Rang va stil
+    const containerClass = isPositive
+      ? 'bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-100/80 dark:border-emerald-800/50 shadow-emerald-100/30 dark:shadow-none'
+      : 'bg-rose-50/50 dark:bg-rose-900/20 border-rose-100/80 dark:border-rose-800/50 shadow-rose-100/30 dark:shadow-none';
+    const iconBgClass = isPositive
+      ? 'bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400'
+      : 'bg-rose-100/80 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400';
+    const icon = isPositive ? 'lucide:badge-dollar-sign' : 'lucide:trending-down';
+    const titleClass = isPositive ? 'text-emerald-900 dark:text-emerald-400' : 'text-rose-900 dark:text-rose-400';
+    const btnClass = isPositive
+      ? 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/50 bg-emerald-50 dark:bg-emerald-900/30'
+      : 'text-rose-700 dark:text-rose-400 hover:bg-rose-100/80 dark:hover:bg-rose-900/50 bg-rose-50 dark:bg-rose-900/30';
+    const labelClass = isPositive ? 'text-emerald-700 dark:text-emerald-500' : 'text-rose-700 dark:text-rose-500';
+    const valueClass = isPositive ? 'text-emerald-600' : 'text-rose-600';
+
+    return {
+      dealAmount, dealAmountBase, branchPayments, psrAmount, netProfit,
+      currency, isPositive, totalProfit,
+      containerClass, iconBgClass, icon, titleClass, btnClass, labelClass, valueClass,
+    };
+  }, [selectedTask, afterHoursDeclaration]);
 
   return (
     <div
@@ -519,49 +552,19 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
         {/* Foyda hisoboti - barcha foydalanuvchilar uchun */}
         {selectedTask.netProfit !== null && selectedTask.netProfit !== undefined && (
-          <div className={`mb-5 relative z-10 p-4 rounded-2xl border-2 shadow-sm ${(() => {
-            const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-            const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-            const netProfitDisplay = dealAmount - branchPayments;
-            return netProfitDisplay >= 0;
-          })()
-            ? 'bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-100/80 dark:border-emerald-800/50 shadow-emerald-100/30 dark:shadow-none'
-            : 'bg-rose-50/50 dark:bg-rose-900/20 border-rose-100/80 dark:border-rose-800/50 shadow-rose-100/30 dark:shadow-none'
-            }`}>
+          <div className={`mb-5 relative z-10 p-4 rounded-2xl border-2 shadow-sm ${financial.containerClass}`}>
             <div className="flex items-center justify-between gap-3 mb-2">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg shadow-sm ${(() => {
-                  const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                  const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                  const netProfitDisplay = dealAmount - branchPayments;
-                  return netProfitDisplay >= 0 ? 'bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100/80 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400';
-                })()}`}>
-                  <Icon icon={(() => {
-                    const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                    const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                    const netProfitDisplay = dealAmount - branchPayments;
-                    return netProfitDisplay >= 0 ? 'lucide:badge-dollar-sign' : 'lucide:trending-down';
-                  })()} className="w-5 h-5" />
+                <div className={`p-2 rounded-lg shadow-sm ${financial.iconBgClass}`}>
+                  <Icon icon={financial.icon} className="w-5 h-5" />
                 </div>
-                <div className={`text-base font-bold tracking-tight ${(() => {
-                  const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                  const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                  const netProfitDisplay = dealAmount - branchPayments;
-                  return netProfitDisplay >= 0 ? 'text-emerald-900 dark:text-emerald-400' : 'text-rose-900 dark:text-rose-400';
-                })()}`}>
+                <div className={`text-base font-bold tracking-tight ${financial.titleClass}`}>
                   Moliyaviy hisobot
                 </div>
               </div>
               <button
                 onClick={() => setShowFinancialReport(!showFinancialReport)}
-                className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-sm font-semibold ${(() => {
-                  const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                  const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                  const netProfitDisplay = dealAmount - branchPayments;
-                  return netProfitDisplay >= 0
-                    ? 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/50 bg-emerald-50 dark:bg-emerald-900/30'
-                    : 'text-rose-700 dark:text-rose-400 hover:bg-rose-100/80 dark:hover:bg-rose-900/50 bg-rose-50 dark:bg-rose-900/30';
-                })()}`}
+                className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-sm font-semibold ${financial.btnClass}`}
               >
                 <Icon icon={showFinancialReport ? "lucide:eye-off" : "lucide:eye"} className="w-4 h-4" />
                 <span className="hidden sm:inline">{showFinancialReport ? "Yashirish" : "Ko'rsatish"}</span>
@@ -576,16 +579,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Kelishuv summasi:</span>
                       <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                        {formatMoney(
-                          getDealAmountDisplay(selectedTask, afterHoursDeclaration),
-                          getClientCurrency(selectedTask.client)
-                        )}
+                        {formatMoney(financial.dealAmount, financial.currency)}
                         {selectedTask.hasPsr && (
                           <span className="text-xs font-semibold text-gray-400 ml-1.5">
-                            (asosiy: {formatMoney(
-                              getDealAmountBaseDisplay(selectedTask, afterHoursDeclaration),
-                              getClientCurrency(selectedTask.client)
-                            )} + {formatMoney(getPsrAmount(selectedTask), getClientCurrency(selectedTask.client))})
+                            (asosiy: {formatMoney(financial.dealAmountBase, financial.currency)} + {formatMoney(financial.psrAmount, financial.currency)})
                           </span>
                         )}
                       </span>
@@ -593,31 +590,15 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Filial to'lovlari:</span>
                       <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
-                        - {formatMoney(getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration), getClientCurrency(selectedTask.client))}
+                        - {formatMoney(financial.branchPayments, financial.currency)}
                       </span>
                     </div>
                     <div className="pt-3 border-t border-gray-200/60 dark:border-slate-700/60 flex items-center justify-between">
-                      <span className={`text-sm font-bold uppercase tracking-wider ${(() => {
-                        const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                        const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                        const netProfitDisplay = dealAmount - branchPayments;
-                        return netProfitDisplay >= 0 ? 'text-emerald-700 dark:text-emerald-500' : 'text-rose-700 dark:text-rose-500';
-                      })()}`}>
+                      <span className={`text-sm font-bold uppercase tracking-wider ${financial.labelClass}`}>
                         Sof foyda:
                       </span>
-                      <span className={`text-lg font-black tracking-tight ${(() => {
-                        const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                        const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                        const netProfitDisplay = dealAmount - branchPayments;
-                        return netProfitDisplay >= 0 ? 'text-emerald-600' : 'text-rose-600';
-                      })()}`}>
-                        {(() => {
-                          const currency = getClientCurrency(selectedTask.client);
-                          const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                          const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                          const netProfitDisplay = dealAmount - branchPayments;
-                          return formatMoney(netProfitDisplay, currency);
-                        })()}
+                      <span className={`text-lg font-black tracking-tight ${financial.valueClass}`}>
+                        {formatMoney(financial.netProfit, financial.currency)}
                       </span>
                     </div>
                     {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
@@ -626,7 +607,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                           Shaxsiy daromad:
                         </span>
                         <span className="text-lg font-black text-indigo-600">
-                          + {formatMoney(Number(selectedTask.adminEarnedAmount), getClientCurrency(selectedTask.client))}
+                          + {formatMoney(Number(selectedTask.adminEarnedAmount), financial.currency)}
                         </span>
                       </div>
                     )}
@@ -636,14 +617,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                           Jami foyda:
                         </span>
                         <span className="text-2xl font-black text-indigo-700 tracking-tight">
-                          {(() => {
-                            const currency = getClientCurrency(selectedTask.client);
-                            const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-                            const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
-                            const netProfitDisplay = dealAmount - branchPayments;
-                            const totalProfitDisplay = netProfitDisplay + Number(selectedTask.adminEarnedAmount || 0);
-                            return formatMoney(totalProfitDisplay, currency);
-                          })()}
+                          {formatMoney(financial.totalProfit, financial.currency)}
                         </span>
                       </div>
                     )}

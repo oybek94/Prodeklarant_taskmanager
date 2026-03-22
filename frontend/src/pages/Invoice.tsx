@@ -388,7 +388,15 @@ const Invoice = () => {
   }, []);
 
   useEffect(() => {
-    setTnvedProducts(getTnvedProducts());
+    const loadTnved = async () => {
+      try {
+        const products = await getTnvedProducts();
+        setTnvedProducts(products);
+      } catch {
+        setTnvedProducts([]);
+      }
+    };
+    loadTnved();
     loadPackagingTypes();
   }, [loadPackagingTypes]);
 

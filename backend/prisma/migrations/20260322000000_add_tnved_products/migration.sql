@@ -1,0 +1,53 @@
+-- CreateTable
+CREATE TABLE "TnvedProduct" (
+    "id" SERIAL NOT NULL,
+    "name" TEXT NOT NULL,
+    "code" TEXT NOT NULL DEFAULT '',
+    "botanicalName" TEXT,
+    "orderIndex" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TnvedProduct_pkey" PRIMARY KEY ("id")
+);
+
+-- Seed default TNVED products
+INSERT INTO "TnvedProduct" ("name", "code", "botanicalName", "orderIndex", "updatedAt") VALUES
+('Черешня свежая некалиброванный', '0809290001', 'Prunus avium', 0, NOW()),
+('Нектарины свежие', '0809301001', 'Prunus persica var.nucipersica', 1, NOW()),
+('Персики свежие', '0809309001', 'Prunus persica', 2, NOW()),
+('Абрикосы свежие некалиброванный', '0809100009', 'Prunus armeniaca', 3, NOW()),
+('Абрикосы свежие', '0809100009', 'Prunus armeniaca', 4, NOW()),
+('Гранат свежий', '0810907502', 'Punica granatum', 5, NOW()),
+('Вишня свежая', '0809210001', 'Prúnus subg. Cérasus', 6, NOW()),
+('Томаты свежие', '0702000001', 'Solanum lycopersicum', 7, NOW()),
+('Чеснок свежий', '0703200000', 'Allium sativum', 8, NOW()),
+('Капуста цветная свежая', '0704100000', 'Brassica oleracea var. botrytis', 9, NOW()),
+('Морковь свежая', '0706100004', 'Daucus carota subsp.sativus', 10, NOW()),
+('Свекла столовая свежая', '0706909001', 'Beta vulgaris', 11, NOW()),
+('Репа свежая', '0706100008', 'Brassika napus', 12, NOW()),
+('Редька свежая', '0706909007', 'Raphanus sativus', 13, NOW()),
+('Лимоны свежие', '0805501001', 'Citrus limon', 14, NOW()),
+('Зелень петрушка свежая', '0709999000', 'Petroselinum sativum', 15, NOW()),
+('Зелень укроп свежая', '0709999000', 'Anethum graveolens', 16, NOW()),
+('Зелень кинза свежая', '0709999000', 'Coriandrum sativus', 17, NOW()),
+('Капуста Пекинская свежая', '0704908000', 'Brassica rapa subsp. Pekinensis', 18, NOW()),
+('Огурцы свежие', '0707000501', 'Cucumis sativus', 19, NOW()),
+('Перец горький свежий', '0709609900', 'Capsicum annuum', 20, NOW()),
+('Перец болгарский свежий', '0709601000', 'Capsicum annuum', 21, NOW()),
+('Лук репчатый свежий', '0703101900', 'Allium cepa', 22, NOW()),
+('Лук зеленный свежий', '0703900000', 'Allium fistulosum', 23, NOW()),
+('Баклажаны свежие', '0709300000', 'Solanum melongena', 24, NOW()),
+('Яблоки свежие', '0808108001', 'Malus domestica', 25, NOW()),
+('Дыни свежие', '0807190001', 'Cucumis melo', 26, NOW()),
+('Арбузы свежие', '0807110001', 'Citrullus lanatus', 27, NOW()),
+('Редис свежий', '0706909009', 'Raphanus sativus var.sativus', 28, NOW()),
+('Капуста белокочанная свежая', '0704901001', 'Brássica olerácea', 29, NOW()),
+('Сливы свежие', '0809400501', 'Prunus domestica', 30, NOW()),
+('Виноград свежий столовых сортов', '0806101009', 'Vitis vinifera', 31, NOW()),
+('Инжир свежий', '0804201000', 'Ficus carica', 32, NOW()),
+('Груша свежая', '0808309001', 'Pyrus communis', 33, NOW()),
+('Хурма свежая', '0810700009', 'Diospyros kaki', 34, NOW()),
+('Айва свежая', '0808400001', 'Cydonia oblonga', 35, NOW()),
+('Лаймы свежие', '0805509000', 'Citrus aurantiifolia', 36, NOW()),
+('Кукуруза свежая в початках', '0709996000', 'Zea mays', 37, NOW());

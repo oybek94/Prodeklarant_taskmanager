@@ -8,7 +8,7 @@ import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 import { useIsMobile } from '../utils/useIsMobile';
-import { getDefaultTnvedProducts, getTnvedProducts } from '../utils/tnvedProducts';
+import { getDefaultTnvedProducts } from '../utils/tnvedProducts';
 
 const resolveUploadUrl = (url?: string | null) => {
   if (!url) return '';
@@ -386,8 +386,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     specNumber?: string;
     productNumber?: string;
   };
-  function getDefaultSpecFromTnved(): SpecRow[] {
-    return getDefaultTnvedProducts().map((p) => ({
+  async function getDefaultSpecFromTnved(): Promise<SpecRow[]> {
+    const products = await getDefaultTnvedProducts();
+    return products.map((p) => ({
       productName: p.name,
       botanicalName: p.botanicalName || '',
       tnvedCode: p.code || '',
@@ -400,8 +401,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     }));
   }
   /** Har bir shartnoma spetsifikatsiyasida Sozlamalar (TNVED) ro'yxati bo'lishi uchun: mavjud spec ga TNVED da bor lekin spec da yo'q mahsulotlarni qo'shamiz. */
-  function ensureSpecHasTnvedProducts(currentSpec: SpecRow[]): SpecRow[] {
-    const defaults = getDefaultTnvedProducts();
+  async function ensureSpecHasTnvedProducts(currentSpec: SpecRow[]): Promise<SpecRow[]> {
+    const defaults = await getDefaultTnvedProducts();
     const defaultsByName = new Map(
       defaults.map((item) => [item.name.trim(), item])
     );
@@ -2336,13 +2337,15 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   setContractModalTab('spec');
                   const spec = contractForm.specification || [];
                   if (spec.length === 0) {
-                    setContractFormAndRef((prev) => ({ ...prev, specification: getDefaultSpecFromTnved() }));
+                    const defaultSpec = await getDefaultSpecFromTnved();
+                    setContractFormAndRef((prev) => ({ ...prev, specification: defaultSpec }));
                   } else {
-                    setContractFormAndRef((prev) => ({ ...prev, specification: ensureSpecHasTnvedProducts(prev.specification || []) }));
+                    const merged = await ensureSpecHasTnvedProducts(spec);
+                    setContractFormAndRef((prev) => ({ ...prev, specification: merged }));
                   }
                 }}
                 className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'spec' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}

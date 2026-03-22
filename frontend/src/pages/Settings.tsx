@@ -6,8 +6,8 @@ import {
   addTnvedProduct,
   deleteTnvedProduct,
   getTnvedProducts,
-  resetTnvedProductsToDefaults,
   updateTnvedProduct,
+  type TnvedProduct,
 } from '../utils/tnvedProducts';
 interface PackagingTypeItem {
   id: string;
@@ -167,7 +167,7 @@ const IconCancel = () => (
 
 const Settings = () => {
   const { user } = useAuth();
-  const [tnvedProducts, setTnvedProducts] = useState(getTnvedProducts());
+  const [tnvedProducts, setTnvedProductsLocal] = useState<TnvedProduct[]>([]);
   const [tnvedName, setTnvedName] = useState('');
   const [tnvedCode, setTnvedCode] = useState('');
   const [tnvedBotanical, setTnvedBotanical] = useState('');
@@ -279,8 +279,13 @@ const Settings = () => {
   const [processSettingsEdits, setProcessSettingsEdits] = useState<Record<string, { estimatedTime: string; reminder1: string; reminder2: string; reminder3: string }>>({});
   const [savingProcessSettings, setSavingProcessSettings] = useState(false);
 
-  const refreshTnvedProducts = () => {
-    setTnvedProducts(getTnvedProducts());
+  const refreshTnvedProducts = async () => {
+    try {
+      const products = await getTnvedProducts();
+      setTnvedProductsLocal(products);
+    } catch {
+      setTnvedProductsLocal([]);
+    }
   };
   const loadPackagingTypes = async () => {
     try {
@@ -307,6 +312,7 @@ const Settings = () => {
     loadRegionCodes();
     loadProcessSettings();
     loadPackagingTypes();
+    refreshTnvedProducts();
   }, []);
 
   const loadBXMConfigs = async () => {
@@ -530,16 +536,16 @@ const Settings = () => {
     }
   };
 
-  const handleAddTnvedProduct = () => {
+  const handleAddTnvedProduct = async () => {
     if (!tnvedName.trim() || !tnvedCode.trim()) {
       alert('Mahsulot nomi va TNVED kodi majburiy');
       return;
     }
-    addTnvedProduct(tnvedName.trim(), tnvedCode.trim(), tnvedBotanical.trim());
+    await addTnvedProduct(tnvedName.trim(), tnvedCode.trim(), tnvedBotanical.trim());
     setTnvedName('');
     setTnvedCode('');
     setTnvedBotanical('');
-    refreshTnvedProducts();
+    await refreshTnvedProducts();
   };
 
   const startEditTnved = (item: { id: string; name: string; code: string; botanicalName?: string }) => {
@@ -556,32 +562,33 @@ const Settings = () => {
     setEditingTnvedBotanical('');
   };
 
-  const handleSaveTnved = () => {
+  const handleSaveTnved = async () => {
     if (!editingTnvedId) return;
     if (!editingTnvedName.trim() || !editingTnvedCode.trim()) {
       alert('Mahsulot nomi va TNVED kodi majburiy');
       return;
     }
-    updateTnvedProduct(
+    await updateTnvedProduct(
       editingTnvedId,
       editingTnvedName.trim(),
       editingTnvedCode.trim(),
       editingTnvedBotanical.trim()
     );
     cancelEditTnved();
-    refreshTnvedProducts();
+    await refreshTnvedProducts();
   };
 
-  const handleDeleteTnved = (id: string, name: string) => {
+  const handleDeleteTnved = async (id: string, name: string) => {
     if (!confirm(`"${name}" mahsulotini o'chirishni xohlaysizmi?`)) return;
-    deleteTnvedProduct(id);
-    refreshTnvedProducts();
+    await deleteTnvedProduct(id);
+    await refreshTnvedProducts();
   };
 
-  const handleResetTnved = () => {
+  const handleResetTnved = async () => {
     if (!confirm('Standart spetsifikatsiya ro\'yxatini tiklaysizmi?')) return;
-    resetTnvedProductsToDefaults();
-    refreshTnvedProducts();
+    // Server bazadagi ma'lumotlar allaqachon standart ro'yxat bilan seed qilingan.
+    // Qayta yuklaymiz.
+    await refreshTnvedProducts();
   };
 
   const handleAddPackagingType = async () => {

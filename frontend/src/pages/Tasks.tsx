@@ -1005,39 +1005,43 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
 
     // If multiplier > 1, show warning about additional payment
     if (multiplier > 1 && selectedTask) {
-      const clientCurrency = getClientCurrency(selectedTask.client);
-      let additionalPayment: number;
-      let formattedAdditional: string;
+      try {
+        const clientCurrency = getClientCurrency(selectedTask.client);
+        let additionalPayment: number;
+        let formattedAdditional: string;
 
-      if (clientCurrency === 'USD') {
-        // If client's contract is in USD, calculate in USD
-        // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
-        additionalPayment = (multiplier - 1) * currentBxmUsd;
-        formattedAdditional = new Intl.NumberFormat('uz-UZ', {
-          style: 'currency',
-          currency: 'USD',
-          minimumFractionDigits: 2,
-        }).format(additionalPayment).replace(/,/g, ' ');
-      } else {
-        // If client's contract is in UZS, calculate in UZS
-        // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
-        additionalPayment = (multiplier - 1) * currentBxmUzs;
-        formattedAdditional = new Intl.NumberFormat('uz-UZ', {
-          style: 'currency',
-          currency: 'UZS',
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 0,
-        }).format(additionalPayment).replace(/,/g, ' ');
-      }
+        if (clientCurrency === 'USD') {
+          additionalPayment = (multiplier - 1) * currentBxmUsd;
+          formattedAdditional = new Intl.NumberFormat('uz-UZ', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+          }).format(additionalPayment).replace(/,/g, ' ');
+        } else {
+          additionalPayment = (multiplier - 1) * currentBxmUzs;
+          formattedAdditional = new Intl.NumberFormat('uz-UZ', {
+            style: 'currency',
+            currency: 'UZS',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          }).format(additionalPayment).replace(/,/g, ' ');
+        }
 
-      const payerLabel = (selectedTask.afterHoursPayer || 'CLIENT') === 'CLIENT' ? 'mijoz' : 'kompaniya';
-      const confirmMessage = `Deklaratsiya to'lovi BXMning 1 barobaridan oshib ketdi.\n\n` +
-        `Qo'shimcha to'lov: ${formattedAdditional}\n\n` +
-        `Bu summa ${payerLabel} hisobiga yoziladi.\n\n` +
-        `Davom etasizmi?`;
+        const payerLabel = (selectedTask.afterHoursPayer || 'CLIENT') === 'CLIENT' ? 'mijoz' : 'kompaniya';
+        const confirmMessage = `Deklaratsiya to'lovi BXMning 1 barobaridan oshib ketdi.\n\n` +
+          `Qo'shimcha to'lov: ${formattedAdditional}\n\n` +
+          `Bu summa ${payerLabel} hisobiga yoziladi.\n\n` +
+          `Davom etasizmi?`;
 
-      if (!confirm(confirmMessage)) {
-        return;
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+      } catch (err) {
+        // Client ma'lumotlari to'liq bo'lmasa oddiy ogohlantirish
+        console.warn('BXM warning error:', err);
+        if (!confirm(`BXM ${multiplier} barobari tanlandi. Davom etasizmi?`)) {
+          return;
+        }
       }
     }
 

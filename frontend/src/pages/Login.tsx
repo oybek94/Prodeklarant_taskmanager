@@ -66,7 +66,7 @@ const Login = () => {
             {/* Hidden Email Input (Maintained for logic compatibility) */}
             <div className="hidden">
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />

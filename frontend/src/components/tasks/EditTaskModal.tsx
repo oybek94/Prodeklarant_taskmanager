@@ -128,23 +128,25 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
               </div>
             </div>
 
-            {/* 5. After Hours Payer */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                <Icon icon="lucide:handshake" className="w-4 h-4 text-blue-600" />
-                Qo'shimcha to'lov kelishuvi
-              </label>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'CLIENT' })}
-                  className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.afterHoursPayer === 'CLIENT' ? btnActive : btnInactive}`}>
-                  Mijoz to'laydi
-                </button>
-                <button type="button" onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'COMPANY' })}
-                  className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.afterHoursPayer === 'COMPANY' ? btnActive : btnInactive}`}>
-                  Men to'layman
-                </button>
+            {/* 5. After Hours Payer - hidden as per request */}
+            {false && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <Icon icon="lucide:handshake" className="w-4 h-4 text-blue-600" />
+                  Qo'shimcha to'lov kelishuvi
+                </label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'CLIENT' })}
+                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.afterHoursPayer === 'CLIENT' ? btnActive : btnInactive}`}>
+                    Mijoz to'laydi
+                  </button>
+                  <button type="button" onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'COMPANY' })}
+                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.afterHoursPayer === 'COMPANY' ? btnActive : btnInactive}`}>
+                    Men to'layman
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 6. Driver Phone */}
             <div>

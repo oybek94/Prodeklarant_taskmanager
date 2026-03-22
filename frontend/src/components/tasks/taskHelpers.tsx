@@ -36,19 +36,19 @@ export const formatDuration = (minutes: number | null): string => {
 export const getStatusInfo = (status: string): { label: string; color: string } => {
   switch (status) {
     case 'BOSHLANMAGAN':
-      return { label: 'Boshlanmagan', color: 'bg-red-100 text-red-800' };
+      return { label: 'Boshlanmagan', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 dark:border dark:border-red-800/50' };
     case 'JARAYONDA':
-      return { label: 'Jarayonda', color: 'bg-yellow-100 text-yellow-800' };
+      return { label: 'Jarayonda', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border dark:border-yellow-800/50' };
     case 'TAYYOR':
-      return { label: 'Xujjat tayyor', color: 'bg-blue-100 text-blue-800' };
+      return { label: 'Xujjat tayyor', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 dark:border dark:border-blue-800/50' };
     case 'TEKSHIRILGAN':
-      return { label: 'Xujjat tekshirilgan', color: 'bg-purple-100 text-purple-800' };
+      return { label: 'Xujjat tekshirilgan', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 dark:border dark:border-purple-800/50' };
     case 'TOPSHIRILDI':
-      return { label: 'Xujjat topshirildi', color: 'bg-indigo-100 text-indigo-800' };
+      return { label: 'Xujjat topshirildi', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border dark:border-indigo-800/50' };
     case 'YAKUNLANDI':
-      return { label: 'Yakunlandi', color: 'bg-green-100 text-green-800' };
+      return { label: 'Yakunlandi', color: 'bg-green-100 text-green-800 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border dark:border-emerald-800/50' };
     default:
-      return { label: "Noma'lum", color: 'bg-gray-100 text-gray-800' };
+      return { label: "Noma'lum", color: 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-400 dark:border dark:border-slate-700' };
   }
 };
 
@@ -95,7 +95,13 @@ export const canShowOCR = (fileType: string, fileName: string): boolean => {
 
 /** Avatar rangi (ismolli avatarlar uchun) */
 export const getAvatarColor = (name: string): string => {
-  const colors = ['bg-yellow-200', 'bg-pink-200', 'bg-blue-200', 'bg-blue-200', 'bg-green-200', 'bg-indigo-200'];
+  const colors = [
+    'bg-yellow-200 text-yellow-900 dark:bg-yellow-900/40 dark:text-yellow-300 dark:ring-1 dark:ring-yellow-700/50', 
+    'bg-pink-200 text-pink-900 dark:bg-pink-900/40 dark:text-pink-300 dark:ring-1 dark:ring-pink-700/50', 
+    'bg-sky-200 text-sky-900 dark:bg-sky-900/40 dark:text-sky-300 dark:ring-1 dark:ring-sky-700/50', 
+    'bg-emerald-200 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-300 dark:ring-1 dark:ring-emerald-700/50', 
+    'bg-violet-200 text-violet-900 dark:bg-violet-900/40 dark:text-violet-300 dark:ring-1 dark:ring-violet-700/50'
+  ];
   return colors[name.charCodeAt(0) % colors.length];
 };
 

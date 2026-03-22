@@ -167,98 +167,95 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
       }}
     >
       <div
-        className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/50 dark:border-slate-700/50 p-6 md:p-8 max-w-5xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar relative overflow-hidden"
+        className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/50 dark:border-slate-700/50 p-5 md:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar relative overflow-hidden"
         style={{
           animation: 'modalFadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
         }}
       >
-        {/* Decorative top gradient bar */}
-        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+        {/* Decorative top solid bar */}
+        <div className="absolute top-0 left-0 right-0 h-2 bg-indigo-600"></div>
 
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none"></div>
-
-        <div className="relative z-10 flex justify-between items-start mb-8 gap-4">
+        <div className="relative z-10 flex justify-between items-start mb-5 gap-4">
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight leading-tight">{selectedTask.title}</h2>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight leading-tight">{selectedTask.title}</h2>
             {selectedTask.createdBy && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5 flex items-center gap-1.5">
-                <Icon icon="lucide:user" className="w-4 h-4" />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1.5">
+                <Icon icon="lucide:user" className="w-3.5 h-3.5" />
                 Yaratdi: <span className="font-medium text-gray-700 dark:text-gray-300">{selectedTask.createdBy.name}</span>
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
             <button
               onClick={() => onOpenErrorModal()}
-              className="p-2.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl hover:bg-orange-600 hover:text-white transition-all shadow-sm ring-1 ring-orange-200 dark:ring-orange-800"
+              className="p-2 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-600 hover:text-white transition-all shadow-sm ring-1 ring-orange-200 dark:ring-orange-800"
               title="Xato"
             >
-              <Icon icon="lucide:alert-circle" className="w-5 h-5" />
+              <Icon icon="lucide:alert-circle" className="w-4 h-4" />
             </button>
             {selectedTask.createdBy && user && (user.role === 'ADMIN' || selectedTask.createdBy.id === user.id) && (
               <button
                 onClick={() => onEdit()}
-                className="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm ring-1 ring-blue-200 dark:ring-blue-800"
+                className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm ring-1 ring-blue-200 dark:ring-blue-800"
                 title="O'zgartirish"
               >
-                <Icon icon="lucide:pencil" className="w-5 h-5" />
+                <Icon icon="lucide:pencil" className="w-4 h-4" />
               </button>
             )}
-            {/* Task o'chirish: Admin har doim, oddiy foydalanuvchi faqat BOSHLANMAGAN holda */}
+            {/* Task o'chirish */}
             {((user?.role === 'ADMIN') ||
               (selectedTask.stages &&
                selectedTask.status !== 'JARAYONDA' &&
                selectedTask.stages.every((stage: any) => stage.status === 'BOSHLANMAGAN'))) && (
                 <button
                   onClick={() => onDeleteTask()}
-                  className="p-2.5 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm ring-1 ring-red-200 dark:ring-red-800"
+                  className="p-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm ring-1 ring-red-200 dark:ring-red-800"
                   title="O'chirish"
                 >
-                  <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                  <Icon icon="lucide:trash-2" className="w-4 h-4" />
                 </button>
               )}
             <button
               onClick={() => downloadStickerPng(selectedTask.id)}
-              className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-semibold flex items-center gap-2 shadow-sm shadow-indigo-200"
+              className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-semibold flex items-center gap-1.5 shadow-sm text-sm"
             >
-              <Icon icon="lucide:download" className="w-4.5 h-4.5" />
+              <Icon icon="lucide:download" className="w-4 h-4" />
               Stiker
             </button>
             <button
               onClick={() => onClose()}
-              className="p-2 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white transition-all ml-1"
+              className="p-1.5 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white transition-all ml-1"
             >
-              <Icon icon="lucide:x" className="w-5 h-5" />
+              <Icon icon="lucide:x" className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Task Info Grid Elements */}
-        <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 relative z-10">
-          <div className="bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl p-4 border border-gray-100 dark:border-slate-700/50">
-            <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Mijoz</div>
-            <div className="font-bold text-gray-800 dark:text-gray-200 break-words">{selectedTask.client.name}</div>
+        <div className="mb-5 bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl border border-gray-100 dark:border-slate-700/50 p-4 relative z-10 flex flex-wrap gap-x-6 gap-y-4 shadow-sm">
+          <div className="flex-1 min-w-[120px]">
+            <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Mijoz</div>
+            <div className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate" title={selectedTask.client.name}>{selectedTask.client.name}</div>
           </div>
-          <div className="bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl p-4 border border-gray-100 dark:border-slate-700/50">
-            <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Filial</div>
-            <div className="font-bold text-gray-800 dark:text-gray-200 break-words">{selectedTask.branch.name}</div>
+          <div className="flex-1 min-w-[100px]">
+            <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Filial</div>
+            <div className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate" title={selectedTask.branch.name}>{selectedTask.branch.name}</div>
           </div>
-          <div className="bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl p-4 border border-gray-100 dark:border-slate-700/50">
-            <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Status</div>
-            <div className="font-medium mt-1">
-              <span className={`px-3 py-1.5 text-xs font-bold rounded-full border ${getStatusInfo(selectedTask.status).color.replace('bg-', 'bg-opacity-20 border-').replace('text-', 'text-')}`}>
+          <div className="flex-1 min-w-[120px]">
+            <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Status</div>
+            <div className="mt-0.5">
+              <span className={`px-2 py-0.5 text-xs font-bold rounded-md border ${getStatusInfo(selectedTask.status).color.replace('bg-', 'bg-opacity-20 border-').replace('text-', 'text-')}`}>
                 {getStatusInfo(selectedTask.status).label}
               </span>
             </div>
           </div>
-          <div className="bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl p-4 border border-gray-100 dark:border-slate-700/50">
-            <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Yaratilgan</div>
-            <div className="font-bold text-gray-800 dark:text-gray-200">{formatDate(selectedTask.createdAt)}</div>
+          <div className="flex-1 min-w-[100px]">
+            <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Yaratilgan</div>
+            <div className="text-sm font-bold text-gray-800 dark:text-gray-200">{formatDate(selectedTask.createdAt)}</div>
           </div>
-          <div className="md:col-span-4 bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl p-4 border border-gray-100 dark:border-slate-700/50">
-            <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Shartnoma</div>
-            <div className="font-bold text-gray-800 dark:text-gray-200 font-mono">
+          <div className="w-full">
+            <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Shartnoma</div>
+            <div className="text-sm font-bold text-gray-800 dark:text-gray-200 font-mono truncate">
               {selectedTask.invoice?.contract?.contractNumber
                 ? `№ ${selectedTask.invoice.contract.contractNumber}${selectedTask.invoice.contract.contractDate ? `, kun: ${new Date(selectedTask.invoice.contract.contractDate).toLocaleDateString('uz-UZ')}` : ''}`
                 : selectedTask.invoice?.contractNumber
@@ -267,43 +264,43 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             </div>
           </div>
         </div>
+
         {selectedTask.updatedBy && (
-          <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-lg">
-            <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
-              <div>
-                <span className="font-medium">Oxirgi o'zgartirilgan:</span> {selectedTask.updatedAt ? formatDate(selectedTask.updatedAt) : ''}
-                {selectedTask.updatedBy && <span className="ml-2">by {selectedTask.updatedBy.name}</span>}
-              </div>
-              {selectedTask.stages && selectedTask.stages.length > 0 && (() => {
-                const totalMinutes = selectedTask.stages
-                  .filter(stage => stage.status === 'TAYYOR')
-                  .reduce((total, stage) => {
-                    const duration = calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt);
-                    return total + (duration || 0);
-                  }, 0);
-                const totalDuration = formatDuration(totalMinutes);
-                return totalDuration ? (
-                  <div className="text-sm font-medium text-gray-700">
-                    Umumiy vaqt: {totalDuration}
-                  </div>
-                ) : null;
-              })()}
+          <div className="mb-5 flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-slate-800 pb-3">
+            <div>
+              <span className="font-semibold">Oxirgi o'zgartirilgan:</span> {selectedTask.updatedAt ? formatDate(selectedTask.updatedAt) : ''}
+              <span className="ml-1">by {selectedTask.updatedBy.name}</span>
             </div>
+            {selectedTask.stages && selectedTask.stages.length > 0 && (() => {
+              const MathFloor = Math.floor;
+              const totalMinutes = selectedTask.stages
+                .filter(stage => stage.status === 'TAYYOR')
+                .reduce((total, stage) => {
+                  const duration = calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt);
+                  return total + (duration || 0);
+                }, 0);
+              const totalDuration = formatDuration(totalMinutes);
+              return totalDuration ? (
+                <div className="font-bold text-gray-700 dark:text-gray-300">
+                  Umumiy vaqt: {totalDuration}
+                </div>
+              ) : null;
+            })()}
           </div>
         )}
 
         {/* PSR Information */}
-        <div className="mb-8 relative z-10 overflow-hidden rounded-2xl border border-blue-100 dark:border-slate-700 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 dark:from-slate-800/80 dark:to-slate-800/50 p-5 md:p-6 shadow-[inset_0_0_20px_rgba(255,255,255,0.8)] dark:shadow-none">
-          <div className="flex items-center gap-3 mb-5 border-b border-blue-100/60 dark:border-slate-700/60 pb-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-700 dark:text-blue-400 shadow-sm">
-              <Icon icon="lucide:file-text" className="w-5 h-5" />
+        <div className="mb-5 relative z-10 overflow-hidden rounded-2xl border border-blue-100 dark:border-slate-700 bg-blue-50/80 dark:bg-slate-800/80 p-4 shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-2 mb-3 border-b border-blue-100/60 dark:border-slate-700/60 pb-2">
+            <div className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-700 dark:text-blue-400 shadow-sm">
+              <Icon icon="lucide:file-text" className="w-4 h-4" />
             </div>
-            <h3 className="text-base font-bold text-blue-900 dark:text-blue-100 tracking-tight">PSR Ma'lumotlari</h3>
+            <h3 className="text-sm font-bold text-blue-900 dark:text-blue-100 tracking-tight">PSR Ma'lumotlari</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-white/5 rounded-xl border border-blue-50 dark:border-slate-600/50">
-              <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">PSR mavjudligi:</span>
-              <span className={`px-3 py-1 text-xs font-bold rounded-full border shadow-sm ${selectedTask.hasPsr
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-max flex items-center justify-between p-2 bg-white/60 dark:bg-white/5 rounded-xl border border-blue-50 dark:border-slate-600/50">
+              <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 mr-2">PSR mavjudligi:</span>
+              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border shadow-sm ${selectedTask.hasPsr
                 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
                 : 'bg-gray-50 dark:bg-slate-700/50 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-600'
                 }`}>
@@ -312,9 +309,9 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             </div>
 
             {user?.role === 'ADMIN' && (
-              <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-white/5 rounded-xl border border-blue-50 dark:border-slate-600/50">
-                <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Qo'shimcha to'lov kelishuvi:</span>
-                <span className={`px-3 py-1 text-xs font-bold rounded-full border shadow-sm ${String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY'
+              <div className="flex-1 min-w-max flex items-center justify-between p-2 bg-white/60 dark:bg-white/5 rounded-xl border border-blue-50 dark:border-slate-600/50">
+                <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 mr-2">Qo'shimcha to'lov:</span>
+                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border shadow-sm ${String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY'
                   ? 'bg-purple-50 text-purple-700 border-purple-200'
                   : 'bg-blue-50 text-blue-700 border-blue-200'
                   }`}>
@@ -323,73 +320,211 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
               </div>
             )}
 
-            {selectedTask.afterHoursDeclaration && (
-              <div className="flex items-center justify-between p-3 bg-amber-50/80 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800 md:col-span-2">
-                <span className="text-sm font-bold text-amber-800 dark:text-amber-500 flex items-center gap-2">
-                  <Icon icon="lucide:moon" className="w-4 h-4 text-amber-600 dark:text-amber-500" />
-                  Ish vaqtidan tashqari rasmiylashtiruv tasdiqlangan
-                </span>
-                <span className="px-3 py-1 text-xs font-bold rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-400 shadow-sm border border-amber-200 dark:border-amber-700">Ha</span>
-              </div>
-            )}
-
-            <label className="flex items-center p-3 bg-white/60 dark:bg-slate-800/60 rounded-xl border border-blue-50 dark:border-slate-700 gap-3 cursor-pointer group md:col-span-2 hover:bg-white dark:hover:bg-slate-800 transition-colors">
-              <div className="relative flex items-center justify-center">
+            <label className="flex-1 min-w-max flex items-center justify-between p-2 bg-white/60 dark:bg-slate-800/60 rounded-xl border border-blue-50 dark:border-slate-700 gap-2 cursor-pointer group hover:bg-white dark:hover:bg-slate-800 transition-colors">
+              <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">Ish vaqtidan tashqari ko'rib chiqish:</span>
+              <div className="relative flex items-center justify-center ml-2">
                 <input
                   type="checkbox"
                   checked={afterHoursDeclaration}
                   onChange={(e) => handleAfterHoursDeclarationChange(e.target.checked)}
-                  className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-slate-300 dark:border-slate-600 checked:border-blue-600 checked:bg-blue-600 transition-all focus:ring-0 focus:ring-offset-0"
+                  className="peer h-4 w-4 cursor-pointer appearance-none rounded border-2 border-slate-300 dark:border-slate-600 checked:border-blue-600 checked:bg-blue-600 transition-all focus:ring-0 focus:ring-offset-0"
                 />
-                <Icon icon="lucide:check" className="absolute w-3.5 h-3.5 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
+                <Icon icon="lucide:check" className="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
               </div>
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">Ish vaqtidan tashqari rasmiylashtiruv</span>
             </label>
 
-            {selectedTask.driverPhone && (
-              <div className="md:col-span-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                <div className="flex-1 flex items-center justify-between sm:justify-start sm:gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-slate-100 dark:bg-slate-700 rounded-md">
-                      <Icon icon="lucide:phone" className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-                    </div>
-                    <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Sho'pir raqami:</span>
-                  </div>
-                  <span className="text-lg font-bold text-gray-900 dark:text-white font-mono tracking-tight">{selectedTask.driverPhone}</span>
-                </div>
-                <button
-                  onClick={handleTelegramClick}
-                  className="w-full sm:w-auto bg-gradient-to-r from-[#0088cc] to-[#0099e6] hover:from-[#0077b5] hover:to-[#0088cc] text-white px-5 py-2.5 rounded-lg flex items-center justify-center gap-2.5 transition-all font-semibold text-sm shadow-md shadow-[#0088cc]/20 active:scale-[0.98]"
-                >
-                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.19-.08-.05-.19-.02-.27 0-.12.03-1.95 1.25-5.5 3.65-.52.36-.99.53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.29-.48.79-.74 3.08-1.34 5.15-2.23 6.19-2.66 2.95-1.23 3.56-1.44 3.96-1.45.09 0 .28.02.41.11.11.08.14.19.16.27-.01.07.01.2 0 .26z" /></svg>
-                  <span>Telegramga o'tish</span>
-                </button>
+            {selectedTask.afterHoursDeclaration && (
+              <div className="w-full flex items-center justify-between p-2 bg-amber-50/80 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800">
+                <span className="text-[11px] font-bold text-amber-800 dark:text-amber-500 flex items-center gap-1.5">
+                  <Icon icon="lucide:moon" className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500" />
+                  Ish vaqtidan tashqari rasmiylashtiruv tasdiqlangan
+                </span>
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-400 shadow-sm border border-amber-200 dark:border-amber-700">Ha</span>
               </div>
             )}
 
-            <div className="md:col-span-2 mt-2">
-              <button
-                type="button"
-                onClick={handleOpenSendEmailModal}
-                className="w-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-800/30 hover:border-emerald-300 dark:hover:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 px-5 py-3 rounded-xl flex items-center justify-center gap-2.5 transition-all font-bold text-sm shadow-sm active:scale-[0.99]"
-              >
-                <Icon icon="lucide:mail" className="w-5 h-5" />
-                <span>Hujjatlarni Email orqali yuborish</span>
-              </button>
-            </div>
+            {selectedTask.driverPhone ? (
+              <div className="w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                <div className="flex-1 flex items-center justify-between sm:justify-start sm:gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <div className="p-1 bg-slate-100 dark:bg-slate-700 rounded-md">
+                      <Icon icon="lucide:phone" className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                    </div>
+                    <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400">Haydovchi:</span>
+                  </div>
+                  <span className="text-sm font-bold text-gray-900 dark:text-white font-mono tracking-tight">{selectedTask.driverPhone}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleTelegramClick}
+                    className="flex-1 sm:flex-none w-auto bg-[#0088cc] hover:bg-[#0077b5] text-white px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all font-semibold text-xs shadow-sm active:scale-[0.98]"
+                  >
+                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.19-.08-.05-.19-.02-.27 0-.12.03-1.95 1.25-5.5 3.65-.52.36-.99.53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.29-.48.79-.74 3.08-1.34 5.15-2.23 6.19-2.66 2.95-1.23 3.56-1.44 3.96-1.45.09 0 .28.02.41.11.11.08.14.19.16.27-.01.07.01.2 0 .26z" /></svg>
+                    <span>Telegram</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenSendEmailModal}
+                    className="flex-1 sm:flex-none w-auto bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-800/30 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all font-semibold text-xs shadow-sm active:scale-[0.99]"
+                  >
+                    <Icon icon="lucide:mail" className="w-4 h-4" />
+                    <span>Email</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full">
+                <button
+                  type="button"
+                  onClick={handleOpenSendEmailModal}
+                  className="w-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-800/30 text-emerald-700 dark:text-emerald-400 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all font-semibold text-xs shadow-sm active:scale-[0.99]"
+                >
+                  <Icon icon="lucide:mail" className="w-4 h-4" />
+                  <span>Hujjatlarni Email orqali yuborish</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Stages - Checklist */}
+        <div className="mb-5">
+          <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-3">Jarayonlar</h3>
+          <div className="space-y-2">
+            {selectedTask.stages && selectedTask.stages.length > 0 ? (
+              selectedTask.stages.map((stage) => {
+                // Vaqtni hisoblash va baholash
+                const durationMinutes = stage.status === 'TAYYOR'
+                  ? calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt)
+                  : null;
+                const evaluation = stage.status === 'TAYYOR'
+                  ? evaluateStageTime(stage.name, durationMinutes)
+                  : null;
+
+                // Rangni aniqlash
+                let borderColor = 'border-gray-200 dark:border-slate-700';
+                let bgColor = 'dark:bg-slate-800/10';
+                if (stage.status === 'TAYYOR' && evaluation) {
+                  if (evaluation.rating === 'alo') {
+                    borderColor = 'border-green-300 dark:border-green-800/60';
+                    bgColor = 'bg-green-50 dark:bg-green-900/10';
+                  } else if (evaluation.rating === 'ortacha') {
+                    borderColor = 'border-yellow-300 dark:border-yellow-800/60';
+                    bgColor = 'bg-yellow-50 dark:bg-yellow-900/10';
+                  } else {
+                    borderColor = 'border-red-300 dark:border-red-800/60';
+                    bgColor = 'bg-red-50 dark:bg-red-900/10';
+                  }
+                } else if (stage.status === 'TAYYOR') {
+                  bgColor = 'bg-gray-50 dark:bg-slate-800/50';
+                }
+
+                return (
+                  <div
+                    key={stage.id}
+                    onClick={() => {
+                      if (!updatingStage) {
+                        handleStageClick(stage);
+                      }
+                    }}
+                    className={`flex items-center justify-between p-2.5 border ${borderColor} rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800/50 transition ${bgColor} ${updatingStage === stage.id ? 'cursor-wait' : 'cursor-pointer'}`}
+                  >
+                    <div className="flex items-center flex-1">
+                      <div
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${stage.status === 'TAYYOR'
+                          ? 'bg-green-500 border-green-500'
+                          : 'border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-green-400 dark:hover:border-green-500'
+                          } ${updatingStage === stage.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        style={{
+                          transition: stage.status === 'TAYYOR'
+                            ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                            : 'all 0.3s ease-in-out',
+                          transform: stage.status === 'TAYYOR' ? 'scale(1.05)' : 'scale(1)',
+                          boxShadow: stage.status === 'TAYYOR'
+                            ? '0 2px 8px rgba(34, 197, 94, 0.4)'
+                            : 'none',
+                          animation: stage.status === 'TAYYOR' && updatingStage !== stage.id
+                            ? 'checkboxPulse 0.6s ease-out'
+                            : 'none'
+                        }}
+                      >
+                        {stage.status === 'TAYYOR' && (
+                          <Icon icon="lucide:check" className="w-3.5 h-3.5 text-white" />
+                        )}
+                      </div>
+                      <label
+                        className={`ml-3 text-sm font-medium flex-1 transition-all duration-300 ${stage.status === 'TAYYOR'
+                          ? 'line-through text-gray-400 dark:text-gray-500 opacity-60'
+                          : 'text-gray-900 dark:text-gray-200'
+                          }`}
+                      >
+                        {stage.name}
+                      </label>
+                    </div>
+                    {stage.status === 'TAYYOR' && (() => {
+                      const durationText = formatDuration(durationMinutes);
+                      const deklarMultiplier =
+                        stage.name === 'Deklaratsiya' && selectedTask?.customsPaymentMultiplier != null
+                          ? Number(selectedTask.customsPaymentMultiplier)
+                          : null;
+
+                      return (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 ml-4 flex items-center gap-2 flex-wrap">
+                          {stage.assignedTo && (
+                            <span className="font-medium text-gray-700 dark:text-gray-300">
+                              ({stage.assignedTo.name})
+                            </span>
+                          )}
+                          {deklarMultiplier != null && (
+                            <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                              BXM {deklarMultiplier} barobari
+                              {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    await handleBXMEdit(stage);
+                                  }}
+                                  className="ml-1 p-0.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+                                  title="BXM ni o'zgartirish"
+                                >
+                                  <Icon icon="lucide:pencil" className="w-3 h-3" />
+                                </button>
+                              )}
+                            </span>
+                          )}
+                          {durationText && <span>{durationText}</span>}
+                          {durationText && evaluation && (
+                            <i className={`fas ${evaluation.icon} ${evaluation.color}`} title={
+                              evaluation.rating === 'alo' ? 'A\'lo' :
+                                evaluation.rating === 'ortacha' ? 'Ortacha' :
+                                  'Yomon'
+                            }></i>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-4 text-gray-400">
+                {loadingTask ? 'Jarayonlar yuklanmoqda...' : 'Jarayonlar topilmadi'}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Foyda hisoboti - barcha foydalanuvchilar uchun */}
         {selectedTask.netProfit !== null && selectedTask.netProfit !== undefined && (
-          <div className={`mb-8 relative z-10 p-5 md:p-6 rounded-2xl border-2 shadow-sm ${(() => {
+          <div className={`mb-5 relative z-10 p-4 rounded-2xl border-2 shadow-sm ${(() => {
             const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
             const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
             const netProfitDisplay = dealAmount - branchPayments;
             return netProfitDisplay >= 0;
           })()
-            ? 'bg-emerald-50/50 border-emerald-100/80 shadow-emerald-100/30'
-            : 'bg-rose-50/50 border-rose-100/80 shadow-rose-100/30'
+            ? 'bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-100/80 dark:border-emerald-800/50 shadow-emerald-100/30 dark:shadow-none'
+            : 'bg-rose-50/50 dark:bg-rose-900/20 border-rose-100/80 dark:border-rose-800/50 shadow-rose-100/30 dark:shadow-none'
             }`}>
             <div className="flex items-center justify-between gap-3 mb-2">
               <div className="flex items-center gap-3">
@@ -397,7 +532,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
                   const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                   const netProfitDisplay = dealAmount - branchPayments;
-                  return netProfitDisplay >= 0 ? 'bg-emerald-100/80 text-emerald-600' : 'bg-rose-100/80 text-rose-600';
+                  return netProfitDisplay >= 0 ? 'bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100/80 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400';
                 })()}`}>
                   <Icon icon={(() => {
                     const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
@@ -410,7 +545,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
                   const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                   const netProfitDisplay = dealAmount - branchPayments;
-                  return netProfitDisplay >= 0 ? 'text-emerald-900' : 'text-rose-900';
+                  return netProfitDisplay >= 0 ? 'text-emerald-900 dark:text-emerald-400' : 'text-rose-900 dark:text-rose-400';
                 })()}`}>
                   Moliyaviy hisobot
                 </div>
@@ -422,8 +557,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                   const netProfitDisplay = dealAmount - branchPayments;
                   return netProfitDisplay >= 0
-                    ? 'text-emerald-700 hover:bg-emerald-100/80 bg-emerald-50'
-                    : 'text-rose-700 hover:bg-rose-100/80 bg-rose-50';
+                    ? 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/50 bg-emerald-50 dark:bg-emerald-900/30'
+                    : 'text-rose-700 dark:text-rose-400 hover:bg-rose-100/80 dark:hover:bg-rose-900/50 bg-rose-50 dark:bg-rose-900/30';
                 })()}`}
               >
                 <Icon icon={showFinancialReport ? "lucide:eye-off" : "lucide:eye"} className="w-4 h-4" />
@@ -432,13 +567,13 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             </div>
 
             {showFinancialReport && (
-              <div className="space-y-3.5 mt-5 pt-4 border-t border-gray-200/50">
+              <div className="space-y-3.5 mt-5 pt-4 border-t border-gray-200/50 dark:border-slate-700/50">
                 {/* Admin uchun to'liq ma'lumot */}
                 {user?.role === 'ADMIN' && (
-                  <div className="bg-white/60 rounded-xl p-4 border border-gray-100 space-y-3">
+                  <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 border border-gray-100 dark:border-slate-700 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-500">Kelishuv summasi:</span>
-                      <span className="text-sm font-bold text-gray-900">
+                      <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Kelishuv summasi:</span>
+                      <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                         {formatMoney(
                           getDealAmountDisplay(selectedTask, afterHoursDeclaration),
                           getClientCurrency(selectedTask.client)
@@ -454,17 +589,17 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-500">Filial to'lovlari:</span>
-                      <span className="text-sm font-bold text-rose-500 px-2 py-0.5 bg-rose-50 rounded-md ring-1 ring-rose-100">
+                      <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Filial to'lovlari:</span>
+                      <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
                         - {formatMoney(getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration), getClientCurrency(selectedTask.client))}
                       </span>
                     </div>
-                    <div className="pt-3 border-t border-gray-200/60 flex items-center justify-between">
+                    <div className="pt-3 border-t border-gray-200/60 dark:border-slate-700/60 flex items-center justify-between">
                       <span className={`text-sm font-bold uppercase tracking-wider ${(() => {
                         const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
                         const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
                         const netProfitDisplay = dealAmount - branchPayments;
-                        return netProfitDisplay >= 0 ? 'text-emerald-700' : 'text-rose-700';
+                        return netProfitDisplay >= 0 ? 'text-emerald-700 dark:text-emerald-500' : 'text-rose-700 dark:text-rose-500';
                       })()}`}>
                         Sof foyda:
                       </span>
@@ -495,10 +630,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                     )}
                     {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
                       <div className="pt-3 border-t-2 border-indigo-100 flex items-center justify-between">
-                        <span className="text-sm font-black text-gray-900 uppercase tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                        <span className="text-sm font-bold text-indigo-700 uppercase tracking-wider">
                           Jami foyda:
                         </span>
-                        <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 tracking-tight">
+                        <span className="text-2xl font-black text-indigo-700 tracking-tight">
                           {(() => {
                             const currency = getClientCurrency(selectedTask.client);
                             const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
@@ -532,15 +667,15 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   const totalAmount = userKpiLogs.reduce((sum, log) => sum + Number(log.amount), 0);
 
                   return (
-                    <div className="bg-white/60 rounded-xl p-4 border border-gray-100">
-                      <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Jarayonlardan topilgan mablag':</div>
+                    <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 border border-gray-100 dark:border-slate-700">
+                      <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Jarayonlardan topilgan mablag':</div>
                       <div className="space-y-2">
                         {userKpiLogs.map((log) => (
-                          <div key={log.id} className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded-lg">
-                            <span className="font-semibold text-gray-700">
+                          <div key={log.id} className="flex items-center justify-between text-sm p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                            <span className="font-semibold text-gray-700 dark:text-gray-300">
                               {log.stageName}:
                             </span>
-                            <span className="font-bold text-gray-900 px-2.5 py-1 bg-white rounded-md shadow-sm border border-gray-100">
+                            <span className="font-bold text-gray-900 dark:text-white px-2.5 py-1 bg-white dark:bg-slate-600 rounded-md shadow-sm border border-gray-100 dark:border-slate-500">
                               {new Intl.NumberFormat('uz-UZ', {
                                 style: 'currency',
                                 currency: 'USD',
@@ -581,151 +716,23 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
         )}
 
         {selectedTask.comments && (
-          <div className="mb-6">
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
-              <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <div className="mb-5">
+            <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
+              <Icon icon="lucide:message-square" className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               Izohlar
             </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 rounded-r-lg">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-3 rounded-r-lg">
               <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">{selectedTask.comments}</p>
             </div>
           </div>
         )}
 
-        {/* Stages - Checklist */}
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Jarayonlar</h3>
-          <div className="space-y-2">
-            {selectedTask.stages && selectedTask.stages.length > 0 ? (
-              selectedTask.stages.map((stage) => {
-                // Vaqtni hisoblash va baholash
-                const durationMinutes = stage.status === 'TAYYOR'
-                  ? calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt)
-                  : null;
-                const evaluation = stage.status === 'TAYYOR'
-                  ? evaluateStageTime(stage.name, durationMinutes)
-                  : null;
-
-                // Rangni aniqlash
-                let borderColor = 'border-gray-200 dark:border-slate-700';
-                let bgColor = 'dark:bg-slate-800/10';
-                if (stage.status === 'TAYYOR' && evaluation) {
-                  if (evaluation.rating === 'alo') {
-                    borderColor = 'border-green-300 dark:border-green-800/60';
-                    bgColor = 'bg-green-50 dark:bg-green-900/10';
-                  } else if (evaluation.rating === 'ortacha') {
-                    borderColor = 'border-yellow-300 dark:border-yellow-800/60';
-                    bgColor = 'bg-yellow-50 dark:bg-yellow-900/10';
-                  } else {
-                    borderColor = 'border-red-300 dark:border-red-800/60';
-                    bgColor = 'bg-red-50 dark:bg-red-900/10';
-                  }
-                } else if (stage.status === 'TAYYOR') {
-                  bgColor = 'bg-gray-50 dark:bg-slate-800/50';
-                }
-
-                return (
-                  <div
-                    key={stage.id}
-                    onClick={() => {
-                      if (!updatingStage) {
-                        handleStageClick(stage);
-                      }
-                    }}
-                    className={`flex items-center justify-between p-3 border ${borderColor} rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800/50 transition ${bgColor} ${updatingStage === stage.id ? 'cursor-wait' : 'cursor-pointer'}`}
-                  >
-                    <div className="flex items-center flex-1">
-                      <div
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${stage.status === 'TAYYOR'
-                          ? 'bg-green-500 border-green-500'
-                          : 'border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-green-400 dark:hover:border-green-500'
-                          } ${updatingStage === stage.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        style={{
-                          transition: stage.status === 'TAYYOR'
-                            ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                            : 'all 0.3s ease-in-out',
-                          transform: stage.status === 'TAYYOR' ? 'scale(1.1)' : 'scale(1)',
-                          boxShadow: stage.status === 'TAYYOR'
-                            ? '0 4px 12px rgba(34, 197, 94, 0.4)'
-                            : 'none',
-                          animation: stage.status === 'TAYYOR' && updatingStage !== stage.id
-                            ? 'checkboxPulse 0.6s ease-out'
-                            : 'none'
-                        }}
-                      >
-                        {stage.status === 'TAYYOR' && (
-                          <Icon icon="lucide:check" className="w-4 h-4 text-white" />
-                        )}
-                      </div>
-                      <label
-                        className={`ml-3 text-sm font-medium flex-1 transition-all duration-300 ${stage.status === 'TAYYOR'
-                          ? 'line-through text-gray-400 dark:text-gray-500 opacity-60'
-                          : 'text-gray-900 dark:text-gray-200'
-                          }`}
-                      >
-                        {stage.name}
-                      </label>
-                    </div>
-                    {stage.status === 'TAYYOR' && (() => {
-                      const durationText = formatDuration(durationMinutes);
-                      const deklarMultiplier =
-                        stage.name === 'Deklaratsiya' && selectedTask?.customsPaymentMultiplier != null
-                          ? Number(selectedTask.customsPaymentMultiplier)
-                          : null;
-
-                      return (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 ml-4 flex items-center gap-2 flex-wrap">
-                          {stage.assignedTo && (
-                            <span className="font-medium text-gray-700 dark:text-gray-300">
-                              ({stage.assignedTo.name})
-                            </span>
-                          )}
-                          {deklarMultiplier != null && (
-                            <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                              BXM {deklarMultiplier} barobari
-                              {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
-                                <button
-                                  type="button"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    await handleBXMEdit(stage);
-                                  }}
-                                  className="ml-1 p-0.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
-                                  title="BXM ni o'zgartirish"
-                                >
-                                  <Icon icon="lucide:pencil" className="w-3 h-3" />
-                                </button>
-                              )}
-                            </span>
-                          )}
-                          {durationText && <span>{durationText}</span>}
-                          {durationText && evaluation && (
-                            <i className={`fas ${evaluation.icon} ${evaluation.color}`} title={
-                              evaluation.rating === 'alo' ? 'A\'lo' :
-                                evaluation.rating === 'ortacha' ? 'Ortacha' :
-                                  'Yomon'
-                            }></i>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-4 text-gray-400">
-                {loadingTask ? 'Jarayonlar yuklanmoqda...' : 'Jarayonlar topilmadi'}
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Documents Section */}
-        <div className="mt-6 border-t border-gray-200 dark:border-slate-700 pt-6">
-          <div className="flex justify-between items-center mb-4">
+        <div className="mt-5 border-t border-gray-200 dark:border-slate-700 pt-5">
+          <div className="flex justify-between items-center mb-3">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Hujjatlar</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Emailga ilova qilinadigan fayllar manashu yerdan olinadi.</p>
+              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">Hujjatlar</h3>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Emailga ilova qilingan hujjatlar.</p>
             </div>
             <div className="flex items-center gap-2">
               {taskDocuments.length > 0 && (
@@ -772,19 +779,19 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                       alert(message);
                     }
                   }}
-                  className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center gap-1.5"
-                  title="Barcha hujjatlarni ZIP qilib yuklab olish"
+                  className="px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs font-semibold flex items-center gap-1.5 shadow-sm"
+                  title="ZIP holatida yuklab olish"
                 >
-                  <Icon icon="lucide:download" className="w-4 h-4" />
-                  Barchasini yuklab olish
+                  <Icon icon="lucide:download" className="w-3.5 h-3.5" />
+                  Barchasi
                 </button>
               )}
               {(selectedTask.status !== 'YAKUNLANDI' || user?.role === 'ADMIN') && (
                 <button
                   onClick={() => onOpenDocumentUpload()}
-                  className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                  className="px-2.5 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-semibold flex items-center gap-1.5 shadow-sm"
                 >
-                  <Icon icon="lucide:plus" className="w-4 h-4" />
+                  <Icon icon="lucide:plus" className="w-3.5 h-3.5" />
                   Hujjat qo'shish
                 </button>
               )}
@@ -831,7 +838,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                         )}
                         <button
                           onClick={() => downloadDocument(doc.fileUrl, doc.name)}
-                          className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                          className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-blue-200 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
                           title="Yuklab olish"
                         >
                           <Icon icon="lucide:download" className="w-4 h-4" />
@@ -859,7 +866,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             return (
                               <button
                                 onClick={() => handleDeleteDocument(doc.id)}
-                                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 dark:border-rose-800/60 bg-red-50 dark:bg-rose-900/20 text-red-600 dark:text-rose-400 hover:bg-red-100 dark:hover:bg-rose-900/40 transition-colors"
                                 title="O'chirish (Admin)"
                               >
                                 <Icon icon="lucide:trash-2" className="w-4 h-4" />
@@ -874,7 +881,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                               return (
                                 <button
                                   onClick={() => handleDeleteDocument(doc.id)}
-                                  className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                  className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 dark:border-rose-800/60 bg-red-50 dark:bg-rose-900/20 text-red-600 dark:text-rose-400 hover:bg-red-100 dark:hover:bg-rose-900/40 transition-colors"
                                   title="O'chirish"
                                 >
                                   <Icon icon="lucide:trash-2" className="w-4 h-4" />
@@ -885,7 +892,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                               const daysPassed = Math.floor(diffInDays);
                               return (
                                 <span
-                                  className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"
+                                  className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1 bg-gray-100 dark:bg-slate-700/50 rounded"
                                   title="2 kundan keyin o'chirish mumkin emas"
                                 >
                                   O'chirish mumkin emas ({daysPassed} kun o'tdi)
@@ -899,9 +906,9 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                       </div>
                     </div>
                     {isExpanded && hasOCR && (
-                      <div className="ml-4 mr-4 mb-2 p-4 bg-white rounded-lg border border-gray-300 shadow-sm">
+                      <div className="ml-4 mr-4 mb-2 p-4 bg-white dark:bg-slate-800/60 rounded-lg border border-gray-300 dark:border-slate-700 shadow-sm">
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-sm font-semibold text-gray-700">OCR Natijasi (O'qilgan matn)</h4>
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">OCR Natijasi (O'qilgan matn)</h4>
                           <button
                             onClick={() => {
                               if (extractedText) {
@@ -909,7 +916,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                                 alert('Matn nusxalandi!');
                               }
                             }}
-                            className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
                             title="Nusxalash"
                           >
                             <Icon icon="lucide:copy" className="w-4 h-4" />
@@ -917,16 +924,16 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                           </button>
                         </div>
                         {isLoadingText ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                            <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 dark:border-blue-400"></div>
                             <p className="mt-2 text-sm">Matn yuklanmoqda...</p>
                           </div>
                         ) : extractedText ? (
-                          <pre className="text-xs text-gray-800 bg-gray-50 p-3 rounded border border-gray-200 max-h-96 overflow-y-auto whitespace-pre-wrap break-words font-mono">
+                          <pre className="text-xs text-gray-800 dark:text-gray-300 bg-gray-50 dark:bg-slate-900/50 p-3 rounded border border-gray-200 dark:border-slate-700 max-h-96 overflow-y-auto whitespace-pre-wrap break-words font-mono">
                             {formatInvoiceExtractedText(extractedText, doc.documentType)}
                           </pre>
                         ) : (
-                          <div className="text-center py-4 text-gray-400 text-sm">
+                          <div className="text-center py-4 text-gray-400 dark:text-gray-500 text-sm">
                             OCR natijasi topilmadi. Hujjat hali qayta ishlanmagan yoki matn o'qilmagan.
                           </div>
                         )}
@@ -941,9 +948,9 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
         {/* AI Tekshiruv Natijalari Section - Temporarily hidden */}
         {false && (
-          <div className="mt-6 border-t border-gray-200 pt-6">
+          <div className="mt-6 border-t border-gray-200 dark:border-slate-700 pt-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">AI Tekshiruv Natijalari</h3>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">AI Tekshiruv Natijalari</h3>
               <button
                 onClick={() => {
                   if (selectedTask) {

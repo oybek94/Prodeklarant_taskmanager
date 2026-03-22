@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../lib/api';
 import CurrencyDisplay from '../components/CurrencyDisplay';
@@ -127,6 +127,18 @@ const Invoices = () => {
   const PAGE_SIZE = 20;
   const [searchQuery, setSearchQuery] = useState('');
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const filtersPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showFiltersPanel && filtersPanelRef.current && !filtersPanelRef.current.contains(event.target as Node)) {
+        setShowFiltersPanel(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showFiltersPanel]);
+
   const [filters, setFilters] = useState<{
     branchId: string;
     clientId: string;
@@ -410,30 +422,31 @@ const Invoices = () => {
   };
 
   const getStatusBadgeClass = (status: string | undefined): string => {
-    if (!status) return 'bg-gray-100 text-gray-500';
+    if (!status) return 'bg-gray-100 text-gray-500 dark:bg-slate-800/50 dark:text-slate-400';
     const s = status.toUpperCase();
-    if (s === 'BOSHLANMAGAN') return 'bg-slate-100 text-slate-700';
-    if (s === 'JARAYONDA') return 'bg-amber-100 text-amber-800';
-    if (s === 'TAYYOR') return 'bg-emerald-100 text-emerald-800';
-    if (s === 'TEKSHIRILGAN') return 'bg-blue-100 text-blue-800';
-    if (s === 'TOPSHIRILDI') return 'bg-green-100 text-green-800';
-    return 'bg-gray-100 text-gray-600';
+    if (s === 'BOSHLANMAGAN') return 'bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-300 border border-transparent dark:border-slate-700';
+    if (s === 'JARAYONDA') return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-transparent dark:border-amber-800/50';
+    if (s === 'TAYYOR') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-transparent dark:border-emerald-800/50';
+    if (s === 'TEKSHIRILGAN') return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-transparent dark:border-blue-800/50';
+    if (s === 'TOPSHIRILDI') return 'bg-green-100 text-green-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-transparent dark:border-emerald-800/50';
+    if (s === 'YAKUNLANDI') return 'bg-green-100 text-green-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-transparent dark:border-emerald-800/50';
+    return 'bg-gray-100 text-gray-600 dark:bg-slate-800/50 dark:text-slate-400 border border-transparent dark:border-slate-700';
   };
 
   /** Filial ustunidagi rang — Tasks kartochkalaridagi kabi (faqat filial katagida) */
   const FILIAL_CELL_COLORS = [
-    'bg-blue-100 text-blue-800',
-    'bg-emerald-100 text-emerald-800',
-    'bg-violet-100 text-violet-800',
+    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-transparent dark:border-blue-800/50',
+    'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-transparent dark:border-emerald-800/50',
+    'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400 border border-transparent dark:border-violet-800/50',
   ];
   const getBranchCellClass = (branchName: string | undefined, branchId: number | undefined): string => {
-    if (!branchName) return 'bg-gray-100 text-gray-600';
-    if (branchName === 'Oltiariq') return 'bg-yellow-100 text-yellow-800';
-    if (branchName === 'Toshkent') return 'bg-indigo-100 text-indigo-800';
+    if (!branchName) return 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400 border border-transparent dark:border-slate-700';
+    if (branchName === 'Oltiariq') return 'bg-yellow-100 text-yellow-800 dark:bg-amber-900/30 dark:text-amber-400 border border-transparent dark:border-amber-800/50';
+    if (branchName === 'Toshkent') return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 border border-transparent dark:border-indigo-800/50';
     const sorted = [...(branches || [])].sort((a, b) => a.id - b.id);
     const idx = branchId != null ? sorted.findIndex((b) => b.id === branchId) : -1;
     if (idx >= 0) return FILIAL_CELL_COLORS[idx % FILIAL_CELL_COLORS.length];
-    return 'bg-gray-100 text-gray-600';
+    return 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400 border border-transparent dark:border-slate-700';
   };
 
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
@@ -457,51 +470,51 @@ const Invoices = () => {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-transparent">
-      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl p-5 rounded-2xl shadow-sm border border-white/80 dark:border-gray-700/50 shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="p-3.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/30">
-            <Icon icon="lucide:file-text" className="w-6 h-6 text-white" />
+      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0 px-2">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white shadow-sm shrink-0">
+            <Icon icon="lucide:file-text" className="w-5 h-5" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 tracking-tight">
-              Invoice'lar
-            </h1>
-            <p className="text-sm text-gray-500 font-medium mt-0.5">Barcha schyot-fakturalarni boshqarish</p>
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-3 flex-wrap">
+            Invoice'lar
+            <span className="hidden sm:inline-flex text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-800/80 px-3 py-1 rounded-lg border border-gray-200 dark:border-slate-700/60 shadow-sm items-center">
+              Barcha schyot-fakturalarni boshqarish
+            </span>
+          </h1>
         </div>
         <div className="flex items-center gap-2 relative">
           {/* Qidiruv va filtrlash */}
           <button
             type="button"
             onClick={() => setShowFiltersPanel(!showFiltersPanel)}
-            className="relative p-2.5 bg-white/80 text-gray-700 hover:text-blue-600 border border-gray-200/50 rounded-xl hover:bg-blue-50 transition-all shadow-sm ring-1 ring-black/5 z-10"
+            className={`relative p-2.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-all shadow-sm z-10 ${showFiltersPanel ? 'opacity-0 pointer-events-none' : ''}`}
             title="Qidirish va filtrlash"
           >
-            <Icon icon="lucide:filter" className="w-4.5 h-4.5" />
+            <Icon icon="lucide:filter" className="w-5 h-5" />
             {hasActiveFilters && (
-              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-sm ring-2 ring-white" />
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-800" />
             )}
           </button>
           {showFiltersPanel && (
-            <div className="absolute right-0 top-0 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 z-20 min-w-[500px] animate-slideIn">
+            <div ref={filtersPanelRef} className="absolute right-0 top-0 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-gray-200 dark:border-slate-700 p-4 z-20 min-w-[500px] animate-slideIn">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
                     <Icon icon="lucide:filter" className="w-4 h-4 text-white" />
                   </div>
-                  <h3 className="text-sm font-semibold text-gray-800">Qidiruv va filtrlash</h3>
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Qidiruv va filtrlash</h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowFiltersPanel(false)}
-                  className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none transition-colors"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl font-bold leading-none transition-colors"
                 >
                   ×
                 </button>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
                     <Icon icon="lucide:search" className="w-3.5 h-3.5 text-blue-600" />
                     Qidirish
                   </label>
@@ -613,9 +626,9 @@ const Invoices = () => {
           )}
           <button
             onClick={() => setShowTnvedSettingsModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/80 text-gray-700 border border-gray-200/50 rounded-xl hover:bg-gray-50 hover:text-gray-900 transition-all shadow-sm ring-1 ring-black/5"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-all shadow-sm"
           >
-            <Icon icon="lucide:settings-2" className="w-4 h-4" />
+            <Icon icon="lucide:settings-2" className="w-5 h-5" />
             <span className="font-semibold text-sm">Sozlamalar</span>
           </button>
           {canEdit && (
@@ -624,9 +637,9 @@ const Invoices = () => {
                 setDuplicateInvoiceId(null);
                 setShowCreateModal(true);
               }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-500 hover:to-indigo-500 transition-all shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-sm active:scale-[0.98]"
             >
-              <Icon icon="lucide:plus-circle" className="w-4 h-4" />
+              <Icon icon="lucide:plus-circle" className="w-5 h-5" />
               <span className="font-semibold text-sm">Yangi Invoice</span>
             </button>
           )}
@@ -1321,7 +1334,7 @@ const Invoices = () => {
                           <button
                             type="button"
                             onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-white shadow-sm ring-1 ring-gray-200 transition-all hover:shadow"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700 shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 transition-all hover:shadow"
                             title="Invoysni ko'rish"
                           >
                             <Icon icon="lucide:eye" className="w-4 h-4" />
@@ -1329,7 +1342,7 @@ const Invoices = () => {
                           <button
                             type="button"
                             onClick={() => navigate(`/tasks/${invoice.taskId}/edit`)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white shadow-sm ring-1 ring-slate-200 transition-all hover:shadow"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700 transition-all hover:shadow"
                             title="Taskni tahrirlash"
                           >
                             <Icon icon="lucide:clipboard-list" className="w-4 h-4" />
@@ -1337,7 +1350,7 @@ const Invoices = () => {
                           <button
                             type="button"
                             onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 shadow-sm ring-1 ring-blue-200/60 transition-all hover:shadow-blue-500/20 hover:shadow"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-500 hover:text-blue-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-blue-50 dark:hover:bg-slate-700 shadow-sm ring-1 ring-blue-200/60 dark:ring-slate-700 transition-all hover:shadow"
                             title="Tahrirlash"
                           >
                             <Icon icon="lucide:pencil" className="w-4 h-4" />
@@ -1348,7 +1361,7 @@ const Invoices = () => {
                                 type="button"
                                 onClick={() => handleDuplicateInvoice(invoice)}
                                 disabled={duplicatingInvoiceId === invoice.id}
-                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 shadow-sm ring-1 ring-emerald-200/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-emerald-500/20 hover:shadow"
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-emerald-500 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-slate-700 shadow-sm ring-1 ring-emerald-200/60 dark:ring-slate-700 transition-all disabled:opacity-50 hover:shadow"
                                 title="Dublikat"
                               >
                                 <Icon icon="lucide:copy" className="w-4 h-4" />
@@ -1368,7 +1381,7 @@ const Invoices = () => {
                                       setInvoiceToDelete(invoice);
                                       setShowDeleteConfirmModal(true);
                                     }}
-                                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 shadow-sm ring-1 ring-rose-200/60 transition-all hover:shadow-rose-500/20 hover:shadow"
+                                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-slate-700 shadow-sm ring-1 ring-rose-200/60 dark:ring-slate-700 transition-all hover:shadow"
                                     title="O'chirish"
                                   >
                                     <Icon icon="lucide:trash-2" className="w-4 h-4" />

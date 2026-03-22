@@ -97,12 +97,12 @@ export default function FileUploadModal({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  // Gradient color based on stage type
-  const gradientClass = isST
-    ? 'from-orange-500 to-amber-500'
+  // Solid color based on stage type
+  const headerBgClass = isST
+    ? 'bg-orange-600'
     : isInvoice
-      ? 'from-blue-600 to-indigo-600'
-      : 'from-emerald-500 to-teal-500';
+      ? 'bg-blue-600'
+      : 'bg-emerald-600';
 
   const accentColor = isST ? 'orange' : isInvoice ? 'blue' : 'emerald';
 
@@ -119,7 +119,7 @@ export default function FileUploadModal({
         style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
       >
         {/* Header */}
-        <div className={`bg-gradient-to-r ${gradientClass} px-6 py-5 text-white`}>
+        <div className={`${headerBgClass} px-6 py-5 text-white`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
@@ -248,7 +248,7 @@ export default function FileUploadModal({
               <button
                 onClick={onUpload}
                 disabled={!file || uploading}
-                className={`flex-1 px-4 py-3 bg-gradient-to-r ${gradientClass} text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-${accentColor}-200 flex items-center justify-center gap-2`}
+                className={`flex-1 px-4 py-3 ${headerBgClass} text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 flex items-center justify-center gap-2`}
               >
                 {uploading ? (
                   <>
@@ -279,7 +279,7 @@ export default function FileUploadModal({
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
                   <div
-                    className={`h-full rounded-full bg-gradient-to-r ${gradientClass} transition-all duration-300 ease-out`}
+                    className={`h-full rounded-full ${headerBgClass} transition-all duration-300 ease-out`}
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>

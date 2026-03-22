@@ -47,8 +47,25 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
     archiveFilters.hasPsr
   );
 
+  const panelRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isMobile && isArchiveFiltersRoute) return;
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onClose, isMobile, isArchiveFiltersRoute]);
+
   return (
     <div
+      ref={panelRef}
       className={
         isMobile && isArchiveFiltersRoute
           ? 'fixed inset-0 bg-white z-50 p-4 overflow-y-auto'
@@ -57,7 +74,7 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
             <Icon icon="lucide:filter" className="w-4 h-4 text-white" />
           </div>
           <h3 className="text-sm font-semibold text-gray-800">Qidiruv va filtrlash</h3>
@@ -224,7 +241,7 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
               setArchiveSearchQuery('');
               setArchiveFilters({ branchId: '', clientId: '', startDate: '', endDate: '', hasPsr: '' });
             }}
-            className="w-full px-4 py-2 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 rounded-lg font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md border border-gray-300"
+            className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md border border-gray-300"
           >
             <Icon icon="lucide:x-circle" className="w-3.5 h-3.5" />
             Filtrlarni tozalash

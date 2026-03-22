@@ -261,7 +261,12 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   ]);
 
   useEffect(() => {
-    if (isModalMode) return;
+    if (isModalMode) {
+      loadClients();
+      loadBranches();
+      loadWorkers();
+      return;
+    }
     loadTasks(showArchive, filters as any);
     loadClients();
     loadBranches();
@@ -602,13 +607,13 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mt-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm">
               <Icon icon="lucide:layout-list" className="w-5 h-5" />
             </div>
-            <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 tracking-tight">Vazifalar</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Vazifalar</h1>
           </div>
           {/* Tab buttons */}
-          <div className="flex gap-1.5 bg-gray-100/80 backdrop-blur-md p-1.5 rounded-xl border border-gray-200/50 shadow-inner">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] border border-slate-200/60 dark:border-slate-700/60">
             <button
               onClick={() => {
                 if (isMobile) {
@@ -618,11 +623,12 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                   setShowArchive(false);
                 }
               }}
-              className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-300 ${!showArchive
-                ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-900/5 scale-100'
-                : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 scale-95 hover:scale-100'
+              className={`relative px-6 py-2.5 rounded-lg font-bold text-sm transition-all duration-300 flex items-center gap-2.5 ${!showArchive
+                ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-white shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-600/60'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
                 }`}
             >
+              <Icon icon="lucide:list-todo" className={`w-4.5 h-4.5 transition-colors ${!showArchive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'}`} />
               Barcha ishlar
             </button>
             <button
@@ -635,11 +641,12 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                   setPage(1);
                 }
               }}
-              className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-300 ${showArchive
-                ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-900/5 scale-100'
-                : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 scale-95 hover:scale-100'
+              className={`relative px-6 py-2.5 rounded-lg font-bold text-sm transition-all duration-300 flex items-center gap-2.5 ${showArchive
+                ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-white shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-600/60'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
                 }`}
             >
+              <Icon icon="lucide:archive" className={`w-4.5 h-4.5 transition-colors ${showArchive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'}`} />
               Arxiv
             </button>
           </div>
@@ -650,7 +657,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
               {/* Export to Excel Icon */}
               <button
                 onClick={exportToExcel}
-                className="relative p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all shadow-sm hover:shadow z-10"
+                className="relative p-2 bg-emerald-500 dark:bg-emerald-600/80 text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-all shadow-sm hover:shadow z-10"
                 title="Excel formatida yuklab olish"
               >
                 <Icon icon="lucide:download" className="w-4 h-4" />
@@ -664,7 +671,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                     setShowArchiveFilters(!showArchiveFilters);
                   }
                 }}
-                className={`relative p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all shadow-sm hover:shadow z-10 ${showArchiveFilters ? 'opacity-0 pointer-events-none' : ''
+                className={`relative p-2 bg-blue-500 dark:bg-slate-700 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-slate-600 transition-all shadow-sm hover:shadow z-10 ${showArchiveFilters ? 'opacity-0 pointer-events-none' : ''
                   }`}
                 title="Qidirish va filtrlash"
               >
@@ -706,9 +713,10 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                   setShowForm(true);
                 }
               }}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 flex items-center gap-2 font-bold text-sm transition-all shadow-sm hover:shadow-md active:scale-[0.98]"
             >
-              + Add Task
+              <Icon icon="lucide:plus-circle" className="w-5 h-5 flex-shrink-0" />
+              Yangi vazifa
             </button>
           )}
       </div>
@@ -952,21 +960,22 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
             <div>
               <TaskTable tasks={archivePageTasks} branchName='Arxiv' onTaskClick={handleTaskClick} />
               {!loading && archiveTotalPages > 1 && (
-                <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="text-sm text-gray-600">
-                    Jami <span className="font-semibold">{archiveTotalTasks}</span> ta task,{' '}
-                    <span className="font-semibold">{page}</span>/{archiveTotalPages} sahifa
+                <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-200 dark:border-slate-800">
+                  <div className="text-sm text-gray-600 dark:text-slate-400">
+                    Jami <span className="font-bold text-gray-900 dark:text-gray-100">{archiveTotalTasks}</span> ta task,{' '}
+                    <span className="font-bold text-gray-900 dark:text-gray-100">{page}</span>/{archiveTotalPages} sahifa
                   </div>
                   <div className="flex gap-2 items-center flex-wrap">
                     <button
                       type="button"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page === 1}
-                      className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${page === 1
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                      className={`px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center gap-1.5 ${page === 1
+                        ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 cursor-not-allowed'
+                        : 'bg-indigo-500 dark:bg-slate-700 text-white hover:bg-indigo-600 dark:hover:bg-slate-600'
                         }`}
                     >
+                      <Icon icon="lucide:chevron-left" className="w-4.5 h-4.5" />
                       Oldingi
                     </button>
                     {getPageNumbers(page, archiveTotalPages).map((p: number | string) => (
@@ -975,8 +984,8 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                         type="button"
                         onClick={() => typeof p === 'number' && setPage(p)}
                         className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${p === page
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-sm'
+                          : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700'
                           }`}
                       >
                         {p}
@@ -986,12 +995,13 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
                       type="button"
                       onClick={() => setPage((p) => Math.min(archiveTotalPages, p + 1))}
                       disabled={page === archiveTotalPages}
-                      className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${page === archiveTotalPages
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                      className={`px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center gap-1.5 ${page === archiveTotalPages
+                        ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 cursor-not-allowed'
+                        : 'bg-indigo-500 dark:bg-slate-700 text-white hover:bg-indigo-600 dark:hover:bg-slate-600'
                         }`}
                     >
                       Keyingi
+                      <Icon icon="lucide:chevron-right" className="w-4.5 h-4.5" />
                     </button>
                   </div>
                 </div>

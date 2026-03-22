@@ -371,6 +371,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     date: new Date().toISOString().split('T')[0],
     comment: '',
     type: 'INCOME' as 'INCOME' | 'EXPENSE' | 'SALARY',
+    paymentMethod: 'CASH' as 'CASH' | 'CARD',
   });
   const [savingTransaction, setSavingTransaction] = useState(false);
   const [selectedMonthForTasks, setSelectedMonthForTasks] = useState<{ label: string; year: number; monthIndex: number } | null>(null);
@@ -1367,6 +1368,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         date: new Date(transactionForm.date),
         comment: transactionForm.comment,
         clientId: selectedClient.id,
+        paymentMethod: transactionForm.paymentMethod,
       };
 
       await apiClient.post('/transactions', payload);
@@ -1377,6 +1379,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         date: new Date().toISOString().split('T')[0],
         comment: '',
         type: 'INCOME',
+        paymentMethod: 'CASH',
       });
 
       // reload client detail to get new transactions
@@ -1471,117 +1474,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             )}
           </div>
 
-          {/* Stats Cards - faqat ADMIN uchun; MANAGER uchun ko'rinmasin */}
-          {!isManagerOnly && stats && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-              {/* Total Clients */}
-              <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
-                {/* Decorative pattern */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-
-                <div className="absolute top-3 right-3">
-                  <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.total.change >= 0
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                    }`}>
-                    <span className="inline-flex items-center">
-                      <span className="mr-1">{stats.total.change >= 0 ? '↑' : '↓'}</span>
-                      {formatChange(stats.total.change)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 mb-3 relative z-10">
-                  <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                    <Icon icon="lucide:users" className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.total.current}</div>
-                <div className="text-sm text-blue-100 relative z-10 font-medium">Jami mijozlar</div>
-              </div>
-
-              {/* Active Clients */}
-              <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
-                {/* Decorative pattern */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-
-                <div className="absolute top-3 right-3">
-                  <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.active.change >= 0
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                    }`}>
-                    <span className="inline-flex items-center">
-                      <span className="mr-1">{stats.active.change >= 0 ? '↑' : '↓'}</span>
-                      {formatChange(stats.active.change)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 mb-3 relative z-10">
-                  <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                    <Icon icon="lucide:check-circle-2" className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.active.current}</div>
-                <div className="text-sm text-blue-100 relative z-10 font-medium">Faol mijozlar</div>
-              </div>
-
-              {/* Inactive Clients */}
-              <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
-                {/* Decorative pattern */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-
-                <div className="absolute top-3 right-3">
-                  <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.inactive.change >= 0
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                    }`}>
-                    <span className="inline-flex items-center">
-                      <span className="mr-1">{stats.inactive.change >= 0 ? '↑' : '↓'}</span>
-                      {formatChange(stats.inactive.change)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 mb-3 relative z-10">
-                  <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                    <Icon icon="lucide:x-circle" className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.inactive.current}</div>
-                <div className="text-sm text-blue-100 relative z-10 font-medium">Nofaol mijozlar</div>
-              </div>
-
-              {/* Archived Clients */}
-              <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-lg shadow-xl p-5 relative border-2 border-blue-400 overflow-hidden">
-                {/* Decorative pattern */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full -ml-12 -mb-12"></div>
-
-                <div className="absolute top-3 right-3">
-                  <div className={`px-2 py-1 rounded text-xs font-medium shadow-md backdrop-blur-sm ${stats.archived.change >= 0
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                    }`}>
-                    <span className="inline-flex items-center">
-                      <span className="mr-1">{stats.archived.change >= 0 ? '↑' : '↓'}</span>
-                      {formatChange(stats.archived.change)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 mb-3 relative z-10">
-                  <div className="w-12 h-12 bg-white bg-opacity-25 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg border border-white border-opacity-30">
-                    <Icon icon="lucide:archive" className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-white mb-1 relative z-10 drop-shadow-lg">{stats.archived.current}</div>
-                <div className="text-sm text-blue-100 relative z-10 font-medium">Arxivlangan mijozlar</div>
-              </div>
-            </div>
-          )}
-
-
-          {/* Add Client Modal */}
+          {/* Stats Cards removed as per user request */}          {/* Add Client Modal */}
           {showClientForm && (
             <div
               className={isMobile && isNewClientRoute
@@ -1751,171 +1644,126 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             </div>
           )}
 
-          {/* Clients Table */}
+          {/* Clients Grid */}
           {loading ? (
-            <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} className="animate-pulse bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 h-56 border border-gray-100/50 dark:border-slate-700/50 shadow-sm" />
+              ))}
+            </div>
           ) : (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Client
-                    </th>
-                    {!isManagerOnly && (
-                      <>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Deal Amount
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Phone
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          No of Projects
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Mijoz qardorligi
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                          Actions
-                        </th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {sortedClients.length === 0 ? (
-                    <tr>
-                      <td colSpan={isManagerOnly ? 1 : 7} className="px-6 py-4 text-center text-gray-400">
-                        Ma'lumotlar yo'q
-                      </td>
-                    </tr>
-                  ) : (
-                    sortedClients.map((client) => (
-                      <tr
-                        key={client.id}
-                        className="hover:bg-gray-50 cursor-pointer"
-                        onClick={() => loadClientDetail(client.id)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div
-                              className={`w-10 h-10 rounded-full ${getAvatarColor(
-                                client.name
-                              )} flex items-center justify-center text-sm font-semibold text-white mr-3`}
-                            >
-                              {getInitials(client.name)}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {sortedClients.length === 0 ? (
+                <div className="col-span-full py-16 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-dashed border-gray-300 dark:border-slate-700">
+                  <Icon icon="lucide:users" className="w-16 h-16 mb-4 opacity-30" />
+                  <p className="text-lg font-medium">Mijozlar topilmadi</p>
+                </div>
+              ) : (
+                sortedClients.map((client) => {
+                  const dealAmount = Number(client.dealAmount || 0);
+                  const totalTasks = client.tasks?.length || 0;
+                  const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
+                  const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
+                  const initialDebt = Number(client.initialDebt || 0);
+                  const calculatedBalance = typeof client.balance === 'number' ? client.balance :
+                    (client.balance !== undefined && client.balance !== null ? Number(client.balance) : totalDealAmount + initialDebt);
+
+                  return (
+                    <div
+                      key={client.id}
+                      onClick={() => loadClientDetail(client.id)}
+                      className="group bg-white dark:bg-slate-800/90 rounded-2xl p-5 transition-all duration-300 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)] ring-1 ring-gray-200/80 dark:ring-slate-700 hover:ring-blue-500/30 dark:hover:ring-blue-500/50 cursor-pointer flex flex-col relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+  
+                      <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Icon icon="lucide:arrow-up-right" className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                      </div>
+
+                      <div className="mb-4 pt-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {client.name}
+                          </h3>
+                        </div>
+                        {isManagerOnly ? (
+                          <p className="text-xs text-blue-500 dark:text-blue-400 mt-0.5 font-medium">Shartnomalar uchun bosing</p>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+                            <Icon icon="lucide:phone" className="w-3.5 h-3.5" />
+                            <span className="truncate">{client.phone || '-'}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {!isManagerOnly && (
+                        <>
+                          <div className="grid grid-cols-2 gap-3 mb-4 flex-1">
+                            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700/50 group-hover:bg-blue-50/50 dark:group-hover:bg-blue-900/10 transition-colors">
+                              <div className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider mb-1">Deal Amount</div>
+                              <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                                {client.dealAmount ? (
+                                  <CurrencyDisplay
+                                    amount={Number(client.dealAmount)}
+                                    originalCurrency={(client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                                  />
+                                ) : '-'}
+                              </div>
                             </div>
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{client.name}</div>
-                              {isManagerOnly && (
-                                <div className="text-xs text-gray-500 mt-0.5">Shartnomalar uchun bosing</div>
-                              )}
+                            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700/50 group-hover:bg-emerald-50/50 dark:group-hover:bg-emerald-900/10 transition-colors">
+                              <div className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider mb-1">Projects</div>
+                              <div className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1.5 group-hover:text-emerald-600 transition-colors">
+                                <Icon icon="lucide:folder-check" className="w-4 h-4" />
+                                {client.tasks?.length || 0}
+                              </div>
                             </div>
                           </div>
-                        </td>
-                        {!isManagerOnly && (
-                          <>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {client.dealAmount ? (
+
+                          <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-700/50 mt-auto">
+                            <div className="flex flex-col min-w-0 pr-2">
+                              <div className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider mb-0.5">Qarzdorlik</div>
+                              <div className={`font-bold text-sm truncate ${calculatedBalance > 0
+                                ? 'text-rose-600 dark:text-rose-400'
+                                : calculatedBalance === 0
+                                  ? 'text-gray-600 dark:text-gray-400'
+                                  : 'text-emerald-600 dark:text-emerald-400'
+                                }`}>
                                 <CurrencyDisplay
-                                  amount={Number(client.dealAmount)}
-                                  originalCurrency={(client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                                  amount={Number(calculatedBalance)}
+                                  originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
                                 />
-                              ) : '-'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {client.phone || '-'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {client.tasks?.length || 0}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              {(() => {
-                                // Get balance from client data
-                                const balance = typeof client.balance === 'number' ? client.balance :
-                                  (client.balance !== undefined && client.balance !== null ? Number(client.balance) : null);
+                              </div>
+                            </div>
 
-                                if (balance !== null && balance !== undefined && !isNaN(balance)) {
-                                  return (
-                                    <span className={`font-medium ${balance > 0
-                                      ? 'text-red-600'
-                                      : balance === 0
-                                        ? 'text-gray-600'
-                                        : 'text-green-600'
-                                      }`}>
-                                      <CurrencyDisplay
-                                        amount={Number(balance)}
-                                        originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
-                                      />
-                                    </span>
-                                  );
-                                }
-
-                                // Fallback: calculate balance if not provided
-                                const dealAmount = Number(client.dealAmount || 0);
-                                const totalTasks = client.tasks?.length || 0;
-                                const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
-                                const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
-                                const initialDebt = Number(client.initialDebt || 0);
-                                const calculatedBalance = totalDealAmount + initialDebt;
-
-                                return (
-                                  <span className={`font-medium ${calculatedBalance > 0
-                                    ? 'text-red-600'
-                                    : calculatedBalance === 0
-                                      ? 'text-gray-600'
-                                      : 'text-green-600'
-                                    }`}>
-                                    <CurrencyDisplay
-                                      amount={Number(calculatedBalance)}
-                                      originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
-                                    />
-                                  </span>
-                                );
-                              })()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                                Active
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              {!isManagerOnly && (
-                                <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    onClick={() => {
-                                      if (isMobile) {
-                                        navigate(`/clients/${client.id}/edit`);
-                                      } else {
-                                        handleEdit(client);
-                                      }
-                                    }}
-                                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
-                                    title="O'zgartirish"
-                                  >
-                                    <Icon icon="lucide:pencil" className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(client.id)}
-                                    className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
-                                    title="O'chirish"
-                                  >
-                                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              )}
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                            <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => {
+                                  if (isMobile) {
+                                    navigate(`/clients/${client.id}/edit`);
+                                  } else {
+                                    handleEdit(client);
+                                  }
+                                }}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 text-gray-400 dark:text-gray-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 transition-all border border-gray-200 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-800"
+                                title="O'zgartirish"
+                              >
+                                <Icon icon="lucide:pencil" className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(client.id)}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 text-gray-400 dark:text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-all border border-gray-200 dark:border-slate-600 hover:border-rose-200 dark:hover:border-rose-800"
+                                title="O'chirish"
+                              >
+                                <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           )}
         </div>
@@ -1940,7 +1788,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
           }}
         >
           <div
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-transparent dark:border-slate-700"
             style={{
               animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
             }}
@@ -1950,13 +1798,13 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 <div
                   className={`w-16 h-16 rounded-full ${getAvatarColor(
                     selectedClient.name
-                  )} flex items-center justify-center text-xl font-semibold text-white`}
+                  )} flex items-center justify-center text-xl font-semibold text-white shadow-md`}
                 >
                   {getInitials(selectedClient.name)}
                 </div>
                 <div>
-                  <h2 className="text-2xl font-semibold text-gray-800">{selectedClient.name}</h2>
-                  <div className="text-sm text-gray-500 mt-1">
+                  <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">{selectedClient.name}</h2>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     Yaratilgan: {formatDate(selectedClient.createdAt)}
                   </div>
                 </div>
@@ -2003,7 +1851,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       setSelectedClient(null);
                     }
                   }}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors shrink-0"
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors shrink-0"
                 >
                   <Icon icon="lucide:x" className="w-6 h-6" />
                 </button>
@@ -2011,32 +1859,32 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             </div>
 
             {/* Client Tabs */}
-            <div className="flex gap-2 mb-6 border-b border-gray-100 overflow-x-auto hide-scrollbar">
+            <div className="flex gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 overflow-x-auto hide-scrollbar">
               <button
                 type="button"
                 onClick={() => setClientModalTab('overview')}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'overview' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'overview' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'}`}
               >
                 Umumiy
               </button>
               <button
                 type="button"
                 onClick={() => setClientModalTab('contracts')}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'contracts' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'contracts' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'}`}
               >
                 Shartnomalar ({contracts.length})
               </button>
               <button
                 type="button"
                 onClick={() => setClientModalTab('tasks')}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'tasks' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'tasks' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'}`}
               >
                 Ishlar ({selectedClient.tasks?.length || 0})
               </button>
               <button
                 type="button"
                 onClick={() => setClientModalTab('transactions')}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'transactions' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'transactions' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'}`}
               >
                 Tranzaksiyalar ({selectedClient.transactions?.length || 0})
               </button>
@@ -2049,57 +1897,57 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 {!isManagerOnly && selectedClient.stats && (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 p-5 rounded-2xl shadow-sm">
-                        <div className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
-                          <Icon icon="lucide:calculator" className="w-4 h-4 text-blue-500" />
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800 border border-blue-200 dark:border-blue-900/50 p-5 rounded-2xl shadow-sm">
+                        <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:calculator" className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                           Barcha loyihalar summasi
                         </div>
-                        <div className="text-3xl font-bold text-gray-900">
+                        <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                           ${selectedClient.stats.totalDealAmount !== undefined
                             ? Number(selectedClient.stats.totalDealAmount).toFixed(2)
                             : (Number(selectedClient.stats.totalTasks) * Number(selectedClient.stats.dealAmount)).toFixed(2)}
                         </div>
                         {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
-                          <div className="text-xs font-medium text-blue-600 mt-2 bg-blue-100/50 inline-block px-2 py-1 rounded-md">
+                          <div className="text-xs font-medium text-blue-600 mt-2 bg-blue-100/50 dark:bg-blue-900/30 dark:text-blue-400 inline-block px-2 py-1 rounded-md">
                             ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +<CurrencyDisplay amount={selectedClient.stats.tasksWithPsr * 10} originalCurrency="USD" />)
                           </div>
                         )}
                       </div>
-                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 p-5 rounded-2xl shadow-sm">
-                        <div className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
-                          <Icon icon="lucide:dollar-sign" className="w-4 h-4 text-green-500" />
+                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800 border border-green-200 dark:border-emerald-900/50 p-5 rounded-2xl shadow-sm">
+                        <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
+                          <Icon icon="lucide:dollar-sign" className="w-4 h-4 text-green-500 dark:text-emerald-400" />
                           Jami to'lovlar
                         </div>
-                        <div className="text-3xl font-bold text-green-600">
+                        <div className="text-3xl font-bold text-green-600 dark:text-emerald-400">
                           <CurrencyDisplay amount={Number(selectedClient.stats.totalIncome)} originalCurrency="USD" />
                         </div>
                       </div>
                       <div className={`p-5 rounded-2xl shadow-sm border ${selectedClient.stats.balance > 0
-                        ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-200'
+                        ? 'bg-gradient-to-br from-red-50 to-rose-50 dark:from-slate-800 dark:to-slate-800 border-red-200 dark:border-rose-900/50'
                         : selectedClient.stats.balance === 0
-                          ? 'bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200'
-                          : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
+                          ? 'bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-slate-800 dark:to-slate-800 border-yellow-200 dark:border-amber-900/50'
+                          : 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800 border-green-200 dark:border-emerald-900/50'
                         }`}>
-                        <div className={`text-sm font-medium mb-2 flex items-center gap-2 ${selectedClient.stats.balance > 0 ? 'text-red-700' : selectedClient.stats.balance === 0 ? 'text-yellow-700' : 'text-green-700'}`}>
+                        <div className={`text-sm font-medium mb-2 flex items-center gap-2 ${selectedClient.stats.balance > 0 ? 'text-red-700 dark:text-rose-400' : selectedClient.stats.balance === 0 ? 'text-yellow-700 dark:text-amber-400' : 'text-green-700 dark:text-emerald-400'}`}>
                           <Icon icon="lucide:scale" className="w-4 h-4" />
                           Qarzdorligi
                         </div>
                         <div className={`text-3xl font-bold ${selectedClient.stats.balance > 0
-                          ? 'text-red-600'
+                          ? 'text-red-600 dark:text-rose-500'
                           : selectedClient.stats.balance === 0
-                            ? 'text-yellow-600'
-                            : 'text-green-600'
+                            ? 'text-yellow-600 dark:text-amber-500'
+                            : 'text-green-600 dark:text-emerald-500'
                           }`}>
                           <CurrencyDisplay amount={Number(selectedClient.stats.balance)} originalCurrency={selectedClient.balanceCurrency || 'USD'} />
                         </div>
                       </div>
                     </div>
-                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between">
-                      <div className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <div className="p-4 bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl flex items-center justify-between">
+                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         <Icon icon="lucide:info" className="w-4 h-4 text-gray-400" />
                         Qo'shimcha to'lovni (After Hours) kim to'laydi:
                       </div>
-                      <div className="text-sm font-semibold text-gray-900 bg-white px-3 py-1.5 rounded-lg border border-gray-100 shadow-sm">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-slate-700 shadow-sm">
                         {(selectedClient as any).defaultAfterHoursPayer === 'COMPANY' ? 'Men (kompaniya)' : 'Mijoz to\'laydi'}
                       </div>
                     </div>
@@ -2109,16 +1957,16 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 {/* Client Info - faqat ADMIN */}
                 {!isManagerOnly && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm">
-                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Telefon</div>
-                      <div className="font-semibold text-gray-900 text-lg flex items-center gap-2">
+                    <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
+                      <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Telefon</div>
+                      <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
                         <Icon icon="lucide:phone" className="w-4 h-4 text-gray-400" />
                         {selectedClient.phone || '-'}
                       </div>
                     </div>
-                    <div className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm">
-                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Asosiy shartnoma summasi (1 ta task)</div>
-                      <div className="font-semibold text-gray-900 text-lg flex items-center gap-2">
+                    <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
+                      <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Asosiy shartnoma summasi (1 ta task)</div>
+                      <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
                         <Icon icon="lucide:file-text" className="w-4 h-4 text-gray-400" />
                         {selectedClient.dealAmount ? (
                           <CurrencyDisplay amount={Number(selectedClient.dealAmount)} originalCurrency="USD" />
@@ -2130,16 +1978,16 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
 
                 {/* Kelishuv shartlari (Nasiya shartlari) - faqat ADMIN */}
                 {!isManagerOnly && (selectedClient.creditType || selectedClient.creditLimit) && (
-                  <div className="bg-white border border-blue-100 rounded-2xl p-6 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2 relative z-10">
+                  <div className="bg-white dark:bg-slate-800 border border-blue-100 dark:border-blue-900/40 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 dark:bg-blue-900/20 rounded-full -mr-16 -mt-16 opacity-50"></div>
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2 relative z-10">
                       <Icon icon="lucide:shield-check" className="w-5 h-5 text-blue-500" />
                       Nasiya shartlari
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
-                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                        <div className="text-xs font-medium text-gray-500 mb-1">Nasiya turi</div>
-                        <div className="font-semibold text-gray-900">
+                      <div className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700/50">
+                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nasiya turi</div>
+                        <div className="font-semibold text-gray-900 dark:text-gray-100">
                           {selectedClient.creditType === 'TASK_COUNT'
                             ? 'Ma\'lum bir ish sonigacha'
                             : selectedClient.creditType === 'AMOUNT'
@@ -2148,11 +1996,11 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         </div>
                       </div>
                       {selectedClient.creditLimit && (
-                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                          <div className="text-xs font-medium text-gray-500 mb-1">
+                        <div className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700/50">
+                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                             {selectedClient.creditType === 'TASK_COUNT' ? 'Ish soni limiti' : 'Summa limiti'}
                           </div>
-                          <div className="font-bold text-blue-600 text-lg">
+                          <div className="font-bold text-blue-600 dark:text-blue-400 text-lg">
                             {selectedClient.creditType === 'TASK_COUNT'
                               ? `${Number(selectedClient.creditLimit)} ta ish`
                               : <CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />}
@@ -2160,9 +2008,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         </div>
                       )}
                       {selectedClient.creditStartDate && (
-                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                          <div className="text-xs font-medium text-gray-500 mb-1">Boshlangan sana</div>
-                          <div className="font-semibold text-gray-900 flex items-center gap-2">
+                        <div className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700/50">
+                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Boshlangan sana</div>
+                          <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                             <Icon icon="lucide:calendar" className="w-4 h-4 text-gray-400" />
                             {new Date(selectedClient.creditStartDate).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' })}
                           </div>
@@ -2170,9 +2018,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       )}
                     </div>
                     {selectedClient.creditType && selectedClient.creditLimit && (
-                      <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100 relative z-10 flex items-start gap-3">
+                      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-100 dark:border-blue-800/50 relative z-10 flex items-start gap-3">
                         <Icon icon="lucide:info" className="w-5 h-5 text-blue-500 mt-0.5" />
-                        <div className="text-sm text-blue-900">
+                        <div className="text-sm text-blue-900 dark:text-blue-200">
                           <span className="font-semibold block mb-0.5">Shart tafsiloti:</span>
                           {selectedClient.creditType === 'TASK_COUNT'
                             ? `${Number(selectedClient.creditLimit)} ta ishdan keyin to'lov qilish kerak`
@@ -2185,20 +2033,20 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
 
                 {/* Stats Summary - faqat ADMIN */}
                 {!isManagerOnly && selectedClient.stats && (
-                  <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
                       <Icon icon="lucide:bar-chart-2" className="w-5 h-5 text-indigo-500" />
                       Mijoz statistikasi
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                        <div className="text-xs font-medium text-gray-500 mb-1">Jami loyihalar</div>
-                        <div className="text-2xl font-bold text-gray-900">{selectedClient.stats.totalTasks} <span className="text-sm font-medium text-gray-400">ta</span></div>
+                      <div className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700/50">
+                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Jami loyihalar</div>
+                        <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{selectedClient.stats.totalTasks} <span className="text-sm font-medium text-gray-400">ta</span></div>
                       </div>
                       {Object.entries(selectedClient.stats.tasksByBranch).map(([branch, count]) => (
-                        <div key={branch} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                          <div className="text-xs font-medium text-gray-500 mb-1">{branch} filiali</div>
-                          <div className="text-2xl font-bold text-indigo-600">{count} <span className="text-sm font-medium text-indigo-300">ta</span></div>
+                        <div key={branch} className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700/50">
+                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{branch} filiali</div>
+                          <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{count} <span className="text-sm font-medium text-indigo-300 dark:text-indigo-500/50">ta</span></div>
                         </div>
                       ))}
                     </div>
@@ -2210,9 +2058,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             {/* TAB: CONTRACTS */}
             {clientModalTab === 'contracts' && (
               <div className="space-y-4">
-                <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    <Icon icon="lucide:file-signature" className="w-5 h-5 text-gray-500" />
+                <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700/50">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    <Icon icon="lucide:file-signature" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                     Shartnomalar ro'yxati
                   </h3>
                   <button
@@ -2230,47 +2078,47 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   </button>
                 </div>
                 {loadingContracts ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                    <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin mb-2 text-blue-500" />
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500">
+                    <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin mb-2 text-blue-500 dark:text-blue-400" />
                     <span>Yuklanmoqda...</span>
                   </div>
                 ) : contracts.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 bg-gray-50 rounded-xl border border-gray-100 border-dashed">
-                    <Icon icon="lucide:file-x-2" className="w-10 h-10 mb-3 text-gray-300" />
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-slate-800/30 rounded-xl border border-gray-100 dark:border-slate-700/50 border-dashed">
+                    <Icon icon="lucide:file-x-2" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
                     <span className="text-sm font-medium">Ushbu mijozga tegishli shartnomalar yo'q</span>
                   </div>
                 ) : (
-                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                  <div className="border border-gray-200 dark:border-slate-700/50 rounded-xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50/80 backdrop-blur-sm">
+                      <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700/50">
+                        <thead className="bg-gray-50/80 dark:bg-slate-800/80 backdrop-blur-sm">
                           <tr>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Shartnoma raqami</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sana</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sotuvchi</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sotib oluvchi</th>
-                            <th className="px-5 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amallar</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Shartnoma raqami</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sana</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sotuvchi</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sotib oluvchi</th>
+                            <th className="px-5 py-3.5 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amallar</th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-100">
+                        <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-100 dark:divide-slate-800">
                           {contracts.map((contract) => (
-                            <tr key={contract.id} className="hover:bg-blue-50/50 transition-colors group">
-                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-100 text-gray-800">
+                            <tr key={contract.id} className="hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors group">
+                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-100 dark:bg-slate-800/80 text-gray-800 dark:text-gray-200 border border-gray-200/50 dark:border-slate-700/50">
                                   {contract.contractNumber}
                                 </span>
                               </td>
-                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">
+                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                                 {new Date(contract.contractDate).toLocaleDateString('uz-UZ')}
                               </td>
-                              <td className="px-5 py-4 text-sm text-gray-600 max-w-[200px] truncate" title={contract.sellerName}>{contract.sellerName}</td>
-                              <td className="px-5 py-4 text-sm text-gray-600 max-w-[200px] truncate" title={contract.buyerName}>{contract.buyerName}</td>
+                              <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={contract.sellerName}>{contract.sellerName}</td>
+                              <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={contract.buyerName}>{contract.buyerName}</td>
                               <td className="px-5 py-4 whitespace-nowrap text-sm text-right">
                                 <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button
                                     type="button"
                                     onClick={() => handleEditContract(contract)}
-                                    className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors ring-1 ring-transparent hover:ring-blue-200"
+                                    className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors ring-1 ring-transparent hover:ring-blue-200 dark:hover:ring-blue-800"
                                     title="Tahrirlash"
                                   >
                                     <Icon icon="lucide:pencil" className="w-4 h-4" />
@@ -2278,7 +2126,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteContract(contract.id)}
-                                    className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors ring-1 ring-transparent hover:ring-red-200"
+                                    className="p-1.5 text-red-600 dark:text-rose-400 hover:bg-red-100 dark:hover:bg-rose-900/30 rounded-lg transition-colors ring-1 ring-transparent hover:ring-red-200 dark:hover:ring-rose-800"
                                     title="O'chirish"
                                   >
                                     <Icon icon="lucide:trash-2" className="w-4 h-4" />
@@ -2300,8 +2148,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
               <div className="space-y-6">
                 {/* Monthly Tasks Chart */}
                 {monthlyTasks.length > 0 && (
-                  <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                  <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
                       <Icon icon="lucide:activity" className="w-5 h-5 text-indigo-500" />
                       Oylik ishlar dinamikasi
                     </h3>
@@ -2316,24 +2164,23 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                 onClick={() => {
                                   if (item.year !== undefined && item.monthIndex !== undefined) {
                                     setSelectedMonthForTasks({ label: item.month, year: item.year, monthIndex: item.monthIndex });
-                                    // You could potentially switch back to general list and filter by this, or just rely on existing modal filtering logic
                                   }
                                 }}
-                                className="w-full bg-indigo-100 rounded-t-lg transition-all duration-300 group-hover:bg-indigo-300 cursor-pointer relative"
+                                className="w-full bg-indigo-100 dark:bg-indigo-900/40 rounded-t-lg transition-all duration-300 group-hover:bg-indigo-300 dark:group-hover:bg-indigo-700/60 cursor-pointer relative"
                                 style={{
                                   height: `${height}%`,
                                   minHeight: item.count > 0 ? '4px' : '0px'
                                 }}
                               >
                                 {item.count > 0 && (
-                                  <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs font-bold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-slate-700 text-white text-xs font-bold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                     {item.count}
                                   </div>
                                 )}
                               </div>
                             </div>
-                            <div className="text-xs font-medium text-gray-500 text-center w-full truncate border-t border-gray-100 pt-2" title={item.month}>
-                              {item.month.substring(0, 3)} {/* Showing shorter month names for spacing */}
+                            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center w-full truncate border-t border-gray-100 dark:border-slate-700/50 pt-2" title={item.month}>
+                              {item.month.substring(0, 3)}
                             </div>
                           </div>
                         );
@@ -2343,41 +2190,41 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 )}
 
                 {/* Tasks List */}
-                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                  <div className="flex justify-between items-center p-5 border-b border-gray-100">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-sm overflow-hidden">
+                  <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-slate-700">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                       <Icon icon="lucide:check-circle" className="w-5 h-5 text-gray-400" />
                       Oxirgi ishlar
                     </h3>
                   </div>
                   {!selectedClient.tasks || selectedClient.tasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-gray-400 bg-gray-50 rounded-b-xl border border-gray-100 border-dashed m-4">
-                      <Icon icon="lucide:inbox" className="w-10 h-10 mb-3 text-gray-300" />
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-slate-800/50 rounded-b-xl border border-gray-100 dark:border-slate-700/50 border-dashed m-4">
+                      <Icon icon="lucide:inbox" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
                       <span className="text-sm font-medium">Bajarilgan ishlar mavjud emas</span>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-100">
-                        <thead className="bg-gray-50">
+                      <table className="min-w-full divide-y divide-gray-100 dark:divide-slate-700/50">
+                        <thead className="bg-gray-50 dark:bg-slate-800/80">
                           <tr>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sarlavha</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Filial</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sanasi</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sarlavha</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Filial</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sanasi</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-50">
-                          {selectedClient.tasks.map(task => (
-                            <tr key={task.id} className="hover:bg-gray-50/50 transition-colors">
-                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-l-[3px] border-transparent hover:border-blue-500">#{task.id}</td>
-                              <td className="px-5 py-4 text-sm text-gray-700 max-w-[200px] truncate" title={task.title}>{task.title || '-'}</td>
+                        <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-50 dark:divide-slate-800/50">
+                          {selectedClient.tasks.slice(0, 10).map(task => (
+                            <tr key={task.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800 transition-colors">
+                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 border-l-[3px] border-transparent hover:border-blue-500">#{task.id}</td>
+                              <td className="px-5 py-4 text-sm text-gray-700 dark:text-gray-300 max-w-[200px] truncate" title={task.title}>{task.title || '-'}</td>
                               <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">
-                                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-md">{task.branch?.name || '-'}</span>
+                                <span className="px-2 py-1 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 text-xs rounded-md border border-gray-200/50 dark:border-slate-700/50">{task.branch?.name || '-'}</span>
                               </td>
-                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(task.createdAt).toLocaleDateString('uz-UZ')}</td>
+                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{new Date(task.createdAt).toLocaleDateString('uz-UZ')}</td>
                               <td className="px-5 py-4 whitespace-nowrap">
-                                <span className="px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-100 drop-shadow-sm">
+                                <span className="px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50 drop-shadow-sm">
                                   {task.status}
                                 </span>
                               </td>
@@ -2394,9 +2241,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             {/* TAB: TRANSACTIONS */}
             {clientModalTab === 'transactions' && (
               <div className="space-y-4">
-                <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    <Icon icon="lucide:receipt" className="w-5 h-5 text-gray-500" />
+                <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700/50">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    <Icon icon="lucide:receipt" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                     Tranzaksiyalar tarixi
                   </h3>
                   <button
@@ -2408,34 +2255,34 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   </button>
                 </div>
                 {selectedClient.transactions.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 bg-gray-50 rounded-xl border border-gray-100 border-dashed">
-                    <Icon icon="lucide:circle-dollar-sign" className="w-10 h-10 mb-3 text-gray-300" />
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-slate-800/30 rounded-xl border border-gray-100 dark:border-slate-700/50 border-dashed">
+                    <Icon icon="lucide:circle-dollar-sign" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
                     <span className="text-sm font-medium">To'lovlar tarixi yo'q</span>
                   </div>
                 ) : (
-                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                  <div className="border border-gray-200 dark:border-slate-700/50 rounded-xl overflow-hidden shadow-sm">
                     <div className="overflow-y-auto max-h-[400px]">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50/90 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
+                      <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700/50">
+                        <thead className="bg-gray-50/90 dark:bg-slate-800/90 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
                           <tr>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Summa</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sana</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Izoh</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Summa</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sana</th>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Izoh</th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-100">
+                        <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-100 dark:divide-slate-800/50">
                           {selectedClient.transactions.map((transaction) => (
-                            <tr key={transaction.id} className="hover:bg-green-50/30 transition-colors">
+                            <tr key={transaction.id} className="hover:bg-green-50/30 dark:hover:bg-slate-800 transition-colors">
                               <td className="px-5 py-4 whitespace-nowrap">
-                                <div className="text-sm font-bold text-green-600 bg-green-50 inline-block px-3 py-1 rounded-lg border border-green-100">
+                                <div className="text-sm font-bold text-green-600 dark:text-emerald-400 bg-green-50 dark:bg-emerald-900/20 inline-block px-3 py-1 rounded-lg border border-green-100 dark:border-emerald-800/50">
                                   +${Number(transaction.amount).toFixed(2)} {transaction.currency}
                                 </div>
                               </td>
-                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-600">
+                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-600 dark:text-gray-300">
                                 {formatDate(transaction.date)}
                               </td>
-                              <td className="px-5 py-4 text-sm text-gray-700 max-w-md break-words">
-                                {transaction.comment || <span className="text-gray-400 italic">Izohsiz</span>}
+                              <td className="px-5 py-4 text-sm text-gray-700 dark:text-gray-400 max-w-md break-words">
+                                {transaction.comment || <span className="text-gray-400 dark:text-gray-500 italic">Izohsiz</span>}
                               </td>
                             </tr>
                           ))}
@@ -3578,7 +3425,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       {
         showTransactionModal && selectedClient && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] backdrop-blur-sm"
             style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
             onMouseDown={(e) => {
               if (e.target === e.currentTarget) {
@@ -3588,27 +3435,52 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             }}
           >
             <div
-              className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 border border-transparent dark:border-slate-700"
               style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
             >
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800">Yangi tranzaksiya</h3>
-                  <p className="text-sm text-gray-500">{selectedClient.name}</p>
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Yangi tranzaksiya</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{selectedClient.name}</p>
                 </div>
                 <button
                   onClick={() => {
                     setShowTransactionModal(false);
                     setTransactionForm({ ...transactionForm, amount: '', comment: '' });
                   }}
-                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl font-bold p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
                 >
                   ×
                 </button>
               </div>
               <form onSubmit={handleTransactionSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Summa *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To'lov usuli *</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTransactionForm({ ...transactionForm, paymentMethod: 'CASH' })}
+                      className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${transactionForm.paymentMethod === 'CASH'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/20'
+                        : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-400'
+                        }`}
+                    >
+                      Naqt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTransactionForm({ ...transactionForm, paymentMethod: 'CARD', currency: 'UZS' })}
+                      className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${transactionForm.paymentMethod === 'CARD'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/20'
+                        : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-400'
+                        }`}
+                    >
+                      Karta
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Summa *</label>
                   <div className="flex gap-2">
                     <input
                       type="number"
@@ -3617,13 +3489,13 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       placeholder="0.00"
                       value={transactionForm.amount}
                       onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-lg font-medium"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-lg font-medium bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
                       required
                     />
                     <select
                       value={transactionForm.currency}
                       onChange={(e) => setTransactionForm({ ...transactionForm, currency: e.target.value as 'USD' | 'UZS' })}
-                      className="w-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                      className="w-24 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100"
                     >
                       <option value="USD">USD</option>
                       <option value="UZS">UZS</option>
@@ -3631,37 +3503,37 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sana *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sana *</label>
                   <input
                     type="date"
                     value={transactionForm.date}
                     onChange={(e) => setTransactionForm({ ...transactionForm, date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Izoh</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Izoh</label>
                   <textarea
                     value={transactionForm.comment}
                     onChange={(e) => setTransactionForm({ ...transactionForm, comment: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                     rows={3}
                     placeholder="Tranzaksiya haqida izoh..."
                   />
                 </div>
-                <div className="flex justify-end gap-2 pt-4">
+                <div className="flex justify-end gap-2 pt-4 border-t border-gray-100 dark:border-slate-700/50 mt-4">
                   <button
                     type="button"
                     onClick={() => setShowTransactionModal(false)}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-800 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
                     disabled={savingTransaction}
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                    className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 transition-colors shadow-sm shadow-green-600/20"
                     disabled={savingTransaction}
                   >
                     {savingTransaction ? 'Saqlanmoqda...' : 'Saqlash'}

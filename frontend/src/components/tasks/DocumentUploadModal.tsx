@@ -170,7 +170,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-300 ease-out"
+                  className="h-full rounded-full bg-emerald-500 transition-all duration-300 ease-out"
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>

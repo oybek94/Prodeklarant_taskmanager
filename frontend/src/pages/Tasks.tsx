@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSocket } from '../contexts/SocketContext';
 import toast from 'react-hot-toast';
 import { useTaskData } from '../components/tasks/useTaskData';
@@ -108,6 +108,34 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
       }
     });
   };
+
+  // Modal mode: Invoices sahifasidan status bosilganda avtomatik task detail yuklash
+  useEffect(() => {
+    if (isModalMode && modalTaskId) {
+      loadTaskDetail(modalTaskId, {
+        onLoaded: (taskData) => {
+          setAfterHoursDeclaration(Boolean(taskData.afterHoursDeclaration));
+          setShowTaskModal(true);
+        }
+      });
+    }
+  }, [isModalMode, modalTaskId]);
+
+  // Modal mode: modal yopilganda parent komponentga xabar berish  
+  const modalWasOpenRef = useRef(false);
+  useEffect(() => {
+    if (isModalMode && showTaskModal) {
+      modalWasOpenRef.current = true;
+    }
+    if (isModalMode && !showTaskModal && modalWasOpenRef.current) {
+      modalWasOpenRef.current = false;
+      onCloseModal?.();
+    }
+  }, [isModalMode, showTaskModal]);
+
+  // Modal mode: modal ochilguncha loading overlay sifatida render qilinadi
+  // ESLATMA: Early return qilib bo'lmaydi - React hooks tartibi buziladi
+  // Buning o'rniga asosiy JSX return'da shartli render qilamiz
 
   // Helper function to clean phone number (remove spaces, keep + sign)
   const cleanPhoneNumber = (phone: string): string => {
@@ -1440,6 +1468,18 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
 
   return (
     <div className={isModalMode ? "" : "max-w-[1920px] mx-auto px-2 sm:px-4 space-y-6 sm:space-y-8 font-sans pb-10"}>
+      {/* Modal mode: task detail yuklanguncha loading overlay */}
+      {isModalMode && !showTaskModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) onCloseModal?.(); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md text-center">
+            <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-600 font-medium">Yuklanmoqda...</p>
+          </div>
+        </div>
+      )}
       {!isModalMode && (
         <div className="contents">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mt-4">

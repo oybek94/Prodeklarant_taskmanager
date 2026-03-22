@@ -8,7 +8,7 @@ import { z } from 'zod';
 const router = Router();
 
 const loginSchema = z.object({
-  email: z.string().email('Email manzil noto\'g\'ri').optional().or(z.literal('')).or(z.undefined()),
+  email: z.string().optional().or(z.literal('')).or(z.undefined()),
   password: z.string().min(1, 'Parol kiritilishi shart'),
 });
 

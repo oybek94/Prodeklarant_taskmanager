@@ -359,7 +359,6 @@ export function AdditionalInfoModal({
                   <button type="button" onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })} className="text-red-500 hover:text-red-700 text-sm" title="O'chirish">✕</button>
                 </div>
                 <input type="text" value={form.harvestYear} onChange={(e) => setForm({ ...form, harvestYear: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-                <span className="text-sm text-gray-500 ml-2">года</span>
               </div>
 
               {/* Dinamik maydonlar */}

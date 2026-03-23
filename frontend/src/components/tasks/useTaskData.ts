@@ -70,7 +70,7 @@ export function useTaskData(userRole?: string) {
 
   const loadClients = useCallback(async () => {
     try {
-      const response = await apiClient.get('/clients');
+      const response = await apiClient.get('/clients?selectList=true');
       if (Array.isArray(response.data)) {
         setClients(response.data);
       } else {

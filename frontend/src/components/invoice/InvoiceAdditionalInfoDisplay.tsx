@@ -134,7 +134,7 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
         )}
         {isAdditionalInfoVisible('harvestYear') && form.harvestYear && (
           <div>
-            <strong>Урожай:</strong> {form.harvestYear} года
+            <strong>Урожай:</strong> {form.harvestYear}
           </div>
         )}
         {viewTab === 'spec'

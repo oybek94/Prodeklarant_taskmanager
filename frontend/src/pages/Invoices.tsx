@@ -300,7 +300,7 @@ const Invoices = () => {
 
   const loadClients = async () => {
     try {
-      const response = await apiClient.get('/clients');
+      const response = await apiClient.get('/clients?selectList=true');
       if (Array.isArray(response.data)) {
         setClients(response.data);
       }

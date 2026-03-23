@@ -294,6 +294,12 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const isManagerOnly = user?.role === 'MANAGER';
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const CLIENTS_PAGE_SIZE = 15;
+  const [clientsPage, setClientsPage] = useState(1);
+  const [clientsTotalPages, setClientsTotalPages] = useState(1);
+  const [clientsTotalCount, setClientsTotalCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterHasDebt, setFilterHasDebt] = useState<'' | 'yes' | 'no'>('');
   const [showForm, setShowForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
@@ -536,6 +542,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
 
   useEffect(() => {
     loadClients();
+  }, [clientsPage, searchQuery, filterHasDebt]);
+
+  useEffect(() => {
     loadStats();
   }, []);
 
@@ -659,10 +668,18 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const loadClients = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/clients');
-      if (Array.isArray(response.data)) {
-        // Ensure balance is calculated for each client
-        const clientsWithBalance = response.data.map((client: any) => {
+      const params = new URLSearchParams([
+        ['page', clientsPage.toString()],
+        ['limit', CLIENTS_PAGE_SIZE.toString()],
+        ...(searchQuery.trim() ? [['search', searchQuery.trim()]] : []),
+        ...(filterHasDebt ? [['hasDebt', filterHasDebt]] : []),
+      ]);
+      const response = await apiClient.get(`/clients?${params}`);
+      
+      const data = response.data?.data || response.data;
+      if (Array.isArray(data)) {
+        // Ensure balance is calculated for each client if backend didn't
+        const clientsWithBalance = data.map((client: any) => {
           if (client.balance === undefined || client.balance === null) {
             const dealAmount = Number(client.dealAmount || 0);
             const totalTasks = client.tasks?.length || 0;
@@ -676,6 +693,13 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
           return client;
         });
         setClients(clientsWithBalance);
+        if (response.data?.totalPages) {
+          setClientsTotalPages(response.data.totalPages);
+          setClientsTotalCount(response.data.total);
+        } else {
+          setClientsTotalPages(Math.max(1, Math.ceil(clientsWithBalance.length / CLIENTS_PAGE_SIZE)));
+          setClientsTotalCount(clientsWithBalance.length);
+        }
       } else {
         setClients([]);
       }
@@ -1475,6 +1499,57 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             )}
           </div>
 
+          <div className="mb-6 bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 space-y-4 lg:space-y-0 lg:flex lg:gap-4 lg:items-center">
+              {/* Search */}
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">Qidiruv</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Icon icon="lucide:search" className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Ism, telefon yoki INN..."
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setClientsPage(1); }}
+                    className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 focus:bg-white rounded-lg transition-colors text-sm dark:text-gray-200"
+                  />
+                </div>
+              </div>
+
+              {/* Balance Filter */}
+              <div className="min-w-[150px]">
+                <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">Qarzdorlik holati</label>
+                <select
+                  value={filterHasDebt}
+                  onChange={(e) => { setFilterHasDebt(e.target.value as '' | 'yes' | 'no'); setClientsPage(1); }}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 focus:bg-white rounded-lg transition-colors text-sm dark:text-gray-200"
+                >
+                  <option value="">Barchasi</option>
+                  <option value="yes">Faqat qarzdorlar (Qarzi &gt; 0)</option>
+                  <option value="no">Qarzi yo'qlar</option>
+                </select>
+              </div>
+            </div>
+            
+            {(searchQuery || filterHasDebt) && (
+              <div className="lg:self-end">
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setFilterHasDebt('');
+                    setClientsPage(1);
+                  }}
+                  className="w-full lg:w-auto px-4 py-2 border border-blue-200 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex justify-center items-center gap-2 text-sm font-medium"
+                >
+                  <Icon icon="lucide:x" className="w-4 h-4" />
+                  Tozalash
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Stats Cards removed as per user request */}          {/* Add Client Modal */}
           {showClientForm && (
             <div
@@ -1547,6 +1622,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     currencyRules={{
                       exchangeRateRequired: true,
                     }}
+                    hideExchangeRate={true}
                     errors={monetaryErrors}
                   />
                   <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/50">
@@ -1566,6 +1642,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       label="Oldingi qarz summasi"
                       required={false}
                       showLabels={false}
+                      hideExchangeRate={true}
                       currencyRules={{ exchangeRateRequired: false }}
                     />
                   </div>
@@ -1765,6 +1842,34 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   );
                 })
               )}
+            </div>
+          )}
+
+          {clientsTotalPages > 1 && (
+            <div className="flex items-center justify-between mt-6 px-6 py-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-gray-100 dark:border-slate-700">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {((clientsPage - 1) * CLIENTS_PAGE_SIZE) + 1}–
+                {Math.min(clientsPage * CLIENTS_PAGE_SIZE, clientsTotalCount)} / {clientsTotalCount}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setClientsPage(Math.max(1, clientsPage - 1))}
+                  disabled={clientsPage === 1}
+                  className="px-3 py-1.5 border border-indigo-100 dark:border-indigo-900 rounded-lg text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                >
+                  <Icon icon="lucide:chevron-left" className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {clientsPage} / {clientsTotalPages}
+                </span>
+                <button
+                  onClick={() => setClientsPage(Math.min(clientsTotalPages, clientsPage + 1))}
+                  disabled={clientsPage === clientsTotalPages}
+                  className="px-3 py-1.5 border border-indigo-100 dark:border-indigo-900 rounded-lg text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                >
+                  <Icon icon="lucide:chevron-right" className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -3293,6 +3398,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     label="Deal Amount"
                     required={false}
                     showLabels={true}
+                    hideExchangeRate={true}
                     currencyRules={{
                       exchangeRateRequired: true,
                     }}
@@ -3315,6 +3421,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     label="Oldingi qarz summasi"
                     required={false}
                     showLabels={false}
+                    hideExchangeRate={true}
                     currencyRules={{ exchangeRateRequired: false }}
                   />
                 </div>

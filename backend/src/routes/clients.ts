@@ -42,16 +42,64 @@ const clientSchema = z.object({
 
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const isManagerOnly = req.user?.role === 'MANAGER';
-    if (isManagerOnly) {
-      const clients = await prisma.client.findMany({
-        select: { id: true, name: true, createdAt: true },
-        orderBy: { createdAt: 'desc' },
+    // If just for dropdowns, return lightweight list
+    if (req.query.selectList === 'true') {
+      const list = await prisma.client.findMany({
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
       });
-      return res.json(clients);
+      return res.json(list);
     }
 
-    const clients = await prisma.client.findMany({
+    const { page = '1', limit = '15', search, dateFrom, dateTo, hasDebt } = req.query;
+    const pageNum = Number(page);
+    const take = Number(limit);
+    const skip = (pageNum - 1) * take;
+
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: String(search), mode: 'insensitive' } },
+        { phone: { contains: String(search), mode: 'insensitive' } },
+        { inn: { contains: String(search), mode: 'insensitive' } },
+      ];
+    }
+
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(String(dateFrom));
+      if (dateTo) {
+        const toDate = new Date(String(dateTo));
+        toDate.setHours(23, 59, 59, 999);
+        where.createdAt.lte = toDate;
+      }
+    }
+
+    const isManagerOnly = req.user?.role === 'MANAGER';
+    if (isManagerOnly) {
+      const [clients, total] = await Promise.all([
+        prisma.client.findMany({
+          where,
+          select: { id: true, name: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take,
+        }),
+        prisma.client.count({ where }),
+      ]);
+      return res.json({
+        data: clients,
+        total,
+        page: pageNum,
+        totalPages: Math.ceil(total / take)
+      });
+    }
+
+    // If we need to filter by debt, we must fetch all matching records, calculate debt, filter, then paginate.
+    const shouldFilterDebt = hasDebt === 'yes' || hasDebt === 'no';
+
+    const baseQuery = {
+      where,
       include: {
         tasks: {
           select: {
@@ -62,15 +110,31 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
           },
         },
         transactions: {
-          where: { type: 'INCOME' },
+          where: { type: 'INCOME' as const },
           select: {
             amount: true,
             currency: true,
           },
         },
       },
-      orderBy: { createdAt: 'desc' }
-    });
+      orderBy: { createdAt: 'desc' as const },
+    };
+
+    let clients: any[] = [];
+    let total = 0;
+
+    if (shouldFilterDebt) {
+      // Fetch all to filter in-memory
+      clients = await prisma.client.findMany(baseQuery);
+    } else {
+      // Paginate at database level
+      const [dbClients, dbTotal] = await Promise.all([
+        prisma.client.findMany({ ...baseQuery, skip, take }),
+        prisma.client.count({ where }),
+      ]);
+      clients = dbClients;
+      total = dbTotal;
+    }
 
     // Calculate balance for each client in deal currency
     const clientsWithBalance = await Promise.all(clients.map(async (client: any) => {
@@ -84,12 +148,11 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
         // Calculate total deal amount in deal currency using task snapshots
         const totalDealAmount = (client.tasks || []).reduce((sum: number, task: any) => {
           const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
-          const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+          const psrAmount = task.hasPsr ? (task.snapshotPsrPrice != null ? Number(task.snapshotPsrPrice) : 10) : 0;
           return sum + baseAmount + psrAmount;
         }, 0);
 
         const totalIncome = (client.transactions || [])
-          .filter((t: any) => t.currency === dealCurrency)
           .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
 
         // Add initial debt to total deal amount depending on currency
@@ -129,7 +192,25 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       }
     }));
 
-    res.json(clientsWithBalance);
+    let finalClients = clientsWithBalance;
+    
+    // Apply in-memory debt filter if requested
+    if (shouldFilterDebt) {
+      if (hasDebt === 'yes') {
+        finalClients = clientsWithBalance.filter(c => c.balance > 0);
+      } else if (hasDebt === 'no') {
+        finalClients = clientsWithBalance.filter(c => c.balance <= 0);
+      }
+      total = finalClients.length;
+      finalClients = finalClients.slice(skip, skip + take);
+    }
+
+    res.json({
+      data: finalClients,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / take)
+    });
   } catch (error: any) {
     console.error('Error fetching clients:', error);
     res.status(500).json({
@@ -998,6 +1079,41 @@ router.get('/:id/transactions', requireAuth(), async (req: AuthRequest, res) => 
     res.json(transactions);
   } catch (error: any) {
     console.error('Error fetching client transactions:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi', details: error.message });
+  }
+});
+router.delete('/:id', requireAuth('ADMIN'), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const client = await prisma.client.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { tasks: true, transactions: true, invoices: true, contracts: true }
+        }
+      }
+    });
+
+    if (!client) {
+      return res.status(404).json({ error: 'Mijoz topilmadi' });
+    }
+
+    const { tasks, transactions, invoices, contracts } = client._count;
+
+    if (tasks > 0 || transactions > 0 || invoices > 0 || contracts > 0) {
+      return res.status(400).json({
+        error: `Mijozni o'chirish mumkin emas, unga bog'langan ma'lumotlar bor (${tasks} ish(lar), ${transactions} tranzaksiya(lar), ${invoices} invoys(lar), ${contracts} shartnoma(lar))`
+      });
+    }
+
+    await prisma.client.delete({
+      where: { id }
+    });
+
+    res.json({ success: true, message: "Mijoz muvaffaqiyatli o'chirildi" });
+  } catch (error: any) {
+    console.error('Error deleting client:', error);
     res.status(500).json({ error: 'Xatolik yuz berdi', details: error.message });
   }
 });

@@ -155,7 +155,7 @@ const Finance = () => {
 
   const loadClients = async () => {
     try {
-      const response = await apiClient.get('/clients');
+      const response = await apiClient.get('/clients?selectList=true');
       setClients(response.data.map((c: any) => ({ id: c.id, name: c.name })));
     } catch (error) {
       console.error('Error loading clients:', error);

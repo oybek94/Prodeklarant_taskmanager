@@ -26,14 +26,32 @@ const baseSchema = z.object({
 });
 
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
-  const { type } = req.query;
+  const { type, page = '1', limit = '15', clientId, workerId, paymentMethod, startDate, endDate, search } = req.query;
   const user = req.user;
   
-  // Build where clause based on user role
+  // Build where clause based on user role and filters
   const where: any = {};
   
-  if (type) {
-    where.type = type as any;
+  if (type) where.type = type as any;
+  if (clientId) where.clientId = Number(clientId);
+  if (workerId) where.workerId = Number(workerId);
+  if (paymentMethod) where.paymentMethod = paymentMethod as any;
+  
+  if (startDate || endDate) {
+    where.date = {};
+    if (startDate) where.date.gte = new Date(startDate as string);
+    if (endDate) {
+      const end = new Date(endDate as string);
+      end.setHours(23, 59, 59, 999);
+      where.date.lte = end;
+    }
+  }
+
+  if (search) {
+    where.comment = {
+      contains: search as string,
+      mode: 'insensitive'
+    };
   }
   
   // If user is not ADMIN, show only transactions where they are the worker
@@ -41,25 +59,30 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     where.workerId = user.id;
   }
   
-  const items = await prisma.transaction.findMany({
-    where,
-    include: {
-      client: {
-        select: {
-          id: true,
-          name: true,
-        },
+  const pageNum = Number(page);
+  const take = Number(limit);
+  const skip = (pageNum - 1) * take;
+
+  const [items, total] = await Promise.all([
+    prisma.transaction.findMany({
+      where,
+      include: {
+        client: { select: { id: true, name: true } },
+        worker: { select: { id: true, name: true } },
       },
-      worker: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-    orderBy: { date: 'desc' },
+      orderBy: { date: 'desc' },
+      skip,
+      take,
+    }),
+    prisma.transaction.count({ where })
+  ]);
+
+  res.json({
+    data: items,
+    total,
+    page: pageNum,
+    totalPages: Math.ceil(total / take)
   });
-  res.json(items);
 });
 
 router.get('/stats/monthly', requireAuth(), async (req: AuthRequest, res) => {
@@ -363,10 +386,10 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       },
     });
 
-    // Balansni yangilash (faqat paymentMethod bo'lsa) - use amount_uzs for accounting balance
-    // Internal accounting always uses UZS as base currency
+    // Balansni yangilash (faqat paymentMethod bo'lsa)
+    // Physical balances should always be tracked in their original currency
     if (data.paymentMethod) {
-      const amount = amountUzs; // Use UZS amount for balance updates
+      const amount = originalAmount; // Use original amount for balance updates
       const balanceChange = data.type === 'INCOME' ? amount : amount.negated();
 
       // Balansni topish yoki yaratish
@@ -391,7 +414,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         await tx.accountBalance.create({
           data: {
             type: data.paymentMethod,
-            currency: 'UZS', // Always use UZS for accounting balances
+            currency: originalCurrency, // Always use original currency for tracking physical balances
             balance: balanceChange,
           },
         });

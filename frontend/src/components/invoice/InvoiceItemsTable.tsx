@@ -253,12 +253,12 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       )}
                       {effectiveColumns.quantity && (
                         <td className="px-2 py-2">
-                          <input type="number" value={item.quantity === 0 || item.quantity == null ? '' : item.quantity} onChange={(e) => { const v = e.target.value; handleItemChange(index, 'quantity', v === '' ? 0 : (parseFloat(v) || 0)); }} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="0.01" required placeholder="0" />
+                          <input type="number" value={('_quantityStr' in item && (item as any)._quantityStr !== undefined) ? (item as any)._quantityStr : (item.quantity === 0 || item.quantity == null ? '' : item.quantity)} onChange={(e) => { const v = e.target.value; handleItemChange(index, '_quantityStr' as any, v); handleItemChange(index, 'quantity', v === '' ? 0 : (parseFloat(v.replace(',','.')) || 0)); }} onBlur={() => handleItemChange(index, '_quantityStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" required placeholder="0" />
                         </td>
                       )}
                       {effectiveColumns.packagesCount && (
                         <td className="px-2 py-2">
-                          <input type="number" value={item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount} onChange={(e) => { const raw = e.target.value; const num = raw === '' ? undefined : parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'packagesCount', isNaN(num as number) ? undefined : num); }} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="0.01" placeholder="" />
+                          <input type="number" value={('_packagesCountStr' in item && (item as any)._packagesCountStr !== undefined) ? (item as any)._packagesCountStr : (item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_packagesCountStr' as any, raw); const num = raw === '' ? undefined : parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'packagesCount', isNaN(num as number) ? undefined : num); }} onBlur={() => handleItemChange(index, '_packagesCountStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" placeholder="" />
                         </td>
                       )}
                       {effectiveColumns.gross && (
@@ -273,7 +273,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       )}
                       {effectiveColumns.unitPrice && (
                         <td className="px-2 py-2">
-                          <input type="number" value={item.unitPrice === 0 ? '' : item.unitPrice} onChange={(e) => { const raw = e.target.value; const num = parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0); }} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="0.01" required placeholder="" />
+                          <input type="number" value={('_unitPriceStr' in item && (item as any)._unitPriceStr !== undefined) ? (item as any)._unitPriceStr : (item.unitPrice === 0 ? '' : item.unitPrice)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_unitPriceStr' as any, raw); const num = parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0); }} onBlur={() => handleItemChange(index, '_unitPriceStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" required placeholder="" />
                         </td>
                       )}
                       {effectiveColumns.total && (

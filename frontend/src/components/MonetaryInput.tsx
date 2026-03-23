@@ -24,6 +24,7 @@ export interface MonetaryInputProps {
     currency?: string;
     exchangeRate?: string;
   };
+  hideExchangeRate?: boolean;
 }
 
 const MonetaryInput = ({
@@ -41,6 +42,7 @@ const MonetaryInput = ({
   showLabels = true,
   currencyRules,
   errors = {},
+  hideExchangeRate = false,
 }: MonetaryInputProps) => {
   const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
   const [calculatedUzs, setCalculatedUzs] = useState<string>('');
@@ -248,7 +250,7 @@ const MonetaryInput = ({
       </div>
 
       {/* Exchange Rate */}
-      {effectiveCurrency === 'USD' && (
+      {effectiveCurrency === 'USD' && !hideExchangeRate && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Valyuta kursi (USD → UZS) {currencyRules?.exchangeRateRequired !== false && <span className="text-red-500">*</span>}
@@ -286,7 +288,7 @@ const MonetaryInput = ({
       )}
 
       {/* Converted UZS Preview */}
-      {displayUzs && (
+      {displayUzs && !hideExchangeRate && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Konvertatsiya qilingan UZS (preview)

@@ -67,6 +67,17 @@ const Transactions = () => {
   const [loading, setLoading] = useState(true);
   const TRANSACTIONS_PAGE_SIZE = 15;
   const [transactionsPage, setTransactionsPage] = useState(1);
+  const [transactionsTotalPages, setTransactionsTotalPages] = useState(1);
+  const [transactionsTotalCount, setTransactionsTotalCount] = useState(0);
+  const [filters, setFilters] = useState({
+    startDate: '',
+    endDate: '',
+    type: '',
+    clientId: '',
+    workerId: '',
+    paymentMethod: '',
+    search: '',
+  });
   const [showForm, setShowForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPreviousYearDebtForm, setShowPreviousYearDebtForm] = useState(false);
@@ -123,6 +134,9 @@ const Transactions = () => {
 
   useEffect(() => {
     loadTransactions();
+  }, [transactionsPage, filters]);
+
+  useEffect(() => {
     loadClients();
     loadWorkers();
     if (user?.role === 'ADMIN') {
@@ -266,10 +280,28 @@ const Transactions = () => {
   const loadTransactions = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/transactions');
-      setTransactions(response.data);
+      const limit = TRANSACTIONS_PAGE_SIZE;
+      const params = new URLSearchParams([
+        ['page', transactionsPage.toString()],
+        ['limit', limit.toString()],
+        ...Object.entries(filters).filter(([_, v]) => v !== '')
+      ]);
+      const response = await apiClient.get(`/transactions?${params.toString()}`);
+      
+      const data = response.data?.data || response.data; // Support both old and new format temporarily
+      setTransactions(Array.isArray(data) ? data : []);
+      
+      if (response.data?.totalPages) {
+        setTransactionsTotalPages(response.data.totalPages);
+        setTransactionsTotalCount(response.data.total);
+      } else {
+        // Fallback for old format
+         setTransactionsTotalPages(Math.max(1, Math.ceil((Array.isArray(data) ? data.length : 0) / limit)));
+         setTransactionsTotalCount(Array.isArray(data) ? data.length : 0);
+      }
+
       const categorySet = new Set<string>(expenseCategories);
-      response.data
+      (Array.isArray(data) ? data : [])
         .map((tx: Transaction) => tx.expenseCategory)
         .filter((category: string | undefined): category is string => Boolean(category && category.trim()))
         .forEach((category: string) => categorySet.add(category.trim()));
@@ -283,7 +315,7 @@ const Transactions = () => {
 
   const loadClients = async () => {
     try {
-      const response = await apiClient.get('/clients');
+      const response = await apiClient.get('/clients?selectList=true');
       setClients(response.data);
     } catch (error) {
       console.error('Error loading clients:', error);
@@ -481,21 +513,9 @@ const Transactions = () => {
     return new Date(dateString).toLocaleDateString('uz-UZ');
   };
 
-  const transactionsTotalPages = Math.max(1, Math.ceil(transactions.length / TRANSACTIONS_PAGE_SIZE));
-  const paginatedTransactions = useMemo(
-    () =>
-      transactions.slice(
-        (transactionsPage - 1) * TRANSACTIONS_PAGE_SIZE,
-        transactionsPage * TRANSACTIONS_PAGE_SIZE
-      ),
-    [transactions, transactionsPage]
-  );
-
-  useEffect(() => {
-    if (transactionsPage > transactionsTotalPages) {
-      setTransactionsPage(transactionsTotalPages);
-    }
-  }, [transactionsTotalPages, transactionsPage]);
+  // Transactions are now server-side paginated, so 'transactions' holds exactly the current page's data
+  // But for fallback or total computation we might preserve some logic
+  const paginatedTransactions = transactions;
 
   const formatCurrency = (amount: number, currency: string = 'UZS') => {
     if (currency === 'UZS') {
@@ -585,6 +605,74 @@ const Transactions = () => {
             </button>
           </div>
         )}
+      </div>
+
+      {/* Filters Bar */}
+      <div className="mb-6 bg-white/60 backdrop-blur-xl p-4 rounded-xl shadow-sm border border-white/80 ring-1 ring-black/5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <input
+            type="text"
+            placeholder="Izoh bo'yicha qidiruv"
+            value={filters.search}
+            onChange={(e) => { setFilters({ ...filters, search: e.target.value }); setTransactionsPage(1); }}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
+          />
+          <select
+            value={filters.type}
+            onChange={(e) => { setFilters({ ...filters, type: e.target.value }); setTransactionsPage(1); }}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
+          >
+            <option value="">Barcha turlari</option>
+            <option value="INCOME">Kirim</option>
+            <option value="EXPENSE">Chiqim</option>
+            <option value="SALARY">Ish haqi</option>
+          </select>
+          <select
+            value={filters.paymentMethod}
+            onChange={(e) => { setFilters({ ...filters, paymentMethod: e.target.value }); setTransactionsPage(1); }}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
+          >
+            <option value="">Barcha to'lov turi</option>
+            <option value="CASH">Naqt</option>
+            <option value="CARD">Karta</option>
+          </select>
+          {user?.role === 'ADMIN' && (
+            <select
+              value={filters.workerId}
+              onChange={(e) => { setFilters({ ...filters, workerId: e.target.value }); setTransactionsPage(1); }}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
+            >
+              <option value="">Xodim</option>
+              {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          )}
+          {user?.role === 'ADMIN' && (
+            <select
+              value={filters.clientId}
+              onChange={(e) => { setFilters({ ...filters, clientId: e.target.value }); setTransactionsPage(1); }}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
+            >
+              <option value="">Mijoz</option>
+              {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
+          <div className="flex gap-2 lg:col-span-2">
+            <input
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => { setFilters({ ...filters, startDate: e.target.value }); setTransactionsPage(1); }}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
+              title="Boshlanish sanasi"
+            />
+            <input
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => { setFilters({ ...filters, endDate: e.target.value }); setTransactionsPage(1); }}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
+              title="Tugash sanasi"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Monthly Stats Cards */}
@@ -1318,11 +1406,11 @@ const Transactions = () => {
               </tbody>
             </table>
           </div>
-          {transactions.length > TRANSACTIONS_PAGE_SIZE && (
+          {transactionsTotalPages > 1 && (
             <div className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-b-2xl">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {((transactionsPage - 1) * TRANSACTIONS_PAGE_SIZE) + 1}–
-                {Math.min(transactionsPage * TRANSACTIONS_PAGE_SIZE, transactions.length)} / {transactions.length}
+                {Math.min(transactionsPage * TRANSACTIONS_PAGE_SIZE, transactionsTotalCount)} / {transactionsTotalCount}
               </p>
               <div className="flex items-center gap-1">
                 <button

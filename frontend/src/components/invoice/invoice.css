@@ -1,0 +1,87 @@
+/* Invoice form — hide number input spinners */
+.invoice-form input[type="number"]::-webkit-outer-spin-button,
+.invoice-form input[type="number"]::-webkit-inner-spin-button,
+.invoice-additional-info-modal input[type="number"]::-webkit-outer-spin-button,
+.invoice-additional-info-modal input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.invoice-form input[type="number"],
+.invoice-additional-info-modal input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Compact items table */
+.items-table-compact tbody td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+form.invoice-form,
+#invoice-tnved-products,
+#invoice-packaging-types,
+.bg-white.rounded-lg.shadow-lg.p-8 {
+  vertical-align: top;
+}
+
+/* PDF mode styles */
+.pdf-mode input,
+.pdf-mode select,
+.pdf-mode textarea {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.pdf-mode table,
+.pdf-mode th,
+.pdf-mode td {
+  border: none !important;
+  vertical-align: middle !important;
+}
+
+.pdf-mode .items-table-compact thead th {
+  background: #fff !important;
+  color: #111 !important;
+  vertical-align: top !important;
+  position: relative;
+  top: -6px;
+}
+
+.pdf-mode .items-table-compact tfoot td {
+  vertical-align: top !important;
+  position: relative;
+  top: -6px;
+}
+
+.pdf-mode .pdf-hide-border {
+  border-top: none !important;
+}
+
+.pdf-mode button,
+.pdf-mode summary,
+.pdf-mode details {
+  display: none !important;
+}
+
+.pdf-mode .items-table-compact tbody tr {
+  min-height: 48px;
+}
+
+.pdf-mode .items-table-compact tbody td {
+  line-height: 1.2;
+  vertical-align: middle !important;
+  padding-top: 0px;
+  padding-bottom: 12px;
+}
+
+.pdf-mode .invoice-header {
+  margin-top: 0px;
+}
+
+.pdf-mode .flex.flex-col.bg-white {
+  align-items: flex-start;
+  justify-content: flex-start;
+}

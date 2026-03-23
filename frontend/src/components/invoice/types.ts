@@ -162,6 +162,84 @@ export type ViewTab = 'invoice' | 'spec' | 'packing';
 
 export type FssFilePrefix = 'Ichki' | 'Tashqi';
 
+/** Invoice form state uchun tip */
+export interface InvoiceFormData {
+  invoiceNumber: string | undefined;
+  date: string;
+  currency: 'USD' | 'UZS';
+  contractNumber: string;
+  paymentTerms: string;
+  dueDate: string;
+  poNumber: string;
+  notes: string;
+  terms: string;
+  tax: number;
+  discount: number;
+  shipping: number;
+  amountPaid: number;
+  additionalInfo: Record<string, unknown>;
+  deliveryTerms: string;
+  vehicleNumber: string;
+  fssRegionInternalCode: string;
+  fssRegionName: string;
+  fssRegionExternalCode: string;
+  loaderWeight: string;
+  trailerWeight: string;
+  palletWeight: string;
+  trailerNumber: string;
+  smrNumber: string;
+  shipmentPlace: string;
+  destination: string;
+  origin: string;
+  manufacturer: string;
+  orderNumber: string;
+  gln: string;
+  harvestYear: string;
+  customsAddress: string;
+  documents: string;
+  carrier: string;
+  tirNumber: string;
+  [key: string]: unknown;
+}
+
+export const DEFAULT_INVOICE_FORM_STATE: InvoiceFormData = {
+  invoiceNumber: undefined,
+  date: new Date().toISOString().split('T')[0],
+  currency: 'USD',
+  contractNumber: '',
+  paymentTerms: '',
+  dueDate: '',
+  poNumber: '',
+  notes: '',
+  terms: '',
+  tax: 0,
+  discount: 0,
+  shipping: 0,
+  amountPaid: 0,
+  additionalInfo: {},
+  deliveryTerms: '',
+  vehicleNumber: '',
+  fssRegionInternalCode: '',
+  fssRegionName: '',
+  fssRegionExternalCode: '',
+  loaderWeight: '',
+  trailerWeight: '',
+  palletWeight: '',
+  trailerNumber: '',
+  smrNumber: '',
+  shipmentPlace: '',
+  destination: '',
+  origin: 'Республика Узбекистан',
+  manufacturer: '',
+  orderNumber: '',
+  gln: '',
+  harvestYear: '',
+  customsAddress: '',
+  documents: '',
+  carrier: '',
+  tirNumber: '',
+};
+
 // --- Constants ---
 
 export const UNIT_OPTIONS = ['кг', 'шт', 'л', 'м', 'т', 'упак.', 'ящ.', 'кор.', 'меш.', 'бут.', 'банк.'];

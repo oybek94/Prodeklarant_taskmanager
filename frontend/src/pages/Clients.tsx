@@ -687,7 +687,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
             const totalIncome = client.transactions?.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0) || 0;
             const initialDebt = Number(client.initialDebt || 0);
-            const balance = totalDealAmount - totalIncome + initialDebt;
+            const rawBalance = totalDealAmount - totalIncome + initialDebt;
+            const balance = Math.round(rawBalance * 100) / 100;
             return { ...client, balance, totalDealAmount, totalIncome, initialDebt };
           }
           return client;

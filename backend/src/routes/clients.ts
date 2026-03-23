@@ -197,9 +197,9 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     // Apply in-memory debt filter if requested
     if (shouldFilterDebt) {
       if (hasDebt === 'yes') {
-        finalClients = clientsWithBalance.filter(c => c.balance > 0);
+        finalClients = clientsWithBalance.filter(c => Number(c.balance.toFixed(2)) > 0);
       } else if (hasDebt === 'no') {
-        finalClients = clientsWithBalance.filter(c => c.balance <= 0);
+        finalClients = clientsWithBalance.filter(c => Number(c.balance.toFixed(2)) <= 0);
       }
       total = finalClients.length;
       finalClients = finalClients.slice(skip, skip + take);

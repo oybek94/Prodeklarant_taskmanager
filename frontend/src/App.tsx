@@ -35,6 +35,7 @@ import Leads from './pages/Leads';
 import LeadDetail from './pages/LeadDetail';
 import CrmDashboard from './pages/CrmDashboard';
 import Notifications from './pages/Notifications';
+import Debts from './pages/Debts';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -133,6 +134,14 @@ const AppRoutes = () => {
         />
         <Route path="/transactions/new" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Transactions /></ProtectedRoute>} />
         <Route path="/transactions/:id/edit" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Transactions /></ProtectedRoute>} />
+        <Route
+          path="/debts"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
+              <Debts />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/finance"
           element={

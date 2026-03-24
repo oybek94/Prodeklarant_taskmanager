@@ -74,6 +74,7 @@ const Layout = () => {
       { path: '/tasks', label: 'Vazifalar', icon: 'lucide:clipboard-list' },
       { path: '/invoices', label: 'Invoyslar', icon: 'lucide:file-text' },
       { path: '/transactions', label: 'Tranzaksiyalar', icon: 'lucide:receipt' },
+      { path: '/debts', label: 'Qarzlar', icon: 'lucide:wallet' },
     ] : []),
     ...((user?.role === 'ADMIN' || user?.role === 'MANAGER') ? [{ path: '/clients', label: 'Mijozlar', icon: 'lucide:users' }] : []),
     ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/leads', label: 'Lidlar', icon: 'lucide:target' }] : []),

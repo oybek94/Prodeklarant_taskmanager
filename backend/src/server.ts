@@ -250,7 +250,7 @@ app.use('/api/sticker', stickerRouter);
 app.use('/api/process', requireAuth(), processRouter);
 app.use('/api/notifications', requireAuth(), notificationsRouter);
 app.use('/api/leads', requireAuth(), leadsRouter);
-app.use('/api/debts', requireAuth(), debtsRouter);
+app.use('/api/debts', requireAuth('ADMIN'), debtsRouter);
 
 // LMS endpoints (v1) - stream token issuance and streaming proxy
 app.use('/api/v1', lmsRouter);

@@ -137,7 +137,7 @@ const AppRoutes = () => {
         <Route
           path="/debts"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
+            <ProtectedRoute allowedRoles={['ADMIN']}>
               <Debts />
             </ProtectedRoute>
           }

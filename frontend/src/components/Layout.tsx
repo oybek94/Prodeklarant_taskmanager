@@ -69,12 +69,14 @@ const Layout = () => {
   const isExamPage = location.pathname.startsWith('/exam');
 
   const navItems = [
-    ...(user?.role === 'ADMIN' ? [{ path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' }] : []),
+    ...(user?.role === 'ADMIN' ? [
+      { path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' },
+      { path: '/debts', label: 'Qarzlar', icon: 'lucide:wallet' }
+    ] : []),
     ...((user?.role !== 'SELLER') ? [
       { path: '/tasks', label: 'Vazifalar', icon: 'lucide:clipboard-list' },
       { path: '/invoices', label: 'Invoyslar', icon: 'lucide:file-text' },
       { path: '/transactions', label: 'Tranzaksiyalar', icon: 'lucide:receipt' },
-      { path: '/debts', label: 'Qarzlar', icon: 'lucide:wallet' },
     ] : []),
     ...((user?.role === 'ADMIN' || user?.role === 'MANAGER') ? [{ path: '/clients', label: 'Mijozlar', icon: 'lucide:users' }] : []),
     ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/leads', label: 'Lidlar', icon: 'lucide:target' }] : []),

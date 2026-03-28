@@ -53,6 +53,11 @@ router.get('/', async (req: AuthRequest, res: Response) => {
                 where,
                 include: {
                     assignedTo: { select: { id: true, name: true } },
+                    activities: {
+                        take: 1,
+                        orderBy: { createdAt: 'desc' },
+                        select: { note: true, createdAt: true, type: true }
+                    },
                     _count: { select: { activities: true } },
                 },
                 orderBy: { updatedAt: 'desc' },
@@ -85,6 +90,11 @@ router.get('/', async (req: AuthRequest, res: Response) => {
                 where,
                 include: {
                     assignedTo: { select: { id: true, name: true } },
+                    activities: {
+                        take: 1,
+                        orderBy: { createdAt: 'desc' },
+                        select: { note: true, createdAt: true, type: true }
+                    },
                     _count: { select: { activities: true } },
                 },
                 orderBy: { updatedAt: 'desc' },

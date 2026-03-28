@@ -33,6 +33,7 @@ export interface Lead {
     updatedAt: string;
     assignedTo: { id: number; name: string } | null;
     _count: { activities: number };
+    activities: { note: string | null; createdAt: string; type: string }[];
 }
 
 interface User { id: number; name: string; role: string; }
@@ -130,36 +131,6 @@ function AddLeadModal({
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">STIR</label>
-                            <input
-                                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="123456789"
-                                value={form.inn}
-                                onChange={(e) => setForm({ ...form, inn: e.target.value })}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefon</label>
-                            <input
-                                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="+998 90 000 00 00"
-                                value={form.phone}
-                                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mas'ul shaxs</label>
-                            <input
-                                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Direktor ismi"
-                                value={form.contactPerson}
-                                onChange={(e) => setForm({ ...form, contactPerson: e.target.value })}
-                            />
-                        </div>
-                        <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tahminiy hajmi</label>
                             <input
                                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -168,17 +139,10 @@ function AddLeadModal({
                                 onChange={(e) => setForm({ ...form, estimatedExportVolume: e.target.value })}
                             />
                         </div>
+                        <div className="opacity-0 pointer-events-none"></div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Turkumi (Mahsulot turi)</label>
-                        <input
-                            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Meva-sabzavot, don mahsulotlari..."
-                            value={form.productType}
-                            onChange={(e) => setForm({ ...form, productType: e.target.value })}
-                        />
-                    </div>
+
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Export qilgan davlatlari</label>
@@ -467,13 +431,11 @@ export default function Leads() {
                             <thead>
                                 <tr className="border-b border-gray-100 dark:border-gray-800">
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Firma</th>
-                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Mas'ul</th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Manzil</th>
-                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Mahsulot</th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Eksport hajmi</th>
-                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Telefon</th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Holat</th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Keyingi qo'ng'iroq</th>
+                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Izoh</th>
                                     <th className="px-4 py-4" />
                                 </tr>
                             </thead>
@@ -492,15 +454,13 @@ export default function Leads() {
                                                     {lead.companyName}
                                                 </p>
                                             </td>
-                                            <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.contactPerson || '—'}</td>
                                             <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">
                                                 {lead.region ? (
                                                     <span className="truncate max-w-[150px] block" title={`${lead.region}${lead.district ? `, ${lead.district}` : ''}`}>
-                                                        {lead.region}
+                                                        {lead.region}{lead.district ? `, ${lead.district}` : ''}
                                                     </span>
                                                 ) : '—'}
                                             </td>
-                                            <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{lead.productType || '—'}</td>
                                             <td className="px-4 py-3.5 text-sm">
                                                 {lead.estimatedExportVolume ? (() => {
                                                     const vol = Number(lead.estimatedExportVolume);
@@ -524,22 +484,34 @@ export default function Leads() {
                                                     );
                                                 })() : <span className="text-gray-300 dark:text-gray-700">—</span>}
                                             </td>
-                                            <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">
-                                                {lead.phone ? (
-                                                    <a href={`tel:${lead.phone}`} onClick={(e) => e.stopPropagation()} className="hover:text-blue-600 transition-colors">
-                                                        {lead.phone}
-                                                    </a>
-                                                ) : '—'}
-                                            </td>
                                             <td className="px-4 py-3.5">
                                                 <StageBadge stage={lead.stage} />
                                             </td>
                                             <td className="px-4 py-3.5">
                                                 {lead.nextCallAt ? (
-                                                    <span className={`text-xs font-medium ${isOverdue ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'}`}>
-                                                        {isOverdue && <Icon icon="lucide:alert-circle" className="w-3 h-3 inline mr-1" />}
+                                                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm border ${
+                                                        isOverdue 
+                                                            ? 'bg-red-100 text-red-700 border-red-200 animate-pulse' 
+                                                            : 'bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800'
+                                                    }`}>
+                                                        <Icon icon={isOverdue ? "lucide:phone-incoming" : "lucide:calendar-check"} className="w-3.5 h-3.5" />
                                                         {new Date(lead.nextCallAt).toLocaleDateString('uz-UZ')}
-                                                    </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-sm text-gray-300 dark:text-gray-600">—</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3.5 max-w-[250px]">
+                                                {lead.activities?.[0] ? (
+                                                    <div>
+                                                        <p className="text-[11px] text-gray-700 dark:text-gray-300 font-medium line-clamp-2 leading-relaxed" title={lead.activities[0].note || ''}>
+                                                            {lead.activities[0].note || lead.activities[0].type}
+                                                        </p>
+                                                        <p className="text-[9px] text-gray-400 mt-1 flex items-center gap-1">
+                                                            <Icon icon="lucide:clock" className="w-2.5 h-2.5" />
+                                                            {new Date(lead.activities[0].createdAt).toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                        </p>
+                                                    </div>
                                                 ) : (
                                                     <span className="text-sm text-gray-300 dark:text-gray-600">—</span>
                                                 )}

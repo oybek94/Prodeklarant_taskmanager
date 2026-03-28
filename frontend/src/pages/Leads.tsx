@@ -227,6 +227,9 @@ export default function Leads() {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [leads, setLeads] = useState<Lead[]>([]);
+    const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(25);
     const [loading, setLoading] = useState(true);
     const [activeStage, setActiveStage] = useState<LeadStage | 'ALL'>('ALL');
     const [search, setSearch] = useState('');
@@ -251,9 +254,17 @@ export default function Leads() {
             if (filterRegion.trim()) params.region = filterRegion.trim();
             if (filterType.trim()) params.productType = filterType.trim();
             if (filterVolume) params.exportVolume = filterVolume;
+            params.page = page;
+            params.limit = limit;
 
             const { data } = await apiClient.get('/leads', { params });
-            setLeads(Array.isArray(data) ? data : []);
+            if (data && data.data) {
+                setLeads(data.data);
+                setTotal(data.total);
+            } else {
+                setLeads(Array.isArray(data) ? data : []);
+                setTotal(Array.isArray(data) ? data.length : 0);
+            }
         } catch {
             toast.error("Lidlarni yuklashda xatolik");
         } finally {
@@ -273,8 +284,12 @@ export default function Leads() {
 
     // Fetch leads whenever any filter state changes
     useEffect(() => {
-        fetchLeads();
+        setPage(1);
     }, [activeStage, debouncedSearch, filterSeller, filterRegion, filterType, filterVolume]);
+
+    useEffect(() => {
+        fetchLeads();
+    }, [activeStage, debouncedSearch, filterSeller, filterRegion, filterType, filterVolume, page, limit]);
 
     // Handle search debounce separately
     useEffect(() => {
@@ -537,6 +552,97 @@ export default function Leads() {
                                 })}
                             </tbody>
                         </table>
+                        
+                        {/* Pagination */}
+                        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
+                            <div className="flex flex-1 justify-between sm:hidden">
+                                <button
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                                >
+                                    Oldingi
+                                </button>
+                                <button
+                                    onClick={() => setPage(p => p + 1)}
+                                    disabled={page * limit >= total}
+                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                                >
+                                    Keyingi
+                                </button>
+                            </div>
+                            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between font-outfit uppercase">
+                                <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        Ko'rsatilyapti <span className="font-bold text-gray-900 dark:text-white">{Math.min(total, (page - 1) * limit + 1)}</span> dan{' '}
+                                        <span className="font-bold text-gray-900 dark:text-white">{Math.min(total, page * limit)}</span> gacha, jami{' '}
+                                        <span className="font-bold text-gray-900 dark:text-white">{total}</span> ta lid
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <select
+                                        value={limit}
+                                        onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                                        className="text-[10px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 outline-none"
+                                    >
+                                        <option value={25}>25 ta</option>
+                                        <option value={50}>50 ta</option>
+                                        <option value={100}>100 ta</option>
+                                    </select>
+                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                        <button
+                                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                                            disabled={page === 1}
+                                            className="relative inline-flex items-center px-1.5 py-1.5 rounded-l-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                                        >
+                                            <span className="sr-only">Oldingi</span>
+                                            <Icon icon="lucide:chevron-left" className="h-4 w-4" />
+                                        </button>
+                                        {[...Array(Math.ceil(total / limit))].map((_, i) => {
+                                            const p = i + 1;
+                                            // Show only some page numbers if there are too many
+                                            if (
+                                                p === 1 || 
+                                                p === Math.ceil(total / limit) || 
+                                                (p >= page - 1 && p <= page + 1)
+                                            ) {
+                                                return (
+                                                    <button
+                                                        key={p}
+                                                        onClick={() => setPage(p)}
+                                                        className={`relative inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs font-medium ${
+                                                            page === p 
+                                                                ? 'z-10 bg-blue-50 dark:bg-blue-900/20 border-blue-500 text-blue-600 dark:text-blue-400' 
+                                                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                        }`}
+                                                    >
+                                                        {p}
+                                                    </button>
+                                                );
+                                            } else if (
+                                                (p === 2 && page > 3) || 
+                                                (p === Math.ceil(total / limit) - 1 && page < Math.ceil(total / limit) - 2)
+                                            ) {
+                                                return (
+                                                    <span key={p} className="relative inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300">
+                                                        ...
+                                                    </span>
+                                                );
+                                            }
+                                            return null;
+                                        })}
+                                        <button
+                                            onClick={() => setPage(p => p + 1)}
+                                            disabled={page * limit >= total}
+                                            className="relative inline-flex items-center px-1.5 py-1.5 rounded-r-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                                        >
+                                            <span className="sr-only">Keyingi</span>
+                                            <Icon icon="lucide:chevron-right" className="h-4 w-4" />
+                                        </button>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

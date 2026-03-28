@@ -42,16 +42,22 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             where.nextCallAt = { gte: todayStart, lte: todayEnd };
         }
 
-        let leads = await prisma.lead.findMany({
-            where,
-            include: {
-                assignedTo: { select: { id: true, name: true } },
-                _count: { select: { activities: true } },
-            },
-            orderBy: { updatedAt: 'desc' },
-        });
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 25;
+        const skip = (page - 1) * limit;
 
         if (exportVolume) {
+            // Need to fetch all and filter in memory because estimatedExportVolume is a string field
+            // that we need to treat as a number for filtering.
+            let leads = await prisma.lead.findMany({
+                where,
+                include: {
+                    assignedTo: { select: { id: true, name: true } },
+                    _count: { select: { activities: true } },
+                },
+                orderBy: { updatedAt: 'desc' },
+            });
+
             leads = leads.filter(l => {
                 const vol = Number(l.estimatedExportVolume);
                 if (isNaN(vol)) return false;
@@ -60,9 +66,41 @@ router.get('/', async (req: AuthRequest, res: Response) => {
                 if (exportVolume === 'high') return vol > 30;
                 return true;
             });
+
+            const total = leads.length;
+            const paginatedLeads = leads.slice(skip, skip + limit);
+
+            return res.json({
+                data: paginatedLeads,
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            });
         }
 
-        res.json(leads);
+        // Standard DB-level pagination
+        const [leads, total] = await Promise.all([
+            prisma.lead.findMany({
+                where,
+                include: {
+                    assignedTo: { select: { id: true, name: true } },
+                    _count: { select: { activities: true } },
+                },
+                orderBy: { updatedAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            prisma.lead.count({ where })
+        ]);
+
+        res.json({
+            data: leads,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }

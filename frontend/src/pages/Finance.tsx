@@ -14,8 +14,7 @@ interface AccountBalance {
 
 interface Debt {
   id: number;
-  debtorType: 'CLIENT' | 'WORKER' | 'CERTIFICATE_WORKER' | 'OTHER';
-  debtorId: number;
+  debtPersonId: number;
   amount: number;
   currency: string;
   comment?: string;
@@ -48,7 +47,7 @@ interface CurrencyStatistics {
     total: number;
     fromDebtTable: number;
     fromClients: number;
-    byType: {
+    byPerson: {
       [key: string]: number;
     };
   };
@@ -83,15 +82,13 @@ const Finance = () => {
     date: new Date().toISOString().split('T')[0],
   });
   const [debtForm, setDebtForm] = useState({
-    debtorType: 'CLIENT' as 'CLIENT' | 'WORKER' | 'CERTIFICATE_WORKER' | 'OTHER',
-    debtorId: '',
+    name: '',
     amount: '',
     currency: 'USD',
     comment: '',
     date: new Date().toISOString().split('T')[0],
   });
-  const [clients, setClients] = useState<{ id: number; name: string }[]>([]);
-  const [workers, setWorkers] = useState<{ id: number; name: string; role: string }[]>([]);
+  const [persons, setPersons] = useState<{ id: number; name: string }[]>([]);
 
   useEffect(() => {
     loadData();
@@ -105,8 +102,7 @@ const Finance = () => {
         loadDebts(),
         loadDebtors(),
         loadStatistics(),
-        loadClients(),
-        loadWorkers(),
+        loadPersons(),
       ]);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -153,21 +149,12 @@ const Finance = () => {
     }
   };
 
-  const loadClients = async () => {
+  const loadPersons = async () => {
     try {
-      const response = await apiClient.get('/clients?selectList=true');
-      setClients(response.data.map((c: any) => ({ id: c.id, name: c.name })));
+      const response = await apiClient.get('/debts/persons');
+      setPersons(response.data);
     } catch (error) {
-      console.error('Error loading clients:', error);
-    }
-  };
-
-  const loadWorkers = async () => {
-    try {
-      const response = await apiClient.get('/users');
-      setWorkers(response.data.filter((u: any) => u.role === 'DEKLARANT' || u.role === 'CERTIFICATE_WORKER'));
-    } catch (error) {
-      console.error('Error loading workers:', error);
+      console.error('Error loading persons:', error);
     }
   };
 
@@ -226,16 +213,19 @@ const Finance = () => {
   };
 
   const handleAddDebt = async () => {
+    if (!debtForm.name.trim()) {
+      alert('Ismni kiriting');
+      return;
+    }
     try {
       await apiClient.post('/finance/debt', {
         ...debtForm,
-        debtorId: parseInt(debtForm.debtorId),
+        name: debtForm.name.trim(),
         amount: parseFloat(debtForm.amount),
       });
       setShowDebtModal(false);
       setDebtForm({
-        debtorType: 'CLIENT',
-        debtorId: '',
+        name: '',
         amount: '',
         currency: 'USD',
         comment: '',
@@ -243,6 +233,7 @@ const Finance = () => {
       });
       loadDebts();
       loadStatistics();
+      loadPersons();
     } catch (error: any) {
       alert('Xatolik: ' + (error.response?.data?.error || error.message));
     }
@@ -307,18 +298,7 @@ const Finance = () => {
   };
 
   const getDebtorTypeLabel = (type: string) => {
-    switch (type) {
-      case 'CLIENT':
-        return 'Mijoz';
-      case 'WORKER':
-        return 'Ishchi';
-      case 'CERTIFICATE_WORKER':
-        return 'Sertifikatchi';
-      case 'OTHER':
-        return 'Boshqa';
-      default:
-        return type;
-    }
+    return type || 'Qarz';
   };
 
   if (loading) {
@@ -579,9 +559,6 @@ const Finance = () => {
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
                           <p className="font-semibold text-gray-900">{debt.debtorName || 'Noma\'lum'}</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {getDebtorTypeLabel(debt.debtorType)}
-                          </p>
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-bold text-red-600">{formatCurrency(debt.amount)}</p>
@@ -705,27 +682,27 @@ const Finance = () => {
         {/* Qarzlar bo'yicha statistika */}
         {statistics && (
           <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Qarzlar bo'yicha statistika</h2>
-            {statistics.USD && statistics.USD.debts.byType && Object.keys(statistics.USD.debts.byType).length > 0 && (
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Qarzlar bo'yicha statistika (Shaxslar bo'yicha)</h2>
+            {statistics.USD && statistics.USD.debts.byPerson && Object.keys(statistics.USD.debts.byPerson).length > 0 && (
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">USD</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(statistics.USD.debts.byType).map(([type, amount]) => (
-                    <div key={`USD-${type}`} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600 mb-1">{getDebtorTypeLabel(type)}</p>
+                  {Object.entries(statistics.USD.debts.byPerson).map(([name, amount]) => (
+                    <div key={`USD-${name}`} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-600 mb-1">{name}</p>
                       <p className="text-lg font-bold text-red-600">{formatCurrency(amount as number)}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            {statistics.UZS && statistics.UZS.debts.byType && Object.keys(statistics.UZS.debts.byType).length > 0 && (
+            {statistics.UZS && statistics.UZS.debts.byPerson && Object.keys(statistics.UZS.debts.byPerson).length > 0 && (
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">UZS</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(statistics.UZS.debts.byType).map(([type, amount]) => (
-                    <div key={`UZS-${type}`} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600 mb-1">{getDebtorTypeLabel(type)}</p>
+                  {Object.entries(statistics.UZS.debts.byPerson).map(([name, amount]) => (
+                    <div key={`UZS-${name}`} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-600 mb-1">{name}</p>
                       <p className="text-lg font-bold text-red-600">{formatCurrency(amount as number)}</p>
                     </div>
                   ))}
@@ -875,36 +852,20 @@ const Finance = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Qarzdor turi <span className="text-red-500">*</span>
+                    Ism (Mijoz/Ishchi/Boshqa) <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    value={debtForm.debtorType}
-                    onChange={(e) => setDebtForm({ ...debtForm, debtorType: e.target.value as any, debtorId: '' })}
+                  <input
+                    list="debt-persons"
+                    value={debtForm.name}
+                    onChange={(e) => setDebtForm({ ...debtForm, name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="CLIENT">Mijoz</option>
-                    <option value="WORKER">Ishchi</option>
-                    <option value="CERTIFICATE_WORKER">Sertifikatchi</option>
-                    <option value="OTHER">Boshqa</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {debtForm.debtorType === 'CLIENT' ? 'Mijoz' : debtForm.debtorType === 'WORKER' || debtForm.debtorType === 'CERTIFICATE_WORKER' ? 'Ishchi' : 'Qarzdor'} <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={debtForm.debtorId}
-                    onChange={(e) => setDebtForm({ ...debtForm, debtorId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="">Tanlang...</option>
-                    {debtForm.debtorType === 'CLIENT' && clients.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                    placeholder="Ismni kiriting yoki tanlang"
+                  />
+                  <datalist id="debt-persons">
+                    {persons.map((p) => (
+                      <option key={p.id} value={p.name} />
                     ))}
-                    {(debtForm.debtorType === 'WORKER' || debtForm.debtorType === 'CERTIFICATE_WORKER') && workers.map((w) => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                    ))}
-                  </select>
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

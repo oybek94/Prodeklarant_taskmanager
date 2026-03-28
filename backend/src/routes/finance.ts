@@ -289,46 +289,19 @@ router.get('/debtors', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
   }
 });
 
-// Qarzlar ro'yxati
+// Qarzlar ro'yxat
 router.get('/debts', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
   try {
     const debts = await prisma.debt.findMany({
+      include: { person: true },
       orderBy: { date: 'desc' },
     });
 
-    // Qarzdorlar ma'lumotlarini olish
-    const debtsWithDetails = await Promise.all(
-      debts.map(async (debt) => {
-        let debtorName = 'Noma\'lum';
-        let debtorInfo: any = null;
-
-        if (debt.debtorType === 'CLIENT') {
-          const client = await prisma.client.findUnique({
-            where: { id: debt.debtorId },
-            select: { id: true, name: true, phone: true },
-          });
-          if (client) {
-            debtorName = client.name;
-            debtorInfo = client;
-          }
-        } else if (debt.debtorType === 'WORKER' || debt.debtorType === 'CERTIFICATE_WORKER') {
-          const user = await prisma.user.findUnique({
-            where: { id: debt.debtorId },
-            select: { id: true, name: true, email: true, phone: true, role: true },
-          });
-          if (user) {
-            debtorName = user.name;
-            debtorInfo = user;
-          }
-        }
-
-        return {
-          ...debt,
-          debtorName,
-          debtorInfo,
-        };
-      })
-    );
+    const debtsWithDetails = debts.map((debt) => ({
+      ...debt,
+      debtorName: debt.person.name,
+      debtorInfo: debt.person,
+    }));
 
     res.json(debtsWithDetails);
   } catch (error: any) {
@@ -340,10 +313,10 @@ router.get('/debts', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
   }
 });
 
-// Qarz qo'shish/yangilash
+// Qarz qo'shish
 const debtSchema = z.object({
-  debtorType: z.enum(['CLIENT', 'WORKER', 'CERTIFICATE_WORKER', 'OTHER']),
-  debtorId: z.number(),
+  debtPersonId: z.number().optional(),
+  name: z.string().optional(),
   amount: z.number().positive(),
   currency: z.enum(['USD', 'UZS']),
   comment: z.string().optional(),
@@ -357,10 +330,23 @@ router.post('/debt', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
 
+    let debtPersonId = parsed.data.debtPersonId;
+
+    if (!debtPersonId && parsed.data.name) {
+      let person = await prisma.debtPerson.findUnique({ where: { name: parsed.data.name.trim() } });
+      if (!person) {
+        person = await prisma.debtPerson.create({ data: { name: parsed.data.name.trim() } });
+      }
+      debtPersonId = person.id;
+    }
+
+    if (!debtPersonId) {
+      return res.status(400).json({ error: 'debtPersonId yoki name majburiy' });
+    }
+
     const debt = await prisma.debt.create({
       data: {
-        debtorType: parsed.data.debtorType,
-        debtorId: parsed.data.debtorId,
+        debtPersonId: debtPersonId,
         amount: new Prisma.Decimal(parsed.data.amount),
         currency: parsed.data.currency,
         comment: parsed.data.comment,
@@ -444,12 +430,13 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
       // Qarzlar
       const allDebts = await prisma.debt.findMany({
         where: { currency },
+        include: { person: true },
       });
       const totalDebt = allDebts.reduce((sum, d) => sum + Number(d.amount), 0);
 
-      // Qarzlar bo'yicha guruhlash
-      const debtsByType = allDebts.reduce((acc: any, debt) => {
-        acc[debt.debtorType] = (acc[debt.debtorType] || 0) + Number(debt.amount);
+      // Qarzlar bo'yicha guruhlash (Shaxslar bo'yicha)
+      const debtsByPerson = allDebts.reduce((acc: any, debt) => {
+        acc[debt.person.name] = (acc[debt.person.name] || 0) + Number(debt.amount);
         return acc;
       }, {});
 
@@ -517,7 +504,7 @@ router.get('/statistics', requireAuth('ADMIN'), async (_req: AuthRequest, res) =
           total: totalDebt + clientDebts,
           fromDebtTable: totalDebt,
           fromClients: clientDebts,
-          byType: debtsByType,
+          byPerson: debtsByPerson,
         },
         netBalance,
       };

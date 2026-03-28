@@ -75,6 +75,7 @@ const contractSchema = z.object({
   consigneeSignatureUrl: z.string().optional(),
   consigneeSealUrl: z.string().optional(),
   companyLogoUrl: z.string().optional(),
+  requirements: z.string().optional(), // Shartnoma bo'yicha talablar/eslatmalar
   specification: z.array(z.object({
     productName: z.string(),
     botanicalName: z.string().optional(),
@@ -265,6 +266,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
     if (data.consigneeSignatureUrl !== undefined) contractData.consigneeSignatureUrl = data.consigneeSignatureUrl;
     if (data.consigneeSealUrl !== undefined) contractData.consigneeSealUrl = data.consigneeSealUrl;
     if (data.companyLogoUrl !== undefined) contractData.companyLogoUrl = data.companyLogoUrl;
+    if (data.requirements !== undefined) contractData.requirements = data.requirements || null;
     if (data.specification !== undefined) {
       const spec = Array.isArray(data.specification) ? data.specification : [];
       const toNum = (v: any): number | undefined => {
@@ -469,6 +471,7 @@ router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res
     if (data.consigneeSignatureUrl !== undefined) contractData.consigneeSignatureUrl = data.consigneeSignatureUrl;
     if (data.consigneeSealUrl !== undefined) contractData.consigneeSealUrl = data.consigneeSealUrl;
     if (data.companyLogoUrl !== undefined) contractData.companyLogoUrl = data.companyLogoUrl;
+    if (data.requirements !== undefined) contractData.requirements = data.requirements || null;
     if (data.specification !== undefined) {
       const spec = Array.isArray(data.specification) ? data.specification : [];
       const toNum = (v: any): number | undefined => {

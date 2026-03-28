@@ -37,6 +37,7 @@ import { InvoiceNotes } from '../components/invoice/InvoiceNotes';
 import { InvoiceConflictWarning } from '../components/invoice/InvoiceConflictWarning';
 import { InvoiceTabs } from '../components/invoice/InvoiceTabs';
 import { SertifikatErrorWarning } from '../components/invoice/SertifikatErrorWarning';
+import { ContractRequirementsNote } from '../components/invoice/ContractRequirementsNote';
 
 import type {
   InvoiceItem,
@@ -447,6 +448,9 @@ const Invoice = () => {
           openFssRegionPicker={openFssRegionPicker}
         />
 
+        {/* Invoice form + Requirements note side panel */}
+        <div className="flex gap-6 items-start">
+        <div className="flex-1 min-w-0">
         <form onSubmit={handleSubmit} className={`invoice-form${!canEditEffective ? ' invoice-form-readonly' : ''}`}>
 
           <datalist id="invoice-tnved-products">
@@ -595,6 +599,16 @@ const Invoice = () => {
 
           </div>
         </form>
+        </div>
+
+        {/* Requirements sticky note — outside invoice, on the right */}
+        {selectedContract?.requirements && (
+          <ContractRequirementsNote
+            requirements={selectedContract.requirements}
+            contractNumber={selectedContract.contractNumber}
+          />
+        )}
+        </div>
 
       </div>
 

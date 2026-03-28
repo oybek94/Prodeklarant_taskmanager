@@ -150,6 +150,7 @@ const ClientDetail = () => {
     signatureUrl: '',
     sealUrl: '',
     companyLogoUrl: '',
+    requirements: '', // Shartnoma bo'yicha talablar/eslatmalar
   });
 
   useEffect(() => {
@@ -383,6 +384,7 @@ const ClientDetail = () => {
         signatureUrl: (contractForm.signatureUrl?.trim() ?? '') === '' ? '' : contractForm.signatureUrl,
         sealUrl: (contractForm.sealUrl?.trim() ?? '') === '' ? '' : contractForm.sealUrl,
         companyLogoUrl: (contractForm.companyLogoUrl?.trim() ?? '') === '' ? '' : contractForm.companyLogoUrl,
+        requirements: contractForm.requirements || undefined,
       };
 
       if (editingContract) {
@@ -449,6 +451,7 @@ const ClientDetail = () => {
         signatureUrl: '',
         sealUrl: '',
         companyLogoUrl: '',
+        requirements: '',
       });
       await loadContracts();
     } catch (error: any) {
@@ -564,6 +567,7 @@ const ClientDetail = () => {
           signatureUrl: contractData.signatureUrl || '',
           sealUrl: contractData.sealUrl || '',
           companyLogoUrl: contractData.companyLogoUrl || '',
+          requirements: contractData.requirements || '',
         });
         setEditingContract(contract);
         setShowContractForm(true);
@@ -727,6 +731,7 @@ const ClientDetail = () => {
                 signatureUrl: '',
                 sealUrl: '',
                 companyLogoUrl: '',
+                requirements: '',
               });
               setShowContractForm(true);
             }}
@@ -990,6 +995,23 @@ const ClientDetail = () => {
                     </select>
                   </div>
                 </div>
+              </div>
+
+              {/* Shartnoma talablari — invoysda ko'rinadigan eslatmalar */}
+              <div className="border-b pb-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
+                  📋 Shartnoma talablari / Eslatmalar
+                </h4>
+                <textarea
+                  value={contractForm.requirements}
+                  onChange={(e) => setContractForm({ ...contractForm, requirements: e.target.value })}
+                  className="w-full px-3 py-2 border border-amber-300 rounded-lg resize-y bg-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  rows={4}
+                  placeholder={"Masalan:\n- Tovar sertifikati talab qilinadi\n- Har bir qutida belgilash bo'lishi kerak"}
+                />
+                <p className="text-xs text-amber-700 mt-1">
+                  Bu eslatmalar invoys yaratilayotganda o'ng tomonda ko'rinadi 📌
+                </p>
               </div>
 
               {/* Sotuvchi ma'lumotlari */}

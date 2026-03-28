@@ -859,6 +859,7 @@ model Contract {
   contractCurrency               String?
   emails                         String?
   companyLogoUrl                 String?
+  requirements                   String?
   client                         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   invoices                       Invoice[]
 

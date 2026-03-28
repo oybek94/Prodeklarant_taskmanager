@@ -105,6 +105,7 @@ export interface Contract {
   consigneeSealUrl?: string;
   companyLogoUrl?: string;
   gln?: string;
+  requirements?: string;
   specification?: Array<{ productName?: string; quantity?: number; unit?: string; unitPrice?: number; totalPrice?: number }>;
 }
 

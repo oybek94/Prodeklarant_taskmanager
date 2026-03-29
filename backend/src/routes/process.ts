@@ -175,6 +175,11 @@ router.post('/confirm', requireAuth(), async (req: AuthRequest, res) => {
         data: { read: true },
       });
 
+      // Yangi Notification: o'qilgan deb belgilash
+      await tx.$executeRawUnsafe(
+        `UPDATE "Notification" SET "read" = true WHERE "read" = false AND metadata->>'taskProcessId' = '${taskProcessId}'`
+      );
+
       // Tegishli task stage ni avtomatik TAYYOR belgilash
       const stageNames = PROCESS_TYPE_TO_STAGE_NAMES[tp.processType];
       if (stageNames?.length) {
@@ -321,6 +326,11 @@ router.post('/reject', requireAuth(), async (req: AuthRequest, res) => {
         }),
       ]);
     }
+
+    // Yangi Notification: o'qilgan deb belgilash (interaktiv bildirishnomani yopish)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Notification" SET "read" = true WHERE "read" = false AND metadata->>'taskProcessId' = '${taskProcessId}'`
+    );
 
     res.status(200).json({ success: true });
   } catch (error: any) {

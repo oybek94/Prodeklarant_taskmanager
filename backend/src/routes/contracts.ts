@@ -100,8 +100,8 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Res
     });
 
     if (contracts.length > 0) {
-      const directors = await prisma.$queryRaw<Array<{ id: number; buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null; companyLogoUrl: string | null }>>`
-        SELECT "id", "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy", "companyLogoUrl" FROM "Contract" WHERE "clientId" = ${clientId}
+      const directors = await prisma.$queryRaw<Array<{ id: number; buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null; companyLogoUrl: string | null; requirements: string | null }>>`
+        SELECT "id", "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy", "companyLogoUrl", "requirements" FROM "Contract" WHERE "clientId" = ${clientId}
       `;
       const byId = Object.fromEntries((directors || []).map((d: any) => [
         d.id,
@@ -113,7 +113,14 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Res
           companyLogoUrl: d.companyLogoUrl ?? null,
         }
       ]));
-      const merged = contracts.map((c: any) => ({ ...c, ...byId[c.id] }));
+      const merged = contracts.map((c: any) => {
+        const d = byId[c.id];
+        return { 
+          ...c, 
+          ...d,
+          requirements: d?.requirements ?? c.requirements ?? null 
+        };
+      });
       return res.json(merged);
     }
     res.json(contracts);
@@ -144,11 +151,19 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Shartnoma topilmadi' });
     }
 
-    const directors = await prisma.$queryRaw<Array<{ buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null; companyLogoUrl: string | null }>>`
-      SELECT "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy", "companyLogoUrl" FROM "Contract" WHERE "id" = ${id}
+    const directors = await prisma.$queryRaw<Array<{ buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null; companyLogoUrl: string | null; requirements: string | null }>>`
+      SELECT "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy", "companyLogoUrl", "requirements" FROM "Contract" WHERE "id" = ${id}
     `;
     const result = directors?.[0]
-      ? { ...contract, buyerDirector: (directors[0] as any).buyerDirector, consigneeDirector: (directors[0] as any).consigneeDirector, supplierDirector: (directors[0] as any).supplierDirector, goodsReleasedBy: (directors[0] as any).goodsReleasedBy, companyLogoUrl: (directors[0] as any).companyLogoUrl }
+      ? { 
+          ...contract, 
+          buyerDirector: (directors[0] as any).buyerDirector, 
+          consigneeDirector: (directors[0] as any).consigneeDirector, 
+          supplierDirector: (directors[0] as any).supplierDirector, 
+          goodsReleasedBy: (directors[0] as any).goodsReleasedBy, 
+          companyLogoUrl: (directors[0] as any).companyLogoUrl,
+          requirements: (directors[0] as any).requirements ?? contract?.requirements ?? null
+        }
       : contract;
     res.json(result);
   } catch (error: any) {

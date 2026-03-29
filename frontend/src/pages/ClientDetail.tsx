@@ -395,6 +395,8 @@ const ClientDetail = () => {
         alert('Shartnoma muvaffaqiyatli yaratildi');
       }
 
+      await loadContracts();
+
       setShowContractForm(false);
       setEditingContract(null);
       setContractForm({

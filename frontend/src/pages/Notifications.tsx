@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
-import { getNotifStyle } from '../hooks/useNotifications';
+import { getNotifStyle, useNotifications } from '../hooks/useNotifications';
 import type { AppNotification, NotificationType } from '../hooks/useNotifications';
 
 const TYPE_LABELS: Record<NotificationType, string> = {
@@ -55,6 +55,30 @@ const Notifications = () => {
   const deleteNotif = async (id: number) => {
     await apiClient.delete(`/notifications/${id}`);
     setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const { confirmProcess, rejectProcess } = useNotifications();
+
+  const handleProcessConfirm = async (n: AppNotification) => {
+    const processId = (n.metadata as any)?.taskProcessId;
+    if (!processId) return;
+    try {
+      await confirmProcess(processId);
+      setNotifications(prev => prev.filter(notif => notif.id !== n.id));
+    } catch (err: any) {
+      console.error('Process confirm error:', err);
+    }
+  };
+
+  const handleProcessReject = async (n: AppNotification) => {
+    const processId = (n.metadata as any)?.taskProcessId;
+    if (!processId) return;
+    try {
+      await rejectProcess(processId);
+      setNotifications(prev => prev.filter(notif => notif.id !== n.id));
+    } catch (err: any) {
+      console.error('Process reject error:', err);
+    }
   };
 
   const timeAgo = (dateStr: string): string => {
@@ -171,6 +195,26 @@ const Notifications = () => {
                     <p className={`text-xs mt-0.5 ${n.read ? 'text-gray-500' : `${style.text} ${style.darkText} opacity-80`}`}>
                       {n.message}
                     </p>
+
+                    {/* Process Reminder action tugmalari */}
+                    {(n.type === 'PROCESS_REMINDER' || n.type === 'PROCESS_ESCALATED') && !n.read && (
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => handleProcessConfirm(n)}
+                          className="px-4 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1.5"
+                        >
+                          <Icon icon="lucide:check" className="w-3.5 h-3.5" />
+                          Tayyor
+                        </button>
+                        <button
+                          onClick={() => handleProcessReject(n)}
+                          className="px-4 py-1.5 text-xs font-medium bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-1.5"
+                        >
+                          <Icon icon="lucide:clock" className="w-3.5 h-3.5" />
+                          Hali yo'q
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {!n.read && (

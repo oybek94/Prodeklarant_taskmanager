@@ -44,7 +44,8 @@ const getRegionByBranchName = (branchName?: string | null): string => {
   const n = String(branchName).trim().toLowerCase();
   if (n.includes('oltiariq') || n.includes('oltariq')) return 'Ферганская область';
   if (n.includes('toshkent')) return 'Ташкентская область';
-  if (n.includes('sirdaryo')) return 'Сурхандаринская область';
+  if (n.includes('surxondaryo')) return 'Сурхандарынская область';
+  if (n.includes('sirdaryo')) return 'Сырдарьинская область';
   return '';
 };
 

@@ -10,8 +10,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 // GET /api/leads — Ro'yxat (filter: stage, assignedToId, search, reminder)
 router.get('/', async (req: AuthRequest, res: Response) => {
     try {
-        const { stage, assignedToId, search, reminder, region, productType, exportVolume } = req.query;
-        console.log('Fetching leads with filters:', { stage, assignedToId, search, reminder, region, productType, exportVolume });
+        const { stage, assignedToId, search, reminder, region, productType, exportVolume, exportedCountries, partners } = req.query;
+        console.log('Fetching leads with filters:', { stage, assignedToId, search, reminder, region, productType, exportVolume, exportedCountries, partners });
         const where: any = {};
 
         if (stage && stage !== 'ALL') where.stage = stage;
@@ -22,6 +22,12 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         }
         if (productType) {
             where.productType = { contains: String(productType), mode: 'insensitive' };
+        }
+        if (exportedCountries) {
+            where.exportedCountries = { contains: String(exportedCountries), mode: 'insensitive' };
+        }
+        if (partners) {
+            where.partners = { contains: String(partners), mode: 'insensitive' };
         }
 
         if (search) {

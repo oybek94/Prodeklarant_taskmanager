@@ -192,20 +192,23 @@ export default function Leads() {
     const { user } = useAuth();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(25);
+    const [page, setPage] = useState<number>(() => Number(sessionStorage.getItem('leads_page')) || 1);
+    const [limit, setLimit] = useState<number>(() => Number(sessionStorage.getItem('leads_limit')) || 25);
     const [loading, setLoading] = useState(true);
-    const [activeStage, setActiveStage] = useState<LeadStage | 'ALL'>('ALL');
-    const [search, setSearch] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-    const [filterSeller, setFilterSeller] = useState('');
-    const [filterRegion, setFilterRegion] = useState('');
-    const [filterType, setFilterType] = useState('');
-    const [filterVolume, setFilterVolume] = useState('');
+    const [activeStage, setActiveStage] = useState<LeadStage | 'ALL'>(() => (sessionStorage.getItem('leads_stage') as LeadStage | 'ALL') || 'ALL');
+    const [search, setSearch] = useState<string>(() => sessionStorage.getItem('leads_search') || '');
+    const [debouncedSearch, setDebouncedSearch] = useState<string>(() => sessionStorage.getItem('leads_search') || '');
+    const [filterSeller, setFilterSeller] = useState<string>(() => sessionStorage.getItem('leads_seller') || '');
+    const [filterRegion, setFilterRegion] = useState<string>(() => sessionStorage.getItem('leads_region') || '');
+    const [filterType, setFilterType] = useState<string>(() => sessionStorage.getItem('leads_type') || '');
+    const [filterVolume, setFilterVolume] = useState<string>(() => sessionStorage.getItem('leads_volume') || '');
+    const [filterCountry, setFilterCountry] = useState<string>(() => sessionStorage.getItem('leads_country') || '');
+    const [filterPartners, setFilterPartners] = useState<string>(() => sessionStorage.getItem('leads_partners') || '');
     const [showModal, setShowModal] = useState(false);
     const [users, setUsers] = useState<User[]>([]);
     const importRef = useRef<HTMLInputElement>(null);
     const searchTimerRef = useRef<any>(null);
+    const isInitialMount = useRef(true);
     const [importing, setImporting] = useState(false);
 
     const fetchLeads = async () => {
@@ -218,6 +221,8 @@ export default function Leads() {
             if (filterRegion.trim()) params.region = filterRegion.trim();
             if (filterType.trim()) params.productType = filterType.trim();
             if (filterVolume) params.exportVolume = filterVolume;
+            if (filterCountry.trim()) params.exportedCountries = filterCountry.trim();
+            if (filterPartners.trim()) params.partners = filterPartners.trim();
             params.page = page;
             params.limit = limit;
 
@@ -248,12 +253,29 @@ export default function Leads() {
 
     // Fetch leads whenever any filter state changes
     useEffect(() => {
-        setPage(1);
-    }, [activeStage, debouncedSearch, filterSeller, filterRegion, filterType, filterVolume]);
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+        } else {
+            setPage(1);
+        }
+    }, [activeStage, debouncedSearch, filterSeller, filterRegion, filterType, filterVolume, filterCountry, filterPartners]);
+
+    useEffect(() => {
+        sessionStorage.setItem('leads_page', page.toString());
+        sessionStorage.setItem('leads_limit', limit.toString());
+        sessionStorage.setItem('leads_stage', activeStage);
+        sessionStorage.setItem('leads_search', search);
+        sessionStorage.setItem('leads_seller', filterSeller);
+        sessionStorage.setItem('leads_region', filterRegion);
+        sessionStorage.setItem('leads_type', filterType);
+        sessionStorage.setItem('leads_volume', filterVolume);
+        sessionStorage.setItem('leads_country', filterCountry);
+        sessionStorage.setItem('leads_partners', filterPartners);
+    }, [page, limit, activeStage, search, filterSeller, filterRegion, filterType, filterVolume, filterCountry, filterPartners]);
 
     useEffect(() => {
         fetchLeads();
-    }, [activeStage, debouncedSearch, filterSeller, filterRegion, filterType, filterVolume, page, limit]);
+    }, [activeStage, debouncedSearch, filterSeller, filterRegion, filterType, filterVolume, filterCountry, filterPartners, page, limit]);
 
     // Handle search debounce separately
     useEffect(() => {
@@ -293,6 +315,8 @@ export default function Leads() {
         setFilterRegion('');
         setFilterType('');
         setFilterVolume('');
+        setFilterCountry('');
+        setFilterPartners('');
     };
 
     const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -386,7 +410,25 @@ export default function Leads() {
                         <option value="high">Yuqori (&gt;30)</option>
                     </select>
                 </div>
-                {(search || filterRegion || filterVolume) && (
+                <div className="w-full md:w-36">
+                    <input
+                        type="text"
+                        placeholder="Export davlati..."
+                        value={filterCountry}
+                        onChange={(e) => setFilterCountry(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border-transparent bg-gray-100/50 dark:bg-gray-800/50 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all border border-gray-50 dark:border-gray-700/50"
+                    />
+                </div>
+                <div className="w-full md:w-36">
+                    <input
+                        type="text"
+                        placeholder="Xamkorlar..."
+                        value={filterPartners}
+                        onChange={(e) => setFilterPartners(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border-transparent bg-gray-100/50 dark:bg-gray-800/50 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all border border-gray-50 dark:border-gray-700/50"
+                    />
+                </div>
+                {(search || filterRegion || filterVolume || filterCountry || filterPartners) && (
                     <button
                         onClick={clearFilters}
                         className="px-3 py-2 text-xs font-medium text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1.5 whitespace-nowrap"
@@ -433,6 +475,8 @@ export default function Leads() {
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Firma</th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Manzil</th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Eksport hajmi</th>
+                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Export davlatlari</th>
+                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Hamkorlar</th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Holat</th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Keyingi qo'ng'iroq</th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Izoh</th>
@@ -483,6 +527,16 @@ export default function Leads() {
                                                         </span>
                                                     );
                                                 })() : <span className="text-gray-300 dark:text-gray-700">—</span>}
+                                            </td>
+                                            <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">
+                                                <span className="truncate max-w-[150px] block" title={lead.exportedCountries || ''}>
+                                                    {lead.exportedCountries || '—'}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">
+                                                <span className="truncate max-w-[150px] block" title={lead.partners || ''}>
+                                                    {lead.partners || '—'}
+                                                </span>
                                             </td>
                                             <td className="px-4 py-3.5">
                                                 <StageBadge stage={lead.stage} />

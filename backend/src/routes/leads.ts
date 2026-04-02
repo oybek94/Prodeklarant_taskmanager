@@ -153,12 +153,16 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
                 where: { createdAt: { gte: todayStart, lte: todayEnd } },
             }),
             prisma.lead.count({
-                where: { nextCallAt: { gte: todayStart } },
+                where: { nextCallAt: { gte: todayStart, lte: todayEnd } },
             }),
             prisma.lead.findMany({
-                where: { nextCallAt: { gte: todayStart } },
+                where: { 
+                    nextCallAt: { not: null },
+                    stage: { notIn: ['CLOSED_WON', 'CLOSED_LOST'] }
+                },
                 select: { id: true, companyName: true, contactPerson: true, phone: true, nextCallAt: true },
                 orderBy: { nextCallAt: 'asc' },
+                take: 20
             }),
         ]);
 

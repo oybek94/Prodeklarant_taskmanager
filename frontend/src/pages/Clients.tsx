@@ -1975,6 +1975,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={async () => {
                     resetContractForm();
                     if (selectedClient) {
@@ -1982,9 +1983,11 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     }
                     setShowContractModal(true);
                   }}
-                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium whitespace-nowrap"
+                  className={`bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center shrink-0 ${isMobile ? 'p-2.5' : 'px-4 py-2 text-sm font-medium gap-2'}`}
+                  title="Yangi shartnoma qo'shish"
                 >
-                  + Shartnoma qo'shish
+                  <Icon icon="lucide:plus" className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                  {!isMobile && <span>Shartnoma qo'shish</span>}
                 </button>
                 <button
                   onClick={() => {
@@ -2215,10 +2218,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       }
                       setShowContractModal(true);
                     }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm flex items-center gap-2"
+                    className="p-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center shrink-0"
+                    title="Yangi shartnoma qo'shish"
                   >
-                    <Icon icon="lucide:plus" className="w-4 h-4" />
-                    Yangi qo'shish
+                    <Icon icon="lucide:plus" className="w-5 h-5" />
                   </button>
                 </div>
                 {loadingContracts ? (

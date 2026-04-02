@@ -791,10 +791,10 @@ const ClientDetail = () => {
               });
               setShowContractForm(true);
             }}
-            className="px-3 py-2 sm:px-4 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-md flex items-center justify-center gap-2"
+            className="p-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center shrink-0"
+            title="Yangi shartnoma"
           >
-            <Icon icon="lucide:plus" className="w-5 h-5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">Yangi shartnoma</span>
+            <Icon icon="lucide:plus" className="w-5 h-5" />
           </button>
         </div>
         {loadingContracts ? (

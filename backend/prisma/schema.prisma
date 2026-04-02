@@ -860,7 +860,8 @@ model Contract {
   emails                         String?
   companyLogoUrl                 String?
   requirements                   String?
-  client                         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  files                          Json?      @default("[]")
+  client                         Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   invoices                       Invoice[]
 
   @@index([clientId])

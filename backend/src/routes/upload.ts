@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { requireAuth } from '../middleware/auth';
-import { uploadImage, uploadVideo, uploadAudio } from '../middleware/upload';
+import { uploadImage, uploadVideo, uploadAudio, uploadDocument, uploadDocuments } from '../middleware/upload';
 
 const router = express.Router();
 
@@ -80,5 +80,57 @@ router.post('/audio', requireAuth('ADMIN'), (req, res) => {
   });
 });
 
-export default router;
+// Document yuklash
+router.post('/document', requireAuth('ADMIN', 'MANAGER'), (req, res) => {
+  uploadDocument(req, res, (err) => {
+    if (err) {
+      console.error('Document upload error:', err);
+      return res.status(400).json({ 
+        error: err.message || 'Document yuklashda xatolik yuz berdi' 
+      });
+    }
 
+    if (!req.file) {
+      return res.status(400).json({ error: 'Document fayli yuborilmadi' });
+    }
+
+    const fileUrl = `/uploads/documents/${req.file.filename}`;
+    res.json({
+      success: true,
+      fileUrl: fileUrl,
+      filename: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
+  });
+});
+
+// Ko'p document yuklash
+router.post('/documents', requireAuth('ADMIN', 'MANAGER'), (req, res) => {
+  uploadDocuments(req, res, (err) => {
+    if (err) {
+      console.error('Documents upload error:', err);
+      return res.status(400).json({ 
+        error: err.message || 'Hujjatlarni yuklashda xatolik yuz berdi' 
+      });
+    }
+
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+      return res.status(400).json({ error: 'Hujjatlar yuborilmadi' });
+    }
+
+    const files = req.files.map(file => ({
+      fileUrl: `/uploads/documents/${file.filename}`,
+      name: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype
+    }));
+
+    res.json({
+      success: true,
+      files
+    });
+  });
+});
+
+export default router;

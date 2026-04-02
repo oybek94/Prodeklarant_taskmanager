@@ -368,7 +368,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const [contracts, setContracts] = useState<any[]>([]);
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [editingContractId, setEditingContractId] = useState<number | null>(null);
-  const [contractModalTab, setContractModalTab] = useState<'main' | 'spec' | 'terms' | 'customs'>('main');
+  const [contractModalTab, setContractModalTab] = useState<'main' | 'spec' | 'terms' | 'customs' | 'files'>('main');
   const [clientModalTab, setClientModalTab] = useState<'overview' | 'contracts' | 'tasks' | 'transactions'>('overview');
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [transactionForm, setTransactionForm] = useState({
@@ -477,6 +477,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     consigneeSealUrl: string;
     companyLogoUrl: string;
     specification: SpecRow[];
+    files?: any[];
   }>({
     contractNumber: '',
     contractDate: '',
@@ -516,6 +517,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     consigneeSealUrl: '',
     companyLogoUrl: '',
     specification: [],
+    files: [] as any[],
   });
   const contractFormRef = useRef(contractForm);
   contractFormRef.current = contractForm;
@@ -658,6 +660,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       consigneeSealUrl: '',
       companyLogoUrl: '',
       specification: [],
+      files: [] as any[],
     };
     setContractFormAndRef(empty);
     setHasShipper(false);
@@ -778,6 +781,35 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     setContractForm((prev) => ({ ...prev, [field]: fileUrl }));
   };
 
+  const uploadContractFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append('documents', files[i]);
+    }
+
+    try {
+      const response = await apiClient.post('/upload/documents', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      const uploadedFiles = response.data.files || [];
+      const currentFiles = contractFormRef.current.files || [];
+      setContractFormAndRef((prev) => ({
+        ...prev,
+        files: [...currentFiles, ...uploadedFiles],
+      }));
+    } catch (error: any) {
+      console.error('File upload error:', error);
+      alert(error.response?.data?.message || 'Fayllarni yuklashda xatolik yuz berdi');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   const handleContractSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClient) return;
@@ -878,6 +910,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         productNumber: row.productNumber || undefined,
       }));
 
+      payload.files = form.files || [];
+
       console.log('Saving contract with payload:', payload);
       if (editingContractId) {
         // Tahrirlash
@@ -960,6 +994,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         consigneeSealUrl: c.consigneeSealUrl ?? '',
         companyLogoUrl: c.companyLogoUrl ?? '',
         specification: spec,
+        files: c.files || [],
       });
       setHasShipper(!!c.shipperName);
       setHasConsignee(!!c.consigneeName);
@@ -1011,6 +1046,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         consigneeSealUrl: contract.consigneeSealUrl ?? '',
         companyLogoUrl: contract.companyLogoUrl ?? '',
         specification: spec,
+        files: contract.files || [],
       });
       setHasShipper(!!contract.shipperName);
       setHasConsignee(!!contract.consigneeName);
@@ -1073,6 +1109,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         consigneeSealUrl: c.consigneeSealUrl ?? '',
         companyLogoUrl: c.companyLogoUrl ?? '',
         specification: spec,
+        files: c.files || [],
       });
       setHasShipper(!!c.shipperName);
       setHasConsignee(!!c.consigneeName);
@@ -2472,6 +2509,13 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
               >
                 Адрес растаможки
               </button>
+              <button
+                type="button"
+                onClick={() => setContractModalTab('files')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'files' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                Shartnoma fayllari
+              </button>
             </div>
 
             <form onSubmit={handleContractSubmit} className="space-y-6">
@@ -3302,6 +3346,73 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     </button>
                   </div>
                 </>
+              )}
+
+              {contractModalTab === 'files' && (
+                <div className="space-y-6">
+                  <div className="border-b pb-4">
+                    <h4 className="font-semibold text-gray-700 mb-3">Shartnoma fayllari</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Fayllarni yuklash (ko'p fayl yuklash mumkin)
+                        </label>
+                        <input
+                          type="file"
+                          multiple
+                          onChange={uploadContractFiles}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                      {contractForm.files && contractForm.files.length > 0 && (
+                        <div className="mt-4">
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">Yuklangan fayllar:</h5>
+                          <ul className="space-y-2">
+                            {contractForm.files.map((file, index) => (
+                              <li key={index} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                  <Icon icon="lucide:file" className="w-5 h-5 text-gray-500 shrink-0" />
+                                  <span className="text-sm text-gray-800 truncate" title={file.name}>{file.name}</span>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <a
+                                    href={resolveUploadUrl(file.fileUrl)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800"
+                                    title="Ko'rish"
+                                  >
+                                    <Icon icon="lucide:eye" className="w-4 h-4" />
+                                  </a>
+                                  <a
+                                    href={resolveUploadUrl(file.fileUrl)}
+                                    download={file.name || 'document'}
+                                    className="text-green-600 hover:text-green-800"
+                                    title="Ko'chirib olish"
+                                  >
+                                    <Icon icon="lucide:download" className="w-4 h-4" />
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newFiles = [...(contractForm.files || [])];
+                                      newFiles.splice(index, 1);
+                                      setContractFormAndRef((prev) => ({ ...prev, files: newFiles }));
+                                    }}
+                                    className="text-red-600 hover:text-red-800"
+                                    title="O'chirish"
+                                  >
+                                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
 
               <div className="flex gap-2">

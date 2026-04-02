@@ -43,6 +43,7 @@ interface Contract {
   signatureUrl?: string;
   sealUrl?: string;
   companyLogoUrl?: string;
+  files?: Array<{name: string; fileUrl: string; size?: number; mimetype?: string}>;
 }
 
 interface Client {
@@ -90,6 +91,7 @@ const ClientDetail = () => {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loadingContracts, setLoadingContracts] = useState(true);
   const [showContractForm, setShowContractForm] = useState(false);
+  const [contractTab, setContractTab] = useState<'main' | 'parties' | 'additional' | 'files'>('main');
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [contractForm, setContractForm] = useState({
     contractNumber: '',
@@ -151,6 +153,7 @@ const ClientDetail = () => {
     sealUrl: '',
     companyLogoUrl: '',
     requirements: '', // Shartnoma bo'yicha talablar/eslatmalar
+    files: [] as Array<{name: string; fileUrl: string; size?: number; mimetype?: string}>,
   });
 
   useEffect(() => {
@@ -193,6 +196,36 @@ const ClientDetail = () => {
       },
     });
     setContractForm((prev) => ({ ...prev, [field]: response.data.fileUrl }));
+  };
+
+  const uploadContractFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    const formData = new FormData();
+    for (let i = 0; i < selectedFiles.length; i++) {
+        formData.append('documents', selectedFiles[i]);
+    }
+
+    try {
+        const response = await apiClient.post('/upload/documents', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        
+        if (response.data.success && response.data.files) {
+            setContractForm(prev => ({
+                ...prev,
+                files: [...(prev.files || []), ...response.data.files]
+            }));
+        }
+    } catch (error) {
+        console.error('Error uploading files:', error);
+        alert('Fayllarni yuklashda xatolik yuz berdi');
+    } finally {
+        e.target.value = '';
+    }
   };
 
   // Helper function to parse details textarea
@@ -353,6 +386,21 @@ const ClientDetail = () => {
 
   const handleContractSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Custom validation
+    if (
+      !contractForm.contractNumber ||
+      !contractForm.contractDate ||
+      !contractForm.destinationCountry ||
+      !contractForm.sellerName ||
+      !contractForm.sellerLegalAddress ||
+      !contractForm.buyerName ||
+      !contractForm.buyerAddress
+    ) {
+      alert("Iltimos, barcha majburiy (*) maydonlarni to'ldiring");
+      return;
+    }
+
     try {
       // To'g'ridan-to'g'ri textarea ma'lumotlarini saqlash (parse qilmasdan)
       const data = {
@@ -385,6 +433,7 @@ const ClientDetail = () => {
         sealUrl: (contractForm.sealUrl?.trim() ?? '') === '' ? '' : contractForm.sealUrl,
         companyLogoUrl: (contractForm.companyLogoUrl?.trim() ?? '') === '' ? '' : contractForm.companyLogoUrl,
         requirements: contractForm.requirements || undefined,
+        files: contractForm.files || [],
       };
 
       if (editingContract) {
@@ -454,6 +503,7 @@ const ClientDetail = () => {
         sealUrl: '',
         companyLogoUrl: '',
         requirements: '',
+        files: [],
       });
       await loadContracts();
     } catch (error: any) {
@@ -570,6 +620,7 @@ const ClientDetail = () => {
           sealUrl: contractData.sealUrl || '',
           companyLogoUrl: contractData.companyLogoUrl || '',
           requirements: contractData.requirements || '',
+          files: contractData.files || [],
         });
         setEditingContract(contract);
         setShowContractForm(true);
@@ -734,6 +785,7 @@ const ClientDetail = () => {
                 sealUrl: '',
                 companyLogoUrl: '',
                 requirements: '',
+                files: [],
               });
               setShowContractForm(true);
             }}
@@ -956,65 +1008,113 @@ const ClientDetail = () => {
                 ×
               </button>
             </div>
+
+            {/* Tabs Header */}
+            <div className="flex border-b border-gray-200 mb-6 bg-white z-10 pt-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setContractTab('main')}
+                className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+                  contractTab === 'main' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Asosiy
+              </button>
+              <button
+                type="button"
+                onClick={() => setContractTab('parties')}
+                className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+                  contractTab === 'parties' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Tomonlar
+              </button>
+              <button
+                type="button"
+                onClick={() => setContractTab('additional')}
+                className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+                  contractTab === 'additional' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Qo'shimcha
+              </button>
+              <button
+                type="button"
+                onClick={() => setContractTab('files')}
+                className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+                  contractTab === 'files' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Fayllar
+              </button>
+            </div>
+
             <form onSubmit={handleContractSubmit} className="space-y-6">
-              {/* Shartnoma asosiy ma'lumotlari */}
-              <div className="border-b pb-4">
-                <h4 className="font-semibold text-gray-700 mb-3">Shartnoma ma'lumotlari</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma raqami *</label>
-                    <input
-                      type="text"
-                      value={contractForm.contractNumber}
-                      onChange={(e) => setContractForm({ ...contractForm, contractNumber: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
+              
+              {/* ASOSIY TAB */}
+              {contractTab === 'main' && (
+                <div className="space-y-6">
+                  {/* Shartnoma asosiy ma'lumotlari */}
+                  <div className="border-b pb-4">
+                    <h4 className="font-semibold text-gray-700 mb-3">Shartnoma ma'lumotlari</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma raqami *</label>
+                        <input
+                          type="text"
+                          value={contractForm.contractNumber}
+                          onChange={(e) => setContractForm({ ...contractForm, contractNumber: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma sanasi *</label>
+                        <DateInput
+                          value={contractForm.contractDate}
+                          onChange={(value) => setContractForm({ ...contractForm, contractDate: value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Eksport davlati *</label>
+                        <select
+                          value={contractForm.destinationCountry}
+                          onChange={(e) => setContractForm({ ...contractForm, destinationCountry: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        >
+                          <option value="">Tanlang...</option>
+                          {destinationCountryOptions.map((country) => (
+                            <option key={country} value={country}>
+                              {country}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma sanasi *</label>
-                    <DateInput
-                      value={contractForm.contractDate}
-                      onChange={(value) => setContractForm({ ...contractForm, contractDate: value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      required
+
+                  {/* Shartnoma talablari — invoysda ko'rinadigan eslatmalar */}
+                  <div className="border-b pb-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
+                      📋 Shartnoma talablari / Eslatmalar
+                    </h4>
+                    <textarea
+                      value={contractForm.requirements}
+                      onChange={(e) => setContractForm({ ...contractForm, requirements: e.target.value })}
+                      className="w-full px-3 py-2 border border-amber-300 rounded-lg resize-y bg-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                      rows={4}
+                      placeholder={"Masalan:\n- Tovar sertifikati talab qilinadi\n- Har bir qutida belgilash bo'lishi kerak"}
                     />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Eksport davlati *</label>
-                    <select
-                      value={contractForm.destinationCountry}
-                      onChange={(e) => setContractForm({ ...contractForm, destinationCountry: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      required
-                    >
-                      <option value="">Tanlang...</option>
-                      {destinationCountryOptions.map((country) => (
-                        <option key={country} value={country}>
-                          {country}
-                        </option>
-                      ))}
-                    </select>
+                    <p className="text-xs text-amber-700 mt-1">
+                      Bu eslatmalar invoys yaratilayotganda o'ng tomonda ko'rinadi 📌
+                    </p>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Shartnoma talablari — invoysda ko'rinadigan eslatmalar */}
-              <div className="border-b pb-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
-                  📋 Shartnoma talablari / Eslatmalar
-                </h4>
-                <textarea
-                  value={contractForm.requirements}
-                  onChange={(e) => setContractForm({ ...contractForm, requirements: e.target.value })}
-                  className="w-full px-3 py-2 border border-amber-300 rounded-lg resize-y bg-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-                  rows={4}
-                  placeholder={"Masalan:\n- Tovar sertifikati talab qilinadi\n- Har bir qutida belgilash bo'lishi kerak"}
-                />
-                <p className="text-xs text-amber-700 mt-1">
-                  Bu eslatmalar invoys yaratilayotganda o'ng tomonda ko'rinadi 📌
-                </p>
-              </div>
+              {/* TOMONLAR TAB */}
+              {contractTab === 'parties' && (
+                <div className="space-y-6">
 
               {/* Sotuvchi ma'lumotlari */}
               <div className="border-b pb-4">
@@ -1027,7 +1127,6 @@ const ClientDetail = () => {
                       value={contractForm.sellerName}
                       onChange={(e) => setContractForm({ ...contractForm, sellerName: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      required
                     />
                   </div>
                   <div>
@@ -1037,7 +1136,6 @@ const ClientDetail = () => {
                       onChange={(e) => setContractForm({ ...contractForm, sellerLegalAddress: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       rows={2}
-                      required
                     />
                   </div>
                   <div>
@@ -1068,7 +1166,6 @@ const ClientDetail = () => {
                       value={contractForm.buyerName}
                       onChange={(e) => setContractForm({ ...contractForm, buyerName: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      required
                     />
                   </div>
                   <div>
@@ -1078,7 +1175,6 @@ const ClientDetail = () => {
                       onChange={(e) => setContractForm({ ...contractForm, buyerAddress: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       rows={2}
-                      required
                     />
                   </div>
                   <div>
@@ -1175,10 +1271,14 @@ const ClientDetail = () => {
                   </div>
                 </div>
               </div>
+              </div>
+              )}
 
-              {/* Qo'shimcha ma'lumotlar */}
-              <div>
-                <h4 className="font-semibold text-gray-700 mb-3">Qo'shimcha ma'lumotlar</h4>
+              {/* QO'SHIMCHA TAB */}
+              {contractTab === 'additional' && (
+              <div className="space-y-6">
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-3">Qo'shimcha ma'lumotlar</h4>
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Yetkazib berish sharti</label>
@@ -1351,6 +1451,76 @@ const ClientDetail = () => {
                   </div>
                 </div>
               </div>
+              </div>
+              )}
+
+              {/* FAYLLAR TAB */}
+              {contractTab === 'files' && (
+              <div className="space-y-6">
+                <div className="border-b pb-4">
+                  <h4 className="font-semibold text-gray-700 mb-3">Shartnoma fayllari</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Fayllarni yuklash (ko'p fayl yuklash mumkin)
+                    </label>
+                    <input
+                      type="file"
+                      multiple
+                      onChange={uploadContractFiles}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  {contractForm.files && contractForm.files.length > 0 && (
+                    <div className="mt-4">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Yuklangan fayllar:</h5>
+                      <ul className="space-y-2">
+                        {contractForm.files.map((file, index) => (
+                          <li key={index} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <Icon icon="lucide:file" className="w-5 h-5 text-gray-500 shrink-0" />
+                              <span className="text-sm text-gray-800 truncate" title={file.name}>{file.name}</span>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <a
+                                href={resolveUploadUrl(file.fileUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800"
+                                title="Ko'rish"
+                              >
+                                <Icon icon="lucide:eye" className="w-4 h-4" />
+                              </a>
+                              <a
+                                href={resolveUploadUrl(file.fileUrl)}
+                                download={file.name || 'document'}
+                                className="text-green-600 hover:text-green-800"
+                                title="Ko'chirib olish"
+                              >
+                                <Icon icon="lucide:download" className="w-4 h-4" />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newFiles = [...(contractForm.files || [])];
+                                  newFiles.splice(index, 1);
+                                  setContractForm({ ...contractForm, files: newFiles });
+                                }}
+                                className="text-red-600 hover:text-red-800"
+                                title="O'chirish"
+                              >
+                                <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  </div>
+                </div>
+              </div>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <button

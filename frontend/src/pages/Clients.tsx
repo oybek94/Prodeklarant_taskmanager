@@ -9,6 +9,7 @@ import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 import { useIsMobile } from '../utils/useIsMobile';
 import { getDefaultTnvedProducts } from '../utils/tnvedProducts';
+import Tasks from './Tasks';
 
 const resolveUploadUrl = (url?: string | null) => {
   if (!url) return '';
@@ -381,6 +382,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   });
   const [savingTransaction, setSavingTransaction] = useState(false);
   const [selectedMonthForTasks, setSelectedMonthForTasks] = useState<{ label: string; year: number; monthIndex: number } | null>(null);
+  const [showTaskModalId, setShowTaskModalId] = useState<number | null>(null);
   type SpecRow = {
     productName: string;
     botanicalName?: string;
@@ -610,6 +612,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             setShowEditModal(false);
             setEditingClient(null);
           }
+        } else if (showTaskModalId) {
+          setShowTaskModalId(null);
         }
       }
     };
@@ -2389,7 +2393,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         <div key={task.id} className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700 space-y-3">
                           <div className="flex justify-between items-start">
                             <span className="text-xs font-bold text-gray-900 dark:text-gray-100">#{task.id}</span>
-                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50">
+                            <span 
+                              onClick={() => setShowTaskModalId(task.id)}
+                              className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                            >
                               {task.status}
                             </span>
                           </div>
@@ -2426,7 +2433,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                               </td>
                               <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{new Date(task.createdAt).toLocaleDateString('uz-UZ')}</td>
                               <td className="px-5 py-4 whitespace-nowrap">
-                                <span className="px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50 drop-shadow-sm">
+                                <span 
+                                  onClick={() => setShowTaskModalId(task.id)}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50 drop-shadow-sm cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                                >
                                   {task.status}
                                 </span>
                               </td>
@@ -3933,6 +3943,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
           </div>
         )
       }
+
+      {showTaskModalId && (
+        <Tasks isModalMode={true} modalTaskId={showTaskModalId} onCloseModal={() => setShowTaskModalId(null)} />
+      )}
     </div >
   );
 };

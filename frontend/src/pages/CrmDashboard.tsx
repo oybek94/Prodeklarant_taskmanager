@@ -23,6 +23,7 @@ interface Stats {
     byStage: Record<string, number>;
     todayActivities: number;
     todayMeetings: number;
+    todayMeetingsList: { id: number; companyName: string; contactPerson?: string; phone?: string; nextCallAt?: string }[];
     sellerPerformance: { id: number; name: string; total: number; won: number }[];
     last7Days: { date: string; count: number }[];
 }
@@ -149,55 +150,86 @@ export default function CrmDashboard() {
                     })}
                 </div>
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Activity Chart */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm flex flex-col">
                     <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">So'nggi 7 kun faoliyati</h2>
-                    <Bar data={chartData} options={chartOptions} />
+                    <div className="flex-1 min-h-[350px]">
+                        <Bar data={chartData} options={{ ...chartOptions, maintainAspectRatio: false }} />
+                    </div>
                 </div>
 
-                {/* Seller Performance */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-                    <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">Sotuvchi reytingi</h2>
-                    {!stats?.sellerPerformance.length ? (
-                        <div className="flex flex-col items-center justify-center py-10 text-gray-300 dark:text-gray-600">
-                            <Icon icon="lucide:bar-chart-2" className="w-10 h-10 mb-2" />
-                            <p className="text-sm">Ma'lumot yo'q</p>
+                {/* Upcoming Meetings */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm flex flex-col">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">Uchrashuvlar jadvali</h2>
+                        <span className="text-xs font-medium text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-0.5 rounded-lg">
+                            {stats?.todayMeetingsList?.length ?? 0} ta reja
+                        </span>
+                    </div>
+                    {!stats?.todayMeetingsList?.length ? (
+                        <div className="flex-1 flex flex-col items-center justify-center py-10 text-gray-300 dark:text-gray-600 border-2 border-dashed border-gray-100 dark:border-gray-700/50 rounded-2xl">
+                            <Icon icon="lucide:calendar-x" className="w-10 h-10 mb-2 opacity-50" />
+                            <p className="text-sm font-medium">Rejalashtirilgan uchrashuvlar yo'q</p>
                         </div>
                     ) : (
-                        <div className="space-y-3">
-                            {stats.sellerPerformance
-                                .sort((a, b) => b.won - a.won)
-                                .map((s, idx) => {
-                                    const convRate = s.total > 0 ? Math.round((s.won / s.total) * 100) : 0;
-                                    const maxWon = Math.max(...stats.sellerPerformance.map((x) => x.won), 1);
-                                    return (
-                                        <div key={s.id} className="flex items-center gap-3">
-                                            <span className="text-sm font-bold text-gray-400 w-5">{idx + 1}</span>
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-center text-sm mb-1">
-                                                    <span className="font-medium text-gray-700 dark:text-gray-300">{s.name}</span>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-gray-400">{s.total} lid</span>
-                                                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                                            {s.won} ✓
-                                                        </span>
-                                                        <span className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-lg">
-                                                            {convRate}%
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-indigo-500 rounded-full transition-all"
-                                                        style={{ width: `${(s.won / maxWon) * 100}%` }}
-                                                    />
-                                                </div>
+                        <div className="space-y-3 overflow-y-auto max-h-[350px] pr-2 custom-scrollbar">
+                            {stats.todayMeetingsList.map((m) => {
+                                const dt = m.nextCallAt ? new Date(m.nextCallAt) : null;
+                                const now = new Date();
+                                const diffMs = dt ? dt.getTime() - now.getTime() : Infinity;
+                                const isOverdue = diffMs < 0;
+                                const isSoon = diffMs >= 0 && diffMs < 2 * 60 * 60 * 1000; // 2 hours
+
+                                let badgeClass = "bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400";
+                                if (isOverdue) {
+                                    badgeClass = "bg-red-50 text-red-600 dark:bg-red-900/40 dark:text-red-400 animate-pulse";
+                                } else if (isSoon) {
+                                    badgeClass = "bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400";
+                                }
+
+                                const formattedDt = dt ? dt.toLocaleString('uz-UZ', { 
+                                    day: '2-digit', 
+                                    month: '2-digit', 
+                                    year: 'numeric',
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                }).replace(',', '.') : '--:--';
+                                
+                                return (
+                                    <div
+                                        key={m.id}
+                                        onClick={() => navigate(`/leads/${m.id}`)}
+                                        className="group flex flex-col p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500/50 hover:bg-indigo-50/30 dark:hover:bg-indigo-500/5 transition-all cursor-pointer"
+                                    >
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate flex-1 mr-2">
+                                                {m.companyName}
+                                            </span>
+                                            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-colors ${badgeClass}`}>
+                                                <Icon icon={isOverdue ? "lucide:phone-incoming" : "lucide:calendar-check"} className="w-3 h-3" />
+                                                {formattedDt}
                                             </div>
                                         </div>
-                                    );
-                                })}
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                                                <div className="flex items-center gap-1 truncate max-w-[150px]">
+                                                    <Icon icon="lucide:user" className="w-3 h-3 shrink-0" />
+                                                    <span className="truncate">{m.contactPerson || '-'}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <Icon icon="lucide:phone" className="w-3 h-3 shrink-0" />
+                                                    <span>{m.phone || '-'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                                Ko'rish
+                                                <Icon icon="lucide:arrow-right" className="w-3 h-3 text-blue-500" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>

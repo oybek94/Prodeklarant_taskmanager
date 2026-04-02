@@ -483,55 +483,53 @@ export default function Leads() {
                                     onClick={() => navigate(`/leads/${lead.id}`)}
                                     className="p-4 hover:bg-blue-50/30 dark:hover:bg-blue-900/5 active:bg-gray-50 dark:active:bg-gray-800 transition-colors"
                                 >
-                                    <div className="flex justify-between items-start mb-2">
+                                    <div className="flex justify-between items-start mb-3">
                                         <div className="flex-1 min-w-0 pr-2">
-                                            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
+                                            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-tight mb-1">
                                                 {lead.companyName}
                                             </h3>
-                                            <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                                                {lead.region}{lead.district ? `, ${lead.district}` : ''}
-                                            </p>
-                                        </div>
-                                        <StageBadge stage={lead.stage} />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3 mb-3">
-                                        <div>
-                                            <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold tracking-wider">Eksport hajmi</p>
-                                            <p className="text-xs font-semibold">
-                                                {lead.estimatedExportVolume ? (
-                                                    <span className={isNumeric ? (vol > 30 ? "text-emerald-600" : vol >= 10 ? "text-amber-500" : "text-red-500") : "text-gray-700 dark:text-gray-300"}>
-                                                        {isNumeric ? Math.round(vol).toLocaleString() : lead.estimatedExportVolume}
-                                                    </span>
-                                                ) : '—'}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold tracking-wider">Keyingi aloqa</p>
-                                            {lead.nextCallAt ? (
-                                                <div className={`inline-flex items-center gap-1 mt-1 text-[11px] font-bold ${isOverdue ? 'text-red-600' : 'text-indigo-600 dark:text-indigo-400'}`}>
-                                                    <Icon icon={isOverdue ? "lucide:phone-incoming" : "lucide:calendar"} className="w-3.5 h-3.5" />
-                                                    {new Date(lead.nextCallAt).toLocaleDateString('uz-UZ')}
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+                                                    <Icon icon="lucide:user" className="w-3.5 h-3.5 text-gray-400" />
+                                                    <span className="font-medium truncate">{lead.contactPerson || '-'}</span>
                                                 </div>
-                                            ) : <span className="text-[11px] text-gray-300">—</span>}
+                                                <div className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400">
+                                                    <Icon icon="lucide:phone" className="w-3.5 h-3.5 opacity-70" />
+                                                    <span className="font-bold">{lead.phone || '-'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-2">
+                                            <StageBadge stage={lead.stage} />
+                                            {lead.nextCallAt && (
+                                                <div className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${isOverdue ? 'bg-red-50 text-red-600 border-red-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800'}`}>
+                                                    <Icon icon={isOverdue ? "lucide:phone-incoming" : "lucide:clock"} className="w-3 h-3" />
+                                                    {new Date(lead.nextCallAt).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' })}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
                                     {lead.activities?.[0] && (
-                                        <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-2 border border-gray-100 dark:border-gray-700/50">
-                                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1 flex items-center gap-1 font-bold tracking-wider uppercase">
-                                                <Icon icon="lucide:message-square" className="w-3 h-3" />
-                                                Oxirgi izoh
-                                            </p>
-                                            <p className="text-[11px] text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed">
-                                                {lead.activities[0].note || lead.activities[0].type}
+                                        <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-2.5 border border-gray-100 dark:border-gray-700/50">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <p className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1 font-bold tracking-wider uppercase">
+                                                    <Icon icon="lucide:message-square" className="w-3 h-3" />
+                                                    Oxirgi izoh
+                                                </p>
+                                                <p className="text-[9px] text-gray-400">
+                                                    {new Date(lead.activities[0].createdAt).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' })}
+                                                </p>
+                                            </div>
+                                            <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed italic">
+                                                "{lead.activities[0].note || lead.activities[0].type}"
                                             </p>
                                         </div>
                                     )}
 
-                                    <div className="flex justify-end mt-3">
-                                        <div className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-                                            Batafsil
+                                    <div className="flex justify-end mt-3 pt-2 border-t border-gray-50 dark:border-gray-700/50">
+                                        <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                                            Batafsil ko'rish
                                             <Icon icon="lucide:chevron-right" className="w-4 h-4" />
                                         </div>
                                     </div>

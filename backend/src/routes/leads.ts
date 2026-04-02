@@ -140,6 +140,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
             byStageLost,
             todayActivities,
             todayMeetings,
+            todayMeetingsList,
         ] = await Promise.all([
             prisma.lead.count(),
             prisma.lead.count({ where: { stage: 'COLD' } }),
@@ -152,7 +153,12 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
                 where: { createdAt: { gte: todayStart, lte: todayEnd } },
             }),
             prisma.lead.count({
-                where: { stage: 'MEETING', updatedAt: { gte: todayStart, lte: todayEnd } },
+                where: { nextCallAt: { gte: todayStart } },
+            }),
+            prisma.lead.findMany({
+                where: { nextCallAt: { gte: todayStart } },
+                select: { id: true, companyName: true, contactPerson: true, phone: true, nextCallAt: true },
+                orderBy: { nextCallAt: 'asc' },
             }),
         ]);
 
@@ -207,6 +213,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
             },
             todayActivities,
             todayMeetings,
+            todayMeetingsList,
             sellerPerformance,
             last7Days,
         });

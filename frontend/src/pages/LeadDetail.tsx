@@ -87,7 +87,14 @@ export default function LeadDetail() {
         try {
             const { data } = await apiClient.get(`/leads/${id}`);
             setLead(data);
-            setReminder(data.nextCallAt ? data.nextCallAt.slice(0, 10) : '');
+            if (data.nextCallAt) {
+                const date = new Date(data.nextCallAt);
+                const offset = date.getTimezoneOffset() * 60000;
+                const localDate = new Date(date.getTime() - offset);
+                setReminder(localDate.toISOString().slice(0, 16));
+            } else {
+                setReminder('');
+            }
             setEditForm({
                 companyName: data.companyName,
                 inn: data.inn,
@@ -372,11 +379,11 @@ export default function LeadDetail() {
                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
                         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                             <Icon icon="lucide:bell" className="w-4 h-4 text-amber-500" />
-                            Keyingi qo'ng'iroq
+                            Keyingi qo'ng'iroq va vaqti
                         </h2>
                         <div className="flex gap-2">
                             <input
-                                type="date"
+                                type="datetime-local"
                                 value={reminder}
                                 onChange={(e) => setReminder(e.target.value)}
                                 className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -392,8 +399,15 @@ export default function LeadDetail() {
                             </button>
                         </div>
                         {lead.nextCallAt && (
-                            <p className="text-xs text-gray-400 mt-2">
-                                Belgilangan: {new Date(lead.nextCallAt).toLocaleDateString('uz-UZ', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                            <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5 font-medium">
+                                <Icon icon="lucide:calendar" className="w-3.5 h-3.5 text-blue-500" />
+                                {new Date(lead.nextCallAt).toLocaleString('uz-UZ', { 
+                                    weekday: 'short', 
+                                    day: 'numeric', 
+                                    month: 'short', 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                })}
                             </p>
                         )}
                     </div>

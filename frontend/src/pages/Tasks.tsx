@@ -584,7 +584,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   };
 
   return (
-    <div className={isModalMode ? "" : "max-w-[1920px] mx-auto px-2 sm:px-4 space-y-6 sm:space-y-8 font-sans pb-10"}>
+    <div className={isModalMode ? "" : "max-w-[1920px] mx-auto px-2 sm:px-4 space-y-6 sm:space-y-8 font-sans pb-24"}>
       {/* Modal mode: task detail yuklanguncha loading overlay */}
       {isModalMode && !showTaskModal && (
         <div

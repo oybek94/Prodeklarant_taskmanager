@@ -478,7 +478,7 @@ const Invoices = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
+    <div className="flex-1 flex flex-col min-h-0 bg-transparent px-2 sm:px-0">
       <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0 px-2">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white shadow-sm shrink-0">

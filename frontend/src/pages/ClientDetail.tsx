@@ -917,18 +917,20 @@ const ClientDetail = () => {
                         {formatDate(task.createdAt)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex gap-2">
+                        <div className="flex gap-1 sm:gap-2">
                           <button
                             onClick={() => navigate(`/tasks/${task.id}`)}
-                            className="text-blue-600 hover:text-blue-800"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center"
+                            title="Ko'rish"
                           >
-                            View
+                            <Icon icon="lucide:eye" className="w-5 h-5" />
                           </button>
                           <button
                             onClick={() => navigate(`/invoices/task/${task.id}`)}
-                            className="text-green-600 hover:text-green-800"
+                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center justify-center"
+                            title="Invoice"
                           >
-                            Invoice
+                            <Icon icon="lucide:file-text" className="w-5 h-5" />
                           </button>
                         </div>
                       </td>

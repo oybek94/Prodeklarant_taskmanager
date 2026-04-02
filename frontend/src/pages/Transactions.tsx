@@ -568,7 +568,7 @@ const Transactions = () => {
   const totals = calculateTotals();
 
   return (
-    <div className="p-6 min-h-screen bg-gray-50/50">
+    <div className="px-2 sm:px-6 py-6 min-h-screen bg-gray-50/50 pb-24">
       <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white/60 backdrop-blur-xl p-5 rounded-2xl shadow-sm border border-white/80 shrink-0">
         <div className="flex items-center gap-4">
           <div className="p-3.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/30">

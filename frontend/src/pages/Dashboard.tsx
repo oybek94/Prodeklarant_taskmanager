@@ -474,9 +474,9 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] dark:bg-gray-900 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/40 via-purple-50/20 to-white pb-12 pt-4 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#f3f4f6] dark:bg-gray-900 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/40 via-purple-50/20 to-white pb-12 pt-4 px-2 sm:px-6 lg:px-8 overflow-x-hidden">
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-[1600px] mx-auto space-y-4 sm:space-y-6">
         {/* Page Header (Hero style) */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white/60 backdrop-blur-md rounded-2xl shadow-sm border border-white/40 p-6">
           <div>

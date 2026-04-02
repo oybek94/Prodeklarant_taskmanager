@@ -1052,14 +1052,23 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
             ) : (
               // ADMIN/MANAGER uchun barcha filiallar - dinamik
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-[30px]">
-                {Array.isArray(branches) && branches.map((branch, index) => {
-                  const branchTasks = tasksByBranch.get(branch.name) || [];
-                  return (
-                    <div key={branch.id}>
-                      <TaskTable tasks={branchTasks} branchName={branch.name} branchColorIndex={index} onTaskClick={handleTaskClick} />
-                    </div>
-                  );
-                })}
+                {Array.isArray(branches) && 
+                  [...branches]
+                    .sort((a, b) => {
+                      if (!isMobile) return 0; // Desktopda tartibni buzmaymiz
+                      const tasksA = tasksByBranch.get(a.name)?.length || 0;
+                      const tasksB = tasksByBranch.get(b.name)?.length || 0;
+                      return tasksB - tasksA; // Ishi ko'pini tepaga chiqaramiz
+                    })
+                    .map((branch, index) => {
+                      const branchTasks = tasksByBranch.get(branch.name) || [];
+                      return (
+                        <div key={branch.id}>
+                          <TaskTable tasks={branchTasks} branchName={branch.name} branchColorIndex={index} onTaskClick={handleTaskClick} />
+                        </div>
+                      );
+                    })
+                }
               </div>
             )
           )}

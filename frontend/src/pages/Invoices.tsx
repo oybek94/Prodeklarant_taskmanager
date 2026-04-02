@@ -498,36 +498,56 @@ const Invoices = () => {
           <button
             type="button"
             onClick={() => setShowFiltersPanel(!showFiltersPanel)}
-            className={`relative p-2.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-all shadow-sm z-10 ${showFiltersPanel ? 'opacity-0 pointer-events-none' : ''}`}
+            className={`flex items-center gap-2 p-2 sm:p-2.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-all shadow-sm z-10 ${showFiltersPanel && !isMobile ? 'opacity-0 pointer-events-none' : ''}`}
             title="Qidirish va filtrlash"
           >
             <Icon icon="lucide:filter" className="w-5 h-5" />
+            <span className="hidden sm:inline text-sm font-medium">Filtrlar</span>
             {hasActiveFilters && (
-              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-800" />
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-800">
+                {Object.values(filters).filter(Boolean).length + (searchQuery.trim() ? 1 : 0)}
+              </span>
             )}
           </button>
+          
+          {showFiltersPanel && isMobile && (
+            <div 
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99]"
+              onClick={() => setShowFiltersPanel(false)}
+            />
+          )}
+
           {showFiltersPanel && (
-            <div ref={filtersPanelRef} className="absolute right-0 top-0 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-gray-200 dark:border-slate-700 p-4 z-20 min-w-[500px] animate-slideIn">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                    <Icon icon="lucide:filter" className="w-4 h-4 text-white" />
+            <div 
+              ref={filtersPanelRef} 
+              className={`${isMobile 
+                ? 'fixed inset-x-0 bottom-0 h-[85vh] w-full rounded-t-3xl' 
+                : 'absolute right-0 top-0 min-w-[500px] rounded-2xl'
+              } bg-white dark:bg-slate-800 shadow-2xl border border-gray-200 dark:border-slate-700 p-5 z-[100] animate-slideIn`}
+            >
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center">
+                    <Icon icon="lucide:filter" className="w-5 h-5 text-white" />
                   </div>
-                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Qidiruv va filtrlash</h3>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Qidiruv va filtrlash</h3>
+                    <p className="text-[10px] sm:text-xs text-gray-500 font-medium uppercase tracking-wider">Hamma maydonlar bo'yicha</p>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowFiltersPanel(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl font-bold leading-none transition-colors"
+                  className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-gray-50 dark:bg-slate-700 rounded-full transition-colors"
                 >
-                  ×
+                  <Icon icon="lucide:x" className="w-5 h-5" />
                 </button>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
-                    <Icon icon="lucide:search" className="w-3.5 h-3.5 text-blue-600" />
-                    Qidirish
+                  <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
+                    <Icon icon="lucide:search" className="w-3.5 h-3.5 text-indigo-500" />
+                    Asosiy qidiruv
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -538,7 +558,7 @@ const Invoices = () => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Invoice №, mijoz, avtomobil raqami, shartnoma..."
-                      className="w-full pl-10 pr-9 py-2 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-sm shadow-sm hover:border-gray-300"
+                      className="w-full pl-10 pr-9 py-2.5 bg-gray-50/50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
                       autoFocus
                     />
                     {searchQuery && (
@@ -547,91 +567,95 @@ const Invoices = () => {
                         onClick={() => setSearchQuery('')}
                         className="absolute inset-y-0 right-0 pr-3 flex items-center"
                       >
-                        <Icon icon="lucide:x" className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 transition-colors" />
+                         <Icon icon="lucide:x" className="w-4 h-4 text-gray-400 hover:text-gray-600" />
                       </button>
                     )}
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                    <Icon icon="lucide:building" className="w-3.5 h-3.5 text-blue-600" />
-                    Filial
-                  </label>
-                  <select
-                    value={filters.branchId}
-                    onChange={(e) => setFilters({ ...filters, branchId: e.target.value })}
-                    className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm shadow-sm hover:border-gray-300"
-                  >
-                    <option value="">Barcha filiallar</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id.toString()}>
-                        {branch.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                    <Icon icon="lucide:users" className="w-3.5 h-3.5 text-blue-600" />
-                    Mijoz
-                  </label>
-                  <select
-                    value={filters.clientId}
-                    onChange={(e) => setFilters({ ...filters, clientId: e.target.value })}
-                    className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm shadow-sm hover:border-gray-300"
-                  >
-                    <option value="">Barcha mijozlar</option>
-                    {clients.map((client) => (
-                      <option key={client.id} value={client.id.toString()}>
-                        {client.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                    <Icon icon="lucide:calendar-range" className="w-3.5 h-3.5 text-blue-600" />
-                    Sana oralig&apos;i
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <DateInput
-                      value={filters.startDate}
-                      onChange={(value) => setFilters({ ...filters, startDate: value })}
-                      className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm shadow-sm hover:border-gray-300"
-                      placeholder="Boshlanish"
-                    />
-                    <DateInput
-                      value={filters.endDate}
-                      onChange={(value) => setFilters({ ...filters, endDate: value })}
-                      className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm shadow-sm hover:border-gray-300"
-                      placeholder="Tugash"
-                    />
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
+                      <Icon icon="lucide:building" className="w-3.5 h-3.5 text-indigo-500" />
+                      Filial
+                    </label>
+                    <select
+                      value={filters.branchId}
+                      onChange={(e) => setFilters({ ...filters, branchId: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-gray-50/50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm"
+                    >
+                      <option value="">Barcha filiallar</option>
+                      {branches.map((branch) => (
+                        <option key={branch.id} value={branch.id.toString()}>
+                          {branch.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
+                      <Icon icon="lucide:users" className="w-3.5 h-3.5 text-indigo-500" />
+                      Mijoz
+                    </label>
+                    <select
+                      value={filters.clientId}
+                      onChange={(e) => setFilters({ ...filters, clientId: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-gray-50/50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm"
+                    >
+                      <option value="">Barcha mijozlar</option>
+                      {clients.map((client) => (
+                        <option key={client.id} value={client.id.toString()}>
+                          {client.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-                <div className="pt-3 border-t border-gray-200">
-                  <div className="flex items-center gap-2 text-xs text-gray-600">
-                    <Icon icon="lucide:files" className="w-3.5 h-3.5 text-blue-600" />
-                    <span className="font-medium text-gray-700">
-                      {filteredInvoices.length} ta natija
-                    </span>
-                    {hasActiveFilters && (
-                      <span className="text-gray-500">(filtrlangan)</span>
-                    )}
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
+                    <Icon icon="lucide:calendar-range" className="w-3.5 h-3.5 text-indigo-500" />
+                    Sana oralig'i
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] text-gray-400 mb-1 uppercase tracking-wider font-semibold">Dan</p>
+                      <DateInput
+                        value={filters.startDate}
+                        onChange={(value) => setFilters({ ...filters, startDate: value })}
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-400 mb-1 uppercase tracking-wider font-semibold">Gacha</p>
+                      <DateInput
+                        value={filters.endDate}
+                        onChange={(value) => setFilters({ ...filters, endDate: value })}
+                      />
+                    </div>
                   </div>
                 </div>
-                {hasActiveFilters && (
+
+                <div className="flex items-center gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => {
-                      setSearchQuery('');
                       setFilters({ branchId: '', clientId: '', startDate: '', endDate: '' });
+                      setSearchQuery('');
                     }}
-                    className="w-full px-4 py-2 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 rounded-lg font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md border border-gray-300"
+                    className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition-all text-sm"
                   >
-                    <Icon icon="lucide:x-circle" className="w-3.5 h-3.5" />
-                    Filtrlarni tozalash
+                    Filtrni tozalash
                   </button>
-                )}
+                  {isMobile && (
+                    <button
+                      type="button"
+                      onClick={() => setShowFiltersPanel(false)}
+                      className="flex-1 px-4 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 dark:shadow-none text-sm"
+                    >
+                      Natijalarni ko'rish
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -640,7 +664,7 @@ const Invoices = () => {
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-all shadow-sm"
           >
             <Icon icon="lucide:settings-2" className="w-5 h-5" />
-            <span className="font-semibold text-sm">Sozlamalar</span>
+            <span className="hidden sm:inline font-semibold text-sm">Sozlamalar</span>
           </button>
           {canEdit && (
             <button
@@ -648,10 +672,10 @@ const Invoices = () => {
                 setDuplicateInvoiceId(null);
                 setShowCreateModal(true);
               }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-sm active:scale-[0.98]"
+              className="inline-flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-sm active:scale-[0.98]"
             >
               <Icon icon="lucide:plus-circle" className="w-5 h-5" />
-              <span className="font-semibold text-sm">Yangi Invoice</span>
+              <span className="hidden sm:inline font-semibold text-sm">Yangi Invoice</span>
             </button>
           )}
         </div>
@@ -1269,10 +1293,6 @@ const Invoices = () => {
                       <div>
                         <p className="text-gray-400 text-[10px] uppercase font-semibold">Avto</p>
                         <p className="font-mono font-bold text-gray-900 dark:text-gray-100 text-sm tracking-widest">{invoice.additionalInfo?.vehicleNumber || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400 text-[10px] uppercase font-semibold">Sana</p>
-                        <p className="text-gray-600 dark:text-gray-400">{formatDate(invoice.date)}</p>
                       </div>
                     </div>
 

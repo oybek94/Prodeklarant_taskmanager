@@ -116,9 +116,6 @@ const TaskCard: React.FC<{ task: Task; isArchive: boolean; onClick: () => void }
             {task.client.name}
           </span>
         </div>
-        <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">
-          {formatDate(task.createdAt)}
-        </span>
       </div>
 
       {/* Row 3: Task Details (Shown always on mobile now) */}

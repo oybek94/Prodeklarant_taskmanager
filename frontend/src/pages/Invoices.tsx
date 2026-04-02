@@ -1216,89 +1216,91 @@ const Invoices = () => {
             return (
               <div 
                 key={invoice.id} 
-                className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border ${hasErrors ? 'border-l-4 border-l-red-500 border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-700'} p-4 space-y-3`}
+                className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border ${hasErrors ? 'border-l-4 border-l-red-500 border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-700'} p-3 space-y-2`}
               >
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-center">
                   <button
                     type="button"
                     onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                    className="text-blue-600 dark:text-blue-400 font-bold text-lg hover:underline"
+                    className="text-blue-600 dark:text-blue-400 font-bold text-base hover:underline"
                   >
                     #{invoice.invoiceNumber}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowTaskModalId(invoice.taskId)}
-                    className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${getStatusBadgeClass(invoice.task?.status)}`}
+                    className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${getStatusBadgeClass(invoice.task?.status)}`}
                   >
                     {invoice.task?.status ?? '—'}
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-y-3 text-sm">
-                  <div className="col-span-2">
-                    <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Mijoz</p>
-                    <p className="font-semibold text-gray-900 dark:text-white">
-                      {invoice.clientId ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowClientModalId(invoice.clientId);
-                            setShowContractModalId(null);
-                          }}
-                          className="hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline"
-                        >
-                          {invoice.client?.name || '-'}
-                        </button>
-                      ) : (
-                        invoice.client?.name || '-'
-                      )}
-                    </p>
+                <div className="text-xs space-y-2 pt-1">
+                  <div className="flex justify-between items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-gray-400 text-[10px] uppercase font-semibold">Mijoz</p>
+                      <p className="font-bold text-gray-900 dark:text-white text-sm truncate">
+                        {invoice.clientId ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowClientModalId(invoice.clientId);
+                              setShowContractModalId(null);
+                            }}
+                            className="hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline text-left"
+                          >
+                            {invoice.client?.name || '-'}
+                          </button>
+                        ) : (
+                          invoice.client?.name || '-'
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-gray-400 text-[10px] uppercase font-semibold">Filial</p>
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${filialCellClass}`}>
+                        {branchName}
+                      </span>
+                    </div>
                   </div>
 
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Filial</p>
-                    <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium ${filialCellClass}`}>
-                      {branchName}
-                    </span>
-                  </div>
+                  <div className="flex justify-between items-center border-t border-gray-50 dark:border-gray-700/50 pt-2">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <p className="text-gray-400 text-[10px] uppercase font-semibold">Avto</p>
+                        <p className="font-mono font-bold text-gray-900 dark:text-gray-100 text-sm tracking-widest">{invoice.additionalInfo?.vehicleNumber || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-[10px] uppercase font-semibold">Sana</p>
+                        <p className="text-gray-600 dark:text-gray-400">{formatDate(invoice.date)}</p>
+                      </div>
+                    </div>
 
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Avtomobil</p>
-                    <p className="font-mono text-gray-700 dark:text-gray-300">{invoice.additionalInfo?.vehicleNumber || '-'}</p>
-                  </div>
-
-                  <div className="col-span-2">
-                    <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Sana</p>
-                    <p className="text-gray-700 dark:text-gray-300">{formatDate(invoice.date)}</p>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                      className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-500 border border-gray-200 dark:border-gray-600"
-                    >
-                      <Icon icon="lucide:eye" className="w-5 h-5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
-                      className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800"
-                    >
-                      <Icon icon="lucide:pencil" className="w-5 h-5" />
-                    </button>
-                    {canEdit && (
+                    <div className="flex gap-1.5">
                       <button
                         type="button"
-                        onClick={() => handleDuplicateInvoice(invoice)}
-                        className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800"
+                        onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
+                        className="p-1.5 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-400 border border-gray-100 dark:border-gray-600 active:scale-95 transition-transform"
                       >
-                        <Icon icon="lucide:copy" className="w-5 h-5" />
+                        <Icon icon="lucide:eye" className="w-4 h-4" />
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
+                        className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-500 border border-blue-100/50 dark:border-blue-800 active:scale-95 transition-transform"
+                      >
+                        <Icon icon="lucide:pencil" className="w-4 h-4" />
+                      </button>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicateInvoice(invoice)}
+                          className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 border border-emerald-100/50 dark:border-emerald-800 active:scale-95 transition-transform"
+                        >
+                          <Icon icon="lucide:copy" className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

@@ -147,6 +147,16 @@ const Invoice = () => {
   const pdfMenuRef = useRef<HTMLDivElement | null>(null);
   const defaultVisibleColumns = DEFAULT_VISIBLE_COLUMNS;
 
+  // Mobil ekranlar uchun invoys masshtabini hisoblaymiz (faqat ortadagi oq blok uchun)
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  // Invoysning original kengligi ~950px deb faraz qilamiz
+  const invoiceScale = windowWidth < 1024 ? Math.min(1, (windowWidth - 32) / 950) : 1;
+
   const duplicateInvoiceIdFromState = (location.state as { duplicateInvoiceId?: number })?.duplicateInvoiceId ?? null;
 
   // Ustunlar boshqaruvi (extracted hook)
@@ -450,7 +460,7 @@ const Invoice = () => {
 
         {/* Invoice form + Requirements note side panel */}
         <div className="flex gap-6 items-start">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden">
         <form onSubmit={handleSubmit} className={`invoice-form${!canEditEffective ? ' invoice-form-readonly' : ''}`}>
 
           <datalist id="invoice-tnved-products">
@@ -481,6 +491,10 @@ const Invoice = () => {
           <div
             ref={invoiceRef}
             className={`flex flex-col bg-white rounded-lg shadow-lg p-8${isPdfMode ? ' pdf-mode' : ''}`}
+            style={{ 
+              minWidth: isPdfMode ? undefined : '950px',
+              ...(invoiceScale < 1 && !isPdfMode ? { zoom: invoiceScale } as React.CSSProperties : {})
+            }}
           >
 
             {/* Invoice Header */}

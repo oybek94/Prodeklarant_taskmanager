@@ -15,6 +15,7 @@ import {
   type TnvedProduct,
 } from '../utils/tnvedProducts';
 import type { PackagingType } from '../utils/packagingTypes';
+import { useIsMobile } from '../utils/useIsMobile';
 
 interface Invoice {
   id: number;
@@ -98,6 +99,7 @@ const Invoices = () => {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<number | null>(null);
+  const isMobile = useIsMobile();
   const [deleteModalAnimated, setDeleteModalAnimated] = useState(false);
   const [deleteModalClosing, setDeleteModalClosing] = useState(false);
   const [showTaskModalId, setShowTaskModalId] = useState<number | null>(null);
@@ -1202,6 +1204,106 @@ const Invoices = () => {
           </div>
           <h3 className="text-xl font-bold text-gray-800 mb-2">Natija topilmadi</h3>
           <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Siz qidirayotgan qidiruv so&apos;rovi yoki filtrlarga mos keluvchi invoice topilmadi.</p>
+        </div>
+      ) : isMobile ? (
+        <div className="space-y-4">
+          {paginatedInvoices.map((invoice) => {
+            const hasErrors = (invoice.task?._count?.errors ?? 0) > 0;
+            const branchName = invoice.task?.branch?.name ?? invoice.branch?.name ?? '-';
+            const branchId = invoice.task?.branch?.id ?? invoice.branch?.id;
+            const filialCellClass = getBranchCellClass(branchName, branchId);
+            
+            return (
+              <div 
+                key={invoice.id} 
+                className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border ${hasErrors ? 'border-l-4 border-l-red-500 border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-700'} p-4 space-y-3`}
+              >
+                <div className="flex justify-between items-start">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
+                    className="text-blue-600 dark:text-blue-400 font-bold text-lg hover:underline"
+                  >
+                    #{invoice.invoiceNumber}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowTaskModalId(invoice.taskId)}
+                    className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${getStatusBadgeClass(invoice.task?.status)}`}
+                  >
+                    {invoice.task?.status ?? '—'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-y-3 text-sm">
+                  <div className="col-span-2">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Mijoz</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {invoice.clientId ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowClientModalId(invoice.clientId);
+                            setShowContractModalId(null);
+                          }}
+                          className="hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline"
+                        >
+                          {invoice.client?.name || '-'}
+                        </button>
+                      ) : (
+                        invoice.client?.name || '-'
+                      )}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Filial</p>
+                    <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium ${filialCellClass}`}>
+                      {branchName}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Avtomobil</p>
+                    <p className="font-mono text-gray-700 dark:text-gray-300">{invoice.additionalInfo?.vehicleNumber || '-'}</p>
+                  </div>
+
+                  <div className="col-span-2">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Sana</p>
+                    <p className="text-gray-700 dark:text-gray-300">{formatDate(invoice.date)}</p>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
+                      className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-500 border border-gray-200 dark:border-gray-600"
+                    >
+                      <Icon icon="lucide:eye" className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
+                      className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800"
+                    >
+                      <Icon icon="lucide:pencil" className="w-5 h-5" />
+                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateInvoice(invoice)}
+                        className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800"
+                      >
+                        <Icon icon="lucide:copy" className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="flex-1 flex flex-col min-h-0 bg-white/70 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 dark:border-gray-700/50 overflow-visible sm:overflow-hidden ring-1 ring-black/5 dark:ring-white/5">

@@ -13,6 +13,7 @@ import {
 } from 'chart.js';
 import apiClient from '../lib/api';
 import { useTheme } from '../contexts/ThemeContext';
+import { useIsMobile } from '../utils/useIsMobile';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -51,6 +52,7 @@ function KpiCard({ label, value, icon, sub }: { label: string; value: string | n
 export default function CrmDashboard() {
     const navigate = useNavigate();
     const { theme } = useTheme();
+    const isMobile = useIsMobile();
     const [stats, setStats] = useState<Stats | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -102,7 +104,7 @@ export default function CrmDashboard() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className={`space-y-6 ${isMobile ? 'pb-32' : ''}`}>
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CRM Analytics</h1>

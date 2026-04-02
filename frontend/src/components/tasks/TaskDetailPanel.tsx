@@ -191,7 +191,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-[100] backdrop-blur-md p-4 sm:p-6"
+      className={`fixed inset-0 bg-gray-900/60 flex items-center justify-center z-[100] backdrop-blur-md ${isMobile ? 'p-0' : 'p-4 sm:p-6'}`}
       style={{
         animation: 'backdropFadeIn 0.3s ease-out'
       }}
@@ -202,13 +202,26 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
       }}
     >
       <div
-        className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/50 dark:border-slate-700/50 p-5 md:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar relative overflow-hidden"
+        className={`bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/50 dark:border-slate-700/50 p-5 md:p-6 w-full overflow-y-auto custom-scrollbar relative overflow-x-hidden ${
+          isMobile 
+            ? 'h-full rounded-none pt-20 pb-32 px-4' 
+            : 'max-w-4xl max-h-[90vh] rounded-3xl'
+        }`}
         style={{
-          animation: 'modalFadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
+          animation: isMobile ? 'none' : 'modalFadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
         }}
       >
         {/* Decorative top solid bar */}
-        <div className="absolute top-0 left-0 right-0 h-2 bg-indigo-600"></div>
+        <div className="absolute top-0 left-0 right-0 h-2 bg-indigo-600 z-50"></div>
+
+        {isMobile && (
+          <button
+            onClick={() => onClose()}
+            className="fixed top-4 right-4 z-[110] p-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-full shadow-lg border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all"
+          >
+            <Icon icon="lucide:x" className="w-6 h-6" />
+          </button>
+        )}
 
         <div className="relative z-10 flex justify-between items-start mb-5 gap-4">
           <div>

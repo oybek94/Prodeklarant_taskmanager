@@ -1264,6 +1264,88 @@ const Transactions = () => {
 
       {loading ? (
         <div className="text-center py-12 text-gray-500 font-medium bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/60 dark:border-slate-700/60 shadow-sm">Yuklanmoqda...</div>
+      ) : isMobile ? (
+        <div className="space-y-4">
+          {paginatedTransactions.map((t) => (
+            <div key={t.id} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-4 space-y-3">
+              <div className="flex justify-between items-start">
+                <span
+                  className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${t.type === 'INCOME'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/50'
+                    : t.type === 'EXPENSE'
+                      ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-800/50'
+                      : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50'
+                    }`}
+                >
+                  {t.type}
+                </span>
+                <p className="text-sm font-bold text-gray-900 dark:text-white">
+                  {t.amount} {t.currency}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-y-2 text-sm">
+                <div className="col-span-2">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs">Client/Worker/Category</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">
+                    {t.type === 'INCOME' && t.client
+                      ? t.client.name
+                      : t.type === 'SALARY' && t.worker
+                        ? t.worker.name
+                        : t.expenseCategory || '-'}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400 text-xs">To'lov usuli</p>
+                  {t.paymentMethod ? (
+                    <span className={`inline-block px-2 py-0.5 mt-0.5 text-[10px] font-semibold rounded-full border ${t.paymentMethod === 'CASH'
+                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-100 dark:border-blue-800/50'
+                      : 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 border-purple-100 dark:border-purple-800/50'
+                      }`}>
+                      {t.paymentMethod === 'CASH' ? 'Naqt' : 'Karta'}
+                    </span>
+                  ) : <span className="text-gray-400">-</span>}
+                </div>
+
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400 text-xs">Sana</p>
+                  <p className="text-gray-700 dark:text-gray-300">{formatDate(t.date)}</p>
+                </div>
+
+                {t.comment && (
+                  <div className="col-span-2">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs">Izoh</p>
+                    <p className="text-gray-600 dark:text-gray-400 text-xs italic">{t.comment}</p>
+                  </div>
+                )}
+              </div>
+
+              {user?.role === 'ADMIN' && (
+                <div className="pt-3 border-t border-gray-100 dark:border-slate-800/60 flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      if (isMobile) {
+                        navigate(`/transactions/${t.id}/edit`);
+                      } else {
+                        handleEdit(t);
+                      }
+                    }}
+                    className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800"
+                  >
+                    <Icon icon="lucide:pencil" className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(t.id)}
+                    className="p-2 rounded-lg bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800"
+                  >
+                    <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 dark:border-slate-700/60 overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
           <div className="overflow-auto max-h-[calc(100vh-18rem)] custom-scrollbar">

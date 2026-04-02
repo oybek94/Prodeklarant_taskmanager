@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import MonetaryInput from '../components/MonetaryInput';
 import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
+import { useIsMobile } from '../utils/useIsMobile';
 
 interface TaskStage {
   id: number;
@@ -50,6 +51,7 @@ const TaskDetail = () => {
   const navigate = useNavigate();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingStage, setUpdatingStage] = useState<number | null>(null);
@@ -196,7 +198,7 @@ const TaskDetail = () => {
   }
 
   return (
-    <div>
+    <div className={isMobile ? 'pb-32' : ''}>
       <div className="flex justify-between items-center mb-6">
         <div>
           <button

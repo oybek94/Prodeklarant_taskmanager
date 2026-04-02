@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
+import { useIsMobile } from '../utils/useIsMobile';
 import {
   addTnvedProduct,
   deleteTnvedProduct,
@@ -166,6 +167,7 @@ const IconCancel = () => (
 );
 
 const Settings = () => {
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   const [tnvedProducts, setTnvedProductsLocal] = useState<TnvedProduct[]>([]);
   const [tnvedName, setTnvedName] = useState('');
@@ -940,7 +942,7 @@ const Settings = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+    <div className={`max-w-7xl mx-auto p-4 md:p-6 lg:p-8 ${isMobile ? 'pb-32' : ''}`}>
       <div className="flex flex-col md:flex-row gap-6">
         {/* Sidebar */}
         <div className="w-full md:w-64 shrink-0">

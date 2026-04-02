@@ -4,8 +4,10 @@ import DebtDashboard from '../components/debts/DebtDashboard';
 import DebtTable from '../components/debts/DebtTable';
 import { Icon } from '@iconify/react';
 import AddDebtModal from '../components/debts/AddDebtModal';
+import { useIsMobile } from '../utils/useIsMobile';
 
 const Debts = () => {
+    const isMobile = useIsMobile();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [debts, setDebts] = useState<any[]>([]);
     const [stats, setStats] = useState<any>(null);
@@ -57,7 +59,7 @@ const Debts = () => {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in pb-10">
+        <div className={`space-y-6 animate-fade-in ${isMobile ? 'pb-32' : 'pb-10'}`}>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/60 backdrop-blur-xl p-5 rounded-2xl shadow-sm border border-white/80 shrink-0">
                 <div className="flex items-center gap-4">
                   <div className="p-3.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/30">

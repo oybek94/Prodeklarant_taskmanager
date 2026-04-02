@@ -1511,7 +1511,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   }, [isModalMode, modalContractId, selectedClient, showClientModal]);
 
   return (
-    <div className={isModalMode ? "" : "max-w-7xl mx-auto space-y-6"}>
+    <div className={isModalMode ? "" : `max-w-7xl mx-auto space-y-6 ${isMobile ? 'pb-32' : ''}`}>
       {!isModalMode && (
         <div className="contents">
           {/* Header */}
@@ -2231,6 +2231,40 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     <Icon icon="lucide:file-x-2" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
                     <span className="text-sm font-medium">Ushbu mijozga tegishli shartnomalar yo'q</span>
                   </div>
+                ) : isMobile ? (
+                  <div className="space-y-3">
+                    {contracts.map((contract) => (
+                      <div key={contract.id} className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm space-y-3">
+                        <div className="flex justify-between items-start">
+                          <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded text-[10px] font-bold border border-gray-200/50 dark:border-slate-700/50">
+                            #{contract.contractNumber}
+                          </span>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                            {new Date(contract.contractDate).toLocaleDateString('uz-UZ')}
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">Sotuvchi / Sotib oluvchi</p>
+                          <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 line-clamp-1">{contract.sellerName}</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{contract.buyerName}</p>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2 border-t border-gray-50 dark:border-slate-800">
+                          <button
+                            onClick={() => handleEditContract(contract)}
+                            className="p-2 text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg"
+                          >
+                            <Icon icon="lucide:pencil" className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteContract(contract.id)}
+                            className="p-2 text-rose-600 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400 rounded-lg"
+                          >
+                            <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="border border-gray-200 dark:border-slate-700/50 rounded-xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
@@ -2346,6 +2380,27 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       <Icon icon="lucide:inbox" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
                       <span className="text-sm font-medium">Bajarilgan ishlar mavjud emas</span>
                     </div>
+                  ) : isMobile ? (
+                    <div className="p-4 space-y-4">
+                      {selectedClient.tasks.slice(0, 10).map(task => (
+                        <div key={task.id} className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700 space-y-3">
+                          <div className="flex justify-between items-start">
+                            <span className="text-xs font-bold text-gray-900 dark:text-gray-100">#{task.id}</span>
+                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50">
+                              {task.status}
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight">{task.title || '-'}</h4>
+                          <div className="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400">
+                            <span className="flex items-center gap-1">
+                              <Icon icon="lucide:building" className="w-3.5 h-3.5" />
+                              {task.branch?.name || '-'}
+                            </span>
+                            <span>{new Date(task.createdAt).toLocaleDateString('uz-UZ')}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-100 dark:divide-slate-700/50">
@@ -2402,6 +2457,26 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-slate-800/30 rounded-xl border border-gray-100 dark:border-slate-700/50 border-dashed">
                     <Icon icon="lucide:circle-dollar-sign" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
                     <span className="text-sm font-medium">To'lovlar tarixi yo'q</span>
+                  </div>
+                ) : isMobile ? (
+                  <div className="space-y-3">
+                    {selectedClient.transactions.map((transaction) => (
+                      <div key={transaction.id} className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm space-y-3">
+                        <div className="flex justify-between items-center">
+                          <div className="text-[13px] font-bold text-green-600 dark:text-emerald-400 bg-green-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-lg border border-green-100 dark:border-emerald-800/50">
+                            +${Number(transaction.amount).toFixed(2)} {transaction.currency}
+                          </div>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                            {formatDate(transaction.date)}
+                          </span>
+                        </div>
+                        {transaction.comment && (
+                          <div className="text-[11px] text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-slate-800/50 p-2 rounded-lg italic">
+                            {transaction.comment}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="border border-gray-200 dark:border-slate-700/50 rounded-xl overflow-hidden shadow-sm">

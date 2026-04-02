@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
 import { useFileHelpers } from '../components/tasks/useFileHelpers';
+import { useIsMobile } from '../utils/useIsMobile';
 
 interface ArchiveDocument {
   id: number;
@@ -120,8 +121,10 @@ const Archive = () => {
   const uniqueClients = Array.from(new Set(documents.map(d => d.clientName))).sort();
   const uniqueBranches = Array.from(new Set(documents.map(d => d.branchName))).sort();
 
+  const isMobile = useIsMobile();
+
   return (
-    <div className="p-6">
+    <div className={`p-6 ${isMobile ? 'pb-32' : ''}`}>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Arxiv</h1>
         <p className="text-gray-600">Yakunlangan task'larning hujjatlari</p>
@@ -187,6 +190,46 @@ const Archive = () => {
       ) : documents.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <div className="text-gray-500 text-lg">Hujjatlar topilmadi</div>
+        </div>
+      ) : isMobile ? (
+        <div className="space-y-4">
+          {documents.map((doc) => (
+            <div key={doc.id} className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 flex flex-col gap-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0">
+                    {getFileIcon(doc.fileType, doc.name)}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 line-clamp-1">{doc.name}</h3>
+                    <p className="text-xs text-gray-500">{formatFileSize(doc.fileSize)}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => downloadFile(doc.fileUrl, doc.name)}
+                  className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Icon icon="lucide:download" className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-50">
+                <div>
+                  <p className="text-[10px] text-gray-400 uppercase font-bold">Client</p>
+                  <p className="text-xs font-medium text-gray-700">{doc.clientName}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-400 uppercase font-bold">Filial</p>
+                  <p className="text-xs font-medium text-gray-700">{doc.branchName}</p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-2 flex justify-between items-center text-[10px] text-gray-500">
+                <span>Task: {doc.taskTitle} (ID: {doc.taskId})</span>
+                <span>{new Date(doc.archivedAt).toLocaleDateString('uz-UZ')}</span>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">

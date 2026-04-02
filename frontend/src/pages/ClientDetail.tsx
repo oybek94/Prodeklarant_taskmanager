@@ -5,6 +5,7 @@ import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
+import { useIsMobile } from '../utils/useIsMobile';
 
 const resolveUploadUrl = (url?: string | null) => {
   if (!url) return '';
@@ -84,6 +85,7 @@ const destinationCountryOptions = [
 const ClientDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   const isManagerOnly = user?.role === 'MANAGER';
   const [client, setClient] = useState<Client | null>(null);
@@ -789,15 +791,50 @@ const ClientDetail = () => {
               });
               setShowContractForm(true);
             }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-md"
+            className="px-3 py-2 sm:px-4 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-md flex items-center justify-center gap-2"
           >
-            + Yangi shartnoma
+            <Icon icon="lucide:plus" className="w-5 h-5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Yangi shartnoma</span>
           </button>
         </div>
         {loadingContracts ? (
           <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
         ) : contracts.length === 0 ? (
           <div className="text-center py-8 text-gray-400">Shartnomalar yo'q</div>
+        ) : isMobile ? (
+          <div className="space-y-4">
+            {contracts.map((contract) => (
+              <div key={contract.id} className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100">
+                <div className="flex justify-between items-start">
+                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold">
+                    #{contract.contractNumber}
+                  </span>
+                  <span className="text-[11px] text-gray-500 font-medium">
+                    {formatDate(contract.contractDate)}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">Sotuvchi / Sotib oluvchi</p>
+                  <p className="text-xs font-semibold text-gray-800 line-clamp-1">{contract.sellerName}</p>
+                  <p className="text-xs text-gray-600 line-clamp-1">{contract.buyerName}</p>
+                </div>
+                <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                  <button
+                    onClick={() => handleEditContract(contract)}
+                    className="p-2 text-blue-600 bg-blue-50 rounded-lg"
+                  >
+                    <Icon icon="lucide:pencil" className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteContract(contract.id)}
+                    className="p-2 text-red-600 bg-red-50 rounded-lg"
+                  >
+                    <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -866,6 +903,49 @@ const ClientDetail = () => {
           <h2 className="text-lg font-semibold mb-4">Buyurtmalar ({client.tasks?.length ?? 0})</h2>
           {(client.tasks?.length ?? 0) === 0 ? (
             <div className="text-center py-8 text-gray-400">Buyurtmalar yo'q</div>
+          ) : isMobile ? (
+            <div className="space-y-4">
+              {(client.tasks || []).map((task) => (
+                <div key={task.id} className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100">
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-sm font-bold text-gray-800">{task.title}</h3>
+                    <span
+                      className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${task.status === 'TAYYOR'
+                        ? 'bg-green-100 text-green-800'
+                        : task.status === 'JARAYONDA'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-gray-100 text-gray-800'
+                        }`}
+                    >
+                      {task.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Icon icon="lucide:building" className="w-3.5 h-3.5" />
+                      {task.branch.name}
+                    </span>
+                    <span>{formatDate(task.createdAt)}</span>
+                  </div>
+                  <div className="flex gap-2 pt-2 border-t border-gray-100">
+                    <button
+                      onClick={() => navigate(`/tasks/${task.id}`)}
+                      className="flex-1 flex justify-center items-center gap-2 py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold"
+                    >
+                      <Icon icon="lucide:eye" className="w-4 h-4" />
+                      Ko'rish
+                    </button>
+                    <button
+                      onClick={() => navigate(`/invoices/task/${task.id}`)}
+                      className="flex-1 flex justify-center items-center gap-2 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold"
+                    >
+                      <Icon icon="lucide:file-text" className="w-4 h-4" />
+                      Invoice
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -949,6 +1029,26 @@ const ClientDetail = () => {
           <h2 className="text-lg font-semibold mb-4">To'lovlar ({(client.transactions || []).length})</h2>
           {(client.transactions?.length ?? 0) === 0 ? (
             <div className="text-center py-8 text-gray-400">To'lovlar yo'q</div>
+          ) : isMobile ? (
+            <div className="space-y-4">
+              {(client.transactions || []).map((t) => (
+                <div key={t.id} className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100">
+                  <div className="flex justify-between items-center">
+                    <CurrencyDisplay
+                      amount={Number(t.amount)}
+                      originalCurrency={t.currency as 'USD' | 'UZS'}
+                      className="text-sm font-bold text-gray-900"
+                    />
+                    <span className="text-[11px] text-gray-500">{formatDate(t.date)}</span>
+                  </div>
+                  {t.comment && (
+                    <p className="text-[11px] text-gray-600 italic bg-white p-2 rounded border border-gray-50">
+                      {t.comment}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -987,7 +1087,7 @@ const ClientDetail = () => {
       {/* Contract Form Modal */}
       {showContractForm && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] backdrop-blur-sm overflow-y-auto py-4"
+          className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] backdrop-blur-sm ${isMobile ? 'p-0' : 'p-4 overflow-y-auto py-4'}`}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
               setShowContractForm(false);
@@ -995,7 +1095,18 @@ const ClientDetail = () => {
             }
           }}
         >
-          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4 my-auto max-h-[90vh] overflow-y-auto">
+          <div className={`bg-white shadow-2xl p-6 w-full overflow-y-auto relative ${isMobile ? 'h-full rounded-none pt-16 pb-32 px-4' : 'rounded-lg max-w-4xl mx-4 my-auto max-h-[90vh]'}`}>
+            {isMobile && (
+              <button
+                onClick={() => {
+                  setShowContractForm(false);
+                  setEditingContract(null);
+                }}
+                className="fixed top-4 right-4 z-[110] p-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-gray-200 text-gray-500 hover:text-gray-900 transition-all"
+              >
+                <Icon icon="lucide:x" className="w-6 h-6" />
+              </button>
+            )}
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-800">
                 {editingContract ? 'Shartnoma tahrirlash' : 'Yangi shartnoma'}

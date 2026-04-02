@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
+import { useIsMobile } from '../utils/useIsMobile';
 
 interface Training {
   id: number;
@@ -21,6 +22,7 @@ interface Training {
 }
 
 export default function Training() {
+  const isMobile = useIsMobile();
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,7 +50,7 @@ export default function Training() {
   }
 
   return (
-    <div className="p-6 min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+    <div className={`p-6 min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300 ${isMobile ? 'pb-32' : ''}`}>
       <div className="mb-10 max-w-4xl">
         <div className="flex items-center gap-3 mb-3">
           <div className="p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/30">

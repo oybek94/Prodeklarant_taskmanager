@@ -18,6 +18,7 @@ import {
 import { Line } from 'react-chartjs-2';
 import { Icon } from '@iconify/react';
 import Chart from 'react-apexcharts';
+import { useIsMobile } from '../utils/useIsMobile';
 
 ChartJS.register(
   CategoryScale,
@@ -123,6 +124,7 @@ interface Task {
 }
 
 const Dashboard = () => {
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -474,7 +476,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] dark:bg-gray-900 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/40 via-purple-50/20 to-white pb-12 pt-4 px-2 sm:px-6 lg:px-8 overflow-x-hidden">
+    <div className={`min-h-screen bg-[#f3f4f6] dark:bg-gray-900 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/40 via-purple-50/20 to-white pb-12 pt-4 px-2 sm:px-6 lg:px-8 overflow-x-hidden ${isMobile ? 'pb-32' : ''}`}>
       {/* Main Content */}
       <div className="max-w-[1600px] mx-auto space-y-4 sm:space-y-6">
         {/* Page Header (Hero style) */}

@@ -377,7 +377,7 @@ const Layout = () => {
         )}
 
         {/* Main Content Outlet */}
-        <main className={`flex-1 ${isInvoicesPage || isExamPage ? 'overflow-hidden flex flex-col min-h-0' : 'overflow-y-auto'} ${isExamPage ? 'p-0' : 'p-2 md:p-6'}`}>
+        <main className={`flex-1 ${!isDesktop ? 'overflow-y-auto' : (isInvoicesPage || isExamPage ? 'overflow-hidden flex flex-col' : 'overflow-y-auto')} ${isExamPage ? 'p-0' : 'px-2 pt-2 pb-32 md:p-6'}`}>
           <Outlet />
         </main>
       </div>

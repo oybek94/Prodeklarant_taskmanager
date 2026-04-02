@@ -478,7 +478,7 @@ const Invoices = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-transparent px-2 sm:px-0">
+    <div className="flex-1 flex flex-col sm:min-h-0 bg-transparent px-2 sm:px-0">
       <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0 px-2">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white shadow-sm shrink-0">
@@ -1204,8 +1204,8 @@ const Invoices = () => {
           <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Siz qidirayotgan qidiruv so&apos;rovi yoki filtrlarga mos keluvchi invoice topilmadi.</p>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col min-h-0 bg-white/70 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 dark:border-gray-700/50 overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
-          <div className="flex-1 overflow-auto bg-transparent">
+        <div className="flex-1 flex flex-col min-h-0 bg-white/70 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 dark:border-gray-700/50 overflow-visible sm:overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
+          <div className="flex-1 overflow-visible sm:overflow-auto bg-transparent">
             <table className="min-w-full">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-100/80 dark:border-gray-700/80">

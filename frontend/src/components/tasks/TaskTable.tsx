@@ -121,26 +121,26 @@ const TaskCard: React.FC<{ task: Task; isArchive: boolean; onClick: () => void }
         </span>
       </div>
 
-      {/* Row 3: Archive extras */}
-      {isArchive && (
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-slate-800">
-          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
-            {task.branch.name}
+      {/* Row 3: Task Details (Shown always on mobile now) */}
+      <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-gray-100 dark:border-slate-800">
+        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
+          {task.branch.name}
+        </span>
+        {task.hasPsr && (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-800 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full">
+            PSR
           </span>
-          <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full ${task.hasPsr ? 'bg-green-100 text-green-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-gray-100 text-gray-500'}`}>
-            PSR: {task.hasPsr ? 'Bor' : '-'}
+        )}
+        {task.customsPaymentMultiplier && (
+          <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full ${getBXMColor(task.customsPaymentMultiplier)}`}>
+            {task.customsPaymentMultiplier} BXM
           </span>
-          {task.customsPaymentMultiplier && (
-            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full ${getBXMColor(task.customsPaymentMultiplier)}`}>
-              {task.customsPaymentMultiplier} BXM
-            </span>
-          )}
-          <div className="flex items-center gap-1 ml-auto">
-            <Icon icon="lucide:clock" className={`w-3 h-3 ${totalDuration.color}`} />
-            <span className={`text-[10px] font-medium ${totalDuration.color}`}>{totalDuration.text}</span>
-          </div>
+        )}
+        <div className="flex items-center gap-1 ml-auto">
+          <Icon icon="lucide:clock" className={`w-3 h-3 ${totalDuration.color}`} />
+          <span className={`text-[10px] font-medium ${totalDuration.color}`}>{totalDuration.text}</span>
         </div>
-      )}
+      </div>
 
       {/* Comments */}
       {task.comments && (

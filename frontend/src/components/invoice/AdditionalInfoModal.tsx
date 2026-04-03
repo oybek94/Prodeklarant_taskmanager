@@ -44,6 +44,33 @@ export function AdditionalInfoModal({
   onClose,
   onShowAddField,
 }: AdditionalInfoModalProps) {
+
+  // Helper function dynamically to update notes while keeping user custom text
+  const updateNotesWithWeights = (
+    currentNotes: string,
+    palletW: string,
+    vehicleW: string
+  ): string => {
+    let text = currentNotes || '';
+    
+    // Pattern to catch any previously added auto-notes
+    const palletRegex = /Товары уложены на деревянных паллетах которые не являются товаром весом .*? кг\./g;
+    const vehicleRegex = /Вес пустого автотранспорта без нагрузки составляет .*? кг\./g;
+
+    text = text.replace(palletRegex, '').replace(vehicleRegex, '').trim();
+
+    const parts = [text].filter(Boolean);
+
+    if (palletW.trim()) {
+      parts.push(`Товары уложены на деревянных паллетах которые не являются товаром весом ${palletW} кг.`);
+    }
+    if (vehicleW.trim()) {
+      parts.push(`Вес пустого автотранспорта без нагрузки составляет ${vehicleW} кг.`);
+    }
+
+    return parts.join('\n');
+  };
+
   return (
     <div className="invoice-additional-info-modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className={`bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto${!canEditEffective ? ' invoice-additional-info-modal-readonly' : ''}`}>
@@ -236,6 +263,27 @@ export function AdditionalInfoModal({
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Примечание:
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={form.vehicleWeight ?? ''}
+                      onChange={(e) => {
+                        const vWeight = e.target.value;
+                        setForm({
+                          ...form,
+                          vehicleWeight: vWeight,
+                          notes: updateNotesWithWeights(form.notes, form.palletWeight, vWeight)
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      placeholder="Masalan: 16400"
+                    />
+                  </div>
                 </div>
                 <div className="md:col-span-1 w-[110px]">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Yuk tortuvchi</label>
@@ -253,13 +301,11 @@ export function AdditionalInfoModal({
                     step="any"
                     value={form.palletWeight}
                     onChange={(e) => {
-                      const weight = e.target.value;
+                      const pWeight = e.target.value;
                       setForm({
                         ...form,
-                        palletWeight: weight,
-                        notes: weight.trim()
-                          ? `Товары уложены на деревянных паллетах которые не являются товаром весом ${weight} кг.`
-                          : form.notes,
+                        palletWeight: pWeight,
+                        notes: updateNotesWithWeights(form.notes, pWeight, form.vehicleWeight ?? '')
                       });
                     }}
                     className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right"

@@ -200,6 +200,7 @@ export interface InvoiceFormData {
   documents: string;
   carrier: string;
   tirNumber: string;
+  vehicleWeight: string;
   [key: string]: unknown;
 }
 
@@ -239,6 +240,7 @@ export const DEFAULT_INVOICE_FORM_STATE: InvoiceFormData = {
   documents: '',
   carrier: '',
   tirNumber: '',
+  vehicleWeight: '',
 };
 
 // --- Constants ---

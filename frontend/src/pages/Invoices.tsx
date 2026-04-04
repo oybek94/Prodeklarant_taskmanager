@@ -130,16 +130,22 @@ const Invoices = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const filtersPanelRef = useRef<HTMLDivElement>(null);
+  const [openTemplateDropdownId, setOpenTemplateDropdownId] = useState<number | null>(null);
+  const [downloadingTemplate, setDownloadingTemplate] = useState<string | null>(null);
+  const templateDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (showFiltersPanel && filtersPanelRef.current && !filtersPanelRef.current.contains(event.target as Node)) {
         setShowFiltersPanel(false);
       }
+      if (openTemplateDropdownId !== null && templateDropdownRef.current && !templateDropdownRef.current.contains(event.target as Node)) {
+        setOpenTemplateDropdownId(null);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showFiltersPanel]);
+  }, [showFiltersPanel, openTemplateDropdownId]);
 
   const [filters, setFilters] = useState<{
     branchId: string;
@@ -338,6 +344,68 @@ const Invoices = () => {
       setWorkers([]);
     }
   };
+
+  const downloadInvoiceTemplate = useCallback(async (
+    invoiceId: number,
+    invoiceNumber: string,
+    templateKey: string
+  ) => {
+    const templateLabel = templateKey;
+    setDownloadingTemplate(`${invoiceId}-${templateKey}`);
+    try {
+      let endpoint = '';
+      let fileName = '';
+      const safe = (invoiceNumber || String(invoiceId)).replace(/[\\/:\*?"<>|]+/g, '_');
+
+      if (templateKey === 'TIR') {
+        endpoint = `/invoices/${invoiceId}/tir`;
+        fileName = `TIR_${safe}.xlsx`;
+      } else if (templateKey === 'SMR') {
+        endpoint = `/invoices/${invoiceId}/cmr`;
+        fileName = `SMR_${safe}.xlsx`;
+      } else if (templateKey === 'Tashqi') {
+        endpoint = `/invoices/${invoiceId}/fss?template=tashqi`;
+        fileName = `TASHQI_${safe}.xlsx`;
+      } else if (templateKey === 'ST-1') {
+        endpoint = `/invoices/${invoiceId}/st1`;
+        fileName = `ST1_${safe}.xlsx`;
+      } else if (templateKey === 'InvoysPechatli') {
+        endpoint = `/invoices/${invoiceId}/pdf`;
+        fileName = `Invoys_${safe}.pdf`;
+      } else if (templateKey === 'InvoysPechatsiz') {
+        endpoint = `/invoices/${invoiceId}/pdf`;
+        fileName = `Invoys_pechatsiz_${safe}.pdf`;
+      } else if (templateKey === 'InvoysExcel') {
+        endpoint = `/invoices/${invoiceId}/xlsx`;
+        fileName = `Invoys_${safe}.xlsx`;
+      } else if (templateKey === 'Deklaratsiya') {
+        endpoint = `/invoices/${invoiceId}/commodity-ek`;
+        fileName = `Deklaratsiya_${safe}.xlsx`;
+      }
+
+      if (!endpoint) return;
+
+      const response = await apiClient.get(endpoint, { responseType: 'blob' });
+      const blob = new Blob([response.data], {
+        type: response.headers['content-type'] || 'application/octet-stream',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error(`Error downloading ${templateLabel}:`, error);
+      alert(error?.response?.data?.error || error?.message || `${templateLabel} yuklab olishda xatolik yuz berdi`);
+    } finally {
+      setDownloadingTemplate(null);
+      setOpenTemplateDropdownId(null);
+    }
+  }, []);
+
 
   const loadContracts = async (clientId: number) => {
     try {
@@ -1328,7 +1396,7 @@ const Invoices = () => {
           })}
         </div>
       ) : (
-        <div className="flex-1 flex flex-col min-h-0 bg-white/70 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 dark:border-gray-700/50 overflow-visible sm:overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
+        <div className="flex-1 flex flex-col min-h-0 bg-white/70 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 dark:border-gray-700/50 overflow-visible ring-1 ring-black/5 dark:ring-white/5">
           <div className="flex-1 overflow-visible sm:overflow-auto bg-transparent">
             <table className="min-w-full">
               <thead className="sticky top-0 z-10">
@@ -1488,6 +1556,51 @@ const Invoices = () => {
                           >
                             <Icon icon="lucide:pencil" className="w-4 h-4" />
                           </button>
+
+                          {/* Shablonlar dropdown */}
+                          <div className="relative" ref={openTemplateDropdownId === invoice.id ? templateDropdownRef : undefined}>
+                            <button
+                              type="button"
+                              onClick={() => setOpenTemplateDropdownId(openTemplateDropdownId === invoice.id ? null : invoice.id)}
+                              className={`inline-flex items-center justify-center w-8 h-8 rounded-lg shadow-sm ring-1 transition-all hover:shadow ${openTemplateDropdownId === invoice.id ? 'text-violet-700 bg-violet-100 ring-violet-300 dark:bg-violet-900/50 dark:text-violet-300 dark:ring-violet-600' : 'text-violet-500 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 hover:bg-violet-50 dark:hover:bg-slate-700 ring-violet-200/60 dark:ring-slate-700'}`}
+                              title="Shablonlarni yuklab olish"
+                            >
+                              <Icon icon="lucide:download" className="w-4 h-4" />
+                            </button>
+                            {openTemplateDropdownId === invoice.id && (
+                              <div className="absolute right-0 top-9 z-[200] min-w-[215px] bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-100 dark:border-slate-700 py-1.5">
+                                <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider border-b border-gray-100 dark:border-slate-700/60 mb-1">
+                                  Shablonlar yuklab olish
+                                </div>
+                                {[
+                                  { key: 'TIR', label: 'TIR', icon: 'lucide:truck', color: 'text-blue-600 dark:text-blue-400' },
+                                  { key: 'SMR', label: 'SMR (CMR)', icon: 'lucide:file-text', color: 'text-cyan-600 dark:text-cyan-400' },
+                                  { key: 'Tashqi', label: 'Tashqi (FSS)', icon: 'lucide:globe', color: 'text-emerald-600 dark:text-emerald-400' },
+                                  { key: 'ST-1', label: 'ST-1', icon: 'lucide:award', color: 'text-amber-600 dark:text-amber-400' },
+                                  { key: 'InvoysPechatli', label: 'Invoys (Pechatli)', icon: 'lucide:stamp', color: 'text-rose-600 dark:text-rose-400' },
+                                  { key: 'InvoysPechatsiz', label: 'Invoys (Pechatsiz)', icon: 'lucide:file', color: 'text-pink-600 dark:text-pink-400' },
+                                  { key: 'InvoysExcel', label: 'Invoys (Excel)', icon: 'lucide:table-2', color: 'text-green-600 dark:text-green-400' },
+                                  { key: 'Deklaratsiya', label: 'Deklaratsiya', icon: 'lucide:scroll', color: 'text-purple-600 dark:text-purple-400' },
+                                ].map((tmpl) => (
+                                  <button
+                                    key={tmpl.key}
+                                    type="button"
+                                    disabled={downloadingTemplate === `${invoice.id}-${tmpl.key}`}
+                                    onClick={() => downloadInvoiceTemplate(invoice.id, invoice.invoiceNumber, tmpl.key)}
+                                    className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                  >
+                                    {downloadingTemplate === `${invoice.id}-${tmpl.key}` ? (
+                                      <Icon icon="lucide:loader-2" className={`w-4 h-4 animate-spin ${tmpl.color}`} />
+                                    ) : (
+                                      <Icon icon={tmpl.icon} className={`w-4 h-4 ${tmpl.color}`} />
+                                    )}
+                                    <span className="font-medium">{tmpl.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
                           {canEdit && (
                             <>
                               <button

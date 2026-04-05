@@ -188,7 +188,7 @@ export function generateInvoicePDF(data: InvoiceData): any {
       currentY += addressHeight + 5; // Dynamic height + ko'proq padding
     }
     if (data.contract.sellerInn) {
-      doc.text(ensureUTF8(`INN: ${data.contract.sellerInn}`), sellerColumnX, currentY, { width: sellerColumnWidth });
+      doc.text(ensureUTF8(`ИНН: ${data.contract.sellerInn}`), sellerColumnX, currentY, { width: sellerColumnWidth });
       currentY += 8;
     }
     if (data.contract.sellerOgrn) {
@@ -306,7 +306,7 @@ export function generateInvoicePDF(data: InvoiceData): any {
       buyerCurrentY += addressHeight + 5;
     }
     if (data.contract.buyerInn) {
-      doc.text(ensureUTF8(`INN: ${data.contract.buyerInn}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      doc.text(ensureUTF8(`ИНН: ${data.contract.buyerInn}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
       buyerCurrentY += 8;
     }
     if (data.contract.buyerOgrn) {

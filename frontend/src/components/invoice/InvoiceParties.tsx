@@ -49,7 +49,7 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
 
               {(contract?.sellerInn || task?.client?.inn) && (
                 <div>
-                  INN: {contract?.sellerInn || task?.client?.inn}
+                  ИНН: {contract?.sellerInn || task?.client?.inn}
                   {!contract?.sellerInn && task?.client?.inn && (
                     <span className="text-gray-500 text-sm"> (mijoz INN, Deklaratsiya Excel da ishlatiladi)</span>
                   )}
@@ -123,7 +123,7 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
 
               {task?.client?.address && <div>{task.client.address}</div>}
 
-              {task?.client?.inn && <div>INN: {task.client.inn}</div>}
+              {task?.client?.inn && <div>ИНН: {task.client.inn}</div>}
 
               {task?.client?.phone && <div>Tel: {task.client.phone}</div>}
 
@@ -181,7 +181,7 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
 
               {contract?.buyerInn && (
 
-                <div>INN: {contract?.buyerInn}</div>
+                <div>ИНН: {contract?.buyerInn}</div>
 
               )}
 

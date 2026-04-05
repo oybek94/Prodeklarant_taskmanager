@@ -64,7 +64,7 @@ const buildBuyerParts = (client: Client, contract?: Contract | null, currency?: 
       requisites: contract.buyerDetails
         ? splitRequisites(contract.buyerDetails)
         : [
-            contract.buyerInn ? `INN: ${contract.buyerInn}` : '',
+            contract.buyerInn ? `ИНН: ${contract.buyerInn}` : '',
             contract.buyerOgrn ? `OGRN: ${contract.buyerOgrn}` : '',
             contract.buyerBankName
               ? `Bank: ${contract.buyerBankName}${contract.buyerBankSwift ? `, SWIFT: ${contract.buyerBankSwift}` : ''}`
@@ -109,7 +109,7 @@ const buildSellerParts = (contract?: Contract | null, company?: CompanySettings 
       requisites: contract.sellerDetails
         ? splitRequisites(contract.sellerDetails)
         : [
-            contract.sellerInn ? `INN: ${contract.sellerInn}` : '',
+            contract.sellerInn ? `ИНН: ${contract.sellerInn}` : '',
             contract.sellerOgrn ? `OGRN: ${contract.sellerOgrn}` : '',
             contract.sellerBankName
               ? `Bank: ${contract.sellerBankName}${contract.sellerBankSwift ? `, SWIFT: ${contract.sellerBankSwift}` : ''}`
@@ -157,7 +157,7 @@ const buildConsigneeParts = (contract?: Contract | null) => {
     requisites: contract.consigneeDetails
       ? splitRequisites(contract.consigneeDetails)
       : [
-          contract.consigneeInn ? `INN: ${contract.consigneeInn}` : '',
+          contract.consigneeInn ? `ИНН: ${contract.consigneeInn}` : '',
           contract.consigneeOgrn ? `OGRN: ${contract.consigneeOgrn}` : '',
           contract.consigneeBankName
             ? `Bank: ${contract.consigneeBankName}${contract.consigneeBankSwift ? `, SWIFT: ${contract.consigneeBankSwift}` : ''}`

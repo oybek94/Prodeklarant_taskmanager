@@ -24,6 +24,7 @@ interface InvoiceItemsTableProps {
   removeItem: (index: number) => void;
   handleItemChange: (index: number, field: keyof InvoiceItem, value: any) => void;
   handleNameChange: (index: number, value: string) => void;
+  handleNameEnChange: (index: number, value: string) => void;
   handleGrossWeightChange: (index: number, value: string) => void;
   handleNetWeightChange: (index: number, value: string) => void;
   applyGrossWeightFormula: (index: number) => void;
@@ -54,6 +55,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
   removeItem,
   handleItemChange,
   handleNameChange,
+  handleNameEnChange,
   handleGrossWeightChange,
   handleNetWeightChange,
   applyGrossWeightFormula,
@@ -191,7 +193,12 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       {effectiveColumns.index && <td className="px-2 py-2 text-center">{index + 1}</td>}
                       {effectiveColumns.tnved && <td className="px-2 py-2">{item.tnvedCode || ''}</td>}
                       {effectiveColumns.plu && <td className="px-2 py-2">{item.pluCode || ''}</td>}
-                      {effectiveColumns.name && <td className="px-2 py-2">{item.name || ''}</td>}
+                      {effectiveColumns.name && (
+                        <td className="px-2 py-2">
+                          <div>{item.name || ''}</div>
+                          {item.nameEn && <div className="text-gray-500 text-xs mt-1 italic">{item.nameEn}</div>}
+                        </td>
+                      )}
                       {effectiveColumns.unit && <td className="px-2 py-2 text-center">{item.unit || ''}</td>}
                       {effectiveColumns.package && <td className="px-2 py-2">{item.packageType || ''}</td>}
                       {effectiveColumns.quantity && <td className="px-2 py-2 text-right">{item.quantity != null && item.quantity !== 0 ? formatNumber(item.quantity) : ''}</td>}
@@ -234,6 +241,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       {effectiveColumns.name && (
                         <td className="px-2 py-2">
                           <input type="text" value={item.name} onChange={(e) => handleNameChange(index, e.target.value)} list="invoice-tnved-products" className="w-full px-2 py-1 border border-gray-300 rounded text-xs" placeholder="Наименование товара" required />
+                          <input type="text" value={item.nameEn || ''} onChange={(e) => handleNameEnChange(index, e.target.value)} className="w-full px-2 py-1 mt-1 border border-gray-300 rounded text-xs italic" placeholder="English name (optional)" />
                         </td>
                       )}
                       {effectiveColumns.unit && (

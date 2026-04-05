@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ViewTab, FssFilePrefix } from './types';
+import { Icon } from '@iconify/react';
 
 interface InvoiceToolbarProps {
   invoysStageReady: boolean;
@@ -28,6 +29,7 @@ interface InvoiceToolbarProps {
   generateCommodityEkExcel: () => void;
   generateInvoiceExcel: () => void;
   generatePdf: (withStamp: boolean) => void;
+  generatePdfEn: () => void;
   openFssRegionSelector: () => void;
   openFssRegionPicker: (type: FssFilePrefix) => void;
 }
@@ -57,6 +59,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = ({
   generateCommodityEkExcel,
   generateInvoiceExcel,
   generatePdf,
+  generatePdfEn,
   openFssRegionSelector,
   openFssRegionPicker,
 }) => {
@@ -298,6 +301,19 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = ({
                   className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Pechatli PDF
+                </button>
+                <div className="border-t border-gray-100 my-1"></div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    generatePdfEn();
+                    setInvoysDropdownOpen(false);
+                  }}
+                  disabled={templatesDisabled}
+                  className="w-full px-3 py-2 text-left text-sm font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Icon icon="heroicons:language" className="w-4 h-4" />
+                  English Invoice (AI)
                 </button>
               </div>
             )}

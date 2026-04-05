@@ -216,6 +216,7 @@ const Invoice = () => {
     editingNetWeight,
     handleItemChange,
     handleNameChange,
+    handleNameEnChange,
     handleGrossWeightChange,
     applyGrossWeightFormula,
     getGrossWeightDisplayValue,
@@ -242,6 +243,7 @@ const Invoice = () => {
     generateCommodityEkExcel,
     generateFssExcel,
     generateInvoiceExcel,
+    generatePdfEn,
     openFssRegionPicker,
     openFssRegionSelector,
     loadRegionCodes,
@@ -454,6 +456,7 @@ const Invoice = () => {
           generateCommodityEkExcel={generateCommodityEkExcel}
           generateInvoiceExcel={generateInvoiceExcel}
           generatePdf={generatePdf}
+          generatePdfEn={generatePdfEn}
           openFssRegionSelector={openFssRegionSelector}
           openFssRegionPicker={openFssRegionPicker}
         />
@@ -560,6 +563,7 @@ const Invoice = () => {
               removeItem={removeItem}
               handleItemChange={handleItemChange}
               handleNameChange={handleNameChange}
+              handleNameEnChange={handleNameEnChange}
               handleGrossWeightChange={handleGrossWeightChange}
               handleNetWeightChange={handleNetWeightChange}
               applyGrossWeightFormula={applyGrossWeightFormula}

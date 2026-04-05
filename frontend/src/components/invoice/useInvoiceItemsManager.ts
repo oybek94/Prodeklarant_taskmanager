@@ -94,6 +94,10 @@ export function useInvoiceItemsManager({
     setItems(newItems);
   };
 
+  const handleNameEnChange = (index: number, value: string) => {
+    handleItemChange(index, 'nameEn', value);
+  };
+
   const handleGrossWeightChange = (index: number, value: string) => {
     const trimmed = value.trim();
     if (trimmed === '') {
@@ -191,6 +195,7 @@ export function useInvoiceItemsManager({
     setEditingNetWeight,
     handleItemChange,
     handleNameChange,
+    handleNameEnChange,
     handleGrossWeightChange,
     applyGrossWeightFormula,
     getGrossWeightDisplayValue,

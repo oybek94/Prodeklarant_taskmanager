@@ -9,6 +9,7 @@ export interface InvoiceItem {
   tnvedCode?: string;
   pluCode?: string;
   name: string;
+  nameEn?: string | null;
   packageType?: string;
   unit: string;
   quantity: number;

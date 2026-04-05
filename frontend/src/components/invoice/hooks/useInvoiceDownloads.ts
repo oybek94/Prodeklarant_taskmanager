@@ -119,6 +119,29 @@ export function useInvoiceDownloads({
     }
   }, [invoiceRef, buildInvoiceDownloadBase, setIsPdfMode, setPdfIncludeSeal]);
 
+  const generatePdfEn = useCallback(async () => {
+    if (!invoice?.id) {
+      alert('Invoice topilmadi');
+      return;
+    }
+    try {
+      const response = await apiClient.get(`/invoices/${invoice.id}/pdf-en`, {
+        responseType: 'blob',
+      });
+      const fileName = `${buildInvoiceDownloadBase()}_EN.pdf`;
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error('Error downloading English PDF:', error);
+      alert(error instanceof Error ? error.message : 'English PDF yuklab olishda xatolik yuz berdi');
+    }
+  }, [invoice?.id, buildInvoiceDownloadBase]);
+
   // --- Process tracking ---
 
   const trackProcessDownload = useCallback((processType: 'TIR' | 'CERT' | 'DECLARATION') => {
@@ -322,6 +345,7 @@ export function useInvoiceDownloads({
     generateCommodityEkExcel,
     generateFssExcel,
     generateInvoiceExcel,
+    generatePdfEn,
     openFssRegionPicker,
     openFssRegionSelector,
     loadRegionCodes,

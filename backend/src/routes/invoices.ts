@@ -3,6 +3,8 @@ import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { generateInvoicePDF } from '../services/invoice-pdf';
+import { generateInvoicePDFEnglish } from '../services/invoice-pdf-en';
+import { translateRequisites, buildTranslatableTexts } from '../services/translate.service';
 import { generateInvoiceExcel } from '../services/invoice-excel';
 import { generateFssExcel } from '../services/fss-excel';
 import { Prisma } from '@prisma/client';
@@ -218,6 +220,7 @@ const invoiceSchema = z.object({
     tnvedCode: z.string().optional().nullable().transform(v => v ?? undefined),
     pluCode: z.string().optional().nullable().transform(v => v ?? undefined),
     name: z.string(),
+    nameEn: z.string().optional().nullable().transform(v => v ?? undefined),
     packageType: z.string().optional().nullable().transform(v => v ?? undefined),
     unit: z.string(),
     quantity: z.number(),
@@ -725,6 +728,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthR
           tnvedCode: item.tnvedCode || undefined,
           pluCode: item.pluCode || undefined,
           name: item.name,
+          nameEn: item.nameEn || undefined,
           packageType: item.packageType || undefined,
           unit: item.unit,
           quantity: item.quantity,
@@ -988,6 +992,137 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
     if (!res.headersSent) {
       res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
     }
+  }
+});
+
+// GET /invoices/:id/pdf-en - English Invoice PDF yuklab olish
+router.get('/:id/pdf-en', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        items: { orderBy: { orderIndex: 'asc' } },
+        client: true,
+        branch: true,
+      }
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    // Contract ma'lumotlarini olish
+    let contract: any = null;
+    if (invoice.contractId) {
+      contract = await prisma.contract.findUnique({ where: { id: invoice.contractId } });
+    }
+    if (!contract && invoice.contractNumber) {
+      contract = await prisma.contract.findFirst({
+        where: { clientId: invoice.clientId, contractNumber: invoice.contractNumber }
+      });
+    }
+    if (!contract) {
+      contract = await prisma.contract.findFirst({
+        where: { clientId: invoice.clientId },
+        orderBy: [{ contractDate: 'desc' }, { id: 'desc' }]
+      });
+    }
+
+    // Company settings
+    let companySettings: any = null;
+    if (contract) {
+      companySettings = {
+        id: 0, name: contract.sellerName || '', legalAddress: contract.sellerLegalAddress || '',
+        actualAddress: contract.sellerLegalAddress || '', inn: contract.sellerInn || null,
+        phone: null, email: null, bankName: contract.sellerBankName || null,
+        bankAddress: contract.sellerBankAddress || null, bankAccount: contract.sellerBankAccount || null,
+        swiftCode: contract.sellerBankSwift || null, correspondentBank: contract.sellerCorrespondentBank || null,
+        correspondentBankAddress: null, correspondentBankSwift: contract.sellerCorrespondentBankSwift || null,
+        createdAt: new Date(), updatedAt: new Date(),
+      } as any;
+    } else {
+      companySettings = await prisma.companySettings.findFirst();
+      if (!companySettings) {
+        return res.status(400).json({ error: 'Kompaniya sozlamalari topilmadi.' });
+      }
+    }
+
+    // Keshdan tekshirish
+    const additionalInfo = (invoice.additionalInfo && typeof invoice.additionalInfo === 'object')
+      ? (invoice.additionalInfo as Record<string, any>) : {};
+    let translatedRequisites: Record<string, string> = {};
+
+    if (additionalInfo.translatedRequisitesEn && typeof additionalInfo.translatedRequisitesEn === 'object') {
+      // Keshdan olish
+      const cached = additionalInfo.translatedRequisitesEn as Record<string, string | undefined>;
+      for (const [k, v] of Object.entries(cached)) {
+        if (v !== undefined) translatedRequisites[k] = v;
+      }
+    } else {
+      // AI tarjima (on-demand)
+      try {
+        const textsToTranslate = buildTranslatableTexts({
+          contract, client: invoice.client, company: companySettings, additionalInfo,
+        });
+        const aiTranslated = await translateRequisites(textsToTranslate);
+        for (const [k, v] of Object.entries(aiTranslated)) {
+          if (v !== undefined) translatedRequisites[k] = v;
+        }
+
+        // Keshga saqlash
+        await prisma.invoice.update({
+          where: { id: invoice.id },
+          data: {
+            additionalInfo: {
+              ...additionalInfo,
+              translatedRequisitesEn: translatedRequisites,
+            } as Prisma.InputJsonValue,
+          },
+        });
+      } catch (translateError) {
+        console.error('Translation error (using original texts):', translateError);
+        // Fallback: original texts
+      }
+    }
+
+    // English PDF generatsiya
+    const doc = generateInvoicePDFEnglish({
+      invoice: {
+        ...invoice,
+        totalAmount: new Prisma.Decimal(Number(invoice.totalAmount)),
+        items: invoice.items.map(item => ({
+          ...item,
+          quantity: new Prisma.Decimal(Number(item.quantity) || 0),
+          grossWeight: item.grossWeight ? new Prisma.Decimal(Number(item.grossWeight)) : null,
+          netWeight: item.netWeight ? new Prisma.Decimal(Number(item.netWeight)) : null,
+          unitPrice: new Prisma.Decimal(Number(item.unitPrice) || 0),
+          totalPrice: new Prisma.Decimal(Number(item.totalPrice) || 0),
+        }))
+      },
+      client: invoice.client,
+      company: companySettings,
+      contract,
+      translatedRequisites,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}-EN.pdf"`);
+
+    doc.on('error', (err: any) => {
+      console.error('PDF stream error:', err);
+      if (!res.headersSent) res.status(500).json({ error: 'PDF generatsiya xatoligi' });
+    });
+
+    doc.pipe(res);
+    doc.end();
+  } catch (error: any) {
+    console.error('Error generating English invoice PDF:', error);
+    if (!res.headersSent) res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });
 

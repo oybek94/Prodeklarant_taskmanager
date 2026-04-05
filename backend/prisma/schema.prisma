@@ -774,6 +774,7 @@ model InvoiceItem {
   tnvedCode     String?
   pluCode       String?
   name          String
+  nameEn        String?
   packageType   String?
   unit          String
   quantity      Decimal  @db.Decimal(12, 2)

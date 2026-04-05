@@ -83,6 +83,10 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
     });
   }, [selectedContractSpec, invoiceProductOptions]);
 
+  const handleNameEnChange = useCallback((index: number, value: string) => {
+    handleItemChange(index, 'nameEn', value);
+  }, [handleItemChange]);
+
   const handleGrossWeightChange = useCallback((index: number, value: string) => {
     const trimmed = value.trim();
     if (trimmed === '') {
@@ -197,6 +201,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
     editingNetWeight,
     handleItemChange,
     handleNameChange,
+    handleNameEnChange,
     handleGrossWeightChange,
     applyGrossWeightFormula,
     getGrossWeightDisplayValue,

@@ -54,26 +54,23 @@ export const getDebts = async (req: Request, res: Response) => {
     const { status } = req.query; // status: 'active', 'paid'
     
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
 
-    const [debts, total] = await Promise.all([
-      prisma.debt.findMany({
-        include: {
-          person: true,
-          payments: true
-        },
-        orderBy: [
-          { dueDate: { sort: 'asc', nulls: 'last' } as any },
-          { date: 'desc' }
-        ],
-        skip,
-        take: limit
-      }),
-      prisma.debt.count()
-    ]);
+    // Fetch all records with payments to filter by status correctly
+    // Since calculating 'remaining' is done in memory
+    const allDebts = await prisma.debt.findMany({
+      include: {
+        person: true,
+        payments: true
+      },
+      orderBy: [
+        { dueDate: { sort: 'asc', nulls: 'last' } as any },
+        { date: 'desc' }
+      ]
+    });
 
-    const processedDebts = debts.map(debt => {
+    const processedDebts = allDebts.map(debt => {
       const totalPaid = debt.payments.reduce((sum, p) => sum + Number(p.amount), 0);
       const remaining = Number(debt.amount) - totalPaid;
 
@@ -92,8 +89,11 @@ export const getDebts = async (req: Request, res: Response) => {
       filteredDebts = processedDebts.filter(d => d.remaining <= 0);
     }
 
+    const total = filteredDebts.length;
+    const paginatedDebts = filteredDebts.slice(skip, skip + limit);
+
     res.json({
-      debts: filteredDebts,
+      debts: paginatedDebts,
       total,
       page,
       totalPages: Math.ceil(total / limit)
@@ -103,6 +103,7 @@ export const getDebts = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Qarzlarni olishda xato yuz berdi' });
   }
 };
+
 
 export const getDebtById = async (req: Request, res: Response) => {
     try {

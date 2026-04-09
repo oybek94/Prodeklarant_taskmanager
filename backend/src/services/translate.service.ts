@@ -67,9 +67,10 @@ export function buildTranslatableTexts(data: {
   client?: any;
   company?: any;
   additionalInfo?: any;
+  invoice?: any;
 }): Record<string, string> {
   const texts: Record<string, string> = {};
-  const { contract, client, company, additionalInfo } = data;
+  const { contract, client, company, additionalInfo, invoice } = data;
 
   if (contract) {
     if (contract.sellerName) texts.sellerName = contract.sellerName;
@@ -123,6 +124,22 @@ export function buildTranslatableTexts(data: {
     if (additionalInfo.destination) texts.destination = additionalInfo.destination;
     if (additionalInfo.origin) texts.origin = additionalInfo.origin;
     if (additionalInfo.manufacturer) texts.manufacturer = additionalInfo.manufacturer;
+  }
+
+  if (invoice) {
+    if (invoice.notes) texts.notes = invoice.notes;
+    if (invoice.items) {
+      invoice.items.forEach((item: any) => {
+        if (item.packageType) {
+          texts[`pkg_${item.packageType}`] = item.packageType;
+        }
+      });
+    }
+  }
+
+  if (contract) {
+    if (contract.supplierDirector) texts.supplierDirector = contract.supplierDirector;
+    if (contract.goodsReleasedBy) texts.goodsReleasedBy = contract.goodsReleasedBy;
   }
 
   return texts;

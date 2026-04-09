@@ -475,66 +475,73 @@ export function generateInvoicePDF(data: InvoiceData): any {
   const hasTnvedCode = data.invoice.items?.some(item => item.tnvedCode && item.tnvedCode.trim() !== '');
   const hasPluCode = data.invoice.items?.some(item => item.pluCode && item.pluCode.trim() !== '');
   const hasPackageType = data.invoice.items?.some(item => item.packageType && item.packageType.trim() !== '');
+  const hasPackagesCount = data.invoice.items?.some(item => item.packagesCount != null);
   const hasGrossWeight = data.invoice.items?.some(item => item.grossWeight && Number(item.grossWeight) > 0);
   const hasNetWeight = data.invoice.items?.some(item => item.netWeight && Number(item.netWeight) > 0);
-  
+
   // Ustunlar pozitsiyasini hisoblash
   let currentX = startX;
   const colWidths: { [key: string]: number } = {
-    number: 20,
-    tnvedCode: hasTnvedCode ? 60 : 0,
-    pluCode: hasPluCode ? 50 : 0,
-    name: 120,
-    packageType: hasPackageType ? 60 : 0,
-    unit: 40,
-    quantity: 40,
-    grossWeight: hasGrossWeight ? 50 : 0,
-    netWeight: hasNetWeight ? 50 : 0,
-    unitPrice: 50,
-    totalPrice: 60,
+    number: 15,
+    tnvedCode: hasTnvedCode ? 55 : 0,
+    pluCode: hasPluCode ? 45 : 0,
+    name: 90,
+    unit: 25,
+    packageType: hasPackageType ? 45 : 0,
+    quantity: 35,
+    packagesCount: hasPackagesCount ? 40 : 0,
+    grossWeight: hasGrossWeight ? 45 : 0,
+    netWeight: hasNetWeight ? 45 : 0,
+    unitPrice: 40,
+    totalPrice: 50,
   };
   
   const colPositions: { [key: string]: number } = {};
   colPositions.number = currentX;
   currentX += colWidths.number;
-  
+
   if (hasTnvedCode) {
     colPositions.tnvedCode = currentX;
     currentX += colWidths.tnvedCode;
   }
-  
+
   if (hasPluCode) {
     colPositions.pluCode = currentX;
     currentX += colWidths.pluCode;
   }
-  
+
   colPositions.name = currentX;
   currentX += colWidths.name;
-  
+
+  colPositions.unit = currentX;
+  currentX += colWidths.unit;
+
   if (hasPackageType) {
     colPositions.packageType = currentX;
     currentX += colWidths.packageType;
   }
-  
-  colPositions.unit = currentX;
-  currentX += colWidths.unit;
-  
+
   colPositions.quantity = currentX;
   currentX += colWidths.quantity;
-  
+
+  if (hasPackagesCount) {
+    colPositions.packagesCount = currentX;
+    currentX += colWidths.packagesCount;
+  }
+
   if (hasGrossWeight) {
     colPositions.grossWeight = currentX;
     currentX += colWidths.grossWeight;
   }
-  
+
   if (hasNetWeight) {
     colPositions.netWeight = currentX;
     currentX += colWidths.netWeight;
   }
-  
+
   colPositions.unitPrice = currentX;
   currentX += colWidths.unitPrice;
-  
+
   colPositions.totalPrice = currentX;
   currentX += colWidths.totalPrice;
   
@@ -548,11 +555,14 @@ export function generateInvoicePDF(data: InvoiceData): any {
     doc.text(ensureUTF8('Код PLU'), colPositions.pluCode!, tableTop, { width: colWidths.pluCode });
   }
   doc.text(ensureUTF8('Наименование'), colPositions.name, tableTop, { width: colWidths.name });
+  doc.text(ensureUTF8('Ед. изм.'), colPositions.unit, tableTop, { width: colWidths.unit });
   if (hasPackageType) {
     doc.text(ensureUTF8('Вид упаковки'), colPositions.packageType!, tableTop, { width: colWidths.packageType });
   }
-  doc.text(ensureUTF8('Ед. изм.'), colPositions.unit, tableTop, { width: colWidths.unit });
   doc.text(ensureUTF8('Мест'), colPositions.quantity, tableTop, { width: colWidths.quantity });
+  if (hasPackagesCount) {
+    doc.text(ensureUTF8('Кол-во'), colPositions.packagesCount!, tableTop, { width: colWidths.packagesCount });
+  }
   if (hasGrossWeight) {
     doc.text(ensureUTF8('Брутто'), colPositions.grossWeight!, tableTop, { width: colWidths.grossWeight });
   }
@@ -589,11 +599,14 @@ export function generateInvoicePDF(data: InvoiceData): any {
       doc.text(ensureUTF8((item.pluCode || '').toString()), colPositions.pluCode!, y, { width: colWidths.pluCode });
     }
     doc.text(ensureUTF8((item.name || '').toString()), colPositions.name, y, { width: colWidths.name });
+    doc.text(ensureUTF8((item.unit || '').toString()), colPositions.unit, y, { width: colWidths.unit });
     if (hasPackageType) {
       doc.text(ensureUTF8((item.packageType || '').toString()), colPositions.packageType!, y, { width: colWidths.packageType });
     }
-    doc.text(ensureUTF8((item.unit || '').toString()), colPositions.unit, y, { width: colWidths.unit });
     doc.text((item.quantity || 0).toString(), colPositions.quantity, y, { width: colWidths.quantity });
+    if (hasPackagesCount) {
+      doc.text(((item as any).packagesCount || '').toString(), colPositions.packagesCount!, y, { width: colWidths.packagesCount });
+    }
     if (hasGrossWeight) {
       doc.text((item.grossWeight ? item.grossWeight.toString() : ''), colPositions.grossWeight!, y, { width: colWidths.grossWeight });
     }
@@ -616,10 +629,14 @@ export function generateInvoicePDF(data: InvoiceData): any {
   doc.text(ensureUTF8('Всего:'), colPositions.name, totalY, { width: colWidths.name });
   
   const totalQuantity = data.invoice.items.reduce((sum, item) => sum + Number(item.quantity), 0);
+  const totalPackagesCount = data.invoice.items.reduce((sum, item) => sum + Number((item as any).packagesCount || 0), 0);
   const totalGrossWeight = data.invoice.items.reduce((sum, item) => sum + Number(item.grossWeight || 0), 0);
   const totalNetWeight = data.invoice.items.reduce((sum, item) => sum + Number(item.netWeight || 0), 0);
   
   doc.text(totalQuantity.toString(), colPositions.quantity, totalY, { width: colWidths.quantity });
+  if (hasPackagesCount) {
+    doc.text(totalPackagesCount.toString(), colPositions.packagesCount!, totalY, { width: colWidths.packagesCount });
+  }
   if (hasGrossWeight) {
     doc.text(totalGrossWeight > 0 ? totalGrossWeight.toString() : '', colPositions.grossWeight!, totalY, { width: colWidths.grossWeight });
   }

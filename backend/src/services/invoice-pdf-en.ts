@@ -14,7 +14,7 @@ interface InvoiceDataEn {
 function ensureUTF8(text: any): string {
   if (text === null || text === undefined) return '';
   let result = String(text);
-  try { result = result.normalize('NFC'); } catch {}
+  try { result = result.normalize('NFC'); } catch { }
   try { result = Buffer.from(result, 'utf8').toString('utf8'); } catch { result = ''; }
   return result;
 }
@@ -63,7 +63,7 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
         fontRegistered = true;
         break;
       }
-    } catch {}
+    } catch { }
   }
   if (!fontRegistered) doc.font('Helvetica');
 
@@ -404,22 +404,24 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   const hasTnvedCode = data.invoice.items?.some(item => item.tnvedCode && item.tnvedCode.trim() !== '');
   const hasPluCode = data.invoice.items?.some(item => item.pluCode && item.pluCode.trim() !== '');
   const hasPackageType = data.invoice.items?.some(item => item.packageType && item.packageType.trim() !== '');
+  const hasPackagesCount = data.invoice.items?.some(item => item.packagesCount != null);
   const hasGrossWeight = data.invoice.items?.some(item => item.grossWeight && Number(item.grossWeight) > 0);
   const hasNetWeight = data.invoice.items?.some(item => item.netWeight && Number(item.netWeight) > 0);
 
   let currentX = startX;
   const colWidths: Record<string, number> = {
-    number: 20,
-    tnvedCode: hasTnvedCode ? 60 : 0,
-    pluCode: hasPluCode ? 50 : 0,
-    name: 120,
-    packageType: hasPackageType ? 60 : 0,
-    unit: 40,
-    quantity: 40,
-    grossWeight: hasGrossWeight ? 50 : 0,
-    netWeight: hasNetWeight ? 50 : 0,
-    unitPrice: 50,
-    totalPrice: 60,
+    number: 15,
+    tnvedCode: hasTnvedCode ? 55 : 0,
+    pluCode: hasPluCode ? 45 : 0,
+    name: 90,
+    unit: 25,
+    packageType: hasPackageType ? 45 : 0,
+    quantity: 35,
+    packagesCount: hasPackagesCount ? 40 : 0,
+    grossWeight: hasGrossWeight ? 45 : 0,
+    netWeight: hasNetWeight ? 45 : 0,
+    unitPrice: 40,
+    totalPrice: 50,
   };
 
   const colPositions: Record<string, number> = {};
@@ -427,9 +429,10 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   if (hasTnvedCode) { colPositions.tnvedCode = currentX; currentX += colWidths.tnvedCode; }
   if (hasPluCode) { colPositions.pluCode = currentX; currentX += colWidths.pluCode; }
   colPositions.name = currentX; currentX += colWidths.name;
-  if (hasPackageType) { colPositions.packageType = currentX; currentX += colWidths.packageType; }
   colPositions.unit = currentX; currentX += colWidths.unit;
+  if (hasPackageType) { colPositions.packageType = currentX; currentX += colWidths.packageType; }
   colPositions.quantity = currentX; currentX += colWidths.quantity;
+  if (hasPackagesCount) { colPositions.packagesCount = currentX; currentX += colWidths.packagesCount; }
   if (hasGrossWeight) { colPositions.grossWeight = currentX; currentX += colWidths.grossWeight; }
   if (hasNetWeight) { colPositions.netWeight = currentX; currentX += colWidths.netWeight; }
   colPositions.unitPrice = currentX; currentX += colWidths.unitPrice;
@@ -441,9 +444,10 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   if (hasTnvedCode) doc.text('HS Code', colPositions.tnvedCode!, tableTop, { width: colWidths.tnvedCode });
   if (hasPluCode) doc.text('PLU Code', colPositions.pluCode!, tableTop, { width: colWidths.pluCode });
   doc.text('Description', colPositions.name, tableTop, { width: colWidths.name });
-  if (hasPackageType) doc.text('Package Type', colPositions.packageType!, tableTop, { width: colWidths.packageType });
   doc.text('Unit', colPositions.unit, tableTop, { width: colWidths.unit });
-  doc.text('Qty', colPositions.quantity, tableTop, { width: colWidths.quantity });
+  if (hasPackageType) doc.text('Pkg Type', colPositions.packageType!, tableTop, { width: colWidths.packageType });
+  doc.text('Places', colPositions.quantity, tableTop, { width: colWidths.quantity });
+  if (hasPackagesCount) doc.text('Qty', colPositions.packagesCount!, tableTop, { width: colWidths.packagesCount });
   if (hasGrossWeight) doc.text('Gross', colPositions.grossWeight!, tableTop, { width: colWidths.grossWeight });
   if (hasNetWeight) doc.text('Net', colPositions.netWeight!, tableTop, { width: colWidths.netWeight });
   doc.text('Price', colPositions.unitPrice, tableTop, { width: colWidths.unitPrice });
@@ -466,9 +470,13 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       // Use English name if available, fallback to original
       const itemName = (item as any).nameEn || item.name || '';
       doc.text(ensureUTF8(itemName), colPositions.name, y, { width: colWidths.name });
-      if (hasPackageType) doc.text(ensureUTF8(item.packageType || ''), colPositions.packageType!, y, { width: colWidths.packageType });
       doc.text(ensureUTF8(item.unit || ''), colPositions.unit, y, { width: colWidths.unit });
+      if (hasPackageType) {
+        const pkgType = item.packageType ? tr(t, `pkg_${item.packageType}`, item.packageType) : '';
+        doc.text(ensureUTF8(pkgType), colPositions.packageType!, y, { width: colWidths.packageType });
+      }
       doc.text((item.quantity || 0).toString(), colPositions.quantity, y, { width: colWidths.quantity });
+      if (hasPackagesCount) doc.text(((item as any).packagesCount || '').toString(), colPositions.packagesCount!, y, { width: colWidths.packagesCount });
       if (hasGrossWeight) doc.text(item.grossWeight ? item.grossWeight.toString() : '', colPositions.grossWeight!, y, { width: colWidths.grossWeight });
       if (hasNetWeight) doc.text(item.netWeight ? item.netWeight.toString() : '', colPositions.netWeight!, y, { width: colWidths.netWeight });
       doc.text((item.unitPrice || 0).toString(), colPositions.unitPrice, y, { width: colWidths.unitPrice });
@@ -485,20 +493,22 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   setFont('Helvetica-Bold');
   doc.text('Total:', colPositions.name, totalY, { width: colWidths.name });
 
-  const totalQuantity = data.invoice.items.reduce((sum, item) => sum + Number(item.quantity), 0);
+  const totalQuantity = data.invoice.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const totalPackagesCount = data.invoice.items.reduce((sum, item) => sum + Number((item as any).packagesCount || 0), 0);
   const totalGrossWeight = data.invoice.items.reduce((sum, item) => sum + Number(item.grossWeight || 0), 0);
   const totalNetWeight = data.invoice.items.reduce((sum, item) => sum + Number(item.netWeight || 0), 0);
 
   doc.text(totalQuantity.toString(), colPositions.quantity, totalY, { width: colWidths.quantity });
+  if (hasPackagesCount) doc.text(totalPackagesCount.toString(), colPositions.packagesCount!, totalY, { width: colWidths.packagesCount });
   if (hasGrossWeight) doc.text(totalGrossWeight > 0 ? totalGrossWeight.toString() : '', colPositions.grossWeight!, totalY, { width: colWidths.grossWeight });
   if (hasNetWeight) doc.text(totalNetWeight > 0 ? totalNetWeight.toString() : '', colPositions.netWeight!, totalY, { width: colWidths.netWeight });
-  const totalAmount = Number(data.invoice.totalAmount) || 0;
-  doc.text(`${totalAmount.toFixed(2)} ${data.invoice.currency}`, colPositions.totalPrice, totalY, { width: colWidths.totalPrice });
+  doc.text(`${Number(data.invoice.totalAmount || 0).toFixed(2)} ${data.invoice.currency}`, colPositions.totalPrice, totalY, { width: colWidths.totalPrice });
   setFont('Helvetica');
 
   // Amount in words (English)
   const nextY = totalY + 30;
   doc.fontSize(8);
+  const totalAmount = Number(data.invoice.totalAmount) || 0;
   const amountInWords = numberToWordsEn(totalAmount, data.invoice.currency);
   doc.text(ensureUTF8(`Amount in words: ${amountInWords}`), startX, nextY);
   doc.y = nextY + 12;
@@ -509,7 +519,7 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
     let notesY = doc.y;
     if (isNaN(doc.y) || doc.y <= 0 || !isFinite(doc.y)) notesY = (totalY || 400) + 50;
     doc.fontSize(8).text('Special Notes', startX, notesY, { underline: true });
-    const notesText = ensureUTF8(data.invoice.notes);
+    const notesText = ensureUTF8(tr(t, 'notes', data.invoice.notes));
     const notesContentWidth = pageWidth - 2 * margin;
     const notesTextHeight = doc.fontSize(7).heightOfString(notesText, { width: notesContentWidth });
     doc.fontSize(7).text(notesText, startX, notesY + 10, { width: notesContentWidth });
@@ -527,8 +537,8 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   doc.fontSize(10);
 
   try {
-    const supplierDirector = data.contract?.supplierDirector || '';
-    const goodsReleasedBy = data.contract?.goodsReleasedBy || '';
+    const supplierDirector = tr(t, 'supplierDirector', data.contract?.supplierDirector || '');
+    const goodsReleasedBy = tr(t, 'goodsReleasedBy', data.contract?.goodsReleasedBy || '');
     const signaturePath = resolveUploadImagePath(data.contract?.signatureUrl);
     const sealPath = resolveUploadImagePath(data.contract?.sealUrl);
 

@@ -714,11 +714,42 @@ router.get('/:id/pdf-en', requireAuth(), async (req: AuthRequest, res: Response)
       for (const [k, v] of Object.entries(cached)) {
         if (v !== undefined) translatedRequisites[k] = v;
       }
+      
+      // Yangi qo'shilgan matnlar chiqib qolsa, ularni alohida tarjima qilib olamiz
+      const textsToTranslate = buildTranslatableTexts({
+        contract, client: invoice.client, company: companySettings, additionalInfo, invoice
+      });
+      const missingTexts: Record<string, string> = {};
+      for (const [k, v] of Object.entries(textsToTranslate)) {
+        if (!translatedRequisites[k] && v) {
+          missingTexts[k] = v;
+        }
+      }
+      if (Object.keys(missingTexts).length > 0) {
+        try {
+          const aiTranslated = await translateRequisites(missingTexts);
+          for (const [k, v] of Object.entries(aiTranslated)) {
+            if (v !== undefined) translatedRequisites[k] = v;
+          }
+          await prisma.invoice.update({
+            where: { id: invoice.id },
+            data: {
+              additionalInfo: {
+                ...additionalInfo,
+                translatedRequisitesEn: translatedRequisites,
+              } as Prisma.InputJsonValue,
+            },
+          });
+        } catch (e) {
+          console.error('Translation error on missing texts:', e);
+        }
+      }
+
     } else {
       // AI tarjima (on-demand)
       try {
         const textsToTranslate = buildTranslatableTexts({
-          contract, client: invoice.client, company: companySettings, additionalInfo,
+          contract, client: invoice.client, company: companySettings, additionalInfo, invoice
         });
         const aiTranslated = await translateRequisites(textsToTranslate);
         for (const [k, v] of Object.entries(aiTranslated)) {

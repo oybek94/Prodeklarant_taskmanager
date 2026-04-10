@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import type { InvoiceItem, Contract } from '../types';
-import { formatDate } from '../invoiceUtils';
 
 interface ExtensionForm {
   [key: string]: any;
 }
+
 
 /**
  * Chrome extension (AutoFill) integratsiyasi.
@@ -31,7 +31,7 @@ export function useInvoiceExtension(
         IMPPN_NM: selectedContract?.buyerName || '',
         IMPPN_ADDR: selectedContract?.buyerAddress || '',
         EXP_CTDC_NO: (selectedContract?.contractNumber || form.contractNumber || form.invoiceNumber) || '',
-        EXP_CVNT_DT: (selectedContract?.contractDate ? formatDate(selectedContract.contractDate) : (form.date ? formatDate(form.date) : '')) || '',
+        EXP_CVNT_DT: (selectedContract?.contractDate ? String(selectedContract.contractDate).split('T')[0] : (form.date ? String(form.date).split('T')[0] : '')) || '',
         vehicleNumber: form.vehicleNumber || '',
         items: items.map(item => ({
           tnved: item.tnvedCode || '',

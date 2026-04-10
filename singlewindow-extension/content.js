@@ -43,6 +43,10 @@ function fillForm(data) {
             "IMPPN_NM": data.IMPPN_NM,
             "IMPPN_ADDR": data.IMPPN_ADDR,
             
+            // Shartnoma ma'lumotlari
+            "EXP_CTDC_NO": data.EXP_CTDC_NO,
+            "EXP_CVNT_DT": data.EXP_CVNT_DT,
+
             // Maxsus yozuvlar
             "EXP_L_CERT_NO": "Нет",
             "EXP_L_CERT_DT": getTodayDate()

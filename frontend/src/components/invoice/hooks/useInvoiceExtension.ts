@@ -1,10 +1,9 @@
 import { useEffect } from 'react';
 import type { InvoiceItem, Contract } from '../types';
+import { formatDate } from '../invoiceUtils';
 
 interface ExtensionForm {
-  fssRegionName: string;
-  contractNumber: string;
-  vehicleNumber: string;
+  [key: string]: any;
 }
 
 /**
@@ -31,8 +30,8 @@ export function useInvoiceExtension(
         EXPPN_REGN_TP_NM: form.fssRegionName || '',
         IMPPN_NM: selectedContract?.buyerName || '',
         IMPPN_ADDR: selectedContract?.buyerAddress || '',
-        EXP_CTDC_NO: (selectedContract?.contractNumber || form.contractNumber) || '',
-        EXP_CVNT_DT: (selectedContract?.contractDate || '') || '',
+        EXP_CTDC_NO: (selectedContract?.contractNumber || form.contractNumber || form.invoiceNumber) || '',
+        EXP_CVNT_DT: (selectedContract?.contractDate ? formatDate(selectedContract.contractDate) : (form.date ? formatDate(form.date) : '')) || '',
         vehicleNumber: form.vehicleNumber || '',
         items: items.map(item => ({
           tnved: item.tnvedCode || '',

@@ -137,11 +137,7 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
             <strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}
           </div>
         )}
-        {isAdditionalInfoVisible('harvestYear') && form.harvestYear && (
-          <div>
-            <strong>Урожай:</strong> {form.harvestYear}
-          </div>
-        )}
+
         {viewTab === 'spec'
           ? specCustomFields.map((field) =>
             isAdditionalInfoVisible(`spec_${field.id}`) && field.value ? (

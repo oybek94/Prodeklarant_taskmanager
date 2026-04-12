@@ -516,7 +516,7 @@ const Invoice = () => {
             />
 
             {/* Ajratuvchi chiziq */}
-            <div className="border-t border-gray-300 mb-8"></div>
+            <div className="border-t-[1.5px] border-gray-400 my-6"></div>
 
             {/* Sotuvchi va Sotib oluvchi Info */}
             <InvoiceParties
@@ -527,6 +527,9 @@ const Invoice = () => {
               isSellerShipper={isSellerShipper}
               isBuyerConsignee={isBuyerConsignee}
             />
+
+            {/* Ajratuvchi chiziq */}
+            <div className="border-t-[1.5px] border-gray-400 my-4"></div>
 
             {/* Дополнительная информация */}
             <InvoiceAdditionalInfoDisplay
@@ -541,6 +544,9 @@ const Invoice = () => {
               setAddressCopySuccess={setAddressCopySuccess}
               setShowAdditionalInfoModal={setShowAdditionalInfoModal}
             />
+
+            {/* Ajratuvchi chiziq */}
+            <div className="border-t-[1.5px] border-gray-400 my-4"></div>
 
             {/* Items Table */}
             <InvoiceItemsTable

@@ -31,6 +31,15 @@ export const formatNumberFixed = (value?: number): string =>
     ? value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : '';
 
+/** Valyuta ramzini olish */
+export const getCurrencySymbol = (currency?: string): string => {
+  const cur = (currency || '').toUpperCase();
+  if (cur === 'USD') return '$';
+  if (cur === 'EUR') return '€';
+  if (cur === 'RUB') return '₽';
+  return '';
+};
+
 // --- Item operations ---
 
 /** InvoiceItem maydonlarini normalizatsiya qilish (null -> undefined, string -> number) */

@@ -40,6 +40,14 @@ function ensureUTF8(text: any): string {
   return result;
 }
 
+function getCurrencySymbol(currency?: string | null): string {
+  const cur = (currency || '').toUpperCase();
+  if (cur === 'USD') return '$';
+  if (cur === 'EUR') return '€';
+  if (cur === 'RUB') return '₽';
+  return '';
+}
+
 const resolveUploadImagePath = (url?: string | null): string | null => {
   if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return null;
@@ -149,9 +157,8 @@ export function generateInvoicePDF(data: InvoiceData): any {
   doc.text('INVOICE', invoiceTitleX, invoiceTitleY); // text-right: o'ng tomonga align qilish
   
   // Ajratuvchi chiziq - Invoice.tsx'dagi kabi
-  // Invoice.tsx'da INVOICE pastida mb-6 (24px) va chiziq o'rtasida ko'proq bo'shliq bor
-  const separatorY = headerY + 35; // Contract text'dan keyin ko'proq bo'shliq
-  doc.moveTo(margin, separatorY).lineTo(pageWidth - margin, separatorY).stroke();
+  const separatorY = headerY + 20;
+  doc.lineWidth(1.2).moveTo(margin, separatorY).lineTo(pageWidth - margin, separatorY).stroke();
   
   // Keyingi bo'lim uchun Y pozitsiyasini o'rnatish
   doc.y = separatorY + 15; // Chiziqdan keyin bo'shliq
@@ -409,7 +416,16 @@ export function generateInvoicePDF(data: InvoiceData): any {
   
   // Ikkala kolonkaning eng pastki qismini topish
   const maxY = Math.max(currentY, buyerCurrentY);
-  doc.y = maxY;
+  
+  // Sotuvchi va Sotib oluvchi bo'limidan keyin ajratuvchi chiziq
+  const partySeparatorY = maxY + 10;
+  doc.lineWidth(1.2).moveTo(margin, partySeparatorY).lineTo(pageWidth - margin, partySeparatorY).stroke();
+  
+  // Vertikal ajratuvchi chiziq (Sotuvchi va Sotib oluvchi orasida)
+  const centerX = margin + sellerColumnWidth + (columnGap / 2);
+  doc.lineWidth(1.2).moveTo(centerX, separatorY).lineTo(centerX, partySeparatorY).stroke();
+  
+  doc.y = partySeparatorY + 10;
   doc.moveDown(0.5);
   
   // Дополнительная информация - Invoice.tsx formatiga mos
@@ -463,12 +479,17 @@ export function generateInvoicePDF(data: InvoiceData): any {
     }
     
     doc.y = infoY;
+    
+    // Ajratuvchi chiziq (Har bir bo'limdan keyin)
+    const infoSeparatorY = doc.y + 5;
+    doc.lineWidth(1.2).moveTo(margin, infoSeparatorY).lineTo(pageWidth - margin, infoSeparatorY).stroke();
+    doc.y = infoSeparatorY + 10;
     doc.moveDown(0.5);
   }
   
   // Jadval (Товарlar ro'yxati) - compact spacing
   const tableTop = doc.y;
-  const itemHeight = 15; // Reduced from 20
+  const itemHeight = 25; 
   const startX = 30; // Reduced from 50 to match new margin
   
   // Ustunlarni shartli ko'rsatish uchun tekshirish
@@ -573,7 +594,7 @@ export function generateInvoicePDF(data: InvoiceData): any {
   doc.text(ensureUTF8('Сумма'), colPositions.totalPrice, tableTop, { width: colWidths.totalPrice });
   
   // Header chiziq
-  doc.moveTo(startX, tableTop + 15).lineTo(currentX, tableTop + 15).stroke();
+  doc.lineWidth(1.2).moveTo(startX, tableTop + 15).lineTo(currentX, tableTop + 15).stroke();
   
   // Items - compact
   let y = tableTop + 18; // Reduced spacing
@@ -614,16 +635,16 @@ export function generateInvoicePDF(data: InvoiceData): any {
       doc.text((item.netWeight ? item.netWeight.toString() : ''), colPositions.netWeight!, y, { width: colWidths.netWeight });
     }
     doc.text((item.unitPrice || 0).toString(), colPositions.unitPrice, y, { width: colWidths.unitPrice });
-    doc.text((item.totalPrice || 0).toString(), colPositions.totalPrice, y, { width: colWidths.totalPrice });
+    doc.text(Number(item.totalPrice || 0).toFixed(2), colPositions.totalPrice, y, { width: colWidths.totalPrice });
     y += itemHeight;
     });
   }
   
   // Jami chiziq
-  doc.moveTo(startX, y).lineTo(currentX, y).stroke();
+  doc.lineWidth(1.2).moveTo(startX, y).lineTo(currentX, y).stroke();
   
   // Jami
-  const totalY = y + 10;
+  const totalY = y + 5;
   doc.fontSize(8);
   setFont('Helvetica-Bold');
   doc.text(ensureUTF8('Всего:'), colPositions.name, totalY, { width: colWidths.name });
@@ -644,7 +665,7 @@ export function generateInvoicePDF(data: InvoiceData): any {
     doc.text(totalNetWeight > 0 ? totalNetWeight.toString() : '', colPositions.netWeight!, totalY, { width: colWidths.netWeight });
   }
   const totalAmount = Number(data.invoice.totalAmount) || 0;
-  doc.text(`${totalAmount.toFixed(2)} ${data.invoice.currency}`, colPositions.totalPrice, totalY, { width: colWidths.totalPrice });
+  doc.text(`${getCurrencySymbol(data.invoice.currency)} ${totalAmount.toFixed(2)}`, colPositions.totalPrice, totalY, { width: colWidths.totalPrice });
   setFont('Helvetica');
   
   // Calculate the next Y position after the table

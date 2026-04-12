@@ -19,6 +19,14 @@ function ensureUTF8(text: any): string {
   return result;
 }
 
+function getCurrencySymbol(currency?: string | null): string {
+  const cur = (currency || '').toUpperCase();
+  if (cur === 'USD') return '$';
+  if (cur === 'EUR') return '€';
+  if (cur === 'RUB') return '₽';
+  return '';
+}
+
 const resolveUploadImagePath = (url?: string | null): string | null => {
   if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return null;
@@ -102,8 +110,8 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   doc.text('INVOICE', rightColumnX - invoiceTitleWidth, 30);
 
   // Separator
-  const separatorY = headerY + 35;
-  doc.moveTo(margin, separatorY).lineTo(pageWidth - margin, separatorY).stroke();
+  const separatorY = headerY + 20;
+  doc.lineWidth(1.2).moveTo(margin, separatorY).lineTo(pageWidth - margin, separatorY).stroke();
   doc.y = separatorY + 15;
 
   // Two columns: Seller and Buyer
@@ -338,7 +346,16 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   }
 
   const maxY = Math.max(currentY, buyerCurrentY);
-  doc.y = maxY;
+  
+  // Separator after Seller/Buyer sections
+  const partySeparatorY = maxY + 10;
+  doc.lineWidth(1.2).moveTo(margin, partySeparatorY).lineTo(pageWidth - margin, partySeparatorY).stroke();
+  
+  // Vertical separator line
+  const centerX = margin + sellerColumnWidth + (columnGap / 2);
+  doc.lineWidth(1.2).moveTo(centerX, separatorY).lineTo(centerX, partySeparatorY).stroke();
+  
+  doc.y = partySeparatorY + 10;
   doc.moveDown(0.5);
 
   // Additional Information
@@ -393,12 +410,17 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       infoY += 10;
     }
     doc.y = infoY;
+    
+    // Separator after Additional Info
+    const infoSeparatorY = doc.y + 5;
+    doc.lineWidth(1.2).moveTo(margin, infoSeparatorY).lineTo(pageWidth - margin, infoSeparatorY).stroke();
+    doc.y = infoSeparatorY + 10;
     doc.moveDown(0.5);
   }
 
   // Items table
   const tableTop = doc.y;
-  const itemHeight = 15;
+  const itemHeight = 25;
   const startX = 30;
 
   const hasTnvedCode = data.invoice.items?.some(item => item.tnvedCode && item.tnvedCode.trim() !== '');
@@ -453,7 +475,7 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   doc.text('Price', colPositions.unitPrice, tableTop, { width: colWidths.unitPrice });
   doc.text('Amount', colPositions.totalPrice, tableTop, { width: colWidths.totalPrice });
 
-  doc.moveTo(startX, tableTop + 15).lineTo(currentX, tableTop + 15).stroke();
+  doc.lineWidth(1.2).moveTo(startX, tableTop + 15).lineTo(currentX, tableTop + 15).stroke();
 
   let y = tableTop + 18;
   if (!data.invoice.items || data.invoice.items.length === 0) {
@@ -480,15 +502,15 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       if (hasGrossWeight) doc.text(item.grossWeight ? item.grossWeight.toString() : '', colPositions.grossWeight!, y, { width: colWidths.grossWeight });
       if (hasNetWeight) doc.text(item.netWeight ? item.netWeight.toString() : '', colPositions.netWeight!, y, { width: colWidths.netWeight });
       doc.text((item.unitPrice || 0).toString(), colPositions.unitPrice, y, { width: colWidths.unitPrice });
-      doc.text((item.totalPrice || 0).toString(), colPositions.totalPrice, y, { width: colWidths.totalPrice });
+      doc.text(Number(item.totalPrice || 0).toFixed(2), colPositions.totalPrice, y, { width: colWidths.totalPrice });
       y += itemHeight;
     });
   }
 
   // Total line
-  doc.moveTo(startX, y).lineTo(currentX, y).stroke();
+  doc.lineWidth(1.2).moveTo(startX, y).lineTo(currentX, y).stroke();
 
-  const totalY = y + 10;
+  const totalY = y + 5;
   doc.fontSize(8);
   setFont('Helvetica-Bold');
   doc.text('Total:', colPositions.name, totalY, { width: colWidths.name });
@@ -502,7 +524,7 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   if (hasPackagesCount) doc.text(totalPackagesCount.toString(), colPositions.packagesCount!, totalY, { width: colWidths.packagesCount });
   if (hasGrossWeight) doc.text(totalGrossWeight > 0 ? totalGrossWeight.toString() : '', colPositions.grossWeight!, totalY, { width: colWidths.grossWeight });
   if (hasNetWeight) doc.text(totalNetWeight > 0 ? totalNetWeight.toString() : '', colPositions.netWeight!, totalY, { width: colWidths.netWeight });
-  doc.text(`${Number(data.invoice.totalAmount || 0).toFixed(2)} ${data.invoice.currency}`, colPositions.totalPrice, totalY, { width: colWidths.totalPrice });
+  doc.text(`${getCurrencySymbol(data.invoice.currency)} ${Number(data.invoice.totalAmount || 0).toFixed(2)}`, colPositions.totalPrice, totalY, { width: colWidths.totalPrice });
   setFont('Helvetica');
 
   // Amount in words (English)

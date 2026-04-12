@@ -1,7 +1,7 @@
 import React, { type RefObject } from 'react';
 import type { InvoiceItem, ViewTab, VisibleColumns, ColumnLabels, ColumnLabelKey } from './types';
 import { UNIT_OPTIONS, DEFAULT_COLUMN_LABELS } from './types';
-import { formatNumber, formatNumberFixed, numberToWordsRu } from './invoiceUtils';
+import { formatNumber, formatNumberFixed, numberToWordsRu, getCurrencySymbol } from './invoiceUtils';
 import { InvoiceWeightSummary } from './InvoiceWeightSummary';
 
 interface InvoiceItemsTableProps {
@@ -101,13 +101,15 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
           <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.net}</th>
         )}
         {effectiveColumns.unitPrice && (
-          <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.unitPrice}</th>
+          <th className={`px-2 py-4 text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+            {columnLabels.unitPrice}
+          </th>
         )}
         {effectiveColumns.total && (
           <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{totalColumnLabel}</th>
         )}
         {!isReadonly && effectiveColumns.actions && (
-          <th className={`px-2 ${py} text-center text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.actions}</th>
+          <th className={`px-2 py-4 text-center text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.actions}</th>
         )}
       </tr>
     </thead>
@@ -115,37 +117,37 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
 
   const renderTableFooter = () => (
     <tfoot>
-      <tr className="bg-white font-semibold border-t-2 border-gray-400 h-[35px]">
+      <tr className="bg-white font-semibold border-t-2 border-gray-800">
         {leadingColumnsCount > 0 && (
-          <td className="px-2 pt-1.5 pb-2.5 text-center" colSpan={leadingColumnsCount} style={{ verticalAlign: 'top' }}>Всего:</td>
+          <td className="px-2 py-1 text-center" colSpan={leadingColumnsCount} style={{ verticalAlign: 'top' }}>Всего:</td>
         )}
         {effectiveColumns.quantity && (
-          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+          <td className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
             {(() => { const t = items.reduce((sum, i) => sum + i.quantity, 0); return t !== 0 ? formatNumber(t) : ''; })()}
           </td>
         )}
         {effectiveColumns.packagesCount && (
-          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+          <td className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
             {formatNumber(items.reduce((sum, i) => sum + (i.packagesCount ?? 0), 0))}
           </td>
         )}
         {effectiveColumns.gross && (
-          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+          <td className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
             {formatNumber(items.reduce((sum, i) => sum + (i.grossWeight || 0), 0))}
           </td>
         )}
         {effectiveColumns.net && (
-          <td className="px-2 pt-1.5 pb-3 text-right" style={{ verticalAlign: 'top' }}>
+          <td className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
             {formatNumber(items.reduce((sum, i) => sum + (i.netWeight || 0), 0))}
           </td>
         )}
-        {effectiveColumns.unitPrice && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
+        {effectiveColumns.unitPrice && <td className="px-2 py-1" style={{ verticalAlign: 'top' }}></td>}
         {effectiveColumns.total && (
-          <td className="px-2 pt-1.5 pb-3 text-right font-bold" style={{ verticalAlign: 'top' }}>
-            {formatNumberFixed(items.reduce((sum, i) => sum + i.totalPrice, 0))}
+          <td className="px-2 py-1 text-right font-bold" style={{ verticalAlign: 'top' }}>
+            {getCurrencySymbol(invoiceCurrency)} {formatNumberFixed(items.reduce((sum, i) => sum + i.totalPrice, 0))}
           </td>
         )}
-        {!isReadonly && effectiveColumns.actions && <td className="px-2 pt-1.5 pb-3" style={{ verticalAlign: 'top' }}></td>}
+        {!isReadonly && effectiveColumns.actions && <td className="px-2 py-1" style={{ verticalAlign: 'top' }}></td>}
       </tr>
     </tfoot>
   );
@@ -153,7 +155,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
   return (
     <div className="mb-8">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-800">Товары</h3>
+        <div></div>
         {(viewTab === 'invoice' && canEditEffective) && (
           <div className="flex items-center gap-2">
             <details ref={columnsDropdownRef} open={columnsDropdownOpen} className="relative">
@@ -190,23 +192,23 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 <tbody>
                   {items.map((item, index) => (
                     <tr key={index} className="border-b border-gray-200">
-                      {effectiveColumns.index && <td className="px-2 py-2 text-center">{index + 1}</td>}
-                      {effectiveColumns.tnved && <td className="px-2 py-2">{item.tnvedCode || ''}</td>}
-                      {effectiveColumns.plu && <td className="px-2 py-2">{item.pluCode || ''}</td>}
+                      {effectiveColumns.index && <td className="px-2 py-4 text-center">{index + 1}</td>}
+                      {effectiveColumns.tnved && <td className="px-2 py-4">{item.tnvedCode || ''}</td>}
+                      {effectiveColumns.plu && <td className="px-2 py-4">{item.pluCode || ''}</td>}
                       {effectiveColumns.name && (
-                        <td className="px-2 py-2">
+                        <td className="px-2 py-4">
                           <div>{item.name || ''}</div>
                           {item.nameEn && <div className="text-gray-500 text-xs mt-1 italic">{item.nameEn}</div>}
                         </td>
                       )}
-                      {effectiveColumns.unit && <td className="px-2 py-2 text-center">{item.unit || ''}</td>}
-                      {effectiveColumns.package && <td className="px-2 py-2">{item.packageType || ''}</td>}
-                      {effectiveColumns.quantity && <td className="px-2 py-2 text-right">{item.quantity != null && item.quantity !== 0 ? formatNumber(item.quantity) : ''}</td>}
-                      {effectiveColumns.packagesCount && <td className="px-2 py-2 text-right">{item.packagesCount != null && item.packagesCount !== 0 ? formatNumber(item.packagesCount) : ''}</td>}
-                      {effectiveColumns.gross && <td className="px-2 py-2 text-right">{formatNumber(item.grossWeight || 0)}</td>}
-                      {effectiveColumns.net && <td className="px-2 py-2 text-right">{formatNumber(item.netWeight || 0)}</td>}
-                      {effectiveColumns.unitPrice && <td className="px-2 py-2 text-right">{formatNumber(item.unitPrice)}</td>}
-                      {effectiveColumns.total && <td className="px-2 py-2 text-right font-semibold">{item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}</td>}
+                      {effectiveColumns.unit && <td className="px-2 py-4 text-center">{item.unit || ''}</td>}
+                      {effectiveColumns.package && <td className="px-2 py-4">{item.packageType || ''}</td>}
+                      {effectiveColumns.quantity && <td className="px-2 py-4 text-right">{item.quantity != null && item.quantity !== 0 ? formatNumber(item.quantity) : ''}</td>}
+                      {effectiveColumns.packagesCount && <td className="px-2 py-4 text-right">{item.packagesCount != null && item.packagesCount !== 0 ? formatNumber(item.packagesCount) : ''}</td>}
+                      {effectiveColumns.gross && <td className="px-2 py-4 text-right">{formatNumber(item.grossWeight || 0)}</td>}
+                      {effectiveColumns.net && <td className="px-2 py-4 text-right">{formatNumber(item.netWeight || 0)}</td>}
+                      {effectiveColumns.unitPrice && <td className="px-2 py-4 text-right">{formatNumber(item.unitPrice)}</td>}
+                      {effectiveColumns.total && <td className="px-2 py-4 text-right font-semibold">{item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}</td>}
                     </tr>
                   ))}
                 </tbody>

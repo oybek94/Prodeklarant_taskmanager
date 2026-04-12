@@ -21,9 +21,9 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
   const contract = contracts.find(c => c.id.toString() === selectedContractId);
 
   return (
-    <div className="mb-2.5 grid grid-cols-2 gap-8">
+    <div className="grid grid-cols-[1fr_auto_1fr] gap-x-4 relative">
 
-      <div>
+      <div className="pr-4">
 
         <h3 className="font-semibold text-gray-800 mb-2">
           {isSellerShipper ? 'Продавец/Грузоотправитель' : 'Sotuvchi'}
@@ -42,9 +42,7 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
               </div>
 
               {contract?.sellerLegalAddress && (
-
                 <div className="whitespace-pre-line">{contract?.sellerLegalAddress}</div>
-
               )}
 
               {(contract?.sellerInn || task?.client?.inn) && (
@@ -63,8 +61,8 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
               )}
 
               {contract?.sellerDetails ? (
-                <div className="mt-2">
-                  <div className="whitespace-pre-line text-black">{contract?.sellerDetails}</div>
+                <div className="mt-2 text-black">
+                  <div className="whitespace-pre-line">{contract?.sellerDetails}</div>
                 </div>
               ) : contract?.sellerBankName && (
                 <div className="mt-2">
@@ -155,7 +153,12 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
 
       </div>
 
-      <div>
+      {/* Vertikal ajratuvchi chiziq */}
+      <div className="w-[1.5px] bg-gray-400 relative">
+        <div className="absolute top-[-24px] bottom-[-16px] left-0 w-full bg-gray-400"></div>
+      </div>
+
+      <div className="pl-4">
 
         <h3 className="font-semibold text-gray-800 mb-2">
           {isBuyerConsignee ? 'Покупатель/Грузополучатель' : 'Покупатель'}
@@ -180,9 +183,7 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
               )}
 
               {contract?.buyerInn && (
-
                 <div>ИНН: {contract?.buyerInn}</div>
-
               )}
 
               {contract?.buyerOgrn && (
@@ -192,12 +193,11 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
               )}
 
               {contract?.buyerDetails ? (
-                <div className="mt-2">
-                  <div className="whitespace-pre-line text-black">{contract?.buyerDetails}</div>
+                <div className="mt-2 text-black">
+                  <div className="whitespace-pre-line">{contract?.buyerDetails}</div>
                 </div>
               ) : contract?.buyerBankName && (
-                <div className="mt-2">
-
+                <div className="mt-2 text-black">
                   <div className="text-base font-bold text-black">Bank ma'lumotlari:</div>
 
                   <div>

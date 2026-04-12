@@ -42,12 +42,20 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({
           <div className="flex items-center gap-1">
             {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
               <div className="space-y-1">
-                <span className="text-base font-semibold text-gray-900">
-                  {viewTab === 'spec' ? 'Спецификация №:' : viewTab === 'packing' ? 'Упаковочный лист №:' : 'Инвойс №:'} {form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')} от {formatDate(form.date)} г.
-                </span>
+                <div className="text-base text-gray-900">
+                  <span className="font-bold">
+                    {viewTab === 'spec' ? 'Спецификация №:' : viewTab === 'packing' ? 'Упаковочный лист №:' : 'Инвойс №:'}
+                  </span>
+                  <span className="font-semibold ml-1">
+                    {form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')} от {formatDate(form.date)} г.
+                  </span>
+                </div>
                 {(viewTab === 'spec' || viewTab === 'packing') && (
-                  <div className="text-base font-semibold text-gray-900">
-                    Инвойс №: {form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')} от {formatDate(form.date)} г.
+                  <div className="text-base text-gray-900">
+                    <span className="font-bold">Инвойс №:</span>
+                    <span className="font-semibold ml-1">
+                      {form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')} от {formatDate(form.date)} г.
+                    </span>
                   </div>
                 )}
               </div>
@@ -80,10 +88,10 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-gray-700">Контракт №:</span>
+          <div className="flex items-center gap-1">
+            <span className="text-base font-bold text-gray-900">Контракт №:</span>
             {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
-              <span className="px-2 py-1 text-base font-semibold text-gray-900">
+              <span className="text-base font-semibold text-gray-900">
                 {selectedContract
                   ? `${selectedContract.contractNumber} от ${formatDate(selectedContract.contractDate)}`
                   : ''}

@@ -172,12 +172,12 @@ export function useInvoiceDocuments({
     try {
       const element = invoiceRef.current;
       const canvas = await html2canvas(element, {
-        scale: 1.5,
+        scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff',
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.75);
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
       const pdf = new jsPDF('p', 'pt', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -190,7 +190,7 @@ export function useInvoiceDocuments({
       const imgHeight = canvas.height * scale;
       const x = marginHorizontal;
       const y = marginVertical;
-      pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight, undefined, 'FAST');
+      pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
 
       const fileBase = buildInvoiceDownloadBase();
       pdf.save(`${fileBase}.pdf`);

@@ -654,6 +654,56 @@ router.get('/:id/stages', requireAuth(), async (req: AuthRequest, res) => {
 
 router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
+  const isLight = req.query.light === 'true';
+
+  // Yengil rejim: Invoice sahifasi uchun faqat kerakli ma'lumotlar (tez yuklash)
+  if (isLight) {
+    try {
+      const task = await prisma.task.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          comments: true,
+          hasPsr: true,
+          driverPhone: true,
+          clientId: true,
+          branchId: true,
+          createdAt: true,
+          client: {
+            select: {
+              id: true,
+              name: true,
+              contractNumber: true,
+            },
+          },
+          branch: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          stages: {
+            select: {
+              name: true,
+              status: true,
+            },
+            orderBy: { stageOrder: 'asc' as const },
+          },
+          errors: {
+            select: { id: true },
+          },
+        },
+      });
+      if (!task) return res.status(404).json({ error: 'Not found' });
+      return res.json(task);
+    } catch (error) {
+      console.error('Error fetching task (light):', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
   const task = await prisma.task.findUnique({
     where: { id },
     include: {

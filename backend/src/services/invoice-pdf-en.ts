@@ -489,10 +489,12 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       doc.text((index + 1).toString(), colPositions.number, y, { width: colWidths.number });
       if (hasTnvedCode) doc.text(ensureUTF8(item.tnvedCode || ''), colPositions.tnvedCode!, y, { width: colWidths.tnvedCode });
       if (hasPluCode) doc.text(ensureUTF8(item.pluCode || ''), colPositions.pluCode!, y, { width: colWidths.pluCode });
-      // Use English name if available, fallback to original
-      const itemName = (item as any).nameEn || item.name || '';
+      const keySuffix = item.id || index;
+      const itemName = tr(t, `item_name_${keySuffix}`, item.name || '');
       doc.text(ensureUTF8(itemName), colPositions.name, y, { width: colWidths.name });
-      doc.text(ensureUTF8(item.unit || ''), colPositions.unit, y, { width: colWidths.unit });
+      
+      const itemUnit = tr(t, `item_unit_${keySuffix}`, item.unit || '');
+      doc.text(ensureUTF8(itemUnit), colPositions.unit, y, { width: colWidths.unit });
       if (hasPackageType) {
         const pkgType = item.packageType ? tr(t, `pkg_${item.packageType}`, item.packageType) : '';
         doc.text(ensureUTF8(pkgType), colPositions.packageType!, y, { width: colWidths.packageType });

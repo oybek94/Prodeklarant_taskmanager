@@ -198,7 +198,6 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       {effectiveColumns.name && (
                         <td className="px-2 py-4">
                           <div>{item.name || ''}</div>
-                          {item.nameEn && <div className="text-gray-500 text-xs mt-1 italic">{item.nameEn}</div>}
                         </td>
                       )}
                       {effectiveColumns.unit && <td className="px-2 py-4 text-center">{item.unit || ''}</td>}
@@ -243,7 +242,6 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       {effectiveColumns.name && (
                         <td className="px-2 py-2">
                           <input type="text" value={item.name} onChange={(e) => handleNameChange(index, e.target.value)} list="invoice-tnved-products" className="w-full px-2 py-1 border border-gray-300 rounded text-xs" placeholder="Наименование товара" required />
-                          <input type="text" value={item.nameEn || ''} onChange={(e) => handleNameEnChange(index, e.target.value)} className="w-full px-2 py-1 mt-1 border border-gray-300 rounded text-xs italic" placeholder="English name (optional)" />
                         </td>
                       )}
                       {effectiveColumns.unit && (

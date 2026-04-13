@@ -10,7 +10,7 @@ interface UseInvoiceLoaderParams {
   taskId: string | undefined;
   duplicateInvoiceId: number | null | undefined;
   setLoading: (l: boolean) => void;
-  setContracts: (c: any[]) => void;
+  setContracts: (updater: any[] | ((prev: any[]) => any[])) => void;
   setSelectedContractId: (id: string) => void;
   setSelectedContractSpec: (spec: SpecRow[]) => void;
   setSelectedContractCurrency: (c: string) => void;
@@ -78,6 +78,12 @@ export function createLoadData({
           const contractResponse = await apiClient.get(`/contracts/${contractIdFromQuery}`);
           if (isCancelled()) return;
           const contract = contractResponse.data;
+          setContracts((prev: any[]) => {
+            if (prev.some(c => c.id === contract.id)) {
+              return prev.map(c => c.id === contract.id ? contract : c);
+            }
+            return [...prev, contract];
+          });
 
           setForm((prev: any) => ({
             ...prev,
@@ -187,14 +193,22 @@ export function createLoadData({
 
       // Eski usul: taskId orqali
       if (taskId) {
-        const taskResponse = await apiClient.get(`/tasks/${taskId}`);
+        // 1-qadam: Task ma'lumotlarini olish (clientId kerak bo'lgani uchun birinchi)
+        // light=true: Invoice sahifasiga kerakli minimal ma'lumotlar (netProfit hisoblash o'tkazib yuboriladi)
+        const taskResponse = await apiClient.get(`/tasks/${taskId}?light=true`);
         if (isCancelled()) return;
         setTask(taskResponse.data);
 
-        try {
-          const contractsResponse = await apiClient.get(`/contracts/client/${taskResponse.data.clientId}`);
-          if (isCancelled()) return;
-          setContracts(contractsResponse.data);
+        // 2-qadam: Contracts va Invoice ni PARALLEL yuklash (tezlik uchun)
+        const [contractsResult, invoiceResult] = await Promise.allSettled([
+          apiClient.get(`/contracts/client/${taskResponse.data.clientId}?selectList=true`),
+          apiClient.get(`/invoices/task/${taskId}`),
+        ]);
+        if (isCancelled()) return;
+
+        // Contracts natijasini qayta ishlash
+        if (contractsResult.status === 'fulfilled') {
+          setContracts(contractsResult.value.data);
 
           if (contractIdFromQuery) {
             setSelectedContractId(contractIdFromQuery);
@@ -211,15 +225,21 @@ export function createLoadData({
               console.error('Error loading contract:', error);
             }
           }
-        } catch (error) {
-          console.error('Error loading contracts:', error);
+        } else {
+          console.error('Error loading contracts:', contractsResult.reason);
         }
 
-        // Invoice ma'lumotlarini olish
+        // Invoice natijasini qayta ishlash
         try {
-          const invoiceResponse = await apiClient.get(`/invoices/task/${taskId}`);
-          if (isCancelled()) return;
-          const inv = invoiceResponse.data;
+          const inv = invoiceResult.status === 'fulfilled' ? invoiceResult.value.data : null;
+          // Agar invoice so'rovi xatolik bergan bo'lsa, 404 ni tekshiramiz
+          if (invoiceResult.status === 'rejected') {
+            if (axios.isAxiosError(invoiceResult.reason) && invoiceResult.reason.response?.status === 404) {
+              // 404 bo'lsa, invoice yo'q deb qabul qilamiz
+            } else {
+              throw invoiceResult.reason;
+            }
+          }
 
           if (!inv) {
             setInvoice(null);
@@ -318,6 +338,12 @@ export function createLoadData({
                 const contractResponse = await apiClient.get(`/contracts/${inv.contractId}`);
                 if (isCancelled()) return;
                 const contract = contractResponse.data;
+                setContracts((prev: any[]) => {
+                  if (prev.some(c => c.id === contract.id)) {
+                    return prev.map(c => c.id === contract.id ? contract : c);
+                  }
+                  return [...prev, contract];
+                });
                 const contractCurrency = (contract.contractCurrency && ['USD', 'RUB', 'EUR'].includes(contract.contractCurrency)) ? contract.contractCurrency : 'USD';
                 setSelectedContractCurrency(contractCurrency);
                 let spec: SpecRow[] = [];

@@ -63,51 +63,97 @@ router.get('/check-number', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
-// GET /invoices - Barcha invoice'lar (filialga bog'langan ishchilar faqat o'z filiali invoyslarini ko'radi)
+// GET /invoices - Barcha invoice'lar (paginatsiya, filtrlash va qidiruv bilan)
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const isAdminOrManager = req.user?.role === 'ADMIN' || req.user?.role === 'MANAGER';
     const userBranchId = req.user?.branchId ?? null;
     const onlyOwnBranch = !isAdminOrManager && userBranchId != null;
 
-    const invoices = await prisma.invoice.findMany({
-      where: onlyOwnBranch ? { branchId: userBranchId } : undefined,
-      include: {
-        items: {
-          orderBy: { orderIndex: 'asc' }
-        },
-        task: {
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            branch: { select: { id: true, name: true } },
-            stages: { select: { name: true, status: true } },
-            _count: { select: { errors: true } }
+    const { page, limit, search, branchId, clientId, startDate, endDate } = req.query;
+    
+    // Pagination params
+    const pageNum = page ? parseInt(page as string, 10) : undefined;
+    const limitNum = limit ? parseInt(limit as string, 10) : undefined;
+    const skip = pageNum && limitNum ? (pageNum - 1) * limitNum : undefined;
+    const take = limitNum || undefined;
+
+    // Build where clause
+    const where: any = {};
+    if (onlyOwnBranch) {
+      where.branchId = userBranchId;
+    } else if (branchId) {
+      where.branchId = parseInt(branchId as string, 10);
+    }
+
+    if (clientId) {
+      where.clientId = parseInt(clientId as string, 10);
+    }
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate as string);
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        where.date.lte = end;
+      }
+    }
+    
+    if (search) {
+      const q = (search as string).trim();
+      where.OR = [
+        { invoiceNumber: { contains: q, mode: 'insensitive' } },
+        { contractNumber: { contains: q, mode: 'insensitive' } },
+        { client: { name: { contains: q, mode: 'insensitive' } } },
+        // additionalInfo qidiruvi JSON bo'lgani uchun Prisma bilan har doim ham to'g'ri ishlamasligi mumkin
+        // Shuning uchun bu yerda qoldirmadik yoki PostgreSQL xos so'rov qo'shish kerak. 
+        // Asosiy qidiruvni shu yerda bajaramiz.
+      ];
+    }
+
+    const [invoices, total] = await Promise.all([
+      prisma.invoice.findMany({
+        where,
+        skip,
+        take,
+        include: {
+          items: {
+            orderBy: { orderIndex: 'asc' }
+          },
+          task: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              branch: { select: { id: true, name: true } },
+              stages: { select: { name: true, status: true } },
+              _count: { select: { errors: true } }
+            }
+          },
+          client: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
+          contract: {
+            select: {
+              sellerName: true,
+              buyerName: true,
+              consigneeName: true,
+            }
+          },
+          branch: {
+            select: {
+              id: true,
+              name: true,
+            }
           }
         },
-        client: {
-          select: {
-            id: true,
-            name: true,
-          }
-        },
-        contract: {
-          select: {
-            sellerName: true,
-            buyerName: true,
-            consigneeName: true,
-          }
-        },
-        branch: {
-          select: {
-            id: true,
-            name: true,
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+        orderBy: { createdAt: 'desc' }
+      }),
+      pageNum && limitNum ? prisma.invoice.count({ where }) : Promise.resolve(0)
+    ]);
 
     const invoicesWithContract = await Promise.all(invoices.map(async (invoice) => {
       let contract = invoice.contract;
@@ -125,7 +171,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
         ...invoice,
         contract,
         totalAmount: Number(invoice.totalAmount),
-        items: invoice.items.map(item => ({
+        items: invoice.items.map((item: any) => ({
           ...item,
           quantity: Number(item.quantity),
           packagesCount: item.packagesCount != null ? Number(item.packagesCount) : null,
@@ -136,7 +182,20 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
         }))
       };
     }));
-    res.json(invoicesWithContract);
+    
+    if (pageNum && limitNum) {
+      res.json({
+        invoices: invoicesWithContract,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum),
+        }
+      });
+    } else {
+      res.json(invoicesWithContract);
+    }
   } catch (error: any) {
     console.error('Error fetching invoices:', error);
     res.status(500).json({ error: 'Serverda xatolik yuz berdi' });

@@ -129,9 +129,16 @@ export function buildTranslatableTexts(data: {
   if (invoice) {
     if (invoice.notes) texts.notes = invoice.notes;
     if (invoice.items) {
-      invoice.items.forEach((item: any) => {
+      invoice.items.forEach((item: any, index: number) => {
+        const keySuffix = item.id || index;
         if (item.packageType) {
           texts[`pkg_${item.packageType}`] = item.packageType;
+        }
+        if (item.name) {
+          texts[`item_name_${keySuffix}`] = item.name;
+        }
+        if (item.unit) {
+          texts[`item_unit_${keySuffix}`] = item.unit;
         }
       });
     }

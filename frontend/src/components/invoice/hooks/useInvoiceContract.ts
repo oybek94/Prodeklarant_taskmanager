@@ -23,6 +23,7 @@ interface UseInvoiceContractParams {
   invoice: { taskId?: number } | null;
   setInvoysStageReady: (ready: boolean) => void;
   setMarkingReady: (marking: boolean) => void;
+  setContracts: (updater: (prev: any[]) => any[]) => void;
 }
 
 export function useInvoiceContract({
@@ -38,6 +39,7 @@ export function useInvoiceContract({
   invoice,
   setInvoysStageReady,
   setMarkingReady,
+  setContracts,
 }: UseInvoiceContractParams) {
   const { getDeliveryTermsContractKey, mergeDeliveryTerms, loadDeliveryTerms } = deliveryTermsHook;
 
@@ -53,6 +55,12 @@ export function useInvoiceContract({
     try {
       const response = await apiClient.get(`/contracts/${contractId}`);
       const contract = response.data;
+      setContracts((prev: any[]) => {
+        if (prev.some(c => c.id === contract.id)) {
+          return prev.map(c => c.id === contract.id ? contract : c);
+        }
+        return [...prev, contract];
+      });
 
       let spec: SpecRow[] = [];
       if (contract.specification) {
@@ -101,7 +109,7 @@ export function useInvoiceContract({
       console.error('Error loading contract:', error);
       alert('Shartnoma ma\'lumotlarini yuklashda xatolik yuz berdi');
     }
-  }, [setSelectedContractId, setSelectedContractSpec, setSelectedContractCurrency, setItems, setContractDeliveryTerms, setForm, setDeliveryTermsOptions, getDeliveryTermsContractKey, mergeDeliveryTerms, loadDeliveryTerms]);
+  }, [setSelectedContractId, setSelectedContractSpec, setSelectedContractCurrency, setItems, setContractDeliveryTerms, setForm, setDeliveryTermsOptions, getDeliveryTermsContractKey, mergeDeliveryTerms, loadDeliveryTerms, setContracts]);
 
   const handleMarkInvoysReady = useCallback(async () => {
     const tid = taskId || invoice?.taskId;

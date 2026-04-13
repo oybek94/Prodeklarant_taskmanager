@@ -154,46 +154,6 @@ const Invoices = () => {
     endDate: string;
   }>({ branchId: '', clientId: '', startDate: '', endDate: '' });
 
-  const filteredInvoices = useMemo(() => {
-    let list = [...invoices];
-    const q = searchQuery.trim().toLowerCase();
-    if (q) {
-      list = list.filter((inv) => {
-        const invoiceNum = (inv.invoiceNumber || '').toLowerCase();
-        const clientName = (inv.client?.name || '').toLowerCase();
-        const vehicleNum = (inv.additionalInfo?.vehicleNumber || '').toLowerCase();
-        const contractNames = [
-          inv.contract?.sellerName,
-          inv.contract?.buyerName,
-          inv.contract?.consigneeName,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
-        const contractNum = (inv.contractNumber || '').toLowerCase();
-        return (
-          invoiceNum.includes(q) ||
-          clientName.includes(q) ||
-          vehicleNum.includes(q) ||
-          contractNames.includes(q) ||
-          contractNum.includes(q)
-        );
-      });
-    }
-    if (filters.branchId) {
-      list = list.filter((inv) => String(inv.branch?.id) === filters.branchId);
-    }
-    if (filters.clientId) {
-      list = list.filter((inv) => String(inv.clientId) === filters.clientId);
-    }
-    if (filters.startDate) {
-      list = list.filter((inv) => inv.date >= filters.startDate);
-    }
-    if (filters.endDate) {
-      list = list.filter((inv) => inv.date <= filters.endDate);
-    }
-    return list;
-  }, [invoices, searchQuery, filters]);
 
   const hasActiveFilters =
     searchQuery.trim() ||
@@ -288,22 +248,55 @@ const Invoices = () => {
     }
   }, [showTnvedSettingsModal, loadPackagingTypes, loadTnvedProducts]);
 
-  const loadInvoices = async () => {
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPagesServer, setTotalPagesServer] = useState(1);
+
+  // loadInvoices function debounced with search query
+  const loadInvoices = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/invoices');
-      if (Array.isArray(response.data)) {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: PAGE_SIZE.toString(),
+      });
+      if (searchQuery.trim()) params.append('search', searchQuery.trim());
+      if (filters.branchId) params.append('branchId', filters.branchId);
+      if (filters.clientId) params.append('clientId', filters.clientId);
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+
+      const response = await apiClient.get(`/invoices?${params.toString()}`);
+      
+      if (response.data && response.data.pagination) {
+        setInvoices(response.data.invoices);
+        setTotalCount(response.data.pagination.total);
+        setTotalPagesServer(response.data.pagination.totalPages);
+      } else if (Array.isArray(response.data)) {
         setInvoices(response.data);
+        setTotalCount(response.data.length);
+        setTotalPagesServer(Math.max(1, Math.ceil(response.data.length / PAGE_SIZE)));
       } else {
         setInvoices([]);
+        setTotalCount(0);
+        setTotalPagesServer(1);
       }
     } catch (error) {
       console.error('Error loading invoices:', error);
       setInvoices([]);
+      setTotalCount(0);
+      setTotalPagesServer(1);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, searchQuery, filters]);
+
+  // Execute search with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadInvoices();
+    }, 400); // Debounce qidiruv
+    return () => clearTimeout(timer);
+  }, [loadInvoices]);
 
 
   const loadClients = async () => {
@@ -410,7 +403,7 @@ const Invoices = () => {
   const loadContracts = async (clientId: number) => {
     try {
       setLoadingContracts(true);
-      const response = await apiClient.get(`/contracts/client/${clientId}`);
+      const response = await apiClient.get(`/contracts/client/${clientId}?selectList=true`);
       if (Array.isArray(response.data)) {
         setContracts(response.data);
       } else {
@@ -528,20 +521,16 @@ const Invoices = () => {
     return 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400 border border-transparent dark:border-slate-700';
   };
 
-  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
-  const paginatedInvoices = filteredInvoices.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
-  const startItem =
-    filteredInvoices.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-  const endItem = Math.min(currentPage * PAGE_SIZE, filteredInvoices.length);
+  const totalPages = totalPagesServer;
+  const paginatedInvoices = invoices;
+  const startItem = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const endItem = Math.min(currentPage * PAGE_SIZE, totalCount);
 
   useEffect(() => {
     setCurrentPage((prev) =>
-      Math.min(prev, Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE)))
+      Math.min(prev, Math.max(1, totalPagesServer))
     );
-  }, [filteredInvoices.length]);
+  }, [totalPagesServer]);
 
   if (loading) {
     return <div className="p-6">Yuklanmoqda...</div>;
@@ -1281,7 +1270,7 @@ const Invoices = () => {
       )}
 
       {/* Invoices Table */}
-      {invoices.length === 0 ? (
+      {invoices.length === 0 && !hasActiveFilters ? (
         <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 p-16 text-center lg:py-24 ring-1 ring-black/5">
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
             <Icon icon="lucide:file-text" className="w-10 h-10 text-blue-500" />
@@ -1289,7 +1278,7 @@ const Invoices = () => {
           <h3 className="text-xl font-bold text-gray-800 mb-2">Invoice'lar hozircha yo&apos;q</h3>
           <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Yangi invoice yaratish uchun yuqoridagi &quot;Yangi Invoice&quot; tugmasini bosing va jarayonni boshlang.</p>
         </div>
-      ) : filteredInvoices.length === 0 ? (
+      ) : totalCount === 0 && hasActiveFilters ? (
         <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 p-16 text-center ring-1 ring-black/5">
           <div className="bg-gradient-to-br from-gray-50 to-slate-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-gray-200/50">
             <Icon icon="lucide:search" className="w-10 h-10 text-gray-400" />
@@ -1646,10 +1635,10 @@ const Invoices = () => {
           </div>
 
           {/* Pagination */}
-          {filteredInvoices.length > PAGE_SIZE && (
+          {(totalPagesServer > 1 || totalCount > PAGE_SIZE) && (
             <div className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100/60 bg-white/50 backdrop-blur-sm">
               <p className="text-sm text-gray-600">
-                {startItem}-{endItem} / {filteredInvoices.length} invoice
+                {startItem}-{endItem} / {totalCount} invoice
               </p>
               <div className="flex items-center gap-1">
                 <button
@@ -1661,32 +1650,13 @@ const Invoices = () => {
                 >
                   <Icon icon="lucide:chevron-left" className="w-5 h-5" />
                 </button>
-                <div className="flex items-center gap-0.5 mx-2">
-                  {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
-                    let pageNum: number;
-                    if (totalPages <= 7) pageNum = i + 1;
-                    else if (currentPage <= 4) pageNum = i + 1;
-                    else if (currentPage >= totalPages - 3) pageNum = totalPages - 6 + i;
-                    else pageNum = currentPage - 3 + i;
-                    return (
-                      <button
-                        key={pageNum}
-                        type="button"
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-600 hover:bg-gray-200'
-                          }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
+                <div className="px-3 py-1 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 shadow-sm">
+                  {currentPage} / {totalPagesServer}
                 </div>
                 <button
                   type="button"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPagesServer, p + 1))}
+                  disabled={currentPage >= totalPagesServer}
                   className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title="Keyingi sahifa"
                 >

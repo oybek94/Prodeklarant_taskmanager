@@ -94,6 +94,24 @@ const contractSchema = z.object({
 router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
     const clientId = parseInt(req.params.clientId);
+    const selectList = req.query.selectList === 'true';
+
+    // selectList=true bo'lganda faqat ro'yxat uchun zarur minimal maydonlar olinadi
+    if (selectList) {
+      const contractsList = await prisma.contract.findMany({
+        where: { clientId },
+        select: {
+          id: true,
+          contractNumber: true,
+          contractDate: true,
+          sellerName: true,
+          buyerName: true,
+          consigneeName: true,
+        },
+        orderBy: { contractDate: 'desc' }
+      });
+      return res.json(contractsList);
+    }
 
     const contracts = await prisma.contract.findMany({
       where: { clientId },

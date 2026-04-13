@@ -295,6 +295,7 @@ const Invoice = () => {
     invoice,
     setInvoysStageReady,
     setMarkingReady,
+    setContracts,
   });
 
   const loadData = createLoadData({

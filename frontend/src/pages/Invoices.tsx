@@ -507,14 +507,16 @@ const Invoices = () => {
 
   /** Filial ustunidagi rang — Tasks kartochkalaridagi kabi (faqat filial katagida) */
   const FILIAL_CELL_COLORS = [
-    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-transparent dark:border-blue-800/50',
+    'bg-indigo-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-transparent dark:border-blue-800/50',
     'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-transparent dark:border-emerald-800/50',
     'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400 border border-transparent dark:border-violet-800/50',
   ];
   const getBranchCellClass = (branchName: string | undefined, branchId: number | undefined): string => {
     if (!branchName) return 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400 border border-transparent dark:border-slate-700';
-    if (branchName === 'Oltiariq') return 'bg-yellow-100 text-yellow-800 dark:bg-amber-900/30 dark:text-amber-400 border border-transparent dark:border-amber-800/50';
-    if (branchName === 'Toshkent') return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 border border-transparent dark:border-indigo-800/50';
+    if (branchName === 'Oltiariq') return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-transparent dark:border-amber-800/50';
+    if (branchName === 'Toshkent') return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-transparent dark:border-blue-800/50';
+    if (branchName === 'Sirdaryo' || branchName?.includes('irdaryo')) return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-transparent dark:border-emerald-800/50';
+    if (branchName === 'Surxondaryo' || branchName?.includes('Surxon')) return 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400 border border-transparent dark:border-violet-800/50';
     const sorted = [...(branches || [])].sort((a, b) => a.id - b.id);
     const idx = branchId != null ? sorted.findIndex((b) => b.id === branchId) : -1;
     if (idx >= 0) return FILIAL_CELL_COLORS[idx % FILIAL_CELL_COLORS.length];
@@ -1339,7 +1341,7 @@ const Invoices = () => {
                     </div>
                     <div className="text-right">
                       <p className="text-gray-400 text-[10px] uppercase font-semibold">Filial</p>
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${filialCellClass}`}>
+                      <span className={`inline-block w-20 text-center px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${filialCellClass}`}>
                         {branchName}
                       </span>
                     </div>
@@ -1449,7 +1451,7 @@ const Invoices = () => {
                   return (
                     <tr
                       key={invoice.id}
-                      className={`group transition-all duration-200 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:shadow-sm ${hasErrors ? 'border-l-4 border-l-red-500' : ''}`}
+                      className={`group transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${hasErrors ? 'border-l-4 border-l-red-500' : ''}`}
                     >
                       <td className="w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold">
                         <button
@@ -1477,7 +1479,7 @@ const Invoices = () => {
                         )}
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm">
-                        <span className={`inline-block px-2.5 py-1 rounded-md font-medium ${filialCellClass}`}>
+                        <span className={`inline-flex items-center justify-center w-24 text-center px-1 py-1 rounded-md font-medium ${filialCellClass}`}>
                           {invoice.task?.branch?.name ?? invoice.branch?.name ?? '-'}
                         </span>
                       </td>

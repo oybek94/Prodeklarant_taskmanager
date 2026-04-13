@@ -57,12 +57,18 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   });
 
   let fontRegistered = false;
+  let boldFontRegistered = false;
   const fontPaths = [
     path.join(__dirname, '../fonts/DejaVuSans.ttf'),
     path.join(__dirname, '../../fonts/DejaVuSans.ttf'),
     'C:/Windows/Fonts/arial.ttf',
     'C:/Windows/Fonts/times.ttf',
   ];
+  const boldFontPaths = [
+    'C:/Windows/Fonts/arialbd.ttf',
+    'C:/Windows/Fonts/timesbd.ttf',
+  ];
+
   for (const fontPath of fontPaths) {
     try {
       if (fs.existsSync(fontPath)) {
@@ -73,11 +79,27 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       }
     } catch { }
   }
+  for (const boldPath of boldFontPaths) {
+    try {
+      if (fs.existsSync(boldPath)) {
+        doc.registerFont('CyrillicFont-Bold', boldPath);
+        boldFontRegistered = true;
+        break;
+      }
+    } catch { }
+  }
+
   if (!fontRegistered) doc.font('Helvetica');
 
   const setFont = (fontName: string = 'Helvetica') => {
-    if (fontRegistered) doc.font('CyrillicFont');
-    else doc.font(fontName);
+    if (fontName.includes('Bold') || fontName === 'Bold') {
+      if (boldFontRegistered) doc.font('CyrillicFont-Bold');
+      else if (fontRegistered) doc.font('CyrillicFont'); // fallback to normal cyrillic if no bold cyrillic
+      else doc.font('Helvetica-Bold');
+    } else {
+      if (fontRegistered) doc.font('CyrillicFont');
+      else doc.font('Helvetica');
+    }
   };
 
   const pageWidth = 595;
@@ -91,7 +113,14 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   setFont('Helvetica');
 
   const invoiceDate = formatDate(data.invoice.date);
-  doc.text(ensureUTF8(`Invoice No: ${data.invoice.invoiceNumber} dated ${invoiceDate}`), leftColumnX, headerY);
+  setFont('Helvetica-Bold');
+  doc.text('Invoice No: ', leftColumnX, headerY, { continued: true });
+  setFont('Helvetica');
+  doc.text(ensureUTF8(`${data.invoice.invoiceNumber} `), { continued: true });
+  setFont('Helvetica-Bold');
+  doc.text('dated ', { continued: true });
+  setFont('Helvetica');
+  doc.text(ensureUTF8(`${invoiceDate}`));
 
   headerY += 12;
   if (data.invoice.contractNumber) {
@@ -100,7 +129,19 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
     if (contractNumber.endsWith(' от') || contractNumber.endsWith(' от ')) {
       contractNumber = contractNumber.replace(/\s+от\s*$/, '').trim();
     }
-    doc.text(ensureUTF8(`Contract No: ${contractNumber}${contractDate ? ` dated ${contractDate}` : ''}`), leftColumnX, headerY);
+    setFont('Helvetica-Bold');
+    doc.text('Contract No: ', leftColumnX, headerY, { continued: true });
+    setFont('Helvetica');
+    doc.text(ensureUTF8(`${contractNumber} `), { continued: true });
+    
+    if (contractDate) {
+      setFont('Helvetica-Bold');
+      doc.text('dated ', { continued: true });
+      setFont('Helvetica');
+      doc.text(ensureUTF8(`${contractDate}`));
+    } else {
+      doc.text(''); // end continued text
+    }
   }
 
   // INVOICE title
@@ -134,9 +175,11 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   if (data.contract) {
     if (data.contract.sellerName) {
       setFont('Helvetica-Bold');
-      doc.text(ensureUTF8(tr(t, 'sellerName', data.contract.sellerName)), leftColumnX, currentY, { width: sellerColumnWidth });
+      const _txtS = ensureUTF8(tr(t, 'sellerName', data.contract.sellerName));
+      const _hS = doc.heightOfString(_txtS, { width: sellerColumnWidth });
+      doc.text(_txtS, leftColumnX, currentY, { width: sellerColumnWidth });
       setFont('Helvetica');
-      currentY += 8;
+      currentY += _hS + 3;
     }
     if (data.contract.sellerLegalAddress) {
       const text = ensureUTF8(tr(t, 'sellerAddress', data.contract.sellerLegalAddress));
@@ -145,15 +188,19 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       currentY += h + 5;
     }
     if (data.contract.sellerInn) {
-      doc.text(ensureUTF8(`TIN: ${data.contract.sellerInn}`), leftColumnX, currentY, { width: sellerColumnWidth });
-      currentY += 8;
+      const _txt1 = ensureUTF8(`TIN: ${data.contract.sellerInn}`);
+      const _h1 = doc.heightOfString(_txt1, { width: sellerColumnWidth });
+      doc.text(_txt1, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h1 + 3;
     }
     if (data.contract.sellerOgrn) {
-      doc.text(ensureUTF8(`OGRN: ${data.contract.sellerOgrn}`), leftColumnX, currentY, { width: sellerColumnWidth });
-      currentY += 8;
+      const _txt2 = ensureUTF8(`OGRN: ${data.contract.sellerOgrn}`);
+      const _h2 = doc.heightOfString(_txt2, { width: sellerColumnWidth });
+      doc.text(_txt2, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h2 + 3;
     }
     if (data.contract.sellerDetails) {
-      const text = ensureUTF8(tr(t, 'sellerDetails', data.contract.sellerDetails));
+      const text = ensureUTF8(tr(t, 'sellerDetails', data.contract.sellerDetails)).replace(/\n{2,}/g, '\n').trim();
       const h = doc.heightOfString(text, { width: sellerColumnWidth });
       doc.text(text, leftColumnX, currentY, { width: sellerColumnWidth });
       currentY += h + 5;
@@ -167,12 +214,16 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       }
       if (data.contract.sellerBankAddress) {
         const addr = tr(t, 'sellerBankAddress', data.contract.sellerBankAddress);
-        doc.text(ensureUTF8(`Address: ${addr}`), leftColumnX, currentY, { width: sellerColumnWidth });
-        currentY += 8;
+        const _txt3 = ensureUTF8(`Address: ${addr}`);
+      const _h3 = doc.heightOfString(_txt3, { width: sellerColumnWidth });
+      doc.text(_txt3, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h3 + 3;
       }
       if (data.contract.sellerBankAccount) {
-        doc.text(ensureUTF8(`Account No: ${data.contract.sellerBankAccount}`), leftColumnX, currentY, { width: sellerColumnWidth });
-        currentY += 8;
+        const _txt4 = ensureUTF8(`Account No: ${data.contract.sellerBankAccount}`);
+      const _h4 = doc.heightOfString(_txt4, { width: sellerColumnWidth });
+      doc.text(_txt4, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h4 + 3;
       }
       if (data.contract.sellerCorrespondentBank) {
         const corrBank = tr(t, 'sellerCorrespondentBank', data.contract.sellerCorrespondentBank);
@@ -182,14 +233,18 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
         currentY += h + 5;
       }
       if (data.contract.sellerCorrespondentBankAccount) {
-        doc.text(ensureUTF8(`Corr. account: ${data.contract.sellerCorrespondentBankAccount}`), leftColumnX, currentY, { width: sellerColumnWidth });
-        currentY += 8;
+        const _txt5 = ensureUTF8(`Corr. account: ${data.contract.sellerCorrespondentBankAccount}`);
+      const _h5 = doc.heightOfString(_txt5, { width: sellerColumnWidth });
+      doc.text(_txt5, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h5 + 3;
       }
     }
   } else {
     const companyName = tr(t, 'sellerName', `LLC "${data.company.name}"`);
-    doc.text(ensureUTF8(companyName), leftColumnX, currentY, { width: sellerColumnWidth });
-    currentY += 8;
+    const _txt6 = ensureUTF8(companyName);
+      const _h6 = doc.heightOfString(_txt6, { width: sellerColumnWidth });
+      doc.text(_txt6, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h6 + 3;
     if (data.company.legalAddress) {
       const addr = tr(t, 'sellerAddress', data.company.legalAddress);
       const h = doc.heightOfString(ensureUTF8(addr), { width: sellerColumnWidth });
@@ -203,8 +258,10 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       currentY += h + 5;
     }
     if (data.company.inn) {
-      doc.text(ensureUTF8(`TIN: ${data.company.inn}`), leftColumnX, currentY, { width: sellerColumnWidth });
-      currentY += 8;
+      const _txt7 = ensureUTF8(`TIN: ${data.company.inn}`);
+      const _h7 = doc.heightOfString(_txt7, { width: sellerColumnWidth });
+      doc.text(_txt7, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h7 + 3;
     }
     if (data.company.phone || data.company.email) {
       const contactText = ensureUTF8(`Tel: ${data.company.phone || ''}${data.company.phone && data.company.email ? '  ' : ''}E-mail: ${data.company.email || ''}`);
@@ -212,28 +269,44 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       doc.text(contactText, leftColumnX, currentY, { width: sellerColumnWidth });
       currentY += h + 5;
     }
+    if (data.company.bankAccount) {
+      const _txtAcc = ensureUTF8(data.company.bankAccount);
+      const _hAcc = doc.heightOfString(_txtAcc, { width: sellerColumnWidth });
+      doc.text(_txtAcc, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _hAcc + 3;
+    }
     if (data.company.bankName) {
       const bankName = tr(t, 'sellerBankName', data.company.bankName);
-      doc.text(ensureUTF8(`Bank: ${bankName}`), leftColumnX, currentY, { width: sellerColumnWidth });
-      currentY += 8;
+      const _txt8 = ensureUTF8(`Bank: ${bankName}`);
+      const _h8 = doc.heightOfString(_txt8, { width: sellerColumnWidth });
+      doc.text(_txt8, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h8 + 3;
     }
     if (data.company.bankAddress) {
       const addr = tr(t, 'sellerBankAddress', data.company.bankAddress);
-      doc.text(ensureUTF8(`Bank address: ${addr}`), leftColumnX, currentY, { width: sellerColumnWidth });
-      currentY += 8;
+      const _txt9 = ensureUTF8(`Bank address: ${addr}`);
+      const _h9 = doc.heightOfString(_txt9, { width: sellerColumnWidth });
+      doc.text(_txt9, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h9 + 3;
     }
     if (data.company.swiftCode) {
-      doc.text(ensureUTF8(`SWIFT: ${data.company.swiftCode}`), leftColumnX, currentY, { width: sellerColumnWidth });
-      currentY += 8;
+      const _txt10 = ensureUTF8(`SWIFT: ${data.company.swiftCode}`);
+      const _h10 = doc.heightOfString(_txt10, { width: sellerColumnWidth });
+      doc.text(_txt10, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h10 + 3;
     }
     if (data.company.correspondentBank) {
       const corrBank = tr(t, 'sellerCorrespondentBank', data.company.correspondentBank);
-      doc.text(ensureUTF8(`Correspondent bank: ${corrBank}`), leftColumnX, currentY, { width: sellerColumnWidth });
-      currentY += 8;
+      const _txt11 = ensureUTF8(`Correspondent bank: ${corrBank}`);
+      const _h11 = doc.heightOfString(_txt11, { width: sellerColumnWidth });
+      doc.text(_txt11, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h11 + 3;
     }
     if (data.company.correspondentBankSwift) {
-      doc.text(ensureUTF8(`SWIFT: ${data.company.correspondentBankSwift}`), leftColumnX, currentY, { width: sellerColumnWidth });
-      currentY += 8;
+      const _txt12 = ensureUTF8(`SWIFT: ${data.company.correspondentBankSwift}`);
+      const _h12 = doc.heightOfString(_txt12, { width: sellerColumnWidth });
+      doc.text(_txt12, leftColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h12 + 3;
     }
   }
 
@@ -248,9 +321,11 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   if (data.contract) {
     if (data.contract.buyerName) {
       setFont('Helvetica-Bold');
-      doc.text(ensureUTF8(tr(t, 'buyerName', data.contract.buyerName)), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      const _txtB = ensureUTF8(tr(t, 'buyerName', data.contract.buyerName));
+      const _hB = doc.heightOfString(_txtB, { width: buyerColumnWidth });
+      doc.text(_txtB, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
       setFont('Helvetica');
-      buyerCurrentY += 8;
+      buyerCurrentY += _hB + 3;
     }
     if (data.contract.buyerAddress) {
       const text = ensureUTF8(tr(t, 'buyerAddress', data.contract.buyerAddress));
@@ -259,15 +334,19 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       buyerCurrentY += h + 5;
     }
     if (data.contract.buyerInn) {
-      doc.text(ensureUTF8(`TIN: ${data.contract.buyerInn}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-      buyerCurrentY += 8;
+      const _txt13 = ensureUTF8(`TIN: ${data.contract.buyerInn}`);
+      const _h13 = doc.heightOfString(_txt13, { width: buyerColumnWidth });
+      doc.text(_txt13, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h13 + 3;
     }
     if (data.contract.buyerOgrn) {
-      doc.text(ensureUTF8(`OGRN: ${data.contract.buyerOgrn}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-      buyerCurrentY += 8;
+      const _txt14 = ensureUTF8(`OGRN: ${data.contract.buyerOgrn}`);
+      const _h14 = doc.heightOfString(_txt14, { width: buyerColumnWidth });
+      doc.text(_txt14, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h14 + 3;
     }
     if (data.contract.buyerDetails) {
-      const text = ensureUTF8(tr(t, 'buyerDetails', data.contract.buyerDetails));
+      const text = ensureUTF8(tr(t, 'buyerDetails', data.contract.buyerDetails)).replace(/\n{2,}/g, '\n').trim();
       const h = doc.heightOfString(text, { width: buyerColumnWidth });
       doc.text(text, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
       buyerCurrentY += h + 5;
@@ -281,12 +360,16 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       }
       if (data.contract.buyerBankAddress) {
         const addr = tr(t, 'buyerBankAddress', data.contract.buyerBankAddress);
-        doc.text(ensureUTF8(`Address: ${addr}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-        buyerCurrentY += 8;
+        const _txt15 = ensureUTF8(`Address: ${addr}`);
+      const _h15 = doc.heightOfString(_txt15, { width: buyerColumnWidth });
+      doc.text(_txt15, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h15 + 3;
       }
       if (data.contract.buyerBankAccount) {
-        doc.text(ensureUTF8(`Account No: ${data.contract.buyerBankAccount}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-        buyerCurrentY += 8;
+        const _txt16 = ensureUTF8(`Account No: ${data.contract.buyerBankAccount}`);
+      const _h16 = doc.heightOfString(_txt16, { width: buyerColumnWidth });
+      doc.text(_txt16, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h16 + 3;
       }
       if (data.contract.buyerCorrespondentBank) {
         const corrBank = tr(t, 'buyerCorrespondentBank', data.contract.buyerCorrespondentBank);
@@ -296,52 +379,74 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
         buyerCurrentY += h + 5;
       }
       if (data.contract.buyerCorrespondentBankAccount) {
-        doc.text(ensureUTF8(`Corr. account: ${data.contract.buyerCorrespondentBankAccount}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-        buyerCurrentY += 8;
+        const _txt17 = ensureUTF8(`Corr. account: ${data.contract.buyerCorrespondentBankAccount}`);
+      const _h17 = doc.heightOfString(_txt17, { width: buyerColumnWidth });
+      doc.text(_txt17, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h17 + 3;
       }
     }
   } else {
     const clientName = tr(t, 'buyerName', data.client.name);
-    doc.text(ensureUTF8(clientName), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-    buyerCurrentY += 8;
+    const _txt18 = ensureUTF8(clientName);
+      const _h18 = doc.heightOfString(_txt18, { width: buyerColumnWidth });
+      doc.text(_txt18, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h18 + 3;
     if (data.client.address) {
       const addr = tr(t, 'buyerAddress', data.client.address);
-      doc.text(ensureUTF8(`Address: ${addr}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-      buyerCurrentY += 8;
+      const _txt19 = ensureUTF8(`Address: ${addr}`);
+      const _h19 = doc.heightOfString(_txt19, { width: buyerColumnWidth });
+      doc.text(_txt19, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h19 + 3;
     }
     if (data.client.inn) {
-      doc.text(ensureUTF8(`TIN: ${data.client.inn}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-      buyerCurrentY += 8;
+      const _txt20 = ensureUTF8(`TIN: ${data.client.inn}`);
+      const _h20 = doc.heightOfString(_txt20, { width: buyerColumnWidth });
+      doc.text(_txt20, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h20 + 3;
     }
     if (data.client.phone) {
-      doc.text(ensureUTF8(`Tel: ${data.client.phone}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-      buyerCurrentY += 8;
+      const _txt21 = ensureUTF8(`Tel: ${data.client.phone}`);
+      const _h21 = doc.heightOfString(_txt21, { width: buyerColumnWidth });
+      doc.text(_txt21, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h21 + 3;
     }
     if (data.client.email) {
-      doc.text(ensureUTF8(`E-mail: ${data.client.email}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-      buyerCurrentY += 8;
+      const _txt22 = ensureUTF8(`E-mail: ${data.client.email}`);
+      const _h22 = doc.heightOfString(_txt22, { width: buyerColumnWidth });
+      doc.text(_txt22, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h22 + 3;
     }
     if (data.client.bankName) {
       const bankName = tr(t, 'buyerBankName', data.client.bankName);
-      doc.text(ensureUTF8(`Beneficiary's bank: ${bankName}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-      buyerCurrentY += 8;
+      const _txt23 = ensureUTF8(`Beneficiary's bank: ${bankName}`);
+      const _h23 = doc.heightOfString(_txt23, { width: buyerColumnWidth });
+      doc.text(_txt23, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h23 + 3;
     }
     if (data.client.bankSwift) {
-      doc.text(ensureUTF8(`SWIFT: ${data.client.bankSwift}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-      buyerCurrentY += 8;
+      const _txt24 = ensureUTF8(`SWIFT: ${data.client.bankSwift}`);
+      const _h24 = doc.heightOfString(_txt24, { width: buyerColumnWidth });
+      doc.text(_txt24, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h24 + 3;
     }
     if (data.client.bankAccount) {
-      doc.text(ensureUTF8(`Current account (${data.invoice.currency}): ${data.client.bankAccount}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-      buyerCurrentY += 8;
+      const _txt25 = ensureUTF8(`Current account (${data.invoice.currency}): ${data.client.bankAccount}`);
+      const _h25 = doc.heightOfString(_txt25, { width: buyerColumnWidth });
+      doc.text(_txt25, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h25 + 3;
     }
     if (data.client.correspondentBank) {
       const corrBank = tr(t, 'buyerCorrespondentBank', data.client.correspondentBank);
-      doc.text(ensureUTF8(`Correspondent bank: ${corrBank}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-      buyerCurrentY += 8;
+      const _txt26 = ensureUTF8(`Correspondent bank: ${corrBank}`);
+      const _h26 = doc.heightOfString(_txt26, { width: buyerColumnWidth });
+      doc.text(_txt26, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h26 + 3;
     }
     if (data.client.correspondentBankSwift) {
-      doc.text(ensureUTF8(`SWIFT: ${data.client.correspondentBankSwift}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
-      buyerCurrentY += 8;
+      const _txt27 = ensureUTF8(`SWIFT: ${data.client.correspondentBankSwift}`);
+      const _h27 = doc.heightOfString(_txt27, { width: buyerColumnWidth });
+      doc.text(_txt27, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h27 + 3;
     }
   }
 
@@ -366,50 +471,76 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
     doc.text('Additional Information', 30, doc.y);
     setFont('Helvetica');
     doc.fontSize(8);
-    let infoY = doc.y + 12;
-
+    doc.x = 30;
+    doc.moveDown(0.5);
     if (info.deliveryTerms) {
       const terms = tr(t, 'deliveryTerms', info.deliveryTerms);
-      doc.text(ensureUTF8(`Delivery Terms: ${terms}`), 30, infoY);
-      infoY += 10;
+      setFont('Helvetica-Bold');
+      doc.text('Delivery Terms: ', { continued: true });
+      setFont('Helvetica');
+      doc.text(ensureUTF8(`${terms}`));
+      doc.moveDown(0.2);
     }
     if (info.vehicleNumber) {
-      doc.text(ensureUTF8(`Vehicle No: ${info.vehicleNumber}`), 30, infoY);
-      infoY += 10;
+      setFont('Helvetica-Bold');
+      doc.text('Vehicle No: ', { continued: true });
+      setFont('Helvetica');
+      doc.text(ensureUTF8(`${info.vehicleNumber}`));
+      doc.moveDown(0.2);
     }
     if (info.shipmentPlace) {
       const place = tr(t, 'shipmentPlace', info.shipmentPlace);
-      doc.text(ensureUTF8(`Place of Shipment: ${place}`), 30, infoY);
-      infoY += 10;
+      setFont('Helvetica-Bold');
+      doc.text('Place of Shipment: ', { continued: true });
+      setFont('Helvetica');
+      doc.text(ensureUTF8(`${place}`));
+      doc.moveDown(0.2);
     }
     if (info.destination) {
       const dest = tr(t, 'destination', info.destination);
-      doc.text(ensureUTF8(`Destination: ${dest}`), 30, infoY);
-      infoY += 10;
+      setFont('Helvetica-Bold');
+      doc.text('Destination: ', { continued: true });
+      setFont('Helvetica');
+      doc.text(ensureUTF8(`${dest}`));
+      doc.moveDown(0.2);
     }
     if (info.origin) {
       const origin = tr(t, 'origin', info.origin);
-      doc.text(ensureUTF8(`Country of Origin: ${origin}`), 30, infoY);
-      infoY += 10;
+      setFont('Helvetica-Bold');
+      doc.text('Country of Origin: ', { continued: true });
+      setFont('Helvetica');
+      doc.text(ensureUTF8(`${origin}`));
+      doc.moveDown(0.2);
     }
     if (info.manufacturer) {
       const mfr = tr(t, 'manufacturer', info.manufacturer);
-      doc.text(ensureUTF8(`Manufacturer: ${mfr}`), 30, infoY);
-      infoY += 10;
+      setFont('Helvetica-Bold');
+      doc.text('Manufacturer: ', { continued: true });
+      setFont('Helvetica');
+      doc.text(ensureUTF8(`${mfr}`));
+      doc.moveDown(0.2);
     }
     if (info.orderNumber) {
-      doc.text(ensureUTF8(`Order No: ${info.orderNumber}`), 30, infoY);
-      infoY += 10;
+      setFont('Helvetica-Bold');
+      doc.text('Order No: ', { continued: true });
+      setFont('Helvetica');
+      doc.text(ensureUTF8(`${info.orderNumber}`));
+      doc.moveDown(0.2);
     }
     if (info.gln) {
-      doc.text(ensureUTF8(`GS1 Global Location Number (GLN): ${info.gln}`), 30, infoY);
-      infoY += 10;
+      setFont('Helvetica-Bold');
+      doc.text('GS1 Global Location Number (GLN): ', { continued: true });
+      setFont('Helvetica');
+      doc.text(ensureUTF8(`${info.gln}`));
+      doc.moveDown(0.2);
     }
     if (info.harvestYear) {
-      doc.text(ensureUTF8(`Harvest: ${info.harvestYear}`), 30, infoY);
-      infoY += 10;
+      setFont('Helvetica-Bold');
+      doc.text('Harvest: ', { continued: true });
+      setFont('Helvetica');
+      doc.text(ensureUTF8(`${info.harvestYear}`));
+      doc.moveDown(0.2);
     }
-    doc.y = infoY;
     
     // Separator after Additional Info
     const infoSeparatorY = doc.y + 5;
@@ -460,6 +591,13 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   colPositions.unitPrice = currentX; currentX += colWidths.unitPrice;
   colPositions.totalPrice = currentX; currentX += colWidths.totalPrice;
 
+  // Draw full table boundary and header background
+  const finalYEstimate = 480; // We'll trace the rows and draw horizontal lines, we don't draw a single giant rect yet.
+  
+  
+  
+  doc.fillColor('black');
+  
   // Table header
   doc.fontSize(7);
   doc.text('No.', colPositions.number, tableTop, { width: colWidths.number });
@@ -475,9 +613,9 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   doc.text('Price', colPositions.unitPrice, tableTop, { width: colWidths.unitPrice });
   doc.text('Amount', colPositions.totalPrice, tableTop, { width: colWidths.totalPrice });
 
-  doc.lineWidth(1.2).moveTo(startX, tableTop + 15).lineTo(currentX, tableTop + 15).stroke();
+  doc.lineWidth(0.5).strokeColor('#4b5563').moveTo(startX, tableTop + 15).lineTo(currentX, tableTop + 15).stroke();
 
-  let y = tableTop + 18;
+  let y = tableTop + 20; // Adjusted spacing
   if (!data.invoice.items || data.invoice.items.length === 0) {
     doc.fontSize(7);
     doc.text('No items', startX, y, { width: currentX - startX });
@@ -506,13 +644,14 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       doc.text((item.unitPrice || 0).toString(), colPositions.unitPrice, y, { width: colWidths.unitPrice });
       doc.text(Number(item.totalPrice || 0).toFixed(2), colPositions.totalPrice, y, { width: colWidths.totalPrice });
       y += itemHeight;
+      doc.lineWidth(0.5).strokeColor('#e5e7eb').moveTo(startX, y - 5).lineTo(currentX, y - 5).stroke();
     });
   }
 
   // Total line
-  doc.lineWidth(1.2).moveTo(startX, y).lineTo(currentX, y).stroke();
+  doc.lineWidth(1.2).strokeColor('#111827').moveTo(startX, y - 5).lineTo(currentX, y - 5).stroke();
 
-  const totalY = y + 5;
+  const totalY = y - 2;
   doc.fontSize(8);
   setFont('Helvetica-Bold');
   doc.text('Total:', colPositions.name, totalY, { width: colWidths.name });
@@ -540,14 +679,24 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
 
   // Notes
   if (data.invoice.notes) {
-    let notesY = doc.y;
+    let notesY = doc.y + 15;
     if (isNaN(doc.y) || doc.y <= 0 || !isFinite(doc.y)) notesY = (totalY || 400) + 50;
-    doc.fontSize(8).text('Special Notes', startX, notesY, { underline: true });
+    
     const notesText = ensureUTF8(tr(t, 'notes', data.invoice.notes));
-    const notesContentWidth = pageWidth - 2 * margin;
+    const notesContentWidth = pageWidth - 2 * margin - 20;
     const notesTextHeight = doc.fontSize(7).heightOfString(notesText, { width: notesContentWidth });
-    doc.fontSize(7).text(notesText, startX, notesY + 10, { width: notesContentWidth });
-    doc.y = notesY + 10 + notesTextHeight + 4;
+    
+    // Draw rounded outer bounding box for notes
+    doc.lineWidth(1)
+       .strokeColor('#d1d5db')
+       .roundedRect(startX, notesY - 10, pageWidth - 2 * margin, notesTextHeight + 35, 8)
+       .stroke();
+    
+    doc.fillColor('black');
+    doc.fontSize(8).text('Special Notes', startX + 10, notesY);
+    
+    doc.fontSize(7).text(notesText, startX + 10, notesY + 15, { width: notesContentWidth });
+    doc.y = notesY + notesTextHeight + 35;
   }
 
   // Signatures
@@ -558,7 +707,7 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
     signatureY = doc.y + 30;
   }
 
-  doc.fontSize(10);
+  doc.fontSize(8);
 
   try {
     const supplierDirector = tr(t, 'supplierDirector', data.contract?.supplierDirector || '');

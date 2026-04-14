@@ -81,6 +81,15 @@ export default function LeadDetail() {
     const [reminder, setReminder] = useState('');
     const [savingReminder, setSavingReminder] = useState(false);
 
+    // AI Features
+    const [score, setScore] = useState<{ score: number; explanation: string; temperature: string } | null>(null);
+    const [loadingScore, setLoadingScore] = useState(false);
+    const [summary, setSummary] = useState<{ summary: string; nextBestAction: string } | null>(null);
+    const [loadingSummary, setLoadingSummary] = useState(false);
+    const [aiMessageContext, setAiMessageContext] = useState('');
+    const [generatingMessage, setGeneratingMessage] = useState(false);
+    const [aiMode, setAiMode] = useState(false);
+
 
     const fetchLead = async () => {
         setLoading(true);
@@ -208,6 +217,50 @@ export default function LeadDetail() {
             navigate('/leads');
         } catch {
             toast.error('Xatolik');
+        }
+    };
+
+    // AI Handlers
+    const handleFetchScore = async () => {
+        setLoadingScore(true);
+        try {
+            const { data } = await apiClient.post('/ai/crm/score', { leadId: Number(id) });
+            setScore(data.data);
+        } catch (e) {
+            toast.error("AI xatolik(Baholash)");
+        } finally {
+            setLoadingScore(false);
+        }
+    };
+
+    const handleFetchSummary = async () => {
+        setLoadingSummary(true);
+        try {
+            const { data } = await apiClient.post('/ai/crm/summary', { leadId: Number(id) });
+            setSummary(data.data);
+        } catch (e) {
+            toast.error("AI xatolik(Xulosa)");
+        } finally {
+            setLoadingSummary(false);
+        }
+    };
+
+    const handleGenerateMessage = async () => {
+        if (!aiMessageContext) return toast.error("AI uchun ko'rsatma yozing");
+        setGeneratingMessage(true);
+        try {
+            const { data } = await apiClient.post('/ai/crm/copywriting', { 
+                leadId: Number(id), 
+                context: aiMessageContext 
+            });
+            setActNote((prev) => prev + (prev ? '\n\n' : '') + data.data.message);
+            setAiMessageContext('');
+            setAiMode(false);
+            toast.success("Matn izohga qo'shildi");
+        } catch (e) {
+            toast.error("AI xatolik(Matn yozish)");
+        } finally {
+            setGeneratingMessage(false);
         }
     };
 
@@ -375,6 +428,74 @@ export default function LeadDetail() {
                         )}
                     </div>
 
+                    {/* AI Assistant Panel */}
+                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 p-5 shadow-sm overflow-hidden relative">
+                        <div className="absolute -right-4 -top-4 opacity-10">
+                            <Icon icon="lucide:bot" className="w-24 h-24 text-indigo-500" />
+                        </div>
+                        <h2 className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mb-4 flex items-center gap-2">
+                            <Icon icon="lucide:sparkles" className="w-4 h-4" />
+                            AI Yordamchisi
+                        </h2>
+
+                        <div className="space-y-4 relative z-10">
+                            {/* Score */}
+                            <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-indigo-50 dark:border-gray-700">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Lid Sifati (Score)</span>
+                                    <button 
+                                        onClick={handleFetchScore}
+                                        disabled={loadingScore}
+                                        className="text-[10px] bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 px-2 py-1 rounded-md hover:bg-indigo-200 transition-colors"
+                                    >
+                                        {loadingScore ? 'Olinmoqda...' : 'Tahlil qilish'}
+                                    </button>
+                                </div>
+                                {score && (
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`text-xl font-black ${score.temperature === 'HOT' ? 'text-red-500' : score.temperature === 'WARM' ? 'text-amber-500' : 'text-blue-500'}`}>
+                                                {score.score}/100
+                                            </div>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                                {score.temperature}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{score.explanation}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Summary & Next Action */}
+                            <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-indigo-50 dark:border-gray-700">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Xulosa va Tavsiya</span>
+                                    <button 
+                                        onClick={handleFetchSummary}
+                                        disabled={loadingSummary}
+                                        className="text-[10px] bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 px-2 py-1 rounded-md hover:bg-indigo-200 transition-colors"
+                                    >
+                                        {loadingSummary ? 'Olinmoqda...' : 'Tahlil qilish'}
+                                    </button>
+                                </div>
+                                {summary && (
+                                    <div className="space-y-2 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                        <div>
+                                            <span className="text-[10px] text-gray-400 uppercase tracking-wider block mb-0.5">Holat xulosasi</span>
+                                            <p className="text-xs text-gray-700 dark:text-gray-300">{summary.summary}</p>
+                                        </div>
+                                        <div className="bg-green-50 dark:bg-green-900/10 p-2 rounded-lg border border-green-100 dark:border-green-900/30">
+                                            <span className="text-[10px] text-green-600 dark:text-green-500 uppercase tracking-wider block mb-0.5 font-bold flex items-center gap-1">
+                                                <Icon icon="lucide:lightbulb" className="w-3 h-3" /> Tavsiya qadam (NBA)
+                                            </span>
+                                            <p className="text-xs text-green-700 dark:text-green-400">{summary.nextBestAction}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Next Call Reminder */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
                         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
@@ -419,7 +540,7 @@ export default function LeadDetail() {
                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
                         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Yozuv qo'shish</h2>
                         <form onSubmit={handleAddActivity} className="space-y-3">
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                                 {(['call', 'comment'] as const).map((t) => (
                                     <button
                                         key={t}
@@ -434,7 +555,39 @@ export default function LeadDetail() {
                                         {t === 'call' ? 'Qo\'ng\'iroq' : 'Izoh'}
                                     </button>
                                 ))}
+                                <button
+                                    type="button"
+                                    onClick={() => setAiMode(!aiMode)}
+                                    className={`flex-1 inline-flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-xl border transition-all ${aiMode 
+                                        ? 'bg-purple-600 text-white border-purple-600' 
+                                        : 'bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400'}`}
+                                >
+                                    <Icon icon="lucide:sparkles" className="w-4 h-4" />
+                                    AI
+                                </button>
                             </div>
+
+                            {aiMode && (
+                                <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl border border-purple-200 dark:border-purple-800/50 mb-3">
+                                    <p className="text-xs text-purple-700 dark:text-purple-300 font-medium mb-2">AI ga qanday xabar yozishni buyuring:</p>
+                                    <input 
+                                        value={aiMessageContext}
+                                        onChange={(e) => setAiMessageContext(e.target.value)}
+                                        placeholder="Mijozga narx tushirib berolmasligimizni do'stona tushuntirib xat yoz..."
+                                        className="w-full px-3 py-2 text-sm border border-purple-200 dark:border-purple-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500 mb-2"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleGenerateMessage}
+                                        disabled={generatingMessage || !aiMessageContext}
+                                        className="w-full py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex justify-center items-center gap-2 disabled:opacity-50 transition-colors"
+                                    >
+                                        {generatingMessage ? <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" /> : <Icon icon="lucide:bot" className="w-4 h-4" />}
+                                        Matn yaratish
+                                    </button>
+                                </div>
+                            )}
+
                             <textarea
                                 rows={3}
                                 value={actNote}

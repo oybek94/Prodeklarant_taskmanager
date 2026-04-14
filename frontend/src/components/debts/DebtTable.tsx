@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import apiClient from '../../lib/api';
 import toast from 'react-hot-toast';
 import DebtPaymentModal from './DebtPaymentModal';
+import DebtHistoryModal from './DebtHistoryModal';
 import { useIsMobile } from '../../utils/useIsMobile';
 
 const DebtTable = ({
@@ -18,6 +19,8 @@ const DebtTable = ({
     const isMobile = useIsMobile();
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [selectedDebt, setSelectedDebt] = useState<any>(null);
+    const [historyModalOpen, setHistoryModalOpen] = useState(false);
+    const [selectedHistoryDebt, setSelectedHistoryDebt] = useState<any>(null);
 
     const handleDelete = async (id: number) => {
         if (!confirm('Ushbu qarzni o\'chirmoqchimisiz?')) return;
@@ -64,19 +67,30 @@ const DebtTable = ({
     };
 
     return (
-        <div className="bg-white/60 backdrop-blur-xl p-5 rounded-2xl shadow-sm border border-white/80 ring-1 ring-black/5 mt-6">
+        <div className="bg-white dark:bg-gray-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 mt-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
-                <h2 className="text-xl font-bold text-gray-800">Qarzlar Ro'yxati</h2>
-                <div className="flex gap-2 w-full md:w-auto">
-                    <select
-                        value={filters.status}
-                        onChange={(e) => { setFilters({ ...filters, status: e.target.value }); setPage(1); }}
-                        className="flex-1 md:flex-none px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
-                    >
-                        <option value="">Barcha holat</option>
-                        <option value="active">Qarz qolganlar</option>
-                        <option value="paid">To'liq to'langan</option>
-                    </select>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Qarzlar Ro'yxati</h2>
+                <div className="flex w-full md:w-auto">
+                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-full md:w-auto">
+                        <button
+                            onClick={() => { setFilters({ ...filters, status: '' }); setPage(1); }}
+                            className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filters.status === '' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                        >
+                            Barchasi
+                        </button>
+                        <button
+                            onClick={() => { setFilters({ ...filters, status: 'active' }); setPage(1); }}
+                            className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filters.status === 'active' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                        >
+                            Qolganlar
+                        </button>
+                        <button
+                            onClick={() => { setFilters({ ...filters, status: 'paid' }); setPage(1); }}
+                            className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filters.status === 'paid' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                        >
+                            To'langan
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -112,7 +126,7 @@ const DebtTable = ({
                             }
 
                             return (
-                                <div key={debt.id} className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-slate-800 space-y-4">
+                                <div key={debt.id} onClick={() => { setSelectedHistoryDebt(debt); setHistoryModalOpen(true); }} className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-slate-800 space-y-4 cursor-pointer hover:border-gray-200 dark:hover:border-slate-700 transition-colors">
                                     <div className="flex justify-between items-start">
                                         <div className="min-w-0 flex-1 pr-2">
                                             <h3 className="text-sm font-bold text-gray-900 dark:text-white truncate">{debt.name}</h3>
@@ -159,7 +173,7 @@ const DebtTable = ({
                                     <div className="pt-2 flex gap-2">
                                         {!isPaid && (
                                             <button
-                                                onClick={() => { setSelectedDebt(debt); setPaymentModalOpen(true); }}
+                                                onClick={(e) => { e.stopPropagation(); setSelectedDebt(debt); setPaymentModalOpen(true); }}
                                                 className="flex-1 flex justify-center items-center gap-2 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all"
                                             >
                                                 <Icon icon="lucide:check-circle-2" className="w-4 h-4" />
@@ -167,7 +181,7 @@ const DebtTable = ({
                                             </button>
                                         )}
                                         <button
-                                            onClick={() => handleDelete(debt.id)}
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(debt.id); }}
                                             className={`flex justify-center items-center p-2 rounded-xl border border-rose-100 dark:border-rose-900/50 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all ${isPaid ? 'flex-1' : ''}`}
                                         >
                                             <Icon icon="lucide:trash-2" className="w-4 h-4" />
@@ -183,12 +197,12 @@ const DebtTable = ({
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-gray-50/50">
-                                <th className="p-3 font-semibold text-gray-600 text-sm border-b border-gray-100">Shaxs/Korxona</th>
-                                <th className="p-3 font-semibold text-gray-600 text-sm border-b border-gray-100">Muddat</th>
-                                <th className="p-3 font-semibold text-gray-600 text-sm border-b border-gray-100">Jami qarz</th>
-                                <th className="p-3 font-semibold text-gray-600 text-sm border-b border-gray-100">To'lov Holati</th>
-                                <th className="p-3 font-semibold text-gray-600 text-sm border-b border-gray-100 text-right">Amallar</th>
+                            <tr className="bg-gray-50 dark:bg-gray-800/50">
+                                <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800">Shaxs/Korxona</th>
+                                <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800">Muddat</th>
+                                <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800">Jami qarz</th>
+                                <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800">To'lov Holati</th>
+                                <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800 text-right">Amallar</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -227,8 +241,8 @@ const DebtTable = ({
                                     }
 
                                     return (
-                                        <tr key={debt.id} className="hover:bg-gray-50/50 transition-colors group">
-                                            <td className="p-3 border-b border-gray-50">
+                                        <tr key={debt.id} onClick={() => { setSelectedHistoryDebt(debt); setHistoryModalOpen(true); }} className="hover:bg-gray-50/50 transition-colors group cursor-pointer">
+                                            <td className="p-3 border-b border-gray-100 dark:border-gray-800">
                                                 <p className="font-semibold text-gray-800">{debt.name}</p>
                                                 <p className="text-xs text-gray-500 mt-1">{formatDate(debt.date)} da ochilgan</p>
                                             </td>
@@ -242,9 +256,9 @@ const DebtTable = ({
                                                             </span>
                                                             <span className="text-gray-500">{formatDate(debt.dueDate)}</span>
                                                         </div>
-                                                        <div className="w-full bg-gray-100 rounded-full h-1.5 dark:bg-gray-700 overflow-hidden">
+                                                        <div className="w-full bg-gray-100 rounded-full h-0.5 dark:bg-gray-700 overflow-hidden">
                                                             <div
-                                                                className={`h-1.5 rounded-full transition-all duration-500 ${isPaid ? 'bg-emerald-500' : timeColor}`}
+                                                                className={`h-0.5 rounded-full transition-all duration-500 ${isPaid ? 'bg-emerald-500' : timeColor}`}
                                                                 style={{ width: `${isPaid ? 100 : timeProgress}%` }}
                                                             ></div>
                                                         </div>
@@ -254,7 +268,7 @@ const DebtTable = ({
                                                 )}
                                             </td>
 
-                                            <td className="p-3 border-b border-gray-50">
+                                            <td className="p-3 border-b border-gray-100 dark:border-gray-800">
                                                 <p className="font-bold text-gray-900">{formatCurrency(debt.amount, debt.currency)}</p>
                                                 <p className="text-xs text-gray-500">{debt.comment}</p>
                                             </td>
@@ -266,9 +280,9 @@ const DebtTable = ({
                                                     </span>
                                                     <span className="text-gray-500">{payProgress.toFixed(0)}%</span>
                                                 </div>
-                                                <div className="w-full bg-gray-100 rounded-full h-1.5 dark:bg-gray-700 overflow-hidden">
+                                                <div className="w-full bg-gray-100 rounded-full h-0.5 dark:bg-gray-700 overflow-hidden">
                                                     <div
-                                                        className={`h-1.5 rounded-full transition-all duration-500 ${isPaid ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                                                        className={`h-0.5 rounded-full transition-all duration-500 ${isPaid ? 'bg-emerald-500' : 'bg-amber-500'}`}
                                                         style={{ width: `${payProgress}%` }}
                                                     ></div>
                                                 </div>
@@ -278,7 +292,7 @@ const DebtTable = ({
                                                 <div className="flex justify-end gap-2 items-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                                                     {!isPaid && (
                                                         <button
-                                                            onClick={() => { setSelectedDebt(debt); setPaymentModalOpen(true); }}
+                                                            onClick={(e) => { e.stopPropagation(); setSelectedDebt(debt); setPaymentModalOpen(true); }}
                                                             className="px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
                                                             title="To'lov qilish"
                                                         >
@@ -287,7 +301,7 @@ const DebtTable = ({
                                                         </button>
                                                     )}
                                                     <button
-                                                        onClick={() => handleDelete(debt.id)}
+                                                        onClick={(e) => { e.stopPropagation(); handleDelete(debt.id); }}
                                                         className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                                                         title="O'chirish"
                                                     >
@@ -331,6 +345,18 @@ const DebtTable = ({
                     debt={selectedDebt}
                     onSuccess={() => {
                         setPaymentModalOpen(false);
+                        reloadData();
+                    }}
+                />
+            )}
+
+            {selectedHistoryDebt && (
+                <DebtHistoryModal
+                    isOpen={historyModalOpen}
+                    onClose={() => setHistoryModalOpen(false)}
+                    debt={selectedHistoryDebt}
+                    onSuccess={() => {
+                        setHistoryModalOpen(false);
                         reloadData();
                     }}
                 />

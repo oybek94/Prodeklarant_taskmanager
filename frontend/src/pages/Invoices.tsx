@@ -144,11 +144,10 @@ const Invoices = () => {
     filters.endDate;
 
   useEffect(() => {
-    loadInvoices();
     loadClients();
     loadBranches();
     loadWorkers();
-    }, []);
+  }, []);
 
   const openErrorModalForTaskId = (location.state as { openErrorModalForTaskId?: number })?.openErrorModalForTaskId;
   useEffect(() => {
@@ -495,7 +494,7 @@ const Invoices = () => {
           <div className="w-10 h-10 rounded-xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white shadow-sm shrink-0">
             <Icon icon="lucide:file-text" className="w-5 h-5" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-3 flex-wrap">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-slate-200 tracking-tight flex items-center gap-3 flex-wrap">
             Invoice'lar
             <span className="hidden sm:inline-flex text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-800/80 px-3 py-1 rounded-lg border border-gray-200 dark:border-slate-700/60 shadow-sm items-center">
               Barcha schyot-fakturalarni boshqarish
@@ -917,8 +916,12 @@ const Invoices = () => {
             
             return (
               <div 
-                key={invoice.id} 
-                className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border ${hasErrors ? 'border-l-4 border-l-red-500 border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-700'} p-3 space-y-2`}
+                key={invoice.id}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('button')) return;
+                  navigate(`/invoices/task/${invoice.taskId}`);
+                }}
+                className={`cursor-pointer bg-white dark:bg-gray-800 rounded-xl shadow-sm border ${hasErrors ? 'border-l-4 border-l-red-500 border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-700'} p-3 space-y-2`}
               >
                 <div className="flex justify-between items-center">
                   <button
@@ -941,7 +944,7 @@ const Invoices = () => {
                   <div className="flex justify-between items-center gap-4">
                     <div className="flex-1 min-w-0">
                       <p className="text-gray-400 text-[10px] uppercase font-semibold">Mijoz</p>
-                      <p className="font-bold text-gray-900 dark:text-white text-sm truncate">
+                      <p className="font-bold text-gray-900 dark:text-slate-200 text-sm truncate">
                         {invoice.clientId ? (
                           <button
                             type="button"
@@ -1070,6 +1073,10 @@ const Invoices = () => {
                   return (
                     <tr
                       key={invoice.id}
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) return;
+                        navigate(`/invoices/task/${invoice.taskId}`);
+                      }}
                       className={`group transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${hasErrors ? 'border-l-4 border-l-red-500' : ''}`}
                     >
                       <td className="w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold">
@@ -1168,7 +1175,7 @@ const Invoices = () => {
                           </button>
 
                           {/* Shablonlar dropdown */}
-                          <div className="relative" ref={openTemplateDropdownId === invoice.id ? templateDropdownRef : undefined}>
+                          <div className="relative" ref={openTemplateDropdownId === invoice.id ? templateDropdownRef : undefined} onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               onClick={() => setOpenTemplateDropdownId(openTemplateDropdownId === invoice.id ? null : invoice.id)}

@@ -6,6 +6,8 @@ import { ST1Service } from '../services/st1.service';
 import { FitoService } from '../services/fito.service';
 import { compareInvoiceST1 } from '../ai/document.analyzer';
 import { InvoiceExtraction, ST1Extraction, ComparisonResult } from '../ai/prompt.builder';
+import { CrmAnalyzerService } from '../ai/crm.analyzer';
+import { prisma } from '../prisma';
 
 const router = Router();
 
@@ -173,6 +175,110 @@ router.post(
       res.status(500).json({
         error: error.message || 'Failed to compare documents',
       });
+    }
+  }
+);
+
+/**
+ * POST /api/ai/crm/score
+ * Get AI Lead Score
+ */
+router.post(
+  '/crm/score',
+  requireAuth(),
+  async (req: AuthRequest, res) => {
+    try {
+      const { leadId } = req.body;
+      if (!leadId) return res.status(400).json({ error: 'leadId is required' });
+
+      const lead = await prisma.lead.findUnique({
+        where: { id: leadId },
+        include: { activities: { include: { user: true } } },
+      });
+
+      if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+      const result = await CrmAnalyzerService.analyzeLeadScore(lead as any);
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      console.error('[AI] Lead score error:', error);
+      res.status(500).json({ error: error.message || 'Error' });
+    }
+  }
+);
+
+/**
+ * POST /api/ai/crm/summary
+ * Get AI Lead Summary
+ */
+router.post(
+  '/crm/summary',
+  requireAuth(),
+  async (req: AuthRequest, res) => {
+    try {
+      const { leadId } = req.body;
+      if (!leadId) return res.status(400).json({ error: 'leadId is required' });
+
+      const lead = await prisma.lead.findUnique({
+        where: { id: leadId },
+        include: { activities: { include: { user: true } } },
+      });
+
+      if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+      const result = await CrmAnalyzerService.summarizeLeadHistory(lead as any);
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      console.error('[AI] Lead summary error:', error);
+      res.status(500).json({ error: error.message || 'Error' });
+    }
+  }
+);
+
+/**
+ * POST /api/ai/crm/insights
+ * Get Dashboard Insights
+ */
+router.post(
+  '/crm/insights',
+  requireAuth(),
+  async (req: AuthRequest, res) => {
+    try {
+      const { stats } = req.body;
+      if (!stats) return res.status(400).json({ error: 'stats is required' });
+
+      const result = await CrmAnalyzerService.generateDashboardInsights(stats);
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      console.error('[AI] Dashboard insights error:', error);
+      res.status(500).json({ error: error.message || 'Error' });
+    }
+  }
+);
+
+/**
+ * POST /api/ai/crm/copywriting
+ * Generate Message for Lead
+ */
+router.post(
+  '/crm/copywriting',
+  requireAuth(),
+  async (req: AuthRequest, res) => {
+    try {
+      const { leadId, context } = req.body;
+      if (!leadId || !context) return res.status(400).json({ error: 'leadId and context are required' });
+
+      const lead = await prisma.lead.findUnique({
+        where: { id: leadId },
+      });
+
+      if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+      const result = await CrmAnalyzerService.generateLeadMessage(lead as any, context);
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      console.error('[AI] Copywriting error:', error);
+      res.status(500).json({ error: error.message || 'Error' });
     }
   }
 );

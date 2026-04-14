@@ -7,7 +7,9 @@ import {
   deleteDebt,
   addDebtPayment,
   getDebtDashboard,
-  getDebtPersons
+  getDebtPersons,
+  updateDebtPayment,
+  deleteDebtPayment
 } from '../controllers/debt.controller';
 
 const router = Router();
@@ -20,5 +22,7 @@ router.get('/:id', getDebtById);
 router.put('/:id', updateDebt);
 router.delete('/:id', deleteDebt);
 router.post('/:id/payments', addDebtPayment);
+router.put('/payments/:paymentId', updateDebtPayment);
+router.delete('/payments/:paymentId', deleteDebtPayment);
 
 export default router;

@@ -12,6 +12,17 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
     const [comment, setComment] = useState('');
     const [loading, setLoading] = useState(false);
 
+    React.useEffect(() => {
+        if (isOpen && debt) {
+            setAmount(debt.remaining || '');
+            setCurrency(debt.currency || 'USD');
+            setPaymentMethod('CASH');
+            setTransactionType('INCOME');
+            setDate(new Date().toISOString().split('T')[0]);
+            setComment('');
+        }
+    }, [isOpen, debt]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!amount) {
@@ -46,24 +57,24 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
     if (!isOpen || !debt) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in-up">
-                <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-700 bg-emerald-50/50">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                        <Icon icon="lucide:check-circle-2" className="text-emerald-500 w-5 h-5"/>
+        <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 w-full max-w-md overflow-hidden animate-fade-in-up">
+                <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Icon icon="lucide:check-circle-2" className="text-gray-500 w-5 h-5"/>
                         Qarzni to'lash
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                         <Icon icon="lucide:x" className="w-5 h-5" />
                     </button>
                 </div>
                 
                 <form onSubmit={handleSubmit} className="p-5 space-y-4">
-                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl mb-6">
-                        <p className="text-sm text-gray-600 font-medium mb-1">{debt.name}</p>
+                    <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 p-4 rounded-xl mb-6">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-1">{debt.name}</p>
                         <div className="flex justify-between items-end">
-                            <p className="text-2xl font-bold text-gray-900">{new Intl.NumberFormat('uz-UZ').format(debt.remaining)} <span className="text-lg text-gray-500 font-medium">{debt.currency}</span></p>
-                            <span className="text-xs text-emerald-600 font-semibold bg-emerald-100 px-2 py-1 rounded">Qoldiq summa</span>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{new Intl.NumberFormat('uz-UZ').format(debt.remaining)} <span className="text-lg text-gray-500 font-medium">{debt.currency}</span></p>
+                            <span className="text-xs text-gray-700 dark:text-gray-300 font-semibold bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">Qoldiq summa</span>
                         </div>
                     </div>
 
@@ -75,7 +86,7 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
                                 step="0.01"
                                 value={amount} 
                                 onChange={(e) => setAmount(e.target.value)}
-                                className="w-full border-gray-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 px-4 py-2 font-medium"
+                                className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg focus:ring-1 focus:ring-gray-900 dark:focus:ring-white focus:border-gray-900 dark:focus:border-white px-3 py-2 text-sm transition-shadow font-medium"
                                 placeholder="0.00"
                                 max={debt.remaining}
                                 required
@@ -86,7 +97,7 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
                             <select 
                                 value={currency} 
                                 onChange={(e) => setCurrency(e.target.value)}
-                                className="w-full border-gray-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 px-4 py-2"
+                                className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg focus:ring-1 focus:ring-gray-900 dark:focus:ring-white focus:border-gray-900 dark:focus:border-white px-3 py-2 text-sm transition-shadow"
                             >
                                 <option value="USD">USD</option>
                                 <option value="UZS">UZS</option>
@@ -100,7 +111,7 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
                             <select 
                                 value={paymentMethod} 
                                 onChange={(e) => setPaymentMethod(e.target.value)}
-                                className="w-full border-gray-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 px-4 py-2"
+                                className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg focus:ring-1 focus:ring-gray-900 dark:focus:ring-white focus:border-gray-900 dark:focus:border-white px-3 py-2 text-sm transition-shadow"
                             >
                                 <option value="CASH">Naqd</option>
                                 <option value="CARD">Karta</option>
@@ -112,7 +123,7 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
                                 type="date" 
                                 value={date} 
                                 onChange={(e) => setDate(e.target.value)}
-                                className="w-full border-gray-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 px-4 py-2"
+                                className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg focus:ring-1 focus:ring-gray-900 dark:focus:ring-white focus:border-gray-900 dark:focus:border-white px-3 py-2 text-sm transition-shadow"
                                 required
                             />
                         </div>
@@ -123,7 +134,7 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
                         <select 
                             value={transactionType} 
                             onChange={(e) => setTransactionType(e.target.value)}
-                            className="w-full border-gray-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 px-4 py-2"
+                            className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg focus:ring-1 focus:ring-gray-900 dark:focus:ring-white focus:border-gray-900 dark:focus:border-white px-3 py-2 text-sm transition-shadow"
                         >
                             <option value="INCOME">Kirim (Kassaga pul kiradi)</option>
                             <option value="EXPENSE">Chiqim (Kassadan pul chiqadi)</option>
@@ -136,7 +147,7 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
                             type="text"
                             value={comment} 
                             onChange={(e) => setComment(e.target.value)}
-                            className="w-full border-gray-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 px-4 py-2"
+                            className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg focus:ring-1 focus:ring-gray-900 dark:focus:ring-white focus:border-gray-900 dark:focus:border-white px-3 py-2 text-sm transition-shadow"
                             placeholder="Qo'shimcha ma'lumotlar..."
                         />
                     </div>
@@ -145,16 +156,16 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
                         <button 
                             type="button" 
                             onClick={onClose}
-                            className="px-5 py-2.5 text-gray-700 hover:bg-gray-100 rounded-xl font-medium transition-colors"
+                            className="px-4 py-2 flex items-center justify-center text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg transition-colors border-none"
                         >
                             Bekor qilish
                         </button>
                         <button 
                             type="submit" 
                             disabled={loading}
-                            className="px-5 py-2.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl font-medium shadow-md shadow-emerald-500/20 disabled:opacity-50 transition-colors flex items-center gap-2"
+                            className="px-4 py-2 flex items-center justify-center text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-lg shadow-sm disabled:opacity-50 transition-colors gap-2"
                         >
-                            {loading ? <Icon icon="lucide:loader-2" className="animate-spin w-5 h-5" /> : 'To\'lovni saqlash'}
+                            {loading ? <Icon icon="lucide:loader-2" className="animate-spin w-4 h-4" /> : 'To\'lovni saqlash'}
                         </button>
                     </div>
                 </form>

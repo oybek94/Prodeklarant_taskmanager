@@ -267,3 +267,73 @@ export const getDebtDashboard = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Dashboard xatosi' });
   }
 };
+
+export const updateDebtPayment = async (req: Request, res: Response) => {
+    try {
+        const { paymentId } = req.params;
+        const { amount, currency, paymentMethod, comment, date, exchangeRate, convertedUzsAmount, originalAmount } = req.body;
+
+        const payment = await prisma.debtPayment.findUnique({ where: { id: Number(paymentId) } });
+        if (!payment) return res.status(404).json({ error: 'To\'lov topilmadi' });
+
+        const result = await prisma.$transaction(async (tx) => {
+            const updatedPayment = await tx.debtPayment.update({
+                where: { id: Number(paymentId) },
+                data: {
+                    amount: amount ? Number(amount) : payment.amount,
+                    currency: currency || payment.currency,
+                    paymentMethod: paymentMethod as PaymentMethod || payment.paymentMethod,
+                    comment: comment !== undefined ? comment : payment.comment,
+                    date: date ? new Date(date) : payment.date,
+                    exchangeRate: exchangeRate ? Number(exchangeRate) : payment.exchangeRate,
+                    convertedUzsAmount: convertedUzsAmount ? Number(convertedUzsAmount) : payment.convertedUzsAmount,
+                    originalAmount: originalAmount ? Number(originalAmount) : payment.originalAmount,
+                }
+            });
+
+            if (payment.transactionId) {
+                await tx.transaction.update({
+                    where: { id: payment.transactionId },
+                    data: {
+                        amount: amount ? Number(amount) : undefined,
+                        currency: currency,
+                        paymentMethod: paymentMethod as PaymentMethod || undefined,
+                        date: date ? new Date(date) : undefined,
+                        comment: comment !== undefined ? comment : undefined,
+                        exchangeRate: exchangeRate ? Number(exchangeRate) : undefined,
+                        convertedUzsAmount: convertedUzsAmount ? Number(convertedUzsAmount) : undefined,
+                        originalAmount: originalAmount ? Number(originalAmount) : undefined,
+                    }
+                });
+            }
+
+            return updatedPayment;
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error('To\'lovni yangilash xatosi:', error);
+        res.status(500).json({ error: 'To\'lovni yangilashda xato yuz berdi' });
+    }
+};
+
+export const deleteDebtPayment = async (req: Request, res: Response) => {
+    try {
+        const { paymentId } = req.params;
+        const payment = await prisma.debtPayment.findUnique({ where: { id: Number(paymentId) } });
+        if (!payment) return res.status(404).json({ error: 'To\'lov topilmadi' });
+
+        await prisma.$transaction(async (tx) => {
+            await tx.debtPayment.delete({ where: { id: Number(paymentId) } });
+            
+            if (payment.transactionId) {
+                await tx.transaction.delete({ where: { id: payment.transactionId } });
+            }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('To\'lovni o\'chirish xatosi:', error);
+        res.status(500).json({ error: 'To\'lovni o\'chirishda xato yuz berdi' });
+    }
+};

@@ -28,13 +28,12 @@ interface Stats {
     last7Days: { date: string; count: number }[];
 }
 
-const STAGE_CONFIG: { key: string; label: string; color: string; icon: string }[] = [
-    { key: 'COLD', label: 'Yangi', color: 'text-blue-600', icon: 'lucide:snowflake' },
-    { key: 'IN_PROGRESS', label: 'Aloqada', color: 'text-amber-600', icon: 'lucide:phone-call' },
-    { key: 'MEETING', label: 'Uchrashuv', color: 'text-violet-600', icon: 'lucide:calendar-check' },
-    { key: 'FOLLOW_UP', label: "O'ylanyapti", color: 'text-orange-600', icon: 'lucide:clock' },
-    { key: 'CLOSED_WON', label: 'Mijozlar', color: 'text-emerald-600', icon: 'lucide:check-circle-2' },
-    { key: 'CLOSED_LOST', label: 'Rad etdi', color: 'text-red-500', icon: 'lucide:x-circle' },
+const FUNNEL_CONFIG = [
+    { key: 'COLD', label: 'Yangi', ext: 'Attention', icon: 'lucide:snowflake', main: 'bg-indigo-600 dark:bg-indigo-500', ribbon: 'bg-indigo-500 dark:bg-indigo-400' },
+    { key: 'IN_PROGRESS', label: 'Aloqada', ext: 'Interest', icon: 'lucide:phone-call', main: 'bg-blue-500 dark:bg-blue-400', ribbon: 'bg-blue-400 dark:bg-blue-300' },
+    { key: 'MEETING', label: 'Uchrashuv', ext: 'Desire', icon: 'lucide:calendar-check', main: 'bg-emerald-500 dark:bg-emerald-400', ribbon: 'bg-emerald-400 dark:bg-emerald-300' },
+    { key: 'FOLLOW_UP', label: "O'ylanyapti", ext: 'Action', icon: 'lucide:clock', main: 'bg-amber-500 dark:bg-amber-400', ribbon: 'bg-amber-400 dark:bg-amber-300' },
+    { key: 'CLOSED_WON', label: 'Mijozlar', ext: 'Post-sales', icon: 'lucide:check-circle-2', main: 'bg-rose-500 dark:bg-rose-400', ribbon: 'bg-rose-400 dark:bg-rose-300' },
 ];
 
 function KpiCard({ label, value, icon, sub }: { label: string; value: string | number; icon: string; sub?: string }) {
@@ -56,14 +55,31 @@ export default function CrmDashboard() {
     const isMobile = useIsMobile();
     const [stats, setStats] = useState<Stats | null>(null);
     const [loading, setLoading] = useState(true);
+    const [insights, setInsights] = useState<{ trend: string; forecast: string; anomaly: string } | null>(null);
+    const [loadingInsights, setLoadingInsights] = useState(false);
 
     useEffect(() => {
         apiClient
             .get('/leads/stats')
-            .then((r) => setStats(r.data))
+            .then((r) => {
+                setStats(r.data);
+                fetchInsights(r.data);
+            })
             .catch(console.error)
             .finally(() => setLoading(false));
     }, []);
+
+    const fetchInsights = async (data: Stats) => {
+        setLoadingInsights(true);
+        try {
+            const res = await apiClient.post('/ai/crm/insights', { stats: data });
+            setInsights(res.data.data);
+        } catch (e) {
+            console.error('Failed to load AI insights', e);
+        } finally {
+            setLoadingInsights(false);
+        }
+    };
 
     const isDark = theme === 'dark';
     const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
@@ -120,6 +136,51 @@ export default function CrmDashboard() {
                 </button>
             </div>
 
+            {/* AI Insights Widget */}
+            <div className="bg-gradient-to-r from-indigo-500 to-blue-600 rounded-3xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-6 opacity-20">
+                    <Icon icon="lucide:sparkles" className="w-24 h-24" />
+                </div>
+                <div className="relative z-10">
+                    <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
+                        <Icon icon="lucide:bot" className="w-6 h-6" />
+                        AI Tahlili va Bashorat
+                    </h2>
+                    {loadingInsights ? (
+                        <div className="flex items-center gap-3 animate-pulse">
+                            <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" />
+                            <p className="text-indigo-100">Ma'lumotlar tahlil qilinmoqda, kuting...</p>
+                        </div>
+                    ) : insights ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
+                                <div className="flex items-center gap-2 mb-2 text-indigo-100">
+                                    <Icon icon="lucide:trending-up" className="w-4 h-4" />
+                                    <h3 className="font-semibold">Tendensiya (Trend)</h3>
+                                </div>
+                                <p className="text-sm leading-relaxed">{insights.trend}</p>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
+                                <div className="flex items-center gap-2 mb-2 text-emerald-300">
+                                    <Icon icon="lucide:target" className="w-4 h-4" />
+                                    <h3 className="font-semibold">Bashorat</h3>
+                                </div>
+                                <p className="text-sm leading-relaxed">{insights.forecast}</p>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
+                                <div className="flex items-center gap-2 mb-2 text-rose-300">
+                                    <Icon icon="lucide:alert-circle" className="w-4 h-4" />
+                                    <h3 className="font-semibold">Kuzatuv (Anomaliya)</h3>
+                                </div>
+                                <p className="text-sm leading-relaxed">{insights.anomaly}</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-indigo-200">Tahlil olinmadi.</p>
+                    )}
+                </div>
+            </div>
+
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KpiCard label="Jami lidlar" value={stats?.totalLeads ?? 0} icon="lucide:users-2" />
@@ -129,25 +190,77 @@ export default function CrmDashboard() {
             </div>
 
             {/* Pipeline Funnel */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-                <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">Sotuv voronkasi</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    {STAGE_CONFIG.map((s) => {
+            <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 p-6 sm:p-8 shadow-md">
+                <div className="flex flex-col md:flex-row items-baseline justify-between mb-8 border-b border-gray-100 dark:border-gray-700 pb-4">
+                    <h2 className="text-xl font-extrabold text-gray-800 dark:text-white flex items-center gap-2">
+                        Sotuv Voronkasi
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">AIDA va sotuv bosqichlari</p>
+                </div>
+                
+                <div className="flex flex-col gap-1.5 max-w-4xl mx-auto">
+                    {FUNNEL_CONFIG.map((s, i) => {
                         const count = stats?.byStage[s.key] ?? 0;
                         const pct = stats?.totalLeads ? Math.round((count / stats.totalLeads) * 100) : 0;
+                        
+                        const topInset = i * 4;
+                        const bottomInset = (i + 1) * 4;
+                        const clipPath = `polygon(${topInset}% 0, ${100 - topInset}% 0, ${100 - bottomInset}% 100%, ${bottomInset}% 100%)`;
+
                         return (
-                            <button
+                            <div 
                                 key={s.key}
                                 onClick={() => navigate(`/leads?stage=${s.key}`)}
-                                className="flex flex-col items-center p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all group"
+                                className="relative flex items-center h-[72px] sm:h-20 group cursor-pointer w-full"
                             >
-                                <Icon icon={s.icon} className={`w-6 h-6 mb-2 ${s.color}`} />
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{count}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-0.5">{s.label}</p>
-                                <p className="text-xs text-gray-400 mt-0.5">{pct}%</p>
-                            </button>
+                                {/* Left Trapezoid (Funnel Slice) */}
+                                <div 
+                                    className={`absolute left-0 h-full w-[140px] sm:w-[220px] md:w-[260px] ${s.main} z-10 
+                                    flex items-center justify-center transition-all duration-300 group-hover:scale-[1.02] 
+                                    group-hover:brightness-110 shadow-[0_4px_14px_0_rgba(0,0,0,0.1)]`}
+                                    style={{ clipPath }}
+                                >
+                                    <span className="text-white text-2xl sm:text-3xl font-black drop-shadow-md">
+                                        {count}
+                                    </span>
+                                </div>
+
+                                {/* Right Ribbon Extrusion */}
+                                <div className="flex-1 ml-[110px] sm:ml-[180px] md:ml-[220px] relative h-[70%] sm:h-[65%] z-0">
+                                    <div className={`absolute left-0 right-0 top-0 bottom-0 ${s.ribbon} opacity-95
+                                    rounded-r-xl transition-all duration-300 sm:group-hover:translate-x-3 group-hover:translate-x-1
+                                    flex items-center justify-between px-3 sm:px-6 md:px-8 shadow-sm overflow-hidden`}>
+                                        
+                                        <div className="flex items-center gap-2 sm:gap-4 pl-6 sm:pl-10">
+                                            <div className="hidden sm:flex bg-white/20 p-2 rounded-lg text-white">
+                                                <Icon icon={s.icon} className="w-5 h-5" />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-white font-bold text-sm sm:text-lg leading-tight">
+                                                    {s.label}
+                                                </span>
+                                                <span className="text-white/80 text-[9px] sm:text-xs font-semibold uppercase tracking-widest">
+                                                    {s.ext}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="bg-white text-gray-900 font-extrabold px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm shadow-md">
+                                            {pct}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         );
                     })}
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700/50 flex justify-center items-center gap-3">
+                    <div className="bg-red-50 dark:bg-red-900/40 p-2 rounded-xl">
+                        <Icon icon="lucide:x-circle" className="w-6 h-6 text-red-500 dark:text-red-400" />
+                    </div>
+                    <span className="text-gray-600 dark:text-gray-300 font-semibold">Rad etilgan (Lost):</span>
+                    <span className="text-red-600 dark:text-red-400 font-black text-2xl">{stats?.byStage['CLOSED_LOST'] ?? 0}</span>
                 </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

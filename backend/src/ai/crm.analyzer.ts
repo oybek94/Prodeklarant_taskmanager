@@ -6,6 +6,9 @@ export interface LeadData {
   region?: string | null;
   estimatedExportVolume?: string | null;
   stage: string;
+  inn?: string | null;
+  exportedCountries?: string | null;
+  partners?: string | null;
   activities?: any[];
 }
 
@@ -86,9 +89,11 @@ Qoidalarga ko\'ra:
 
 Lid ma\'lumotlari: 
 Kompaniya: ${lead.companyName}
+STIR (INN): ${lead.inn || 'Noma\'lum'}
 Mahsulot: ${lead.productType || 'Noma\'lum'}
-Hudud (Davlat): ${lead.region || 'Noma\'lum'}
+Hudud (Eksport davlatlari): ${lead.exportedCountries || lead.region || 'Noma\'lum'}
 Hajmi: ${lead.estimatedExportVolume || 'Noma\'lum'}
+Hamkorlar: ${lead.partners || 'Noma\'lum'}
 
 Natijani faqatgina quyidagi JSON formatida qaytaring: {"score": ball_natijasi, "explanation": "1-2 gap bilan ballning asosiy sabablari", "temperature": "HOT yoku WARM yoku COLD"}`;
 

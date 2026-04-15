@@ -8,8 +8,9 @@ const imagesDir = path.join(uploadsDir, 'images');
 const videosDir = path.join(uploadsDir, 'videos');
 const audiosDir = path.join(uploadsDir, 'audios');
 const documentsDir = path.join(uploadsDir, 'documents');
+const conversationsDir = path.join(uploadsDir, 'conversations');
 
-[uploadsDir, imagesDir, videosDir, audiosDir, documentsDir].forEach(dir => {
+[uploadsDir, imagesDir, videosDir, audiosDir, documentsDir, conversationsDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -28,6 +29,8 @@ const storage = multer.diskStorage({
       uploadPath = audiosDir;
     } else if (file.fieldname === 'document' || file.fieldname === 'documents') {
       uploadPath = documentsDir;
+    } else if (file.fieldname === 'conversation') {
+      uploadPath = conversationsDir;
     }
     
     cb(null, uploadPath);
@@ -49,7 +52,8 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
   const allowedMimes: { [key: string]: string[] } = {
     image: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
     video: ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/webm'],
-    audio: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm'],
+    audio: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/x-m4a', 'audio/mp4', 'audio/aac', 'audio/flac', 'audio/x-wav'],
+    conversation: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/x-m4a', 'audio/mp4', 'audio/aac', 'audio/flac', 'audio/x-wav', 'audio/amr', 'audio/3gpp', 'video/3gpp'],
     document: [
       'application/pdf', 
       'application/msword', 
@@ -72,7 +76,7 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
     ]
   };
 
-  const fieldName = file.fieldname as 'image' | 'video' | 'audio' | 'document' | 'documents';
+  const fieldName = file.fieldname as 'image' | 'video' | 'audio' | 'document' | 'documents' | 'conversation';
   const allowedTypes = allowedMimes[fieldName] || [];
 
   if (allowedTypes.includes(file.mimetype)) {
@@ -97,4 +101,5 @@ export const uploadVideo = upload.single('video');
 export const uploadAudio = upload.single('audio');
 export const uploadDocument = upload.single('document');
 export const uploadDocuments = upload.array('documents', 10);
+export const uploadConversation = upload.single('conversation');
 

@@ -3,6 +3,10 @@ import { prisma } from '../prisma';
 import { AuthRequest } from '../middleware/auth';
 import multer from 'multer';
 import * as XLSX from 'xlsx';
+import { uploadConversation } from '../middleware/upload';
+import { ConversationAnalyzerService } from '../ai/conversation.analyzer';
+import path from 'path';
+import fs from 'fs';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -464,6 +468,171 @@ router.post('/import', upload.single('file'), async (req: AuthRequest, res: Resp
         }
 
         res.json({ imported: created.length, leads: created });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================
+// CONVERSATION (Suhbat) ENDPOINTS
+// ============================
+
+// POST /api/leads/:id/conversations/upload — Audio suhbat yuklash
+router.post('/:id/conversations/upload', (req: AuthRequest, res: Response, next) => {
+    uploadConversation(req, res, (err) => {
+        if (err) {
+            console.error('Conversation upload error:', err);
+            return res.status(400).json({ error: err.message || 'Audio yuklashda xatolik' });
+        }
+        next();
+    });
+}, async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        if (!req.file) return res.status(400).json({ error: 'Audio fayl yuborilmadi' });
+
+        const leadId = Number(req.params.id);
+        const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+        if (!lead) return res.status(404).json({ error: 'Lid topilmadi' });
+
+        const audioUrl = `/uploads/conversations/${req.file.filename}`;
+
+        // DB da yozuv yaratish
+        const conversation = await prisma.leadConversation.create({
+            data: {
+                leadId,
+                audioUrl,
+                audioFileName: req.file.originalname || req.file.filename,
+                status: 'TRANSCRIBING',
+                uploadedById: req.user.id,
+            },
+        });
+
+        // Darhol response qaytarish (background da tahlil qilinadi)
+        res.status(201).json({
+            success: true,
+            conversation: {
+                id: conversation.id,
+                status: conversation.status,
+                audioFileName: conversation.audioFileName,
+            },
+        });
+
+        // Background: Whisper + GPT-4o tahlil
+        const filePath = path.join(__dirname, '../../uploads/conversations', req.file.filename);
+
+        try {
+            // 1. Whisper — audio → matn
+            console.log(`[Conversation] Transcribing audio for conversation #${conversation.id}...`);
+            const transcript = await ConversationAnalyzerService.transcribeAudio(filePath);
+
+            await prisma.leadConversation.update({
+                where: { id: conversation.id },
+                data: { transcript, status: 'ANALYZING' },
+            });
+
+            // 2. GPT-4o — tahlil
+            console.log(`[Conversation] Analyzing conversation #${conversation.id}...`);
+            const analysis = await ConversationAnalyzerService.analyzeConversation(transcript, {
+                companyName: lead.companyName,
+                productType: lead.productType,
+                region: lead.region,
+            });
+
+            await prisma.leadConversation.update({
+                where: { id: conversation.id },
+                data: {
+                    sentiment: analysis.sentiment as any,
+                    keyInsights: analysis.keyInsights as any,
+                    compliance: analysis.compliance as any,
+                    summary: analysis.summary,
+                    status: 'DONE',
+                },
+            });
+
+            // Activity log ga yozish
+            await prisma.leadActivity.create({
+                data: {
+                    leadId,
+                    userId: req.user!.id,
+                    type: 'call',
+                    note: `🎙️ AI Suhbat tahlili: ${analysis.summary}`,
+                },
+            });
+
+            console.log(`[Conversation] Analysis complete for conversation #${conversation.id}`);
+        } catch (aiError: any) {
+            console.error(`[Conversation] AI error for conversation #${conversation.id}:`, aiError);
+            await prisma.leadConversation.update({
+                where: { id: conversation.id },
+                data: {
+                    status: 'ERROR',
+                    errorMessage: aiError.message || 'AI tahlil xatoligi',
+                },
+            });
+        }
+    } catch (err: any) {
+        console.error('Conversation upload error:', err);
+        if (!res.headersSent) {
+            res.status(500).json({ error: err.message });
+        }
+    }
+});
+
+// GET /api/leads/:id/conversations — Barcha suhbatlar
+router.get('/:id/conversations', async (req: AuthRequest, res: Response) => {
+    try {
+        const conversations = await prisma.leadConversation.findMany({
+            where: { leadId: Number(req.params.id) },
+            include: { uploadedBy: { select: { id: true, name: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(conversations);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/leads/:id/conversations/:convId — Bitta suhbat tahlili
+router.get('/:id/conversations/:convId', async (req: AuthRequest, res: Response) => {
+    try {
+        const conversation = await prisma.leadConversation.findFirst({
+            where: {
+                id: Number(req.params.convId),
+                leadId: Number(req.params.id),
+            },
+            include: { uploadedBy: { select: { id: true, name: true } } },
+        });
+        if (!conversation) return res.status(404).json({ error: 'Suhbat topilmadi' });
+        res.json(conversation);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/leads/:id/conversations/:convId — Suhbatni o'chirish
+router.delete('/:id/conversations/:convId', async (req: AuthRequest, res: Response) => {
+    try {
+        const conversation = await prisma.leadConversation.findFirst({
+            where: {
+                id: Number(req.params.convId),
+                leadId: Number(req.params.id),
+            },
+        });
+        if (!conversation) return res.status(404).json({ error: 'Suhbat topilmadi' });
+
+        // Faylni o'chirish
+        try {
+            const filePath = path.join(__dirname, '../../', conversation.audioUrl);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        } catch (e) {
+            console.warn('Audio fayl o\'chirilmadi:', e);
+        }
+
+        await prisma.leadConversation.delete({ where: { id: conversation.id } });
+        res.json({ success: true });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }

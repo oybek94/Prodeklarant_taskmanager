@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import apiClient from '../lib/api';
@@ -55,6 +55,22 @@ interface LeadFull {
 
 interface Worker { id: number; name: string; role: string; }
 
+interface Conversation {
+    id: number;
+    audioUrl: string;
+    audioFileName: string;
+    audioDuration: number | null;
+    transcript: string | null;
+    sentiment: any;
+    keyInsights: any;
+    compliance: any;
+    summary: string | null;
+    status: 'UPLOADING' | 'TRANSCRIBING' | 'ANALYZING' | 'DONE' | 'ERROR';
+    errorMessage: string | null;
+    uploadedBy: { id: number; name: string };
+    createdAt: string;
+}
+
 export default function LeadDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -89,6 +105,15 @@ export default function LeadDetail() {
     const [aiMessageContext, setAiMessageContext] = useState('');
     const [generatingMessage, setGeneratingMessage] = useState(false);
     const [aiMode, setAiMode] = useState(false);
+
+    // Conversations
+    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [uploadingAudio, setUploadingAudio] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+    const [expandedConv, setExpandedConv] = useState<number | null>(null);
+    const dropRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 
     const fetchLead = async () => {
@@ -132,7 +157,106 @@ export default function LeadDetail() {
         } catch { /* ignore */ }
     };
 
-    useEffect(() => { fetchLead(); fetchWorkers(); }, [id]);
+    const fetchConversations = async () => {
+        try {
+            const { data } = await apiClient.get(`/leads/${id}/conversations`);
+            setConversations(data);
+
+            // Agar hali tahlil qilinayotgan suhbat bo'lsa, polling davom etsin
+            const processing = data.some((c: Conversation) => c.status === 'TRANSCRIBING' || c.status === 'ANALYZING' || c.status === 'UPLOADING');
+            if (processing && !pollingRef.current) {
+                pollingRef.current = setInterval(async () => {
+                    try {
+                        const { data: updated } = await apiClient.get(`/leads/${id}/conversations`);
+                        setConversations(updated);
+                        const stillProcessing = updated.some((c: Conversation) => c.status === 'TRANSCRIBING' || c.status === 'ANALYZING' || c.status === 'UPLOADING');
+                        if (!stillProcessing && pollingRef.current) {
+                            clearInterval(pollingRef.current);
+                            pollingRef.current = null;
+                            // Refresh lead to get updated activities
+                            fetchLead();
+                        }
+                    } catch { /* ignore polling errors */ }
+                }, 3000);
+            }
+        } catch { /* ignore */ }
+    };
+
+    useEffect(() => { fetchLead(); fetchWorkers(); fetchConversations(); }, [id]);
+
+    useEffect(() => {
+        return () => {
+            if (pollingRef.current) {
+                clearInterval(pollingRef.current);
+                pollingRef.current = null;
+            }
+        };
+    }, []);
+
+    const handleAudioUpload = async (file: File) => {
+        // Validatsiya
+        const maxSize = 25 * 1024 * 1024; // 25MB
+        const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/x-m4a', 'audio/mp4', 'audio/aac', 'audio/flac', 'audio/amr', 'audio/3gpp', 'video/3gpp'];
+        
+        if (file.size > maxSize) {
+            toast.error('Fayl hajmi 25MB dan oshmasligi kerak');
+            return;
+        }
+        if (!allowedTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|ogg|webm|m4a|aac|flac|amr|3gp)$/i)) {
+            toast.error('Faqat audio formatlar qo\'llab-quvvatlanadi (MP3, WAV, OGG, M4A, AAC)');
+            return;
+        }
+
+        setUploadingAudio(true);
+        try {
+            const formData = new FormData();
+            formData.append('conversation', file);
+            await apiClient.post(`/leads/${id}/conversations/upload`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 120000,
+            });
+            toast.success('Audio yuklandi! AI tahlil boshlanmoqda...');
+            await fetchConversations();
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Audio yuklashda xatolik');
+        } finally {
+            setUploadingAudio(false);
+        }
+    };
+
+    const handleDeleteConversation = async (convId: number) => {
+        if (!confirm('Bu suhbat yozuvini o\'chirishni tasdiqlaysizmi?')) return;
+        try {
+            await apiClient.delete(`/leads/${id}/conversations/${convId}`);
+            toast.success('O\'chirildi');
+            setConversations(prev => prev.filter(c => c.id !== convId));
+        } catch {
+            toast.error('Xatolik');
+        }
+    };
+
+    // Drag & Drop handlers
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    }, []);
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    }, []);
+
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleAudioUpload(files[0]);
+        }
+    }, [id]);
 
     const handleSaveEdit = async () => {
         try {
@@ -534,8 +658,301 @@ export default function LeadDetail() {
                     </div>
                 </div>
 
-                {/* Right: Activity Log */}
+                {/* Right: Activity Log + Conversations */}
                 <div className="lg:col-span-2 space-y-4">
+                    {/* === SUHBAT TAHLILI SECTION === */}
+                    <div className="bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50 dark:from-cyan-900/20 dark:via-blue-900/20 dark:to-indigo-900/20 rounded-2xl border border-cyan-200/60 dark:border-cyan-800/50 p-5 shadow-sm relative overflow-hidden">
+                        <div className="absolute -right-6 -top-6 opacity-[0.07]">
+                            <Icon icon="lucide:audio-waveform" className="w-32 h-32 text-cyan-500" />
+                        </div>
+
+                        <h2 className="text-sm font-bold text-cyan-900 dark:text-cyan-300 mb-4 flex items-center gap-2 relative z-10">
+                            <Icon icon="lucide:mic" className="w-4 h-4" />
+                            Suhbat Tahlili (AI)
+                            {conversations.length > 0 && (
+                                <span className="px-2 py-0.5 text-xs bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-400 rounded-full font-medium">
+                                    {conversations.length}
+                                </span>
+                            )}
+                        </h2>
+
+                        {/* Drag & Drop Zone */}
+                        <div
+                            ref={dropRef}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            onClick={() => !uploadingAudio && fileInputRef.current?.click()}
+                            className={`relative z-10 cursor-pointer border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${
+                                isDragging
+                                    ? 'border-cyan-400 bg-cyan-100/60 dark:bg-cyan-900/40 scale-[1.02]'
+                                    : uploadingAudio
+                                    ? 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 cursor-wait'
+                                    : 'border-gray-300 dark:border-gray-600 bg-white/60 dark:bg-gray-800/40 hover:border-cyan-400 hover:bg-cyan-50/50 dark:hover:bg-cyan-900/20'
+                            }`}
+                        >
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.amr,.3gp"
+                                className="hidden"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleAudioUpload(file);
+                                    e.target.value = '';
+                                }}
+                            />
+                            {uploadingAudio ? (
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 flex items-center justify-center">
+                                        <Icon icon="lucide:loader-2" className="w-5 h-5 text-cyan-600 animate-spin" />
+                                    </div>
+                                    <p className="text-sm font-medium text-cyan-700 dark:text-cyan-300">Audio yuklanmoqda...</p>
+                                    <p className="text-xs text-gray-400">Iltimos, kuting</p>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                                        isDragging ? 'bg-cyan-200 dark:bg-cyan-800 scale-110' : 'bg-gray-100 dark:bg-gray-700'
+                                    }`}>
+                                        <Icon icon={isDragging ? 'lucide:download' : 'lucide:mic'} className={`w-5 h-5 transition-colors ${
+                                            isDragging ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400 dark:text-gray-500'
+                                        }`} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {isDragging ? 'Qo\'yib yuboring!' : 'Audio faylni tashlang yoki tanlang'}
+                                        </p>
+                                        <p className="text-xs text-gray-400 mt-0.5">MP3, WAV, OGG, M4A, AAC • Max 25MB</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Conversations List */}
+                        {conversations.length > 0 && (
+                            <div className="mt-4 space-y-3 relative z-10">
+                                {conversations.map((conv) => (
+                                    <div key={conv.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                                        {/* Header */}
+                                        <div
+                                            className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+                                            onClick={() => setExpandedConv(expandedConv === conv.id ? null : conv.id)}
+                                        >
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                                conv.status === 'DONE' ? 'bg-emerald-100 dark:bg-emerald-900/30' :
+                                                conv.status === 'ERROR' ? 'bg-red-100 dark:bg-red-900/30' :
+                                                'bg-amber-100 dark:bg-amber-900/30'
+                                            }`}>
+                                                <Icon icon={
+                                                    conv.status === 'DONE' ? 'lucide:check-circle' :
+                                                    conv.status === 'ERROR' ? 'lucide:alert-circle' :
+                                                    'lucide:loader-2'
+                                                } className={`w-4 h-4 ${
+                                                    conv.status === 'DONE' ? 'text-emerald-600' :
+                                                    conv.status === 'ERROR' ? 'text-red-500' :
+                                                    'text-amber-500 animate-spin'
+                                                }`} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                                                    {conv.audioFileName}
+                                                </p>
+                                                <p className="text-xs text-gray-400">
+                                                    {new Date(conv.createdAt).toLocaleString('uz-UZ', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                    {' • '}{conv.uploadedBy.name}
+                                                    {conv.status !== 'DONE' && conv.status !== 'ERROR' && (
+                                                        <span className="ml-1 text-amber-500 font-medium">
+                                                            • {conv.status === 'TRANSCRIBING' ? 'Matn chiqarilmoqda...' : conv.status === 'ANALYZING' ? 'AI tahlil qilmoqda...' : 'Yuklanmoqda...'}
+                                                        </span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                {user?.role !== 'SELLER' && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteConversation(conv.id); }}
+                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                        title="O'chirish"
+                                                    >
+                                                        <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
+                                                <Icon icon={expandedConv === conv.id ? 'lucide:chevron-up' : 'lucide:chevron-down'} className="w-4 h-4 text-gray-400" />
+                                            </div>
+                                        </div>
+
+                                        {/* Expanded Content */}
+                                        {expandedConv === conv.id && conv.status === 'DONE' && (
+                                            <div className="border-t border-gray-100 dark:border-gray-700 p-4 space-y-3">
+                                                {/* Sentiment */}
+                                                {conv.sentiment && (
+                                                    <div className={`p-3 rounded-xl border ${
+                                                        conv.sentiment.overall === 'POSITIVE' ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50' :
+                                                        conv.sentiment.overall === 'NEGATIVE' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50' :
+                                                        conv.sentiment.overall === 'MIXED' ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/50' :
+                                                        'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                                                    }`}>
+                                                        <div className="flex items-center gap-2 mb-1.5">
+                                                            <span className="text-lg">
+                                                                {conv.sentiment.overall === 'POSITIVE' ? '😊' : conv.sentiment.overall === 'NEGATIVE' ? '😠' : conv.sentiment.overall === 'MIXED' ? '😐' : '😶'}
+                                                            </span>
+                                                            <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Kayfiyat tahlili</span>
+                                                            <span className={`ml-auto text-sm font-black ${
+                                                                conv.sentiment.score >= 7 ? 'text-emerald-600' : conv.sentiment.score >= 4 ? 'text-amber-500' : 'text-red-500'
+                                                            }`}>{conv.sentiment.score}/10</span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-600 dark:text-gray-400">{conv.sentiment.details}</p>
+                                                        {conv.sentiment.moments?.length > 0 && (
+                                                            <div className="mt-2 flex flex-wrap gap-1">
+                                                                {conv.sentiment.moments.map((m: any, i: number) => (
+                                                                    <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] bg-white/60 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300">
+                                                                        <Icon icon="lucide:quote" className="w-2.5 h-2.5" />
+                                                                        {m.emotion}: {m.text?.substring(0, 40)}{m.text?.length > 40 ? '...' : ''}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Key Insights */}
+                                                {conv.keyInsights && (
+                                                    <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/50">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <Icon icon="lucide:lightbulb" className="w-3.5 h-3.5 text-blue-500" />
+                                                            <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Muhim nuqtalar</span>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1.5 mb-2">
+                                                            {conv.keyInsights.priceDiscussed && (
+                                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full border border-green-200 dark:border-green-800">💰 Narx</span>
+                                                            )}
+                                                            {conv.keyInsights.qualityDiscussed && (
+                                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-full border border-purple-200 dark:border-purple-800">⭐ Sifat</span>
+                                                            )}
+                                                            {conv.keyInsights.deliveryDiscussed && (
+                                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full border border-orange-200 dark:border-orange-800">🚚 Yetkazish</span>
+                                                            )}
+                                                        </div>
+                                                        {conv.keyInsights.interests?.length > 0 && (
+                                                            <div className="mb-1.5">
+                                                                <span className="text-[10px] text-gray-400 uppercase block mb-0.5">Qiziqishlar</span>
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {conv.keyInsights.interests.map((item: string, i: number) => (
+                                                                        <span key={i} className="px-2 py-0.5 text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-md">{item}</span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {conv.keyInsights.objections?.length > 0 && (
+                                                            <div>
+                                                                <span className="text-[10px] text-gray-400 uppercase block mb-0.5">E'tirozlar</span>
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {conv.keyInsights.objections.map((item: string, i: number) => (
+                                                                        <span key={i} className="px-2 py-0.5 text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-md">{item}</span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">{conv.keyInsights.details}</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Compliance */}
+                                                {conv.compliance && (
+                                                    <div className="p-3 rounded-xl bg-violet-50 dark:bg-violet-900/10 border border-violet-200 dark:border-violet-800/50">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <Icon icon="lucide:shield-check" className="w-3.5 h-3.5 text-violet-500" />
+                                                                <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Qoidalarga rioya</span>
+                                                            </div>
+                                                            <div className={`text-sm font-black ${
+                                                                conv.compliance.overallScore >= 80 ? 'text-emerald-600' : conv.compliance.overallScore >= 50 ? 'text-amber-500' : 'text-red-500'
+                                                            }`}>{conv.compliance.overallScore}/100</div>
+                                                        </div>
+                                                        <div className="space-y-1.5">
+                                                            <div className="flex items-center gap-2">
+                                                                <Icon icon={conv.compliance.greeting ? 'lucide:check-circle' : 'lucide:x-circle'} className={`w-3.5 h-3.5 ${conv.compliance.greeting ? 'text-emerald-500' : 'text-red-500'}`} />
+                                                                <span className="text-xs text-gray-600 dark:text-gray-400">Salomlashish</span>
+                                                                <span className="text-[10px] text-gray-400 ml-auto truncate max-w-[200px]">{conv.compliance.greetingDetails}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Icon icon={conv.compliance.followedScript ? 'lucide:check-circle' : 'lucide:x-circle'} className={`w-3.5 h-3.5 ${conv.compliance.followedScript ? 'text-emerald-500' : 'text-red-500'}`} />
+                                                                <span className="text-xs text-gray-600 dark:text-gray-400">Skript bo'yicha</span>
+                                                                <span className="text-[10px] text-gray-400 ml-auto truncate max-w-[200px]">{conv.compliance.scriptDetails}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Icon icon={!conv.compliance.prohibitedWords ? 'lucide:check-circle' : 'lucide:x-circle'} className={`w-3.5 h-3.5 ${!conv.compliance.prohibitedWords ? 'text-emerald-500' : 'text-red-500'}`} />
+                                                                <span className="text-xs text-gray-600 dark:text-gray-400">Taqiqlangan so'zlar</span>
+                                                                <span className="text-[10px] text-gray-400 ml-auto truncate max-w-[200px]">{conv.compliance.prohibitedWordsDetails}</span>
+                                                            </div>
+                                                        </div>
+                                                        {conv.compliance.recommendations?.length > 0 && (
+                                                            <div className="mt-2 pt-2 border-t border-violet-100 dark:border-violet-800/30">
+                                                                <span className="text-[10px] text-violet-500 dark:text-violet-400 uppercase font-bold block mb-0.5">Tavsiyalar</span>
+                                                                {conv.compliance.recommendations.map((rec: string, i: number) => (
+                                                                    <p key={i} className="text-xs text-gray-500 dark:text-gray-400 flex items-start gap-1">
+                                                                        <Icon icon="lucide:arrow-right" className="w-3 h-3 mt-0.5 flex-shrink-0 text-violet-400" />
+                                                                        {rec}
+                                                                    </p>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Summary */}
+                                                {conv.summary && (
+                                                    <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-200 dark:border-emerald-800/50">
+                                                        <div className="flex items-center gap-2 mb-1.5">
+                                                            <Icon icon="lucide:file-text" className="w-3.5 h-3.5 text-emerald-500" />
+                                                            <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Xulosa</span>
+                                                        </div>
+                                                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{conv.summary}</p>
+                                                        <button
+                                                            onClick={() => {
+                                                                setActNote(prev => prev + (prev ? '\n\n' : '') + `🎙️ AI Suhbat xulosasi: ${conv.summary}`);
+                                                                toast.success('Izohga qo\'shildi');
+                                                            }}
+                                                            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors border border-emerald-200 dark:border-emerald-800"
+                                                        >
+                                                            <Icon icon="lucide:copy-plus" className="w-3 h-3" />
+                                                            Izohga qo'shish
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Transcript toggle */}
+                                                {conv.transcript && (
+                                                    <details className="group">
+                                                        <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex items-center gap-1">
+                                                            <Icon icon="lucide:file-audio" className="w-3 h-3" />
+                                                            To'liq transkripsiya
+                                                            <Icon icon="lucide:chevron-down" className="w-3 h-3 transition-transform group-open:rotate-180" />
+                                                        </summary>
+                                                        <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
+                                                            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">{conv.transcript}</p>
+                                                        </div>
+                                                    </details>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Error state */}
+                                        {expandedConv === conv.id && conv.status === 'ERROR' && (
+                                            <div className="border-t border-red-100 dark:border-red-900/30 p-3">
+                                                <div className="flex items-center gap-2 text-red-500">
+                                                    <Icon icon="lucide:alert-triangle" className="w-4 h-4" />
+                                                    <p className="text-xs">{conv.errorMessage || 'AI tahlil xatoligi'}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Add Activity */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
                         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Yozuv qo'shish</h2>

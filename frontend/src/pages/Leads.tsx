@@ -210,6 +210,8 @@ export default function Leads() {
     const [filterVolume, setFilterVolume] = useState<string>(() => sessionStorage.getItem('leads_volume') || '');
     const [filterCountry, setFilterCountry] = useState<string>(() => sessionStorage.getItem('leads_country') || '');
     const [filterPartners, setFilterPartners] = useState<string>(() => sessionStorage.getItem('leads_partners') || '');
+    const [sortField, setSortField] = useState<string>(() => sessionStorage.getItem('leads_sort_field') || 'updatedAt');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => (sessionStorage.getItem('leads_sort_order') as 'asc' | 'desc') || 'desc');
     const [showModal, setShowModal] = useState(false);
     const [users, setUsers] = useState<User[]>([]);
     const importRef = useRef<HTMLInputElement>(null);
@@ -231,6 +233,8 @@ export default function Leads() {
             if (filterPartners.trim()) params.partners = filterPartners.trim();
             params.page = page;
             params.limit = limit;
+            params.sortField = sortField;
+            params.sortOrder = sortOrder;
 
             const { data } = await apiClient.get('/leads', { params });
             if (data && data.data) {
@@ -264,7 +268,7 @@ export default function Leads() {
         } else {
             setPage(1);
         }
-    }, [activeStage, debouncedSearch, filterSeller, filterRegion, filterType, filterVolume, filterCountry, filterPartners]);
+    }, [activeStage, debouncedSearch, filterSeller, filterRegion, filterType, filterVolume, filterCountry, filterPartners, sortField, sortOrder]);
 
     useEffect(() => {
         sessionStorage.setItem('leads_page', page.toString());
@@ -277,11 +281,27 @@ export default function Leads() {
         sessionStorage.setItem('leads_volume', filterVolume);
         sessionStorage.setItem('leads_country', filterCountry);
         sessionStorage.setItem('leads_partners', filterPartners);
-    }, [page, limit, activeStage, search, filterSeller, filterRegion, filterType, filterVolume, filterCountry, filterPartners]);
+        sessionStorage.setItem('leads_sort_field', sortField);
+        sessionStorage.setItem('leads_sort_order', sortOrder);
+    }, [page, limit, activeStage, search, filterSeller, filterRegion, filterType, filterVolume, filterCountry, filterPartners, sortField, sortOrder]);
 
     useEffect(() => {
         fetchLeads();
-    }, [activeStage, debouncedSearch, filterSeller, filterRegion, filterType, filterVolume, filterCountry, filterPartners, page, limit]);
+    }, [activeStage, debouncedSearch, filterSeller, filterRegion, filterType, filterVolume, filterCountry, filterPartners, page, limit, sortField, sortOrder]);
+
+    const handleSort = (field: string) => {
+        if (sortField === field) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortOrder('asc');
+        }
+    };
+
+    const renderSortIcon = (field: string) => {
+        if (sortField !== field) return <Icon icon="lucide:chevrons-up-down" className="inline w-3 h-3 ml-1 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />;
+        return <Icon icon={sortOrder === 'asc' ? "lucide:chevron-up" : "lucide:chevron-down"} className="inline w-3 h-3 ml-1 text-blue-500" />;
+    };
 
     // Handle search debounce separately
     useEffect(() => {
@@ -546,13 +566,27 @@ export default function Leads() {
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-gray-100 dark:border-gray-800">
-                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Firma</th>
-                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Manzil</th>
-                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Eksport hajmi</th>
-                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Export davlatlari</th>
-                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Hamkorlar</th>
-                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Holat</th>
-                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Keyingi qo'ng'iroq</th>
+                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group select-none" onClick={() => handleSort('companyName')}>
+                                        Firma {renderSortIcon('companyName')}
+                                    </th>
+                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group select-none" onClick={() => handleSort('region')}>
+                                        Manzil {renderSortIcon('region')}
+                                    </th>
+                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group select-none" onClick={() => handleSort('estimatedExportVolume')}>
+                                        Eksport hajmi {renderSortIcon('estimatedExportVolume')}
+                                    </th>
+                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group select-none" onClick={() => handleSort('exportedCountries')}>
+                                        Export davlatlari {renderSortIcon('exportedCountries')}
+                                    </th>
+                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group select-none" onClick={() => handleSort('partners')}>
+                                        Hamkorlar {renderSortIcon('partners')}
+                                    </th>
+                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group select-none" onClick={() => handleSort('stage')}>
+                                        Holat {renderSortIcon('stage')}
+                                    </th>
+                                    <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group select-none" onClick={() => handleSort('nextCallAt')}>
+                                        Keyingi qo'ng'iroq {renderSortIcon('nextCallAt')}
+                                    </th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Izoh</th>
                                     <th className="px-4 py-4" />
                                 </tr>

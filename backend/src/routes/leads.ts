@@ -57,11 +57,56 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         const limit = Number(req.query.limit) || 25;
         const skip = (page - 1) * limit;
 
-        if (exportVolume) {
-            // Need to fetch all and filter in memory because estimatedExportVolume is a string field
-            // that we need to treat as a number for filtering.
-            let leads = await prisma.lead.findMany({
+        const sortField = req.query.sortField as string;
+        const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
+        
+        let orderBy: any = { updatedAt: 'desc' };
+        if (sortField && ['companyName', 'region', 'estimatedExportVolume', 'exportedCountries', 'partners', 'stage', 'nextCallAt'].includes(sortField)) {
+            orderBy = { [sortField]: sortOrder };
+        }
+
+        const needsMemoryHandling = exportVolume || (sortField && ['companyName', 'region', 'estimatedExportVolume', 'exportedCountries', 'partners', 'stage'].includes(sortField));
+
+        if (needsMemoryHandling) {
+            // Fetch lightweight objects to minimize RAM usage and DB load before memory processing
+            let bareLeads = await prisma.lead.findMany({
                 where,
+                select: { id: true, estimatedExportVolume: true, companyName: true, region: true, exportedCountries: true, partners: true, stage: true },
+                orderBy: (!sortField || sortField === 'updatedAt' || sortField === 'createdAt' || sortField === 'nextCallAt') ? orderBy : undefined,
+            });
+
+            if (exportVolume) {
+                bareLeads = bareLeads.filter(l => {
+                    const vol = Number(l.estimatedExportVolume);
+                    if (isNaN(vol)) return false;
+                    if (exportVolume === 'low') return vol < 10;
+                    if (exportVolume === 'medium') return vol >= 10 && vol <= 30;
+                    if (exportVolume === 'high') return vol > 30;
+                    return true;
+                });
+            }
+
+            if (sortField && ['companyName', 'region', 'estimatedExportVolume', 'exportedCountries', 'partners', 'stage'].includes(sortField)) {
+                bareLeads.sort((a: any, b: any) => {
+                    if (sortField === 'estimatedExportVolume') {
+                        const diff = Number(a.estimatedExportVolume || 0) - Number(b.estimatedExportVolume || 0);
+                        return sortOrder === 'asc' ? diff : -diff;
+                    } else {
+                        const valA = String(a[sortField] || '').toLowerCase();
+                        const valB = String(b[sortField] || '').toLowerCase();
+                        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+                        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+                        return 0;
+                    }
+                });
+            }
+
+            const total = bareLeads.length;
+            const paginatedIds = bareLeads.slice(skip, skip + limit).map(l => l.id);
+
+            // Now fetch the full objects only for the paginated slice
+            const fetchedLeads = await prisma.lead.findMany({
+                where: { id: { in: paginatedIds } },
                 include: {
                     assignedTo: { select: { id: true, name: true } },
                     activities: {
@@ -70,24 +115,14 @@ router.get('/', async (req: AuthRequest, res: Response) => {
                         select: { note: true, createdAt: true, type: true }
                     },
                     _count: { select: { activities: true } },
-                },
-                orderBy: { updatedAt: 'desc' },
+                }
             });
 
-            leads = leads.filter(l => {
-                const vol = Number(l.estimatedExportVolume);
-                if (isNaN(vol)) return false;
-                if (exportVolume === 'low') return vol < 10;
-                if (exportVolume === 'medium') return vol >= 10 && vol <= 30;
-                if (exportVolume === 'high') return vol > 30;
-                return true;
-            });
-
-            const total = leads.length;
-            const paginatedLeads = leads.slice(skip, skip + limit);
+            // Re-order exactly to the paginated IDs
+            const finalSortedLeads = paginatedIds.map(id => fetchedLeads.find(l => l.id === id)!);
 
             return res.json({
-                data: paginatedLeads,
+                data: finalSortedLeads,
                 total,
                 page,
                 limit,
@@ -108,7 +143,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
                     },
                     _count: { select: { activities: true } },
                 },
-                orderBy: { updatedAt: 'desc' },
+                orderBy,
                 skip,
                 take: limit,
             }),

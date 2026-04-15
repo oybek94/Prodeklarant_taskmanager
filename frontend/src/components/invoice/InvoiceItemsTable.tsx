@@ -101,7 +101,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
           <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.net}</th>
         )}
         {effectiveColumns.unitPrice && (
-          <th className={`px-2 py-4 text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+          <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
             {columnLabels.unitPrice}
           </th>
         )}
@@ -109,7 +109,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
           <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{totalColumnLabel}</th>
         )}
         {!isReadonly && effectiveColumns.actions && (
-          <th className={`px-2 py-4 text-center text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.actions}</th>
+          <th className={`px-2 ${py} text-center text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.actions}</th>
         )}
       </tr>
     </thead>

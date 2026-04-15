@@ -13,7 +13,9 @@ export type LeadStage =
     | 'MEETING'
     | 'FOLLOW_UP'
     | 'CLOSED_WON'
-    | 'CLOSED_LOST';
+    | 'CLOSED_LOST'
+    | 'WRONG_NUMBER'
+    | 'UNREACHABLE';
 
 export interface Lead {
     id: number;
@@ -47,6 +49,8 @@ const STAGES: { key: LeadStage | 'ALL'; label: string; color: string; dot: strin
     { key: 'FOLLOW_UP', label: "O'ylanyapti", color: 'bg-orange-50 text-orange-700', dot: 'bg-orange-400' },
     { key: 'CLOSED_WON', label: 'Mijoz', color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
     { key: 'CLOSED_LOST', label: 'Rad etdi', color: 'bg-red-50 text-red-700', dot: 'bg-red-400' },
+    { key: 'WRONG_NUMBER', label: "Raqam xato", color: 'bg-rose-50 text-rose-700', dot: 'bg-rose-400' },
+    { key: 'UNREACHABLE', label: "O'chiq / Ko'tarmadi", color: 'bg-yellow-50 text-yellow-700', dot: 'bg-yellow-400' },
 ];
 
 function StageBadge({ stage }: { stage: LeadStage }) {

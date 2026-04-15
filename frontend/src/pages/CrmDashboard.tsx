@@ -24,6 +24,7 @@ interface Stats {
     todayActivities: number;
     todayMeetings: number;
     todayMeetingsList: { id: number; companyName: string; contactPerson?: string; phone?: string; nextCallAt?: string }[];
+    todayCallsList: { id: number; companyName: string; contactPerson?: string; phone?: string; nextCallAt?: string }[];
     sellerPerformance: { id: number; name: string; total: number; won: number }[];
     last7Days: { date: string; count: number }[];
 }
@@ -63,7 +64,6 @@ export default function CrmDashboard() {
             .get('/leads/stats')
             .then((r) => {
                 setStats(r.data);
-                fetchInsights(r.data);
             })
             .catch(console.error)
             .finally(() => setLoading(false));
@@ -176,7 +176,20 @@ export default function CrmDashboard() {
                             </div>
                         </div>
                     ) : (
-                        <p className="text-indigo-200">Tahlil olinmadi.</p>
+                        <div>
+                            <p className="text-indigo-100 mb-4 leading-relaxed">
+                                Jami qo'ng'iroqlar tendensiyasi, navbatdagi uchrashuv holatlari va sotuv konversiyasini tahlil qilib, 
+                                sun'iy intellektdan aniq bashorat (forecast) lar olish uchun quyidagi tugmani bosing.
+                            </p>
+                            <button
+                                onClick={() => stats && fetchInsights(stats)}
+                                disabled={loadingInsights}
+                                className="bg-white text-indigo-600 hover:bg-white/90 active:scale-95 font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                <Icon icon="lucide:sparkles" className="w-5 h-5" />
+                                AI tahlilni boshlash
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
@@ -255,15 +268,31 @@ export default function CrmDashboard() {
                     })}
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700/50 flex justify-center items-center gap-3">
-                    <div className="bg-red-50 dark:bg-red-900/40 p-2 rounded-xl">
-                        <Icon icon="lucide:x-circle" className="w-6 h-6 text-red-500 dark:text-red-400" />
+                <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700/50 flex flex-wrap justify-center items-center gap-6">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-red-50 dark:bg-red-900/40 p-2 rounded-xl">
+                            <Icon icon="lucide:x-circle" className="w-6 h-6 text-red-500 dark:text-red-400" />
+                        </div>
+                        <span className="text-gray-600 dark:text-gray-300 font-semibold">Rad etilgan:</span>
+                        <span className="text-red-600 dark:text-red-400 font-black text-2xl">{stats?.byStage['CLOSED_LOST'] ?? 0}</span>
                     </div>
-                    <span className="text-gray-600 dark:text-gray-300 font-semibold">Rad etilgan (Lost):</span>
-                    <span className="text-red-600 dark:text-red-400 font-black text-2xl">{stats?.byStage['CLOSED_LOST'] ?? 0}</span>
+                    <div className="flex items-center gap-3">
+                        <div className="bg-rose-50 dark:bg-rose-900/40 p-2 rounded-xl">
+                            <Icon icon="lucide:phone-off" className="w-6 h-6 text-rose-500 dark:text-rose-400" />
+                        </div>
+                        <span className="text-gray-600 dark:text-gray-300 font-semibold">Raqam xato:</span>
+                        <span className="text-rose-600 dark:text-rose-400 font-black text-2xl">{stats?.byStage['WRONG_NUMBER'] ?? 0}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="bg-yellow-50 dark:bg-yellow-900/40 p-2 rounded-xl">
+                            <Icon icon="lucide:phone-missed" className="w-6 h-6 text-yellow-500 dark:text-yellow-400" />
+                        </div>
+                        <span className="text-gray-600 dark:text-gray-300 font-semibold">Ko'tarmadi:</span>
+                        <span className="text-yellow-600 dark:text-yellow-400 font-black text-2xl">{stats?.byStage['UNREACHABLE'] ?? 0}</span>
+                    </div>
                 </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Activity Chart */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm flex flex-col">
                     <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">So'nggi 7 kun faoliyati</h2>
@@ -276,7 +305,7 @@ export default function CrmDashboard() {
                 <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm flex flex-col">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">Uchrashuvlar jadvali</h2>
-                        <span className="text-xs font-medium text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-0.5 rounded-lg">
+                        <span className="text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400 px-2 py-0.5 rounded-lg">
                             {stats?.todayMeetingsList?.length ?? 0} ta reja
                         </span>
                     </div>
@@ -292,52 +321,83 @@ export default function CrmDashboard() {
                                 const now = new Date();
                                 const diffMs = dt ? dt.getTime() - now.getTime() : Infinity;
                                 const isOverdue = diffMs < 0;
-                                const isSoon = diffMs >= 0 && diffMs < 2 * 60 * 60 * 1000; // 2 hours
+                                const isSoon = diffMs >= 0 && diffMs < 2 * 60 * 60 * 1000;
 
-                                let badgeClass = "bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400";
-                                if (isOverdue) {
-                                    badgeClass = "bg-red-50 text-red-600 dark:bg-red-900/40 dark:text-red-400 animate-pulse";
-                                } else if (isSoon) {
-                                    badgeClass = "bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400";
-                                }
+                                let badgeClass = "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400";
+                                if (isOverdue) badgeClass = "bg-red-50 text-red-600 dark:bg-red-900/40 dark:text-red-400 animate-pulse";
+                                else if (isSoon) badgeClass = "bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400";
 
-                                const formattedDt = dt ? dt.toLocaleString('uz-UZ', { 
-                                    day: '2-digit', 
-                                    month: '2-digit', 
-                                    year: 'numeric',
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                }).replace(',', '.') : '--:--';
+                                const formattedDt = dt ? dt.toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '.') : '--:--';
                                 
                                 return (
-                                    <div
-                                        key={m.id}
-                                        onClick={() => navigate(`/leads/${m.id}`)}
-                                        className="group flex flex-col p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500/50 hover:bg-indigo-50/30 dark:hover:bg-indigo-500/5 transition-all cursor-pointer"
-                                    >
+                                    <div key={m.id} onClick={() => navigate(`/leads/${m.id}`)} className="group flex flex-col p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-emerald-200 dark:hover:border-emerald-500/50 hover:bg-emerald-50/30 dark:hover:bg-emerald-500/5 transition-all cursor-pointer">
                                         <div className="flex items-center justify-between mb-1.5">
-                                            <span className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate flex-1 mr-2">
-                                                {m.companyName}
-                                            </span>
+                                            <span className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate flex-1 mr-2">{m.companyName}</span>
                                             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-colors ${badgeClass}`}>
-                                                <Icon icon={isOverdue ? "lucide:phone-incoming" : "lucide:calendar-check"} className="w-3 h-3" />
+                                                <Icon icon={isOverdue ? "lucide:clock-alert" : "lucide:calendar-check"} className="w-3 h-3" />
                                                 {formattedDt}
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                                                <div className="flex items-center gap-1 truncate max-w-[150px]">
-                                                    <Icon icon="lucide:user" className="w-3 h-3 shrink-0" />
-                                                    <span className="truncate">{m.contactPerson || '-'}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    <Icon icon="lucide:phone" className="w-3 h-3 shrink-0" />
-                                                    <span>{m.phone || '-'}</span>
-                                                </div>
+                                                <div className="flex items-center gap-1 truncate max-w-[150px]"><Icon icon="lucide:user" className="w-3 h-3 shrink-0" /><span className="truncate">{m.contactPerson || '-'}</span></div>
+                                                <div className="flex items-center gap-1"><Icon icon="lucide:phone" className="w-3 h-3 shrink-0" /><span>{m.phone || '-'}</span></div>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                                Ko'rish <Icon icon="lucide:arrow-right" className="w-3 h-3" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Upcoming Calls */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm flex flex-col">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">Qo'ng'iroqlar jadvali</h2>
+                        <span className="text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-lg">
+                            {stats?.todayCallsList?.length ?? 0} ta reja
+                        </span>
+                    </div>
+                    {!stats?.todayCallsList?.length ? (
+                        <div className="flex-1 flex flex-col items-center justify-center py-10 text-gray-300 dark:text-gray-600 border-2 border-dashed border-gray-100 dark:border-gray-700/50 rounded-2xl">
+                            <Icon icon="lucide:phone-off" className="w-10 h-10 mb-2 opacity-50" />
+                            <p className="text-sm font-medium">Rejalashtirilgan qo'ng'iroqlar yo'q</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3 overflow-y-auto max-h-[350px] pr-2 custom-scrollbar">
+                            {stats.todayCallsList.map((m) => {
+                                const dt = m.nextCallAt ? new Date(m.nextCallAt) : null;
+                                const now = new Date();
+                                const diffMs = dt ? dt.getTime() - now.getTime() : Infinity;
+                                const isOverdue = diffMs < 0;
+                                const isSoon = diffMs >= 0 && diffMs < 2 * 60 * 60 * 1000;
+
+                                let badgeClass = "bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400";
+                                if (isOverdue) badgeClass = "bg-red-50 text-red-600 dark:bg-red-900/40 dark:text-red-400 animate-pulse";
+                                else if (isSoon) badgeClass = "bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400";
+
+                                const formattedDt = dt ? dt.toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '.') : '--:--';
+                                
+                                return (
+                                    <div key={m.id} onClick={() => navigate(`/leads/${m.id}`)} className="group flex flex-col p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-500/50 hover:bg-blue-50/30 dark:hover:bg-blue-500/5 transition-all cursor-pointer">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate flex-1 mr-2">{m.companyName}</span>
+                                            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-colors ${badgeClass}`}>
+                                                <Icon icon={isOverdue ? "lucide:phone-incoming" : "lucide:phone"} className="w-3 h-3" />
+                                                {formattedDt}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                                                <div className="flex items-center gap-1 truncate max-w-[150px]"><Icon icon="lucide:user" className="w-3 h-3 shrink-0" /><span className="truncate">{m.contactPerson || '-'}</span></div>
+                                                <div className="flex items-center gap-1"><Icon icon="lucide:phone" className="w-3 h-3 shrink-0" /><span>{m.phone || '-'}</span></div>
                                             </div>
                                             <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                                                Ko'rish
-                                                <Icon icon="lucide:arrow-right" className="w-3 h-3 text-blue-500" />
+                                                Ko'rish <Icon icon="lucide:arrow-right" className="w-3 h-3" />
                                             </div>
                                         </div>
                                     </div>

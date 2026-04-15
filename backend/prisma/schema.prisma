@@ -1220,6 +1220,8 @@ enum LeadStage {
   FOLLOW_UP
   CLOSED_WON
   CLOSED_LOST
+  WRONG_NUMBER
+  UNREACHABLE
 }
 
 model DebtPayment {

@@ -14,6 +14,8 @@ const STAGES: { key: LeadStage; label: string; icon: string; color: string }[] =
     { key: 'FOLLOW_UP', label: "O'ylanyapti", icon: 'lucide:clock', color: 'bg-orange-100 text-orange-700 border-orange-200' },
     { key: 'CLOSED_WON', label: 'Mijoz', icon: 'lucide:check-circle-2', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
     { key: 'CLOSED_LOST', label: 'Rad etdi', icon: 'lucide:x-circle', color: 'bg-red-100 text-red-700 border-red-200' },
+    { key: 'WRONG_NUMBER', label: "Raqam xato", icon: 'lucide:phone-off', color: 'bg-rose-100 text-rose-700 border-rose-200' },
+    { key: 'UNREACHABLE', label: "O'chiq / Ko'tarmadi", icon: 'lucide:phone-missed', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
 ];
 
 const ACTIVITY_ICONS: Record<string, { icon: string; color: string }> = {
@@ -70,6 +72,36 @@ interface Conversation {
     uploadedBy: { id: number; name: string };
     createdAt: string;
 }
+
+const playSuccessSound = () => {
+    try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        
+        const playNote = (freq: number, startTime: number, duration: number) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+            
+            gain.gain.setValueAtTime(0, ctx.currentTime + startTime);
+            gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + startTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            osc.start(ctx.currentTime + startTime);
+            osc.stop(ctx.currentTime + startTime + duration);
+        };
+        
+        // E5, A5
+        playNote(659.25, 0, 0.15);
+        playNote(880.00, 0.1, 0.4);
+    } catch(e) { /* ignore */ }
+};
 
 export default function LeadDetail() {
     const { id } = useParams<{ id: string }>();
@@ -325,6 +357,7 @@ export default function LeadDetail() {
                 nextCallAt: reminder ? new Date(reminder).toISOString() : null,
             });
             await fetchLead();
+            playSuccessSound();
             toast.success('Eslatma saqlandi');
         } catch {
             toast.error('Xatolik');

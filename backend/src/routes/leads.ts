@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { notify, getAdminUserIds } from '../services/notificationService';
 import { prisma } from '../prisma';
 import { AuthRequest } from '../middleware/auth';
 import multer from 'multer';
@@ -142,9 +143,12 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
             byStageFollowUp,
             byStageWon,
             byStageLost,
+            byStageWrongNumber,
+            byStageUnreachable,
             todayActivities,
             todayMeetings,
             todayMeetingsList,
+            todayCallsList,
         ] = await Promise.all([
             prisma.lead.count(),
             prisma.lead.count({ where: { stage: 'COLD' } }),
@@ -153,16 +157,30 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
             prisma.lead.count({ where: { stage: 'FOLLOW_UP' } }),
             prisma.lead.count({ where: { stage: 'CLOSED_WON' } }),
             prisma.lead.count({ where: { stage: 'CLOSED_LOST' } }),
+            prisma.lead.count({ where: { stage: 'WRONG_NUMBER' } }),
+            prisma.lead.count({ where: { stage: 'UNREACHABLE' } }),
             prisma.leadActivity.count({
                 where: { createdAt: { gte: todayStart, lte: todayEnd } },
             }),
             prisma.lead.count({
-                where: { nextCallAt: { gte: todayStart, lte: todayEnd } },
+                where: { 
+                    nextCallAt: { gte: todayStart, lte: todayEnd },
+                    stage: 'MEETING'
+                },
             }),
             prisma.lead.findMany({
                 where: { 
                     nextCallAt: { not: null },
-                    stage: { notIn: ['CLOSED_WON', 'CLOSED_LOST'] }
+                    stage: 'MEETING'
+                },
+                select: { id: true, companyName: true, contactPerson: true, phone: true, nextCallAt: true },
+                orderBy: { nextCallAt: 'asc' },
+                take: 20
+            }),
+            prisma.lead.findMany({
+                where: { 
+                    nextCallAt: { not: null },
+                    stage: { in: ['COLD', 'IN_PROGRESS', 'FOLLOW_UP'] }
                 },
                 select: { id: true, companyName: true, contactPerson: true, phone: true, nextCallAt: true },
                 orderBy: { nextCallAt: 'asc' },
@@ -218,10 +236,13 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
                 FOLLOW_UP: byStageFollowUp,
                 CLOSED_WON: byStageWon,
                 CLOSED_LOST: byStageLost,
+                WRONG_NUMBER: byStageWrongNumber,
+                UNREACHABLE: byStageUnreachable,
             },
             todayActivities,
             todayMeetings,
             todayMeetingsList,
+            todayCallsList,
             sellerPerformance,
             last7Days,
         });
@@ -345,6 +366,8 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
                 FOLLOW_UP: "O'ylanyapti",
                 CLOSED_WON: 'Mijoz',
                 CLOSED_LOST: 'Rad etdi',
+                WRONG_NUMBER: "Raqam xato",
+                UNREACHABLE: "O'chiq / Ko'tarmadi",
             };
             await prisma.leadActivity.create({
                 data: {
@@ -354,6 +377,33 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
                     note: `Bosqich: ${stageLabels[existing.stage] || existing.stage} → ${stageLabels[stage] || stage}${lostReason ? ` (Sabab: ${lostReason})` : ''}`,
                 },
             });
+        }
+
+        // Uchrashuv belgilanayotganda adminga bildirishnoma yuborish
+        const justBecameMeeting = stage === 'MEETING' && existing.stage !== 'MEETING';
+        const timeUpdatedWhileMeeting = nextCallAt !== undefined && lead.stage === 'MEETING' && 
+                                  existing.nextCallAt?.toISOString() !== lead.nextCallAt?.toISOString();
+
+        if ((justBecameMeeting || timeUpdatedWhileMeeting) && lead.nextCallAt) {
+            const timeStr = new Date(lead.nextCallAt).toLocaleString('uz-UZ', {timeZone: 'Asia/Tashkent', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'}).replace(',', '');
+                
+            const isUpdate = !justBecameMeeting && timeUpdatedWhileMeeting;
+            const title = isUpdate && existing.nextCallAt ? "Uchrashuv vaqti yangilandi" : "Yangi uchrashuv belgilandi";
+            const message = isUpdate && existing.nextCallAt 
+                ? `${lead.companyName} bilan uchrashuv vaqti o'zgardi. Yangi vaqt: ${timeStr}. Muloqot uchun: ${lead.contactPerson || '-'}`
+                : `${lead.companyName} bilan uchrashuv belgilandi. Vaqti: ${timeStr}. Muloqot uchun: ${lead.contactPerson || '-'}`;
+
+            const adminIds = await getAdminUserIds();
+            if (adminIds.length > 0) {
+                await notify({
+                    userIds: adminIds,
+                    type: 'STAGE_UPDATED',
+                    title,
+                    message,
+                    actionUrl: `/leads/${lead.id}`,
+                    excludeUserId: req.user?.id
+                });
+            }
         }
 
         res.json(lead);

@@ -307,6 +307,16 @@ export default function LeadDetail() {
             setChangingStage(true);
             return;
         }
+        if (stage === 'CLOSED_WON') {
+            navigate('/clients/new', { 
+                state: { 
+                    openAddForm: true, 
+                    fromLead: true,
+                    leadData: lead 
+                } 
+            });
+            return;
+        }
         try {
             const { data } = await apiClient.put(`/leads/${id}`, { stage });
             setLead((prev) => ({ ...prev!, stage: data.stage, activities: prev!.activities }));

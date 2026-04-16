@@ -20,13 +20,8 @@ export const socketEmitter = {
     io.to(room).emit(event, data);
   },
 
-  /** Bitta foydalanuvchidan boshqa barchasiga yuborish */
+  /** Bitta foydalanuvchidan boshqa barchasiga yuborish (endi hammaga yuboradi, tablarni sinxronlash uchun) */
   broadcastExcept: (excludeUserId: number, event: string, data: unknown) => {
-    const sockets = io.sockets.sockets;
-    for (const [, socket] of sockets) {
-      if (socket.data.user?.id !== excludeUserId) {
-        socket.emit(event, data);
-      }
-    }
+    io.emit(event, data);
   },
 };

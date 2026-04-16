@@ -57,6 +57,37 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         const limit = Number(req.query.limit) || 25;
         const skip = (page - 1) * limit;
 
+        const processLeads = async (leadsList: any[]) => {
+            const wonLeads = leadsList.filter((l: any) => l.stage === 'CLOSED_WON');
+            if (wonLeads.length > 0) {
+                const searchNames = wonLeads.map((l: any) => l.companyName);
+                const searchPhones = [...new Set(wonLeads.map((l: any) => l.phone).filter(Boolean))];
+                
+                const matchedClients = await prisma.client.findMany({
+                    where: {
+                        OR: [
+                            { name: { in: searchNames } },
+                            ...(searchPhones.length > 0 ? [{ phone: { in: searchPhones as string[] } }] : [])
+                        ]
+                    },
+                    select: {
+                        name: true,
+                        phone: true,
+                        _count: { select: { invoices: true } }
+                    }
+                });
+
+                for (const lead of wonLeads) {
+                    const client = matchedClients.find(c => 
+                        c.name === lead.companyName || 
+                        (lead.phone && c.phone === lead.phone)
+                    );
+                    lead.invoicesCount = client?._count?.invoices || 0;
+                }
+            }
+            return leadsList;
+        };
+
         const sortField = req.query.sortField as string;
         const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
         
@@ -120,9 +151,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
             // Re-order exactly to the paginated IDs
             const finalSortedLeads = paginatedIds.map(id => fetchedLeads.find(l => l.id === id)!);
+            const processedFinal = await processLeads(finalSortedLeads);
 
             return res.json({
-                data: finalSortedLeads,
+                data: processedFinal,
                 total,
                 page,
                 limit,
@@ -149,9 +181,11 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             }),
             prisma.lead.count({ where })
         ]);
+        
+        const processedLeads = await processLeads(leads);
 
         res.json({
-            data: leads,
+            data: processedLeads,
             total,
             page,
             limit,

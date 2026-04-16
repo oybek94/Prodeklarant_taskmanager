@@ -37,6 +37,7 @@ export interface Lead {
     assignedTo: { id: number; name: string } | null;
     _count: { activities: number };
     activities: { note: string | null; createdAt: string; type: string }[];
+    invoicesCount?: number;
 }
 
 interface User { id: number; name: string; role: string; }
@@ -531,6 +532,11 @@ export default function Leads() {
                                                     {new Date(lead.nextCallAt).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' })}
                                                 </div>
                                             )}
+                                            {activeStage === 'CLOSED_WON' && lead.invoicesCount !== undefined && (
+                                                <div className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md border bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                                                    Yuklar: {lead.invoicesCount}ta
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -588,6 +594,9 @@ export default function Leads() {
                                         Keyingi qo'ng'iroq {renderSortIcon('nextCallAt')}
                                     </th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Izoh</th>
+                                    {activeStage === 'CLOSED_WON' && (
+                                        <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Yuklar soni</th>
+                                    )}
                                     <th className="px-4 py-4" />
                                 </tr>
                             </thead>
@@ -678,6 +687,16 @@ export default function Leads() {
                                                     <span className="text-sm text-gray-300 dark:text-gray-600">—</span>
                                                 )}
                                             </td>
+                                            {activeStage === 'CLOSED_WON' && (
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <div className="inline-flex flex-col items-center justify-center">
+                                                        <span className="text-gray-900 dark:text-gray-100 font-black text-sm">
+                                                            {lead.invoicesCount !== undefined ? lead.invoicesCount : 0}
+                                                        </span>
+                                                        <span className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mt-0.5">ta yuk</span>
+                                                    </div>
+                                                </td>
+                                            )}
                                             <td className="px-4 py-3.5 text-right">
                                                 <Icon icon="lucide:arrow-right" className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all text-blue-500" />
                                             </td>

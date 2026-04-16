@@ -578,6 +578,28 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     }
   }, [isModalMode, modalClientId, modalContractId]);
 
+  // Lead sahifasidan kelayotgan state bo'lsa, formani pre-fill qilish va ochish
+  useEffect(() => {
+    const stateObj = location.state as any;
+    if (stateObj?.openAddForm && stateObj?.fromLead) {
+      if (!isMobile) {
+        setShowForm(true);
+      }
+      
+      if (stateObj.leadData) {
+        setForm(prev => ({
+          ...prev,
+          name: stateObj.leadData.companyName || '',
+          phone: stateObj.leadData.phone || '',
+          // Boshqa foydalanish mumkin bo'lgan maydonlar bo'lsa
+        }));
+      }
+      
+      // Refresh qilganda qayta ochilmasligi uchun stateni tozalash
+      window.history.replaceState(null, document.title, window.location.pathname);
+    }
+  }, [location.state, isMobile]);
+
   // MANAGER: faqat shartnomalar; mijoz qo'shish/tahrirlash sahifalariga kirishni taqiqlash
   useEffect(() => {
     if (!isManagerOnly) return;
@@ -1184,6 +1206,17 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       }
 
       await apiClient.post('/clients', createData);
+
+      // Agar liddan o'tilgan bo'lsa, uni statusini Mijoz ga o'zgartirish
+      const stateObj = location.state as any;
+      if (stateObj?.fromLead && stateObj?.leadData?.id) {
+          try {
+              await apiClient.put(`/leads/${stateObj.leadData.id}`, { stage: 'CLOSED_WON' });
+          } catch(err) {
+              console.error('Lid statusini yangilashda xatolik', err);
+          }
+      }
+
       if (isMobile && isNewClientRoute) {
         navigate('/clients');
       } else {

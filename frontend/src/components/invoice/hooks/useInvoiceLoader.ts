@@ -166,6 +166,7 @@ export function createLoadData({
                 documents: '',
                 carrier: '',
                 tirNumber: '',
+                temperature: String(dupAi?.temperature || ''),
               }));
               setItems([{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 }] as InvoiceItem[]);
               setCustomFields([]);
@@ -289,6 +290,7 @@ export function createLoadData({
               documents: inv.additionalInfo?.documents ?? prev.documents,
               carrier: inv.additionalInfo?.carrier ?? prev.carrier,
               tirNumber: inv.additionalInfo?.tirNumber ?? prev.tirNumber,
+              temperature: inv.additionalInfo?.temperature ?? prev.temperature,
             }));
             const loadedItems = (inv.items || []).map(normalizeItem);
             setItems(loadedItems);
@@ -328,6 +330,7 @@ export function createLoadData({
                 orderNumber: inv.additionalInfo?.orderNumber ?? '',
                 gln: inv.additionalInfo?.gln ?? '',
                 customsAddress: inv.additionalInfo?.customsAddress ?? '',
+                temperature: inv.additionalInfo?.temperature ?? '',
               },
               items: loadedItems,
             };

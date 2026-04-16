@@ -286,7 +286,7 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
       : '',
     '$Наименование товара$': buildGoodsDescription(payload.items),
     '$Код ТН ВЭД$': toPlain(firstItem?.tnvedCode),
-    '$Брутто$': firstItem?.grossWeight ? `${Math.round(Number(firstItem.grossWeight))}` : '',
+    '$Брутто$': firstItem?.grossWeight ? `${Math.round(Number(firstItem.grossWeight))} кг` : '',
     '$Общий вес брутто$': grossWeight ? `${Math.round(grossWeight)} кг` : '',
     '$Место там. очистки:$': toPlain(additionalInfo.customsAddress),
     '$Условия поставки$': toPlain(additionalInfo.deliveryTerms),
@@ -412,7 +412,7 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
     writeItemCell(row, 'K', formatPackage(item));
     writeItemCell(row, 'U', item.name || '');
     writeItemCell(row, 'AM', item.tnvedCode || '');
-    writeItemCell(row, 'AT', item.grossWeight ? `${Math.round(Number(item.grossWeight))}` : '');
+    writeItemCell(row, 'AT', item.grossWeight ? `${Math.round(Number(item.grossWeight))} кг` : '');
   });
   for (let row = tableStartRow + payload.items.length; row <= tableEndRow; row += 1) {
     writeItemCell(row, 'B', '');
@@ -425,6 +425,28 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
   // K34 ni tozalash va G34 ni format bo'yicha yozish
   writeItemCell(34, 'K', '');
   writeItemCell(34, 'G', buildG34Text(firstItem));
+
+  if (additionalInfo.temperature) {
+    const tempRow = tableStartRow + payload.items.length + 1;
+    if (tempRow <= tableEndRow) {
+      const cols = ['G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','AA','AB','AC','AD','AE','AF','AG','AH','AI','AJ','AK','AL'];
+      cols.forEach(col => {
+        const address = `${col}${tempRow}`;
+        const cellInfo = sheet.getCell(address);
+        if (cellInfo.isMerged) {
+          try { sheet.unMergeCells(address); } catch(e) {}
+        }
+      });
+      try {
+        sheet.mergeCells(`G${tempRow}:AL${tempRow}`);
+      } catch(e) {
+        console.error("Merged failed:", e);
+      }
+      const cell = sheet.getCell(`G${tempRow}`);
+      cell.value = `Примечание: Температура при транспортировке ${additionalInfo.temperature}`;
+      cell.alignment = { ...cell.alignment, wrapText: true, vertical: 'top', horizontal: 'left' };
+    }
+  }
 
   return workbook;
 };

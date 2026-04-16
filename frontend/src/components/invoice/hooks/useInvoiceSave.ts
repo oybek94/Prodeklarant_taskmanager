@@ -307,6 +307,7 @@ export function useInvoiceSave({
             documents: currentForm.documents,
             carrier: currentForm.carrier,
             tirNumber: currentForm.tirNumber,
+            temperature: currentForm.temperature,
             customFields: customFields,
             specCustomFields: specCustomFields,
             visibleColumns,

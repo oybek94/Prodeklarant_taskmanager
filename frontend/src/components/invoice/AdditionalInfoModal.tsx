@@ -416,6 +416,17 @@ export function AdditionalInfoModal({
                 </div>
               ))}
 
+              {/* Температура */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <label className="block text-sm font-medium text-gray-700">Температура:</label>
+                  </div>
+                  <button type="button" onClick={() => setForm({ ...form, temperature: '' })} className="text-red-500 hover:text-red-700 text-sm" title="O'chirish">✕</button>
+                </div>
+                <input type="text" value={form.temperature || ''} onChange={(e) => setForm({ ...form, temperature: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Masalan: +2 °C" />
+              </div>
+
               {/* Урожай */}
               <div>
                 <div className="flex items-center justify-between mb-1">

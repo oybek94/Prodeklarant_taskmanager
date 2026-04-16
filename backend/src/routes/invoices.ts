@@ -245,6 +245,7 @@ const invoiceSchema = z.object({
     orderNumber: z.string().max(100).optional(),
     gln: z.string().max(100).optional(),
     harvestYear: z.string().max(20).optional(),
+    temperature: z.string().max(200).optional(),
     documents: z.string().max(2000).optional(),
     // FSS
     fssRegionInternalCode: z.string().max(50).optional(),

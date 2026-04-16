@@ -393,19 +393,7 @@ export function AdditionalInfoModal({
                 placeholder="Shartnomadan olinadi yoki qo'lda yoziladi"
               />
 
-              {/* Урожай */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <label className="block text-sm font-medium text-gray-700">Урожай:</label>
-                    <button type="button" onClick={() => toggleAdditionalInfoVisible('harvestYear')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('harvestYear') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                      <Icon icon={isAdditionalInfoVisible('harvestYear') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button type="button" onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })} className="text-red-500 hover:text-red-700 text-sm" title="O'chirish">✕</button>
-                </div>
-                <input type="text" value={form.harvestYear} onChange={(e) => setForm({ ...form, harvestYear: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-              </div>
+
 
               {/* Dinamik maydonlar */}
               {customFields.map((field) => (
@@ -427,6 +415,20 @@ export function AdditionalInfoModal({
                   />
                 </div>
               ))}
+
+              {/* Урожай */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <label className="block text-sm font-medium text-gray-700">Урожай:</label>
+                    <button type="button" onClick={() => toggleAdditionalInfoVisible('harvestYear')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('harvestYear') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                      <Icon icon={isAdditionalInfoVisible('harvestYear') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <button type="button" onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })} className="text-red-500 hover:text-red-700 text-sm" title="O'chirish">✕</button>
+                </div>
+                <input type="text" value={form.harvestYear} onChange={(e) => setForm({ ...form, harvestYear: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
 
               {/* Yangi maydon tugmasi */}
               {canEditEffective && (

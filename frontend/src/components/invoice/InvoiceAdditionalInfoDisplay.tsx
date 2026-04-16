@@ -122,11 +122,7 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
             <strong>Производитель:</strong> {form.manufacturer}
           </div>
         )}
-        {isAdditionalInfoVisible('harvestYear') && form.harvestYear && (
-          <div>
-            <strong>Урожай:</strong> {form.harvestYear}
-          </div>
-        )}
+
         {isAdditionalInfoVisible('orderNumber') && form.orderNumber && (
           <div>
             <strong>Номер заказа:</strong> {form.orderNumber}
@@ -153,6 +149,11 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
               </div>
             ) : null
           )}
+        {isAdditionalInfoVisible('harvestYear') && form.harvestYear && (
+          <div>
+            <strong>Урожай:</strong> {form.harvestYear}
+          </div>
+        )}
       </div>
     </div>
   );

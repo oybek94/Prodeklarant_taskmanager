@@ -60,17 +60,20 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         const processLeads = async (leadsList: any[]) => {
             const wonLeads = leadsList.filter((l: any) => l.stage === 'CLOSED_WON');
             if (wonLeads.length > 0) {
-                const searchNames = wonLeads.map((l: any) => l.companyName);
-                const searchPhones = [...new Set(wonLeads.map((l: any) => l.phone).filter(Boolean))];
+                const searchNames = wonLeads.filter((l: any) => !l.clientId).map((l: any) => l.companyName);
+                const searchPhones = [...new Set(wonLeads.filter((l: any) => !l.clientId && l.phone).map((l: any) => l.phone))];
+                const clientIds = wonLeads.map((l: any) => l.clientId).filter(Boolean);
                 
                 const matchedClients = await prisma.client.findMany({
                     where: {
                         OR: [
-                            { name: { in: searchNames } },
+                            ...(clientIds.length > 0 ? [{ id: { in: clientIds } }] : []),
+                            ...(searchNames.length > 0 ? [{ name: { in: searchNames } }] : []),
                             ...(searchPhones.length > 0 ? [{ phone: { in: searchPhones as string[] } }] : [])
                         ]
                     },
                     select: {
+                        id: true,
                         name: true,
                         phone: true,
                         _count: { select: { invoices: true } }
@@ -78,11 +81,16 @@ router.get('/', async (req: AuthRequest, res: Response) => {
                 });
 
                 for (const lead of wonLeads) {
-                    const client = matchedClients.find(c => 
-                        c.name === lead.companyName || 
-                        (lead.phone && c.phone === lead.phone)
-                    );
-                    lead.invoicesCount = client?._count?.invoices || 0;
+                    if (lead.clientId) {
+                        const client = matchedClients.find(c => c.id === lead.clientId);
+                        lead.invoicesCount = client?._count?.invoices || 0;
+                    } else {
+                        const client = matchedClients.find(c => 
+                            c.name === lead.companyName || 
+                            (lead.phone && c.phone === lead.phone)
+                        );
+                        lead.invoicesCount = client?._count?.invoices || 0;
+                    }
                 }
             }
             return leadsList;
@@ -390,7 +398,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         const {
             companyName, inn, productType, phone, contactPerson, stage,
             assignedToId, lostReason, nextCallAt, estimatedExportVolume,
-            region, district, exportedCountries, partners
+            region, district, exportedCountries, partners, clientId
         } = req.body;
 
         const existing = await prisma.lead.findUnique({ where: { id } });
@@ -398,6 +406,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
         const data: any = {};
         if (companyName !== undefined) data.companyName = companyName;
+        if (clientId !== undefined) data.clientId = clientId;
         if (inn !== undefined) data.inn = inn;
         if (productType !== undefined) data.productType = productType;
         if (phone !== undefined) data.phone = phone;

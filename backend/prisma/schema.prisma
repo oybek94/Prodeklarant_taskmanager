@@ -96,6 +96,7 @@ model Client {
   invoices                   Invoice[]
   tasks                      Task[]
   transactions               Transaction[]    @relation("TransactionClient")
+  leads                      Lead[]           @relation("LeadClient")
 }
 
 model Task {
@@ -1043,6 +1044,8 @@ model Lead {
   exportedCountries     String?
   partners              String?
   region                String?
+  clientId              Int?
+  client                Client?            @relation("LeadClient", fields: [clientId], references: [id])
   assignedTo            User?              @relation("LeadAssigned", fields: [assignedToId], references: [id])
   activities            LeadActivity[]
   conversations         LeadConversation[]

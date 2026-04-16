@@ -1205,13 +1205,16 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         createData.creditStartDate = form.creditStartDate;
       }
 
-      await apiClient.post('/clients', createData);
+      const newClientResponse = await apiClient.post('/clients', createData);
 
-      // Agar liddan o'tilgan bo'lsa, uni statusini Mijoz ga o'zgartirish
+      // Agar liddan o'tilgan bo'lsa, uni statusini Mijoz ga o'zgartirish va clientId biriktirish
       const stateObj = location.state as any;
       if (stateObj?.fromLead && stateObj?.leadData?.id) {
           try {
-              await apiClient.put(`/leads/${stateObj.leadData.id}`, { stage: 'CLOSED_WON' });
+              await apiClient.put(`/leads/${stateObj.leadData.id}`, { 
+                  stage: 'CLOSED_WON',
+                  clientId: newClientResponse.data.id
+              });
           } catch(err) {
               console.error('Lid statusini yangilashda xatolik', err);
           }

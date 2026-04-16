@@ -541,9 +541,8 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
 
     // Calculate stats
     const dealCurrency = (client as any).dealAmountCurrency || 'USD';
-    // Faqat shu valyutadagi transaction'larni hisoblash
+    // Barcha transactionlarni hisoblash (hozirgi valyuta kiritilishi universal)
     const totalIncome = client.transactions
-      .filter(t => t.currency === dealCurrency)
       .reduce((sum, t) => sum + Number(t.amount), 0);
     const totalTasks = client.tasks.length;
     const dealAmount = Number(client.dealAmount || 0);

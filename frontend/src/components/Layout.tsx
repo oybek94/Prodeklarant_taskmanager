@@ -69,8 +69,8 @@ const Layout = () => {
   const isExamPage = location.pathname.startsWith('/exam');
 
   const navItems = [
+    { path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' },
     ...(user?.role === 'ADMIN' ? [
-      { path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' },
       { path: '/debts', label: 'Qarzlar', icon: 'lucide:wallet' }
     ] : []),
     ...((user?.role !== 'SELLER') ? [

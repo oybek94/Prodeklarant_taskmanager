@@ -1,44 +1,60 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { calculateTotalPaidUsd } from '../services/worker-payment';
+import { calculateTotalPaidUsd, calculateTotalEarnedUsd } from '../services/worker-payment';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { TaskStatus } from '@prisma/client';
 
 const router = Router();
 
-const getStartOfWeek = (date: Date) => {
-  const day = date.getDay();
-  const diff = (day + 6) % 7; // Monday as start
-  const start = new Date(date);
-  start.setDate(date.getDate() - diff);
-  start.setHours(0, 0, 0, 0);
-  return start;
-};
-
 const buildRangePair = (period: 'today' | 'week' | 'month' | 'year') => {
   const now = new Date();
-  let currentStart = new Date(now);
+  
   if (period === 'today') {
+    const currentStart = new Date(now);
     currentStart.setHours(0, 0, 0, 0);
+    const previousStart = new Date(currentStart);
+    previousStart.setDate(previousStart.getDate() - 1);
+    
+    return {
+      current: { start: currentStart, end: now },
+      previous: { start: previousStart, end: new Date(previousStart.getTime() + (now.getTime() - currentStart.getTime())) },
+    };
   } else if (period === 'week') {
-    currentStart = getStartOfWeek(now);
+    const currentStart = new Date(now);
+    currentStart.setDate(currentStart.getDate() - 6);
+    currentStart.setHours(0, 0, 0, 0);
+    
+    const previousStart = new Date(currentStart);
+    previousStart.setDate(previousStart.getDate() - 7);
+    const previousEnd = new Date(previousStart.getTime() + (now.getTime() - currentStart.getTime()));
+    
+    return {
+      current: { start: currentStart, end: now },
+      previous: { start: previousStart, end: previousEnd },
+    }
   } else if (period === 'month') {
-    currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentStart = new Date(now);
+    currentStart.setDate(currentStart.getDate() - 29);
     currentStart.setHours(0, 0, 0, 0);
+    
+    const previousStart = new Date(currentStart);
+    previousStart.setDate(previousStart.getDate() - 30);
+    const previousEnd = new Date(previousStart.getTime() + (now.getTime() - currentStart.getTime()));
+
+    return {
+      current: { start: currentStart, end: now },
+      previous: { start: previousStart, end: previousEnd },
+    }
   } else {
-    currentStart = new Date(now.getFullYear(), 0, 1);
+    const currentStart = new Date(now.getFullYear(), 0, 1);
     currentStart.setHours(0, 0, 0, 0);
+    const previousStart = new Date(now.getFullYear() - 1, 0, 1);
+    const previousEnd = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+    return {
+      current: { start: currentStart, end: now },
+      previous: { start: previousStart, end: previousEnd },
+    };
   }
-
-  const currentEnd = new Date(now);
-  const duration = currentEnd.getTime() - currentStart.getTime();
-  const previousStart = new Date(currentStart.getTime() - duration - 1);
-  const previousEnd = new Date(previousStart.getTime() + duration);
-
-  return {
-    current: { start: currentStart, end: currentEnd },
-    previous: { start: previousStart, end: previousEnd },
-  };
 };
 
 const calcDeltaPercent = (current: number, previous: number) => {
@@ -604,7 +620,6 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         }, 0);
 
         const totalPaid = (client).transactions
-          .filter((t: any) => t.currency === dealCurrency)
           .reduce((sum: any, t: any) => sum + Number(t.amount), 0);
 
         let initialDebt = 0;
@@ -621,8 +636,8 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
         const currentDebt = totalDealAmount - totalPaid + initialDebt;
 
-        // If client has no debt, skip
-        if (currentDebt <= 0) {
+        // If client has no debt, skip (using 0.01 to handle floating point inaccuracies)
+        if (currentDebt <= 0.01) {
           return null;
         }
 
@@ -984,20 +999,9 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
     const workerDebtsRaw = await Promise.all(
       workerDebtUsers.map(async (worker) => {
-        const [stageGroups, paid, errorSum] = await Promise.all([
-          prisma.taskStage.groupBy({
-            by: ['name'],
-            where: {
-              assignedToId: worker.id,
-              status: 'TAYYOR',
-            },
-            _count: true,
-          }),
+        const [paid, earnedNet] = await Promise.all([
           calculateTotalPaidUsd(worker.id),
-          prisma.taskError.aggregate({
-            where: { workerId: worker.id },
-            _sum: { amount: true },
-          }),
+          calculateTotalEarnedUsd(worker.id),
         ]);
 
         const previousYear = 2024;
@@ -1013,23 +1017,16 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
         const previousEarned = Number(previousDebt?.totalEarned || 0);
         const previousPaid = Number(previousDebt?.totalPaid || 0);
-        const totalErrors = Number(errorSum._sum.amount || 0);
 
-        const totalKpi = stageGroups.reduce((sum, group) => {
-          const normalized = normalizeStageName(group.name);
-          const basePrice = stagePriceMap.get(normalized) ?? STAGE_FIXED_PRICES[normalized] ?? 0;
-          return sum + basePrice * Number(group._count);
-        }, 0);
-
-        const totalEarned = totalKpi + previousEarned;
-        const totalPaid = Number(paid) + previousPaid;
-        const pending = totalEarned - totalErrors - totalPaid;
+        const netEarnedThisYear = Number(earnedNet);
+        const totalPaidThisYear = Number(paid);
+        const pending = netEarnedThisYear + previousEarned - (totalPaidThisYear + previousPaid);
 
         return {
           userId: worker.id,
           name: worker.name,
-          totalEarnedUsd: totalEarned,
-          totalPaidUsd: totalPaid,
+          totalEarnedUsd: netEarnedThisYear + previousEarned,
+          totalPaidUsd: totalPaidThisYear + previousPaid,
           pendingUsd: pending,
         };
       })
@@ -1216,5 +1213,100 @@ router.get('/charts', requireAuth(), async (req: AuthRequest, res) => {
   });
 });
 
-export default router;
+router.get('/premium-stats', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const { branchId, employeeId } = req.query;
 
+    const baseWhere: any = {};
+    if (branchId) baseWhere.branchId = Number(branchId);
+    if (employeeId) {
+      baseWhere.stages = { some: { assignedToId: Number(employeeId) } };
+    }
+
+    // 1. Top Clients (by Task count)
+    const topClientsGrouping = await prisma.task.groupBy({
+      by: ['clientId'],
+      where: baseWhere,
+      _count: { _all: true }
+    });
+
+    const clientIds = topClientsGrouping.map(g => g.clientId);
+    const clients = await prisma.client.findMany({
+      where: { id: { in: clientIds } },
+      select: { id: true, name: true }
+    });
+
+    const topClientsRaw = topClientsGrouping.map(g => ({
+      clientId: g.clientId,
+      count: g._count._all || 0,
+      name: clients.find(c => c.id === g.clientId)?.name || 'Noma\'lum Mijoz'
+    }));
+    
+    const topClients = topClientsRaw.sort((a, b) => b.count - a.count).slice(0, 5);
+
+    // 2. Task Process Types by Worker (Ishchilar va Rejimlar - TaskStage bo'yicha)
+    const stageWorkersGrouping = await prisma.taskStage.groupBy({
+      by: ['assignedToId', 'name'],
+      where: {
+        ...(employeeId ? { assignedToId: Number(employeeId) } : {}),
+        assignedToId: { not: null }
+      },
+      _count: { _all: true }
+    });
+
+    const processUserIds = [...new Set(stageWorkersGrouping.map((g: any) => g.assignedToId))];
+    const processUsers = await prisma.user.findMany({
+      where: { id: { in: processUserIds as number[] } },
+      select: { id: true, name: true }
+    });
+
+    const activeTasks = processUsers.map((u: any) => {
+      const userGroup = stageWorkersGrouping.filter((g: any) => g.assignedToId === u.id);
+      const sortedStages = userGroup.sort((a: any, b: any) => b._count._all - a._count._all).slice(0, 3);
+      
+      const stagesData = sortedStages.map((s: any) => ({
+        name: s.name,
+        count: s._count._all
+      }));
+
+      const total = userGroup.reduce((sum: number, g: any) => sum + g._count._all, 0);
+      
+      return {
+        name: u.name,
+        stages: stagesData,
+        total
+      };
+    }).sort((a: any, b: any) => b.total - a.total).slice(0, 7); // Top 7 workers
+
+    // 3. Github-style Daily Activity
+    const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+    const dailyActivityGrouping = await prisma.task.groupBy({
+      by: ['createdAt'],
+      where: {
+        ...baseWhere,
+        createdAt: { gte: sixMonthsAgo }
+      },
+      _count: { _all: true }
+    });
+
+    // Group to Date "YYYY-MM-DD"
+    const activityMap = new Map<string, number>();
+    for (const item of dailyActivityGrouping) {
+      const d = item.createdAt.toISOString().split('T')[0];
+      activityMap.set(d, (activityMap.get(d) || 0) + item._count._all);
+    }
+    const githubActivity = Array.from(activityMap.entries()).map(([date, count]) => ({ date, count }));
+
+    res.json({
+      topClients,
+      activeTasks,
+      githubActivity
+    });
+
+  } catch (error) {
+    console.error('Error fetching premium stats:', error);
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
+
+export default router;

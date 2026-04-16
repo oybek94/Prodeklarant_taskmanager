@@ -133,10 +133,11 @@ const Dashboard = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
-  const [rankingPeriod, setRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
-  const [errorRankingPeriod, setErrorRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
+  const [rankingPeriod, setRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [errorRankingPeriod, setErrorRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('yearly');
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
+  const [premiumStats, setPremiumStats] = useState<any>(null);
   const [completedSummary, setCompletedSummary] = useState<CompletedSummary | null>(null);
   const [loadingCompletedSummary, setLoadingCompletedSummary] = useState(true);
 
@@ -230,7 +231,14 @@ const Dashboard = () => {
     try {
       setLoading(true);
       setStatsError(null);
-      const response = await apiClient.get('/dashboard/stats');
+      const [response, premiumResponse] = await Promise.all([
+        apiClient.get('/dashboard/stats'),
+        apiClient.get('/dashboard/premium-stats').catch(() => null)
+      ]);
+      
+      if (premiumResponse && premiumResponse.data) {
+        setPremiumStats(premiumResponse.data);
+      }
       if (response.status >= 400 || response.data?.error) {
         const errorMessage = response.data?.error || `Dashboard statistikasi yuklanmadi (status: ${response.status})`;
         setStatsError(errorMessage);
@@ -441,10 +449,24 @@ const Dashboard = () => {
       {
         data,
         borderColor: color,
-        backgroundColor: 'transparent',
+        backgroundColor: (context: any) => {
+          const chart = context.chart;
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return 'transparent';
+          const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          const hexToRgb = (hex: string) => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '150, 150, 150';
+          };
+          const rgb = hexToRgb(color);
+          gradient.addColorStop(0, `rgba(${rgb}, 0.35)`);
+          gradient.addColorStop(1, `rgba(${rgb}, 0.0)`);
+          return gradient;
+        },
         borderWidth: 2,
         tension: 0.35,
         pointRadius: 0,
+        fill: true,
       },
     ],
   });
@@ -452,6 +474,9 @@ const Dashboard = () => {
   const sparklineOptions: any = {
     responsive: true,
     maintainAspectRatio: false,
+    layout: {
+      padding: { top: 4, bottom: 0, left: 0, right: 0 }
+    },
     plugins: {
       legend: { display: false },
       tooltip: { enabled: false },
@@ -475,93 +500,226 @@ const Dashboard = () => {
     );
   }
 
+  const hour = new Date().getHours();
+  let greeting = 'Xayrli kun';
+  if (hour < 5 || hour >= 22) greeting = 'Xayrli tun';
+  else if (hour < 12) greeting = 'Xayrli tong';
+  else if (hour < 18) greeting = 'Xayrli kun';
+  else greeting = 'Xayrli kech';
+
   return (
-    <div className={`min-h-screen bg-[#f3f4f6] dark:bg-gray-900 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/40 via-purple-50/20 to-white pb-12 pt-4 px-2 sm:px-6 lg:px-8 overflow-x-hidden ${isMobile ? 'pb-32' : ''}`}>
+    <div className={`min-h-screen bg-[#f3f4f6] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/40 via-purple-50/20 to-white dark:bg-none dark:bg-gray-900 pb-12 pt-4 px-2 sm:px-6 lg:px-8 overflow-x-hidden ${isMobile ? 'pb-32' : ''}`}>
       {/* Main Content */}
       <div className="max-w-[1600px] mx-auto space-y-4 sm:space-y-6">
-        {/* Page Header (Hero style) */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white/60 backdrop-blur-md rounded-2xl shadow-sm border border-white/40 p-6">
-          <div>
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
-              Assalomu alaykum, {user?.name || 'Foydalanuvchi'}!
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Bugun {new Date().toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </p>
-          </div>
-          {exchangeRate && (
-            <div className="mt-4 md:mt-0 px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-100 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
-                <Icon icon="lucide:dollar-sign" className="text-emerald-600 w-4 h-4" />
-              </div>
+        {/* Premium Page Header (Hero style) */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-indigo-50/80 via-white/80 to-purple-50/80 dark:from-indigo-950/40 dark:via-gray-900/60 dark:to-purple-950/40 backdrop-blur-3xl rounded-[24px] shadow-sm border border-white/60 dark:border-white/10 p-6 sm:p-8">
+          {/* Abstract blobs */}
+          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 blur-3xl pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-48 h-48 rounded-full bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 blur-3xl pointer-events-none"></div>
+          
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+
               <div>
-                <p className="text-xs text-gray-500 font-medium tracking-wide uppercase">Valyuta kursi</p>
-                <p className="text-sm font-bold text-emerald-700">{formatUzs(exchangeRate)} UZS</p>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-1.5 flex flex-wrap items-center gap-2">
+                   {greeting}, 
+                   <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+                     {user?.name?.split(' ')[0] || 'Foydalanuvchi'}
+                   </span>
+                   <span className="text-2xl hover:rotate-12 transition-transform cursor-pointer origin-bottom-right inline-block">👋</span>
+                </h1>
+                <p className="text-sm sm:text-base font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                  <Icon icon="lucide:calendar-clock" className="w-4 h-4 opacity-70" />
+                  {new Date().toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
               </div>
             </div>
-          )}
-        </div>
-
-        {/* Completed Tasks Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          {[
-            { key: 'today', title: 'Bugun', suffix: 'kechagidan', icon: 'lucide:calendar', accent: 'text-emerald-600', spark: '#34d399', showChart: false },
-            { key: 'week', title: 'Haftalik', suffix: 'o‘tgan haftadan', icon: 'lucide:calendar-range', accent: 'text-blue-600', spark: '#60a5fa', showChart: true },
-            { key: 'month', title: 'Oylik', suffix: 'o‘tgan oydan', icon: 'lucide:calendar-days', accent: 'text-purple-600', spark: '#a78bfa', showChart: true },
-            { key: 'year', title: 'Yillik', suffix: 'o‘tgan yildan', icon: 'lucide:calendar', accent: 'text-orange-600', spark: '#fb923c', showChart: true },
-          ].map((item) => {
-            const data = completedSummary?.[item.key as keyof CompletedSummary];
-            const delta = data?.deltaPercent ?? null;
-            const deltaLabel = loadingCompletedSummary
-              ? 'Yuklanmoqda...'
-              : delta === null || delta === undefined
-                ? 'Taqqoslash uchun ma\'lumot yo\'q'
-                : `${item.suffix} ${formatDeltaLabel(delta, '')} ${delta >= 0 ? 'yuqori' : 'past'}`.trim();
-            const deltaTone = delta === null ? 'text-gray-400' : delta >= 0 ? 'text-emerald-600' : 'text-red-600';
-            const sparkLabels = data?.series?.labels ?? [];
-            const sparkData = data?.series?.data ?? [];
-
-            return (
-              <div
-                key={item.key}
-                className="group relative bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden"
-              >
-                {/* Decorative blob */}
-                <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-10 blur-2xl group-hover:scale-150 transition-transform duration-700 bg-[${item.spark}]`} style={{ backgroundColor: item.spark }}></div>
-
-                <div className="flex items-center justify-between relative z-10">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white" style={{ background: `linear-gradient(135deg, #ffffff, ${item.spark}20)` }}>
-                      <Icon icon={item.icon} className={item.accent} />
-                    </div>
-                    <div className="text-sm font-medium text-gray-500 tracking-wide uppercase">{item.title}</div>
-                  </div>
-                  <div className={`text-4xl font-extrabold tracking-tight ${item.accent}`}>
-                    {loadingCompletedSummary ? '-' : data?.count ?? 0}
-                  </div>
+            
+            {exchangeRate && (
+              <div className="flex items-center self-start lg:self-center bg-white/70 dark:bg-gray-800/80 backdrop-blur-md px-5 py-3.5 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] dark:shadow-none hover:shadow-md transition-all">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40 flex items-center justify-center mr-4 shadow-inner">
+                  <Icon icon="lucide:banknote" className="text-emerald-600 dark:text-emerald-400 w-5 h-5" />
                 </div>
-
-                <div className="mt-6 border-t border-gray-100/50 pt-4 flex items-center justify-between gap-4 relative z-10">
-                  {item.showChart && Array.isArray(sparkData) && sparkData.length > 0 ? (
-                    <div className="h-10 w-28 opacity-80 group-hover:opacity-100 transition-opacity">
-                      <Line
-                        data={buildSparklineData(sparkLabels, sparkData, item.spark)}
-                        options={sparklineOptions}
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-10 w-28 flex items-center text-gray-400 opacity-50">
-                      <span className="text-xs font-medium">Barchasi ko'rildi</span>
-                    </div>
-                  )}
-                  <div className={`text-xs font-semibold px-2.5 py-1 rounded-full ${delta === null ? 'bg-gray-100 text-gray-500' : delta >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
-                    }`}>
-                    {deltaLabel}
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-0.5">Valyuta kursi</p>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-lg font-black text-gray-900 dark:text-white leading-none">1 <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">$</span></span>
+                    <span className="text-sm font-medium text-gray-400 dark:text-gray-500 mx-1">=</span>
+                    <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none">{formatUzs(exchangeRate)} <span className="text-sm font-semibold">UZS</span></span>
                   </div>
                 </div>
               </div>
-            );
-          })}
+            )}
+          </div>
+        </div>
+
+        {/* Top Summary & Activity Heatmap */}
+        {/* Top Summary & Activity Heatmap */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+          {/* Left: 4 Summary Cards */}
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              { key: 'today', title: 'BUGUN', suffix: 'kechagiga nisbatan', icon: 'lucide:calendar', bg: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-100/60 dark:border-emerald-800/30', spark: '#10b981', showChart: true },
+              { key: 'week', title: 'HAFTALIK', suffix: 'o‘tgan haftadan', icon: 'lucide:calendar-range', bg: 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20', text: 'text-blue-700 dark:text-blue-400', border: 'border-blue-100/60 dark:border-blue-800/30', spark: '#3b82f6', showChart: true },
+              { key: 'month', title: 'OYLIK', suffix: 'o‘tgan oydan', icon: 'lucide:calendar-days', bg: 'bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20', text: 'text-purple-700 dark:text-purple-400', border: 'border-purple-100/60 dark:border-purple-800/30', spark: '#8b5cf6', showChart: true },
+              { key: 'year', title: 'YILLIK', suffix: 'o‘tgan yildan', icon: 'lucide:calendar', bg: 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20', text: 'text-orange-700 dark:text-orange-400', border: 'border-orange-100/60 dark:border-orange-800/30', spark: '#f97316', showChart: true },
+            ].map((item) => {
+              const data = completedSummary?.[item.key as keyof CompletedSummary];
+              const delta = data?.deltaPercent ?? null;
+              const deltaLabel = loadingCompletedSummary
+                ? '...'
+                : delta === null || delta === undefined
+                  ? '0%'
+                  : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`;
+              const sparkLabels = data?.series?.labels ?? [];
+              const sparkData = data?.series?.data ?? [];
+
+              return (
+                <div
+                  key={item.key}
+                  className={`group relative ${item.bg} rounded-[20px] shadow-sm border ${item.border} hover:shadow-md dark:hover:shadow-white/5 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden flex flex-col pt-3`}
+                >
+                  {/* Top highlight glare */}
+                  <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/60 dark:from-white/5 to-transparent pointer-events-none rounded-t-[20px]" />
+
+                  {/* Header -> Count -> Badge row */}
+                  <div className="relative z-10 px-4 pb-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-7 h-7 rounded-lg bg-white/70 dark:bg-gray-800/50 backdrop-blur-md flex items-center justify-center shadow-sm border border-white dark:border-gray-700/50 shrink-0">
+                        <Icon icon={item.icon} className={`w-3.5 h-3.5 ${item.text}`} />
+                      </div>
+                      <div className="text-[10px] mt-0.5 font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase truncate">{item.title}</div>
+                    </div>
+
+                    <div className="flex items-end justify-between gap-1 mb-1 relative overflow-hidden z-20">
+                      <div className={`text-3xl font-black tracking-tighter leading-none ${item.text} drop-shadow-sm truncate`}>
+                        {loadingCompletedSummary ? '...' : data?.count ?? 0}
+                      </div>
+                      <div className={`text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shrink-0 mb-0.5 ${delta === null ? 'bg-white/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400' : delta >= 0 ? 'bg-emerald-100/60 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-red-100/60 dark:bg-red-500/20 text-red-700 dark:text-red-400'} shadow-sm`}>
+                        {delta !== null && delta !== undefined && !loadingCompletedSummary && (
+                          <Icon icon={delta >= 0 ? 'lucide:trending-up' : 'lucide:trending-down'} className="w-3 h-3" />
+                        )}
+                        <span>{deltaLabel}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Chart Spread */}
+                  <div className="absolute inset-x-0 bottom-0 h-[65px] opacity-80 pointer-events-none rounded-b-[20px]">
+                     {item.showChart && Array.isArray(sparkData) && sparkData.length > 0 ? (
+                        <div className="w-full h-full pb-0.5">
+                           <Line
+                             data={buildSparklineData(sparkLabels, sparkData, item.spark)}
+                             options={{ ...sparklineOptions, maintainAspectRatio: false }}
+                           />
+                        </div>
+                     ) : (
+                        <div className="w-full h-full flex items-center justify-center opacity-0 mt-1">
+                           <span className="text-[9px] font-bold text-gray-400/50 dark:text-gray-500/70 uppercase">0 Vazifa</span>
+                        </div>
+                     )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Right: Github Activity Heatmap Row */}
+          <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col justify-center">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-3xl group-hover:opacity-100 transition-opacity duration-700 pointer-events-none opacity-50"></div>
+            
+            <div className="flex items-center gap-3 mb-6 relative z-10">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30">
+                <Icon icon="lucide:calendar-days" className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Umumiy Faollik</h2>
+                <p className="text-[11px] font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase mt-0.5">Jonli Holat (So'nggi 6 oy)</p>
+              </div>
+            </div>
+
+            <div className="relative z-10 overflow-x-auto custom-scrollbar pb-4 pt-2 px-1">
+              {!premiumStats ? (
+                 <div className="flex items-center justify-center py-6 h-[100px]"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div></div>
+              ) : (() => {
+                 const activityList = premiumStats.githubActivity || [];
+                 const map = new Map();
+                 activityList.forEach((a: any) => map.set(a.date, a.count));
+
+                 const today = new Date();
+                 const daysToSubtract = 180;
+                 const startDate = new Date(today.getTime() - daysToSubtract * 24 * 60 * 60 * 1000);
+                 
+                 const startDay = startDate.getDay();
+                 const startOfGrid = new Date(startDate.getTime() - startDay * 24 * 60 * 60 * 1000);
+                 const weeks = [];
+                 let currentWeek = [];
+
+                 for (let d = new Date(startOfGrid); d <= today; d.setDate(d.getDate() + 1)) {
+                    // Set time to noon to avoid timezone shift dropping dates
+                    const dLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+                    const dateStr = dLocal.toISOString().split('T')[0];
+                    const count = map.get(dateStr) || 0;
+                    
+                    currentWeek.push({ date: dateStr, count, isFuture: dLocal > today });
+                    
+                    if (currentWeek.length === 7) {
+                        weeks.push(currentWeek);
+                        currentWeek = [];
+                    }
+                 }
+                 if (currentWeek.length > 0) {
+                     weeks.push(currentWeek);
+                 }
+
+                 return (
+                    <div className="flex gap-[3px] sm:gap-[5px] mt-1">
+                       <div className="flex flex-col gap-[3px] sm:gap-[5px] pr-2 text-[10px] font-medium text-gray-400 dark:text-gray-500 items-end mt-0.5">
+                          <div className="h-[12px] sm:h-[14px]">Yak</div>
+                          <div className="h-[12px] sm:h-[14px] opacity-0">Dush</div>
+                          <div className="h-[12px] sm:h-[14px]">Sesh</div>
+                          <div className="h-[12px] sm:h-[14px] opacity-0">Chor</div>
+                          <div className="h-[12px] sm:h-[14px]">Pay</div>
+                          <div className="h-[12px] sm:h-[14px] opacity-0">Jum</div>
+                          <div className="h-[12px] sm:h-[14px]">Shan</div>
+                       </div>
+                       {weeks.map((week, i) => (
+                           <div key={i} className="flex flex-col gap-[3px] sm:gap-[5px]">
+                              {week.map((day, j) => {
+                                  let colorClass = "bg-gray-100 dark:bg-gray-800/80";
+                                  if (day.isFuture) colorClass = "bg-transparent opacity-0 pointer-events-none";
+                                  else if (day.count > 0 && day.count <= 3) colorClass = "bg-emerald-200 dark:bg-emerald-800/70";
+                                  else if (day.count > 3 && day.count <= 8) colorClass = "bg-emerald-400 dark:bg-emerald-600/90";
+                                  else if (day.count > 8 && day.count <= 15) colorClass = "bg-emerald-500 dark:bg-emerald-500";
+                                  else if (day.count > 15) colorClass = "bg-emerald-600 dark:bg-emerald-400";
+                                  
+                                  return (
+                                     <div 
+                                        key={j} 
+                                        title={`${day.date}: ${day.count} ta kelib tushgan vazifa`} 
+                                        className={`w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] rounded-[3px] sm:rounded-[4px] transition-colors cursor-pointer hover:ring-2 hover:ring-gray-400/50 ${colorClass}`}
+                                     ></div>
+                                  )
+                              })}
+                           </div>
+                       ))}
+                    </div>
+                 );
+              })()}
+            </div>
+            
+            <div className="relative z-10 flex items-center justify-end gap-2 mt-auto pt-4 text-[11px] font-medium text-gray-500 dark:text-gray-400 lg:pl-10">
+               <span>Kam</span>
+               <div className="flex gap-[3px] sm:gap-[5px]">
+                  <div className="w-[12px] h-[12px] rounded-[3px] bg-gray-100 dark:bg-gray-800/80"></div>
+                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-200 dark:bg-emerald-800/70"></div>
+                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-400 dark:bg-emerald-600/90"></div>
+                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-500 dark:bg-emerald-500"></div>
+                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-600 dark:bg-emerald-400"></div>
+               </div>
+               <span>Ko'p</span>
+            </div>
+          </div>
         </div>
 
         {/* Main Content Grid */}
@@ -569,18 +727,18 @@ const Dashboard = () => {
           {/* Left Column - Chart and Tasks */}
           <div className="lg:col-span-2 space-y-6">
             {/* Task Done Graph */}
-            <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50" style={{ height: '503px' }}>
-              <div className="flex justify-between items-center mb-6">
+            <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50 dark:border-gray-700/50 flex flex-col" style={{ height: '565px' }}>
+              <div className="flex justify-between items-center mb-6 shrink-0">
                 <div className="flex flex-col">
-                  <h2 className="text-xl font-bold text-gray-900 tracking-tight">Oylik monitoring</h2>
-                  <p className="text-xs text-gray-500 font-medium">Bajarilgan vazifalar dinamikasi</p>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Oylik monitoring</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Bajarilgan vazifalar dinamikasi</p>
                 </div>
-                <div className="flex gap-2 bg-gray-100/80 p-1 rounded-xl">
+                <div className="flex gap-2 bg-gray-100/80 dark:bg-gray-700/80 p-1 rounded-xl">
                   <button
                     onClick={() => setPeriod('weekly')}
                     className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all duration-300 ${period === 'weekly'
-                      ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200/50'
-                      : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
                     Haftalik
@@ -588,8 +746,8 @@ const Dashboard = () => {
                   <button
                     onClick={() => setPeriod('monthly')}
                     className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all duration-300 ${period === 'monthly'
-                      ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200/50'
-                      : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
                     Oylik
@@ -597,8 +755,8 @@ const Dashboard = () => {
                   <button
                     onClick={() => setPeriod('yearly')}
                     className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all duration-300 ${period === 'yearly'
-                      ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200/50'
-                      : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
                     Yillik
@@ -608,7 +766,7 @@ const Dashboard = () => {
 
               {/* Charts.js Line Chart */}
               {chartDataWithLabels.labels.length > 0 ? (
-                <div className="h-[400px]">
+                <div className="flex-1 w-full min-h-0">
                   <Line
                     data={{
                       labels: chartDataWithLabels.labels,
@@ -632,6 +790,7 @@ const Dashboard = () => {
                         },
                         {
                           label: 'O‘tgan davr',
+                          hidden: true,
                           data: chartDataWithLabels.previous,
                           borderColor: 'rgb(148, 163, 184)',
                           backgroundColor: 'rgba(148, 163, 184, 0.1)',
@@ -722,19 +881,21 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Tasks by Branch Chart */}
-              <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-indigo-50 to-indigo-100">
-                    <Icon icon="lucide:building" className="w-6 h-6 text-indigo-600" />
+              <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 flex flex-col h-full relative overflow-hidden group" style={{ height: '515px' }}>
+                <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+
+                <div className="flex items-center gap-3 mb-6 relative z-10">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30">
+                    <Icon icon="lucide:pie-chart" className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900 tracking-tight">Filiallar ulushi</h2>
-                    <p className="text-xs text-gray-500 font-medium">Bajarilgan ishlarning hududlarga foizi</p>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Filiallar ulushi</h2>
+                    <p className="text-[11px] font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase mt-0.5">Bajarilgan ishlar</p>
                   </div>
                 </div>
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
                   </div>
                 ) : (() => {
                   const branches = stats?.tasksByBranch;
@@ -758,9 +919,8 @@ const Dashboard = () => {
                       <div className="text-center py-12 text-gray-400">
                         <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
                         <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
-                        {/* Debug info - faqat development'da ko'rinadi */}
                         {import.meta.env.DEV && (
-                          <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left max-w-md mx-auto">
+                           <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left max-w-md mx-auto">
                             <p className="font-semibold mb-1">Debug Info:</p>
                             <p>Type: {typeof branches}</p>
                             <p>Is Array: {Array.isArray(branches) ? 'Yes' : 'No'}</p>
@@ -783,60 +943,78 @@ const Dashboard = () => {
                       <div className="text-center py-12 text-gray-400">
                         <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
                         <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
-                        {import.meta.env.DEV && (
-                          <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left max-w-md mx-auto">
-                            <p className="font-semibold mb-1">Debug Info:</p>
-                            <p>Valid branches: {validBranches.length}</p>
-                            <p>Labels: {JSON.stringify(labels)}</p>
-                            <p>Series: {JSON.stringify(series)}</p>
-                          </div>
-                        )}
                       </div>
                     );
                   }
 
                   return (
-                    <div>
-                      <Chart
-                        key={`branch-chart-${series.join('-')}-${labels.join('-')}`}
-                        options={{
-                          chart: {
-                            type: 'pie',
-                            height: 350,
-                            toolbar: { show: false },
-                          },
-                          labels: labels,
-                          colors: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'],
-                          legend: {
-                            position: 'bottom',
-                            fontSize: '14px',
-                            fontFamily: 'inherit',
-                          },
-                          dataLabels: {
-                            enabled: true,
-                            formatter: (val: number) => `${val.toFixed(1)}%`,
-                            style: {
-                              fontSize: '12px',
-                              fontWeight: 600,
+                    <div className="relative z-10 flex flex-col flex-1">
+                      <div className="flex justify-center -mt-2">
+                        <Chart
+                          key={`branch-chart-${series.join('-')}-${labels.join('-')}`}
+                          options={{
+                            chart: {
+                              type: 'donut',
+                              height: 320,
+                              toolbar: { show: false },
+                              animations: { speed: 600 }
                             },
-                          },
-                          tooltip: {
-                            y: {
-                              formatter: (value: number) => `${value} ta task`,
+                            plotOptions: {
+                              pie: {
+                                donut: {
+                                  size: '72%',
+                                  labels: {
+                                    show: true,
+                                    name: { show: true, fontSize: '13px', fontWeight: 600, color: '#9ca3af', offsetY: -5 },
+                                    value: { show: true, fontSize: '30px', fontWeight: 800, color: '#6366f1', offsetY: 5 },
+                                    total: {
+                                      show: true,
+                                      showAlways: true,
+                                      label: 'Jami task',
+                                      color: '#9ca3af',
+                                      formatter: function (w) {
+                                        return w.globals.seriesTotals.reduce((a: any, b: any) => a + b, 0).toLocaleString('uz-UZ') + ' ta';
+                                      }
+                                    }
+                                  }
+                                }
+                              }
                             },
-                          },
-                        }}
-                        series={series}
-                        type="pie"
-                        height={350}
-                      />
-                      <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
-                        {validBranches.map((branch: any) => (
-                          <div key={branch.branchId ?? branch.branchName} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">{branch.branchName}:</span>
-                            <span className="font-semibold text-gray-900">{branch.count} ta</span>
-                          </div>
-                        ))}
+                            labels: labels,
+                            colors: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'],
+                            legend: {
+                              show: false, // Hidden standard legend, manual below
+                            },
+                            dataLabels: {
+                              enabled: false, // Keeps chart clean
+                            },
+                            stroke: {
+                              width: 0, // Seamless gradient-like cuts
+                            },
+                            tooltip: {
+                              theme: 'dark',
+                              y: {
+                                formatter: (value: number) => `${value} ta`,
+                              },
+                            },
+                          }}
+                          series={series}
+                          type="donut"
+                          height={280}
+                        />
+                      </div>
+                      <div className="mt-auto pt-5 border-t border-gray-100/60 dark:border-white/10 flex flex-wrap justify-center gap-2.5">
+                        {validBranches.map((branch: any, idx: number) => {
+                          const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'];
+                          const color = colors[idx % colors.length];
+                          return (
+                            <div key={branch.branchId ?? branch.branchName} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50/80 dark:bg-gray-800/80 border border-gray-200/60 dark:border-gray-700 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700">
+                              <span className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: color }}></span>
+                              <span className="text-[12px] font-semibold text-gray-600 dark:text-gray-300">{branch.branchName}</span>
+                              <span className="text-[12px] font-black text-gray-900 dark:text-white ml-0.5">{branch.count} <span className="text-gray-400 font-normal ml-0.5 text-[10px]">ta</span></span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -844,41 +1022,44 @@ const Dashboard = () => {
               </div>
 
               {/* Worker completion ranking */}
-              <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50">
-                <div className="flex flex-col gap-4 mb-6">
+              <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col h-full" style={{ height: '515px' }}>
+                {/* Premium Effect */}
+                <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+
+                <div className="flex flex-col gap-4 mb-6 relative z-10 shrink-0">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-emerald-50 to-teal-100">
-                      <Icon icon="lucide:trophy" className="w-6 h-6 text-emerald-600" />
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30">
+                      <Icon icon="lucide:trophy" className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-gray-900 tracking-tight">Peshqadamlar</h2>
-                      <p className="text-xs text-gray-500 font-medium">Eng ko'p ish bajargan xodimlar</p>
+                      <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Peshqadamlar</h2>
+                      <p className="text-[11px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold mt-0.5">Xodimlar reytingi</p>
                     </div>
                   </div>
-                  <div className="flex gap-1 bg-gray-100/80 p-1 rounded-xl">
+                  <div className="flex gap-1.5 bg-gray-100/80 dark:bg-gray-700/80 p-1.5 rounded-xl">
                     <button
                       onClick={() => setRankingPeriod('weekly')}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${rankingPeriod === 'weekly'
-                        ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-gray-200/50'
-                        : 'text-gray-500 hover:text-gray-900'
+                      className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${rankingPeriod === 'weekly'
+                        ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                         }`}
                     >
                       Haftalik
                     </button>
                     <button
                       onClick={() => setRankingPeriod('monthly')}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${rankingPeriod === 'monthly'
-                        ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-gray-200/50'
-                        : 'text-gray-500 hover:text-gray-900'
+                      className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${rankingPeriod === 'monthly'
+                        ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                         }`}
                     >
                       Oylik
                     </button>
                     <button
                       onClick={() => setRankingPeriod('yearly')}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${rankingPeriod === 'yearly'
-                        ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-gray-200/50'
-                        : 'text-gray-500 hover:text-gray-900'
+                      className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${rankingPeriod === 'yearly'
+                        ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                         }`}
                     >
                       Yillik
@@ -886,37 +1067,92 @@ const Dashboard = () => {
                   </div>
                 </div>
                 {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <div className="flex items-center justify-center py-12 relative z-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400"></div>
                   </div>
                 ) : (() => {
                   const rankingData = stats?.workerCompletionRanking;
-                  const ranking = rankingData?.[rankingPeriod] || [];
+                  const rawRanking = rankingData?.[rankingPeriod] || [];
+                  const ranking = rawRanking.slice(0, 7); // Top 7 peshqadamlar
+
                   if (!Array.isArray(ranking) || ranking.length === 0) {
                     return (
-                      <div className="text-center py-12 text-gray-400">
-                        <Icon icon="lucide:users" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <div className="text-center py-12 text-gray-400 dark:text-gray-500 relative z-10">
+                        <Icon icon="lucide:award" className="w-12 h-12 mx-auto mb-2 opacity-50" />
                         <p>Reyting uchun ma'lumotlar topilmadi</p>
                       </div>
                     );
                   }
+
+                  const isDark = document.documentElement.classList.contains('dark');
+                  const labelColor = isDark ? '#9ca3af' : '#4b5563';
+
                   return (
-                    <div className="space-y-3">
-                      {ranking.map((worker, index) => (
-                        <div key={worker.userId} className="group flex items-center justify-between p-3 rounded-xl hover:bg-white/50 transition-colors border border-transparent hover:border-gray-100">
-                          <div className="flex items-center gap-4">
-                            <span className={`w-8 h-8 flex items-center justify-center rounded-xl text-sm font-bold shadow-sm ${index === 0 ? 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-white ring-2 ring-yellow-100' :
-                              index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white ring-2 ring-gray-100' :
-                                index === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-400 text-white ring-2 ring-orange-100' :
-                                  'bg-gray-100 text-gray-600'
-                              }`}>
-                              {index + 1}
-                            </span>
-                            <span className="font-semibold text-gray-800">{worker.name}</span>
-                          </div>
-                          <span className="font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full text-xs">{worker.completedStages} ta</span>
-                        </div>
-                      ))}
+                    <div className="relative z-10 flex-1 w-full mt-2 flex flex-col">
+                      <Chart
+                        key={`ranking-chart-${rankingPeriod}-${isDark}`}
+                        options={{
+                          chart: {
+                            type: 'bar',
+                            toolbar: { show: false },
+                            animations: { speed: 600 }
+                          },
+                          plotOptions: {
+                            bar: {
+                              horizontal: true,
+                              borderRadius: 4,
+                              distributed: true,
+                              dataLabels: {
+                                position: 'right'
+                              }
+                            }
+                          },
+                          colors: [
+                            '#eab308', // 1-o'rin Yelloish Gold
+                            '#9ca3af', // 2-o'rin Silver
+                            '#f97316', // 3-o'rin Bronze
+                            '#3b82f6', '#8b5cf6', '#ec4899', '#10b981' // Other colors
+                          ],
+                          dataLabels: {
+                            enabled: true,
+                            formatter: (val) => `${val} ta`,
+                            style: {
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              colors: ['#fff']
+                            },
+                            textAnchor: 'end',
+                            dropShadow: { enabled: true, opacity: 0.3 }
+                          },
+                          xaxis: {
+                            categories: ranking.map((w: any) => w.name),
+                            labels: { show: false },
+                            axisBorder: { show: false },
+                            axisTicks: { show: false }
+                          },
+                          yaxis: {
+                            labels: {
+                              style: {
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                colors: Array(ranking.length).fill(labelColor)
+                              }
+                            }
+                          },
+                          grid: { show: false },
+                          legend: { show: false },
+                          tooltip: {
+                            theme: 'dark',
+                            y: { formatter: (val) => `${val} ta vazifa` }
+                          }
+                        }}
+                        series={[{
+                          name: 'Bajarildi',
+                          data: ranking.map((w: any) => w.completedStages)
+                        }]}
+                        type="bar"
+                        height={290}
+                      />
                     </div>
                   );
                 })()}
@@ -927,19 +1163,23 @@ const Dashboard = () => {
           {/* Right Sidebar */}
           <div className="space-y-6">
             {/* Yearly Goal Gauge Chart */}
-            <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-blue-50 to-indigo-100">
-                  <Icon icon="lucide:target" className="w-6 h-6 text-blue-600" />
+            <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col justify-between" style={{ height: '565px' }}>
+              {/* Premium Glow Effect */}
+              <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/10 dark:bg-blue-500/20 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+
+              <div className="flex items-center gap-3 mb-4 relative z-10">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30">
+                  <Icon icon="lucide:target" className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900 tracking-tight">Yillik maqsad</h2>
-                  <p className="text-xs text-gray-500 font-medium">Joriy 2026 yil uchun progress</p>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Yillik maqsad</h2>
+                  <p className="text-[11px] font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase mt-0.5">Joriy 2026 yil</p>
                 </div>
               </div>
+
               {loadingCompletedSummary ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
                 </div>
               ) : (() => {
                 const TARGET_TASKS = stats?.yearlyGoalTarget ?? 2000;
@@ -958,24 +1198,24 @@ const Dashboard = () => {
                       startAngle: -90,
                       endAngle: 90,
                       track: {
-                        background: '#e5e7eb',
+                        background: 'rgba(150, 150, 150, 0.15)',
                         strokeWidth: '97%',
                         margin: 5,
                       },
                       dataLabels: {
                         name: {
                           show: true,
-                          fontSize: '12px',
+                          fontSize: '13px',
                           fontWeight: 600,
-                          color: '#6b7280',
-                          offsetY: -10,
+                          color: '#9ca3af',
+                          offsetY: -25,
                         },
                         value: {
                           show: true,
-                          fontSize: '32px',
-                          fontWeight: 700,
-                          color: '#1f2937',
-                          offsetY: 10,
+                          fontSize: '30px',
+                          fontWeight: 800,
+                          color: '#6366f1',
+                          offsetY: -5,
                           formatter: function (val: number) {
                             return Math.round((val / 100) * TARGET_TASKS).toString();
                           },
@@ -999,11 +1239,11 @@ const Dashboard = () => {
                   stroke: {
                     lineCap: 'round',
                   },
-                  labels: ['Yakunlangan tasklar'],
+                  labels: ['Yakunlangan'],
                 };
 
                 return (
-                  <div>
+                  <div className="relative z-10">
                     <div className="flex justify-center mb-0" style={{ lineHeight: '28px' }}>
                       <Chart
                         options={gaugeOptions}
@@ -1012,28 +1252,35 @@ const Dashboard = () => {
                         height={280}
                       />
                     </div>
-                    <div className="mt-6 space-y-3 pt-6 border-t border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Maqsad:</span>
-                        <span className="text-lg font-bold text-gray-900">{TARGET_TASKS.toLocaleString('uz-UZ')} task</span>
+                    <div className="mt-6 space-y-4 pt-6 border-t border-gray-100/60 dark:border-white/10">
+                      <div className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-blue-500"></span> Maqsad:
+                        </span>
+                        <span className="text-base font-black text-gray-900 dark:text-white">{TARGET_TASKS.toLocaleString('uz-UZ')} ta</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Yakunlangan:</span>
-                        <span className="text-lg font-bold text-blue-600">{completed.toLocaleString('uz-UZ')} task</span>
+                      <div className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Yakunlangan:
+                        </span>
+                        <span className="text-base font-black text-emerald-600 dark:text-emerald-400">{completed.toLocaleString('uz-UZ')} ta</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Qolgan:</span>
-                        <span className="text-lg font-bold text-orange-600">{remaining.toLocaleString('uz-UZ')} task</span>
+                      <div className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-orange-500"></span> Qolgan:
+                        </span>
+                        <span className="text-base font-black text-orange-600 dark:text-orange-400">{remaining.toLocaleString('uz-UZ')} ta</span>
                       </div>
-                      <div className="mt-4 pt-4 border-t border-gray-100">
-                        <div className="bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                      <div className="mt-4 pt-4 border-t border-gray-100/60 dark:border-white/10">
+                        <div className="bg-gray-100 dark:bg-gray-700/50 rounded-full h-2 overflow-hidden flex items-center">
                           <div
-                            className="bg-gradient-to-r from-blue-500 to-purple-600 h-full transition-all duration-500 rounded-full"
+                            className="bg-gradient-to-r from-blue-500 to-purple-600 h-full transition-all duration-700 rounded-full"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
-                        <div className="text-center mt-2">
-                          <span className="text-xs font-medium text-gray-600">
+                        <div className="text-center mt-2.5">
+                          <span className="text-[10px] uppercase tracking-widest font-bold text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1.5">
+                            <Icon icon="lucide:check-circle" className="w-3.5 h-3.5 text-emerald-500" />
                             {percentage.toFixed(1)}% bajarildi
                           </span>
                         </div>
@@ -1045,41 +1292,44 @@ const Dashboard = () => {
             </div>
 
             {/* Worker error ranking */}
-            <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50">
-              <div className="flex flex-col gap-4 mb-6">
+            <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col h-full" style={{ height: '515px' }}>
+              {/* Premium Glow Effect */}
+              <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-red-500/10 dark:bg-red-500/20 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+
+              <div className="flex flex-col gap-4 mb-6 relative z-10 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-red-50 to-orange-100">
-                    <Icon icon="lucide:alert-circle" className="w-6 h-6 text-red-600" />
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-red-50 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30">
+                    <Icon icon="lucide:alert-circle" className="w-6 h-6 text-red-600 dark:text-red-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900 tracking-tight">Eng ko'p xato qilganlar</h2>
-                    <p className="text-xs text-gray-500 font-medium">Ishchilar bo'yicha xatolar soni</p>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Eng ko'p xato qilganlar</h2>
+                    <p className="text-[11px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold mt-0.5">Xodimlar bo'yicha</p>
                   </div>
                 </div>
-                <div className="flex gap-1 bg-gray-100/80 p-1 rounded-xl">
+                <div className="flex gap-1.5 bg-gray-100/80 dark:bg-gray-700/80 p-1.5 rounded-xl">
                   <button
                     onClick={() => setErrorRankingPeriod('weekly')}
-                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'weekly'
-                      ? 'bg-white text-red-700 shadow-sm ring-1 ring-gray-200/50'
-                      : 'text-gray-500 hover:text-gray-900'
+                    className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'weekly'
+                      ? 'bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 shadow-sm ring-1 ring-red-200/50 dark:ring-red-900/40'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
                     Haftalik
                   </button>
                   <button
                     onClick={() => setErrorRankingPeriod('monthly')}
-                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'monthly'
-                      ? 'bg-white text-red-700 shadow-sm ring-1 ring-gray-200/50'
-                      : 'text-gray-500 hover:text-gray-900'
+                    className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'monthly'
+                      ? 'bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 shadow-sm ring-1 ring-red-200/50 dark:ring-red-900/40'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
                     Oylik
                   </button>
                   <button
                     onClick={() => setErrorRankingPeriod('yearly')}
-                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'yearly'
-                      ? 'bg-white text-red-700 shadow-sm ring-1 ring-gray-200/50'
-                      : 'text-gray-500 hover:text-gray-900'
+                    className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'yearly'
+                      ? 'bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 shadow-sm ring-1 ring-red-200/50 dark:ring-red-900/40'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
                     Yillik
@@ -1087,37 +1337,73 @@ const Dashboard = () => {
                 </div>
               </div>
               {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="flex items-center justify-center py-12 relative z-10">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 dark:border-red-400"></div>
                 </div>
               ) : (() => {
                 const errorRankingData = stats?.workerErrorRanking;
-                const errorRanking = errorRankingData?.[errorRankingPeriod] || [];
-                if (!Array.isArray(errorRanking) || errorRanking.length === 0) {
+                const rawErrorRanking = errorRankingData?.[errorRankingPeriod] || [];
+                const topErrors = rawErrorRanking.slice(0, 7);
+
+                if (!Array.isArray(topErrors) || topErrors.length === 0) {
                   return (
-                    <div className="text-center py-12 text-gray-400">
-                      <Icon icon="lucide:users" className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>Reyting uchun ma'lumotlar topilmadi</p>
+                    <div className="text-center py-12 text-gray-400 dark:text-gray-500 relative z-10">
+                      <Icon icon="lucide:check-circle" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>Xatolar qayd etilmagan</p>
                     </div>
                   );
                 }
+
+                const labels = topErrors.map((w: any) => w.name);
+                const seriesData = topErrors.map((w: any) => ({
+                  x: w.name,
+                  y: w.errorsCount
+                }));
+
+                const isDark = document.documentElement.classList.contains('dark');
+
+                // Qizil spektr ranglari, xatolar uchun xos
+                const colors = ['#ef4444', '#f97316', '#f43f5e', '#ec4899', '#f87171', '#fb923c', '#fb7185'];
+
                 return (
-                  <div className="space-y-3">
-                    {errorRanking.map((worker, index) => (
-                      <div key={worker.userId} className="group flex items-center justify-between p-3 rounded-xl hover:bg-white/50 transition-colors border border-transparent hover:border-gray-100">
-                        <div className="flex items-center gap-4">
-                          <span className={`w-8 h-8 flex items-center justify-center rounded-xl text-sm font-bold shadow-sm ${index === 0 ? 'bg-gradient-to-br from-red-400 to-red-600 text-white ring-2 ring-red-100' :
-                            index === 1 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white ring-2 ring-orange-100' :
-                              index === 2 ? 'bg-gradient-to-br from-amber-300 to-amber-500 text-white ring-2 ring-amber-100' :
-                                'bg-gray-100 text-gray-600'
-                            }`}>
-                            {index + 1}
-                          </span>
-                          <span className="font-semibold text-gray-800">{worker.name}</span>
-                        </div>
-                        <span className="font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full text-xs">{worker.errorsCount} ta</span>
-                      </div>
-                    ))}
+                  <div className="relative z-10 flex flex-col flex-1 h-full mt-2">
+                    <div className="flex-1 w-full min-h-0 -mt-2">
+                       <Chart
+                         key={`error-chart-${errorRankingPeriod}-${isDark}`}
+                         options={{
+                           chart: { 
+                             type: 'treemap', 
+                             toolbar: { show: false },
+                             animations: { speed: 600 }
+                           },
+                           colors: colors,
+                           plotOptions: { 
+                             treemap: { 
+                               distributed: true,
+                               enableShades: false,
+                             } 
+                           },
+                           dataLabels: { 
+                             enabled: true,
+                             style: { fontSize: '13px', fontWeight: 800, colors: ['#ffffff'] },
+                             formatter: (text, op) => [String(text), String(op.value) + ' ta']
+                           },
+                           legend: { show: false },
+                           tooltip: { 
+                             theme: 'dark', 
+                             y: { formatter: val => `${val} ta xato` } 
+                           },
+                           stroke: {
+                             show: true,
+                             width: 2,
+                             colors: [isDark ? '#1f2937' : '#ffffff']
+                           }
+                         }}
+                         series={[{ data: seriesData }]}
+                         type="treemap"
+                         height={320}
+                       />
+                    </div>
                   </div>
                 );
               })()}
@@ -1125,185 +1411,282 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Financial Stats Chart */}
-        <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50 mb-6 mt-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-emerald-50 to-teal-100">
-              <Icon icon="lucide:bar-chart-2" className="w-6 h-6 text-emerald-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900 tracking-tight">Umumiy Sof Foyda Dinamikasi</h2>
-              <p className="text-xs text-gray-500 font-medium">Davrlar kesimida daromad ko'rsatkichlari (USD va UZS)</p>
-            </div>
-          </div>
-          {loading ? (
-            <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div></div>
-          ) : (() => {
-            const netProfitSeries = [
-              {
-                name: 'Daromad (USD)',
-                data: [
-                  stats?.todayNetProfit?.usd || 0,
-                  stats?.weeklyNetProfit?.usd || 0,
-                  stats?.monthlyNetProfit?.usd || 0,
-                  stats?.yearlyNetProfit?.usd || 0
-                ]
-              },
-              {
-                name: 'Daromad (UZS)',
-                data: [
-                  stats?.todayNetProfit?.uzs || 0,
-                  stats?.weeklyNetProfit?.uzs || 0,
-                  stats?.monthlyNetProfit?.uzs || 0,
-                  stats?.yearlyNetProfit?.uzs || 0
-                ]
-              }
-            ];
-
-            const netProfitOptions: any = {
-              chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
-              plotOptions: { bar: { horizontal: false, columnWidth: '45%', borderRadius: 6 } },
-              dataLabels: { enabled: false },
-              stroke: { show: true, width: 4, colors: ['transparent'] },
-              xaxis: { categories: ['Bugun', 'Haftalik', 'Oylik', 'Yillik'], labels: { style: { fontWeight: 600, colors: '#6b7280' } } },
-              yaxis: {
-                labels: { formatter: (val: number) => formatUzs(val) }
-              },
-              fill: { opacity: 1 },
-              colors: ['#10b981', '#3b82f6'],
-              tooltip: {
-                y: { formatter: (val: number, { seriesIndex }: any) => formatUzs(val) + (seriesIndex === 0 ? ' $' : ' UZS') }
-              },
-              legend: { position: 'top', horizontalAlign: 'right' },
-              grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }
-            };
-
-            return (
-              <div style={{ minHeight: '350px' }}>
-                <Chart options={netProfitOptions} series={netProfitSeries} type="bar" height={350} />
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* Qarzlarning Umumiy Holati (Donut) & Ro'yxatlar */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50 lg:col-span-1">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-orange-50 to-amber-100">
-                <Icon icon="lucide:pie-chart" className="w-6 h-6 text-orange-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 tracking-tight">Umumiy Qarzdorlik</h2>
-                <p className="text-xs text-gray-500 font-medium">Barcha qarzlar balansi</p>
+        {/* Premium Additions Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
+          {/* Top Clients Chart */}
+          <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col h-full" style={{ height: '515px' }}>
+            <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-yellow-500/10 dark:bg-yellow-500/20 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+            <div className="flex flex-col gap-4 mb-6 relative z-10 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30">
+                  <Icon icon="lucide:crown" className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Top Mijozlar</h2>
+                  <p className="text-[11px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold mt-0.5">Vazifalar soni bo'yicha</p>
+                </div>
               </div>
             </div>
-            {loading ? (
-              <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div></div>
+            
+            {!premiumStats ? (
+              <div className="flex items-center justify-center py-12 relative z-10 h-full">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600"></div>
+              </div>
             ) : (() => {
-              const paymentReminders = stats?.paymentReminders || [];
-              const totalDebtUSD = paymentReminders.filter((p: any) => p.currency === 'USD').reduce((sum: number, p: any) => sum + (p.currentDebt || 0), 0);
-              const totalDebtUZS = paymentReminders.filter((p: any) => p.currency === 'UZS').reduce((sum: number, p: any) => sum + (p.currentDebt || 0), 0);
-              const totalDebtorsUzs = totalDebtUZS + (totalDebtUSD * (exchangeRate || 12800));
-
-              const certifierDebtUzs = stats?.certifierDebt?.remaining?.total || 0;
-              const workerDebtUsd = (stats?.workerDebts || []).reduce((sum: number, w: any) => sum + w.pendingUsd, 0);
-              const totalLiabilitiesUzs = certifierDebtUzs + (workerDebtUsd * (exchangeRate || 12800));
-
-              const debtSeries = [totalDebtorsUzs, totalLiabilitiesUzs];
-              const debtOptions: any = {
-                chart: { type: 'donut', fontFamily: 'Inter, sans-serif' },
-                labels: ['Mijozlar qarzi (Aktivlar)', 'Bizning qarzimiz (Passivlar)'],
-                colors: ['#f59e0b', '#ef4444'],
-                plotOptions: {
-                  pie: { donut: { size: '75%', labels: { show: true, name: { show: true }, value: { show: true, formatter: (val: number) => formatUzs(val) + ' UZS' }, total: { show: true, label: 'Jami Qarzlar', formatter: function (w: any) { return formatUzs(w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0)) + ' UZS' } } } } }
-                },
-                dataLabels: { enabled: false },
-                legend: { position: 'bottom' },
-                tooltip: { y: { formatter: (val: number) => formatUzs(val) + ' UZS' } }
-              };
-
+              const clients = premiumStats.topClients || [];
+              if (clients.length === 0) return <div className="text-center py-12 text-gray-400">Ma'lumot yo'q</div>;
+              
+              const isDark = document.documentElement.classList.contains('dark');
               return (
-                <div className="flex flex-col items-center justify-center" style={{ minHeight: '320px' }}>
-                  {totalDebtorsUzs === 0 && totalLiabilitiesUzs === 0 ? (
-                    <div className="flex flex-col items-center text-gray-400 mt-10">
-                      <Icon icon="lucide:check-circle" className="w-12 h-12 mb-2 opacity-50" />
-                      <p>Qarzlar mavjud emas</p>
-                    </div>
-                  ) : (
-                    <Chart options={debtOptions} series={debtSeries} type="donut" height={320} width="100%" />
-                  )}
+                <div className="relative z-10 flex-1 w-full mt-2 flex flex-col">
+                  <Chart
+                    options={{
+                      chart: { type: 'bar', toolbar: { show: false } },
+                      plotOptions: {
+                        bar: {
+                          horizontal: true,
+                          borderRadius: 4,
+                          distributed: true,
+                          dataLabels: { position: 'right' }
+                        }
+                      },
+                      colors: ['#eab308', '#9ca3af', '#f97316', '#3b82f6', '#8b5cf6'],
+                      dataLabels: {
+                        enabled: true,
+                        formatter: (val) => `${val} ta`,
+                        style: { fontSize: '11px', fontWeight: 800, colors: ['#fff'] },
+                        textAnchor: 'end',
+                      },
+                      xaxis: {
+                        categories: clients.map((c: any) => c.name),
+                        labels: { show: false },
+                        axisBorder: { show: false },
+                        axisTicks: { show: false }
+                      },
+                      yaxis: {
+                        labels: {
+                          maxWidth: 120,
+                          style: {
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            colors: Array(clients.length).fill(isDark ? '#9ca3af' : '#4b5563')
+                          }
+                        }
+                      },
+                      grid: { show: false },
+                      legend: { show: false },
+                      tooltip: { theme: 'dark' }
+                    }}
+                    series={[{ name: 'Vazifalar', data: clients.map((c: any) => c.count) }]}
+                    type="bar"
+                    height={350}
+                  />
                 </div>
               );
             })()}
           </div>
 
-          <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50 lg:col-span-2">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white bg-gradient-to-br from-indigo-50 to-blue-100">
-                <Icon icon="lucide:list" className="w-6 h-6 text-indigo-600" />
+          {/* Active Tasks Distribution */}
+          <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col h-full" style={{ height: '515px' }}>
+            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-fuchsia-500/10 dark:bg-fuchsia-500/20 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+            <div className="flex items-center gap-3 mb-6 relative z-10">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-fuchsia-50 to-pink-100 dark:from-fuchsia-900/30 dark:to-pink-900/30">
+                <Icon icon="lucide:activity" className="w-6 h-6 text-fuchsia-600 dark:text-fuchsia-400" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900 tracking-tight">Qarzlar Tafsiloti</h2>
-                <p className="text-xs text-gray-500 font-medium">Barcha qarzdorlar va ishchilardan qarzlar</p>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Ish Turlari Va Rejimlar</h2>
+                <p className="text-[11px] font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase mt-0.5">Xizmatlar kesimida</p>
+              </div>
+            </div>
+            
+            {!premiumStats ? (
+              <div className="flex items-center justify-center py-12 h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-fuchsia-600"></div></div>
+            ) : (() => {
+              const activeTasks = premiumStats.activeTasks || [];
+              if (activeTasks.length === 0) return <div className="text-center py-12 text-gray-400">Jarayonda vazifalar yo'q</div>;
+              
+              const isDark = document.documentElement.classList.contains('dark');
+              
+              // Extract all unique stage names across top 3 of every worker
+              const allUniqueStages = Array.from(new Set(activeTasks.flatMap((w: any) => w.stages?.map((s: any) => s.name) || [])));
+              
+              const series = allUniqueStages.map(stageName => ({
+                name: stageName as string,
+                data: activeTasks.map((w: any) => {
+                  const stageObj = w.stages?.find((s: any) => s.name === stageName);
+                  return stageObj ? stageObj.count : 0;
+                })
+              }));
+
+              const categories = activeTasks.map((w: any) => w.name);
+              
+              return (
+                <div className="relative z-10 flex flex-col flex-1 mt-2">
+                  <Chart
+                    options={{
+                      chart: { type: 'bar', stacked: true, toolbar: { show: false } },
+                      plotOptions: {
+                        bar: {
+                          horizontal: true,
+                          borderRadius: 2,
+                          dataLabels: { total: { enabled: true, style: { fontSize: '11px', fontWeight: 800, color: isDark ? '#fff' : '#000' } } }
+                        }
+                      },
+                      colors: [
+                        '#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', 
+                        '#06b6d4', '#f43f5e', '#84cc16', '#d946ef', '#14b8a6'
+                      ], // Extended colors just in case
+                      dataLabels: {
+                        enabled: true,
+                        style: { fontSize: '10px', colors: ['#fff'] },
+                        formatter: function (val: number) {
+                          return val > 0 ? val : '';
+                        }
+                      },
+                      stroke: { width: 1, colors: [isDark ? '#1f2937' : '#fff'] },
+                      xaxis: {
+                        categories: categories,
+                        labels: { style: { colors: isDark ? '#9ca3af' : '#4b5563', fontSize: '11px' } },
+                        axisBorder: { show: false },
+                        axisTicks: { show: false }
+                      },
+                      yaxis: {
+                        labels: {
+                          maxWidth: 100,
+                          style: {
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            colors: isDark ? '#9ca3af' : '#4b5563'
+                          }
+                        }
+                      },
+                      grid: {
+                        borderColor: isDark ? '#374151' : '#f3f4f6',
+                        strokeDashArray: 4,
+                        xaxis: { lines: { show: true } },
+                        yaxis: { lines: { show: false } }
+                      },
+                      legend: { 
+                        position: 'bottom', 
+                        labels: { colors: isDark ? '#d1d5db' : '#374151' },
+                        markers: {  }
+                      },
+                      tooltip: {
+                        theme: 'dark'
+                      }
+                    }}
+                    series={series}
+                    type="bar"
+                    height={350}
+                  />
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* Github Activity Heatmap Row */}
+        <div className="grid grid-cols-1 mb-6">
+          <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-3xl group-hover:opacity-100 transition-opacity duration-700 pointer-events-none opacity-50"></div>
+            
+            <div className="flex items-center gap-3 mb-6 relative z-10">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30">
+                <Icon icon="lucide:calendar-days" className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
+                  Umumiy Faollik
+                  <span className="relative flex h-2 w-2 mt-0.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                </h2>
+                <p className="text-[11px] font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase mt-0.5">Jonli Holat (So'nggi 6 oy)</p>
               </div>
             </div>
 
-            {loading ? (
-              <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Mijozlar qarzi */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-200/60 pb-2">Mijozlar qarzi</h3>
-                  <div className="space-y-2 max-h-[280px] overflow-y-auto pr-2 custom-scrollbar">
-                    {!(stats?.paymentReminders?.length) ? (
-                      <p className="text-xs text-gray-400">Qarzdorlar mavjud emas</p>
-                    ) : (
-                      stats.paymentReminders.map((reminder: any) => (
-                        <div key={reminder.clientId} className="flex justify-between items-center p-2 hover:bg-white/50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
-                          <span className="text-sm font-medium text-gray-800">{reminder.clientName}</span>
-                          <span className="text-sm font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">
-                            <CurrencyDisplay amount={reminder.currentDebt || 0} originalCurrency={reminder.currency || 'USD'} />
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+            <div className="relative z-10 overflow-x-auto custom-scrollbar pb-4 pt-2 px-1">
+              {!premiumStats ? (
+                 <div className="flex items-center justify-center py-6 h-[100px]"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div></div>
+              ) : (() => {
+                 const activityList = premiumStats.githubActivity || [];
+                 const map = new Map();
+                 activityList.forEach((a: any) => map.set(a.date, a.count));
 
-                {/* Ishchilar/Sert ro'yxati */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-200/60 pb-2">Sertifikat va Ishchilar</h3>
-                  <div className="space-y-6 max-h-[280px] overflow-y-auto pr-2 custom-scrollbar">
-                    <div className="space-y-3">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sertifikatchilar qoldig'i</div>
-                      {stats?.certifierDebt && stats.certifierDebt.remaining.total > 0 ? (
-                        <div className="flex justify-between items-center p-3 rounded-xl bg-red-50/70 border border-red-100/50">
-                          <span className="text-sm font-semibold text-gray-800">Oltiariq ({stats.certifierDebt.taskCount} ta)</span>
-                          <span className="text-sm font-bold text-red-600">{formatUzs(stats.certifierDebt.remaining.total)} UZS</span>
-                        </div>
-                      ) : <p className="text-xs text-gray-400">Ma'lumot yo'q</p>}
+                 const today = new Date();
+                 const daysToSubtract = 180;
+                 const startDate = new Date(today.getTime() - daysToSubtract * 24 * 60 * 60 * 1000);
+                 
+                 const startDay = startDate.getDay();
+                 const startOfGrid = new Date(startDate.getTime() - startDay * 24 * 60 * 60 * 1000);
+                 const weeks = [];
+                 let currentWeek = [];
+
+                 for (let d = new Date(startOfGrid); d <= today; d.setDate(d.getDate() + 1)) {
+                    // Set time to noon to avoid timezone shift dropping dates
+                    const dLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+                    const dateStr = dLocal.toISOString().split('T')[0];
+                    const count = map.get(dateStr) || 0;
+                    
+                    currentWeek.push({ date: dateStr, count, isFuture: dLocal > today });
+                    
+                    if (currentWeek.length === 7) {
+                        weeks.push(currentWeek);
+                        currentWeek = [];
+                    }
+                 }
+                 if (currentWeek.length > 0) {
+                     weeks.push(currentWeek);
+                 }
+
+                 return (
+                    <div className="flex gap-[3px] sm:gap-[5px] mt-1">
+                       <div className="flex flex-col gap-[3px] sm:gap-[5px] pr-2 text-[10px] font-medium text-gray-400 dark:text-gray-500 items-end mt-0.5">
+                          <div className="h-[12px] sm:h-[14px]">Yak</div>
+                          <div className="h-[12px] sm:h-[14px] opacity-0">Dush</div>
+                          <div className="h-[12px] sm:h-[14px]">Sesh</div>
+                          <div className="h-[12px] sm:h-[14px] opacity-0">Chor</div>
+                          <div className="h-[12px] sm:h-[14px]">Pay</div>
+                          <div className="h-[12px] sm:h-[14px] opacity-0">Jum</div>
+                          <div className="h-[12px] sm:h-[14px]">Shan</div>
+                       </div>
+                       {weeks.map((week, i) => (
+                           <div key={i} className="flex flex-col gap-[3px] sm:gap-[5px]">
+                              {week.map((day, j) => {
+                                  let colorClass = "bg-gray-100 dark:bg-gray-800/80";
+                                  if (day.isFuture) colorClass = "bg-transparent opacity-0 pointer-events-none";
+                                  else if (day.count > 0 && day.count <= 3) colorClass = "bg-emerald-200 dark:bg-emerald-800/70";
+                                  else if (day.count > 3 && day.count <= 8) colorClass = "bg-emerald-400 dark:bg-emerald-600/90";
+                                  else if (day.count > 8 && day.count <= 15) colorClass = "bg-emerald-500 dark:bg-emerald-500";
+                                  else if (day.count > 15) colorClass = "bg-emerald-600 dark:bg-emerald-400";
+                                  
+                                  return (
+                                     <div 
+                                        key={j} 
+                                        title={`${day.date}: ${day.count} ta kelib tushgan vazifa`} 
+                                        className={`w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] rounded-[3px] sm:rounded-[4px] transition-colors cursor-pointer hover:ring-2 hover:ring-gray-400/50 ${colorClass}`}
+                                     ></div>
+                                  )
+                              })}
+                           </div>
+                       ))}
                     </div>
-                    <div className="space-y-3">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ishchilar qarzi</div>
-                      {!(stats?.workerDebts?.length) ? (
-                        <p className="text-xs text-gray-400">Ishchilardan qarz yo'q</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {stats.workerDebts.map((worker: any) => (
-                            <div key={worker.userId} className="flex justify-between items-center p-2 hover:bg-white/50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
-                              <span className="text-sm font-medium text-gray-800">{worker.name}</span>
-                              <span className="text-sm font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">{worker.pendingUsd.toFixed(2)} $</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+                 );
+              })()}
+            </div>
+            
+            <div className="relative z-10 flex items-center justify-end gap-2 mt-4 text-[11px] font-medium text-gray-500 dark:text-gray-400 lg:pl-10">
+               <span>Kam</span>
+               <div className="flex gap-[3px] sm:gap-[5px]">
+                  <div className="w-[12px] h-[12px] rounded-[3px] bg-gray-100 dark:bg-gray-800/80"></div>
+                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-200 dark:bg-emerald-800/70"></div>
+                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-400 dark:bg-emerald-600/90"></div>
+                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-500 dark:bg-emerald-500"></div>
+                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-600 dark:bg-emerald-400"></div>
+               </div>
+               <span>Ko'p</span>
+            </div>
           </div>
         </div>
       </div>

@@ -1545,6 +1545,9 @@ router.post('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
         taskId: taskId,
         stageName: parsed.data.stageName,
         amount: -parsed.data.amount, // Negative amount to deduct
+        currency: 'USD',
+        amount_original: -parsed.data.amount,
+        currency_universal: 'USD',
       },
     });
 
@@ -1583,6 +1586,9 @@ router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest
         taskId: error.taskId,
         stageName: error.stageName,
         amount: Number(error.amount), // Revert deduction
+        currency: 'USD',
+        amount_original: Number(error.amount),
+        currency_universal: 'USD',
       },
     });
   });
@@ -1636,6 +1642,9 @@ router.patch('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest,
             taskId: next.taskId,
             stageName: next.stageName,
             amount: -diff, // Adjust deduction by delta
+            currency: 'USD',
+            amount_original: -diff,
+            currency_universal: 'USD',
           },
         });
       }

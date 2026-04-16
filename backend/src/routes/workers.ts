@@ -176,7 +176,11 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
       createdAt: true,
     },
   });
-  const totalKPI = kpiLogs.reduce((sum, log) => sum + Number((log as any).amount_original ?? (log as any).amount ?? 0), 0);
+  const totalKPI = kpiLogs.reduce((sum, log) => {
+    const amt = Number((log as any).amount_original ?? (log as any).amount ?? 0);
+    // Maxsus himoya: Katta musbat "Xatolikni bekor qilish" summalari Jami ishlab topilganni buzip yubormasligi uchun
+    return (amt > 0 && amt <= 1000) ? sum + amt : sum;
+  }, 0);
 
   // Get worker payment report - USD values only
   const paymentReport = await getWorkerPaymentReport(workerId, {
@@ -201,8 +205,8 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
     completedStages,
     totalSalary, // USD equivalent
     totalPaid: totalSalary, // USD equivalent (alias for backward compatibility)
-    totalEarned: Number(paymentReport.totalEarnedUsd), // USD
-    pending: Number(paymentReport.difference), // USD
+    totalEarned: Number(paymentReport.totalEarnedUsd), // USD (NET: Gross - Errors)
+    pending: Number(paymentReport.difference), // USD (NET)
     tasksAssigned,
     kpiLogs: kpiLogs.map((log: any) => ({
       id: log.id,
@@ -283,7 +287,8 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
       userId: workerId,
       ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
     },
-    select: { taskId: true, stageName: true, amount: true },
+    orderBy: { createdAt: 'asc' }, // Ensure we get the earliest (actual stage completion) log first
+    select: { taskId: true, stageName: true, amount: true, amount_original: true },
   });
   const normalizeKpiStageName = (name: string): string => {
     if (name === 'Xujjat_tekshirish' || name === 'Xujjat tekshirish' || name === 'Tekshirish') return 'Tekshirish';
@@ -294,7 +299,12 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
   const kpiLogAmountByTaskAndStage = new Map<string, number>();
   kpiLogs.forEach((log) => {
     const key = `${log.taskId}-${normalizeKpiStageName(log.stageName)}`;
-    kpiLogAmountByTaskAndStage.set(key, Number(log.amount));
+    const amt = Number((log as any).amount_original ?? log.amount ?? 0);
+    // Faqat eng birinchi musbat qiymatni olamiz. (bu asl bosqich yakunlangandagi summa)
+    // Keyinchalik kelgan xato bekor qilishlari (musbat) uni ustini yopib qo'ymasлиги kerak!
+    if (amt > 0 && !kpiLogAmountByTaskAndStage.has(key)) {
+      kpiLogAmountByTaskAndStage.set(key, amt);
+    }
   });
 
   // Get all SALARY transactions for this worker (money received)

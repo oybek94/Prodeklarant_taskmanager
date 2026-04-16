@@ -47,9 +47,32 @@ export async function notify(params: NotifyParams): Promise<void> {
   const { userIds, type, title, message, actionUrl, taskId, metadata, excludeUserId } = params;
 
   // excludeUserId ni chiqarib tashlash
-  const recipients = excludeUserId
+  let recipients = excludeUserId
     ? userIds.filter(id => id !== excludeUserId)
     : userIds;
+
+  if (recipients.length === 0) return;
+
+  // Invoicelarga aloqador bildirishnomalarni Sotuvchilarga (SALES) yubormaslik
+  const isInvoiceRelated =
+    type === 'INVOICE_SAVED' ||
+    type === 'INVOICE_CONFLICT' ||
+    title.toLowerCase().includes('invoys') ||
+    title.toLowerCase().includes('invoice') ||
+    message.toLowerCase().includes('invoys') ||
+    message.toLowerCase().includes('invoice');
+
+  if (isInvoiceRelated) {
+    const salesUsers = await prisma.user.findMany({
+      where: {
+        id: { in: recipients },
+        role: 'SELLER'
+      },
+      select: { id: true }
+    });
+    const salesUserIds = salesUsers.map(u => u.id);
+    recipients = recipients.filter(id => !salesUserIds.includes(id));
+  }
 
   if (recipients.length === 0) return;
 

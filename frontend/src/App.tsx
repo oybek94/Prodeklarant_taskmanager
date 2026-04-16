@@ -54,7 +54,7 @@ const AppRoutes = () => {
         path="/login"
         element={
           isAuthenticated
-            ? <Navigate to={user?.role === 'ADMIN' ? "/dashboard" : (user?.role === 'SELLER' ? "/crm" : "/tasks")} />
+            ? <Navigate to="/dashboard" />
             : <Login />
         }
       />
@@ -104,7 +104,7 @@ const AppRoutes = () => {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
+            <ProtectedRoute>
               <Dashboard />
             </ProtectedRoute>
           }
@@ -296,7 +296,7 @@ const AppRoutes = () => {
           <Navigate
             to={
               isAuthenticated
-                ? (user?.role === 'ADMIN' ? "/dashboard" : (user?.role === 'SELLER' ? "/crm" : "/tasks"))
+                ? "/dashboard"
                 : "/login"
             }
             replace

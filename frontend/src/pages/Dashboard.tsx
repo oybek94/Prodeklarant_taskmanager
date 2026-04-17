@@ -51,9 +51,9 @@ interface DashboardStats {
   processStats: Array<{ status: string; count: number }>;
   workerActivity: Array<{ userId: number; name: string; totalKPI: number; completedStages: number }>;
   workerCompletionRanking?: {
-    weekly: Array<{ userId: number; name: string; completedStages: number }>;
-    monthly: Array<{ userId: number; name: string; completedStages: number }>;
-    yearly: Array<{ userId: number; name: string; completedStages: number }>;
+    weekly: Array<{ userId: number; name: string; completedStages: number; invoiceCount: number }>;
+    monthly: Array<{ userId: number; name: string; completedStages: number; invoiceCount: number }>;
+    yearly: Array<{ userId: number; name: string; completedStages: number; invoiceCount: number }>;
   };
   workerErrorRanking?: {
     weekly: Array<{ userId: number; name: string; errorsCount: number }>;
@@ -1195,12 +1195,12 @@ const Dashboard = () => {
                           const errMatch = errorData.find((e: any) => e.userId === w.userId);
                           const errCount = errMatch ? errMatch.errorsCount : 0;
                           
-                          let bxRatio: string | React.ReactNode = 0;
+                          let kdRatio: string | React.ReactNode = 0;
                           if (errCount === 0) {
-                             bxRatio = <span className="text-yellow-400 font-black ml-1 shadow-sm uppercase tracking-wider text-[10px]">MVP 🌟</span>;
+                             kdRatio = <span className="text-yellow-400 font-black ml-1 shadow-sm uppercase tracking-wider text-[10px]">MVP 🌟</span>;
                           } else {
-                             const ratio = Math.max(1, Math.round(w.completedStages / errCount));
-                             bxRatio = <span className="text-emerald-400 font-bold ml-1">{ratio}</span>;
+                             const ratio = ((w.invoiceCount || 0) / errCount).toFixed(2);
+                             kdRatio = <span className="text-emerald-400 font-bold ml-1">{ratio} ({w.invoiceCount || 0}/{errCount})</span>;
                           }
 
                           return (
@@ -1219,8 +1219,8 @@ const Dashboard = () => {
                                       <span className="text-[9px] uppercase font-black tracking-widest text-white/90 bg-black/40 px-1.5 py-0.5 rounded border border-white/10">{rank.short}</span>
                                     </div>
                                     <div className="text-[11px] text-slate-400 mt-1 flex items-center font-medium">
-                                      <span className="uppercase tracking-wide text-[9px] mr-1 opacity-80">B/X RATIO:</span>
-                                      {bxRatio}
+                                      <span className="uppercase tracking-wide text-[9px] mr-1 opacity-80">K/D:</span>
+                                      {kdRatio}
                                     </div>
                                   </div>
                                 </div>

@@ -378,10 +378,18 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
       // Create a map of workerId -> completedStages count
       const completedStagesMap = new Map<number, number>();
+      // Create a map of workerId -> Set of unique taskIds
+      const uniqueTasksMap = new Map<number, Set<number>>();
+
       completedStagesByWorker.forEach((item) => {
         if (item.assignedToId !== null) {
           const currentCount = completedStagesMap.get(item.assignedToId) || 0;
           completedStagesMap.set(item.assignedToId, currentCount + 1);
+
+          if (!uniqueTasksMap.has(item.assignedToId)) {
+            uniqueTasksMap.set(item.assignedToId, new Set<number>());
+          }
+          uniqueTasksMap.get(item.assignedToId)!.add(item.taskId);
         }
       });
 
@@ -390,6 +398,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         userId: worker.id,
         name: worker.name,
         completedStages: completedStagesMap.get(worker.id) || 0,
+        invoiceCount: uniqueTasksMap.get(worker.id)?.size || 0,
       }));
 
       // Sort by completed stages (descending), then by name (ascending) for tie-breaking

@@ -19,6 +19,7 @@ import { Line } from 'react-chartjs-2';
 import { Icon } from '@iconify/react';
 import Chart from 'react-apexcharts';
 import { useIsMobile } from '../utils/useIsMobile';
+import DashboardNotes from '../components/dashboard/DashboardNotes';
 
 ChartJS.register(
   CategoryScale,
@@ -123,6 +124,76 @@ interface Task {
   branch: { name: string };
 }
 
+export const getCsgoRank = (total: number) => {
+  if (total >= 10000) return { title: 'The Global Elite', short: 'GE', image: '/ranks/global_elite.png', color: 'from-blue-400 to-cyan-500', next: null, target: null };
+  if (total >= 8000) return { title: 'Supreme Master First Class', short: 'Supreme', image: '/ranks/supreme_master_first_class.png', color: 'from-teal-400 to-emerald-500', next: 'The Global Elite', target: 10000 };
+  if (total >= 6500) return { title: 'Legendary Eagle Master', short: 'LEM', image: '/ranks/legendary_eagle_master.png', color: 'from-fuchsia-500 to-purple-600', next: 'Supreme Master First Class', target: 8000 };
+  if (total >= 5200) return { title: 'Legendary Eagle', short: 'LE', image: '/ranks/legendary_eagle.png', color: 'from-purple-500 to-pink-500', next: 'Legendary Eagle Master', target: 6500 };
+  if (total >= 4200) return { title: 'Distinguished Master Guardian', short: 'DMG', image: '/ranks/distinguished_master_guardian.png', color: 'from-rose-400 to-red-500', next: 'Legendary Eagle', target: 5200 };
+  if (total >= 3300) return { title: 'Master Guardian Elite', short: 'MGE', image: '/ranks/master_guardian_elite.png', color: 'from-red-500 to-orange-500', next: 'Distinguished Master Guardian', target: 4200 };
+  if (total >= 2600) return { title: 'Master Guardian II', short: 'MG2', image: '/ranks/master_guardian_2.png', color: 'from-orange-400 to-amber-500', next: 'Master Guardian Elite', target: 3300 };
+  if (total >= 2000) return { title: 'Master Guardian I', short: 'MG1', image: '/ranks/master_guardian_1.png', color: 'from-amber-400 to-orange-500', next: 'Master Guardian II', target: 2600 };
+  if (total >= 1500) return { title: 'Gold Nova Master', short: 'GNM', image: '/ranks/gold_nova_master.png', color: 'from-yellow-400 to-amber-400', next: 'Master Guardian I', target: 2000 };
+  if (total >= 1100) return { title: 'Gold Nova III', short: 'GN3', image: '/ranks/gold_nova_3.png', color: 'from-yellow-300 to-yellow-400', next: 'Gold Nova Master', target: 1500 };
+  if (total >= 800) return { title: 'Gold Nova II', short: 'GN2', image: '/ranks/gold_nova_2.png', color: 'from-yellow-200 to-yellow-300', next: 'Gold Nova III', target: 1100 };
+  if (total >= 600) return { title: 'Gold Nova I', short: 'GN1', image: '/ranks/gold_nova_1.png', color: 'from-yellow-100 to-yellow-200', next: 'Gold Nova II', target: 800 };
+  if (total >= 400) return { title: 'Silver Elite Master', short: 'SEM', image: '/ranks/silver_elite_master.png', color: 'from-slate-400 to-gray-500', next: 'Gold Nova I', target: 600 };
+  if (total >= 250) return { title: 'Silver Elite', short: 'SE', image: '/ranks/silver_elite.png', color: 'from-slate-300 to-gray-400', next: 'Silver Elite Master', target: 400 };
+  if (total >= 150) return { title: 'Silver IV', short: 'S4', image: '/ranks/silver_4.png', color: 'from-slate-200 to-gray-300', next: 'Silver Elite', target: 250 };
+  if (total >= 100) return { title: 'Silver III', short: 'S3', image: '/ranks/silver_3.png', color: 'from-gray-300 to-gray-400', next: 'Silver IV', target: 150 };
+  if (total >= 50) return { title: 'Silver II', short: 'S2', image: '/ranks/silver_2.png', color: 'from-gray-400 to-gray-500', next: 'Silver III', target: 100 };
+  return { title: 'Silver I', short: 'S1', image: '/ranks/silver_1.png', color: 'from-gray-500 to-slate-600', next: 'Silver II', target: 50 };
+};
+
+export const RANK_GROUPS = [
+  {
+    name: 'Silver',
+    description: 'Boshlang\'ich Kadrlarni Kengaytirish',
+    color: 'text-gray-300 border-gray-400',
+    ranks: [
+      { id: 1, title: 'Silver I', xp: 0, image: '/ranks/silver_1.png' },
+      { id: 2, title: 'Silver II', xp: 50, image: '/ranks/silver_2.png' },
+      { id: 3, title: 'Silver III', xp: 100, image: '/ranks/silver_3.png' },
+      { id: 4, title: 'Silver IV', xp: 150, image: '/ranks/silver_4.png' },
+      { id: 5, title: 'Silver Elite', xp: 250, image: '/ranks/silver_elite.png' },
+      { id: 6, title: 'Silver Elite Master', xp: 400, image: '/ranks/silver_elite_master.png' },
+    ]
+  },
+  {
+    name: 'Gold Nova',
+    description: 'Stabil Mutaxassislar (O\'rta level)',
+    color: 'text-amber-400 border-amber-500',
+    ranks: [
+      { id: 7, title: 'Gold Nova I', xp: 600, image: '/ranks/gold_nova_1.png' },
+      { id: 8, title: 'Gold Nova II', xp: 800, image: '/ranks/gold_nova_2.png' },
+      { id: 9, title: 'Gold Nova III', xp: 1100, image: '/ranks/gold_nova_3.png' },
+      { id: 10, title: 'Gold Nova Master', xp: 1500, image: '/ranks/gold_nova_master.png' },
+    ]
+  },
+  {
+    name: 'Master Guardian',
+    description: 'Ishonchli va Tajribali Xodimlar',
+    color: 'text-orange-500 border-orange-500',
+    ranks: [
+      { id: 11, title: 'Master Guardian I', xp: 2000, image: '/ranks/master_guardian_1.png' },
+      { id: 12, title: 'Master Guardian II', xp: 2600, image: '/ranks/master_guardian_2.png' },
+      { id: 13, title: 'Master Guardian Elite', xp: 3300, image: '/ranks/master_guardian_elite.png' },
+      { id: 14, title: 'Distinguished Master Guardian', xp: 4200, image: '/ranks/distinguished_master_guardian.png' },
+    ]
+  },
+  {
+    name: 'The Elite',
+    description: 'Kompaniya Faxrlari (Top 1%)',
+    color: 'text-purple-400 border-fuchsia-500',
+    ranks: [
+      { id: 15, title: 'Legendary Eagle', xp: 5200, image: '/ranks/legendary_eagle.png' },
+      { id: 16, title: 'Legendary Eagle Master', xp: 6500, image: '/ranks/legendary_eagle_master.png' },
+      { id: 17, title: 'Supreme Master First Class', xp: 8000, image: '/ranks/supreme_master_first_class.png' },
+      { id: 18, title: 'The Global Elite', xp: 10000, image: '/ranks/global_elite.png' },
+    ]
+  }
+];
+
 const Dashboard = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
@@ -133,13 +204,14 @@ const Dashboard = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
-  const [rankingPeriod, setRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [rankingPeriod, setRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('yearly');
   const [errorRankingPeriod, setErrorRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('yearly');
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
   const [premiumStats, setPremiumStats] = useState<any>(null);
   const [completedSummary, setCompletedSummary] = useState<CompletedSummary | null>(null);
   const [loadingCompletedSummary, setLoadingCompletedSummary] = useState(true);
+  const [showRanksModal, setShowRanksModal] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -235,7 +307,7 @@ const Dashboard = () => {
         apiClient.get('/dashboard/stats'),
         apiClient.get('/dashboard/premium-stats').catch(() => null)
       ]);
-      
+
       if (premiumResponse && premiumResponse.data) {
         setPremiumStats(premiumResponse.data);
       }
@@ -502,54 +574,74 @@ const Dashboard = () => {
 
   const hour = new Date().getHours();
   let greeting = 'Xayrli kun';
-  if (hour < 5 || hour >= 22) greeting = 'Xayrli tun';
-  else if (hour < 12) greeting = 'Xayrli tong';
-  else if (hour < 18) greeting = 'Xayrli kun';
+  if (hour < 10) greeting = 'Xayrli tong';
+  else if (hour < 17) greeting = 'Xayrli kun';
   else greeting = 'Xayrli kech';
 
   return (
     <div className={`min-h-screen bg-[#f3f4f6] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/40 via-purple-50/20 to-white dark:bg-none dark:bg-gray-900 pb-12 pt-4 px-2 sm:px-6 lg:px-8 overflow-x-hidden ${isMobile ? 'pb-32' : ''}`}>
       {/* Main Content */}
       <div className="max-w-[1600px] mx-auto space-y-4 sm:space-y-6">
-        {/* Premium Page Header (Hero style) */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-indigo-50/80 via-white/80 to-purple-50/80 dark:from-indigo-950/40 dark:via-gray-900/60 dark:to-purple-950/40 backdrop-blur-3xl rounded-[24px] shadow-sm border border-white/60 dark:border-white/10 p-6 sm:p-8">
-          {/* Abstract blobs */}
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 blur-3xl pointer-events-none"></div>
-          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-48 h-48 rounded-full bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 blur-3xl pointer-events-none"></div>
-          
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="flex items-center gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            {/* Premium Page Header (Hero style) */}
+            <div className="relative h-full overflow-hidden bg-gradient-to-r from-indigo-50/80 via-white/80 to-purple-50/80 dark:from-indigo-950/40 dark:via-gray-900/60 dark:to-purple-950/40 backdrop-blur-3xl rounded-[24px] shadow-sm border border-white/60 dark:border-white/10 p-6 sm:p-8 flex flex-col justify-center">
+              {/* Abstract blobs */}
+              <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 blur-3xl pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-48 h-48 rounded-full bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 blur-3xl pointer-events-none"></div>
 
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-1.5 flex flex-wrap items-center gap-2">
-                   {greeting}, 
-                   <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
-                     {user?.name?.split(' ')[0] || 'Foydalanuvchi'}
-                   </span>
-                   <span className="text-2xl hover:rotate-12 transition-transform cursor-pointer origin-bottom-right inline-block">👋</span>
-                </h1>
-                <p className="text-sm sm:text-base font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                  <Icon icon="lucide:calendar-clock" className="w-4 h-4 opacity-70" />
-                  {new Date().toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                </p>
-              </div>
-            </div>
-            
-            {exchangeRate && (
-              <div className="flex items-center self-start lg:self-center bg-white/70 dark:bg-gray-800/80 backdrop-blur-md px-5 py-3.5 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] dark:shadow-none hover:shadow-md transition-all">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40 flex items-center justify-center mr-4 shadow-inner">
-                  <Icon icon="lucide:banknote" className="text-emerald-600 dark:text-emerald-400 w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-0.5">Valyuta kursi</p>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-lg font-black text-gray-900 dark:text-white leading-none">1 <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">$</span></span>
-                    <span className="text-sm font-medium text-gray-400 dark:text-gray-500 mx-1">=</span>
-                    <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none">{formatUzs(exchangeRate)} <span className="text-sm font-semibold">UZS</span></span>
+              <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="flex items-center gap-5">
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-1.5 flex flex-wrap items-center gap-2">
+                      {greeting},
+                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+                        {user?.name?.split(' ')[0] || 'Foydalanuvchi'}
+                      </span>
+                      {(() => {
+                        if (!stats || !user) return null;
+                        const currentUserYearly = stats?.workerCompletionRanking?.yearly?.find((y: any) => y.userId === user?.id);
+                        const userXP = currentUserYearly ? currentUserYearly.completedStages : 0;
+                        const userRank = getCsgoRank(userXP);
+                        return (
+                          <div className="ml-4 flex items-start gap-1.5 hover:scale-105 transition-transform cursor-pointer" title={userRank.title} onClick={() => setShowRanksModal(true)}>
+                            <img src={userRank.image} alt={userRank.title} className="w-16 sm:w-20 h-auto drop-shadow-md" />
+                            <span className="text-[10px] sm:text-[11px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest pt-0.5 whitespace-nowrap hidden sm:block">
+                              {userRank.title}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </h1>
+                    <p className="text-sm sm:text-base font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                      <Icon icon="lucide:calendar-clock" className="w-4 h-4 opacity-70" />
+                      {new Date().toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
                   </div>
                 </div>
+
+                {exchangeRate && (
+                  <div className="flex items-center self-start lg:self-center bg-white/70 dark:bg-gray-800/80 backdrop-blur-md px-5 py-3.5 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] dark:shadow-none hover:shadow-md transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40 flex items-center justify-center mr-4 shadow-inner">
+                      <Icon icon="lucide:banknote" className="text-emerald-600 dark:text-emerald-400 w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-0.5">Valyuta kursi</p>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-lg font-black text-gray-900 dark:text-white leading-none">1 <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">$</span></span>
+                        <span className="text-sm font-medium text-gray-400 dark:text-gray-500 mx-1">=</span>
+                        <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none">{formatUzs(exchangeRate)} <span className="text-sm font-semibold">UZS</span></span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+          </div>
+
+          {/* Right side: Tasks To do */}
+          <div className="lg:col-span-1">
+            <DashboardNotes />
           </div>
         </div>
 
@@ -591,8 +683,8 @@ const Dashboard = () => {
                       <div className="text-[10px] mt-0.5 font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase truncate">{item.title}</div>
                     </div>
 
-                    <div className="flex items-end justify-between gap-1 mb-1 relative overflow-hidden z-20">
-                      <div className={`text-3xl font-black tracking-tighter leading-none ${item.text} drop-shadow-sm truncate`}>
+                    <div className="flex items-end justify-between gap-1 mb-1 relative z-20">
+                      <div className={`text-3xl font-black tracking-tighter leading-none ${item.text} drop-shadow-sm truncate pr-1`}>
                         {loadingCompletedSummary ? '...' : data?.count ?? 0}
                       </div>
                       <div className={`text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shrink-0 mb-0.5 ${delta === null ? 'bg-white/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400' : delta >= 0 ? 'bg-emerald-100/60 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-red-100/60 dark:bg-red-500/20 text-red-700 dark:text-red-400'} shadow-sm`}>
@@ -606,18 +698,18 @@ const Dashboard = () => {
 
                   {/* Bottom Chart Spread */}
                   <div className="absolute inset-x-0 bottom-0 h-[65px] opacity-80 pointer-events-none rounded-b-[20px]">
-                     {item.showChart && Array.isArray(sparkData) && sparkData.length > 0 ? (
-                        <div className="w-full h-full pb-0.5">
-                           <Line
-                             data={buildSparklineData(sparkLabels, sparkData, item.spark)}
-                             options={{ ...sparklineOptions, maintainAspectRatio: false }}
-                           />
-                        </div>
-                     ) : (
-                        <div className="w-full h-full flex items-center justify-center opacity-0 mt-1">
-                           <span className="text-[9px] font-bold text-gray-400/50 dark:text-gray-500/70 uppercase">0 Vazifa</span>
-                        </div>
-                     )}
+                    {item.showChart && Array.isArray(sparkData) && sparkData.length > 0 ? (
+                      <div className="w-full h-full pb-0.5">
+                        <Line
+                          data={buildSparklineData(sparkLabels, sparkData, item.spark)}
+                          options={{ ...sparklineOptions, maintainAspectRatio: false }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center opacity-0 mt-1">
+                        <span className="text-[9px] font-bold text-gray-400/50 dark:text-gray-500/70 uppercase">0 Vazifa</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -627,7 +719,7 @@ const Dashboard = () => {
           {/* Right: Github Activity Heatmap Row */}
           <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col justify-center">
             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-3xl group-hover:opacity-100 transition-opacity duration-700 pointer-events-none opacity-50"></div>
-            
+
             <div className="flex items-center gap-3 mb-6 relative z-10">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30">
                 <Icon icon="lucide:calendar-days" className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
@@ -640,84 +732,84 @@ const Dashboard = () => {
 
             <div className="relative z-10 overflow-x-auto custom-scrollbar pb-4 pt-2 px-1">
               {!premiumStats ? (
-                 <div className="flex items-center justify-center py-6 h-[100px]"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div></div>
+                <div className="flex items-center justify-center py-6 h-[100px]"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div></div>
               ) : (() => {
-                 const activityList = premiumStats.githubActivity || [];
-                 const map = new Map();
-                 activityList.forEach((a: any) => map.set(a.date, a.count));
+                const activityList = premiumStats.githubActivity || [];
+                const map = new Map();
+                activityList.forEach((a: any) => map.set(a.date, a.count));
 
-                 const today = new Date();
-                 const daysToSubtract = 180;
-                 const startDate = new Date(today.getTime() - daysToSubtract * 24 * 60 * 60 * 1000);
-                 
-                 const startDay = startDate.getDay();
-                 const startOfGrid = new Date(startDate.getTime() - startDay * 24 * 60 * 60 * 1000);
-                 const weeks = [];
-                 let currentWeek = [];
+                const today = new Date();
+                const daysToSubtract = 180;
+                const startDate = new Date(today.getTime() - daysToSubtract * 24 * 60 * 60 * 1000);
 
-                 for (let d = new Date(startOfGrid); d <= today; d.setDate(d.getDate() + 1)) {
-                    // Set time to noon to avoid timezone shift dropping dates
-                    const dLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
-                    const dateStr = dLocal.toISOString().split('T')[0];
-                    const count = map.get(dateStr) || 0;
-                    
-                    currentWeek.push({ date: dateStr, count, isFuture: dLocal > today });
-                    
-                    if (currentWeek.length === 7) {
-                        weeks.push(currentWeek);
-                        currentWeek = [];
-                    }
-                 }
-                 if (currentWeek.length > 0) {
-                     weeks.push(currentWeek);
-                 }
+                const startDay = startDate.getDay();
+                const startOfGrid = new Date(startDate.getTime() - startDay * 24 * 60 * 60 * 1000);
+                const weeks = [];
+                let currentWeek = [];
 
-                 return (
-                    <div className="flex gap-[3px] sm:gap-[5px] mt-1">
-                       <div className="flex flex-col gap-[3px] sm:gap-[5px] pr-2 text-[10px] font-medium text-gray-400 dark:text-gray-500 items-end mt-0.5">
-                          <div className="h-[12px] sm:h-[14px]">Yak</div>
-                          <div className="h-[12px] sm:h-[14px] opacity-0">Dush</div>
-                          <div className="h-[12px] sm:h-[14px]">Sesh</div>
-                          <div className="h-[12px] sm:h-[14px] opacity-0">Chor</div>
-                          <div className="h-[12px] sm:h-[14px]">Pay</div>
-                          <div className="h-[12px] sm:h-[14px] opacity-0">Jum</div>
-                          <div className="h-[12px] sm:h-[14px]">Shan</div>
-                       </div>
-                       {weeks.map((week, i) => (
-                           <div key={i} className="flex flex-col gap-[3px] sm:gap-[5px]">
-                              {week.map((day, j) => {
-                                  let colorClass = "bg-gray-100 dark:bg-gray-800/80";
-                                  if (day.isFuture) colorClass = "bg-transparent opacity-0 pointer-events-none";
-                                  else if (day.count > 0 && day.count <= 3) colorClass = "bg-emerald-200 dark:bg-emerald-800/70";
-                                  else if (day.count > 3 && day.count <= 8) colorClass = "bg-emerald-400 dark:bg-emerald-600/90";
-                                  else if (day.count > 8 && day.count <= 15) colorClass = "bg-emerald-500 dark:bg-emerald-500";
-                                  else if (day.count > 15) colorClass = "bg-emerald-600 dark:bg-emerald-400";
-                                  
-                                  return (
-                                     <div 
-                                        key={j} 
-                                        title={`${day.date}: ${day.count} ta kelib tushgan vazifa`} 
-                                        className={`w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] rounded-[3px] sm:rounded-[4px] transition-colors cursor-pointer hover:ring-2 hover:ring-gray-400/50 ${colorClass}`}
-                                     ></div>
-                                  )
-                              })}
-                           </div>
-                       ))}
+                for (let d = new Date(startOfGrid); d <= today; d.setDate(d.getDate() + 1)) {
+                  // Set time to noon to avoid timezone shift dropping dates
+                  const dLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+                  const dateStr = dLocal.toISOString().split('T')[0];
+                  const count = map.get(dateStr) || 0;
+
+                  currentWeek.push({ date: dateStr, count, isFuture: dLocal > today });
+
+                  if (currentWeek.length === 7) {
+                    weeks.push(currentWeek);
+                    currentWeek = [];
+                  }
+                }
+                if (currentWeek.length > 0) {
+                  weeks.push(currentWeek);
+                }
+
+                return (
+                  <div className="flex gap-[3px] sm:gap-[5px] mt-1">
+                    <div className="flex flex-col gap-[3px] sm:gap-[5px] pr-2 text-[10px] font-medium text-gray-400 dark:text-gray-500 items-end mt-0.5">
+                      <div className="h-[12px] sm:h-[14px]">Yak</div>
+                      <div className="h-[12px] sm:h-[14px] opacity-0">Dush</div>
+                      <div className="h-[12px] sm:h-[14px]">Sesh</div>
+                      <div className="h-[12px] sm:h-[14px] opacity-0">Chor</div>
+                      <div className="h-[12px] sm:h-[14px]">Pay</div>
+                      <div className="h-[12px] sm:h-[14px] opacity-0">Jum</div>
+                      <div className="h-[12px] sm:h-[14px]">Shan</div>
                     </div>
-                 );
+                    {weeks.map((week, i) => (
+                      <div key={i} className="flex flex-col gap-[3px] sm:gap-[5px]">
+                        {week.map((day, j) => {
+                          let colorClass = "bg-gray-100 dark:bg-gray-800/80";
+                          if (day.isFuture) colorClass = "bg-transparent opacity-0 pointer-events-none";
+                          else if (day.count > 0 && day.count <= 3) colorClass = "bg-emerald-200 dark:bg-emerald-800/70";
+                          else if (day.count > 3 && day.count <= 8) colorClass = "bg-emerald-400 dark:bg-emerald-600/90";
+                          else if (day.count > 8 && day.count <= 15) colorClass = "bg-emerald-500 dark:bg-emerald-500";
+                          else if (day.count > 15) colorClass = "bg-emerald-600 dark:bg-emerald-400";
+
+                          return (
+                            <div
+                              key={j}
+                              title={`${day.date}: ${day.count} ta kelib tushgan vazifa`}
+                              className={`w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] rounded-[3px] sm:rounded-[4px] transition-colors cursor-pointer hover:ring-2 hover:ring-gray-400/50 ${colorClass}`}
+                            ></div>
+                          )
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                );
               })()}
             </div>
-            
+
             <div className="relative z-10 flex items-center justify-end gap-2 mt-auto pt-4 text-[11px] font-medium text-gray-500 dark:text-gray-400 lg:pl-10">
-               <span>Kam</span>
-               <div className="flex gap-[3px] sm:gap-[5px]">
-                  <div className="w-[12px] h-[12px] rounded-[3px] bg-gray-100 dark:bg-gray-800/80"></div>
-                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-200 dark:bg-emerald-800/70"></div>
-                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-400 dark:bg-emerald-600/90"></div>
-                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-500 dark:bg-emerald-500"></div>
-                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-600 dark:bg-emerald-400"></div>
-               </div>
-               <span>Ko'p</span>
+              <span>Kam</span>
+              <div className="flex gap-[3px] sm:gap-[5px]">
+                <div className="w-[12px] h-[12px] rounded-[3px] bg-gray-100 dark:bg-gray-800/80"></div>
+                <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-200 dark:bg-emerald-800/70"></div>
+                <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-400 dark:bg-emerald-600/90"></div>
+                <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-500 dark:bg-emerald-500"></div>
+                <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-600 dark:bg-emerald-400"></div>
+              </div>
+              <span>Ko'p</span>
             </div>
           </div>
         </div>
@@ -920,7 +1012,7 @@ const Dashboard = () => {
                         <Icon icon="lucide:building" className="w-12 h-12 mx-auto mb-2 opacity-50" />
                         <p>Filiallar bo'yicha ma'lumotlar topilmadi</p>
                         {import.meta.env.DEV && (
-                           <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left max-w-md mx-auto">
+                          <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left max-w-md mx-auto">
                             <p className="font-semibold mb-1">Debug Info:</p>
                             <p>Type: {typeof branches}</p>
                             <p>Is Array: {Array.isArray(branches) ? 'Yes' : 'No'}</p>
@@ -955,7 +1047,7 @@ const Dashboard = () => {
                           options={{
                             chart: {
                               type: 'donut',
-                              height: 320,
+                              height: 280,
                               toolbar: { show: false },
                               animations: { speed: 600 }
                             },
@@ -1021,48 +1113,52 @@ const Dashboard = () => {
                 })()}
               </div>
 
-              {/* Worker completion ranking */}
-              <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col h-full" style={{ height: '515px' }}>
+              {/* Worker completion ranking - CSGO THEMED */}
+              <div className="bg-slate-900/95 backdrop-blur-xl rounded-[20px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-slate-700/50 relative overflow-hidden group flex flex-col h-full ring-1 ring-white/5" style={{ height: '515px' }}>
                 {/* Premium Effect */}
-                <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
 
-                <div className="flex flex-col gap-4 mb-6 relative z-10 shrink-0">
+                <div className="flex flex-col gap-4 mb-4 relative z-10 shrink-0">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30">
-                      <Icon icon="lucide:trophy" className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-slate-700/80 bg-gradient-to-br from-slate-800 to-slate-900 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-blue-500/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <Icon icon="lucide:crosshair" className="w-6 h-6 text-blue-400 relative z-10 animate-pulse" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Peshqadamlar</h2>
-                      <p className="text-[11px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold mt-0.5">Xodimlar reytingi</p>
+                      <h2 className="text-lg font-black text-white tracking-tight uppercase flex items-center gap-2">
+                        Peshqadamlar
+                        <span className="text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 tracking-widest mt-0.5">RANKED</span>
+                      </h2>
+                      <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-0.5">Xodimlar o'rtasidagi raqobat</p>
                     </div>
                   </div>
-                  <div className="flex gap-1.5 bg-gray-100/80 dark:bg-gray-700/80 p-1.5 rounded-xl">
+                  <div className="flex gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/50">
                     <button
                       onClick={() => setRankingPeriod('weekly')}
-                      className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${rankingPeriod === 'weekly'
-                        ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      className={`flex-1 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all duration-300 ${rankingPeriod === 'weekly'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 ring-1 ring-white/10'
+                        : 'text-slate-400 hover:text-white'
                         }`}
                     >
-                      Haftalik
+                      Hafta
                     </button>
                     <button
                       onClick={() => setRankingPeriod('monthly')}
-                      className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${rankingPeriod === 'monthly'
-                        ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      className={`flex-1 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all duration-300 ${rankingPeriod === 'monthly'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 ring-1 ring-white/10'
+                        : 'text-slate-400 hover:text-white'
                         }`}
                     >
-                      Oylik
+                      Oy
                     </button>
                     <button
                       onClick={() => setRankingPeriod('yearly')}
-                      className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${rankingPeriod === 'yearly'
-                        ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      className={`flex-1 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all duration-300 ${rankingPeriod === 'yearly'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 ring-1 ring-white/10'
+                        : 'text-slate-400 hover:text-white'
                         }`}
                     >
-                      Yillik
+                      Yil
                     </button>
                   </div>
                 </div>
@@ -1073,7 +1169,7 @@ const Dashboard = () => {
                 ) : (() => {
                   const rankingData = stats?.workerCompletionRanking;
                   const rawRanking = rankingData?.[rankingPeriod] || [];
-                  const ranking = rawRanking.slice(0, 7); // Top 7 peshqadamlar
+                  const ranking = rawRanking.filter((w: any) => w.completedStages > 0).slice(0, 7); // Top 7 peshqadamlar, faqat natijasi yozilganlar
 
                   if (!Array.isArray(ranking) || ranking.length === 0) {
                     return (
@@ -1084,75 +1180,77 @@ const Dashboard = () => {
                     );
                   }
 
-                  const isDark = document.documentElement.classList.contains('dark');
-                  const labelColor = isDark ? '#9ca3af' : '#4b5563';
-
                   return (
-                    <div className="relative z-10 flex-1 w-full mt-2 flex flex-col">
-                      <Chart
-                        key={`ranking-chart-${rankingPeriod}-${isDark}`}
-                        options={{
-                          chart: {
-                            type: 'bar',
-                            toolbar: { show: false },
-                            animations: { speed: 600 }
-                          },
-                          plotOptions: {
-                            bar: {
-                              horizontal: true,
-                              borderRadius: 4,
-                              distributed: true,
-                              dataLabels: {
-                                position: 'right'
-                              }
-                            }
-                          },
-                          colors: [
-                            '#eab308', // 1-o'rin Yelloish Gold
-                            '#9ca3af', // 2-o'rin Silver
-                            '#f97316', // 3-o'rin Bronze
-                            '#3b82f6', '#8b5cf6', '#ec4899', '#10b981' // Other colors
-                          ],
-                          dataLabels: {
-                            enabled: true,
-                            formatter: (val) => `${val} ta`,
-                            style: {
-                              fontSize: '11px',
-                              fontWeight: 800,
-                              colors: ['#fff']
-                            },
-                            textAnchor: 'end',
-                            dropShadow: { enabled: true, opacity: 0.3 }
-                          },
-                          xaxis: {
-                            categories: ranking.map((w: any) => w.name),
-                            labels: { show: false },
-                            axisBorder: { show: false },
-                            axisTicks: { show: false }
-                          },
-                          yaxis: {
-                            labels: {
-                              style: {
-                                fontSize: '12px',
-                                fontWeight: 700,
-                                colors: Array(ranking.length).fill(labelColor)
-                              }
-                            }
-                          },
-                          grid: { show: false },
-                          legend: { show: false },
-                          tooltip: {
-                            theme: 'dark',
-                            y: { formatter: (val) => `${val} ta vazifa` }
+                    <div className="relative z-10 flex flex-col flex-1 h-full mt-1 overflow-hidden">
+                      <div className="space-y-2 w-full pr-1 pb-2 overflow-y-auto custom-scrollbar">
+                        {ranking.map((w: any, index: number) => {
+                          const yearlyData = stats?.workerCompletionRanking?.yearly || [];
+                          const yearlyMatch = yearlyData.find((y: any) => y.userId === w.userId);
+                          const totalAllTime = yearlyMatch ? yearlyMatch.completedStages : 0;
+                          
+                          const rank = getCsgoRank(totalAllTime);
+                          const progressPct = rank.target ? Math.min(100, Math.max(0, (totalAllTime / rank.target) * 100)) : 100;
+                          
+                          const errorData = stats?.workerErrorRanking?.[rankingPeriod] || [];
+                          const errMatch = errorData.find((e: any) => e.userId === w.userId);
+                          const errCount = errMatch ? errMatch.errorsCount : 0;
+                          
+                          let bxRatio: string | React.ReactNode = 0;
+                          if (errCount === 0) {
+                             bxRatio = <span className="text-yellow-400 font-black ml-1 shadow-sm uppercase tracking-wider text-[10px]">MVP 🌟</span>;
+                          } else {
+                             const ratio = Math.max(1, Math.round(w.completedStages / errCount));
+                             bxRatio = <span className="text-emerald-400 font-bold ml-1">{ratio}</span>;
                           }
-                        }}
-                        series={[{
-                          name: 'Bajarildi',
-                          data: ranking.map((w: any) => w.completedStages)
-                        }]}
-                        type="bar"
-                        height={290}
-                      />
+
+                          return (
+                            <div key={w.name} className="flex flex-col p-3 rounded-xl bg-slate-800/80 hover:bg-slate-700/90 transition-all border border-slate-700/60 relative overflow-hidden group">
+                              {/* Background Glow based on rank */}
+                              <div className={`absolute -right-6 -bottom-6 w-24 h-24 bg-gradient-to-br ${rank.color} rounded-full blur-2xl opacity-10 group-hover:opacity-30 transition-opacity`}></div>
+                              
+                              <div className="flex items-center justify-between mb-2 relative z-10">
+                                <div className="flex items-center gap-3">
+                                  <div className={`flex items-center justify-center w-12 h-12 rounded-[10px] bg-gradient-to-br ${rank.color} shadow-[0_4px_15px_rgba(0,0,0,0.3)] border border-white/10 shrink-0`}>
+                                    <img src={rank.image} alt={rank.title} className="w-10 h-auto drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-[14px] text-white leading-none pr-1">{w.name}</span>
+                                      <span className="text-[9px] uppercase font-black tracking-widest text-white/90 bg-black/40 px-1.5 py-0.5 rounded border border-white/10">{rank.short}</span>
+                                    </div>
+                                    <div className="text-[11px] text-slate-400 mt-1 flex items-center font-medium">
+                                      <span className="uppercase tracking-wide text-[9px] mr-1 opacity-80">B/X RATIO:</span>
+                                      {bxRatio}
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex flex-col items-end pl-2">
+                                  <span className="font-black text-white text-[16px] leading-none">{w.completedStages} <span className="text-blue-400 font-bold text-[10px] ml-0.5">XP</span></span>
+                                  {index === 0 && <span className="text-[9px] text-yellow-400 font-black uppercase tracking-wider absolute -top-0 -right-0 bg-slate-900/80 px-2 rounded-bl-xl border-b border-l border-yellow-500/30">First Blood</span>}
+                                  {index === 1 && <span className="text-[9px] text-slate-300 font-black uppercase tracking-wider absolute -top-0 -right-0 bg-slate-900/80 px-2 rounded-bl-xl border-b border-l border-slate-500/30">Silver</span>}
+                                </div>
+                              </div>
+                              
+                              {/* Progress Bar */}
+                              <div className="relative z-10 w-full">
+                                <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1 px-0.5">
+                                  <span>Total XP: {totalAllTime}</span>
+                                  <span>{rank.next ? `NEXT: ${rank.target}` : 'MAX LEVEL REACHED'}</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-slate-900 shadow-inner rounded-full overflow-hidden border border-slate-700/80">
+                                  <div 
+                                    className={`h-full bg-gradient-to-r ${rank.color} transition-all duration-1000 ease-out relative`} 
+                                    style={{ width: `${progressPct}%` }}
+                                  >
+                                    <div className="absolute inset-0 bg-white/20 w-1/2 blur-sm rotate-12 transform -translate-x-full animate-[shimmer_2s_infinite]"></div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })()}
@@ -1343,7 +1441,7 @@ const Dashboard = () => {
               ) : (() => {
                 const errorRankingData = stats?.workerErrorRanking;
                 const rawErrorRanking = errorRankingData?.[errorRankingPeriod] || [];
-                const topErrors = rawErrorRanking.slice(0, 7);
+                const topErrors = rawErrorRanking.filter((w: any) => w.errorsCount > 0).slice(0, 7);
 
                 if (!Array.isArray(topErrors) || topErrors.length === 0) {
                   return (
@@ -1354,55 +1452,42 @@ const Dashboard = () => {
                   );
                 }
 
-                const labels = topErrors.map((w: any) => w.name);
-                const seriesData = topErrors.map((w: any) => ({
-                  x: w.name,
-                  y: w.errorsCount
-                }));
-
-                const isDark = document.documentElement.classList.contains('dark');
-
-                // Qizil spektr ranglari, xatolar uchun xos
-                const colors = ['#ef4444', '#f97316', '#f43f5e', '#ec4899', '#f87171', '#fb923c', '#fb7185'];
-
                 return (
-                  <div className="relative z-10 flex flex-col flex-1 h-full mt-2">
-                    <div className="flex-1 w-full min-h-0 -mt-2">
-                       <Chart
-                         key={`error-chart-${errorRankingPeriod}-${isDark}`}
-                         options={{
-                           chart: { 
-                             type: 'treemap', 
-                             toolbar: { show: false },
-                             animations: { speed: 600 }
-                           },
-                           colors: colors,
-                           plotOptions: { 
-                             treemap: { 
-                               distributed: true,
-                               enableShades: false,
-                             } 
-                           },
-                           dataLabels: { 
-                             enabled: true,
-                             style: { fontSize: '13px', fontWeight: 800, colors: ['#ffffff'] },
-                             formatter: (text, op) => [String(text), String(op.value) + ' ta']
-                           },
-                           legend: { show: false },
-                           tooltip: { 
-                             theme: 'dark', 
-                             y: { formatter: val => `${val} ta xato` } 
-                           },
-                           stroke: {
-                             show: true,
-                             width: 2,
-                             colors: [isDark ? '#1f2937' : '#ffffff']
-                           }
-                         }}
-                         series={[{ data: seriesData }]}
-                         type="treemap"
-                         height={320}
-                       />
+                  <div className="relative z-10 flex flex-col flex-1 h-full mt-2 overflow-hidden">
+                    <div className="space-y-2 w-full mt-1 overflow-y-auto pr-1 pb-2 custom-scrollbar">
+                      {topErrors.map((w: any, index: number) => {
+                        const completionData = stats?.workerCompletionRanking?.[errorRankingPeriod] || [];
+                        const match = completionData.find((c: any) => c.userId === w.userId);
+                        const total = match ? match.completedStages : 0;
+                        const errorRate = (total > 0 && w.errorsCount > 0) ? Math.max(1, Math.round(total / w.errorsCount)) : 0;
+                        
+                        return (
+                          <div key={w.name} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-700/40 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors border border-gray-100 dark:border-gray-700/60">
+                            <div className="flex items-center gap-2.5">
+                              <span className={`flex items-center justify-center min-w-[24px] h-6 rounded-full text-[11px] font-bold ${index === 0 ? 'bg-red-500 text-white shadow-sm' :
+                                  index === 1 ? 'bg-red-400 text-white shadow-sm' :
+                                    index === 2 ? 'bg-red-300 text-white shadow-sm' :
+                                      'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                                }`}>
+                                {index + 1}
+                              </span>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-[13px] text-gray-800 dark:text-gray-200 leading-tight">{w.name}</span>
+                                {errorRate > 0 ? (
+                                  <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-none">
+                                    Har {errorRate} ta ishdan bittasida
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-none">
+                                    Jami ish: {total} ta
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="font-black text-red-500 bg-red-100 dark:bg-red-500/10 px-2 py-0.5 rounded border border-red-200 dark:border-red-500/20 text-[12px]">{w.errorsCount} ta</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -1427,7 +1512,7 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-            
+
             {!premiumStats ? (
               <div className="flex items-center justify-center py-12 relative z-10 h-full">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600"></div>
@@ -1435,7 +1520,7 @@ const Dashboard = () => {
             ) : (() => {
               const clients = premiumStats.topClients || [];
               if (clients.length === 0) return <div className="text-center py-12 text-gray-400">Ma'lumot yo'q</div>;
-              
+
               const isDark = document.documentElement.classList.contains('dark');
               return (
                 <div className="relative z-10 flex-1 w-full mt-2 flex flex-col">
@@ -1498,18 +1583,18 @@ const Dashboard = () => {
                 <p className="text-[11px] font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase mt-0.5">Xizmatlar kesimida</p>
               </div>
             </div>
-            
+
             {!premiumStats ? (
               <div className="flex items-center justify-center py-12 h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-fuchsia-600"></div></div>
             ) : (() => {
               const activeTasks = premiumStats.activeTasks || [];
               if (activeTasks.length === 0) return <div className="text-center py-12 text-gray-400">Jarayonda vazifalar yo'q</div>;
-              
+
               const isDark = document.documentElement.classList.contains('dark');
-              
+
               // Extract all unique stage names across top 3 of every worker
               const allUniqueStages = Array.from(new Set(activeTasks.flatMap((w: any) => w.stages?.map((s: any) => s.name) || [])));
-              
+
               const series = allUniqueStages.map(stageName => ({
                 name: stageName as string,
                 data: activeTasks.map((w: any) => {
@@ -1519,7 +1604,7 @@ const Dashboard = () => {
               }));
 
               const categories = activeTasks.map((w: any) => w.name);
-              
+
               return (
                 <div className="relative z-10 flex flex-col flex-1 mt-2">
                   <Chart
@@ -1533,7 +1618,7 @@ const Dashboard = () => {
                         }
                       },
                       colors: [
-                        '#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', 
+                        '#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6',
                         '#06b6d4', '#f43f5e', '#84cc16', '#d946ef', '#14b8a6'
                       ], // Extended colors just in case
                       dataLabels: {
@@ -1566,10 +1651,10 @@ const Dashboard = () => {
                         xaxis: { lines: { show: true } },
                         yaxis: { lines: { show: false } }
                       },
-                      legend: { 
-                        position: 'bottom', 
+                      legend: {
+                        position: 'bottom',
                         labels: { colors: isDark ? '#d1d5db' : '#374151' },
-                        markers: {  }
+                        markers: {}
                       },
                       tooltip: {
                         theme: 'dark'
@@ -1585,110 +1670,68 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Github Activity Heatmap Row */}
-        <div className="grid grid-cols-1 mb-6">
-          <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-3xl group-hover:opacity-100 transition-opacity duration-700 pointer-events-none opacity-50"></div>
+      {/* Ranks Modal Overlay */}
+      {showRanksModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setShowRanksModal(false)}></div>
+          
+          <div className="relative z-10 w-full max-w-6xl h-[90vh] sm:h-[85vh] bg-slate-900 rounded-[28px] overflow-hidden shadow-2xl flex flex-col border border-white/10"
+               style={{
+                 backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.98)), url('https://storage.googleapis.com/pod_public/1300/3142.jpg')`,
+                 backgroundSize: 'cover',
+                 backgroundPosition: 'center',
+               }}>
             
-            <div className="flex items-center gap-3 mb-6 relative z-10">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30">
-                <Icon icon="lucide:calendar-days" className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-slate-900/50 backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/50 flex items-center justify-center text-orange-400">
+                  <Icon icon="lucide:swords" className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white uppercase tracking-wider">CS:GO Unvonlar Jadvali</h3>
+                  <p className="text-xs text-slate-400 font-medium">Barcha darajalar va ularga yetish narxi (XP - Shaxsan Bajarilgan Jarayonlar soni)</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-                  Umumiy Faollik
-                  <span className="relative flex h-2 w-2 mt-0.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                </h2>
-                <p className="text-[11px] font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase mt-0.5">Jonli Holat (So'nggi 6 oy)</p>
-              </div>
+              <button 
+                onClick={() => setShowRanksModal(false)}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+               >
+                 <Icon icon="lucide:x" className="w-6 h-6" />
+              </button>
             </div>
-
-            <div className="relative z-10 overflow-x-auto custom-scrollbar pb-4 pt-2 px-1">
-              {!premiumStats ? (
-                 <div className="flex items-center justify-center py-6 h-[100px]"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div></div>
-              ) : (() => {
-                 const activityList = premiumStats.githubActivity || [];
-                 const map = new Map();
-                 activityList.forEach((a: any) => map.set(a.date, a.count));
-
-                 const today = new Date();
-                 const daysToSubtract = 180;
-                 const startDate = new Date(today.getTime() - daysToSubtract * 24 * 60 * 60 * 1000);
-                 
-                 const startDay = startDate.getDay();
-                 const startOfGrid = new Date(startDate.getTime() - startDay * 24 * 60 * 60 * 1000);
-                 const weeks = [];
-                 let currentWeek = [];
-
-                 for (let d = new Date(startOfGrid); d <= today; d.setDate(d.getDate() + 1)) {
-                    // Set time to noon to avoid timezone shift dropping dates
-                    const dLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
-                    const dateStr = dLocal.toISOString().split('T')[0];
-                    const count = map.get(dateStr) || 0;
+            
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+              <div className="grid grid-cols-1 gap-12">
+                {RANK_GROUPS.map((group, groupIdx) => (
+                  <div key={groupIdx} className="relative">
+                    {groupIdx !== 0 && (
+                       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-y-6"></div>
+                    )}
                     
-                    currentWeek.push({ date: dateStr, count, isFuture: dLocal > today });
-                    
-                    if (currentWeek.length === 7) {
-                        weeks.push(currentWeek);
-                        currentWeek = [];
-                    }
-                 }
-                 if (currentWeek.length > 0) {
-                     weeks.push(currentWeek);
-                 }
-
-                 return (
-                    <div className="flex gap-[3px] sm:gap-[5px] mt-1">
-                       <div className="flex flex-col gap-[3px] sm:gap-[5px] pr-2 text-[10px] font-medium text-gray-400 dark:text-gray-500 items-end mt-0.5">
-                          <div className="h-[12px] sm:h-[14px]">Yak</div>
-                          <div className="h-[12px] sm:h-[14px] opacity-0">Dush</div>
-                          <div className="h-[12px] sm:h-[14px]">Sesh</div>
-                          <div className="h-[12px] sm:h-[14px] opacity-0">Chor</div>
-                          <div className="h-[12px] sm:h-[14px]">Pay</div>
-                          <div className="h-[12px] sm:h-[14px] opacity-0">Jum</div>
-                          <div className="h-[12px] sm:h-[14px]">Shan</div>
-                       </div>
-                       {weeks.map((week, i) => (
-                           <div key={i} className="flex flex-col gap-[3px] sm:gap-[5px]">
-                              {week.map((day, j) => {
-                                  let colorClass = "bg-gray-100 dark:bg-gray-800/80";
-                                  if (day.isFuture) colorClass = "bg-transparent opacity-0 pointer-events-none";
-                                  else if (day.count > 0 && day.count <= 3) colorClass = "bg-emerald-200 dark:bg-emerald-800/70";
-                                  else if (day.count > 3 && day.count <= 8) colorClass = "bg-emerald-400 dark:bg-emerald-600/90";
-                                  else if (day.count > 8 && day.count <= 15) colorClass = "bg-emerald-500 dark:bg-emerald-500";
-                                  else if (day.count > 15) colorClass = "bg-emerald-600 dark:bg-emerald-400";
-                                  
-                                  return (
-                                     <div 
-                                        key={j} 
-                                        title={`${day.date}: ${day.count} ta kelib tushgan vazifa`} 
-                                        className={`w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] rounded-[3px] sm:rounded-[4px] transition-colors cursor-pointer hover:ring-2 hover:ring-gray-400/50 ${colorClass}`}
-                                     ></div>
-                                  )
-                              })}
-                           </div>
-                       ))}
+                    <div className="mb-6 flex flex-col items-center sm:items-start text-center sm:text-left">
+                       <h4 className={`text-2xl font-black uppercase tracking-widest \${group.color.split(' ')[0]} drop-shadow-md`}>{group.name}</h4>
+                       <p className="text-sm font-medium text-slate-400">{group.description}</p>
                     </div>
-                 );
-              })()}
-            </div>
-            
-            <div className="relative z-10 flex items-center justify-end gap-2 mt-4 text-[11px] font-medium text-gray-500 dark:text-gray-400 lg:pl-10">
-               <span>Kam</span>
-               <div className="flex gap-[3px] sm:gap-[5px]">
-                  <div className="w-[12px] h-[12px] rounded-[3px] bg-gray-100 dark:bg-gray-800/80"></div>
-                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-200 dark:bg-emerald-800/70"></div>
-                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-400 dark:bg-emerald-600/90"></div>
-                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-500 dark:bg-emerald-500"></div>
-                  <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-600 dark:bg-emerald-400"></div>
-               </div>
-               <span>Ko'p</span>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                      {group.ranks.map((rank) => (
+                        <div key={rank.id} className={`flex flex-col items-center justify-center p-4 rounded-2xl bg-black/40 border \${group.color.split(' ')[1]}/30 hover:bg-black/60 hover:-translate-y-2 transition-all duration-300 w-full group`}>
+                          <img src={rank.image} alt={rank.title} className="w-20 sm:w-24 h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] group-hover:drop-shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all mb-4" />
+                          <div className="flex flex-col items-center w-full mt-auto">
+                            <span className="text-[11px] font-bold text-white text-center leading-tight min-h-[30px] flex items-center">{rank.title}</span>
+                            <div className="w-full h-px bg-white/10 my-2"></div>
+                            <span className="text-[12px] font-black tracking-widest text-emerald-400">XP {rank.xp.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
+      )}
       </div>
     </div>
   );

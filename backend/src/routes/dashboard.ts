@@ -21,7 +21,8 @@ const buildRangePair = (period: 'today' | 'week' | 'month' | 'year') => {
     };
   } else if (period === 'week') {
     const currentStart = new Date(now);
-    currentStart.setDate(currentStart.getDate() - 6);
+    const dayIndex = (currentStart.getDay() + 6) % 7;
+    currentStart.setDate(currentStart.getDate() - dayIndex);
     currentStart.setHours(0, 0, 0, 0);
     
     const previousStart = new Date(currentStart);
@@ -34,11 +35,11 @@ const buildRangePair = (period: 'today' | 'week' | 'month' | 'year') => {
     }
   } else if (period === 'month') {
     const currentStart = new Date(now);
-    currentStart.setDate(currentStart.getDate() - 29);
+    currentStart.setFullYear(now.getFullYear(), now.getMonth(), 1);
     currentStart.setHours(0, 0, 0, 0);
     
     const previousStart = new Date(currentStart);
-    previousStart.setDate(previousStart.getDate() - 30);
+    previousStart.setFullYear(now.getFullYear(), now.getMonth() - 1, 1);
     const previousEnd = new Date(previousStart.getTime() + (now.getTime() - currentStart.getTime()));
 
     return {
@@ -364,8 +365,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       });
 
       // Get completed stages count for each worker in the date range
-      const completedStagesByWorker = await prisma.taskStage.groupBy({
-        by: ['assignedToId'],
+      const completedStagesByWorker = await prisma.taskStage.findMany({
         where: {
           status: 'TAYYOR',
           assignedToId: { not: null },
@@ -373,14 +373,15 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
           ...(branchId ? { task: { branchId: parseInt(branchId as string) } } : {}),
           ...(workerId ? { assignedToId: parseInt(workerId as string) } : {}),
         },
-        _count: { _all: true },
+        select: { assignedToId: true, taskId: true },
       });
 
       // Create a map of workerId -> completedStages count
       const completedStagesMap = new Map<number, number>();
       completedStagesByWorker.forEach((item) => {
         if (item.assignedToId !== null) {
-          completedStagesMap.set(item.assignedToId, item._count._all || 0);
+          const currentCount = completedStagesMap.get(item.assignedToId) || 0;
+          completedStagesMap.set(item.assignedToId, currentCount + 1);
         }
       });
 

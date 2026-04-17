@@ -12,6 +12,7 @@ import transactionsRouter from './routes/transactions';
 import kpiRouter from './routes/kpi';
 import usersRouter from './routes/users';
 import dashboardRouter from './routes/dashboard';
+import dashboardNotesRouter from './routes/dashboard-notes';
 import workersRouter from './routes/workers';
 import workerPaymentsRouter from './routes/worker-payments';
 import branchesRouter from './routes/branches';
@@ -221,6 +222,7 @@ app.use('/api/transactions', requireAuth(), auditLog('ACCESS', 'TRANSACTION'), t
 app.use('/api/kpi', requireAuth(), kpiRouter);
 app.use('/api/users', requireAuth('ADMIN'), auditLog('ACCESS', 'USER'), usersRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/dashboard-notes', dashboardNotesRouter);
 app.use('/api/workers', workersRouter);
 app.use('/api/worker-payments', workerPaymentsRouter);
 app.use('/api/branches', requireAuth(), branchesRouter);

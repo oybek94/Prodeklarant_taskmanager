@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { SocketProvider } from './contexts/SocketContext';
-import { Toaster } from 'react-hot-toast';
+import { SocketProvider, useSocket } from './contexts/SocketContext';
+import { Toaster, toast } from 'react-hot-toast';
+import { useEffect } from 'react';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -39,6 +40,53 @@ import Debts from './pages/Debts';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const socket = useSocket();
+
+  useEffect(() => {
+    if (!socket || !user) return;
+    
+    if (user.role === 'ADMIN') {
+      const handleAdminError = (data: any) => {
+        toast((t) => (
+          <div className="flex flex-col gap-1 cursor-pointer" onClick={() => {toast.dismiss(t.id); window.location.href=`/tasks/${data.error.taskId}`}}>
+            <span className="font-bold text-red-600">⚠️ {data.event}</span>
+            <span className="text-sm">Yangi xato hisoboti qo'shildi. Baholash uchun ustiga bosing !</span>
+          </div>
+        ), { duration: 6000 });
+      };
+      socket.on('admin_new_error_report', handleAdminError);
+      return () => { socket.off('admin_new_error_report', handleAdminError); };
+    }
+  }, [socket, user]);
+
+  useEffect(() => {
+    if (!socket || !user) return;
+
+    const handleBounty = (data: any) => {
+      if (data.createdById === user.id) {
+         toast.success(`Zo'r ish! Topgan xatoyingiz tekshirildi. ${Number(data.bountyRewardUzs).toLocaleString('uz-UZ')} UZS va ${data.bountyXp} XP mukofot!`, { duration: 8000, icon: '🕵️‍♂️' });
+      }
+    };
+    
+    const handleQuality = (data: any) => {
+      if (data.userId === user.id) {
+         toast((t) => (
+           <div className="flex flex-col gap-1 bg-yellow-50 p-1 rounded">
+             <span className="font-bold text-yellow-600">🏆 Oylik Sifat Indeksi!</span>
+             <span className="text-sm border-t border-yellow-200 mt-1 pt-1">{data.message}</span>
+           </div>
+         ), { duration: 10000 });
+      }
+    };
+
+    socket.on('user:bounty_awarded', handleBounty);
+    socket.on('user:quality_award', handleQuality);
+
+    return () => {
+      socket.off('user:bounty_awarded', handleBounty);
+      socket.off('user:quality_award', handleQuality);
+    };
+  }, [socket, user]);
 
   if (isLoading) {
     return (

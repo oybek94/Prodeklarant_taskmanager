@@ -20,6 +20,8 @@ import { Icon } from '@iconify/react';
 import Chart from 'react-apexcharts';
 import { useIsMobile } from '../utils/useIsMobile';
 import DashboardNotes from '../components/dashboard/DashboardNotes';
+import { useSocket } from '../contexts/SocketContext';
+import { UnratedErrorsModal } from '../components/dashboard/UnratedErrorsModal';
 
 ChartJS.register(
   CategoryScale,
@@ -198,6 +200,7 @@ const Dashboard = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const socket = useSocket();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [chartData, setChartData] = useState<ChartData | null>(null);
@@ -212,6 +215,28 @@ const Dashboard = () => {
   const [completedSummary, setCompletedSummary] = useState<CompletedSummary | null>(null);
   const [loadingCompletedSummary, setLoadingCompletedSummary] = useState(true);
   const [showRanksModal, setShowRanksModal] = useState(false);
+  const [achievements, setAchievements] = useState<any[]>([]);
+  const [unratedErrors, setUnratedErrors] = useState<any[]>([]);
+  const [showUnratedModal, setShowUnratedModal] = useState(false);
+
+  const loadUnratedErrors = async () => {
+    if (user?.role !== 'ADMIN') return;
+    try {
+      const response = await apiClient.get('/tasks/errors/unrated');
+      setUnratedErrors(response.data);
+    } catch (error) {
+      console.error('Error loading unrated errors:', error);
+    }
+  };
+
+  const loadAchievements = async () => {
+    try {
+      const response = await apiClient.get('/auth/me/achievements');
+      setAchievements(response.data);
+    } catch (error) {
+      console.error('Error loading achievements:', error);
+    }
+  };
 
   useEffect(() => {
     loadStats();
@@ -222,7 +247,65 @@ const Dashboard = () => {
 
   useEffect(() => {
     loadCompletedSummary();
-  }, []);
+    loadAchievements();
+    if (user?.role === 'ADMIN') {
+      loadUnratedErrors();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!socket) return;
+    
+    const triggerUpdate = () => {
+      loadStats();
+      loadChartData();
+      loadCompletedSummary();
+      loadRecentTasks();
+    };
+
+    socket.on('task:created', triggerUpdate);
+    socket.on('task:updated', triggerUpdate);
+    socket.on('task:deleted', triggerUpdate);
+    socket.on('task:stageUpdated', triggerUpdate);
+    socket.on('invoice:saved', triggerUpdate);
+    socket.on('invoice:deleted', triggerUpdate);
+
+    return () => {
+      socket.off('task:created', triggerUpdate);
+      socket.off('task:updated', triggerUpdate);
+      socket.off('task:deleted', triggerUpdate);
+      socket.off('task:stageUpdated', triggerUpdate);
+      socket.off('invoice:saved', triggerUpdate);
+      socket.off('invoice:deleted', triggerUpdate);
+    };
+  }, [socket, period]);
+
+  useEffect(() => {
+    if (!socket) return;
+    
+    const handleBounty = (data: any) => {
+      loadAchievements();
+      loadUnratedErrors();
+    };
+    
+    const handleQuality = (data: any) => {
+      loadAchievements();
+    };
+
+    const handleAdminError = (data: any) => {
+      if (user?.role === 'ADMIN') loadUnratedErrors();
+    };
+
+    socket.on('user:bounty_awarded', handleBounty);
+    socket.on('user:quality_award', handleQuality);
+    socket.on('admin_new_error_report', handleAdminError);
+
+    return () => {
+      socket.off('user:bounty_awarded', handleBounty);
+      socket.off('user:quality_award', handleQuality);
+      socket.off('admin_new_error_report', handleAdminError);
+    };
+  }, [socket, user]);
 
   const loadCompletedSummary = async () => {
     try {
@@ -614,9 +697,61 @@ const Dashboard = () => {
                       })()}
                     </h1>
                     <p className="text-sm sm:text-base font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                      <Icon icon="lucide:calendar-clock" className="w-4 h-4 opacity-70" />
-                      {new Date().toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                       <Icon icon="lucide:calendar-clock" className="w-4 h-4 opacity-70" />
+                       {new Date().toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
+
+                    {/* Unrated Errors Alert for Admin */}
+                    {user?.role === 'ADMIN' && unratedErrors.length > 0 && (
+                      <div className="mt-4 mb-2 flex flex-col sm:flex-row sm:items-center justify-between bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/20 border border-orange-200 dark:border-orange-800/50 rounded-xl p-3 sm:p-4 shadow-sm animate-pulse-slow">
+                        <div className="flex items-center gap-3 mb-3 sm:mb-0">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-orange-100 dark:bg-orange-800/50 flex flex-shrink-0 items-center justify-center text-orange-600 dark:text-orange-400 shadow-inner">
+                            <i className="fas fa-exclamation-triangle text-xl sm:text-2xl"></i>
+                          </div>
+                          <div>
+                            <h3 className="text-sm sm:text-base font-bold text-orange-800 dark:text-orange-300">Baholanmagan xatolar mavjud!</h3>
+                            <p className="text-xs sm:text-sm text-orange-700 dark:text-orange-400 text-opacity-90 mt-0.5">
+                              Sizda barcha filiallar bo'yicha jami <strong>{unratedErrors.length}</strong> ta xato kutmoqda. Ularni hoziroq baholang.
+                            </p>
+                          </div>
+                        </div>
+                        <button onClick={() => setShowUnratedModal(true)} className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 uppercase tracking-wider text-xs flex items-center justify-center gap-2">
+                          <i className="fas fa-star text-orange-200"></i> Baholashni Boshlash
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Achievements Showcase (Medals Cabinet) */}
+                    <div className="mt-3 flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white/50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/60 dark:border-gray-700/50 shadow-sm backdrop-blur-md self-start inline-flex min-h-[52px]">
+                      <span className="text-[10px] sm:text-[11px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mr-2 flex items-center gap-1.5">
+                        <i className="fas fa-medal text-yellow-500 opacity-80"></i> Mening unvonlarim:
+                      </span>
+                      
+                      {achievements.length > 0 ? achievements.map((ach) => (
+                         <div key={ach.id} className="relative group cursor-help flex items-center justify-center">
+                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-yellow-200 to-amber-400 dark:from-yellow-700 dark:to-amber-900 border border-yellow-400 dark:border-yellow-600 flex items-center justify-center shadow-inner hover:scale-110 transition-transform">
+                               {ach.type === 'BOUNTY_HUNTER' ? <span className="text-lg leading-none" title="Bounty Hunter">🕵️‍♂️</span> : <span className="text-lg leading-none" title="Quality Score">🏅</span>}
+                            </div>
+                            <div className="absolute top-12 left-1/2 -translate-x-1/2 w-56 p-3 bg-gray-900/95 backdrop-blur-md text-white text-xs rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center border border-gray-700">
+                               <div className="font-extrabold text-yellow-400 tracking-wider mb-1.5 text-sm uppercase">{ach.medalName}</div>
+                               <div className="text-gray-200 font-medium leading-tight mb-2">{ach.description}</div>
+                               <div className="text-[10px] text-gray-400 font-bold tracking-widest uppercase border-t border-gray-700 pt-1.5 mt-1">
+                                 Olingan sana: {new Date(ach.createdAt).toLocaleDateString('uz-UZ')}
+                               </div>
+                            </div>
+                         </div>
+                      )) : (
+                         <div className="relative group cursor-help flex items-center justify-center">
+                           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gray-200/80 dark:bg-gray-700/80 border border-gray-300 dark:border-gray-600 flex items-center justify-center opacity-60 transition-opacity hover:opacity-100">
+                             <i className="fas fa-lock text-gray-400 dark:text-gray-500 text-xs shadow-inner"></i>
+                           </div>
+                           <div className="absolute top-12 left-1/2 -translate-x-1/2 w-52 p-2.5 bg-gray-900/95 backdrop-blur-md text-white text-xs rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center border border-gray-700">
+                              <div className="font-bold text-gray-300 mb-1">Medallar Qulflangan</div>
+                              <div className="text-gray-400 text-[10px]">A'lo darajadagi xizmatlaringiz yoki xatolarni topganingiz uchun maxsus medallar shu yerda paydo bo'ladi.</div>
+                           </div>
+                         </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1732,6 +1867,12 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+      <UnratedErrorsModal 
+         show={showUnratedModal} 
+         onClose={() => setShowUnratedModal(false)}
+         errors={unratedErrors}
+         onRateSuccess={() => { loadUnratedErrors(); setShowUnratedModal(false); }}
+      />
       </div>
     </div>
   );

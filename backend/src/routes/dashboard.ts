@@ -393,6 +393,20 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         }
       });
 
+      // Add Bounty XP from Task Errors generated in the same date range
+      const bountyXpByWorker = await prisma.taskError.groupBy({
+        by: ['createdById'],
+        where: { adminRatedAt: { gte: startDate, lte: endDate } },
+        _sum: { bountyXp: true }
+      });
+      
+      bountyXpByWorker.forEach((item) => {
+        if (item.createdById !== null) {
+          const currentCount = completedStagesMap.get(item.createdById) || 0;
+          completedStagesMap.set(item.createdById, currentCount + (item._sum.bountyXp || 0));
+        }
+      });
+
       // Combine all workers with their completed stages count (0 if no completed stages)
       const ranking = allWorkers.map((worker) => ({
         userId: worker.id,

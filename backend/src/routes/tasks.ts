@@ -45,6 +45,24 @@ const createTaskSchema = z.object({
   customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
 });
 
+router.get('/errors/unrated', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const unratedErrors = await prisma.taskError.findMany({
+      where: { adminRating: null },
+      include: {
+        worker: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true } },
+        task: { select: { id: true, title: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+    res.json(unratedErrors);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
+  }
+});
+
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const { branchId, status, clientId, page, limit } = req.query;
@@ -1555,6 +1573,7 @@ router.post('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
   });
 
   res.status(201).json(result);
+  socketEmitter.broadcast('admin_new_error_report', { error: result, event: 'Yangi xato hisoboti kelib tushdi' });
 });
 
 router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest, res) => {
@@ -1594,6 +1613,73 @@ router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest
   });
 
   res.status(204).send();
+});
+
+const rateErrorSchema = z.object({
+  rating: z.number().min(1).max(10),
+});
+
+router.put('/:taskId/errors/:errorId/rate', requireAuth(), async (req: AuthRequest, res) => {
+  const errorId = Number(req.params.errorId);
+  const parsed = rateErrorSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  if (!req.user || req.user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Faqat admin xatolarni baholay oladi' });
+  }
+
+  const error = await prisma.taskError.findUnique({
+    where: { id: errorId },
+  });
+
+  if (!error) {
+    return res.status(404).json({ error: 'Xato topilmadi' });
+  }
+
+  if (error.adminRating !== null) {
+    return res.status(400).json({ error: 'Bu xato allaqachon baholangan' });
+  }
+
+  const rating = parsed.data.rating;
+  const bountyUzs = rating * 50000;
+  const bountyXp = rating * 5;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    return await (tx as any).taskError.update({
+      where: { id: errorId },
+      data: {
+        adminRating: rating,
+        adminRatedAt: new Date(),
+        bountyRewardUzs: bountyUzs,
+        bountyXp: bountyXp,
+      },
+      include: { worker: { select: { id: true, name: true } } },
+    });
+  });
+
+  // Check achievements
+  const bountyCount = await prisma.taskError.count({
+    where: { createdById: error.createdById, adminRating: { not: null } }
+  });
+
+  if (bountyCount >= 5) {
+     const hasMedal = await prisma.userAchievement.count({
+         where: { userId: error.createdById, type: 'BOUNTY_HUNTER' }
+     });
+     if (hasMedal === 0) {
+        await prisma.userAchievement.create({
+           data: {
+              userId: error.createdById,
+              type: 'BOUNTY_HUNTER',
+              medalName: 'Overwatch Investigator',
+              description: 'Kamida 5 ta xato ushlab, kompaniyani qutqargani uchun!',
+           }
+        });
+     }
+  }
+
+  socketEmitter.broadcast('user:bounty_awarded', updated);
+  res.json(updated);
 });
 
 router.patch('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest, res) => {

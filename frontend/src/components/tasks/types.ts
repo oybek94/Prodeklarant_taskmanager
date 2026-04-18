@@ -45,6 +45,10 @@ export interface TaskError {
   date: string;
   createdAt: string;
   createdById: number;
+  adminRating?: number | null;
+  adminRatedAt?: string | null;
+  bountyRewardUzs?: number | null;
+  bountyXp?: number | null;
 }
 
 export interface TaskDetail {

@@ -298,5 +298,23 @@ router.get('/me', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+router.get('/me/achievements', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const achievements = await (prisma as any).userAchievement.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(achievements);
+  } catch (error: any) {
+    console.error('Error in /auth/me/achievements:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 export default router;
 

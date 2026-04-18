@@ -43,6 +43,9 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
 }) => {
   if (!show || !selectedTask) return null;
 
+  const [ratingErrorId, setRatingErrorId] = React.useState<number | null>(null);
+  const [ratingValue, setRatingValue] = React.useState<number>(10);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amountValue = errorForm.amount.trim();
@@ -81,6 +84,23 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
     }
   };
 
+  const handleRateError = async (errorId: number) => {
+    if (ratingValue < 1 || ratingValue > 10) {
+      toast.error("Baho 1 va 10 oralig'ida bo'lishi kerak");
+      return;
+    }
+    try {
+      await apiClient.put(`/tasks/${selectedTask.id}/errors/${errorId}/rate`, { rating: ratingValue });
+      toast.success("Xato baholandi va xodim mukofotlandi!");
+      setRatingErrorId(null);
+      const response = await apiClient.get(`/tasks/${selectedTask.id}`);
+      setSelectedTask(response.data);
+      onSuccess();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Baholashda xatolik yuz berdi');
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm"
@@ -107,6 +127,27 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
                       Xato qildi: {workerName} • Sana: {new Date(error.date).toLocaleDateString('uz-UZ')}
                     </div>
                     {error.comment && <div className="text-xs text-gray-600 mt-2">{error.comment}</div>}
+                    
+                    {error.adminRating ? (
+                      <div className="mt-2 text-[11px] font-bold text-yellow-600 flex items-center gap-1.5 bg-yellow-50 w-fit px-2 py-0.5 rounded border border-yellow-100">
+                        <i className="fas fa-star text-yellow-500"></i> {error.adminRating} Yulduz. • Mukofot: {Number(error.bountyRewardUzs).toLocaleString('uz-UZ')} UZS va {error.bountyXp} XP 
+                      </div>
+                    ) : user?.role === 'ADMIN' ? (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        {ratingErrorId === error.id ? (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] text-gray-500 font-bold uppercase">Baho:</span>
+                            <input type="number" min="1" max="10" value={ratingValue} onChange={(e) => setRatingValue(Number(e.target.value))} className="w-14 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-yellow-400 focus:outline-none" />
+                            <button onClick={() => handleRateError(error.id)} className="px-2 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600 shadow-sm font-medium">Saqlash</button>
+                            <button onClick={() => setRatingErrorId(null)} className="text-gray-400 hover:text-gray-600 text-xs font-medium">Bekor</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => { setRatingErrorId(error.id); setRatingValue(10); }} className="text-[11px] text-yellow-600 hover:text-yellow-700 font-bold border border-yellow-400 bg-yellow-50 hover:bg-yellow-100 px-2 py-1 rounded transition flex items-center gap-1.5">
+                            <i className="fas fa-star"></i> Baholash (Bounty Hunter)
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                   {canEditError(error, user?.id, user?.role) && (
                     <div className="ml-4 flex gap-2">

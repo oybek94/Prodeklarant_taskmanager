@@ -49,6 +49,7 @@ import fs from 'fs';
 import lmsRouter from './routes/lms';
 import { initializeExchangeRateScheduler } from './services/exchange-rate-scheduler';
 import { initializeProcessScheduler } from './services/process-scheduler';
+import { initCronJobs } from './cron';
 import processRouter from './routes/process';
 import notificationsRouter from './routes/notifications';
 import leadsRouter from './routes/leads';
@@ -302,6 +303,7 @@ validateEnvironment();
 // Initialize exchange rate scheduler
 initializeExchangeRateScheduler();
 initializeProcessScheduler();
+initCronJobs();
 
 // ===== Socket.io =====
 import { verifyAccessToken } from './utils/jwt';

@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { prisma } from './prisma';
 import { socketEmitter } from './services/socketEmitter';
+import { BackupService } from './services/backup.service';
 
 export const initCronJobs = () => {
   // Run on the 1st of every month at midnight
@@ -100,4 +101,16 @@ export const initCronJobs = () => {
   });
 
   console.log('[CRON] Vazifalar (Quality Score) ishga tushdi.');
+
+  // Run database backup daily at 03:00 AM
+  cron.schedule('0 3 * * *', async () => {
+    console.log('[CRON] Kundalik ma\'lumotlar zaxirasi boshlandi.');
+    try {
+      await BackupService.createBackupArchive();
+      console.log('[CRON] Zaxira nusxasi muvaffaqiyatli yaratildi.');
+    } catch (e) {
+      console.error('[CRON] Zaxira yaratishda xatolik:', e);
+    }
+  });
+  console.log('[CRON] Kundalik DB zaxiralash (03:00) ishga tushdi.');
 };

@@ -267,20 +267,40 @@ const Settings = () => {
     externalCode: '',
   });
   const [deletingRegionCodeId, setDeletingRegionCodeId] = useState<number | null>(null);
-  type TabType = 'general' | 'financial' | 'structure' | 'specs' | 'processes';
+  type TabType = 'general' | 'financial' | 'structure' | 'specs' | 'processes' | 'system';
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const tabs = [
     { id: 'general', label: "Umumiy", icon: 'lucide:settings' },
     { id: 'financial', label: "Moliyaviy", icon: 'lucide:dollar-sign' },
     { id: 'structure', label: "Tuzilma", icon: 'lucide:building-2' },
     { id: 'specs', label: "Spetsifikatsiyalar", icon: 'lucide:box' },
-    { id: 'processes', label: "Jarayonlar", icon: 'lucide:git-pull-request' }
+    { id: 'processes', label: "Jarayonlar", icon: 'lucide:git-pull-request' },
+    { id: 'system', label: "Tizim", icon: 'lucide:database' }
   ];
 
   const [processSettings, setProcessSettings] = useState<ProcessSetting[]>([]);
   const [loadingProcessSettings, setLoadingProcessSettings] = useState(true);
   const [processSettingsEdits, setProcessSettingsEdits] = useState<Record<string, { estimatedTime: string; reminder1: string; reminder2: string; reminder3: string }>>({});
   const [savingProcessSettings, setSavingProcessSettings] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+
+  const handleBackup = async () => {
+    try {
+      setIsBackingUp(true);
+      const response = await apiClient.get('/system/backup', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `prodeklarant-backup-${new Date().toISOString().slice(0, 10)}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (e: any) {
+      alert("Zaxira o'rnatishda xatolik yuz berdi. Iltimos qayta urinib ko'ring.");
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
 
   const refreshTnvedProducts = async () => {
     try {
@@ -2081,6 +2101,51 @@ const Settings = () => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* SYSTEM TAB */}
+          {activeTab === 'system' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center">
+                    <Icon icon="lucide:database-backup" className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Ma'lumotlar zaxirasi</h2>
+                    <p className="text-sm text-gray-500 mt-1">Dasturdagi barcha ma'lumotlarni zaxira nusxasini ko'chirib olish</p>
+                  </div>
+                </div>
+
+                <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 mb-6">
+                  <div className="flex gap-3">
+                    <Icon icon="lucide:alert-triangle" className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                    <p className="text-sm text-orange-800">
+                      Zaxira nusxasi (Backup) barcha jadvallardagi ma'lumotlarni o'z ichiga oladi. Dasturda kutilmaganda
+                      turli jiddiy muammolar bo'lib, ma'lumotlar o'chib ketsa, shu orqali uni qayta tiklasangiz bo'ladi.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleBackup}
+                  disabled={isBackingUp}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl font-medium transition-colors shadow-sm"
+                >
+                  {isBackingUp ? (
+                    <>
+                      <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" />
+                      Yuklanmoqda...
+                    </>
+                  ) : (
+                    <>
+                      <Icon icon="lucide:download" className="w-5 h-5" />
+                      Zaxira faylini yuklab olish
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           )}
 

@@ -588,7 +588,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     // Prisma data object - faqat mavjud field'larni qo'shamiz
     const taskData: Partial<Prisma.TaskUncheckedCreateInput> = {
       clientId: parsed.data.clientId,
-      
+      branchId: parsed.data.branchId,
       title: parsed.data.title,
       hasPsr: parsed.data.hasPsr,
       afterHoursDeclaration: parsed.data.afterHoursDeclaration,

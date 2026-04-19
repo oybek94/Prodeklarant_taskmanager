@@ -54,6 +54,7 @@ import processRouter from './routes/process';
 import notificationsRouter from './routes/notifications';
 import leadsRouter from './routes/leads';
 import debtsRouter from './routes/debts';
+import systemRouter from './routes/system';
 
 const app = express();
 const httpServer = createServer(app);
@@ -254,6 +255,7 @@ app.use('/api/process', requireAuth(), processRouter);
 app.use('/api/notifications', requireAuth(), notificationsRouter);
 app.use('/api/leads', requireAuth(), leadsRouter);
 app.use('/api/debts', requireAuth('ADMIN'), debtsRouter);
+app.use('/api/system', requireAuth('ADMIN'), systemRouter);
 
 // LMS endpoints (v1) - stream token issuance and streaming proxy
 app.use('/api/v1', lmsRouter);

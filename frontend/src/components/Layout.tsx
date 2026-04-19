@@ -69,9 +69,10 @@ const Layout = () => {
   const isExamPage = location.pathname.startsWith('/exam');
 
   const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' },
+    ...(user?.role !== 'SELLER' ? [{ path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard' }] : []),
     ...(user?.role === 'ADMIN' ? [
-      { path: '/debts', label: 'Qarzlar', icon: 'lucide:wallet' }
+      { path: '/debts', label: 'Qarzlar', icon: 'lucide:wallet' },
+      { path: '/finance', label: 'Moliya', icon: 'lucide:banknote' }
     ] : []),
     ...((user?.role !== 'SELLER') ? [
       { path: '/tasks', label: 'Vazifalar', icon: 'lucide:clipboard-list' },

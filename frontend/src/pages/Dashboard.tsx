@@ -57,11 +57,7 @@ interface DashboardStats {
     monthly: Array<{ userId: number; name: string; completedStages: number; invoiceCount: number }>;
     yearly: Array<{ userId: number; name: string; completedStages: number; invoiceCount: number }>;
   };
-  workerErrorRanking?: {
-    weekly: Array<{ userId: number; name: string; errorsCount: number }>;
-    monthly: Array<{ userId: number; name: string; errorsCount: number }>;
-    yearly: Array<{ userId: number; name: string; errorsCount: number }>;
-  };
+
   financialStats: Array<{ type: string; total: number }>;
   paymentReminders?: PaymentReminder[];
   todayNetProfit?: { usd: number; uzs: number; usdCount: number; uzsCount: number };
@@ -208,7 +204,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
   const [rankingPeriod, setRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('yearly');
-  const [errorRankingPeriod, setErrorRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('yearly');
+
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
   const [premiumStats, setPremiumStats] = useState<any>(null);
@@ -255,7 +251,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!socket) return;
-    
+
     const triggerUpdate = () => {
       loadStats();
       loadChartData();
@@ -282,12 +278,12 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!socket) return;
-    
+
     const handleBounty = (data: any) => {
       loadAchievements();
       loadUnratedErrors();
     };
-    
+
     const handleQuality = (data: any) => {
       loadAchievements();
     };
@@ -697,8 +693,8 @@ const Dashboard = () => {
                       })()}
                     </h1>
                     <p className="text-sm sm:text-base font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                       <Icon icon="lucide:calendar-clock" className="w-4 h-4 opacity-70" />
-                       {new Date().toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      <Icon icon="lucide:calendar-clock" className="w-4 h-4 opacity-70" />
+                      {new Date().toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
 
                     {/* Unrated Errors Alert for Admin */}
@@ -726,30 +722,30 @@ const Dashboard = () => {
                       <span className="text-[10px] sm:text-[11px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mr-2 flex items-center gap-1.5">
                         <i className="fas fa-medal text-yellow-500 opacity-80"></i> Mening unvonlarim:
                       </span>
-                      
+
                       {achievements.length > 0 ? achievements.map((ach) => (
-                         <div key={ach.id} className="relative group cursor-help flex items-center justify-center">
-                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-yellow-200 to-amber-400 dark:from-yellow-700 dark:to-amber-900 border border-yellow-400 dark:border-yellow-600 flex items-center justify-center shadow-inner hover:scale-110 transition-transform">
-                               {ach.type === 'BOUNTY_HUNTER' ? <span className="text-lg leading-none" title="Bounty Hunter">🕵️‍♂️</span> : <span className="text-lg leading-none" title="Quality Score">🏅</span>}
+                        <div key={ach.id} className="relative group cursor-help flex items-center justify-center">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-yellow-200 to-amber-400 dark:from-yellow-700 dark:to-amber-900 border border-yellow-400 dark:border-yellow-600 flex items-center justify-center shadow-inner hover:scale-110 transition-transform">
+                            {ach.type === 'BOUNTY_HUNTER' ? <span className="text-lg leading-none" title="Bounty Hunter">🕵️‍♂️</span> : <span className="text-lg leading-none" title="Quality Score">🏅</span>}
+                          </div>
+                          <div className="absolute top-12 left-1/2 -translate-x-1/2 w-56 p-3 bg-gray-900/95 backdrop-blur-md text-white text-xs rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center border border-gray-700">
+                            <div className="font-extrabold text-yellow-400 tracking-wider mb-1.5 text-sm uppercase">{ach.medalName}</div>
+                            <div className="text-gray-200 font-medium leading-tight mb-2">{ach.description}</div>
+                            <div className="text-[10px] text-gray-400 font-bold tracking-widest uppercase border-t border-gray-700 pt-1.5 mt-1">
+                              Olingan sana: {new Date(ach.createdAt).toLocaleDateString('uz-UZ')}
                             </div>
-                            <div className="absolute top-12 left-1/2 -translate-x-1/2 w-56 p-3 bg-gray-900/95 backdrop-blur-md text-white text-xs rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center border border-gray-700">
-                               <div className="font-extrabold text-yellow-400 tracking-wider mb-1.5 text-sm uppercase">{ach.medalName}</div>
-                               <div className="text-gray-200 font-medium leading-tight mb-2">{ach.description}</div>
-                               <div className="text-[10px] text-gray-400 font-bold tracking-widest uppercase border-t border-gray-700 pt-1.5 mt-1">
-                                 Olingan sana: {new Date(ach.createdAt).toLocaleDateString('uz-UZ')}
-                               </div>
-                            </div>
-                         </div>
+                          </div>
+                        </div>
                       )) : (
-                         <div className="relative group cursor-help flex items-center justify-center">
-                           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gray-200/80 dark:bg-gray-700/80 border border-gray-300 dark:border-gray-600 flex items-center justify-center opacity-60 transition-opacity hover:opacity-100">
-                             <i className="fas fa-lock text-gray-400 dark:text-gray-500 text-xs shadow-inner"></i>
-                           </div>
-                           <div className="absolute top-12 left-1/2 -translate-x-1/2 w-52 p-2.5 bg-gray-900/95 backdrop-blur-md text-white text-xs rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center border border-gray-700">
-                              <div className="font-bold text-gray-300 mb-1">Medallar Qulflangan</div>
-                              <div className="text-gray-400 text-[10px]">A'lo darajadagi xizmatlaringiz yoki xatolarni topganingiz uchun maxsus medallar shu yerda paydo bo'ladi.</div>
-                           </div>
-                         </div>
+                        <div className="relative group cursor-help flex items-center justify-center">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gray-200/80 dark:bg-gray-700/80 border border-gray-300 dark:border-gray-600 flex items-center justify-center opacity-60 transition-opacity hover:opacity-100">
+                            <i className="fas fa-lock text-gray-400 dark:text-gray-500 text-xs shadow-inner"></i>
+                          </div>
+                          <div className="absolute top-12 left-1/2 -translate-x-1/2 w-52 p-2.5 bg-gray-900/95 backdrop-blur-md text-white text-xs rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center border border-gray-700">
+                            <div className="font-bold text-gray-300 mb-1">Medallar Qulflangan</div>
+                            <div className="text-gray-400 text-[10px]">A'lo darajadagi xizmatlaringiz yoki xatolarni topganingiz uchun maxsus medallar shu yerda paydo bo'ladi.</div>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1322,27 +1318,17 @@ const Dashboard = () => {
                           const yearlyData = stats?.workerCompletionRanking?.yearly || [];
                           const yearlyMatch = yearlyData.find((y: any) => y.userId === w.userId);
                           const totalAllTime = yearlyMatch ? yearlyMatch.completedStages : 0;
-                          
+
                           const rank = getCsgoRank(totalAllTime);
                           const progressPct = rank.target ? Math.min(100, Math.max(0, (totalAllTime / rank.target) * 100)) : 100;
-                          
-                          const errorData = stats?.workerErrorRanking?.[rankingPeriod] || [];
-                          const errMatch = errorData.find((e: any) => e.userId === w.userId);
-                          const errCount = errMatch ? errMatch.errorsCount : 0;
-                          
-                          let kdRatio: string | React.ReactNode = 0;
-                          if (errCount === 0) {
-                             kdRatio = <span className="text-yellow-400 font-black ml-1 shadow-sm uppercase tracking-wider text-[10px]">MVP 🌟</span>;
-                          } else {
-                             const ratio = ((w.invoiceCount || 0) / errCount).toFixed(2);
-                             kdRatio = <span className="text-emerald-400 font-bold ml-1">{ratio} ({w.invoiceCount || 0}/{errCount})</span>;
-                          }
+
+
 
                           return (
                             <div key={w.name} className="flex flex-col p-3 rounded-xl bg-slate-800/80 hover:bg-slate-700/90 transition-all border border-slate-700/60 relative overflow-hidden group">
                               {/* Background Glow based on rank */}
                               <div className={`absolute -right-6 -bottom-6 w-24 h-24 bg-gradient-to-br ${rank.color} rounded-full blur-2xl opacity-10 group-hover:opacity-30 transition-opacity`}></div>
-                              
+
                               <div className="flex items-center justify-between mb-2 relative z-10">
                                 <div className="flex items-center gap-3">
                                   <div className={`flex items-center justify-center w-12 h-12 rounded-[10px] bg-gradient-to-br ${rank.color} shadow-[0_4px_15px_rgba(0,0,0,0.3)] border border-white/10 shrink-0`}>
@@ -1354,19 +1340,19 @@ const Dashboard = () => {
                                       <span className="text-[9px] uppercase font-black tracking-widest text-white/90 bg-black/40 px-1.5 py-0.5 rounded border border-white/10">{rank.short}</span>
                                     </div>
                                     <div className="text-[11px] text-slate-400 mt-1 flex items-center font-medium">
-                                      <span className="uppercase tracking-wide text-[9px] mr-1 opacity-80">K/D:</span>
-                                      {kdRatio}
+                                      <span className="uppercase tracking-wide text-[9px] mr-1 opacity-80">INVOYS:</span>
+                                      <span className="text-emerald-400 font-bold ml-1">{w.invoiceCount || 0} ta</span>
                                     </div>
                                   </div>
                                 </div>
-                                
+
                                 <div className="flex flex-col items-end pl-2">
                                   <span className="font-black text-white text-[16px] leading-none">{w.completedStages} <span className="text-blue-400 font-bold text-[10px] ml-0.5">XP</span></span>
                                   {index === 0 && <span className="text-[9px] text-yellow-400 font-black uppercase tracking-wider absolute -top-0 -right-0 bg-slate-900/80 px-2 rounded-bl-xl border-b border-l border-yellow-500/30">First Blood</span>}
                                   {index === 1 && <span className="text-[9px] text-slate-300 font-black uppercase tracking-wider absolute -top-0 -right-0 bg-slate-900/80 px-2 rounded-bl-xl border-b border-l border-slate-500/30">Silver</span>}
                                 </div>
                               </div>
-                              
+
                               {/* Progress Bar */}
                               <div className="relative z-10 w-full">
                                 <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1 px-0.5">
@@ -1374,8 +1360,8 @@ const Dashboard = () => {
                                   <span>{rank.next ? `NEXT: ${rank.target}` : 'MAX LEVEL REACHED'}</span>
                                 </div>
                                 <div className="h-1.5 w-full bg-slate-900 shadow-inner rounded-full overflow-hidden border border-slate-700/80">
-                                  <div 
-                                    className={`h-full bg-gradient-to-r ${rank.color} transition-all duration-1000 ease-out relative`} 
+                                  <div
+                                    className={`h-full bg-gradient-to-r ${rank.color} transition-all duration-1000 ease-out relative`}
                                     style={{ width: `${progressPct}%` }}
                                   >
                                     <div className="absolute inset-0 bg-white/20 w-1/2 blur-sm rotate-12 transform -translate-x-full animate-[shimmer_2s_infinite]"></div>
@@ -1524,102 +1510,78 @@ const Dashboard = () => {
               })()}
             </div>
 
-            {/* Worker error ranking */}
+            {/* Process Times Widget */}
             <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col h-full" style={{ height: '515px' }}>
               {/* Premium Glow Effect */}
-              <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-red-500/10 dark:bg-red-500/20 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+              <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-teal-500/10 dark:bg-teal-500/20 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
 
               <div className="flex flex-col gap-4 mb-6 relative z-10 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-red-50 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30">
-                    <Icon icon="lucide:alert-circle" className="w-6 h-6 text-red-600 dark:text-red-400" />
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-teal-50 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
+                    <Icon icon="lucide:clock" className="w-6 h-6 text-teal-600 dark:text-teal-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Eng ko'p xato qilganlar</h2>
-                    <p className="text-[11px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold mt-0.5">Xodimlar bo'yicha</p>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Jarayonga sarflangan vaqt</h2>
+                    <p className="text-[11px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold mt-0.5">O'rtacha ko'rsatkichlar</p>
                   </div>
                 </div>
-                <div className="flex gap-1.5 bg-gray-100/80 dark:bg-gray-700/80 p-1.5 rounded-xl">
-                  <button
-                    onClick={() => setErrorRankingPeriod('weekly')}
-                    className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'weekly'
-                      ? 'bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 shadow-sm ring-1 ring-red-200/50 dark:ring-red-900/40'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                      }`}
-                  >
-                    Haftalik
-                  </button>
-                  <button
-                    onClick={() => setErrorRankingPeriod('monthly')}
-                    className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'monthly'
-                      ? 'bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 shadow-sm ring-1 ring-red-200/50 dark:ring-red-900/40'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                      }`}
-                  >
-                    Oylik
-                  </button>
-                  <button
-                    onClick={() => setErrorRankingPeriod('yearly')}
-                    className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all duration-300 ${errorRankingPeriod === 'yearly'
-                      ? 'bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 shadow-sm ring-1 ring-red-200/50 dark:ring-red-900/40'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                      }`}
-                  >
-                    Yillik
-                  </button>
-                </div>
               </div>
-              {loading ? (
+
+              {!premiumStats ? (
                 <div className="flex items-center justify-center py-12 relative z-10">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 dark:border-red-400"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 dark:border-teal-400"></div>
                 </div>
               ) : (() => {
-                const errorRankingData = stats?.workerErrorRanking;
-                const rawErrorRanking = errorRankingData?.[errorRankingPeriod] || [];
-                const topErrors = rawErrorRanking.filter((w: any) => w.errorsCount > 0).slice(0, 7);
+                const processTimes = premiumStats?.processTimes || [];
+                const averageTaskTotalMinutes = premiumStats?.averageTaskTotalMinutes || 0;
 
-                if (!Array.isArray(topErrors) || topErrors.length === 0) {
+                if (!Array.isArray(processTimes) || processTimes.length === 0) {
                   return (
                     <div className="text-center py-12 text-gray-400 dark:text-gray-500 relative z-10">
-                      <Icon icon="lucide:check-circle" className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>Xatolar qayd etilmagan</p>
+                      <Icon icon="lucide:clock" className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>Vaqt ko'rsatkichlari yo'q</p>
                     </div>
                   );
                 }
 
+                // eng kop vaqt sarflanganiga qarab progressni hisoblash
+                const maxTime = Math.max(...processTimes.map((p: any) => p.averageMinutes), 1);
+
                 return (
-                  <div className="relative z-10 flex flex-col flex-1 h-full mt-2 overflow-hidden">
-                    <div className="space-y-2 w-full mt-1 overflow-y-auto pr-1 pb-2 custom-scrollbar">
-                      {topErrors.map((w: any, index: number) => {
-                        const completionData = stats?.workerCompletionRanking?.[errorRankingPeriod] || [];
-                        const match = completionData.find((c: any) => c.userId === w.userId);
-                        const total = match ? match.completedStages : 0;
-                        const errorRate = (total > 0 && w.errorsCount > 0) ? Math.max(1, Math.round(total / w.errorsCount)) : 0;
+                  <div className="relative z-10 flex flex-col flex-1 h-full overflow-hidden">
+                    {/* Umumiy O'rtacha Vaqt */}
+                    {averageTaskTotalMinutes > 0 && (
+                      <div className="mb-4 bg-teal-50 dark:bg-teal-900/20 rounded-xl p-4 border border-teal-100 dark:border-teal-800/50 text-center shrink-0">
+                        <p className="text-[11px] uppercase tracking-widest text-teal-600 dark:text-teal-400 font-bold mb-1">Umumiy bitta ish uchun qirqimda</p>
+                        <h3 className="text-2xl font-black text-gray-900 dark:text-white">
+                          {Math.floor(averageTaskTotalMinutes / 60)} soat {averageTaskTotalMinutes % 60} daqiqa
+                        </h3>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-3 w-full overflow-y-auto pr-1 pb-2 custom-scrollbar">
+                      {processTimes.map((p: any) => {
+                        const widthPercent = Math.min((p.averageMinutes / maxTime) * 100, 100);
+                        const hours = Math.floor(p.averageMinutes / 60);
+                        const mins = p.averageMinutes % 60;
+                        const timeString = hours > 0 ? `${hours}s ${mins}daq` : `${mins} daqiqa`;
                         
                         return (
-                          <div key={w.name} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-700/40 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors border border-gray-100 dark:border-gray-700/60">
-                            <div className="flex items-center gap-2.5">
-                              <span className={`flex items-center justify-center min-w-[24px] h-6 rounded-full text-[11px] font-bold ${index === 0 ? 'bg-red-500 text-white shadow-sm' :
-                                  index === 1 ? 'bg-red-400 text-white shadow-sm' :
-                                    index === 2 ? 'bg-red-300 text-white shadow-sm' :
-                                      'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                                }`}>
-                                {index + 1}
+                          <div key={p.name} className="flex flex-col gap-1.5 p-3 rounded-xl bg-gray-50/80 dark:bg-gray-700/40 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 transition-colors border border-gray-100 dark:border-gray-700/60">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-[13px] text-gray-800 dark:text-gray-200">
+                                {p.name}
                               </span>
-                              <div className="flex flex-col">
-                                <span className="font-semibold text-[13px] text-gray-800 dark:text-gray-200 leading-tight">{w.name}</span>
-                                {errorRate > 0 ? (
-                                  <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-none">
-                                    Har {errorRate} ta ishdan bittasida
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-none">
-                                    Jami ish: {total} ta
-                                  </span>
-                                )}
-                              </div>
+                              <span className="font-black text-teal-600 dark:text-teal-400 text-[12px] bg-teal-100 dark:bg-teal-900/30 px-2 py-0.5 rounded border border-teal-200 dark:border-teal-800/50">
+                                {timeString}
+                              </span>
                             </div>
-                            <span className="font-black text-red-500 bg-red-100 dark:bg-red-500/10 px-2 py-0.5 rounded border border-red-200 dark:border-red-500/20 text-[12px]">{w.errorsCount} ta</span>
+                            <div className="w-full bg-gray-200 dark:bg-gray-600/50 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-teal-400 to-emerald-500 h-full rounded-full transition-all duration-1000"
+                                style={{ width: `${widthPercent}%` }}
+                              />
+                            </div>
                           </div>
                         );
                       })}
@@ -1661,44 +1623,45 @@ const Dashboard = () => {
                 <div className="relative z-10 flex-1 w-full mt-2 flex flex-col">
                   <Chart
                     options={{
-                      chart: { type: 'bar', toolbar: { show: false } },
-                      plotOptions: {
-                        bar: {
-                          horizontal: true,
-                          borderRadius: 4,
-                          distributed: true,
-                          dataLabels: { position: 'right' }
-                        }
-                      },
-                      colors: ['#eab308', '#9ca3af', '#f97316', '#3b82f6', '#8b5cf6'],
+                      chart: { type: 'pie', toolbar: { show: false } },
+                      labels: clients.map((c: any) => c.name),
+                      colors: ['#eab308', '#f97316', '#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#06b6d4', '#9ca3af'],
                       dataLabels: {
                         enabled: true,
-                        formatter: (val) => `${val} ta`,
+                        formatter: (val: any, opts: any) => {
+                          const count = opts.w.config.series[opts.seriesIndex];
+                          return `${count} ta`;
+                        },
                         style: { fontSize: '11px', fontWeight: 800, colors: ['#fff'] },
-                        textAnchor: 'end',
+                        dropShadow: { enabled: true, top: 1, left: 1, blur: 2, color: '#000', opacity: 0.5 }
                       },
-                      xaxis: {
-                        categories: clients.map((c: any) => c.name),
-                        labels: { show: false },
-                        axisBorder: { show: false },
-                        axisTicks: { show: false }
+                      stroke: { width: 2, colors: [isDark ? '#1f2937' : '#ffffff'] },
+                      legend: {
+                        position: 'bottom',
+                        horizontalAlign: 'center',
+                        labels: { colors: isDark ? '#9ca3af' : '#4b5563' },
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        markers: { strokeWidth: 0 }
                       },
-                      yaxis: {
-                        labels: {
-                          maxWidth: 120,
-                          style: {
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            colors: Array(clients.length).fill(isDark ? '#9ca3af' : '#4b5563')
-                          }
+                      plotOptions: {
+                        pie: {
+                          expandOnClick: true,
                         }
                       },
-                      grid: { show: false },
-                      legend: { show: false },
-                      tooltip: { theme: 'dark' }
+                      tooltip: {
+                        theme: 'dark',
+                        y: {
+                          formatter: (val: any) => {
+                            const total = clients.reduce((sum: number, c: any) => sum + (c.count || 0), 0);
+                            const percent = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                            return `${val} ta vazifa (${percent}%)`;
+                          }
+                        }
+                      }
                     }}
-                    series={[{ name: 'Vazifalar', data: clients.map((c: any) => c.count) }]}
-                    type="bar"
+                    series={clients.map((c: any) => c.count)}
+                    type="pie"
                     height={350}
                   />
                 </div>
@@ -1714,7 +1677,7 @@ const Dashboard = () => {
                 <Icon icon="lucide:activity" className="w-6 h-6 text-fuchsia-600 dark:text-fuchsia-400" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Ish Turlari Va Rejimlar</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Kim qaysi ishni ko'proq bajaryapti</h2>
                 <p className="text-[11px] font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase mt-0.5">Xizmatlar kesimida</p>
               </div>
             </div>
@@ -1805,74 +1768,74 @@ const Dashboard = () => {
           </div>
         </div>
 
-      {/* Ranks Modal Overlay */}
-      {showRanksModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setShowRanksModal(false)}></div>
-          
-          <div className="relative z-10 w-full max-w-6xl h-[90vh] sm:h-[85vh] bg-slate-900 rounded-[28px] overflow-hidden shadow-2xl flex flex-col border border-white/10"
-               style={{
-                 backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.98)), url('https://storage.googleapis.com/pod_public/1300/3142.jpg')`,
-                 backgroundSize: 'cover',
-                 backgroundPosition: 'center',
-               }}>
-            
-            <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-slate-900/50 backdrop-blur-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/50 flex items-center justify-center text-orange-400">
-                  <Icon icon="lucide:swords" className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white uppercase tracking-wider">CS:GO Unvonlar Jadvali</h3>
-                  <p className="text-xs text-slate-400 font-medium">Barcha darajalar va ularga yetish narxi (XP - Shaxsan Bajarilgan Jarayonlar soni)</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setShowRanksModal(false)}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-               >
-                 <Icon icon="lucide:x" className="w-6 h-6" />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-              <div className="grid grid-cols-1 gap-12">
-                {RANK_GROUPS.map((group, groupIdx) => (
-                  <div key={groupIdx} className="relative">
-                    {groupIdx !== 0 && (
-                       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-y-6"></div>
-                    )}
-                    
-                    <div className="mb-6 flex flex-col items-center sm:items-start text-center sm:text-left">
-                       <h4 className={`text-2xl font-black uppercase tracking-widest \${group.color.split(' ')[0]} drop-shadow-md`}>{group.name}</h4>
-                       <p className="text-sm font-medium text-slate-400">{group.description}</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                      {group.ranks.map((rank) => (
-                        <div key={rank.id} className={`flex flex-col items-center justify-center p-4 rounded-2xl bg-black/40 border \${group.color.split(' ')[1]}/30 hover:bg-black/60 hover:-translate-y-2 transition-all duration-300 w-full group`}>
-                          <img src={rank.image} alt={rank.title} className="w-20 sm:w-24 h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] group-hover:drop-shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all mb-4" />
-                          <div className="flex flex-col items-center w-full mt-auto">
-                            <span className="text-[11px] font-bold text-white text-center leading-tight min-h-[30px] flex items-center">{rank.title}</span>
-                            <div className="w-full h-px bg-white/10 my-2"></div>
-                            <span className="text-[12px] font-black tracking-widest text-emerald-400">XP {rank.xp.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+        {/* Ranks Modal Overlay */}
+        {showRanksModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setShowRanksModal(false)}></div>
+
+            <div className="relative z-10 w-full max-w-6xl h-[90vh] sm:h-[85vh] bg-slate-900 rounded-[28px] overflow-hidden shadow-2xl flex flex-col border border-white/10"
+              style={{
+                backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.98)), url('https://storage.googleapis.com/pod_public/1300/3142.jpg')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}>
+
+              <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-slate-900/50 backdrop-blur-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/50 flex items-center justify-center text-orange-400">
+                    <Icon icon="lucide:swords" className="w-5 h-5" />
                   </div>
-                ))}
+                  <div>
+                    <h3 className="text-xl font-bold text-white uppercase tracking-wider">CS:GO Unvonlar Jadvali</h3>
+                    <p className="text-xs text-slate-400 font-medium">Barcha darajalar va ularga yetish narxi (XP - Shaxsan Bajarilgan Jarayonlar soni)</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowRanksModal(false)}
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <Icon icon="lucide:x" className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                <div className="grid grid-cols-1 gap-12">
+                  {RANK_GROUPS.map((group, groupIdx) => (
+                    <div key={groupIdx} className="relative">
+                      {groupIdx !== 0 && (
+                        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-y-6"></div>
+                      )}
+
+                      <div className="mb-6 flex flex-col items-center sm:items-start text-center sm:text-left">
+                        <h4 className={`text-2xl font-black uppercase tracking-widest \${group.color.split(' ')[0]} drop-shadow-md`}>{group.name}</h4>
+                        <p className="text-sm font-medium text-slate-400">{group.description}</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        {group.ranks.map((rank) => (
+                          <div key={rank.id} className={`flex flex-col items-center justify-center p-4 rounded-2xl bg-black/40 border \${group.color.split(' ')[1]}/30 hover:bg-black/60 hover:-translate-y-2 transition-all duration-300 w-full group`}>
+                            <img src={rank.image} alt={rank.title} className="w-20 sm:w-24 h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] group-hover:drop-shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all mb-4" />
+                            <div className="flex flex-col items-center w-full mt-auto">
+                              <span className="text-[11px] font-bold text-white text-center leading-tight min-h-[30px] flex items-center">{rank.title}</span>
+                              <div className="w-full h-px bg-white/10 my-2"></div>
+                              <span className="text-[12px] font-black tracking-widest text-emerald-400">XP {rank.xp.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-      <UnratedErrorsModal 
-         show={showUnratedModal} 
-         onClose={() => setShowUnratedModal(false)}
-         errors={unratedErrors}
-         onRateSuccess={() => { loadUnratedErrors(); setShowUnratedModal(false); }}
-      />
+        )}
+        <UnratedErrorsModal
+          show={showUnratedModal}
+          onClose={() => setShowUnratedModal(false)}
+          errors={unratedErrors}
+          onRateSuccess={() => { loadUnratedErrors(); setShowUnratedModal(false); }}
+        />
       </div>
     </div>
   );

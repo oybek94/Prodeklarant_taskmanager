@@ -297,6 +297,8 @@ router.get('/me', requireAuth(), async (req: AuthRequest, res) => {
     return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
+// Triggering reload
+console.log('Reloading auth router...');
 
 router.get('/me/achievements', requireAuth(), async (req: AuthRequest, res) => {
   try {
@@ -306,7 +308,7 @@ router.get('/me/achievements', requireAuth(), async (req: AuthRequest, res) => {
 
     const achievements = await (prisma as any).userAchievement.findMany({
       where: { userId: req.user.id },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { awardedAt: 'desc' }
     });
 
     res.json(achievements);

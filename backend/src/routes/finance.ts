@@ -925,5 +925,126 @@ router.post('/convert-currency', requireAuth('ADMIN'), async (req: AuthRequest, 
   }
 });
 
+// Asosiy CEO Dashboard (5 raqam)
+router.get('/ceo-stats', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
+  try {
+    const usdToUzsRate = Number(await getLatestExchangeRate('USD', 'UZS'));
+
+    // 1. Jami tushum (Barcha bajarilgan ishlarning shartnoma summasi bo'yicha)
+    const completedTasks = await prisma.task.findMany({
+      where: {
+        status: { notIn: ['BOSHLANMAGAN', 'JARAYONDA'] }
+      },
+      include: {
+        client: { select: { dealAmount: true, dealAmountCurrency: true, dealAmount_currency: true } }
+      }
+    });
+
+    let totalRevenueUzs = 0;
+    for (const task of completedTasks) {
+        const defaultDeal = Number(task.client.dealAmount || 0);
+        const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : defaultDeal;
+        const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+        
+        const totalTaskAmount = baseAmount + psrAmount;
+        const currency = task.snapshotDealAmount_currency || task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
+
+        if (currency === 'USD') {
+            totalRevenueUzs += totalTaskAmount * usdToUzsRate;
+        } else {
+            totalRevenueUzs += totalTaskAmount;
+        }
+    }
+
+    // 2. Jami xarajat (EXPENSE + SALARY)
+    const expenseTransactions = await prisma.transaction.findMany({
+      where: {
+        type: { in: ['EXPENSE', 'SALARY'] }
+      }
+    });
+    const totalExpensesUzs = expenseTransactions.reduce((sum, t) => sum + Number(t.amount_uzs || t.convertedUzsAmount || t.amount || 0), 0);
+
+    // 3. Cash (Hisobdagi pul)
+    const balances = await prisma.accountBalance.findMany();
+    let totalCashUzs = 0;
+    
+    for (const b of balances) {
+      if (b.currency === 'USD') {
+        totalCashUzs += Number(b.balance) * usdToUzsRate;
+      } else {
+        totalCashUzs += Number(b.balance);
+      }
+    }
+
+    // 4. Debitor qarzdorlik
+    const allClients = await prisma.client.findMany({
+      select: {
+          id: true, dealAmount: true, dealAmountCurrency: true, dealAmount_currency: true,
+          initialDebt: true, initialDebtCurrency: true, initialDebtInUzs: true,
+          tasks: { select: { snapshotDealAmount: true, hasPsr: true, snapshotPsrPrice: true } },
+          transactions: { where: { type: 'INCOME' }, select: { amount: true, currency: true } }
+      }
+    });
+
+    let totalDebtorsUzs = 0;
+    for (const client of allClients) {
+        const dealCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
+        const dealAmount = Number(client.dealAmount || 0);
+
+        const totalDealAmount = client.tasks.reduce((sum: number, task: any) => {
+          const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
+          const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+          return sum + baseAmount + psrAmount;
+        }, 0);
+
+        const totalPaid = client.transactions
+          .filter((t: any) => t.currency === dealCurrency)
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+
+        let initialDebt = 0;
+        if ((client as any).initialDebt) {
+          const clientInitialDebtCurrency = (client as any).initialDebtCurrency || 'USD';
+          if (clientInitialDebtCurrency === dealCurrency) {
+            initialDebt = Number((client as any).initialDebt);
+          } else {
+            initialDebt = (client as any).initialDebtInUzs && dealCurrency === 'UZS'
+              ? Number((client as any).initialDebtInUzs)
+              : Number((client as any).initialDebt);
+          }
+        }
+
+        const currentDebt = totalDealAmount - totalPaid + initialDebt;
+
+        if (currentDebt > 0) {
+            if (dealCurrency === 'USD') {
+                totalDebtorsUzs += currentDebt * usdToUzsRate;
+            } else {
+                totalDebtorsUzs += currentDebt;
+            }
+        }
+    }
+
+    // Debt jadvalidagilar (boshqa turdagi qarzlar)
+    const otherDebts = await prisma.debt.findMany();
+    for (const d of otherDebts) {
+        if (d.currency === 'USD') {
+            totalDebtorsUzs += Number(d.amount) * usdToUzsRate;
+        } else {
+            totalDebtorsUzs += Number(d.amount);
+        }
+    }
+
+    res.json({
+        revenue: totalRevenueUzs,
+        expenses: totalExpensesUzs,
+        cash: totalCashUzs,
+        debtors: totalDebtorsUzs,
+    });
+  } catch (error: any) {
+    console.error('Error fetching CEO stats:', error);
+    res.status(500).json({ error: 'CEO Statistika xatosi', details: error.message });
+  }
+});
+
 export default router;
 

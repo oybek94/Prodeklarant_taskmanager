@@ -42,6 +42,7 @@ async function main() {
     'Pochta',
     'Sho‘pirga xat yuborish',
   ];
+  /*
   await Promise.all(
     stageNames.map((name) =>
       prisma.kpiConfig.upsert({
@@ -51,6 +52,7 @@ async function main() {
       })
     )
   );
+  */
 
   // Seed LMS levels
   const levelNames = ['Level 1', 'Level 2', 'Level 3'];

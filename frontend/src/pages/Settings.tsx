@@ -200,13 +200,14 @@ const Settings = () => {
   const [showStatePaymentForm, setShowStatePaymentForm] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [statePaymentForm, setStatePaymentForm] = useState({
-    branchId: '',
-    certificatePaymentUsd: '',
+    st1Payment: '',
+    fitoPayment: '',
+    fumigationPayment: '',
+    internalCertPayment: '',
     certificatePaymentUzs: '',
-    psrPriceUsd: '',
     psrPriceUzs: '',
-    workerPriceUsd: '',
     workerPriceUzs: '',
+    customsPaymentUzs: '',
   });
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [loadingCompanySettings, setLoadingCompanySettings] = useState(true);
@@ -652,23 +653,23 @@ const Settings = () => {
     e.preventDefault();
     try {
       await apiClient.post('/state-payments', {
-        branchId: Number(statePaymentForm.branchId),
-        certificatePaymentUsd: Number(statePaymentForm.certificatePaymentUsd),
-        certificatePaymentUzs: Number(statePaymentForm.certificatePaymentUzs),
-        psrPriceUsd: Number(statePaymentForm.psrPriceUsd),
-        psrPriceUzs: Number(statePaymentForm.psrPriceUzs),
-        workerPriceUsd: Number(statePaymentForm.workerPriceUsd),
-        workerPriceUzs: Number(statePaymentForm.workerPriceUzs),
+        st1Payment: Number(statePaymentForm.st1Payment || 0),
+        fitoPayment: Number(statePaymentForm.fitoPayment || 0),
+        fumigationPayment: Number(statePaymentForm.fumigationPayment || 0),
+        internalCertPayment: Number(statePaymentForm.internalCertPayment || 0),
+        certificatePaymentUzs: Number(statePaymentForm.certificatePaymentUzs || 0),
+        psrPriceUzs: Number(statePaymentForm.psrPriceUzs || 0),
+        workerPriceUzs: Number(statePaymentForm.workerPriceUzs || 0),
+        customsPaymentUzs: Number(statePaymentForm.customsPaymentUzs || 0),
+        certificatePaymentUsd: 0,
+        psrPriceUsd: 0,
+        workerPriceUsd: 0,
+        customsPaymentUsd: 0,
       });
       setShowStatePaymentForm(false);
       setStatePaymentForm({
-        branchId: '',
-        certificatePaymentUsd: '',
-        certificatePaymentUzs: '',
-        psrPriceUsd: '',
-        psrPriceUzs: '',
-        workerPriceUsd: '',
-        workerPriceUzs: '',
+        st1Payment: '', fitoPayment: '', fumigationPayment: '', internalCertPayment: '',
+        certificatePaymentUzs: '', psrPriceUzs: '', workerPriceUzs: '', customsPaymentUzs: '',
       });
       await loadStatePayments();
     } catch (error: any) {
@@ -1282,30 +1283,23 @@ const Settings = () => {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Filial</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Sertifikat to'lovi</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">PSR narxi</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishchi narxi</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">№</th>
+                          <th className="text-right py-3 px-4 font-semibold text-gray-700">ST-1</th>
+                          <th className="text-right py-3 px-4 font-semibold text-gray-700">FITO</th>
+                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Fumigatsiya</th>
+                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Ichki sertifikat</th>
                           <th className="text-left py-3 px-4 font-semibold text-gray-700">Yaratilgan</th>
                           <th className="text-center py-3 px-4 font-semibold text-gray-700">Amallar</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {statePayments.map((payment) => (
+                        {statePayments.map((payment, index) => (
                           <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-3 px-4 text-gray-800 font-medium">{payment.branch.name}</td>
-                            <td className="py-3 px-4 text-right">
-                              <div className="text-sm text-gray-700">{formatCurrency(Number(payment.certificatePaymentUsd ?? payment.certificatePayment), 'USD')}</div>
-                              <div className="text-xs text-gray-500">{formatCurrency(Number(payment.certificatePaymentUzs ?? payment.certificatePayment), 'UZS')}</div>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <div className="text-sm text-gray-700">{formatCurrency(Number(payment.psrPriceUsd ?? payment.psrPrice), 'USD')}</div>
-                              <div className="text-xs text-gray-500">{formatCurrency(Number(payment.psrPriceUzs ?? payment.psrPrice), 'UZS')}</div>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <div className="text-sm text-gray-700">{formatCurrency(Number(payment.workerPriceUsd ?? payment.workerPrice), 'USD')}</div>
-                              <div className="text-xs text-gray-500">{formatCurrency(Number(payment.workerPriceUzs ?? payment.workerPrice), 'UZS')}</div>
-                            </td>
+                            <td className="py-3 px-4 text-gray-800 font-medium">{statePayments.length - index}</td>
+                            <td className="py-3 px-4 text-right font-medium text-gray-800">{formatCurrency(Number(payment.st1Payment), 'UZS')}</td>
+                            <td className="py-3 px-4 text-right font-medium text-gray-800">{formatCurrency(Number(payment.fitoPayment), 'UZS')}</td>
+                            <td className="py-3 px-4 text-right font-medium text-gray-800">{formatCurrency(Number(payment.fumigationPayment), 'UZS')}</td>
+                            <td className="py-3 px-4 text-right font-medium text-gray-800">{formatCurrency(Number(payment.internalCertPayment), 'UZS')}</td>
                             <td className="py-3 px-4 text-sm text-gray-500">{formatDate(payment.createdAt)}</td>
                             <td className="py-3 px-4 text-center">
                               <button
@@ -2116,96 +2110,33 @@ const Settings = () => {
                 <form onSubmit={handleStatePaymentSubmit}>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Filial <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={statePaymentForm.branchId}
-                        onChange={(e) => setStatePaymentForm({ ...statePaymentForm, branchId: e.target.value })}
-                        required
-                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                      >
-                        <option value="">Tanlang...</option>
-                        {branches.map((branch) => (
-                          <option key={branch.id} value={branch.id}>
-                            {branch.name}
-                          </option>
-                        ))}
-                      </select>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ST-1 to'lovi <span className="text-red-500">*</span></label>
+                      <input type="number" step="1" value={statePaymentForm.st1Payment} onChange={(e) => setStatePaymentForm({ ...statePaymentForm, st1Payment: e.target.value })} required className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 outline-none" placeholder="UZS" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Sertifikat to'lovi <span className="text-red-500">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={statePaymentForm.certificatePaymentUsd}
-                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, certificatePaymentUsd: e.target.value })}
-                          required
-                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                          placeholder="USD"
-                        />
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={statePaymentForm.certificatePaymentUzs}
-                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, certificatePaymentUzs: e.target.value })}
-                          required
-                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                          placeholder="UZS"
-                        />
-                      </div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">FITO to'lovi <span className="text-red-500">*</span></label>
+                      <input type="number" step="1" value={statePaymentForm.fitoPayment} onChange={(e) => setStatePaymentForm({ ...statePaymentForm, fitoPayment: e.target.value })} required className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 outline-none" placeholder="UZS" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        PSR narxi <span className="text-red-500">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={statePaymentForm.psrPriceUsd}
-                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, psrPriceUsd: e.target.value })}
-                          required
-                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                          placeholder="USD"
-                        />
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={statePaymentForm.psrPriceUzs}
-                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, psrPriceUzs: e.target.value })}
-                          required
-                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                          placeholder="UZS"
-                        />
-                      </div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Fumigatsiya to'lovi <span className="text-red-500">*</span></label>
+                      <input type="number" step="1" value={statePaymentForm.fumigationPayment} onChange={(e) => setStatePaymentForm({ ...statePaymentForm, fumigationPayment: e.target.value })} required className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 outline-none" placeholder="UZS" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Ishchi narxi <span className="text-red-500">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={statePaymentForm.workerPriceUsd}
-                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, workerPriceUsd: e.target.value })}
-                          required
-                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                          placeholder="USD"
-                        />
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={statePaymentForm.workerPriceUzs}
-                          onChange={(e) => setStatePaymentForm({ ...statePaymentForm, workerPriceUzs: e.target.value })}
-                          required
-                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
-                          placeholder="UZS"
-                        />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Ichki sertifikat <span className="text-red-500">*</span></label>
+                      <input type="number" step="1" value={statePaymentForm.internalCertPayment} onChange={(e) => setStatePaymentForm({ ...statePaymentForm, internalCertPayment: e.target.value })} required className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 outline-none" placeholder="UZS" />
+                    </div>
+                    
+                    <div className="pt-4 border-t border-gray-200">
+                      <p className="text-xs text-gray-500 mb-3 uppercase tracking-wider font-semibold">Tarixiy maydonlar (Zayavkalar hisobi uchun)</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">PSR narxi</label>
+                          <input type="number" step="1" value={statePaymentForm.psrPriceUzs} onChange={(e) => setStatePaymentForm({ ...statePaymentForm, psrPriceUzs: e.target.value })} className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 outline-none text-sm" placeholder="UZS" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Ishchi narxi</label>
+                          <input type="number" step="1" value={statePaymentForm.workerPriceUzs} onChange={(e) => setStatePaymentForm({ ...statePaymentForm, workerPriceUzs: e.target.value })} className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 outline-none text-sm" placeholder="UZS" />
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -63,6 +63,123 @@ router.get('/errors/unrated', requireAuth('ADMIN'), async (req: AuthRequest, res
   }
 });
 
+// ==========================================
+// GET /archive-report — Arxiv tasklarining invoice ma'lumotlari asosida hisobot
+// Filtrlangan YAKUNLANDI statusli tasklarning invoice, contract, items ma'lumotlarini qaytaradi
+// ==========================================
+router.get('/archive-report', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const { branchId, clientId, startDate, endDate, hasPsr, search } = req.query;
+    const where: any = { status: 'YAKUNLANDI' as any };
+
+    // Role-based filtering (GET / bilan bir xil)
+    const user = req.user;
+    if (user) {
+      if (user.role === 'DEKLARANT' && user.branchId) {
+        where.branchId = user.branchId;
+      } else if ((user.role === 'MANAGER' || user.role === 'ADMIN') && branchId) {
+        where.branchId = Number(branchId);
+      } else if (user.branchId && user.role !== 'MANAGER' && user.role !== 'ADMIN') {
+        where.branchId = user.branchId;
+      }
+    }
+
+    if (clientId) where.clientId = Number(clientId);
+    if (hasPsr === 'true') where.hasPsr = true;
+    if (hasPsr === 'false') where.hasPsr = false;
+
+    // Sana filtri
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        const sd = new Date(startDate as string);
+        sd.setHours(0, 0, 0, 0);
+        where.createdAt.gte = sd;
+      }
+      if (endDate) {
+        const ed = new Date(endDate as string);
+        ed.setHours(23, 59, 59, 999);
+        where.createdAt.lte = ed;
+      }
+    }
+
+    // Qidiruv filtri — task nomi yoki client nomi bo'yicha
+    if (search && typeof search === 'string' && search.trim()) {
+      const q = search.trim();
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { client: { name: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+
+    const tasks = await prisma.task.findMany({
+      where,
+      select: {
+        id: true,
+        title: true,
+        createdAt: true,
+        client: { select: { name: true } },
+        invoice: {
+          select: {
+            date: true,
+            invoiceNumber: true,
+            totalAmount: true,
+            currency: true,
+            additionalInfo: true,
+            contract: {
+              select: {
+                sellerName: true,
+                buyerName: true,
+                contractNumber: true,
+                deliveryTerms: true,
+                customsAddress: true,
+              },
+            },
+            items: {
+              select: { name: true },
+              orderBy: { orderIndex: 'asc' as const },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Invoice mavjud bo'lgan tasklarni formatlash, yo'qlarni bo'sh ko'rsatish
+    const reportData = tasks
+      .map((t) => {
+        const inv = t.invoice;
+        const addInfo = inv?.additionalInfo && typeof inv.additionalInfo === 'object'
+          ? inv.additionalInfo as Record<string, unknown>
+          : {};
+
+        return {
+          taskName: t.title,
+          clientName: (t as any).client?.name || '',
+          sellerName: inv?.contract?.sellerName || '',
+          buyerName: inv?.contract?.buyerName || '',
+          contractNumber: inv?.contract?.contractNumber || '',
+          invoiceDate: inv?.date ? inv.date.toISOString() : '',
+          invoiceNumber: inv?.invoiceNumber || '',
+          deliveryTerms: (addInfo.deliveryTerms as string) || inv?.contract?.deliveryTerms || '',
+          vehicleNumber: (addInfo.vehicleNumber as string) || '',
+          customsAddress: (addInfo.customsAddress as string) || inv?.contract?.customsAddress || '',
+          productNames: inv?.items?.map((i) => i.name).join(', ') || '',
+          totalAmount: inv?.totalAmount ? Number(inv.totalAmount) : 0,
+          currency: inv?.currency || 'USD',
+        };
+      });
+
+    res.json(reportData);
+  } catch (error: any) {
+    console.error('Error generating archive report:', error);
+    res.status(500).json({
+      error: 'Hisobot yaratishda xatolik yuz berdi',
+      details: error.message,
+    });
+  }
+});
+
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const { branchId, status, clientId, page, limit } = req.query;
@@ -297,7 +414,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     const taskCreatedAt = new Date();
     const statePayment = await tx.statePayment.findFirst({
       where: {
-        branchId: parsed.data.branchId,
+        
         createdAt: { lte: taskCreatedAt }, // Task yaratilgunga qadar yaratilgan davlat to'lovlari
       },
       orderBy: {
@@ -471,7 +588,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     // Prisma data object - faqat mavjud field'larni qo'shamiz
     const taskData: Partial<Prisma.TaskUncheckedCreateInput> = {
       clientId: parsed.data.clientId,
-      branchId: parsed.data.branchId,
+      
       title: parsed.data.title,
       hasPsr: parsed.data.hasPsr,
       afterHoursDeclaration: parsed.data.afterHoursDeclaration,
@@ -672,6 +789,11 @@ router.get('/:id/stages', requireAuth(), async (req: AuthRequest, res) => {
 
 router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
+  
+  if (isNaN(id)) {
+    return res.status(400).json({ error: 'Invalid task ID' });
+  }
+
   const isLight = req.query.light === 'true';
 
   // Yengil rejim: Invoice sahifasi uchun faqat kerakli ma'lumotlar (tez yuklash)
@@ -888,7 +1010,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       const taskCreatedAt = new Date(task.createdAt);
       const statePayment = await prisma.statePayment.findFirst({
         where: {
-          branchId: task.branchId,
+          
           createdAt: { lte: taskCreatedAt }, // Task yaratilgunga qadar yaratilgan davlat to'lovlari
         },
         orderBy: {
@@ -1033,7 +1155,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       const taskCreatedAt = new Date(task.createdAt);
       const statePayment = await prisma.statePayment.findFirst({
         where: {
-          branchId: task.branchId,
+          
           createdAt: { lte: taskCreatedAt },
         },
         orderBy: {
@@ -1834,7 +1956,7 @@ async function createTaskVersion(tx: any, taskId: number, changedBy: number, cha
       hasPsr: task.hasPsr,
       driverPhone: task.driverPhone || null,
       clientId: task.clientId,
-      branchId: task.branchId,
+      
       changedBy,
       changes: {
         ...changes,
@@ -1910,7 +2032,7 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
     const updateData: any = {
       ...(parsed.data.title && { title: parsed.data.title }),
       ...(parsed.data.clientId && { clientId: parsed.data.clientId }),
-      ...(parsed.data.branchId && { branchId: parsed.data.branchId }),
+      ...(parsed.data.branchId && {  }),
       ...(parsed.data.comments !== undefined && { comments: parsed.data.comments || null }),
       ...(parsed.data.hasPsr !== undefined && { hasPsr: parsed.data.hasPsr }),
       ...(parsed.data.afterHoursDeclaration !== undefined && { afterHoursDeclaration: parsed.data.afterHoursDeclaration }),
@@ -1922,7 +2044,7 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
     if (parsed.data.branchId && parsed.data.branchId !== task.branchId) {
       const statePayment = await (tx as any).statePayment.findFirst({
         where: {
-          branchId: parsed.data.branchId,
+          
           createdAt: { lte: task.createdAt },
         },
         orderBy: { createdAt: 'desc' },
@@ -2007,7 +2129,7 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
     if (parsed.data.branchId != null && parsed.data.branchId !== task.branchId) {
       await (tx as any).invoice.updateMany({
         where: { taskId: id },
-        data: { branchId: parsed.data.branchId },
+        data: {  },
       });
     }
 

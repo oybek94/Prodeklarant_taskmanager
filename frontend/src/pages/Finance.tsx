@@ -1,1129 +1,163 @@
-import { useState, useEffect } from 'react';
-import apiClient from '../lib/api';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
-import DateInput from '../components/DateInput';
-
-interface AccountBalance {
-  id: number;
-  type: 'CASH' | 'CARD';
-  balance: number;
-  currency: string;
-  updatedAt: string;
-}
-
-interface Debt {
-  id: number;
-  debtPersonId: number;
-  amount: number;
-  currency: string;
-  comment?: string;
-  date: string;
-  debtorName?: string;
-  debtorInfo?: any;
-}
-
-interface Debtor {
-  clientId: number;
-  clientName: string;
-  phone: string | null;
-  creditType: string | null;
-  creditLimit: number | null;
-  creditStartDate: string | null;
-  currentDebt: number;
-  initialDebt?: number | null;
-  initialDebtCurrency?: 'USD' | 'UZS' | null;
-  initialDebtInUzs?: number | null;
-  currency: 'USD' | 'UZS';
-}
-
-interface CurrencyStatistics {
-  balances: {
-    total: number;
-    cash: number;
-    card: number;
-  };
-  debts: {
-    total: number;
-    fromDebtTable: number;
-    fromClients: number;
-    byPerson: {
-      [key: string]: number;
-    };
-  };
-  netBalance: number;
-}
-
-interface Statistics {
-  USD?: CurrencyStatistics;
-  UZS?: CurrencyStatistics;
-}
+import apiClient from '../lib/api';
 
 const Finance = () => {
-  const { user } = useAuth();
-  const [balances, setBalances] = useState<AccountBalance[]>([]);
-  const [debts, setDebts] = useState<Debt[]>([]);
-  const [debtors, setDebtors] = useState<Debtor[]>([]);
-  const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const [data, setData] = useState({
+    revenue: 0,
+    expenses: 0,
+    cash: 0,
+    debtors: 0,
+  });
   const [loading, setLoading] = useState(true);
-  const [showBalanceModal, setShowBalanceModal] = useState(false);
-  const [showDebtModal, setShowDebtModal] = useState(false);
-  const [showConvertModal, setShowConvertModal] = useState(false);
-  const [selectedBalance, setSelectedBalance] = useState<AccountBalance | null>(null);
-  const [balanceForm, setBalanceForm] = useState({ balance: '', type: '' as '' | 'CASH' | 'CARD', currency: 'USD' as 'USD' | 'UZS' });
-  const [convertForm, setConvertForm] = useState({
-    fromType: 'CASH' as 'CASH' | 'CARD',
-    fromCurrency: 'USD' as 'USD' | 'UZS',
-    toType: 'CASH' as 'CASH' | 'CARD',
-    toCurrency: 'UZS' as 'USD' | 'UZS',
-    amount: '',
-    rate: '',
-    comment: '',
-    date: new Date().toISOString().split('T')[0],
-  });
-  const [debtForm, setDebtForm] = useState({
-    name: '',
-    amount: '',
-    currency: 'USD',
-    comment: '',
-    date: new Date().toISOString().split('T')[0],
-  });
-  const [persons, setPersons] = useState<{ id: number; name: string }[]>([]);
 
+  // API dan ma'lumotlarni yuklash
   useEffect(() => {
-    loadData();
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.get('/finance/ceo-stats');
+        setData(res.data);
+      } catch (error) {
+        console.error("CEO statistikani yuklashda xatolik:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
   }, []);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      await Promise.all([
-        loadBalances(),
-        loadDebts(),
-        loadDebtors(),
-        loadStatistics(),
-        loadPersons(),
-      ]);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Sof foyda formulasi
+  const netProfit = data.revenue - data.expenses;
 
-  const loadDebtors = async () => {
-    try {
-      const response = await apiClient.get('/finance/debtors');
-      setDebtors(response.data);
-    } catch (error) {
-      console.error('Error loading debtors:', error);
-    }
-  };
-
-  const loadBalances = async () => {
-    try {
-      const response = await apiClient.get('/finance/balance');
-      // Backend returns { byCurrency: {...}, all: [...] }
-      const balancesData = response.data.all || response.data;
-      setBalances(Array.isArray(balancesData) ? balancesData : []);
-    } catch (error) {
-      console.error('Error loading balances:', error);
-    }
-  };
-
-  const loadDebts = async () => {
-    try {
-      const response = await apiClient.get('/finance/debts');
-      setDebts(response.data);
-    } catch (error) {
-      console.error('Error loading debts:', error);
-    }
-  };
-
-  const loadStatistics = async () => {
-    try {
-      const response = await apiClient.get('/finance/statistics');
-      setStatistics(response.data);
-    } catch (error) {
-      console.error('Error loading statistics:', error);
-    }
-  };
-
-  const loadPersons = async () => {
-    try {
-      const response = await apiClient.get('/debts/persons');
-      setPersons(response.data);
-    } catch (error) {
-      console.error('Error loading persons:', error);
-    }
-  };
-
+  // Valyutani formatlash funksiyasi
   const formatCurrency = (amount: number) => {
+    if (loading) return 'Yuklanmoqda...';
     return new Intl.NumberFormat('uz-UZ', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+        style: 'currency',
+        currency: 'UZS',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
     }).format(amount).replace(/,/g, ' ');
   };
 
-  const handleUpdateBalance = async () => {
-    if (!selectedBalance) {
-      // Yangi balans qo'shish
-      if (!balanceForm.type) {
-        alert('Turi tanlang');
-        return;
-      }
-      // CARD faqat UZS bo'lishi kerak
-      if (balanceForm.type === 'CARD' && balanceForm.currency === 'USD') {
-        alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
-        return;
-      }
-      try {
-        await apiClient.post('/finance/balance', {
-          type: balanceForm.type,
-          balance: parseFloat(balanceForm.balance),
-          currency: balanceForm.currency,
-        });
-        setShowBalanceModal(false);
-        setSelectedBalance(null);
-        setBalanceForm({ balance: '', type: '', currency: 'USD' });
-        loadBalances();
-        loadStatistics();
-      } catch (error: any) {
-        alert('Xatolik: ' + (error.response?.data?.error || error.message));
-      }
-      return;
-    }
-    // Mavjud balansni yangilash
-    try {
-      await apiClient.post('/finance/balance', {
-        type: selectedBalance.type,
-        balance: parseFloat(balanceForm.balance),
-        currency: selectedBalance.currency,
-      });
-      setShowBalanceModal(false);
-      setSelectedBalance(null);
-      setBalanceForm({ balance: '', type: '', currency: 'USD' });
-      loadBalances();
-      loadStatistics();
-    } catch (error: any) {
-      alert('Xatolik: ' + (error.response?.data?.error || error.message));
-    }
-  };
-
-  const handleAddDebt = async () => {
-    if (!debtForm.name.trim()) {
-      alert('Ismni kiriting');
-      return;
-    }
-    try {
-      await apiClient.post('/finance/debt', {
-        ...debtForm,
-        name: debtForm.name.trim(),
-        amount: parseFloat(debtForm.amount),
-      });
-      setShowDebtModal(false);
-      setDebtForm({
-        name: '',
-        amount: '',
-        currency: 'USD',
-        comment: '',
-        date: new Date().toISOString().split('T')[0],
-      });
-      loadDebts();
-      loadStatistics();
-      loadPersons();
-    } catch (error: any) {
-      alert('Xatolik: ' + (error.response?.data?.error || error.message));
-    }
-  };
-
-  const handleConvertCurrency = async () => {
-    if (!convertForm.amount || !convertForm.rate) {
-      alert('Summa va kursni kiriting');
-      return;
-    }
-
-    // Validatsiya: CARD faqat UZS bo'lishi mumkin
-    if (convertForm.fromType === 'CARD' && convertForm.fromCurrency === 'USD') {
-      alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
-      return;
-    }
-    if (convertForm.toType === 'CARD' && convertForm.toCurrency === 'USD') {
-      alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
-      return;
-    }
-
-    try {
-      await apiClient.post('/finance/convert-currency', {
-        fromType: convertForm.fromType,
-        fromCurrency: convertForm.fromCurrency,
-        toType: convertForm.toType,
-        toCurrency: convertForm.toCurrency,
-        amount: parseFloat(convertForm.amount),
-        rate: parseFloat(convertForm.rate),
-        comment: convertForm.comment,
-        date: convertForm.date ? new Date(convertForm.date) : undefined,
-      });
-      setShowConvertModal(false);
-      setConvertForm({
-        fromType: 'CASH',
-        fromCurrency: 'USD',
-        toType: 'CASH',
-        toCurrency: 'UZS',
-        amount: '',
-        rate: '',
-        comment: '',
-        date: new Date().toISOString().split('T')[0],
-      });
-      loadBalances();
-      loadStatistics();
-      alert('Valyuta muvaffaqiyatli konvertatsiya qilindi');
-    } catch (error: any) {
-      alert('Xatolik: ' + (error.response?.data?.error || error.response?.data?.details || error.message));
-    }
-  };
-
-  const handleDeleteDebt = async (id: number) => {
-    if (!confirm('Qarzni o\'chirishni tasdiqlaysizmi?')) return;
-    try {
-      await apiClient.delete(`/finance/debt/${id}`);
-      loadDebts();
-      loadDebtors();
-      loadStatistics();
-    } catch (error: any) {
-      alert('Xatolik: ' + (error.response?.data?.error || error.message));
-    }
-  };
-
-  const getDebtorTypeLabel = (type: string) => {
-    return type || 'Qarz';
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Yuklanmoqda...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Pul nazorati</h1>
-          <p className="text-gray-600 mt-2">Barcha pullarni nazorat qilish va boshqarish</p>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6 lg:p-8 animate-fade-in">
+      <div className="max-w-[1600px] mx-auto space-y-8">
+        
+        {/* Header qismi */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3 tracking-tight">
+            <Icon icon="lucide:pie-chart" className="w-8 h-8 text-blue-600 dark:text-blue-500" />
+            Moliya Dashboard
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-2 font-medium">Asosiy ko'rsatkichlar va moliyaviy oqimlar nazorati.</p>
         </div>
 
-        {/* Statistika kartalari - har bir valyuta uchun */}
-        {statistics && (
-          <>
-            {/* USD Statistika */}
-            {statistics.USD && (
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">USD Statistika</h2>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-gray-600">Jami balans (USD)</p>
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="lucide:dollar-sign" className="w-6 h-6 text-green-600" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.USD.balances.total)}</p>
-                  </div>
+        {/* 1. Asosiy blok (CEO ko'rishi kerak bo'lgan 5 raqam) */}
+        <div>
+           <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+             <Icon icon="lucide:layout-template" className="w-5 h-5 text-gray-400" />
+             Asosiy Blok
+           </h2>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+             
+             {/* 1. Jami tushum (Revenue) */}
+             <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md hover:border-green-200 dark:hover:border-green-900/50 transition-all duration-300 group">
+               <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/10 dark:to-green-900/30 rounded-full group-hover:scale-150 transition-transform duration-500 ease-out" />
+               <div className="relative z-10">
+                 <div className="flex items-center justify-between mb-4">
+                   <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Jami tushum</p>
+                   <div className="w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center ring-4 ring-green-50 dark:ring-green-900/10">
+                     <Icon icon="lucide:trending-up" className="w-5 h-5 text-green-600 dark:text-green-400" />
+                   </div>
+                 </div>
+                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                   {formatCurrency(data.revenue)}
+                 </h3>
+                 <p className="text-[11px] text-green-600 dark:text-green-400 mt-3 font-semibold bg-green-50 dark:bg-green-900/30 w-fit px-2.5 py-1 rounded-md uppercase tracking-wider">Revenue</p>
+               </div>
+             </div>
 
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-gray-600">Naqt pul (USD)</p>
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="lucide:wallet" className="w-6 h-6 text-blue-600" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.USD.balances.cash)}</p>
-                  </div>
+             {/* 2. Jami xarajat (Expenses) */}
+             <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md hover:border-red-200 dark:hover:border-red-900/50 transition-all duration-300 group">
+               <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/10 dark:to-red-900/30 rounded-full group-hover:scale-150 transition-transform duration-500 ease-out" />
+               <div className="relative z-10">
+                 <div className="flex items-center justify-between mb-4">
+                   <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Jami xarajat</p>
+                   <div className="w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-xl flex items-center justify-center ring-4 ring-red-50 dark:ring-red-900/10">
+                     <Icon icon="lucide:trending-down" className="w-5 h-5 text-red-600 dark:text-red-400" />
+                   </div>
+                 </div>
+                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                   {formatCurrency(data.expenses)}
+                 </h3>
+                 <p className="text-[11px] text-red-600 dark:text-red-400 mt-3 font-semibold bg-red-50 dark:bg-red-900/30 w-fit px-2.5 py-1 rounded-md uppercase tracking-wider">Expenses</p>
+               </div>
+             </div>
 
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-gray-600">Karta (USD)</p>
-                      <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="lucide:credit-card" className="w-6 h-6 text-purple-600" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.USD.balances.card)}</p>
-                  </div>
+             {/* 3. Sof foyda (Net profit) */}
+             <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 hover:-translate-y-1 transition-all duration-300 group border border-blue-500/50">
+               <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700 ease-out" />
+               <div className="absolute -left-8 -top-8 w-24 h-24 bg-white/5 rounded-full" />
+               <div className="relative z-10">
+                 <div className="flex items-center justify-between mb-4">
+                   <p className="text-sm font-semibold text-blue-100">Sof foyda</p>
+                   <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shadow-inner">
+                     <Icon icon="lucide:briefcase" className="w-5 h-5 text-white" />
+                   </div>
+                 </div>
+                 <h3 className="text-3xl font-bold text-white tracking-tight">
+                   {formatCurrency(netProfit)}
+                 </h3>
+                 <div className="flex items-center gap-2 mt-3">
+                   <p className="text-[11px] text-blue-100 font-semibold bg-black/10 w-fit px-2.5 py-1 rounded-md backdrop-blur-sm uppercase tracking-wider">Net Profit</p>
+                   <span className="text-[10px] text-blue-200">Formula: Tushum - Xarajat</span>
+                 </div>
+               </div>
+             </div>
 
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-gray-600">Jami qarz (USD)</p>
-                      <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="lucide:alert-circle" className="w-6 h-6 text-red-600" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold text-red-600">{formatCurrency(statistics.USD.debts.total)}</p>
-                  </div>
-                </div>
+             {/* 4. Cash (hisobdagi pul) */}
+             <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md hover:border-emerald-200 dark:hover:border-emerald-900/50 transition-all duration-300 group">
+               <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/10 dark:to-emerald-900/30 rounded-full group-hover:scale-150 transition-transform duration-500 ease-out" />
+               <div className="relative z-10">
+                 <div className="flex items-center justify-between mb-4">
+                   <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Cash / Hisobda</p>
+                   <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl flex items-center justify-center ring-4 ring-emerald-50 dark:ring-emerald-900/10">
+                     <Icon icon="lucide:wallet" className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                   </div>
+                 </div>
+                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                   {formatCurrency(data.cash)}
+                 </h3>
+                 <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-3 font-semibold bg-emerald-50 dark:bg-emerald-900/30 w-fit px-2.5 py-1 rounded-md uppercase tracking-wider">Naqd va bank</p>
+               </div>
+             </div>
 
-                {/* Sof balans USD */}
-                <div className="mb-6">
-                  <div className={`bg-gradient-to-r rounded-xl p-6 shadow-sm border-2 ${statistics.USD.netBalance >= 0
-                    ? 'from-green-50 to-emerald-50 border-green-200'
-                    : 'from-red-50 to-orange-50 border-red-200'
-                    }`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600 mb-1">Sof balans (USD)</p>
-                        <p className={`text-3xl font-bold ${statistics.USD.netBalance >= 0 ? 'text-green-700' : 'text-red-700'
-                          }`}>
-                          {formatCurrency(statistics.USD.netBalance)}
-                        </p>
-                      </div>
-                      <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${statistics.USD.netBalance >= 0 ? 'bg-green-100' : 'bg-red-100'
-                        }`}>
-                        <Icon icon="lucide:trending-up" className={`w-8 h-8 ${statistics.USD.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+             {/* 5. Debitor qarzdorlik */}
+             <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md hover:border-purple-200 dark:hover:border-purple-900/50 transition-all duration-300 group">
+               <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/10 dark:to-purple-900/30 rounded-full group-hover:scale-150 transition-transform duration-500 ease-out" />
+               <div className="relative z-10">
+                 <div className="flex items-center justify-between mb-4">
+                   <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Debitor qarzdorlik</p>
+                   <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/40 rounded-xl flex items-center justify-center ring-4 ring-purple-50 dark:ring-purple-900/10">
+                     <Icon icon="lucide:users" className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                   </div>
+                 </div>
+                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                   {formatCurrency(data.debtors)}
+                 </h3>
+                 <p className="text-[11px] text-purple-600 dark:text-purple-400 mt-3 font-semibold bg-purple-50 dark:bg-purple-900/30 w-fit px-2.5 py-1 rounded-md uppercase tracking-wider">Mijozlar qarzlari</p>
+               </div>
+             </div>
 
-            {/* UZS Statistika */}
-            {statistics.UZS && (
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">UZS Statistika</h2>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-gray-600">Jami balans (UZS)</p>
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="lucide:dollar-sign" className="w-6 h-6 text-green-600" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.UZS.balances.total)}</p>
-                  </div>
-
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-gray-600">Naqt pul (UZS)</p>
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="lucide:wallet" className="w-6 h-6 text-blue-600" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.UZS.balances.cash)}</p>
-                  </div>
-
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-gray-600">Karta (UZS)</p>
-                      <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="lucide:credit-card" className="w-6 h-6 text-purple-600" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(statistics.UZS.balances.card)}</p>
-                  </div>
-
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-gray-600">Jami qarz (UZS)</p>
-                      <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                        <Icon icon="lucide:alert-circle" className="w-6 h-6 text-red-600" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold text-red-600">{formatCurrency(statistics.UZS.debts.total)}</p>
-                  </div>
-                </div>
-
-                {/* Sof balans UZS */}
-                <div className="mb-6">
-                  <div className={`bg-gradient-to-r rounded-xl p-6 shadow-sm border-2 ${statistics.UZS.netBalance >= 0
-                    ? 'from-green-50 to-emerald-50 border-green-200'
-                    : 'from-red-50 to-orange-50 border-red-200'
-                    }`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600 mb-1">Sof balans (UZS)</p>
-                        <p className={`text-3xl font-bold ${statistics.UZS.netBalance >= 0 ? 'text-green-700' : 'text-red-700'
-                          }`}>
-                          {formatCurrency(statistics.UZS.netBalance)}
-                        </p>
-                      </div>
-                      <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${statistics.UZS.netBalance >= 0 ? 'bg-green-100' : 'bg-red-100'
-                        }`}>
-                        <Icon icon="lucide:trending-up" className={`w-8 h-8 ${statistics.UZS.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left and Center - Balanslar va Qarzlar */}
-          <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Balanslar */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Balanslar</h2>
-                <button
-                  onClick={() => {
-                    setSelectedBalance(null);
-                    setBalanceForm({ balance: '', type: '', currency: 'USD' });
-                    setShowBalanceModal(true);
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                >
-                  Balans qo'shish
-                </button>
-              </div>
-              <div className="space-y-3">
-                {balances.map((balance) => (
-                  <div
-                    key={balance.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${balance.type === 'CASH' ? 'bg-blue-100' : 'bg-purple-100'
-                        }`}>
-                        {balance.type === 'CASH' ? (
-                          <Icon icon="lucide:wallet" className="w-6 h-6 text-blue-600" />
-                        ) : (
-                          <Icon icon="lucide:credit-card" className="w-6 h-6 text-purple-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {balance.type === 'CASH' ? 'Naqt pul' : 'Karta'} ({balance.currency})
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(balance.updatedAt).toLocaleDateString('uz-UZ')}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-gray-900">
-                        {balance.currency === 'USD'
-                          ? formatCurrency(balance.balance)
-                          : new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'UZS', minimumFractionDigits: 0 }).format(balance.balance).replace(/,/g, ' ')
-                        }
-                      </p>
-                      <button
-                        onClick={() => {
-                          setSelectedBalance(balance);
-                          setBalanceForm({
-                            balance: balance.balance.toString(),
-                            type: balance.type as '' | 'CASH' | 'CARD',
-                            currency: balance.currency as 'USD' | 'UZS'
-                          });
-                          setShowBalanceModal(true);
-                        }}
-                        className="text-xs text-blue-600 hover:text-blue-700 mt-1"
-                      >
-                        Yangilash
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Qarzlar */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Qarzlar</h2>
-                <button
-                  onClick={() => setShowDebtModal(true)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-                >
-                  Qarz qo'shish
-                </button>
-              </div>
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {debts.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400">
-                    <p>Qarzlar mavjud emas</p>
-                  </div>
-                ) : (
-                  debts.map((debt) => (
-                    <div
-                      key={debt.id}
-                      className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-red-300 transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900">{debt.debtorName || 'Noma\'lum'}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-red-600">{formatCurrency(debt.amount)}</p>
-                          <button
-                            onClick={() => handleDeleteDebt(debt.id)}
-                            className="text-xs text-red-600 hover:text-red-700 mt-1"
-                          >
-                            O'chirish
-                          </button>
-                        </div>
-                      </div>
-                      {debt.comment && (
-                        <p className="text-xs text-gray-600 mt-2">{debt.comment}</p>
-                      )}
-                      <p className="text-xs text-gray-500 mt-2">
-                        {new Date(debt.date).toLocaleDateString('uz-UZ')}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Sidebar - Qarzdorlar ro'yxati */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Qarzdorlar ro'yxati</h2>
-            <div className="space-y-3 max-h-[600px] overflow-y-auto">
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : debtors.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <Icon icon="lucide:users" className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Qarzdorlar mavjud emas</p>
-                </div>
-              ) : (
-                <>
-                  {debtors.map((debtor) => (
-                    <div
-                      key={debtor.clientId}
-                      className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-red-300 transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900">{debtor.clientName}</p>
-                          {debtor.phone && (
-                            <p className="text-xs text-gray-500 mt-1">{debtor.phone}</p>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-red-600">
-                            {debtor.currency === 'USD'
-                              ? formatCurrency(debtor.currentDebt)
-                              : new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'UZS', minimumFractionDigits: 0 }).format(debtor.currentDebt).replace(/,/g, ' ')
-                            }
-                          </p>
-                          <span className="text-xs text-gray-500">{debtor.currency}</span>
-                          {(debtor.initialDebt !== undefined && debtor.initialDebt !== null && debtor.initialDebt > 0) && (
-                            <p className="text-xs text-orange-500 mt-1" title="Shu jami qarzlardan o'tgan yilgisi">
-                              O'tgan yilgi: {debtor.initialDebtCurrency === 'USD' ? formatCurrency(debtor.initialDebt) : new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'UZS', minimumFractionDigits: 0 }).format(debtor.initialDebt).replace(/,/g, ' ')}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Jami qarz */}
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="space-y-3">
-                      {(() => {
-                        const totalDebtUSD = debtors
-                          .filter(d => d.currency === 'USD')
-                          .reduce((sum, d) => sum + d.currentDebt, 0);
-                        const totalDebtUZS = debtors
-                          .filter(d => d.currency === 'UZS')
-                          .reduce((sum, d) => sum + d.currentDebt, 0);
-
-                        return (
-                          <>
-                            {totalDebtUSD > 0 && (
-                              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                                <div className="flex items-center gap-2">
-                                  <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-red-600" />
-                                  <span className="text-sm font-medium text-gray-700">Jami qarz (USD):</span>
-                                </div>
-                                <span className="text-lg font-bold text-red-600">
-                                  {formatCurrency(totalDebtUSD)}
-                                </span>
-                              </div>
-                            )}
-                            {totalDebtUZS > 0 && (
-                              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                                <div className="flex items-center gap-2">
-                                  <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-red-600" />
-                                  <span className="text-sm font-medium text-gray-700">Jami qarz (UZS):</span>
-                                </div>
-                                <span className="text-lg font-bold text-red-600">
-                                  {new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'UZS', minimumFractionDigits: 0 }).format(totalDebtUZS).replace(/,/g, ' ')}
-                                </span>
-                              </div>
-                            )}
-                            {totalDebtUSD === 0 && totalDebtUZS === 0 && (
-                              <div className="text-center py-4 text-gray-400">
-                                <p className="text-sm">Jami qarz: 0</p>
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+           </div>
         </div>
 
-        {/* Qarzlar bo'yicha statistika */}
-        {statistics && (
-          <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Qarzlar bo'yicha statistika (Shaxslar bo'yicha)</h2>
-            {statistics.USD && statistics.USD.debts.byPerson && Object.keys(statistics.USD.debts.byPerson).length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">USD</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(statistics.USD.debts.byPerson).map(([name, amount]) => (
-                    <div key={`USD-${name}`} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600 mb-1">{name}</p>
-                      <p className="text-lg font-bold text-red-600">{formatCurrency(amount as number)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {statistics.UZS && statistics.UZS.debts.byPerson && Object.keys(statistics.UZS.debts.byPerson).length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">UZS</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(statistics.UZS.debts.byPerson).map(([name, amount]) => (
-                    <div key={`UZS-${name}`} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600 mb-1">{name}</p>
-                      <p className="text-lg font-bold text-red-600">{formatCurrency(amount as number)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
-
-      {/* Balans yangilash modali */}
-      {
-        showBalanceModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">
-                  {selectedBalance ? 'Balansni yangilash' : 'Yangi balans qo\'shish'}
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowBalanceModal(false);
-                    setSelectedBalance(null);
-                    setBalanceForm({ balance: '', type: '', currency: 'USD' });
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <Icon icon="lucide:x" className="w-6 h-6" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                {selectedBalance && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Turi
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedBalance.type === 'CASH' ? 'Naqt pul' : 'Karta'}
-                      disabled
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                    />
-                  </div>
-                )}
-                {!selectedBalance && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Turi <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={balanceForm.type}
-                        onChange={(e) => {
-                          const newType = e.target.value as 'CASH' | 'CARD';
-                          // Agar CARD tanlansa, currency avtomatik UZS bo'ladi
-                          setBalanceForm({
-                            ...balanceForm,
-                            type: newType,
-                            currency: newType === 'CARD' ? 'UZS' : balanceForm.currency
-                          });
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      >
-                        <option value="">Tanlang...</option>
-                        <option value="CASH">Naqt pul</option>
-                        <option value="CARD">Karta</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Valyuta <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={balanceForm.currency}
-                        onChange={(e) => {
-                          const newCurrency = e.target.value as 'USD' | 'UZS';
-                          // Agar CARD tanlangan va USD tanlansa, ruxsat bermaslik
-                          if (balanceForm.type === 'CARD' && newCurrency === 'USD') {
-                            alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
-                            return;
-                          }
-                          setBalanceForm({ ...balanceForm, currency: newCurrency });
-                        }}
-                        disabled={balanceForm.type === 'CARD'}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      >
-                        <option value="USD" disabled={balanceForm.type === 'CARD'}>USD</option>
-                        <option value="UZS">UZS</option>
-                      </select>
-                      {balanceForm.type === 'CARD' && (
-                        <p className="text-xs text-gray-500 mt-1">Karta faqat UZS valyutasida</p>
-                      )}
-                    </div>
-                  </>
-                )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Summa <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={balanceForm.balance}
-                    onChange={(e) => setBalanceForm({ ...balanceForm, balance: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleUpdateBalance}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Saqlash
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowBalanceModal(false);
-                      setSelectedBalance(null);
-                      setBalanceForm({ balance: '', type: '', currency: 'USD' });
-                    }}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                  >
-                    Bekor
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Qarz qo'shish modali */}
-      {
-        showDebtModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">Qarz qo'shish</h3>
-                <button
-                  onClick={() => setShowDebtModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <Icon icon="lucide:x" className="w-6 h-6" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ism (Mijoz/Ishchi/Boshqa) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    list="debt-persons"
-                    value={debtForm.name}
-                    onChange={(e) => setDebtForm({ ...debtForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Ismni kiriting yoki tanlang"
-                  />
-                  <datalist id="debt-persons">
-                    {persons.map((p) => (
-                      <option key={p.id} value={p.name} />
-                    ))}
-                  </datalist>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Summa <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={debtForm.amount}
-                    onChange={(e) => setDebtForm({ ...debtForm, amount: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sana <span className="text-red-500">*</span>
-                  </label>
-                  <DateInput
-                    value={debtForm.date}
-                    onChange={(value) => setDebtForm({ ...debtForm, date: value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Izoh
-                  </label>
-                  <textarea
-                    value={debtForm.comment}
-                    onChange={(e) => setDebtForm({ ...debtForm, comment: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleAddDebt}
-                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    Qo'shish
-                  </button>
-                  <button
-                    onClick={() => setShowDebtModal(false)}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                  >
-                    Bekor
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Valyuta konvertatsiya modali */}
-      {
-        showConvertModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">Valyuta konvertatsiya</h3>
-                <button
-                  onClick={() => setShowConvertModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <Icon icon="lucide:x" className="w-6 h-6" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                {/* From */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Qaysi balansdan</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Turi <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={convertForm.fromType}
-                        onChange={(e) => {
-                          const newType = e.target.value as 'CASH' | 'CARD';
-                          // Agar CARD tanlansa, currency avtomatik UZS bo'ladi
-                          setConvertForm({
-                            ...convertForm,
-                            fromType: newType,
-                            fromCurrency: newType === 'CARD' ? 'UZS' : convertForm.fromCurrency,
-                          });
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      >
-                        <option value="CASH">Naqt pul</option>
-                        <option value="CARD">Karta</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Valyuta <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={convertForm.fromCurrency}
-                        onChange={(e) => {
-                          const newCurrency = e.target.value as 'USD' | 'UZS';
-                          // Agar CARD tanlangan va USD tanlansa, ruxsat bermaslik
-                          if (convertForm.fromType === 'CARD' && newCurrency === 'USD') {
-                            alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
-                            return;
-                          }
-                          setConvertForm({ ...convertForm, fromCurrency: newCurrency });
-                        }}
-                        disabled={convertForm.fromType === 'CARD'}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      >
-                        <option value="USD" disabled={convertForm.fromType === 'CARD'}>USD</option>
-                        <option value="UZS">UZS</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Summa <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={convertForm.amount}
-                      onChange={(e) => setConvertForm({ ...convertForm, amount: e.target.value })}
-                      placeholder="0.00"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                {/* Kurs */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valyuta kursi <span className="text-red-500">*</span>
-                    {convertForm.fromCurrency === 'USD' && convertForm.toCurrency === 'UZS' && (
-                      <span className="text-xs text-gray-500 ml-2">(1 USD = ? UZS)</span>
-                    )}
-                    {convertForm.fromCurrency === 'UZS' && convertForm.toCurrency === 'USD' && (
-                      <span className="text-xs text-gray-500 ml-2">(? UZS = 1 USD)</span>
-                    )}
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={convertForm.rate}
-                    onChange={(e) => setConvertForm({ ...convertForm, rate: e.target.value })}
-                    placeholder={convertForm.fromCurrency === 'USD' ? "Masalan: 12500" : "Masalan: 0.00008"}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                  {convertForm.amount && convertForm.rate && (
-                    <p className="text-sm text-gray-600 mt-2">
-                      Siz oladi:{' '}
-                      {convertForm.fromCurrency === 'USD'
-                        ? `${(parseFloat(convertForm.amount) * parseFloat(convertForm.rate)).toFixed(2)} ${convertForm.toCurrency}`
-                        : `${(parseFloat(convertForm.amount) / parseFloat(convertForm.rate)).toFixed(2)} ${convertForm.toCurrency}`}
-                    </p>
-                  )}
-                </div>
-
-                {/* To */}
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Qaysi balansga</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Turi <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={convertForm.toType}
-                        onChange={(e) => {
-                          const newType = e.target.value as 'CASH' | 'CARD';
-                          // Agar CARD tanlansa, currency avtomatik UZS bo'ladi
-                          setConvertForm({
-                            ...convertForm,
-                            toType: newType,
-                            toCurrency: newType === 'CARD' ? 'UZS' : convertForm.toCurrency,
-                          });
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      >
-                        <option value="CASH">Naqt pul</option>
-                        <option value="CARD">Karta</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Valyuta <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={convertForm.toCurrency}
-                        onChange={(e) => {
-                          const newCurrency = e.target.value as 'USD' | 'UZS';
-                          // Agar CARD tanlangan va USD tanlansa, ruxsat bermaslik
-                          if (convertForm.toType === 'CARD' && newCurrency === 'USD') {
-                            alert('Karta faqat UZS valyutasida bo\'lishi mumkin');
-                            return;
-                          }
-                          setConvertForm({ ...convertForm, toCurrency: newCurrency });
-                        }}
-                        disabled={convertForm.toType === 'CARD'}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      >
-                        <option value="USD" disabled={convertForm.toType === 'CARD'}>USD</option>
-                        <option value="UZS">UZS</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sana <span className="text-red-500">*</span>
-                  </label>
-                  <DateInput
-                    value={convertForm.date}
-                    onChange={(value) => setConvertForm({ ...convertForm, date: value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Izoh
-                  </label>
-                  <textarea
-                    value={convertForm.comment}
-                    onChange={(e) => setConvertForm({ ...convertForm, comment: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Ixtiyoriy izoh..."
-                  />
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleConvertCurrency}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    Konvertatsiya qilish
-                  </button>
-                  <button
-                    onClick={() => setShowConvertModal(false)}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                  >
-                    Bekor
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      }
-    </div >
+    </div>
   );
 };
 
 export default Finance;
-

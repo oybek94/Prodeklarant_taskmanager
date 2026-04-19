@@ -152,7 +152,7 @@ const AppRoutes = () => {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
               <Dashboard />
             </ProtectedRoute>
           }
@@ -344,7 +344,7 @@ const AppRoutes = () => {
           <Navigate
             to={
               isAuthenticated
-                ? "/dashboard"
+                ? (user?.role === 'SELLER' ? "/crm" : "/dashboard")
                 : "/login"
             }
             replace

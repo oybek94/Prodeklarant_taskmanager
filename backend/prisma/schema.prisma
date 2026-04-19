@@ -14,7 +14,8 @@ model Branch {
   statePayments StatePayment[]
   tasks         Task[]
   transactions  Transaction[]
-  users         User[]
+  users               User[]
+  certifierFeeConfigs CertifierFeeConfig[]
 }
 
 model User {
@@ -336,11 +337,14 @@ model TaskVersion {
 
 model StatePayment {
   id                                 Int             @id @default(autoincrement())
-  branchId                           Int
   certificatePayment                 Decimal         @default(0) @db.Decimal(12, 2)
   psrPrice                           Decimal         @default(0) @db.Decimal(12, 2)
   workerPrice                        Decimal         @default(0) @db.Decimal(12, 2)
   customsPayment                     Decimal         @default(0) @db.Decimal(12, 2)
+  st1Payment                         Decimal         @default(0) @db.Decimal(12, 2)
+  fitoPayment                        Decimal         @default(0) @db.Decimal(12, 2)
+  fumigationPayment                  Decimal         @default(0) @db.Decimal(12, 2)
+  internalCertPayment                Decimal         @default(0) @db.Decimal(12, 2)
   currency                           Currency        @default(UZS)
   createdAt                          DateTime        @default(now())
   certificatePayment_amount_original Decimal?        @db.Decimal(14, 2)
@@ -351,11 +355,18 @@ model StatePayment {
   workerPrice_amount_uzs             Decimal?        @db.Decimal(16, 2)
   customsPayment_amount_original     Decimal?        @db.Decimal(14, 2)
   customsPayment_amount_uzs          Decimal?        @db.Decimal(16, 2)
+  st1Payment_amount_original         Decimal?        @db.Decimal(14, 2)
+  st1Payment_amount_uzs              Decimal?        @db.Decimal(16, 2)
+  fitoPayment_amount_original        Decimal?        @db.Decimal(14, 2)
+  fitoPayment_amount_uzs             Decimal?        @db.Decimal(16, 2)
+  fumigationPayment_amount_original  Decimal?        @db.Decimal(14, 2)
+  fumigationPayment_amount_uzs       Decimal?        @db.Decimal(16, 2)
+  internalCertPayment_amount_original Decimal?       @db.Decimal(14, 2)
+  internalCertPayment_amount_uzs     Decimal?        @db.Decimal(16, 2)
   exchange_rate                      Decimal?        @db.Decimal(10, 4)
   exchange_source                    ExchangeSource? @default(CBU)
-  branch                             Branch          @relation(fields: [branchId], references: [id])
 
-  @@index([branchId, createdAt])
+  @@index([createdAt])
 }
 
 model BXMConfig {
@@ -899,12 +910,16 @@ model CompanySettings {
 }
 
 model CertifierFeeConfig {
-  id        Int      @id @default(autoincrement())
-  st1Rate   Decimal  @db.Decimal(12, 2)
-  fitoRate  Decimal  @db.Decimal(12, 2)
-  aktRate   Decimal  @db.Decimal(12, 2)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  branchId        Int
+  st1Rate         Decimal  @db.Decimal(12, 2)
+  fitoRate        Decimal  @db.Decimal(12, 2)
+  aktRate         Decimal  @db.Decimal(12, 2)
+  hiredWorkerRate Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id])
 }
 
 model YearlyGoalConfig {

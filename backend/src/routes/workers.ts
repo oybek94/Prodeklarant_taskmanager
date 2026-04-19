@@ -369,7 +369,6 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
     }
     const statePayment = await prisma.statePayment.findFirst({
       where: {
-        branchId: task.branchId,
         createdAt: { lte: task.createdAt },
       },
       orderBy: { createdAt: 'desc' },

@@ -10,9 +10,8 @@ datasource db {
 model Branch {
   id            Int            @id @default(autoincrement())
   name          String         @unique
-  invoices      Invoice[]
-  statePayments StatePayment[]
-  tasks         Task[]
+  invoices            Invoice[]
+  tasks               Task[]
   transactions  Transaction[]
   users               User[]
   certifierFeeConfigs CertifierFeeConfig[]

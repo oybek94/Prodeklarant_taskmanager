@@ -77,7 +77,6 @@ router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         users: { take: 1 },
         invoices: { take: 1 },
         transactions: { take: 1 },
-        statePayments: { take: 1 },
       },
     });
 
@@ -102,9 +101,6 @@ router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'Bu filial ishlatilmoqda. Avval barcha transaksiyalarni o\'chiring.' });
     }
 
-    if (branch.statePayments.length > 0) {
-      return res.status(400).json({ error: 'Bu filial ishlatilmoqda. Avval barcha davlat to\'lovlarini o\'chiring.' });
-    }
 
     await prisma.branch.delete({
       where: { id },

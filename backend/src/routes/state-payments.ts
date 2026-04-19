@@ -98,7 +98,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         fitoPayment: new Decimal(data.fitoPayment),
         fumigationPayment: new Decimal(data.fumigationPayment),
         internalCertPayment: new Decimal(data.internalCertPayment),
-        
+
         certificatePayment_amount_original: new Decimal(data.certificatePaymentUsd),
         certificatePayment_amount_uzs: new Decimal(data.certificatePaymentUzs),
         psrPrice_amount_original: new Decimal(data.psrPriceUsd),

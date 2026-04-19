@@ -1956,7 +1956,7 @@ async function createTaskVersion(tx: any, taskId: number, changedBy: number, cha
       hasPsr: task.hasPsr,
       driverPhone: task.driverPhone || null,
       clientId: task.clientId,
-      
+      branchId: task.branchId,
       changedBy,
       changes: {
         ...changes,
@@ -2032,7 +2032,7 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
     const updateData: any = {
       ...(parsed.data.title && { title: parsed.data.title }),
       ...(parsed.data.clientId && { clientId: parsed.data.clientId }),
-      ...(parsed.data.branchId && {  }),
+      ...(parsed.data.branchId && { branchId: parsed.data.branchId }),
       ...(parsed.data.comments !== undefined && { comments: parsed.data.comments || null }),
       ...(parsed.data.hasPsr !== undefined && { hasPsr: parsed.data.hasPsr }),
       ...(parsed.data.afterHoursDeclaration !== undefined && { afterHoursDeclaration: parsed.data.afterHoursDeclaration }),
@@ -2129,7 +2129,7 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
     if (parsed.data.branchId != null && parsed.data.branchId !== task.branchId) {
       await (tx as any).invoice.updateMany({
         where: { taskId: id },
-        data: {  },
+        data: { branchId: parsed.data.branchId },
       });
     }
 

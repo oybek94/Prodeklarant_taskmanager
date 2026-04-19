@@ -214,7 +214,6 @@ const Dashboard = () => {
   const [achievements, setAchievements] = useState<any[]>([]);
   const [unratedErrors, setUnratedErrors] = useState<any[]>([]);
   const [showUnratedModal, setShowUnratedModal] = useState(false);
-
   const loadUnratedErrors = async () => {
     if (user?.role !== 'ADMIN') return;
     try {
@@ -415,8 +414,7 @@ const Dashboard = () => {
           : [],
       };
 
-      setStats(statsData);
-    } catch (error: any) {
+      setStats(statsData);    } catch (error: any) {
       console.error('Error loading stats:', error);
       const errorMessage =
         error?.response?.data?.details ||
@@ -659,7 +657,9 @@ const Dashboard = () => {
 
   return (
     <div className={`min-h-screen bg-[#f3f4f6] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/40 via-purple-50/20 to-white dark:bg-none dark:bg-gray-900 pb-12 pt-4 px-2 sm:px-6 lg:px-8 overflow-x-hidden ${isMobile ? 'pb-32' : ''}`}>
+
       {/* Main Content */}
+
       <div className="max-w-[1600px] mx-auto space-y-4 sm:space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
@@ -683,11 +683,13 @@ const Dashboard = () => {
                         const userXP = currentUserYearly ? currentUserYearly.completedStages : 0;
                         const userRank = getCsgoRank(userXP);
                         return (
-                          <div className="ml-4 flex items-start gap-1.5 hover:scale-105 transition-transform cursor-pointer" title={userRank.title} onClick={() => setShowRanksModal(true)}>
-                            <img src={userRank.image} alt={userRank.title} className="w-16 sm:w-20 h-auto drop-shadow-md" />
-                            <span className="text-[10px] sm:text-[11px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest pt-0.5 whitespace-nowrap hidden sm:block">
-                              {userRank.title}
-                            </span>
+                          <div className="ml-4 flex items-start gap-1.5">
+                            <div className="flex items-start gap-1.5 hover:scale-105 transition-transform cursor-pointer" title={userRank.title} onClick={() => setShowRanksModal(true)}>
+                              <img src={userRank.image} alt={userRank.title} className="w-16 sm:w-20 h-auto drop-shadow-md" />
+                              <span className="text-[10px] sm:text-[11px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest pt-0.5 whitespace-nowrap hidden sm:block">
+                                {userRank.title}
+                              </span>
+                            </div>
                           </div>
                         );
                       })()}

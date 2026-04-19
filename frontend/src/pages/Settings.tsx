@@ -27,11 +27,14 @@ interface BXMConfig {
 
 interface StatePayment {
   id: number;
-  branchId: number;
   certificatePayment: number;
   psrPrice: number;
   workerPrice: number;
   customsPayment: number;
+  st1Payment: number;
+  fitoPayment: number;
+  fumigationPayment: number;
+  internalCertPayment: number;
   certificatePaymentUsd?: number;
   certificatePaymentUzs?: number;
   psrPriceUsd?: number;
@@ -40,10 +43,14 @@ interface StatePayment {
   workerPriceUzs?: number;
   customsPaymentUsd?: number;
   customsPaymentUzs?: number;
-  branch: {
-    id: number;
-    name: string;
-  };
+  st1PaymentUsd?: number;
+  st1PaymentUzs?: number;
+  fitoPaymentUsd?: number;
+  fitoPaymentUzs?: number;
+  fumigationPaymentUsd?: number;
+  fumigationPaymentUzs?: number;
+  internalCertPaymentUsd?: number;
+  internalCertPaymentUzs?: number;
   createdAt: string;
 }
 

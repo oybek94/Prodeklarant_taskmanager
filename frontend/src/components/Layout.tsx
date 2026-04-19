@@ -7,6 +7,7 @@ import type { AppNotification } from '../hooks/useNotifications';
 import { usePresence, getPageLabel } from '../hooks/usePresence';
 import { useTheme } from '../contexts/ThemeContext';
 import toast from 'react-hot-toast';
+import { GlobalRankUpWatcher } from './GlobalRankUpWatcher';
 
 const Layout = () => {
   const { user, logout } = useAuth();
@@ -382,6 +383,7 @@ const Layout = () => {
           <Outlet />
         </main>
       </div>
+      <GlobalRankUpWatcher />
     </div>
   );
 };

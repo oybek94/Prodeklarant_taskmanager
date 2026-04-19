@@ -318,5 +318,41 @@ router.get('/me/achievements', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+router.get('/me/xp', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const now = new Date();
+    const yearStart = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+
+    const completedStagesCount = await prisma.taskStage.count({
+      where: {
+        status: 'TAYYOR',
+        assignedToId: req.user.id,
+        completedAt: { not: null, gte: yearStart },
+      },
+    });
+
+    const bountyXpResult = await prisma.taskError.aggregate({
+      where: { 
+        createdById: req.user.id,
+        adminRatedAt: { gte: yearStart } 
+      },
+      _sum: { bountyXp: true }
+    });
+    
+    const bountyXp = bountyXpResult._sum.bountyXp || 0;
+    const totalXP = completedStagesCount + bountyXp;
+
+    res.json({ xp: totalXP });
+  } catch (error: any) {
+    console.error('Error in /auth/me/xp:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+
 export default router;
 

@@ -1104,16 +1104,72 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     
     const finalDealAmountInUzs = dealAmountInUzs + psrAmountInUzs;
     
-    // Asosiy to'lovlar: Sertifikat + Ishchi + Bojxona (all in UZS)
-    let totalPaymentsInUzs = certificatePaymentUzs + workerPriceUzs + customsPaymentUzs;
-    
-    // Agar PSR bor bo'lsa, PSR narxini qo'shamiz (in UZS)
-    if (task.hasPsr) {
-      totalPaymentsInUzs += psrPriceUzs;
+    // MOLIYAVIY HISOBOT KOMPONENTLARINI HISABLASH
+    // snapshotCustomsPayment DA MULTIPLIER ALLAQACHON KO'PAYTIRILGAN! 
+    // shuningdek snapshotDealAmount GA HAM QO'SHIMCHA (multiplier - 1) SUMMASI ALLAQACHON QO'SHILGAN (task.stages update TAYYOR).
+    let extraDeklaratsiyaUzs = 0;
+    if (task.customsPaymentMultiplier != null && Number(task.customsPaymentMultiplier) > 1) {
+       const mult = Number(task.customsPaymentMultiplier);
+       // customsPaymentUzs - bu jami to'lanadigan qimmatlashtirilgan summa. Asl 1 BXM ni hisoblaymiz:
+       const baseBxmUzs = customsPaymentUzs / mult;
+       extraDeklaratsiyaUzs = baseBxmUzs * (mult - 1);
     }
     
-    // Calculate net profit in UZS
-    netProfit = (finalDealAmountInUzs - totalPaymentsInUzs) as any;
+    let davlatUzsReal = 0;
+    const taskCreatedAtDate = new Date(task.createdAt);
+    const statePayment = await prisma.statePayment.findFirst({
+        where: { createdAt: { lte: taskCreatedAtDate } },
+        orderBy: { createdAt: 'desc' },
+    });
+    if (statePayment) {
+       const st1 = Number(statePayment.st1Payment_amount_uzs ?? statePayment.st1Payment ?? 0);
+       const fito = Number(statePayment.fitoPayment_amount_uzs ?? statePayment.fitoPayment ?? 0);
+       const fumigatsiya = Number(statePayment.fumigationPayment_amount_uzs ?? statePayment.fumigationPayment ?? 0);
+       const ichki = Number(statePayment.internalCertPayment_amount_uzs ?? statePayment.internalCertPayment ?? 0);
+       
+       davlatUzsReal = st1 + fito + fumigatsiya + ichki;
+       const spCurrency = statePayment.currency || 'USD';
+       if (spCurrency === 'USD') {
+           const rate = Number(task.snapshotDealAmount_exchange_rate || task.snapshotDealAmountExchangeRate || 1);
+           davlatUzsReal = davlatUzsReal * rate;
+       }
+    } else {
+       davlatUzsReal = certificatePaymentUzs;
+    }
+
+    let certifierUzsReal = 0;
+    if ('certifierFeeConfig' in prisma) {
+        let certConfig: any = null;
+        try {
+           certConfig = await (prisma as any).certifierFeeConfig.findFirst({
+               where: { branchId: task.branchId, createdAt: { lte: taskCreatedAtDate } },
+               orderBy: { createdAt: 'desc' },
+           });
+        } catch(e) {}
+        if (certConfig) {
+            certifierUzsReal = Number(certConfig.st1Rate || 0) + Number(certConfig.fitoRate || 0) + Number(certConfig.aktRate || 0) + Number(certConfig.fumigationRate || 0);
+        }
+    }
+
+    // Snapshotlarda BXM summasi allaqachon finalDealAmountInUzs (shartnoma) va customsPaymentUzs (davlat) ichiga kiritib bo'lingan.
+    const tDealAmount = finalDealAmountInUzs;
+    const tDeclarationPayment = customsPaymentUzs;
+    
+    // UI da "Asosiy Shartnoma (Base)" kursatish uchun, tDealAmount dan tExtra ni ayiramiz:
+    const baseDealUzs = tDealAmount - extraDeklaratsiyaUzs;
+    
+    (task as any).financialReport = {
+        dealAmountBase: baseDealUzs - psrAmountInUzs, // PSR ni ham ayirib tashlaymiz
+        dealAmount: tDealAmount,
+        certifierFee: certifierUzsReal,
+        statePayment: davlatUzsReal,
+        declarationPayment: tDeclarationPayment,
+        netProfit: tDealAmount - certifierUzsReal - davlatUzsReal - tDeclarationPayment
+    };
+    
+    // Eski logic bilan ishlashni davom etishi uchun
+    netProfit = (task as any).financialReport.netProfit;
+    
   } catch (error) {
     console.error('Error calculating net profit:', error);
   }
@@ -1248,6 +1304,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     operationalProfit, // Sof foyda (USD equivalent - operational view)
     adminEarnedAmount, // Admin ishlab topgan pul (UZS)
     exchangeRateInfo, // Exchange rate used for deal amount conversion
+    financialReport: (task as any).financialReport, // Aniq hisobot detallari
     kpiLogs: kpiLogs.map((log: any) => ({
       id: log.id,
       stageName: log.stageName,

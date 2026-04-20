@@ -158,12 +158,13 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
   // Moliyaviy hisoblashlarni bir marta bajarish (10+ IIFE ni almashtiradi)
   const financial = useMemo(() => {
-    const dealAmount = getDealAmountDisplay(selectedTask, afterHoursDeclaration);
-    const dealAmountBase = getDealAmountBaseDisplay(selectedTask, afterHoursDeclaration);
-    const branchPayments = getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration);
+    const rep = (selectedTask as any).financialReport;
+    const dealAmount = rep?.dealAmount ?? getDealAmountDisplay(selectedTask, afterHoursDeclaration);
+    const dealAmountBase = rep?.dealAmountBase ?? getDealAmountBaseDisplay(selectedTask, afterHoursDeclaration);
+    
     const psrAmount = getPsrAmount(selectedTask);
-    const netProfit = dealAmount - branchPayments;
-    const currency = getClientCurrency(selectedTask.client);
+    const netProfit = rep?.netProfit ?? (dealAmount - getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration));
+    const currency = 'UZS'; // backend UZS qaytaradi
     const isPositive = netProfit >= 0;
     const totalProfit = netProfit + Number(selectedTask.adminEarnedAmount || 0);
 
@@ -183,7 +184,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
     const valueClass = isPositive ? 'text-emerald-600' : 'text-rose-600';
 
     return {
-      dealAmount, dealAmountBase, branchPayments, psrAmount, netProfit,
+      rep, dealAmount, dealAmountBase, psrAmount, netProfit,
       currency, isPositive, totalProfit,
       containerClass, iconBgClass, icon, titleClass, btnClass, labelClass, valueClass,
     };
@@ -590,22 +591,46 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 {user?.role === 'ADMIN' && (
                   <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 border border-gray-100 dark:border-slate-700 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Kelishuv summasi:</span>
+                      <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Shartnoma summasi:</span>
                       <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                         {formatMoney(financial.dealAmount, financial.currency)}
-                        {selectedTask.hasPsr && (
-                          <span className="text-xs font-semibold text-gray-400 ml-1.5">
-                            (asosiy: {formatMoney(financial.dealAmountBase, financial.currency)} + {formatMoney(financial.psrAmount, financial.currency)})
+                        {financial.rep && financial.dealAmount > financial.dealAmountBase + financial.psrAmount && (
+                          <span className="text-xs font-semibold text-gray-400 ml-1.5 whitespace-normal">
+                            (+ extra BXM xisobi qo'shilgan)
                           </span>
                         )}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Filial to'lovlari:</span>
-                      <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
-                        - {formatMoney(financial.branchPayments, financial.currency)}
-                      </span>
-                    </div>
+                    {financial.rep && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Sertifikatchi tariflari:</span>
+                          <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
+                            - {formatMoney(financial.rep.certifierFee, financial.currency)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Davlat to'lovlari:</span>
+                          <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
+                            - {formatMoney(financial.rep.statePayment, financial.currency)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Deklaratsiya to'lovi:</span>
+                          <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
+                            - {formatMoney(financial.rep.declarationPayment, financial.currency)}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {!financial.rep && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Eski usul (barcha harajatlar):</span>
+                        <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
+                          - {formatMoney(getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration), financial.currency)}
+                        </span>
+                      </div>
+                    )}
                     <div className="pt-3 border-t border-gray-200/60 dark:border-slate-700/60 flex items-center justify-between">
                       <span className={`text-sm font-bold uppercase tracking-wider ${financial.labelClass}`}>
                         Sof foyda:

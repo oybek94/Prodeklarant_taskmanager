@@ -8,9 +8,10 @@ const router = Router();
 // Zod schema
 const certifierFeeSchema = z.object({
   branchId: z.coerce.number().int().positive(),
-  st1Rate: z.coerce.number().min(0),
-  fitoRate: z.coerce.number().min(0),
-  aktRate: z.coerce.number().min(0),
+  st1Rate: z.coerce.number().min(0).default(0),
+  fitoRate: z.coerce.number().min(0).default(0),
+  aktRate: z.coerce.number().min(0).default(0),
+  fumigationRate: z.coerce.number().min(0).default(0),
   hiredWorkerRate: z.coerce.number().min(0).default(0),
 });
 
@@ -40,6 +41,7 @@ router.get('/', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
             st1Rate: 0,
             fitoRate: 0,
             aktRate: 0,
+            fumigationRate: 0,
             hiredWorkerRate: 0,
             createdAt: new Date(),
           };
@@ -48,9 +50,10 @@ router.get('/', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
         return {
           ...config,
           branch,
-          st1Rate: Number(config.st1Rate),
-          fitoRate: Number(config.fitoRate),
-          aktRate: Number(config.aktRate),
+          st1Rate: Number(config.st1Rate || 0),
+          fitoRate: Number(config.fitoRate || 0),
+          aktRate: Number(config.aktRate || 0),
+          fumigationRate: Number(config.fumigationRate || 0),
           hiredWorkerRate: Number(config.hiredWorkerRate || 0),
         };
       })
@@ -83,6 +86,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         st1Rate: data.st1Rate,
         fitoRate: data.fitoRate,
         aktRate: data.aktRate,
+        fumigationRate: data.fumigationRate,
         hiredWorkerRate: data.hiredWorkerRate,
       },
       include: { branch: true },
@@ -90,9 +94,10 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 
     res.json({
       ...config,
-      st1Rate: Number(config.st1Rate),
-      fitoRate: Number(config.fitoRate),
-      aktRate: Number(config.aktRate),
+      st1Rate: Number(config.st1Rate || 0),
+      fitoRate: Number(config.fitoRate || 0),
+      aktRate: Number(config.aktRate || 0),
+      fumigationRate: Number(config.fumigationRate || 0),
       hiredWorkerRate: Number(config.hiredWorkerRate || 0),
     });
   } catch (error: any) {

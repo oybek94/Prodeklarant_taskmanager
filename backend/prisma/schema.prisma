@@ -914,6 +914,7 @@ model CertifierFeeConfig {
   st1Rate         Decimal  @db.Decimal(12, 2)
   fitoRate        Decimal  @db.Decimal(12, 2)
   aktRate         Decimal  @db.Decimal(12, 2)
+  fumigationRate  Decimal  @default(0) @db.Decimal(12, 2)
   hiredWorkerRate Decimal  @default(0) @db.Decimal(12, 2)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

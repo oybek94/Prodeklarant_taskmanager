@@ -78,9 +78,13 @@ interface CompanySettings {
 
 interface CertifierFeeConfig {
   id: number;
+  branchId: number;
+  branch?: { id: number; name: string };
   st1Rate: number;
   fitoRate: number;
   aktRate: number;
+  fumigationRate: number;
+  hiredWorkerRate: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -234,13 +238,16 @@ const Settings = () => {
     correspondentBankAddress: '',
     correspondentBankSwift: '',
   });
-  const [certifierFeeConfig, setCertifierFeeConfig] = useState<CertifierFeeConfig | null>(null);
+  const [certifierConfigs, setCertifierConfigs] = useState<CertifierFeeConfig[]>([]);
   const [loadingCertifierFeeConfig, setLoadingCertifierFeeConfig] = useState(true);
   const [showCertifierFeeForm, setShowCertifierFeeForm] = useState(false);
   const [certifierFeeForm, setCertifierFeeForm] = useState({
+    branchId: 0,
     st1Rate: '',
     fitoRate: '',
     aktRate: '',
+    fumigationRate: '',
+    hiredWorkerRate: '',
   });
   const [yearlyGoalConfig, setYearlyGoalConfig] = useState<YearlyGoalConfig | null>(null);
   const [loadingYearlyGoalConfig, setLoadingYearlyGoalConfig] = useState(true);
@@ -766,13 +773,8 @@ const Settings = () => {
     try {
       setLoadingCertifierFeeConfig(true);
       const response = await apiClient.get('/certifier-fee-config');
-      if (response.data) {
-        setCertifierFeeConfig(response.data);
-        setCertifierFeeForm({
-          st1Rate: response.data.st1Rate?.toString() ?? '',
-          fitoRate: response.data.fitoRate?.toString() ?? '',
-          aktRate: response.data.aktRate?.toString() ?? '',
-        });
+      if (Array.isArray(response.data)) {
+        setCertifierConfigs(response.data);
       }
     } catch (error) {
       console.error('Error loading certifier fee config:', error);
@@ -934,13 +936,16 @@ const Settings = () => {
     e.preventDefault();
     try {
       await apiClient.post('/certifier-fee-config', {
+        branchId: certifierFeeForm.branchId,
         st1Rate: Number(certifierFeeForm.st1Rate),
         fitoRate: Number(certifierFeeForm.fitoRate),
         aktRate: Number(certifierFeeForm.aktRate),
+        fumigationRate: Number(certifierFeeForm.fumigationRate),
+        hiredWorkerRate: Number(certifierFeeForm.hiredWorkerRate),
       });
       setShowCertifierFeeForm(false);
       await loadCertifierFeeConfig();
-      alert('Sertifikatchi tariflari muvaffaqiyatli saqlandi');
+      alert('Sertifikatchi tarifi muvaffaqiyatli saqlandi');
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
@@ -1259,25 +1264,58 @@ const Settings = () => {
                       </div>
                       <h2 className="text-base font-bold text-gray-800">Sertifikatchi tariflari</h2>
                     </div>
-                    <button onClick={() => setShowCertifierFeeForm(true)} className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors" title={certifierFeeConfig ? "O'zgartirish" : "Qo'shish"}>
-                      {certifierFeeConfig ? <IconEdit /> : <IconAdd />}
-                    </button>
                   </div>
                   {loadingCertifierFeeConfig ? (
                     <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-                  ) : certifierFeeConfig ? (
-                    <div className="space-y-2">
-                      {[{ label: 'ST-1', value: certifierFeeConfig.st1Rate }, { label: 'FITO', value: certifierFeeConfig.fitoRate }, { label: 'AKT', value: certifierFeeConfig.aktRate }].map(item => (
-                        <div key={item.label} className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50">
-                          <span className="text-sm font-semibold text-gray-500">{item.label}</span>
-                          <span className="text-base font-bold text-gray-800">{formatCurrency(Number(item.value), 'UZS')}</span>
+                  ) : certifierConfigs.length > 0 ? (
+                    <div className="space-y-4">
+                      {certifierConfigs.map(config => (
+                        <div key={config.id} className="border border-gray-200 rounded-xl p-4">
+                           <div className="flex justify-between items-center mb-3">
+                             <h3 className="font-bold text-gray-800">{config.branch?.name || `Filial #${config.branchId}`}</h3>
+                             <button onClick={() => {
+                               setCertifierFeeForm({
+                                 branchId: config.branchId,
+                                 st1Rate: config.st1Rate.toString(),
+                                 fitoRate: config.fitoRate.toString(),
+                                 aktRate: config.aktRate.toString(),
+                                 fumigationRate: config.fumigationRate.toString(),
+                                 hiredWorkerRate: config.hiredWorkerRate.toString()
+                               });
+                               setShowCertifierFeeForm(true);
+                             }} className="p-1.5 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors" title="O'zgartirish">
+                               <IconEdit />
+                             </button>
+                           </div>
+                           <div className="grid grid-cols-2 gap-2">
+                             <div className="flex justify-between px-3 py-2 bg-gray-50 rounded-lg">
+                               <span className="text-xs font-semibold text-gray-500">ST-1</span>
+                               <span className="text-sm font-bold text-gray-800">{formatCurrency(Number(config.st1Rate), 'UZS')}</span>
+                             </div>
+                             <div className="flex justify-between px-3 py-2 bg-gray-50 rounded-lg">
+                               <span className="text-xs font-semibold text-gray-500">FITO</span>
+                               <span className="text-sm font-bold text-gray-800">{formatCurrency(Number(config.fitoRate), 'UZS')}</span>
+                             </div>
+                             <div className="flex justify-between px-3 py-2 bg-gray-50 rounded-lg">
+                               <span className="text-xs font-semibold text-gray-500">Ichki AKT</span>
+                               <span className="text-sm font-bold text-gray-800">{formatCurrency(Number(config.aktRate), 'UZS')}</span>
+                             </div>
+                             <div className="flex justify-between px-3 py-2 bg-gray-50 rounded-lg">
+                               <span className="text-xs font-semibold text-gray-500">Fumigatsiya</span>
+                               <span className="text-sm font-bold text-gray-800">{formatCurrency(Number(config.fumigationRate), 'UZS')}</span>
+                             </div>
+                             <div className="flex justify-between px-3 py-2 bg-gray-50 rounded-lg col-span-2">
+                               <span className="text-xs font-semibold text-gray-500">Yollanma ishchi</span>
+                               <span className="text-sm font-bold text-gray-800">{formatCurrency(Number(config.hiredWorkerRate), 'UZS')}</span>
+                             </div>
+                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div className="text-center py-8 text-gray-400">
-                      <Icon icon="lucide:plus-circle" className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                      <div className="text-sm">Sertifikatchi tariflari kiritilmagan</div>
+                      <Icon icon="lucide:alert-circle" className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      <div className="text-sm">Sertifikatchi tariflari sozlanmagan<br/>(Filial qo'shing)</div>
                     </div>
                   )}
                 </div>
@@ -2286,12 +2324,34 @@ const Settings = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">AKT (UZS)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Ichki AKT (UZS)</label>
                       <input
                         type="number"
                         min="0"
                         value={certifierFeeForm.aktRate}
                         onChange={(e) => setCertifierFeeForm({ ...certifierFeeForm, aktRate: e.target.value })}
+                        required
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Fumigatsiya (UZS)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={certifierFeeForm.fumigationRate}
+                        onChange={(e) => setCertifierFeeForm({ ...certifierFeeForm, fumigationRate: e.target.value })}
+                        required
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Yollanma ishchi (UZS)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={certifierFeeForm.hiredWorkerRate}
+                        onChange={(e) => setCertifierFeeForm({ ...certifierFeeForm, hiredWorkerRate: e.target.value })}
                         required
                         className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none"
                       />

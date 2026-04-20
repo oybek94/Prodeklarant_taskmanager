@@ -49,14 +49,14 @@ export const GlobalRankUpWatcher = () => {
       setTimeout(checkXP, 2000);
     };
 
-    socket.on('task_updated', handleCheck);
-    socket.on('task_stage_completed', handleCheck);
+    socket.on('task:updated', handleCheck);
+    socket.on('task:stageUpdated', handleCheck);
     socket.on('user:quality_award', handleCheck);
     socket.on('user:bounty_awarded', handleCheck);
 
     return () => {
-      socket.off('task_updated', handleCheck);
-      socket.off('task_stage_completed', handleCheck);
+      socket.off('task:updated', handleCheck);
+      socket.off('task:stageUpdated', handleCheck);
       socket.off('user:quality_award', handleCheck);
       socket.off('user:bounty_awarded', handleCheck);
     };

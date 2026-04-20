@@ -567,6 +567,23 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       snapshotWorkerPriceExchangeRate = workerAmounts.rate;
       snapshotWorkerPriceAmountUzs = workerAmounts.uzs;
 
+      // Agar CertifierFeeConfig mavjud bo'lsa, undan hiredWorkerRate ni ustun qilib olamiz
+      if ('certifierFeeConfig' in tx) {
+         try {
+             const certConfig = await (tx as any).certifierFeeConfig.findFirst({
+                 where: { branchId: parsed.data.branchId, createdAt: { lte: taskCreatedAt } },
+                 orderBy: { createdAt: 'desc' },
+             });
+             if (certConfig && certConfig.hiredWorkerRate !== undefined && certConfig.hiredWorkerRate !== null) {
+                 const hwRate = Number(certConfig.hiredWorkerRate);
+                 const hwAmounts = resolvePaymentAmounts(null, hwRate, hwRate, paymentCurrency, paymentExchangeRate);
+                 snapshotWorkerPrice = hwAmounts.original as any;
+                 snapshotWorkerPriceExchangeRate = hwAmounts.rate;
+                 snapshotWorkerPriceAmountUzs = hwAmounts.uzs;
+             }
+         } catch(e) {}
+      }
+
       const customsAmounts = resolvePaymentAmounts(
         statePayment.customsPayment_amount_original != null
           ? Number(statePayment.customsPayment_amount_original)
@@ -1138,6 +1155,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     let certifierUzsReal = 0;
+    let certHiredWorkerUzs = workerPriceUzs; // Default holatda eskisini olamiz
     if ('certifierFeeConfig' in prisma) {
         let certConfig: any = null;
         try {
@@ -1148,6 +1166,9 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
         } catch(e) {}
         if (certConfig) {
             certifierUzsReal = Number(certConfig.st1Rate || 0) + Number(certConfig.fitoRate || 0) + Number(certConfig.aktRate || 0) + Number(certConfig.fumigationRate || 0);
+            if (certConfig.hiredWorkerRate !== undefined && certConfig.hiredWorkerRate !== null) {
+                certHiredWorkerUzs = Number(certConfig.hiredWorkerRate || 0);
+            }
         }
     }
 
@@ -1164,7 +1185,8 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
         certifierFee: certifierUzsReal,
         statePayment: davlatUzsReal,
         declarationPayment: tDeclarationPayment,
-        netProfit: tDealAmount - certifierUzsReal - davlatUzsReal - tDeclarationPayment
+        hiredWorkerPayment: certHiredWorkerUzs,
+        netProfit: tDealAmount - certifierUzsReal - davlatUzsReal - tDeclarationPayment - certHiredWorkerUzs
     };
     
     // Eski logic bilan ishlashni davom etishi uchun
@@ -2174,6 +2196,27 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
         updateData.snapshotCertificatePayment_exchange_source = 'MANUAL';
         updateData.snapshotPsrPrice_exchange_source = 'MANUAL';
         updateData.snapshotWorkerPrice_exchange_source = 'MANUAL';
+        updateData.snapshotWorkerPrice_exchange_source = 'MANUAL';
+      }
+      
+      // Agar CertifierFeeConfig mavjud bo'lsa, undan hiredWorkerRate ni ustun qilib olamiz
+      if ('certifierFeeConfig' in tx) {
+         try {
+             // oldingi e'lon qilingan task.createdAt dan foydalanamiz, bu yerda statePayment ham shunga qarab qidirilgan
+             const certConfig = await (tx as any).certifierFeeConfig.findFirst({
+                 where: { branchId: task.branchId, createdAt: { lte: task.createdAt } },
+                 orderBy: { createdAt: 'desc' },
+             });
+             if (certConfig && certConfig.hiredWorkerRate !== undefined && certConfig.hiredWorkerRate !== null) {
+                 const hwRate = Number(certConfig.hiredWorkerRate);
+                 updateData.snapshotWorkerPrice = hwRate;
+                 updateData.snapshotWorkerPrice_amount_original = hwRate;
+                 updateData.snapshotWorkerPrice_currency = 'UZS';
+                 updateData.snapshotWorkerPrice_amount_uzs = hwRate;
+                 updateData.snapshotWorkerPrice_exchange_rate = 1;
+                 updateData.snapshotWorkerPrice_exchange_source = 'MANUAL';
+             }
+         } catch(e) {}
       }
     }
 

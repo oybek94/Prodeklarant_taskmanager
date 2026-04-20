@@ -217,7 +217,7 @@ const invoiceSchema = z.object({
   additionalInfo: z.object({
     // To'lov va shartnoma
     paymentTerms: z.string().max(500).optional(),
-    dueDate: z.string().max(50).optional(),
+    dueDate: z.string().max(200).optional(),
     poNumber: z.string().max(100).optional(),
     terms: z.string().max(2000).optional(),
     tax: z.number().min(0).max(1e9).optional(),
@@ -244,7 +244,7 @@ const invoiceSchema = z.object({
     manufacturer: z.string().max(500).optional(),
     orderNumber: z.string().max(100).optional(),
     gln: z.string().max(100).optional(),
-    harvestYear: z.string().max(20).optional(),
+    harvestYear: z.string().max(200).optional(),
     temperature: z.string().max(200).optional(),
     documents: z.string().max(2000).optional(),
     // FSS

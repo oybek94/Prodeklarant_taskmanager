@@ -621,6 +621,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             - {formatMoney(financial.rep.declarationPayment, financial.currency)}
                           </span>
                         </div>
+                        {financial.rep.hiredWorkerPayment !== undefined && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Yollanma ishchilar:</span>
+                            <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
+                              - {formatMoney(financial.rep.hiredWorkerPayment, financial.currency)}
+                            </span>
+                          </div>
+                        )}
                       </>
                     )}
                     {!financial.rep && (

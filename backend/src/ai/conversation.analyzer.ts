@@ -37,7 +37,7 @@ export class ConversationAnalyzerService {
   }
 
   /**
-   * OpenAI Whisper API orqali audio faylni matnga o'girish
+   * uzbekvoice.ai API orqali audio faylni matnga o'girish
    */
   static async transcribeAudio(filePath: string): Promise<string> {
     const absolutePath = path.resolve(filePath);
@@ -46,17 +46,49 @@ export class ConversationAnalyzerService {
       throw new Error(`Audio fayl topilmadi: ${absolutePath}`);
     }
 
-    const fileStream = fs.createReadStream(absolutePath);
+    const API_KEY = process.env.MUXLISA_API_KEY;
+    if (!API_KEY) {
+      throw new Error(`MUXLISA_API_KEY muhit o'zgaruvchisi topilmadi. Iltimos .env faylida sozlang.`);
+    }
+    const fileBuffer = fs.readFileSync(absolutePath);
+    
+    const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+    // Muxlisa API 'audio' nomli field kutadi
+    const head = '--' + boundary + '\r\nContent-Disposition: form-data; name="audio"; filename="' + path.basename(absolutePath) + '"\r\nContent-Type: audio/wav\r\n\r\n';
+    const tail = '\r\n--' + boundary + '--\r\n';
 
-    const transcription = await this.openai.audio.transcriptions.create({
-      file: fileStream,
-      model: 'whisper-1',
-      language: 'uz', // O'zbek tili, Whisper avtomatik aniqlaydi ham
-      response_format: 'text',
-      prompt: 'Bu eksport deklaratsiya va bojxona xizmatlari bo\'yicha mijoz bilan sotuvchi o\'rtasidagi telefon suhbati. O\'zbek va Rus tillarida bo\'lishi mumkin.',
+    const body = Buffer.concat([
+      Buffer.from(head),
+      fileBuffer,
+      Buffer.from(tail)
+    ]);
+
+    const headers = new Headers();
+    headers.append('x-api-key', API_KEY);
+    headers.append('Content-Type', `multipart/form-data; boundary=${boundary}`);
+
+    console.log(`[Muxlisa STT] Uploading audio to STT...`);
+    const res = await fetch('https://service.muxlisa.uz/api/v2/stt', {
+      method: 'POST',
+      headers,
+      body,
     });
 
-    return transcription as unknown as string;
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[Muxlisa STT] POST Error: ${res.status} ${errText}`);
+      throw new Error(`Muxlisa API Error: ${res.status} ${errText}`);
+    }
+
+    const data = await res.json() as any;
+    
+    // Muxlisa { text: "..." } shaklida obyekt qaytaradi
+    if (data && data.text !== undefined) {
+      console.log(`[Muxlisa STT] Success!`);
+      return data.text;
+    }
+
+    throw new Error(`Muxlisa API kutilmagan javob qaytardi: ${JSON.stringify(data)}`);
   }
 
   /**

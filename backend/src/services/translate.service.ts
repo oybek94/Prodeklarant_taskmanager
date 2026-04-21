@@ -124,6 +124,7 @@ export function buildTranslatableTexts(data: {
     if (additionalInfo.destination) texts.destination = additionalInfo.destination;
     if (additionalInfo.origin) texts.origin = additionalInfo.origin;
     if (additionalInfo.manufacturer) texts.manufacturer = additionalInfo.manufacturer;
+    if (additionalInfo.harvestYear) texts.harvestYear = additionalInfo.harvestYear;
   }
 
   if (invoice) {

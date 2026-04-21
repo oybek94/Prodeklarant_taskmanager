@@ -500,13 +500,16 @@ export function generateInvoicePDF(data: InvoiceData): any {
   const hasGrossWeight = data.invoice.items?.some(item => item.grossWeight && Number(item.grossWeight) > 0);
   const hasNetWeight = data.invoice.items?.some(item => item.netWeight && Number(item.netWeight) > 0);
 
+  const fixedColsWidth = 15 + (hasTnvedCode ? 55 : 0) + (hasPluCode ? 45 : 0) + 25 + (hasPackageType ? 45 : 0) + 35 + (hasPackagesCount ? 40 : 0) + (hasGrossWeight ? 45 : 0) + (hasNetWeight ? 45 : 0) + 40 + 50;
+  const nameColWidth = Math.max(90, (pageWidth - 2 * margin) - fixedColsWidth);
+
   // Ustunlar pozitsiyasini hisoblash
   let currentX = startX;
   const colWidths: { [key: string]: number } = {
     number: 15,
     tnvedCode: hasTnvedCode ? 55 : 0,
     pluCode: hasPluCode ? 45 : 0,
-    name: 90,
+    name: nameColWidth,
     unit: 25,
     packageType: hasPackageType ? 45 : 0,
     quantity: 35,

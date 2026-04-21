@@ -132,11 +132,11 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
     setFont('Helvetica-Bold');
     doc.text('Contract No: ', leftColumnX, headerY, { continued: true });
     setFont('Helvetica');
-    doc.text(ensureUTF8(`${contractNumber} `), { continued: true });
+    doc.text(ensureUTF8(`${contractNumber}`), { continued: true });
     
     if (contractDate) {
       setFont('Helvetica-Bold');
-      doc.text('dated ', { continued: true });
+      doc.text(' dated ', { continued: true });
       setFont('Helvetica');
       doc.text(ensureUTF8(`${contractDate}`));
     } else {
@@ -535,10 +535,11 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       doc.moveDown(0.2);
     }
     if (info.harvestYear) {
+      const harvestTerm = tr(t, 'harvestYear', info.harvestYear);
       setFont('Helvetica-Bold');
       doc.text('Harvest: ', { continued: true });
       setFont('Helvetica');
-      doc.text(ensureUTF8(`${info.harvestYear}`));
+      doc.text(ensureUTF8(`${harvestTerm}`));
       doc.moveDown(0.2);
     }
     
@@ -561,12 +562,15 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   const hasGrossWeight = data.invoice.items?.some(item => item.grossWeight && Number(item.grossWeight) > 0);
   const hasNetWeight = data.invoice.items?.some(item => item.netWeight && Number(item.netWeight) > 0);
 
+  const fixedColsWidth = 15 + (hasTnvedCode ? 55 : 0) + (hasPluCode ? 45 : 0) + 25 + (hasPackageType ? 45 : 0) + 35 + (hasPackagesCount ? 40 : 0) + (hasGrossWeight ? 45 : 0) + (hasNetWeight ? 45 : 0) + 40 + 50;
+  const nameColWidth = Math.max(90, (pageWidth - 2 * margin) - fixedColsWidth);
+
   let currentX = startX;
   const colWidths: Record<string, number> = {
     number: 15,
     tnvedCode: hasTnvedCode ? 55 : 0,
     pluCode: hasPluCode ? 45 : 0,
-    name: 90,
+    name: nameColWidth,
     unit: 25,
     packageType: hasPackageType ? 45 : 0,
     quantity: 35,

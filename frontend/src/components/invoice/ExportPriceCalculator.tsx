@@ -105,6 +105,7 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
       const yolkiraUlushi = totalNet > 0 ? (netto / totalNet) * freightCost : 0;
       const summaPlusYolkira = summa + yolkiraUlushi;
       const kgNarx = netto > 0 ? summaPlusYolkira / netto : 0;
+      const kgNarxRub = kgNarx * usdToRubRate;
 
       return {
         id: item.id || `temp-${idx}`,
@@ -114,10 +115,11 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
         summa,
         yolkiraUlushi,
         summaPlusYolkira,
-        kgNarx
+        kgNarx,
+        kgNarxRub
       };
     });
-  }, [items, localPrices, freightCost, totalNet]);
+  }, [items, localPrices, freightCost, totalNet, usdToRubRate]);
 
   const totalSumma = rows.reduce((acc, r) => acc + r.summa, 0);
   const totalYolkira = rows.reduce((acc, r) => acc + r.yolkiraUlushi, 0);
@@ -197,6 +199,7 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
                   <th className="px-3 py-2 font-medium text-right text-gray-500">Yo'l. taq. ($)</th>
                   <th className="px-3 py-2 font-medium text-right bg-green-50">Summa+Y. ($)</th>
                   <th className="px-3 py-2 font-medium text-right text-blue-600">$/кг</th>
+                  <th className="px-3 py-2 font-medium text-right text-green-600">₽/кг</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -222,6 +225,7 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
                     <td className="px-3 py-2 text-right text-gray-500">{row.yolkiraUlushi.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}</td>
                     <td className="px-3 py-2 text-right bg-green-50/30 font-medium">{row.summaPlusYolkira.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td className="px-3 py-2 text-right text-blue-600 font-bold">{row.kgNarx.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="px-3 py-2 text-right text-green-600 font-bold">{row.kgNarxRub.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   </tr>
                 ))}
               </tbody>
@@ -233,6 +237,7 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
                   <td className="px-3 py-2 text-right">{totalSumma.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   <td className="px-3 py-2 text-right text-gray-500">{totalYolkira.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}</td>
                   <td className="px-3 py-2 text-right text-green-700">{finalUsd.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td className="px-3 py-2"></td>
                   <td className="px-3 py-2"></td>
                 </tr>
               </tfoot>

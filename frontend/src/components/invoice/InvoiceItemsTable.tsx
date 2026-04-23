@@ -1,5 +1,5 @@
 import React, { type RefObject } from 'react';
-import type { InvoiceItem, ViewTab, VisibleColumns, ColumnLabels, ColumnLabelKey } from './types';
+import type { InvoiceItem, ViewTab, VisibleColumns, ColumnLabels, ColumnLabelKey, InvoiceFormData } from './types';
 import { UNIT_OPTIONS, DEFAULT_COLUMN_LABELS } from './types';
 import { formatNumber, formatNumberFixed, numberToWordsRu, getCurrencySymbol } from './invoiceUtils';
 import { InvoiceWeightSummary } from './InvoiceWeightSummary';

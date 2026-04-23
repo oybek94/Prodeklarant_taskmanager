@@ -578,7 +578,8 @@ const Invoice = () => {
               getGrossWeightDisplayValue={getGrossWeightDisplayValue}
               getNetWeightDisplayValue={getNetWeightDisplayValue}
               packagingTypes={packagingTypes}
-              form={{ loaderWeight: form.loaderWeight, trailerWeight: form.trailerWeight, palletWeight: form.palletWeight }}
+              form={form}
+              setForm={setForm}
             />
 
             {/* Notes */}

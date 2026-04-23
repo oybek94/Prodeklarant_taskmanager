@@ -3,6 +3,7 @@ import type { InvoiceItem, ViewTab, VisibleColumns, ColumnLabels, ColumnLabelKey
 import { UNIT_OPTIONS, DEFAULT_COLUMN_LABELS } from './types';
 import { formatNumber, formatNumberFixed, numberToWordsRu, getCurrencySymbol } from './invoiceUtils';
 import { InvoiceWeightSummary } from './InvoiceWeightSummary';
+import { ExportPriceCalculator } from './ExportPriceCalculator';
 
 interface InvoiceItemsTableProps {
   viewTab: ViewTab;
@@ -32,7 +33,8 @@ interface InvoiceItemsTableProps {
   getGrossWeightDisplayValue: (index: number, item: InvoiceItem) => string;
   getNetWeightDisplayValue: (index: number, item: InvoiceItem) => string;
   packagingTypes: { id: string; name: string; code?: string }[];
-  form: { loaderWeight: string; trailerWeight: string; palletWeight: string };
+  form: InvoiceFormData;
+  setForm: React.Dispatch<React.SetStateAction<InvoiceFormData>>;
 }
 
 export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
@@ -64,6 +66,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
   getNetWeightDisplayValue,
   packagingTypes,
   form,
+  setForm,
 }) => {
   const isReadonly = isPdfMode || viewTab === 'spec' || viewTab === 'packing';
 
@@ -312,12 +315,20 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
       </>
 
       {!isPdfMode && viewTab !== 'spec' && (
-        <InvoiceWeightSummary
-          items={items}
-          loaderWeight={form.loaderWeight}
-          trailerWeight={form.trailerWeight}
-          palletWeight={form.palletWeight}
-        />
+        <>
+          <InvoiceWeightSummary
+            items={items}
+            loaderWeight={form.loaderWeight}
+            trailerWeight={form.trailerWeight}
+            palletWeight={form.palletWeight}
+          />
+          <ExportPriceCalculator 
+            form={form}
+            setForm={setForm}
+            items={items}
+            canEditEffective={canEditEffective}
+          />
+        </>
       )}
     </div>
   );

@@ -179,7 +179,11 @@ export interface InvoiceFormData {
   discount: number;
   shipping: number;
   amountPaid: number;
-  additionalInfo: Record<string, unknown>;
+  additionalInfo: {
+    freightCost?: number;
+    usdToRubRate?: number;
+    [key: string]: any;
+  };
   deliveryTerms: string;
   vehicleNumber: string;
   fssRegionInternalCode: string;

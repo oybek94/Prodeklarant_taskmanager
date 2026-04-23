@@ -51,28 +51,106 @@ router.post('/', requireAuth('ADMIN', 'DEKLARANT'), async (req, res) => {
 });
 
 router.put('/:id', requireAuth('ADMIN', 'DEKLARANT'), async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
-  const parsed = z.object({
-    name: z.string().min(1),
-    code: z.string().optional(),
-    botanicalName: z.string().optional().nullable(),
-  }).safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const updated = await prisma.tnvedProduct.update({
-    where: { id },
-    data: {
-      name: parsed.data.name.trim(),
-      code: (parsed.data.code ?? '').trim(),
-      botanicalName: parsed.data.botanicalName?.trim() || null,
-    },
-  });
-  res.json({
-    id: String(updated.id),
-    name: updated.name,
-    code: updated.code,
-    botanicalName: updated.botanicalName || undefined,
-  });
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
+    
+    const parsed = z.object({
+      name: z.string().min(1),
+      code: z.string().optional(),
+      botanicalName: z.string().optional().nullable(),
+    }).safeParse(req.body);
+    
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    const existingProduct = await prisma.tnvedProduct.findUnique({ where: { id } });
+    if (!existingProduct) return res.status(404).json({ error: 'Topilmadi' });
+
+    const newName = parsed.data.name.trim();
+    const newCode = (parsed.data.code ?? '').trim();
+    const newBotanicalName = parsed.data.botanicalName?.trim() || null;
+
+    const updated = await prisma.tnvedProduct.update({
+      where: { id },
+      data: {
+        name: newName,
+        code: newCode,
+        botanicalName: newBotanicalName,
+      },
+    });
+
+    // Sinxronizatsiya: agar malumotlar o'zgargan bo'lsa, shartnomalardagi spetsifikatsiyalarni yangilash
+    const isNameChanged = existingProduct.name !== newName;
+    const isCodeChanged = existingProduct.code !== newCode;
+    const isBotanicalChanged = existingProduct.botanicalName !== newBotanicalName;
+
+    if (isNameChanged || isCodeChanged || isBotanicalChanged) {
+      const { Prisma } = await import('@prisma/client');
+      const contracts = await prisma.contract.findMany({
+        where: {
+          specification: {
+            not: Prisma.AnyNull
+          }
+        },
+        select: { id: true, specification: true }
+      });
+
+      for (const contract of contracts) {
+        let specData = contract.specification;
+        
+        // Agar Prisma json ni string sifatida qaytarsa, parse qilamiz
+        if (typeof specData === 'string') {
+          try {
+            specData = JSON.parse(specData);
+          } catch (e) {
+            specData = [];
+          }
+        }
+
+        if (Array.isArray(specData)) {
+          let hasChanges = false;
+          const updatedSpec = specData.map((item: any) => {
+            if (
+              item && 
+              typeof item === 'object' && 
+              typeof item.name === 'string' &&
+              item.name.trim() === existingProduct.name.trim()
+            ) {
+              hasChanges = true;
+              return {
+                ...item,
+                name: newName,
+                tnvedCode: newCode,
+                botanicalName: newBotanicalName,
+              };
+            }
+            return item;
+          });
+
+          if (hasChanges) {
+            // Prisma objectni JSONga aylantira olishi uchun
+            await prisma.contract.update({
+              where: { id: contract.id },
+              data: { specification: updatedSpec }
+            });
+            // Raw orqali ishini sug'urtalash: contracts.ts dagi kabi
+            const specJson = JSON.stringify(updatedSpec);
+            await prisma.$executeRaw`UPDATE "Contract" SET "specification" = ${specJson}::jsonb WHERE "id" = ${contract.id}`;
+          }
+        }
+      }
+    }
+
+    res.json({
+      id: String(updated.id),
+      name: updated.name,
+      code: updated.code,
+      botanicalName: updated.botanicalName || undefined,
+    });
+  } catch (error: any) {
+    console.error('Error updating tnved product:', error);
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
+  }
 });
 
 router.delete('/:id', requireAuth('ADMIN', 'DEKLARANT'), async (req, res) => {

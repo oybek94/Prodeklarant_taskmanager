@@ -10,6 +10,8 @@ import {
   updateTnvedProduct,
   type TnvedProduct,
 } from '../utils/tnvedProducts';
+import { RecommendedPricesSection } from '../components/settings/RecommendedPricesSection';
+
 interface PackagingTypeItem {
   id: string;
   name: string;
@@ -1615,6 +1617,9 @@ const Settings = () => {
               </div>
 
               <div className="grid grid-cols-1 gap-6">
+                {/* Recommended Prices Section */}
+                <RecommendedPricesSection />
+
                 {/* TNVED Products Section */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-center mb-5">

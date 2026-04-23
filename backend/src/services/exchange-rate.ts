@@ -266,6 +266,60 @@ export async function fetchRateFromCBU(date?: Date): Promise<Decimal | null> {
  * Returns the saved rate
  */
 /**
+ * Fetch USD to RUB exchange rate from CBR API (Central Bank of Russia)
+ * 
+ * Target API endpoints:
+ * - https://www.cbr-xml-daily.ru/daily_json.js (Free, daily updates, JSON)
+ * - Fallback: open.er-api.com
+ */
+export async function fetchUsdToRubRate(): Promise<Decimal | null> {
+  try {
+    // Primary API: CBR XML Daily JSON (free, no key needed, updates daily)
+    const url = 'https://www.cbr-xml-daily.ru/daily_json.js';
+    console.log('[EXCHANGE] Fetching USD to RUB rate from', url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(5000), // 5s timeout
+    });
+
+    if (response.ok) {
+      const data: any = await response.json();
+      if (data && data.Valute && data.Valute.USD && data.Valute.USD.Value) {
+        const usdRate = parseFloat(data.Valute.USD.Value);
+        console.log(`[EXCHANGE] USD to RUB rate from CBR: ${usdRate}`);
+        return new Decimal(usdRate);
+      }
+    }
+
+    console.warn(`[EXCHANGE] CBR API failed (${response.status}), trying fallback...`);
+    
+    // Fallback API: ExchangeRate-API (Free tier endpoint)
+    const fallbackUrl = 'https://open.er-api.com/v6/latest/USD';
+    const fallbackResponse = await fetch(fallbackUrl, {
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (fallbackResponse.ok) {
+      const data: any = await fallbackResponse.json();
+      if (data && data.rates && data.rates.RUB) {
+        const usdRate = parseFloat(data.rates.RUB);
+        console.log(`[EXCHANGE] USD to RUB rate from Fallback: ${usdRate}`);
+        return new Decimal(usdRate);
+      }
+    }
+
+    console.error('[EXCHANGE] All APIs failed for USD to RUB rate');
+    return null;
+  } catch (error) {
+    console.error('[EXCHANGE] Error fetching USD to RUB rate:', error);
+    return null;
+  }
+}
+
+/**
  * Fetch and save daily rate from CBU API
  * Uses last available rate as fallback if API fails
  * Returns the saved rate

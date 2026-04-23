@@ -225,6 +225,8 @@ const invoiceSchema = z.object({
     shipping: z.number().min(0).max(1e9).optional(),
     amountPaid: z.number().min(0).max(1e9).optional(),
     paymentMethod: z.string().max(100).optional(),
+    freightCost: z.number().min(0).max(1e9).optional(),
+    usdToRubRate: z.number().min(0).max(1e6).optional(),
     // Transport va logistika
     deliveryTerms: z.string().max(500).optional(),
     vehicleNumber: z.string().max(200).optional(),

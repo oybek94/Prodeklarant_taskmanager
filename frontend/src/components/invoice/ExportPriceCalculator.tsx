@@ -5,7 +5,7 @@ import type { InvoiceFormData, InvoiceItem } from './types';
 
 interface ExportPriceCalculatorProps {
   form: InvoiceFormData;
-  setForm: (form: InvoiceFormData) => void;
+  setForm: React.Dispatch<React.SetStateAction<InvoiceFormData>>;
   items: InvoiceItem[];
   canEditEffective: boolean;
 }
@@ -84,13 +84,13 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
 
   const updateField = (field: 'freightCost' | 'usdToRubRate', val: number) => {
     if (!canEditEffective) return;
-    setForm({
-      ...form,
+    setForm(prev => ({
+      ...prev,
       additionalInfo: {
-        ...(form.additionalInfo || {}),
+        ...(prev.additionalInfo || {}),
         [field]: val,
       }
-    });
+    }));
   };
 
   const totalNet = useMemo(() => {

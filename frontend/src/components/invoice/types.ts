@@ -160,7 +160,7 @@ export type ChangeLogEntry = {
   changedAt?: string;
 };
 
-export type ViewTab = 'invoice' | 'spec' | 'packing';
+export type ViewTab = 'invoice' | 'spec' | 'packing' | 'pricelist';
 
 export type FssFilePrefix = 'Ichki' | 'Tashqi';
 

@@ -38,6 +38,7 @@ import { InvoiceConflictWarning } from '../components/invoice/InvoiceConflictWar
 import { InvoiceTabs } from '../components/invoice/InvoiceTabs';
 import { SertifikatErrorWarning } from '../components/invoice/SertifikatErrorWarning';
 import { ContractRequirementsNote } from '../components/invoice/ContractRequirementsNote';
+import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
 
 import type {
   InvoiceItem,
@@ -494,135 +495,148 @@ const Invoice = () => {
 
           <div
             ref={invoiceRef}
-            className={`flex flex-col bg-white rounded-lg shadow-lg p-8${isPdfMode ? ' pdf-mode' : ''}`}
+            className={`flex flex-col bg-white ${isPdfMode ? '' : 'rounded-lg shadow-lg p-8'}${isPdfMode ? ' pdf-mode' : ''}`}
             style={{ 
               minWidth: isPdfMode ? undefined : '950px',
               ...(invoiceScale < 1 && !isPdfMode ? { zoom: invoiceScale } as React.CSSProperties : {})
             }}
           >
 
-            {/* Invoice Header */}
-            <InvoiceHeader
-              viewTab={viewTab}
-              isPdfMode={isPdfMode}
-              form={form}
-              setForm={setForm}
-              invoice={invoice}
-              invoiceNumberWarning={invoiceNumberWarning}
-              selectedContractId={selectedContractId}
-              selectedContract={selectedContract}
-              contracts={contracts}
-              contractIdFromQuery={contractIdFromQuery}
-              handleContractSelect={handleContractSelect}
-            />
-
-            {/* Ajratuvchi chiziq */}
-            <div className="border-t-[1.5px] border-gray-400 my-6"></div>
-
-            {/* Sotuvchi va Sotib oluvchi Info */}
-            <InvoiceParties
-              selectedContractId={selectedContractId}
-              contracts={contracts}
-              selectedContract={selectedContract}
-              task={task}
-              isSellerShipper={isSellerShipper}
-              isBuyerConsignee={isBuyerConsignee}
-            />
-
-            {/* Ajratuvchi chiziq */}
-            <div className="border-t-[1.5px] border-gray-400 my-4"></div>
-
-            {/* Дополнительная информация */}
-            <InvoiceAdditionalInfoDisplay
-              form={form}
-              viewTab={viewTab}
-              selectedContract={selectedContract}
-              isBuyerConsignee={isBuyerConsignee}
-              isAdditionalInfoVisible={isAdditionalInfoVisible}
-              customFields={customFields}
-              specCustomFields={specCustomFields}
-              addressCopySuccess={addressCopySuccess}
-              setAddressCopySuccess={setAddressCopySuccess}
-              setShowAdditionalInfoModal={setShowAdditionalInfoModal}
-            />
-
-            {/* Ajratuvchi chiziq */}
-            <div className="border-t-[1.5px] border-gray-400 my-4"></div>
-
-            {/* Items Table */}
-            <InvoiceItemsTable
-              viewTab={viewTab}
-              isPdfMode={isPdfMode}
-              canEditEffective={canEditEffective}
-              items={items}
-              effectiveColumns={effectiveColumns}
-              visibleColumns={visibleColumns}
-              columnLabels={columnLabels}
-              totalColumnLabel={totalColumnLabel}
-              leadingColumnsCount={leadingColumnsCount}
-              invoiceCurrency={invoiceCurrency}
-              columnsDropdownRef={columnsDropdownRef}
-              columnsDropdownOpen={columnsDropdownOpen}
-              setColumnsDropdownOpen={setColumnsDropdownOpen}
-              setVisibleColumnsAndPersist={setVisibleColumnsAndPersist}
-              setColumnLabels={setColumnLabels}
-              addItem={addItem}
-              removeItem={removeItem}
-              handleItemChange={handleItemChange}
-              handleNameChange={handleNameChange}
-              handleNameEnChange={handleNameEnChange}
-              handleGrossWeightChange={handleGrossWeightChange}
-              handleNetWeightChange={handleNetWeightChange}
-              applyGrossWeightFormula={applyGrossWeightFormula}
-              applyNetWeightFormula={applyNetWeightFormula}
-              getGrossWeightDisplayValue={getGrossWeightDisplayValue}
-              getNetWeightDisplayValue={getNetWeightDisplayValue}
-              packagingTypes={packagingTypes}
-              form={form}
-              setForm={setForm}
-            />
-
-            {/* Notes */}
-            <InvoiceNotes
-              viewTab={viewTab}
-              isPdfMode={isPdfMode}
-              notes={form.notes}
-              setNotes={(val) => setForm({ ...form, notes: val })}
-            />
-
-            {/* Руководитель Поставщика va Товар отпустил */}
-            {viewTab !== 'spec' && selectedContractId && contracts.find(c => c.id.toString() === selectedContractId) && (
-              <div className="mb-8 space-y-3">
-                <InvoiceSignatures
-                  contract={contracts.find(c => c.id.toString() === selectedContractId)!}
+            {viewTab === 'pricelist' ? (
+              <InvoicePriceList
+                contract={selectedContract ?? null}
+                form={form}
+                items={items}
+                isPdfMode={isPdfMode}
+                pdfIncludeSeal={pdfIncludeSeal}
+              />
+            ) : (
+              <>
+                {/* Invoice Header */}
+                <InvoiceHeader
+                  viewTab={viewTab}
                   isPdfMode={isPdfMode}
-                  pdfIncludeSeal={pdfIncludeSeal}
+                  form={form}
+                  setForm={setForm}
+                  invoice={invoice}
+                  invoiceNumberWarning={invoiceNumberWarning}
+                  selectedContractId={selectedContractId}
+                  selectedContract={selectedContract}
+                  contracts={contracts}
+                  contractIdFromQuery={contractIdFromQuery}
+                  handleContractSelect={handleContractSelect}
                 />
-              </div>
-            )}
 
-            {viewTab === 'spec' && selectedContractId && contracts.find(c => c.id.toString() === selectedContractId) && (
-              <div className="mb-8 w-full">
-                <SpecSignatures
-                  contract={contracts.find(c => c.id.toString() === selectedContractId) as any}
-                  isPdfMode={isPdfMode}
-                  pdfIncludeSeal={pdfIncludeSeal}
+                {/* Ajratuvchi chiziq */}
+                <div className="border-t-[1.5px] border-gray-400 my-6"></div>
+
+                {/* Sotuvchi va Sotib oluvchi Info */}
+                <InvoiceParties
+                  selectedContractId={selectedContractId}
+                  contracts={contracts}
+                  selectedContract={selectedContract}
+                  task={task}
+                  isSellerShipper={isSellerShipper}
+                  isBuyerConsignee={isBuyerConsignee}
                 />
-              </div>
+
+                {/* Ajratuvchi chiziq */}
+                <div className="border-t-[1.5px] border-gray-400 my-4"></div>
+
+                {/* Дополнительная информация */}
+                <InvoiceAdditionalInfoDisplay
+                  form={form}
+                  viewTab={viewTab}
+                  selectedContract={selectedContract}
+                  isBuyerConsignee={isBuyerConsignee}
+                  isAdditionalInfoVisible={isAdditionalInfoVisible}
+                  customFields={customFields}
+                  specCustomFields={specCustomFields}
+                  addressCopySuccess={addressCopySuccess}
+                  setAddressCopySuccess={setAddressCopySuccess}
+                  setShowAdditionalInfoModal={setShowAdditionalInfoModal}
+                />
+
+                {/* Ajratuvchi chiziq */}
+                <div className="border-t-[1.5px] border-gray-400 my-4"></div>
+
+                {/* Items Table */}
+                <InvoiceItemsTable
+                  viewTab={viewTab}
+                  isPdfMode={isPdfMode}
+                  canEditEffective={canEditEffective}
+                  items={items}
+                  effectiveColumns={effectiveColumns}
+                  visibleColumns={visibleColumns}
+                  columnLabels={columnLabels}
+                  totalColumnLabel={totalColumnLabel}
+                  leadingColumnsCount={leadingColumnsCount}
+                  invoiceCurrency={invoiceCurrency}
+                  columnsDropdownRef={columnsDropdownRef}
+                  columnsDropdownOpen={columnsDropdownOpen}
+                  setColumnsDropdownOpen={setColumnsDropdownOpen}
+                  setVisibleColumnsAndPersist={setVisibleColumnsAndPersist}
+                  setColumnLabels={setColumnLabels}
+                  addItem={addItem}
+                  removeItem={removeItem}
+                  handleItemChange={handleItemChange}
+                  handleNameChange={handleNameChange}
+                  handleNameEnChange={handleNameEnChange}
+                  handleGrossWeightChange={handleGrossWeightChange}
+                  handleNetWeightChange={handleNetWeightChange}
+                  applyGrossWeightFormula={applyGrossWeightFormula}
+                  applyNetWeightFormula={applyNetWeightFormula}
+                  getGrossWeightDisplayValue={getGrossWeightDisplayValue}
+                  getNetWeightDisplayValue={getNetWeightDisplayValue}
+                  packagingTypes={packagingTypes}
+                  form={form}
+                  setForm={setForm}
+                />
+
+                {/* Notes */}
+                <InvoiceNotes
+                  viewTab={viewTab}
+                  isPdfMode={isPdfMode}
+                  notes={form.notes}
+                  setNotes={(val) => setForm({ ...form, notes: val })}
+                />
+
+                {/* Руководитель Поставщика va Товар отпустил */}
+                {viewTab !== 'spec' && selectedContractId && contracts.find(c => c.id.toString() === selectedContractId) && (
+                  <div className="mb-8 space-y-3">
+                    <InvoiceSignatures
+                      contract={contracts.find(c => c.id.toString() === selectedContractId)!}
+                      isPdfMode={isPdfMode}
+                      pdfIncludeSeal={pdfIncludeSeal}
+                    />
+                  </div>
+                )}
+
+                {viewTab === 'spec' && selectedContractId && contracts.find(c => c.id.toString() === selectedContractId) && (
+                  <div className="mb-8 w-full">
+                    <SpecSignatures
+                      contract={contracts.find(c => c.id.toString() === selectedContractId) as any}
+                      isPdfMode={isPdfMode}
+                      pdfIncludeSeal={pdfIncludeSeal}
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {/* Action Buttons */}
-            <InvoiceBottomActions
-              additionalInfoError={additionalInfoError}
-              canEditEffective={canEditEffective}
-              invoysStageReady={invoysStageReady}
-              markingReady={markingReady}
-              taskId={taskId}
-              saving={saving}
-              handleMarkInvoysReady={handleMarkInvoysReady}
-              navigate={navigate}
-            />
-
+            {!isPdfMode && (
+              <InvoiceBottomActions
+                additionalInfoError={additionalInfoError}
+                canEditEffective={canEditEffective}
+                invoysStageReady={invoysStageReady}
+                markingReady={markingReady}
+                taskId={taskId}
+                saving={saving}
+                handleMarkInvoysReady={handleMarkInvoysReady}
+                navigate={navigate}
+              />
+            )}
           </div>
         </form>
         </div>

@@ -13,6 +13,7 @@ export const InvoiceTabs: React.FC<InvoiceTabsProps> = ({ viewTab, setViewTab })
         { id: 'invoice' as const, label: 'Invoys' },
         { id: 'spec' as const, label: 'Spetsifikatsiya' },
         { id: 'packing' as const, label: 'Upakovochniy list' },
+        { id: 'pricelist' as const, label: 'Прайс-лист' },
       ].map((tab) => {
         const isActive = viewTab === tab.id;
         return (

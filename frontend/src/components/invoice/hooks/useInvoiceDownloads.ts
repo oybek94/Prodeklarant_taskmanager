@@ -101,8 +101,8 @@ export function useInvoiceDownloads({
     const marginVertical = 20;
     const marginHorizontal = 10;
     const maxWidth = pageWidth - marginHorizontal * 2;
-    const maxHeight = pageHeight - marginVertical * 2;
-    const scale = Math.min(maxWidth / canvas.width, maxHeight / canvas.height);
+    // Har doim kenglik bo'yicha masshtabni olamiz, shunda chetlarda bo'sh joy qolmaydi
+    const scale = maxWidth / canvas.width;
     const imgWidth = canvas.width * scale;
     const imgHeight = canvas.height * scale;
     const x = marginHorizontal;

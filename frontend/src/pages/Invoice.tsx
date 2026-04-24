@@ -274,7 +274,7 @@ const Invoice = () => {
     markSnapshotAfterSave, setMarkSnapshotAfterSave,
     isDirty, templatesDisabled
   } = useInvoiceSnapshot({
-    form, items, selectedContractId, customFields, specCustomFields, invoiceId: invoice?.id, saving
+    form, items, selectedContractId, customFields, specCustomFields, invoiceId: invoice?.id, saving, loading
   });
 
   useClickOutside(pdfMenuRef, showPdfMenu, useCallback(() => setShowPdfMenu(false), []));
@@ -495,7 +495,7 @@ const Invoice = () => {
 
           <div
             ref={invoiceRef}
-            className={`flex flex-col bg-white ${isPdfMode ? '' : 'rounded-lg shadow-lg p-8'}${isPdfMode ? ' pdf-mode' : ''}`}
+            className={`flex flex-col bg-white ${isPdfMode ? 'px-10 pt-8 pb-6' : 'rounded-lg shadow-lg px-14 pt-10 pb-8'}${isPdfMode ? ' pdf-mode' : ''}`}
             style={{ 
               minWidth: isPdfMode ? undefined : '950px',
               ...(invoiceScale < 1 && !isPdfMode ? { zoom: invoiceScale } as React.CSSProperties : {})

@@ -88,46 +88,42 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
   }, [handleItemChange]);
 
   const handleGrossWeightChange = useCallback((index: number, value: string) => {
-    const trimmed = value.trim();
-    if (trimmed === '') {
-      handleItemChange(index, 'grossWeight', undefined);
-      setEditingGrossWeight(null);
-      return;
-    }
-    if (trimmed.startsWith('*')) {
-      setEditingGrossWeight({ index, value });
-      return;
-    }
-    setEditingGrossWeight(null);
-    const num = parseFloat(trimmed.replace(',', '.'));
-    handleItemChange(index, 'grossWeight', Number.isNaN(num) ? undefined : num);
-  }, [handleItemChange]);
+    // Yozish paytida xom matnni saqlab turamiz (5, yoki 5,0 kabi oraliq holatlar uchun)
+    setEditingGrossWeight({ index, value });
+  }, []);
 
   const applyGrossWeightFormula = useCallback((index: number) => {
     if (editingGrossWeight?.index !== index) return;
     const v = editingGrossWeight.value.trim();
-    if (!v.startsWith('*')) {
+    if (v === '') {
+      handleItemChange(index, 'grossWeight', undefined);
       setEditingGrossWeight(null);
       return;
     }
-    const multiplier = parseFloat(v.slice(1).trim().replace(',', '.'));
-    if (Number.isNaN(multiplier)) {
+    if (v.startsWith('*')) {
+      const multiplier = parseFloat(v.slice(1).trim().replace(',', '.'));
+      if (Number.isNaN(multiplier)) {
+        setEditingGrossWeight(null);
+        return;
+      }
+      setItems((prev) => {
+        const pkgCount = prev[index]?.packagesCount ?? 0;
+        const result = Math.round(pkgCount * multiplier);
+        const next = [...prev];
+        next[index] = { ...next[index], grossWeight: result };
+        const netWeight = next[index].netWeight ?? 0;
+        const unitPrice = next[index].unitPrice ?? 0;
+        next[index].totalPrice = netWeight * unitPrice;
+        return next;
+      });
       setEditingGrossWeight(null);
       return;
     }
-    setItems((prev) => {
-      const pkgCount = prev[index]?.packagesCount ?? 0;
-      const result = Math.round(pkgCount * multiplier);
-      const next = [...prev];
-      next[index] = { ...next[index], grossWeight: result };
-      // Total price yangilash
-      const netWeight = next[index].netWeight ?? 0;
-      const unitPrice = next[index].unitPrice ?? 0;
-      next[index].totalPrice = netWeight * unitPrice;
-      return next;
-    });
+    // Oddiy raqam — kasrli yoki butun
+    const num = parseFloat(v.replace(',', '.'));
+    handleItemChange(index, 'grossWeight', Number.isNaN(num) ? undefined : num);
     setEditingGrossWeight(null);
-  }, [editingGrossWeight]);
+  }, [editingGrossWeight, handleItemChange, setItems]);
 
   const getGrossWeightDisplayValue = useCallback((index: number, item: InvoiceItem) => {
     if (editingGrossWeight?.index === index) return editingGrossWeight.value;
@@ -135,48 +131,45 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
   }, [editingGrossWeight]);
 
   const handleNetWeightChange = useCallback((index: number, value: string) => {
-    const trimmed = value.trim();
-    if (trimmed === '') {
-      handleItemChange(index, 'netWeight', undefined);
-      setEditingNetWeight(null);
-      return;
-    }
-    if (trimmed.startsWith('*')) {
-      setEditingNetWeight({ index, value });
-      return;
-    }
-    setEditingNetWeight(null);
-    const num = parseFloat(trimmed.replace(',', '.'));
-    handleItemChange(index, 'netWeight', Number.isNaN(num) ? undefined : num);
-  }, [handleItemChange]);
+    // Yozish paytida xom matnni saqlab turamiz (5, yoki 5,0 kabi oraliq holatlar uchun)
+    setEditingNetWeight({ index, value });
+  }, []);
 
   const applyNetWeightFormula = useCallback((index: number) => {
     if (editingNetWeight?.index !== index) return;
     const v = editingNetWeight.value.trim();
-    if (!v.startsWith('*')) {
+    if (v === '') {
+      handleItemChange(index, 'netWeight', undefined);
       setEditingNetWeight(null);
       return;
     }
-    const multiplier = parseFloat(v.slice(1).trim().replace(',', '.'));
-    if (Number.isNaN(multiplier)) {
+    if (v.startsWith('*')) {
+      const multiplier = parseFloat(v.slice(1).trim().replace(',', '.'));
+      if (Number.isNaN(multiplier)) {
+        setEditingNetWeight(null);
+        return;
+      }
+      setItems((prev) => {
+        const grossWeight = prev[index]?.grossWeight ?? 0;
+        const pkgCount = prev[index]?.packagesCount ?? 0;
+        const result = Math.round(grossWeight - multiplier * pkgCount);
+        const next = [...prev];
+        next[index] = {
+          ...next[index],
+          netWeight: result,
+          netWeightFormula: v,
+          totalPrice: result * (next[index].unitPrice ?? 0),
+        };
+        return next;
+      });
       setEditingNetWeight(null);
       return;
     }
-    setItems((prev) => {
-      const grossWeight = prev[index]?.grossWeight ?? 0;
-      const pkgCount = prev[index]?.packagesCount ?? 0;
-      const result = Math.round(grossWeight - multiplier * pkgCount);
-      const next = [...prev];
-      next[index] = {
-        ...next[index],
-        netWeight: result,
-        netWeightFormula: v,
-        totalPrice: result * (next[index].unitPrice ?? 0),
-      };
-      return next;
-    });
+    // Oddiy raqam — kasrli yoki butun
+    const num = parseFloat(v.replace(',', '.'));
+    handleItemChange(index, 'netWeight', Number.isNaN(num) ? undefined : num);
     setEditingNetWeight(null);
-  }, [editingNetWeight]);
+  }, [editingNetWeight, handleItemChange, setItems]);
 
   const getNetWeightDisplayValue = useCallback((index: number, item: InvoiceItem) => {
     if (editingNetWeight?.index === index) return editingNetWeight.value;

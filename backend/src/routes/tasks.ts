@@ -1817,7 +1817,7 @@ router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest
 });
 
 const rateErrorSchema = z.object({
-  rating: z.number().min(1).max(10),
+  rating: z.number().min(0).max(10),
 });
 
 router.put('/:taskId/errors/:errorId/rate', requireAuth(), async (req: AuthRequest, res) => {

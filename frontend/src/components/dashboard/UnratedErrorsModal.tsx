@@ -17,8 +17,8 @@ export const UnratedErrorsModal: React.FC<UnratedErrorsModalProps> = ({ show, on
   if (!show) return null;
 
   const handleRateError = async (errorId: number, taskId: number) => {
-    if (ratingValue < 1 || ratingValue > 10) {
-      toast.error("Baho 1 va 10 oralig'ida bo'lishi kerak");
+    if (ratingValue < 0 || ratingValue > 10) {
+      toast.error("Baho 0 va 10 oralig'ida bo'lishi kerak");
       return;
     }
     try {
@@ -78,8 +78,8 @@ export const UnratedErrorsModal: React.FC<UnratedErrorsModalProps> = ({ show, on
                   {ratingErrorId === error.id ? (
                     <div className="flex flex-wrap justify-between items-center bg-orange-50 dark:bg-orange-900/20 p-2 rounded gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-orange-600 dark:text-orange-400">Baho (1-10):</span>
-                        <input type="number" min="1" max="10" value={ratingValue} onChange={e => setRatingValue(Number(e.target.value))} className="w-14 px-2 py-1 border rounded text-xs focus:ring-1 focus:ring-orange-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                        <span className="text-xs font-bold text-orange-600 dark:text-orange-400">Baho (0-10):</span>
+                        <input type="number" min="0" max="10" value={ratingValue} onChange={e => setRatingValue(Number(e.target.value))} className="w-14 px-2 py-1 border rounded text-xs focus:ring-1 focus:ring-orange-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                       </div>
                       <div className="flex items-center gap-1 w-full sm:w-auto mt-1 sm:mt-0 justify-end">
                         <button onClick={() => setRatingErrorId(null)} className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 font-bold whitespace-nowrap">Bekor</button>

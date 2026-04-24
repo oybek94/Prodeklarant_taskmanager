@@ -85,8 +85,8 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
   };
 
   const handleRateError = async (errorId: number) => {
-    if (ratingValue < 1 || ratingValue > 10) {
-      toast.error("Baho 1 va 10 oralig'ida bo'lishi kerak");
+    if (ratingValue < 0 || ratingValue > 10) {
+      toast.error("Baho 0 va 10 oralig'ida bo'lishi kerak");
       return;
     }
     try {
@@ -137,7 +137,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
                         {ratingErrorId === error.id ? (
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] text-gray-500 font-bold uppercase">Baho:</span>
-                            <input type="number" min="1" max="10" value={ratingValue} onChange={(e) => setRatingValue(Number(e.target.value))} className="w-14 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-yellow-400 focus:outline-none" />
+                            <input type="number" min="0" max="10" value={ratingValue} onChange={(e) => setRatingValue(Number(e.target.value))} className="w-14 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-yellow-400 focus:outline-none" />
                             <button onClick={() => handleRateError(error.id)} className="px-2 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600 shadow-sm font-medium">Saqlash</button>
                             <button onClick={() => setRatingErrorId(null)} className="text-gray-400 hover:text-gray-600 text-xs font-medium">Bekor</button>
                           </div>

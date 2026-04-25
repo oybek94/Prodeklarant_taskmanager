@@ -8,6 +8,7 @@ import { uploadConversation } from '../middleware/upload';
 import { ConversationAnalyzerService } from '../ai/conversation.analyzer';
 import path from 'path';
 import fs from 'fs';
+import { socketEmitter } from '../services/socketEmitter';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -447,7 +448,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
                 WRONG_NUMBER: "Raqam xato",
                 UNREACHABLE: "O'chiq / Ko'tarmadi",
             };
-            await prisma.leadActivity.create({
+            const currentActivity = await prisma.leadActivity.create({
                 data: {
                     leadId: id,
                     userId: req.user.id,
@@ -455,6 +456,40 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
                     note: `Bosqich: ${stageLabels[existing.stage] || existing.stage} → ${stageLabels[stage] || stage}${lostReason ? ` (Sabab: ${lostReason})` : ''}`,
                 },
             });
+
+            if (stage === 'CLOSED_WON') {
+                // Sotuvchini aniqlash (aloqa o'rnatgan yoki uchrashuv belgilagan xodim)
+                let actualSellerName = lead.assignedTo?.name || req.user.name;
+                
+                const realSellerActivity = await prisma.leadActivity.findFirst({
+                    where: {
+                        leadId: id,
+                        id: { not: currentActivity.id },
+                        type: { not: 'import' }
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    include: { user: true }
+                });
+
+                if (realSellerActivity?.user?.name) {
+                    actualSellerName = realSellerActivity.user.name;
+                }
+
+                const adminIds = await getAdminUserIds();
+                const notifyUserIds = new Set<number>(adminIds);
+                if (lead.assignedToId) notifyUserIds.add(lead.assignedToId);
+                if (realSellerActivity?.userId) notifyUserIds.add(realSellerActivity.userId);
+                notifyUserIds.add(req.user.id);
+
+                notifyUserIds.forEach(userId => {
+                    socketEmitter.toUser(userId, 'LEAD_WON', {
+                        leadId: lead.id,
+                        companyName: lead.companyName,
+                        sellerName: actualSellerName,
+                        amount: lead.estimatedExportVolume,
+                    });
+                });
+            }
         }
 
         // Uchrashuv belgilanayotganda adminga bildirishnoma yuborish

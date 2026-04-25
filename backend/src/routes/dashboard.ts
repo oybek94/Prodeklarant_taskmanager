@@ -407,12 +407,25 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         }
       });
 
+      // Get error count for each worker in the date range
+      const errorsByWorker = await prisma.taskError.groupBy({
+        by: ['workerId'],
+        where: { createdAt: { gte: startDate, lte: endDate } },
+        _count: true
+      });
+
+      const errorCountMap = new Map<number, number>();
+      errorsByWorker.forEach((item) => {
+        errorCountMap.set(item.workerId, item._count);
+      });
+
       // Combine all workers with their completed stages count (0 if no completed stages)
       const ranking = allWorkers.map((worker) => ({
         userId: worker.id,
         name: worker.name,
         completedStages: completedStagesMap.get(worker.id) || 0,
         invoiceCount: uniqueTasksMap.get(worker.id)?.size || 0,
+        errorCount: errorCountMap.get(worker.id) || 0,
       }));
 
       // Sort by completed stages (descending), then by name (ascending) for tie-breaking
@@ -1217,7 +1230,7 @@ router.get('/premium-stats', requireAuth(), async (req: AuthRequest, res) => {
       name: clients.find(c => c.id === g.clientId)?.name || 'Noma\'lum Mijoz'
     }));
     
-    const topClients = topClientsRaw.sort((a, b) => b.count - a.count).slice(0, 5);
+    const topClients = topClientsRaw.filter(c => c.count > 0).sort((a, b) => b.count - a.count);
 
     // 2. Task Process Types by Worker (Ishchilar va Rejimlar - TaskStage bo'yicha)
     const stageWorkersGrouping = await prisma.taskStage.groupBy({

@@ -38,6 +38,7 @@ import CrmDashboard from './pages/CrmDashboard';
 import Notifications from './pages/Notifications';
 import Debts from './pages/Debts';
 import FAQ from './pages/FAQ';
+import LeadWonAnimation from './components/LeadWonAnimation';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -373,6 +374,7 @@ function App() {
         <BrowserRouter>
           <SocketProvider>
             <AppRoutes />
+            <LeadWonAnimation />
             <Toaster position="top-right" />
           </SocketProvider>
         </BrowserRouter>

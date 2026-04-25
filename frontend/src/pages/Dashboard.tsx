@@ -72,9 +72,9 @@ interface DashboardStats {
   processStats: Array<{ status: string; count: number }>;
   workerActivity: Array<{ userId: number; name: string; totalKPI: number; completedStages: number }>;
   workerCompletionRanking?: {
-    weekly: Array<{ userId: number; name: string; completedStages: number; invoiceCount: number }>;
-    monthly: Array<{ userId: number; name: string; completedStages: number; invoiceCount: number }>;
-    yearly: Array<{ userId: number; name: string; completedStages: number; invoiceCount: number }>;
+    weekly: Array<{ userId: number; name: string; completedStages: number; invoiceCount: number; errorCount?: number }>;
+    monthly: Array<{ userId: number; name: string; completedStages: number; invoiceCount: number; errorCount?: number }>;
+    yearly: Array<{ userId: number; name: string; completedStages: number; invoiceCount: number; errorCount?: number }>;
   };
 
   financialStats: Array<{ type: string; total: number }>;
@@ -1238,7 +1238,11 @@ const Dashboard = () => {
                             tooltip: {
                               theme: 'dark',
                               y: {
-                                formatter: (value: number) => `${value} ta`,
+                                formatter: function (value: number, opts: any) {
+                                  const total = opts.globals.seriesTotals.reduce((a: any, b: any) => a + b, 0);
+                                  const percent = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                  return `${value} ta (${percent}%)`;
+                                }
                               },
                             },
                           }}
@@ -1361,8 +1365,19 @@ const Dashboard = () => {
                                       <span className="text-[9px] uppercase font-black tracking-widest text-white/90 bg-black/40 px-1.5 py-0.5 rounded border border-white/10">{rank.short}</span>
                                     </div>
                                     <div className="text-[11px] text-slate-400 mt-1 flex items-center font-medium">
-                                      <span className="uppercase tracking-wide text-[9px] mr-1 opacity-80">INVOYS:</span>
-                                      <span className="text-emerald-400 font-bold ml-1">{w.invoiceCount || 0} ta</span>
+                                      <span className="uppercase tracking-wide text-[9px] mr-1 opacity-80">INVOYS K/D:</span>
+                                      <span className="ml-1">
+                                        <span className="text-emerald-400 font-bold">
+                                          {w.errorCount === 0 && w.invoiceCount > 0 ? (
+                                            <span className="text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)] uppercase tracking-wider font-black text-[10px] bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/20">MVP</span>
+                                          ) : (
+                                            w.errorCount ? Math.round(w.invoiceCount / w.errorCount) : w.invoiceCount
+                                          )}
+                                        </span>
+                                        <span className="text-slate-400 ml-1">
+                                          (<span className="text-blue-400">{w.invoiceCount || 0}</span> ish / <span className="text-red-500">{w.errorCount || 0}</span> ta xato)
+                                        </span>
+                                      </span>
                                     </div>
                                   </div>
                                 </div>
@@ -1636,7 +1651,8 @@ const Dashboard = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600"></div>
               </div>
             ) : (() => {
-              const clients = premiumStats.topClients || [];
+              const allClients = premiumStats.topClients || [];
+              const clients = allClients.filter((c: any) => (c.count || 0) > 0);
               if (clients.length === 0) return <div className="text-center py-12 text-gray-400">Ma'lumot yo'q</div>;
 
               const isDark = document.documentElement.classList.contains('dark');

@@ -36,7 +36,7 @@ router.post('/', requireAuth(), async (req, res) => {
   } catch (error) {
     console.error('Error creating FAQ:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors[0].message });
+      return res.status(400).json({ error: error.issues[0].message });
     }
     res.status(500).json({ error: 'FAQ yaratishda xatolik yuz berdi' });
   }
@@ -55,7 +55,7 @@ router.put('/:id', requireAuth(), async (req, res) => {
   } catch (error) {
     console.error('Error updating FAQ:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors[0].message });
+      return res.status(400).json({ error: error.issues[0].message });
     }
     res.status(500).json({ error: 'FAQni yangilashda xatolik yuz berdi' });
   }

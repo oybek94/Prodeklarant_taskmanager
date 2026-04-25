@@ -87,7 +87,7 @@ const Layout = () => {
     ...(user?.role === 'ADMIN' ? [{ path: '/training/manage', label: 'O\'qitish Boshqaruvi', icon: 'lucide:book-open-check' }] : []),
     ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'lucide:user-cog' }] : []),
     ...(user?.role === 'ADMIN' ? [{ path: '/settings', label: 'Sozlamalar', icon: 'lucide:settings' }] : []),
-    { path: '/faq', label: 'FAQ (Yordam)', icon: 'lucide:help-circle' },
+    ...(user?.role !== 'SELLER' ? [{ path: '/faq', label: 'FAQ (Yordam)', icon: 'lucide:help-circle' }] : []),
     { path: '/profile', label: 'Profil', icon: 'lucide:user' },
   ];
 
@@ -255,7 +255,8 @@ const Layout = () => {
               </button>
 
               {/* 🔔 Bildirishnoma Bell */}
-              <div className="relative" ref={panelRef}>
+              {user?.role !== 'SELLER' && (
+                <div className="relative" ref={panelRef}>
                 <button
                   onClick={() => setNotificationPanelOpen(!notificationPanelOpen)}
                   className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -375,6 +376,7 @@ const Layout = () => {
                   </div>
                 )}
               </div>
+              )}
             </div>
           </header>
         )}

@@ -1320,3 +1320,17 @@ model UserAchievement {
 
   @@index([userId])
 }
+
+model Faq {
+  id               Int      @id @default(autoincrement())
+  question         String
+  answer           String   @db.Text
+  topic            String?
+  imageUrl         String?
+  imageDescription String?
+  orderIndex       Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([topic])
+}

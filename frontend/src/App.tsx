@@ -37,6 +37,7 @@ import LeadDetail from './pages/LeadDetail';
 import CrmDashboard from './pages/CrmDashboard';
 import Notifications from './pages/Notifications';
 import Debts from './pages/Debts';
+import FAQ from './pages/FAQ';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -301,6 +302,14 @@ const AppRoutes = () => {
         />
         <Route path="/exam/:id" element={<Exam />} />
         <Route path="/exam/:id/result" element={<ExamResult />} />
+        <Route
+          path="/faq"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
+              <FAQ />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/workers"
           element={

@@ -481,14 +481,29 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
                 if (realSellerActivity?.userId) notifyUserIds.add(realSellerActivity.userId);
                 notifyUserIds.add(req.user.id);
 
-                notifyUserIds.forEach(userId => {
-                    socketEmitter.toUser(userId, 'LEAD_WON', {
-                        leadId: lead.id,
-                        companyName: lead.companyName,
-                        sellerName: actualSellerName,
-                        amount: lead.estimatedExportVolume,
+                const notificationPayload = {
+                    leadId: lead.id,
+                    companyName: lead.companyName,
+                    sellerName: actualSellerName,
+                    amount: lead.estimatedExportVolume,
+                    isLeadWonCelebration: true
+                };
+
+                const notifyPromises = Array.from(notifyUserIds).map(async (userId) => {
+                    socketEmitter.toUser(userId, 'LEAD_WON', notificationPayload);
+                    
+                    await prisma.notification.create({
+                        data: {
+                            userId: userId,
+                            type: 'SYSTEM',
+                            title: 'Muvaffaqiyatli Kelishuv',
+                            message: `${lead.companyName} bilan shartnoma tuzildi!`,
+                            metadata: notificationPayload
+                        }
                     });
                 });
+                
+                await Promise.all(notifyPromises);
             }
         }
 
@@ -567,6 +582,20 @@ router.post('/:id/activities', async (req: AuthRequest, res: Response) => {
             include: { user: { select: { id: true, name: true } } },
         });
         res.status(201).json(activity);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/leads/:id/activities/:activityId — Faoliyatni o'chirish (Admin uchun)
+router.delete('/:id/activities/:activityId', async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user || req.user.role !== 'ADMIN') {
+            return res.status(403).json({ error: 'Faqat adminlar o\'chira oladi' });
+        }
+        const activityId = Number(req.params.activityId);
+        await prisma.leadActivity.delete({ where: { id: activityId } });
+        res.json({ success: true });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }

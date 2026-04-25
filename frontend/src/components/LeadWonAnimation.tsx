@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useSocket } from '../contexts/SocketContext';
 import { Icon } from '@iconify/react';
 import confetti from 'canvas-confetti';
+import apiClient from '../lib/api';
 
 interface LeadWonData {
     leadId: number;
     companyName: string;
     sellerName: string;
     amount: string | null;
+    notificationId?: number;
 }
 
 export default function LeadWonAnimation() {
@@ -88,6 +90,29 @@ export default function LeadWonAnimation() {
         }());
     };
 
+    // Oflayn holatda saqlangan tabriklarni tekshirish
+    useEffect(() => {
+        const fetchUnreadCelebrations = async () => {
+            try {
+                const res = await apiClient.get('/notifications?unread=true');
+                const notifications = res.data;
+                const celebration = notifications.find((n: any) => n.metadata?.isLeadWonCelebration === true);
+                if (celebration) {
+                    setData({
+                        ...celebration.metadata,
+                        notificationId: celebration.id
+                    });
+                    playJackpotSound();
+                    fireConfetti();
+                }
+            } catch (err) {
+                console.error("Failed to fetch celebrations", err);
+            }
+        };
+
+        fetchUnreadCelebrations();
+    }, []);
+
     useEffect(() => {
         if (!socket) return;
 
@@ -103,6 +128,17 @@ export default function LeadWonAnimation() {
             socket.off('LEAD_WON', handleLeadWon);
         };
     }, [socket]);
+
+    const handleClose = async () => {
+        if (data?.notificationId) {
+            try {
+                await apiClient.patch(`/notifications/${data.notificationId}/read`);
+            } catch (err) {
+                console.error("Failed to mark as read", err);
+            }
+        }
+        setData(null);
+    };
 
     if (!data) return null;
 
@@ -158,7 +194,7 @@ export default function LeadWonAnimation() {
 
                 {/* Davom etish tugmasi (Asosiy va Mobil uchun juda qulay) */}
                 <button
-                    onClick={() => setData(null)}
+                    onClick={handleClose}
                     className="mt-4 md:mt-6 px-8 md:px-10 py-3 md:py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-base md:text-xl font-bold rounded-full shadow-[0_0_40px_rgba(245,158,11,0.6)] hover:scale-105 active:scale-95 transition-all z-50 flex items-center gap-2 md:gap-3"
                 >
                     <Icon icon="lucide:check-circle" className="w-5 h-5 md:w-7 md:h-7" />

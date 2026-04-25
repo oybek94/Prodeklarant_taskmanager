@@ -301,6 +301,19 @@ export default function LeadDetail() {
         }
     };
 
+    const handleDeleteActivity = async (activityId: number) => {
+        if (!confirm('Ushbu faoliyatni o\'chirishni xohlaysizmi?')) return;
+        try {
+            const { data } = await apiClient.delete(`/leads/${id}/activities/${activityId}`);
+            if (data.success) {
+                toast.success('Faoliyat o\'chirildi');
+                fetchLead();
+            }
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Xatolik yuz berdi');
+        }
+    };
+
     const handleStageChange = async (stage: LeadStage) => {
         if (stage === 'CLOSED_LOST') {
             setPendingStage(stage);
@@ -1095,11 +1108,22 @@ export default function LeadDetail() {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between gap-2 flex-wrap">
                                                     <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{act.user.name}</span>
-                                                    <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
-                                                        {new Date(act.createdAt).toLocaleString('uz-UZ', {
-                                                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-                                                        })}
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                                                            {new Date(act.createdAt).toLocaleString('uz-UZ', {
+                                                                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                                                            })}
+                                                        </span>
+                                                        {user?.role === 'ADMIN' && (
+                                                            <button
+                                                                onClick={() => handleDeleteActivity(act.id)}
+                                                                className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                                title="O'chirish"
+                                                            >
+                                                                <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 {act.note && (
                                                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">{act.note}</p>

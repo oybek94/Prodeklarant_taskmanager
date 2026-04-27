@@ -39,6 +39,7 @@ import Notifications from './pages/Notifications';
 import Debts from './pages/Debts';
 import FAQ from './pages/FAQ';
 import LeadWonAnimation from './components/LeadWonAnimation';
+import XpAnimation from './components/XpAnimation';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -375,6 +376,7 @@ function App() {
           <SocketProvider>
             <AppRoutes />
             <LeadWonAnimation />
+            <XpAnimation />
             <Toaster position="top-right" />
           </SocketProvider>
         </BrowserRouter>

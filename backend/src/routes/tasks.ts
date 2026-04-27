@@ -1817,7 +1817,7 @@ router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest
 });
 
 const rateErrorSchema = z.object({
-  rating: z.number().min(0).max(10),
+  rating: z.number().min(0).max(100),
 });
 
 router.put('/:taskId/errors/:errorId/rate', requireAuth(), async (req: AuthRequest, res) => {
@@ -1842,11 +1842,11 @@ router.put('/:taskId/errors/:errorId/rate', requireAuth(), async (req: AuthReque
   }
 
   const rating = parsed.data.rating;
-  const bountyUzs = rating * 50000;
-  const bountyXp = rating * 5;
+  const bountyUzs = rating * 5000;
+  const bountyXp = rating;
 
-  const updated = await prisma.$transaction(async (tx) => {
-    return await (tx as any).taskError.update({
+  const { updated, workerNotif, creatorNotif } = await prisma.$transaction(async (tx) => {
+    const errorUpdated = await (tx as any).taskError.update({
       where: { id: errorId },
       data: {
         adminRating: rating,
@@ -1854,8 +1854,67 @@ router.put('/:taskId/errors/:errorId/rate', requireAuth(), async (req: AuthReque
         bountyRewardUzs: bountyUzs,
         bountyXp: bountyXp,
       },
-      include: { worker: { select: { id: true, name: true } } },
+      include: { 
+        worker: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true } },
+        task: { select: { id: true, title: true } }
+      },
     });
+
+    let wNotif: any = null;
+    let cNotif: any = null;
+
+    if (errorUpdated.workerId !== errorUpdated.createdById) {
+      // Deduct XP from worker
+      await (tx as any).user.update({
+        where: { id: errorUpdated.workerId },
+        data: { xp: { decrement: bountyXp } },
+      });
+
+      // Add XP to creator
+      await (tx as any).user.update({
+        where: { id: errorUpdated.createdById },
+        data: { xp: { increment: bountyXp } },
+      });
+
+      // Notification for worker (XP loss)
+      wNotif = await (tx as any).notification.create({
+        data: {
+          userId: errorUpdated.workerId,
+          type: 'SYSTEM',
+          title: 'XP Ayrildi',
+          message: `${errorUpdated.stageName} da xato qilganingiz uchun ${bountyXp} XP ayrildi.`,
+          metadata: { 
+            isXpAnimation: true, 
+            type: 'XP_LOSS', 
+            xpAmount: bountyXp, 
+            stageName: errorUpdated.stageName,
+            taskTitle: errorUpdated.task?.title || '',
+            comment: errorUpdated.comment || ''
+          },
+        }
+      });
+
+      // Notification for creator (XP gain)
+      cNotif = await (tx as any).notification.create({
+        data: {
+          userId: errorUpdated.createdById,
+          type: 'SYSTEM',
+          title: 'XP Qo\'shildi',
+          message: `${errorUpdated.stageName} dagi xatoni topganingiz uchun ${bountyXp} XP qo'shildi.`,
+          metadata: { 
+            isXpAnimation: true, 
+            type: 'XP_GAIN', 
+            xpAmount: bountyXp, 
+            stageName: errorUpdated.stageName,
+            taskTitle: errorUpdated.task?.title || '',
+            comment: errorUpdated.comment || ''
+          },
+        }
+      });
+    }
+
+    return { updated: errorUpdated, workerNotif: wNotif, creatorNotif: cNotif };
   });
 
   // Check achievements
@@ -1877,6 +1936,20 @@ router.put('/:taskId/errors/:errorId/rate', requireAuth(), async (req: AuthReque
            }
         });
      }
+  }
+
+  if (workerNotif) {
+    socketEmitter.toUser(updated.workerId, 'XP_ANIMATION', {
+      ...workerNotif.metadata,
+      notificationId: workerNotif.id
+    });
+  }
+
+  if (creatorNotif) {
+    socketEmitter.toUser(updated.createdById, 'XP_ANIMATION', {
+      ...creatorNotif.metadata,
+      notificationId: creatorNotif.id
+    });
   }
 
   socketEmitter.broadcast('user:bounty_awarded', updated);

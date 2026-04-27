@@ -15,6 +15,7 @@ import {
 } from 'chart.js';
 import { Pie, Bar } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import TrophyRoom from '../components/medals/TrophyRoom';
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
 
@@ -292,6 +293,7 @@ const Profile = () => {
 
   return (
     <div>
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Personal Cabinet</h1>
         {isAdmin && id && (
@@ -312,6 +314,10 @@ const Profile = () => {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="mb-6">
+        <TrophyRoom />
       </div>
 
       {/* Stage Statistics */}

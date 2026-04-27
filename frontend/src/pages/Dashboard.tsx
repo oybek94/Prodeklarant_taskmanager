@@ -22,6 +22,8 @@ import { useIsMobile } from '../utils/useIsMobile';
 import DashboardNotes from '../components/dashboard/DashboardNotes';
 import { useSocket } from '../contexts/SocketContext';
 import { UnratedErrorsModal } from '../components/dashboard/UnratedErrorsModal';
+import { MEDAL_DETAILS, TIER_LABELS, formatPeriod, type UserMedal } from '../types/medals';
+import MedalsNominationPanel from '../components/medals/MedalsNominationPanel';
 
 import silver1 from '../assets/ranks/silver_1.png';
 import silver2 from '../assets/ranks/silver_2.png';
@@ -231,8 +233,11 @@ const Dashboard = () => {
   const [loadingCompletedSummary, setLoadingCompletedSummary] = useState(true);
   const [showRanksModal, setShowRanksModal] = useState(false);
   const [achievements, setAchievements] = useState<any[]>([]);
+  const [allMedals, setAllMedals] = useState<UserMedal[]>([]);
+  const [myMedals, setMyMedals] = useState<UserMedal[]>([]);
   const [unratedErrors, setUnratedErrors] = useState<any[]>([]);
   const [showUnratedModal, setShowUnratedModal] = useState(false);
+  const [showNominationsModal, setShowNominationsModal] = useState<false | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'>(false);
   const loadUnratedErrors = async () => {
     if (user?.role !== 'ADMIN') return;
     try {
@@ -252,6 +257,19 @@ const Dashboard = () => {
     }
   };
 
+  const loadMedals = async () => {
+    try {
+      const [allRes, myRes] = await Promise.all([
+        apiClient.get('/medals/all'),
+        apiClient.get('/medals/my-medals')
+      ]);
+      setAllMedals(allRes.data);
+      setMyMedals(myRes.data);
+    } catch (error) {
+      console.error('Error loading medals:', error);
+    }
+  };
+
   useEffect(() => {
     loadStats();
     loadChartData();
@@ -262,6 +280,7 @@ const Dashboard = () => {
   useEffect(() => {
     loadCompletedSummary();
     loadAchievements();
+    loadMedals();
     if (user?.role === 'ADMIN') {
       loadUnratedErrors();
     }
@@ -681,7 +700,7 @@ const Dashboard = () => {
 
       <div className="max-w-[1600px] mx-auto space-y-4 sm:space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 relative z-30">
             {/* Premium Page Header (Hero style) */}
             <div className="relative h-full bg-gradient-to-r from-indigo-50/80 via-white/80 to-purple-50/80 dark:from-indigo-950/40 dark:via-gray-900/60 dark:to-purple-950/40 backdrop-blur-3xl rounded-[24px] shadow-sm border border-white/60 dark:border-white/10 p-6 sm:p-8 flex flex-col justify-center">
               {/* Abstract blobs */}
@@ -740,33 +759,53 @@ const Dashboard = () => {
                       </div>
                     )}
 
+                    {/* Tungi Boyqush Admin Reminder */}
+                    {user?.role === 'ADMIN' && (
+                      <div className="mt-4 mb-2 flex items-center justify-between bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/30 dark:to-fuchsia-900/20 border border-purple-200 dark:border-purple-800/50 rounded-xl p-3 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="text-2xl">🦉</div>
+                          <div>
+                            <h3 className="text-sm font-bold text-purple-800 dark:text-purple-300">"Tungi Boyqush" medalini topshirish</h3>
+                            <p className="text-xs text-purple-700 dark:text-purple-400">Oyning eng mehnatkash xodimini rag'batlantirish esdan chiqmasin.</p>
+                          </div>
+                        </div>
+                        <button onClick={() => setShowNominationsModal('MONTHLY')} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg transition-colors">
+                          Nomzodlarni ko'rish
+                        </button>
+                      </div>
+                    )}
+
                     {/* Achievements Showcase (Medals Cabinet) */}
                     <div className="mt-3 flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white/50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/60 dark:border-gray-700/50 shadow-sm backdrop-blur-md self-start inline-flex min-h-[52px]">
                       <span className="text-[10px] sm:text-[11px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mr-2 flex items-center gap-1.5">
-                        <i className="fas fa-medal text-yellow-500 opacity-80"></i> Mening unvonlarim:
+                        <i className="fas fa-medal text-yellow-500 opacity-80"></i> Mening medallarim:
                       </span>
 
-                      {achievements.length > 0 ? achievements.map((ach) => (
-                        <div key={ach.id} className="relative group cursor-help flex items-center justify-center">
-                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-yellow-200 to-amber-400 dark:from-yellow-700 dark:to-amber-900 border border-yellow-400 dark:border-yellow-600 flex items-center justify-center shadow-inner hover:scale-110 transition-transform">
-                            {ach.type === 'BOUNTY_HUNTER' ? <span className="text-lg leading-none" title="Bounty Hunter">🕵️‍♂️</span> : <span className="text-lg leading-none" title="Quality Score">🏅</span>}
-                          </div>
-                          <div className="absolute top-12 left-1/2 -translate-x-1/2 w-56 p-3 bg-gray-900/95 backdrop-blur-md text-white text-xs rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center border border-gray-700">
-                            <div className="font-extrabold text-yellow-400 tracking-wider mb-1.5 text-sm uppercase">{ach.medalName}</div>
-                            <div className="text-gray-200 font-medium leading-tight mb-2">{ach.description}</div>
-                            <div className="text-[10px] text-gray-400 font-bold tracking-widest uppercase border-t border-gray-700 pt-1.5 mt-1">
-                              Olingan sana: {new Date(ach.createdAt).toLocaleDateString('uz-UZ')}
+                      {myMedals.length > 0 ? myMedals.map((medal) => {
+                        const details = MEDAL_DETAILS[medal.medalType];
+                        return (
+                          <div key={medal.id} className="relative group cursor-pointer flex items-center justify-center" onClick={() => navigate('/profile')}>
+                            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform ${details.bgClass} border-2 border-white dark:border-gray-700 overflow-hidden`}>
+                              <img src={details.image} alt={details.name} className="w-full h-full object-contain p-1 drop-shadow-sm" />
+                            </div>
+                            <div className="absolute top-12 left-1/2 -translate-x-1/2 w-56 p-3 bg-gray-900/95 backdrop-blur-md text-white text-xs rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center border border-gray-700">
+                              <div className={`font-extrabold ${details.color} tracking-wider mb-1.5 text-sm uppercase`}>{details.name}</div>
+                              <div className="text-gray-200 font-medium leading-tight mb-2">{details.description}</div>
+                              <div className="text-[10px] text-gray-400 font-bold tracking-widest uppercase border-t border-gray-700 pt-1.5 mt-1 flex justify-between">
+                                <span>{formatPeriod(medal.period)}</span>
+                                <span>+{medal.cashBonus / 1000}k UZS</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )) : (
-                        <div className="relative group cursor-help flex items-center justify-center">
+                        );
+                      }) : (
+                        <div className="relative group cursor-pointer flex items-center justify-center" onClick={() => navigate('/profile')}>
                           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gray-200/80 dark:bg-gray-700/80 border border-gray-300 dark:border-gray-600 flex items-center justify-center opacity-60 transition-opacity hover:opacity-100">
                             <i className="fas fa-lock text-gray-400 dark:text-gray-500 text-xs shadow-inner"></i>
                           </div>
                           <div className="absolute top-12 left-1/2 -translate-x-1/2 w-52 p-2.5 bg-gray-900/95 backdrop-blur-md text-white text-xs rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center border border-gray-700">
                             <div className="font-bold text-gray-300 mb-1">Medallar Qulflangan</div>
-                            <div className="text-gray-400 text-[10px]">A'lo darajadagi xizmatlaringiz yoki xatolarni topganingiz uchun maxsus medallar shu yerda paydo bo'ladi.</div>
+                            <div className="text-gray-400 text-[10px]">A'lo darajadagi xizmatlaringiz uchun maxsus medallar shu yerda paydo bo'ladi. Ko'rish uchun bosing.</div>
                           </div>
                         </div>
                       )}
@@ -1352,11 +1391,13 @@ const Dashboard = () => {
 
 
                           return (
-                            <div key={w.name} className="flex flex-col p-3 rounded-xl bg-slate-800/80 hover:bg-slate-700/90 transition-all border border-slate-700/60 relative overflow-hidden group">
+                            <div key={w.name} className="flex flex-col p-3 rounded-xl bg-slate-800/80 hover:bg-slate-700/90 transition-all border border-slate-700/60 relative group">
                               {/* Background Glow based on rank */}
-                              <div className={`absolute -right-6 -bottom-6 w-24 h-24 bg-gradient-to-br ${rank.color} rounded-full blur-2xl opacity-10 group-hover:opacity-30 transition-opacity`}></div>
+                              <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
+                                <div className={`absolute -right-6 -bottom-6 w-24 h-24 bg-gradient-to-br ${rank.color} rounded-full blur-2xl opacity-10 group-hover:opacity-30 transition-opacity`}></div>
+                              </div>
 
-                              <div className="flex items-center justify-between mb-2 relative z-10">
+                              <div className="flex items-center justify-between mb-2 relative z-20">
                                 <div className="flex items-center gap-3">
                                   <div className={`flex items-center justify-center w-12 h-12 rounded-[10px] bg-gradient-to-br ${rank.color} shadow-[0_4px_15px_rgba(0,0,0,0.3)] border border-white/10 shrink-0`}>
                                     <img src={rank.image} alt={rank.title} className="w-10 h-auto drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
@@ -1365,6 +1406,27 @@ const Dashboard = () => {
                                     <div className="flex items-center gap-2">
                                       <span className="font-bold text-[14px] text-white leading-none pr-1">{w.name}</span>
                                       <span className="text-[9px] uppercase font-black tracking-widest text-white/90 bg-black/40 px-1.5 py-0.5 rounded border border-white/10">{rank.short}</span>
+                                      {(() => {
+                                        const userMedals = allMedals.filter((m: any) => m.userId === w.userId);
+                                        if (userMedals.length === 0) return null;
+                                        const tierScore: Record<string, number> = { 'YEARLY': 4, 'QUARTERLY': 3, 'MONTHLY': 2, 'WEEKLY': 1 };
+                                        const topMedal = userMedals.sort((a: any, b: any) => {
+                                          const aScore = tierScore[MEDAL_DETAILS[a.medalType as keyof typeof MEDAL_DETAILS]?.tier || 'WEEKLY'] || 0;
+                                          const bScore = tierScore[MEDAL_DETAILS[b.medalType as keyof typeof MEDAL_DETAILS]?.tier || 'WEEKLY'] || 0;
+                                          return bScore - aScore;
+                                        })[0];
+                                        const details = MEDAL_DETAILS[topMedal.medalType as keyof typeof MEDAL_DETAILS];
+                                        if (!details) return null;
+                                        return (
+                                          <div className="group/medal relative cursor-help flex items-center justify-center -ml-1 hover:z-[100]">
+                                            <img src={details.image} alt={details.name} className="w-5 h-5 drop-shadow-md rounded-full" />
+                                            <div className={`absolute ${index < 3 ? 'top-full mt-2' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2 w-max max-w-[200px] p-2 bg-gray-900/95 text-white text-[10px] rounded-lg opacity-0 invisible group-hover/medal:opacity-100 group-hover/medal:visible transition-all z-[100] pointer-events-none whitespace-normal text-center border border-gray-700 shadow-xl`}>
+                                              <div className={`font-bold ${details.color}`}>{details.name}</div>
+                                              <div className="text-gray-400 mt-0.5">{TIER_LABELS[details.tier]}</div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                     <div className="text-[11px] text-slate-400 mt-1 flex items-center font-medium">
                                       <span className="uppercase tracking-wide text-[9px] mr-1 opacity-80">INVOYS K/D:</span>
@@ -1875,6 +1937,16 @@ const Dashboard = () => {
           errors={unratedErrors}
           onRateSuccess={() => { loadUnratedErrors(); setShowUnratedModal(false); }}
         />
+
+        {showNominationsModal && (
+          <MedalsNominationPanel 
+            initialTab={showNominationsModal as any}
+            onClose={() => {
+              setShowNominationsModal(false);
+              loadMedals();
+            }} 
+          />
+        )}
       </div>
     </div>
   );

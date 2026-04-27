@@ -450,8 +450,8 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     // Monthly: First day of month to today
     const rankingMonthStart = new Date(rankingNow.getFullYear(), rankingNow.getMonth(), 1, 0, 0, 0, 0);
 
-    // Yearly: First day of year to today
-    const rankingYearStart = new Date(rankingNow.getFullYear(), 0, 1, 0, 0, 0, 0);
+    // Yearly: First day of season (May 1st) to today
+    const rankingYearStart = new Date(rankingNow.getFullYear(), 4, 1, 0, 0, 0, 0);
 
     const [weeklyRanking, monthlyRanking, yearlyRanking] = await Promise.all([
       calculateWorkerRanking(rankingWeekStart, rankingTodayEnd),

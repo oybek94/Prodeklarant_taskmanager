@@ -45,12 +45,12 @@ export const initCronJobs = () => {
           if (errorCount === 0) {
             console.log(`[CRON] Foydalanuvchi ${user.name} 100+ vazifa va 0 xato qildi! Mukofotlash jarayoni...`);
 
-            // Check if they already received it
-            const hasMedal = await prisma.userAchievement.count({
+            const periodStr = `${previousMonthFirstDay.getFullYear()}-${(previousMonthFirstDay.getMonth() + 1).toString().padStart(2, '0')}`;
+            const hasMedal = await prisma.userMedal.count({
               where: { 
                 userId: user.id, 
-                medalName: 'The Global Elite', 
-                awardedAt: { gte: previousMonthFirstDay } 
+                medalType: 'GOLDEN_KD', 
+                period: periodStr 
               }
             });
 
@@ -73,13 +73,19 @@ export const initCronJobs = () => {
                  });
 
                  // Award Achievement Medal
-                 await (tx as any).userAchievement.create({
+                 await (tx as any).userMedal.create({
                     data: {
                        userId: user.id,
-                       type: 'QUALITY_SCORE',
-                       medalName: 'The Global Elite',
-                       description: `${previousMonthFirstDay.toLocaleString('uz-UZ', { month: 'long' })} oyida eng toza ishlagan xodim! (+100 XP va 1,000,000 so'm)`,
+                       medalType: 'GOLDEN_KD',
+                       period: periodStr,
+                       cashBonus: 1000000,
+                       xpBonus: 100
                     }
+                 });
+                 
+                 await (tx as any).user.update({
+                   where: { id: user.id },
+                   data: { xp: { increment: 100 } }
                  });
               });
 

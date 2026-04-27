@@ -306,7 +306,7 @@ router.get('/me/achievements', requireAuth(), async (req: AuthRequest, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const achievements = await (prisma as any).userAchievement.findMany({
+    const achievements = await (prisma as any).userMedal.findMany({
       where: { userId: req.user.id },
       orderBy: { awardedAt: 'desc' }
     });

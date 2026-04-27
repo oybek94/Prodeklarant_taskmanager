@@ -1917,27 +1917,6 @@ router.put('/:taskId/errors/:errorId/rate', requireAuth(), async (req: AuthReque
     return { updated: errorUpdated, workerNotif: wNotif, creatorNotif: cNotif };
   });
 
-  // Check achievements
-  const bountyCount = await prisma.taskError.count({
-    where: { createdById: error.createdById, adminRating: { not: null } }
-  });
-
-  if (bountyCount >= 5) {
-     const hasMedal = await prisma.userAchievement.count({
-         where: { userId: error.createdById, type: 'BOUNTY_HUNTER' }
-     });
-     if (hasMedal === 0) {
-        await prisma.userAchievement.create({
-           data: {
-              userId: error.createdById,
-              type: 'BOUNTY_HUNTER',
-              medalName: 'Overwatch Investigator',
-              description: 'Kamida 5 ta xato ushlab, kompaniyani qutqargani uchun!',
-           }
-        });
-     }
-  }
-
   if (workerNotif) {
     socketEmitter.toUser(updated.workerId, 'XP_ANIMATION', {
       ...workerNotif.metadata,

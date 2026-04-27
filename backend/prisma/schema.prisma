@@ -29,6 +29,7 @@ model User {
   passwordHash       String
   photoUrl           String?
   active             Boolean                  @default(true)
+  xp                 Int                      @default(0)
   createdAt          DateTime                 @default(now())
   archiveDocuments   ArchiveDocument[]        @relation("ArchiveDocumentUploadedBy")
   auditLogs          AuditLog[]
@@ -57,7 +58,7 @@ model User {
   createdNotes       DashboardNote[]          @relation("NoteCreatedBy")
   assignedNotes      DashboardNote[]          @relation("NoteAssignedTo")
   completedNotes     DashboardNote[]          @relation("NoteCompletedBy")
-  achievements       UserAchievement[]
+  userMedals         UserMedal[]
 }
 
 model Client {
@@ -1309,16 +1310,30 @@ model DashboardNote {
   @@index([completedAt])
 }
 
-model UserAchievement {
-  id          Int      @id @default(autoincrement())
+model UserMedal {
+  id          Int       @id @default(autoincrement())
   userId      Int
-  type        String
-  medalName   String
-  awardedAt   DateTime @default(now())
-  description String?
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medalType   MedalType
+  period      String    // e.g. "2026-W17", "2026-04", "2026-Q1"
+  cashBonus   Decimal   @db.Decimal(12, 2)
+  xpBonus     Int
+  awardedAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([medalType, period])
+}
+
+enum MedalType {
+  FAST_WORKER
+  SHIELD
+  EAGLE_EYE
+  GOLDEN_KD
+  GROWTH_CHAMPION
+  NIGHT_OWL
+  COMPANY_PILLAR
+  PROBLEM_SOLVER
+  YEAR_STAR
 }
 
 model Faq {

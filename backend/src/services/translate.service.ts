@@ -22,8 +22,17 @@ interface TranslatedRequisites {
 export async function translateRequisites(
   texts: Record<string, string>
 ): Promise<TranslatedRequisites> {
+  // Pre-process texts for specific hardcoded translations
+  const preProcessedTexts: Record<string, string> = {};
+  for (const [k, v] of Object.entries(texts)) {
+    if (v) {
+      // Hardcoded translation for АРВИАЙ
+      preProcessedTexts[k] = v.replace(/АО ["«]АРВИАЙ \(РАШЕН ВЕНЧУР ИНВЕСТМЕНТС\)["»]/gi, 'JSC "RVI (RUSSIAN VENTURE INVESTMENTS)"');
+    }
+  }
+
   // Filter out empty values
-  const entries = Object.entries(texts).filter(([, v]) => v && v.trim());
+  const entries = Object.entries(preProcessedTexts).filter(([, v]) => v && v.trim());
   if (entries.length === 0) return {};
 
   try {

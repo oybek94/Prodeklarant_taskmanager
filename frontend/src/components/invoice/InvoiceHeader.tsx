@@ -141,7 +141,7 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({
 
         <h1 className="text-5xl font-bold text-gray-800 dark:text-gray-100 mb-6">
           {viewTab === 'invoice'
-            ? 'INVOICE'
+            ? 'Инвойс'
             : viewTab === 'spec'
               ? 'Спецификaция'
               : 'Упаковочный лист'}

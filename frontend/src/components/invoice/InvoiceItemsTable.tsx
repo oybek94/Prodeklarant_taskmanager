@@ -35,6 +35,7 @@ interface InvoiceItemsTableProps {
   packagingTypes: { id: string; name: string; code?: string }[];
   form: InvoiceFormData;
   setForm: React.Dispatch<React.SetStateAction<InvoiceFormData>>;
+  showItemErrors?: boolean;
 }
 
 export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
@@ -67,6 +68,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
   packagingTypes,
   form,
   setForm,
+  showItemErrors,
 }) => {
   const isReadonly = isPdfMode || viewTab === 'spec' || viewTab === 'packing';
 
@@ -256,7 +258,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       )}
                       {effectiveColumns.package && (
                         <td className="px-2 py-2">
-                          <select value={item.packageType || ''} onChange={(e) => handleItemChange(index, 'packageType', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs bg-white">
+                          <select value={item.packageType || ''} onChange={(e) => handleItemChange(index, 'packageType', e.target.value)} className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.packageType?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'}`}>
                             <option value="">— Вид упаковки —</option>
                             {packagingTypes.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
                           </select>

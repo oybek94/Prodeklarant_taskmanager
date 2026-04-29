@@ -333,7 +333,7 @@ const Invoice = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId, clientId, contractIdFromQuery]);
 
-  const { handleSubmit } = useInvoiceSave({
+  const { handleSubmit, showItemErrors } = useInvoiceSave({
     form,
     setForm,
     items,
@@ -591,6 +591,7 @@ const Invoice = () => {
                   packagingTypes={packagingTypes}
                   form={form}
                   setForm={setForm}
+                  showItemErrors={showItemErrors}
                 />
 
                 {/* Notes */}

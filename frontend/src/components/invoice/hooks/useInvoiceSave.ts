@@ -1,6 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import axios from 'axios';
 import apiClient from '../../../lib/api';
+import toast from 'react-hot-toast';
 import type { InvoiceItem, Task, ChangeLogEntry } from '../types';
 import { normalizeItem, buildTaskTitle } from '../invoiceUtils';
 
@@ -121,6 +122,8 @@ export function useInvoiceSave({
   newInvoiceTaskForm,
 }: UseInvoiceSaveParams) {
 
+  const [showItemErrors, setShowItemErrors] = useState(false);
+
   const buildChangeLog = useCallback((): ChangeLogEntry[] => {
     const initial = initialForChangeLogRef.current;
     if (!initial) return [];
@@ -199,7 +202,14 @@ export function useInvoiceSave({
     }
 
     if (invoiceNumberWarning) {
-      alert('Invoice raqamini ozgartiring. ' + invoiceNumberWarning);
+      toast.error('Invoice raqamini ozgartiring. ' + invoiceNumberWarning);
+      return;
+    }
+
+    const missingPackageType = items.some(item => !item.packageType?.trim());
+    if (missingPackageType) {
+      setShowItemErrors(true);
+      toast.error('Iltimos, barcha tovarlar uchun "Вид упаковки" ni tanlang.');
       return;
     }
 
@@ -212,9 +222,13 @@ export function useInvoiceSave({
           Number(item.unitPrice) > 0
       );
     if (!hasValidItems) {
-      alert('Iltimos, barcha tovarlarni to\'liq to\'ldiring (Наименование, Мест yoki Кол-во упаковки, Цена за ед.изм.)');
+      setShowItemErrors(true);
+      toast.error('Iltimos, barcha tovarlarni to\'liq to\'ldiring (Наименование, Мест yoki Кол-во упаковки, Цена за ед.изм.)');
       return;
     }
+
+    // Reset item errors if valid
+    setShowItemErrors(false);
 
     try {
       setSaving(true);
@@ -240,7 +254,7 @@ export function useInvoiceSave({
       }
 
       if (!currentTaskId) {
-        alert('Yangi invoys uchun filial tanlangan bo\'lishi kerak. Iltimos, Invoyslar sahifasidan "Yangi Invoice" orqali kirishni urinib ko\'ring.');
+        toast.error('Yangi invoys uchun filial tanlangan bo\'lishi kerak. Iltimos, Invoyslar sahifasidan "Yangi Invoice" orqali kirishni urinib ko\'ring.');
         setSaving(false);
         return;
       }
@@ -357,13 +371,13 @@ export function useInvoiceSave({
           await apiClient.patch(`/tasks/${currentTaskId}`, { title: nextTaskTitle });
         } catch (error) {
           console.error('Error updating task title:', error);
-          alert(axios.isAxiosError(error) && error.response?.data?.error ? error.response.data.error : 'Task nomini yangilashda xatolik yuz berdi');
+          toast.error(axios.isAxiosError(error) && typeof error.response?.data?.error === 'string' ? error.response.data.error : 'Task nomini yangilashda xatolik yuz berdi');
         }
       }
 
       setMarkSnapshotAfterSave(true);
       if (!silent) {
-        alert(invoice ? 'Invoice muvaffaqiyatli yangilandi' : 'Invoice muvaffaqiyatli yaratildi');
+        toast.success(invoice ? 'Invoice muvaffaqiyatli yangilandi' : 'Invoice muvaffaqiyatli yaratildi');
       }
 
       // Yangi task yaratilgan bo'lsa, URL ni /invoices/task/:taskId ga o'zgartirish
@@ -376,11 +390,11 @@ export function useInvoiceSave({
       if (typeof errMsg === 'string' && errMsg.includes('invoice raqami allaqachon mavjud')) {
         setInvoiceNumberWarning('Bu raqam allaqachon mavjud. Ozgartirish kerak');
       }
-      alert(errMsg);
+      toast.error(String(errMsg));
     } finally {
       setSaving(false);
     }
   }, [form, items, invoice, task, taskId, clientId, selectedContractId, canEditEffective, invoiceNumberWarning, additionalInfoError, customFields, specCustomFields, additionalInfoVisible, visibleColumns, columnLabels, packagingTypes, newInvoiceTaskForm, buildChangeLog, setForm, setItems, setInvoice, setTask, setSelectedContractId, setAdditionalInfoError, setShowAdditionalInfoModal, setSaving, setMarkSnapshotAfterSave, setInvoiceNumberWarning, navigate]);
 
-  return { handleSubmit, buildChangeLog };
+  return { handleSubmit, buildChangeLog, showItemErrors };
 }

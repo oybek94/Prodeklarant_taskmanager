@@ -14,6 +14,20 @@ const formatPhoneForCall = (phone: string | null) => {
     return phone.startsWith('+') ? phone : '+' + cleaned;
 };
 
+const formatDate = (dateString: string | Date) => {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+};
+
+const formatDateTime = (dateString: string | Date) => {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    const date = `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+    const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    return `${date} ${time}`;
+};
+
 const STAGES: { key: LeadStage; label: string; icon: string; color: string }[] = [
     { key: 'COLD', label: 'Yangi', icon: 'lucide:snowflake', color: 'bg-blue-100 text-blue-700 border-blue-200' },
     { key: 'IN_PROGRESS', label: 'Aloqada', icon: 'lucide:phone-call', color: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -487,7 +501,7 @@ export default function LeadDetail() {
                             <h1 className="text-xl font-bold text-gray-900 dark:text-white">{lead.companyName}</h1>
                         )}
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Yaratildi: {new Date(lead.createdAt).toLocaleDateString('uz-UZ')}
+                            Yaratildi: {formatDate(lead.createdAt)}
                         </p>
                     </div>
                 </div>
@@ -549,6 +563,8 @@ export default function LeadDetail() {
                                         ) : field === 'phone' && (lead as any)[field] ? (
                                             <a 
                                                 href={`tel:${formatPhoneForCall((lead as any)[field])}`}
+                                                target="_top"
+                                                rel="noopener noreferrer"
                                                 className="inline-flex items-center gap-1.5 mt-0.5 px-2 py-0.5 rounded text-sm font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-700 dark:hover:text-blue-300 transition-colors max-w-fit"
                                             >
                                                 {(lead as any)[field]}
@@ -716,13 +732,7 @@ export default function LeadDetail() {
                         {lead.nextCallAt && (
                             <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5 font-medium">
                                 <Icon icon="lucide:calendar" className="w-3.5 h-3.5 text-blue-500" />
-                                {new Date(lead.nextCallAt).toLocaleString('uz-UZ', { 
-                                    weekday: 'short', 
-                                    day: 'numeric', 
-                                    month: 'short', 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                })}
+                                {formatDateTime(lead.nextCallAt)}
                             </p>
                         )}
                     </div>
@@ -829,7 +839,7 @@ export default function LeadDetail() {
                                                     {conv.audioFileName}
                                                 </p>
                                                 <p className="text-xs text-gray-400">
-                                                    {new Date(conv.createdAt).toLocaleString('uz-UZ', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                    {formatDateTime(conv.createdAt)}
                                                     {' • '}{conv.uploadedBy.name}
                                                     {conv.status !== 'DONE' && conv.status !== 'ERROR' && (
                                                         <span className="ml-1 text-amber-500 font-medium">
@@ -1124,9 +1134,7 @@ export default function LeadDetail() {
                                                     <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{act.user.name}</span>
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
-                                                            {new Date(act.createdAt).toLocaleString('uz-UZ', {
-                                                                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-                                                            })}
+                                                            {formatDateTime(act.createdAt)}
                                                         </span>
                                                         {user?.role === 'ADMIN' && (
                                                             <button

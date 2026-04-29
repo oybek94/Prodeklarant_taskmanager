@@ -14,6 +14,20 @@ const formatPhoneForCall = (phone: string | null) => {
     return phone.startsWith('+') ? phone : '+' + cleaned;
 };
 
+const formatDate = (dateString: string | Date) => {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+};
+
+const formatDateTime = (dateString: string | Date) => {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    const date = `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+    const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    return `${date} ${time}`;
+};
+
 export type LeadStage =
     | 'COLD'
     | 'IN_PROGRESS'
@@ -514,7 +528,10 @@ export default function Leads() {
                             return (
                                 <div
                                     key={lead.id}
-                                    onClick={() => navigate(`/leads/${lead.id}`)}
+                                    onClick={(e) => {
+                                        if ((e.target as HTMLElement).closest('a')) return;
+                                        navigate(`/leads/${lead.id}`);
+                                    }}
                                     className="group bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200/80 dark:border-gray-700/80 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all active:scale-[0.98] cursor-pointer"
                                 >
                                     <div className="flex justify-between items-start mb-3">
@@ -530,7 +547,8 @@ export default function Leads() {
                                                 {lead.phone ? (
                                                     <a 
                                                         href={`tel:${formatPhoneForCall(lead.phone)}`}
-                                                        onClick={(e) => e.stopPropagation()}
+                                                        target="_top"
+                                                        rel="noopener noreferrer"
                                                         className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1.5 rounded-md w-fit active:bg-indigo-100 dark:active:bg-indigo-900/40"
                                                     >
                                                         <Icon icon="lucide:phone" className="w-3.5 h-3.5 opacity-70" />
@@ -549,7 +567,7 @@ export default function Leads() {
                                             {lead.nextCallAt && (
                                                 <div className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${isOverdue ? 'bg-red-50 text-red-600 border-red-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800'}`}>
                                                     <Icon icon={isOverdue ? "lucide:phone-incoming" : "lucide:clock"} className="w-3 h-3" />
-                                                    {new Date(lead.nextCallAt).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' })}
+                                                    {formatDate(lead.nextCallAt)}
                                                 </div>
                                             )}
                                             {activeStage === 'CLOSED_WON' && lead.invoicesCount !== undefined && (
@@ -568,7 +586,7 @@ export default function Leads() {
                                                     Oxirgi izoh
                                                 </p>
                                                 <p className="text-[9px] text-gray-400">
-                                                    {new Date(lead.activities[0].createdAt).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' })}
+                                                    {formatDate(lead.activities[0].createdAt)}
                                                 </p>
                                             </div>
                                             <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed italic">
@@ -579,7 +597,7 @@ export default function Leads() {
 
                                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/50">
                                         <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium font-outfit">
-                                            Ko'shilgan: {new Date(lead.createdAt).toLocaleDateString('uz-UZ')}
+                                            Ko'shilgan: {formatDate(lead.createdAt)}
                                         </span>
                                         <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider group-hover:translate-x-1 transition-transform">
                                             Batafsil
@@ -689,7 +707,7 @@ export default function Leads() {
                                                             : 'bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800'
                                                     }`}>
                                                         <Icon icon={isOverdue ? "lucide:phone-incoming" : "lucide:calendar-check"} className="w-3.5 h-3.5" />
-                                                        {new Date(lead.nextCallAt).toLocaleDateString('uz-UZ')}
+                                                        {formatDate(lead.nextCallAt)}
                                                     </div>
                                                 ) : (
                                                     <span className="text-sm text-gray-300 dark:text-gray-600">—</span>
@@ -703,7 +721,7 @@ export default function Leads() {
                                                         </p>
                                                         <p className="text-[9px] text-gray-400 mt-1 flex items-center gap-1">
                                                             <Icon icon="lucide:clock" className="w-2.5 h-2.5" />
-                                                            {new Date(lead.activities[0].createdAt).toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                            {formatDateTime(lead.activities[0].createdAt)}
                                                         </p>
                                                     </div>
                                                 ) : (

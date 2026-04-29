@@ -6,6 +6,13 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsMobile } from '../utils/useIsMobile';
 
+const formatPhoneForCall = (phone: string | null) => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/[^\d]/g, '');
+    if (cleaned.length === 9) return '+998' + cleaned;
+    if (cleaned.length === 12 && cleaned.startsWith('998')) return '+' + cleaned;
+    return phone.startsWith('+') ? phone : '+' + cleaned;
+};
 
 export type LeadStage =
     | 'COLD'
@@ -494,8 +501,10 @@ export default function Leads() {
                         <p className="text-sm font-medium">Lidlar topilmadi</p>
                         <p className="text-xs mt-1">Yangi lid qo'shish yoki Excel import qiling</p>
                     </div>
-                ) : isMobile ? (
-                    <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                ) : (
+                    <>
+                        {isMobile ? (
+                            <div className="flex flex-col gap-3 p-3 bg-slate-50/50 dark:bg-slate-900/20">
                         {leads.map((lead) => {
                             const isOverdue = lead.nextCallAt && new Date(lead.nextCallAt) < new Date() &&
                                 lead.stage !== 'CLOSED_WON' && lead.stage !== 'CLOSED_LOST';
@@ -506,7 +515,7 @@ export default function Leads() {
                                 <div
                                     key={lead.id}
                                     onClick={() => navigate(`/leads/${lead.id}`)}
-                                    className="p-4 hover:bg-blue-50/30 dark:hover:bg-blue-900/5 active:bg-gray-50 dark:active:bg-gray-800 transition-colors"
+                                    className="group bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200/80 dark:border-gray-700/80 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all active:scale-[0.98] cursor-pointer"
                                 >
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex-1 min-w-0 pr-2">
@@ -518,10 +527,21 @@ export default function Leads() {
                                                     <Icon icon="lucide:user" className="w-3.5 h-3.5 text-gray-400" />
                                                     <span className="font-medium truncate">{lead.contactPerson || '-'}</span>
                                                 </div>
-                                                <div className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400">
-                                                    <Icon icon="lucide:phone" className="w-3.5 h-3.5 opacity-70" />
-                                                    <span className="font-bold">{lead.phone || '-'}</span>
-                                                </div>
+                                                {lead.phone ? (
+                                                    <a 
+                                                        href={`tel:${formatPhoneForCall(lead.phone)}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1.5 rounded-md w-fit active:bg-indigo-100 dark:active:bg-indigo-900/40"
+                                                    >
+                                                        <Icon icon="lucide:phone" className="w-3.5 h-3.5 opacity-70" />
+                                                        <span className="font-bold">{lead.phone}</span>
+                                                    </a>
+                                                ) : (
+                                                    <div className="flex items-center gap-1.5 text-xs text-gray-400 px-2 py-1.5">
+                                                        <Icon icon="lucide:phone" className="w-3.5 h-3.5 opacity-70" />
+                                                        <span className="font-bold">-</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex flex-col items-end gap-2">
@@ -557,10 +577,13 @@ export default function Leads() {
                                         </div>
                                     )}
 
-                                    <div className="flex justify-end mt-3 pt-2 border-t border-gray-50 dark:border-gray-700/50">
-                                        <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-                                            Batafsil ko'rish
-                                            <Icon icon="lucide:chevron-right" className="w-4 h-4" />
+                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/50">
+                                        <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium font-outfit">
+                                            Ko'shilgan: {new Date(lead.createdAt).toLocaleDateString('uz-UZ')}
+                                        </span>
+                                        <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider group-hover:translate-x-1 transition-transform">
+                                            Batafsil
+                                            <Icon icon="lucide:arrow-right" className="w-3.5 h-3.5" />
                                         </div>
                                     </div>
                                 </div>
@@ -705,23 +728,61 @@ export default function Leads() {
                                 })}
                             </tbody>
                         </table>
+                            </div>
+                        )}
                         
                         {/* Pagination */}
                         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
-                            <div className="flex flex-1 justify-between sm:hidden">
+                            <div className="flex flex-1 items-center justify-between sm:hidden w-full">
                                 <button
                                     onClick={() => setPage(p => Math.max(1, p - 1))}
                                     disabled={page === 1}
-                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                                    className="relative inline-flex items-center p-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
                                 >
-                                    Oldingi
+                                    <Icon icon="lucide:chevron-left" className="h-5 w-5" />
                                 </button>
+                                
+                                <div className="flex items-center gap-1.5 overflow-x-auto px-2 scrollbar-hide">
+                                    {[...Array(Math.ceil(total / limit))].map((_, i) => {
+                                        const p = i + 1;
+                                        if (
+                                            p === 1 || 
+                                            p === Math.ceil(total / limit) || 
+                                            (p >= page - 1 && p <= page + 1)
+                                        ) {
+                                            return (
+                                                <button
+                                                    key={p}
+                                                    onClick={() => setPage(p)}
+                                                    className={`relative inline-flex items-center justify-center w-8 h-8 rounded-md border text-sm font-medium transition-colors shrink-0 ${
+                                                        page === p 
+                                                            ? 'z-10 bg-blue-600 border-blue-600 text-white shadow-sm' 
+                                                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                    }`}
+                                                >
+                                                    {p}
+                                                </button>
+                                            );
+                                        } else if (
+                                            (p === 2 && page > 3) || 
+                                            (p === Math.ceil(total / limit) - 1 && page < Math.ceil(total / limit) - 2)
+                                        ) {
+                                            return (
+                                                <span key={p} className="relative inline-flex items-center justify-center w-6 h-8 text-sm text-gray-500 dark:text-gray-400 shrink-0">
+                                                    ...
+                                                </span>
+                                            );
+                                        }
+                                        return null;
+                                    })}
+                                </div>
+
                                 <button
                                     onClick={() => setPage(p => p + 1)}
                                     disabled={page * limit >= total}
-                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                                    className="relative inline-flex items-center p-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
                                 >
-                                    Keyingi
+                                    <Icon icon="lucide:chevron-right" className="h-5 w-5" />
                                 </button>
                             </div>
                             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between font-outfit uppercase">
@@ -796,7 +857,7 @@ export default function Leads() {
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </>
                 )}
             </div>
 

@@ -6,6 +6,13 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import type { LeadStage } from './Leads';
 
+const formatPhoneForCall = (phone: string | null) => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/[^\d]/g, '');
+    if (cleaned.length === 9) return '+998' + cleaned;
+    if (cleaned.length === 12 && cleaned.startsWith('998')) return '+' + cleaned;
+    return phone.startsWith('+') ? phone : '+' + cleaned;
+};
 
 const STAGES: { key: LeadStage; label: string; icon: string; color: string }[] = [
     { key: 'COLD', label: 'Yangi', icon: 'lucide:snowflake', color: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -539,6 +546,13 @@ export default function LeadDetail() {
                                                 value={(editForm as any)[field] ?? ''}
                                                 onChange={(e) => setEditForm({ ...editForm, [field]: e.target.value })}
                                             />
+                                        ) : field === 'phone' && (lead as any)[field] ? (
+                                            <a 
+                                                href={`tel:${formatPhoneForCall((lead as any)[field])}`}
+                                                className="inline-flex items-center gap-1.5 mt-0.5 px-2 py-0.5 rounded text-sm font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-700 dark:hover:text-blue-300 transition-colors max-w-fit"
+                                            >
+                                                {(lead as any)[field]}
+                                            </a>
                                         ) : (
                                             <p className="text-sm font-medium text-gray-800 dark:text-gray-200 break-all">
                                                 {field === 'estimatedExportVolume' && (lead as any)[field] && !isNaN(Number((lead as any)[field])) ? (

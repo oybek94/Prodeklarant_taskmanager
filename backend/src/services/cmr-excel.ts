@@ -372,7 +372,7 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
     sheet.getCell('E18').value = toPlain(additionalInfo.destination);
   }
   if (payload.invoice.notes) {
-    sheet.getCell('AF27').value = toPlain(payload.invoice.notes);
+    sheet.getCell('AC25').value = toPlain(payload.invoice.notes);
   }
   const branchName = (payload.invoice as { branch?: { name: string } }).branch?.name;
   const regionByBranch = getRegionByBranchName(branchName);
@@ -381,6 +381,7 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
     sheet.getCell('E23').value = shipmentPlaceText;
     sheet.getCell('H67').value = shipmentPlaceText;
   }
+  sheet.getCell('E24').value = 'Республика Узбекистан';
 
   const tableStartRow = 34;
   const tableEndRow = 41;

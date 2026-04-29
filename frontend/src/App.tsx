@@ -38,6 +38,7 @@ import CrmDashboard from './pages/CrmDashboard';
 import Notifications from './pages/Notifications';
 import Debts from './pages/Debts';
 import FAQ from './pages/FAQ';
+import SellerKpi from './pages/SellerKpi';
 import LeadWonAnimation from './components/LeadWonAnimation';
 import XpAnimation from './components/XpAnimation';
 import MedalAnimation from './components/notifications/MedalAnimation';
@@ -150,6 +151,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SELLER']}>
               <CrmDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/seller-kpi"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SELLER']}>
+              <SellerKpi />
             </ProtectedRoute>
           }
         />

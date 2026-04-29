@@ -83,6 +83,7 @@ const Layout = () => {
     ...((user?.role === 'ADMIN' || user?.role === 'MANAGER') ? [{ path: '/clients', label: 'Mijozlar', icon: 'lucide:users' }] : []),
     ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/leads', label: 'Lidlar', icon: 'lucide:target' }] : []),
     ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/crm', label: 'CRM', icon: 'lucide:bar-chart-2' }] : []),
+    ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/seller-kpi', label: 'Sotuvchi KPI', icon: 'lucide:target' }] : []),
     { path: '/training', label: 'O\'qitish', icon: 'lucide:graduation-cap' },
     ...(user?.role === 'ADMIN' ? [{ path: '/training/manage', label: 'O\'qitish Boshqaruvi', icon: 'lucide:book-open-check' }] : []),
     ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'lucide:user-cog' }] : []),

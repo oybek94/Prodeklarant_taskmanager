@@ -59,6 +59,7 @@ import recommendedPricesRouter from './routes/recommended-prices';
 import exchangeRateRouter from './routes/exchange-rate';
 import faqRouter from './routes/faq';
 import medalsRouter from './routes/medals';
+import sellerKpiRouter from './routes/seller-kpi';
 
 const app = express();
 const httpServer = createServer(app);
@@ -264,6 +265,7 @@ app.use('/api/recommended-prices', recommendedPricesRouter);
 app.use('/api/exchange-rate', exchangeRateRouter);
 app.use('/api/faq', faqRouter);
 app.use('/api/medals', medalsRouter);
+app.use('/api/seller-kpi', requireAuth(), sellerKpiRouter);
 
 // LMS endpoints (v1) - stream token issuance and streaming proxy
 app.use('/api/v1', lmsRouter);

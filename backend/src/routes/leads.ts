@@ -457,6 +457,25 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
                 },
             });
 
+            // === AVTOMATIK BONUS: Uchrashuv belgilanganda ===
+            if (stage === 'MEETING' && existing.stage !== 'MEETING') {
+                const sellerId = lead.assignedToId || req.user.id;
+                try {
+                    await prisma.sellerBonus.create({
+                        data: {
+                            userId: sellerId,
+                            type: 'PHONE_MEETING',
+                            amount: 10000,
+                            leadId: id,
+                            note: `${lead.companyName} bilan uchrashuv belgilandi`,
+                        },
+                    });
+                    console.log(`[SellerKPI] PHONE_MEETING bonus: ${sellerId}, lead: ${id}`);
+                } catch (bonusErr) {
+                    console.error('[SellerKPI] Bonus yaratishda xatolik:', bonusErr);
+                }
+            }
+
             if (stage === 'CLOSED_WON') {
                 // Sotuvchini aniqlash (aloqa o'rnatgan yoki uchrashuv belgilagan xodim)
                 let actualSellerName = lead.assignedTo?.name || req.user.name;
@@ -504,6 +523,38 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
                 });
                 
                 await Promise.all(notifyPromises);
+
+                // === AVTOMATIK BONUS: Shartnoma tuzilganda ===
+                const sellerId = lead.assignedToId || realSellerActivity?.userId || req.user.id;
+                const exportVol = Number(lead.estimatedExportVolume) || 0;
+                let bonusType: 'CONTRACT_SMALL' | 'CONTRACT_MEDIUM' | 'CONTRACT_LARGE';
+                let bonusAmount: number;
+
+                if (exportVol > 50) {
+                    bonusType = 'CONTRACT_LARGE';
+                    bonusAmount = 1200000;
+                } else if (exportVol >= 20) {
+                    bonusType = 'CONTRACT_MEDIUM';
+                    bonusAmount = 600000;
+                } else {
+                    bonusType = 'CONTRACT_SMALL';
+                    bonusAmount = 300000;
+                }
+
+                try {
+                    await prisma.sellerBonus.create({
+                        data: {
+                            userId: sellerId,
+                            type: bonusType,
+                            amount: bonusAmount,
+                            leadId: id,
+                            note: `${lead.companyName} shartnoma tuzildi. Eksport hajmi: ${exportVol}. Bonus: ${bonusAmount.toLocaleString()} so'm`,
+                        },
+                    });
+                    console.log(`[SellerKPI] ${bonusType} bonus: ${sellerId}, amount: ${bonusAmount}, lead: ${id}`);
+                } catch (bonusErr) {
+                    console.error('[SellerKPI] Shartnoma bonus xatolik:', bonusErr);
+                }
             }
         }
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { io } from '../server';
+import { sendTelegramMessage } from '../services/telegram.service';
 
 const router = Router();
 
@@ -86,6 +87,9 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         }
       });
     }
+
+    const message = `<b>Yangi vazifa qo'shildi!</b>\n\n<b>Vazifa:</b> ${content}\n<b>Kim tomonidan:</b> ${note.createdBy.name}${note.assignedTo ? `\n<b>Kimga:</b> ${note.assignedTo.name}` : ''}`;
+    await sendTelegramMessage(message);
 
     io.emit('dashboardNote:updated');
     res.json(note);

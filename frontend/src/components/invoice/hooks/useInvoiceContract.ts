@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import apiClient from '../../../lib/api';
 import type { SpecRow } from '../types';
-import { syncItemsFromSpec } from '../invoiceUtils';
 
 type DeliveryTermsHook = {
   getDeliveryTermsContractKey: () => string;
@@ -70,7 +69,8 @@ export function useInvoiceContract({
         }
       }
       setSelectedContractSpec(spec);
-      setItems((prev: any[]) => syncItemsFromSpec(prev, spec));
+      // Shartnoma spetsifikatsiyasi faqat fallback lookup uchun saqlanadi,
+      // invoys qatorlarini avtomatik qayta yozmaydi.
 
       // Shartnoma ma'lumotlarini invoice form'ga to'ldirish
       const dtArr = String(contract.deliveryTerms || '').split('\n').map((s: string) => s.trim());

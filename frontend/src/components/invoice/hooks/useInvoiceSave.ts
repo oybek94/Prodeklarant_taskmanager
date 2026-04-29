@@ -206,6 +206,13 @@ export function useInvoiceSave({
       return;
     }
 
+    const currentInvoiceNumber = currentForm.invoiceNumber !== undefined ? currentForm.invoiceNumber : invoice?.invoiceNumber;
+    if (!currentInvoiceNumber || !currentInvoiceNumber.trim()) {
+      setShowItemErrors(true);
+      toast.error('Iltimos, Инвойс № (Invoice raqami) ni kiriting!');
+      return;
+    }
+
     const missingPackageType = items.some(item => !item.packageType?.trim());
     if (missingPackageType) {
       setShowItemErrors(true);
@@ -215,15 +222,19 @@ export function useInvoiceSave({
 
     const hasValidItems =
       items.length > 0 &&
-      items.every(
-        (item) =>
-          item.name?.trim() &&
-          (Number(item.quantity) > 0 || Number(item.packagesCount ?? 0) > 0) &&
-          Number(item.unitPrice) > 0
-      );
+      items.every((item) => {
+        const hasTnved = !!item.tnvedCode?.trim();
+        const hasName = !!item.name?.trim();
+        const hasPackageType = !!item.packageType?.trim();
+        const hasNetWeight = Number(item.netWeight) > 0;
+        const hasUnitPrice = Number(item.unitPrice) > 0;
+        const hasTotalPrice = Number(item.totalPrice) > 0;
+        return hasTnved && hasName && hasPackageType && hasNetWeight && hasUnitPrice && hasTotalPrice;
+      });
+
     if (!hasValidItems) {
       setShowItemErrors(true);
-      toast.error('Iltimos, barcha tovarlarni to\'liq to\'ldiring (Наименование, Мест yoki Кол-во упаковки, Цена за ед.изм.)');
+      toast.error('Iltimos, barcha tovarlarni to\'liq to\'ldiring (Код ТН ВЭД, Наименование товара, Вид упаковки, Нетто (кг), Цена за ед.изм., Общая сумма)');
       return;
     }
 

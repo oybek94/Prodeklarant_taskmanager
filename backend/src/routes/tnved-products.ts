@@ -79,68 +79,6 @@ router.put('/:id', requireAuth('ADMIN', 'DEKLARANT'), async (req, res) => {
       },
     });
 
-    // Sinxronizatsiya: agar malumotlar o'zgargan bo'lsa, shartnomalardagi spetsifikatsiyalarni yangilash
-    const isNameChanged = existingProduct.name !== newName;
-    const isCodeChanged = existingProduct.code !== newCode;
-    const isBotanicalChanged = existingProduct.botanicalName !== newBotanicalName;
-
-    if (isNameChanged || isCodeChanged || isBotanicalChanged) {
-      const { Prisma } = await import('@prisma/client');
-      const contracts = await prisma.contract.findMany({
-        where: {
-          specification: {
-            not: Prisma.AnyNull
-          }
-        },
-        select: { id: true, specification: true }
-      });
-
-      for (const contract of contracts) {
-        let specData = contract.specification;
-        
-        // Agar Prisma json ni string sifatida qaytarsa, parse qilamiz
-        if (typeof specData === 'string') {
-          try {
-            specData = JSON.parse(specData);
-          } catch (e) {
-            specData = [];
-          }
-        }
-
-        if (Array.isArray(specData)) {
-          let hasChanges = false;
-          const updatedSpec = specData.map((item: any) => {
-            if (
-              item && 
-              typeof item === 'object' && 
-              typeof item.name === 'string' &&
-              item.name.trim() === existingProduct.name.trim()
-            ) {
-              hasChanges = true;
-              return {
-                ...item,
-                name: newName,
-                tnvedCode: newCode,
-                botanicalName: newBotanicalName,
-              };
-            }
-            return item;
-          });
-
-          if (hasChanges) {
-            // Prisma objectni JSONga aylantira olishi uchun
-            await prisma.contract.update({
-              where: { id: contract.id },
-              data: { specification: updatedSpec }
-            });
-            // Raw orqali ishini sug'urtalash: contracts.ts dagi kabi
-            const specJson = JSON.stringify(updatedSpec);
-            await prisma.$executeRaw`UPDATE "Contract" SET "specification" = ${specJson}::jsonb WHERE "id" = ${contract.id}`;
-          }
-        }
-      }
-    }
-
     res.json({
       id: String(updated.id),
       name: updated.name,

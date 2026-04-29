@@ -236,7 +236,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       {effectiveColumns.index && <td className="px-2 py-2 text-center">{index + 1}</td>}
                       {effectiveColumns.tnved && (
                         <td className="px-2 py-2">
-                          <input type="text" value={item.tnvedCode || ''} onChange={(e) => handleItemChange(index, 'tnvedCode', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs" placeholder="0810700001" />
+                          <input type="text" value={item.tnvedCode || ''} onChange={(e) => handleItemChange(index, 'tnvedCode', e.target.value)} className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.tnvedCode?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="0810700001" />
                         </td>
                       )}
                       {effectiveColumns.plu && (
@@ -246,7 +246,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       )}
                       {effectiveColumns.name && (
                         <td className="px-2 py-2">
-                          <input type="text" value={item.name} onChange={(e) => handleNameChange(index, e.target.value)} list="invoice-tnved-products" className="w-full px-2 py-1 border border-gray-300 rounded text-xs" placeholder="Наименование товара" required />
+                          <input type="text" value={item.name} onChange={(e) => handleNameChange(index, e.target.value)} list="invoice-tnved-products" className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.name?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Наименование товара" required />
                         </td>
                       )}
                       {effectiveColumns.unit && (
@@ -281,17 +281,17 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       )}
                       {effectiveColumns.net && (
                         <td className="px-2 py-2">
-                          <input type="text" inputMode="decimal" value={getNetWeightDisplayValue(index, item)} onChange={(e) => handleNetWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyNetWeightFormula(index); } }} onBlur={() => applyNetWeightFormula(index)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="7150 yoki *1.2 (Enter)" title="Raqam yoki *1.2 — Enter: Brutto − (1.2 × Кол-во упаковки), natija butun son" />
+                          <input type="text" inputMode="decimal" value={getNetWeightDisplayValue(index, item)} onChange={(e) => handleNetWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyNetWeightFormula(index); } }} onBlur={() => applyNetWeightFormula(index)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.netWeight) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="7150 yoki *1.2 (Enter)" title="Raqam yoki *1.2 — Enter: Brutto − (1.2 × Кол-во упаковки), natija butun son" />
                         </td>
                       )}
                       {effectiveColumns.unitPrice && (
                         <td className="px-2 py-2">
-                          <input type="number" value={('_unitPriceStr' in item && (item as any)._unitPriceStr !== undefined) ? (item as any)._unitPriceStr : (item.unitPrice === 0 ? '' : item.unitPrice)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_unitPriceStr' as any, raw); const num = parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0); }} onBlur={() => handleItemChange(index, '_unitPriceStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" required placeholder="" />
+                          <input type="number" value={('_unitPriceStr' in item && (item as any)._unitPriceStr !== undefined) ? (item as any)._unitPriceStr : (item.unitPrice === 0 ? '' : item.unitPrice)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_unitPriceStr' as any, raw); const num = parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0); }} onBlur={() => handleItemChange(index, '_unitPriceStr' as any, undefined)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.unitPrice) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} min="0" step="any" required placeholder="" />
                         </td>
                       )}
                       {effectiveColumns.total && (
                         <td className="px-2 py-2">
-                          <div className="text-right font-semibold text-xs">{item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}</div>
+                          <div className={`text-right font-semibold text-xs px-2 py-1 rounded ${showItemErrors && !(Number(item.totalPrice) > 0) ? 'border border-red-500 bg-red-50' : ''}`}>{item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}</div>
                         </td>
                       )}
                       {effectiveColumns.actions && (
@@ -323,6 +323,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
             loaderWeight={form.loaderWeight}
             trailerWeight={form.trailerWeight}
             palletWeight={form.palletWeight}
+            vehicleWeight={form.vehicleWeight}
           />
           <ExportPriceCalculator 
             form={form}

@@ -44,18 +44,23 @@ export function useProductOptions(selectedContractSpec: SpecRow[]) {
     return () => window.removeEventListener('focus', throttledLoad);
   }, [loadPackagingTypes]);
 
-  /** Shartnoma tanlanganda shu shartnoma spetsifikatsiyasidagi mahsulotlar, aks holda global TNVED ro'yxati. */
+  /**
+   * Har doim global TNVED ro'yxati birinchi, keyin shartnoma spetsifikatsiyasidan
+   * global da yo'q mahsulotlarni qo'shamiz.
+   */
   const invoiceProductOptions = useMemo(() => {
-    if (selectedContractSpec.length > 0) {
-      return selectedContractSpec
-        .map((r, i) => ({
-          id: `spec-${i}`,
-          name: (r.productName || '').trim(),
-          code: (r.tnvedCode || '').trim(),
-        }))
-        .filter((p) => p.name !== '');
-    }
-    return tnvedProducts;
+    const globalNames = new Set(tnvedProducts.map((p) => p.name.trim().toLowerCase()));
+    const specExtras = selectedContractSpec
+      .filter((r) => {
+        const name = (r.productName || '').trim();
+        return name !== '' && !globalNames.has(name.toLowerCase());
+      })
+      .map((r, i) => ({
+        id: `spec-${i}`,
+        name: (r.productName || '').trim(),
+        code: (r.tnvedCode || '').trim(),
+      }));
+    return [...tnvedProducts, ...specExtras];
   }, [selectedContractSpec, tnvedProducts]);
 
   return {

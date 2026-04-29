@@ -20,7 +20,7 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
   const [recommendedPrices, setRecommendedPrices] = useState<RecommendedPrice[]>([]);
   const [localPrices, setLocalPrices] = useState<Record<string, number>>({});
   const [loadingUsdRate, setLoadingUsdRate] = useState(false);
-  const [calcVisible, setCalcVisible] = useState(true);
+  const [calcVisible, setCalcVisible] = useState(false);
 
   // Yo'lkira narxi form.additionalInfo.freightCost || ''
   const freightCost = form.additionalInfo?.freightCost || 0;
@@ -130,14 +130,16 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
 
   return (
     <div className="mt-8 pt-6 border-t border-gray-200">
-      <div className="flex items-center justify-between mb-4">
+      <div 
+        className="flex items-center justify-between mb-4 cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-lg transition-colors select-none"
+        onClick={() => setCalcVisible(!calcVisible)}
+      >
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
           <Icon icon="lucide:calculator" className="w-5 h-5 text-blue-600" />
           Eksport narx kalkulyatori (Tavsiyaviy)
         </h3>
         <button
           type="button"
-          onClick={() => setCalcVisible(!calcVisible)}
           className="text-gray-500 hover:text-gray-700 p-1"
           title={calcVisible ? "Yashirish" : "Ko'rsatish"}
         >

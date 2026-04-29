@@ -57,7 +57,19 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
       const newItems = [...prev];
       newItems[index] = { ...newItems[index], name: value };
       const nameTrim = value.trim();
-      if (nameTrim && selectedContractSpec.length > 0) {
+      if (!nameTrim) return newItems;
+
+      // 1-qadam: Global TNVED ro'yxatidan qidirish (ustuvor)
+      const globalMatch = invoiceProductOptions.find(
+        (p) => p.name.trim().toLowerCase() === nameTrim.toLowerCase()
+      );
+      if (globalMatch) {
+        if (globalMatch.code) newItems[index].tnvedCode = globalMatch.code;
+        return newItems;
+      }
+
+      // 2-qadam: Shartnoma spetsifikatsiyasidan qidirish (fallback)
+      if (selectedContractSpec.length > 0) {
         const specRow = selectedContractSpec.find(
           (r) => (r.productName || '').trim().toLowerCase() === nameTrim.toLowerCase()
         );
@@ -65,20 +77,11 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
           if (specRow.tnvedCode != null && specRow.tnvedCode.trim() !== '') {
             newItems[index].tnvedCode = specRow.tnvedCode.trim();
           }
-          const up = specRow.unitPrice != null ? Number(specRow.unitPrice) : 0;
-          const tp = specRow.totalPrice != null ? Number(specRow.totalPrice) : up * (newItems[index].netWeight || 0);
-          newItems[index].unitPrice = up;
-          newItems[index].totalPrice = tp;
-        } else {
-          newItems[index].unitPrice = 0;
-          newItems[index].totalPrice = 0;
-          const match = invoiceProductOptions.find((p) => p.name === nameTrim);
-          if (match) newItems[index].tnvedCode = match.code;
+          return newItems;
         }
-      } else {
-        const match = invoiceProductOptions.find((p) => p.name === nameTrim);
-        if (match) newItems[index].tnvedCode = match.code;
       }
+
+      // 3-qadam: Hech qayerda topilmadi — tnvedCode bo'sh qoladi
       return newItems;
     });
   }, [selectedContractSpec, invoiceProductOptions]);

@@ -16,6 +16,7 @@ interface InvoiceHeaderProps {
   contracts: Contract[];
   contractIdFromQuery: string | null | undefined;
   handleContractSelect: (contractId: string) => void;
+  showItemErrors?: boolean;
 }
 
 export const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({
@@ -30,6 +31,7 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({
   contracts,
   contractIdFromQuery,
   handleContractSelect,
+  showItemErrors,
 }) => {
   return (
     <div className="flex justify-between items-start w-full mb-0 invoice-header">
@@ -67,7 +69,7 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({
                     type="text"
                     value={form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')}
                     onChange={(e) => setForm({ ...form, invoiceNumber: e.target.value })}
-                    className={`w-24 px-2 py-1 border rounded text-base font-semibold ${invoiceNumberWarning ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-24 px-2 py-1 border rounded text-base font-semibold ${invoiceNumberWarning || (showItemErrors && !String(form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '')).trim()) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                     placeholder="Avtomatik"
                   />
                   {invoiceNumberWarning && (

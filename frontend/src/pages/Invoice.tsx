@@ -525,6 +525,7 @@ const Invoice = () => {
                   contracts={contracts}
                   contractIdFromQuery={contractIdFromQuery}
                   handleContractSelect={handleContractSelect}
+                  showItemErrors={showItemErrors}
                 />
 
                 {/* Ajratuvchi chiziq */}

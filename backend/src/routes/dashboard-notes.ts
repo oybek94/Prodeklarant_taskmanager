@@ -59,7 +59,7 @@ router.get('/archive', requireAuth(), async (req: AuthRequest, res) => {
 // POST a new note
 router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const { content, assignedToId } = req.body;
+    const { content, assignedToId, xpReward } = req.body;
     
     if (!content) {
       return res.status(400).json({ error: 'Content is required' });
@@ -69,7 +69,8 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       data: {
         content,
         createdById: req.user!.id,
-        assignedToId: assignedToId ? Number(assignedToId) : null
+        assignedToId: assignedToId ? Number(assignedToId) : null,
+        xpReward: xpReward ? Number(xpReward) : null,
       },
       include: {
         createdBy: { select: { id: true, name: true } },
@@ -83,12 +84,12 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
           userId: Number(assignedToId),
           type: 'SYSTEM',
           title: 'Yangi vazifa',
-          message: `Sizga yangi vazifa biriktirildi: "${content}"`,
+          message: `Sizga yangi vazifa biriktirildi: "${content}"${xpReward ? ` (+${xpReward} XP)` : ''}`,
         }
       });
     }
 
-    const message = `<b>Yangi vazifa qo'shildi!</b>\n\n<b>Vazifa:</b> ${content}\n<b>Kim tomonidan:</b> ${note.createdBy.name}${note.assignedTo ? `\n<b>Kimga:</b> ${note.assignedTo.name}` : ''}`;
+    const message = `<b>Yangi vazifa qo'shildi!</b>\n\n<b>Vazifa:</b> ${content}\n<b>Kim tomonidan:</b> ${note.createdBy.name}${note.assignedTo ? `\n<b>Kimga:</b> ${note.assignedTo.name}` : ''}${note.xpReward ? `\n<b>Mukofot:</b> ${note.xpReward} XP ⭐️` : ''}`;
     await sendTelegramMessage(message);
 
     io.emit('dashboardNote:updated');

@@ -35,7 +35,8 @@ import tnvedProductsRouter from './routes/tnved-products';
 import contractsRouter from './routes/contracts';
 import taskStatusRouter from './routes/task-status';
 import taskDocumentsRouter from './routes/task-documents';
-import taskAiChecksRouter from './routes/task-ai-checks';
+// AI Checks o'chirilgan
+// import taskAiChecksRouter from './routes/task-ai-checks';
 import sendTaskEmailRouter from './routes/send-task-email';
 import aiRouter from './routes/ai';
 import reportsRouter from './routes/reports';
@@ -223,7 +224,8 @@ app.use('/api/clients', clientsRouter);
 app.use('/api/tasks', requireAuth(), auditLog('ACCESS', 'TASK'), tasksRouter);
 app.use('/api/tasks', requireAuth(), taskStatusRouter);
 app.use('/api/tasks', requireAuth(), taskDocumentsRouter);
-app.use('/api/tasks', requireAuth(), taskAiChecksRouter);
+// AI Checks o'chirilgan
+// app.use('/api/tasks', requireAuth(), taskAiChecksRouter);
 app.use('/api/send-task-email', requireAuth(), sendTaskEmailRouter);
 app.use('/api/transactions', requireAuth(), auditLog('ACCESS', 'TRANSACTION'), transactionsRouter);
 app.use('/api/kpi', requireAuth(), kpiRouter);

@@ -271,6 +271,28 @@ export function useInvoiceDownloads({
   const openFssRegionPicker = useCallback(async (prefix: FssFilePrefix = 'Ichki') => {
     setFssFilePrefix(prefix);
     setFssAutoDownload(true);
+
+    // Oltiariq filiali uchun — formani o'zgartirmasdan to'g'ridan-to'g'ri yuklab olish.
+    // setForm() chaqirilmaydi, shuning uchun form "dirty" bo'lmaydi va
+    // boshqa shablonlarni yuklab olish imkoniyati saqlanib qoladi.
+    const branchName = task?.branch?.name?.toLowerCase() || '';
+    const isOltiariqBranch = branchName.includes('oltiariq');
+    if (isOltiariqBranch) {
+      const list = regionCodes.length ? regionCodes : await loadRegionCodes();
+      const match = findOltiariqRegion(list);
+      if (match) {
+        await generateFssExcel({
+          internalCode: match.internalCode,
+          name: match.name,
+          externalCode: match.externalCode,
+          filePrefix: prefix,
+          templateType: prefix === 'Ichki' ? 'ichki' : 'tashqi',
+        });
+        return;
+      }
+    }
+
+    // Boshqa filiallar uchun — saqlangan tuman ma'lumotlari bilan yuklab olish
     const hasSavedRegion =
       form.fssRegionName &&
       (form.fssRegionInternalCode || form.fssRegionExternalCode);
@@ -284,58 +306,26 @@ export function useInvoiceDownloads({
       });
       return;
     }
-    const branchName = task?.branch?.name?.toLowerCase() || '';
-    const isOltiariqBranch = branchName.includes('oltiariq');
-    if (isOltiariqBranch) {
-      const list = regionCodes.length ? regionCodes : await loadRegionCodes();
-      const match = findOltiariqRegion(list);
-      if (match) {
-        setForm((prev: any) => ({
-          ...prev,
-          fssRegionInternalCode: match.internalCode,
-          fssRegionName: match.name,
-          fssRegionExternalCode: match.externalCode,
-        }));
-        setShowFssRegionModal(false);
-        await generateFssExcel({
-          internalCode: match.internalCode,
-          name: match.name,
-          externalCode: match.externalCode,
-          filePrefix: prefix,
-          templateType: prefix === 'Ichki' ? 'ichki' : 'tashqi',
-        });
-        return;
-      }
-    }
     setShowFssRegionModal(true);
     if (!regionCodes.length) {
       await loadRegionCodes();
     }
-  }, [form.fssRegionName, form.fssRegionInternalCode, form.fssRegionExternalCode, task?.branch?.name, regionCodes, loadRegionCodes, findOltiariqRegion, setForm, setShowFssRegionModal, setFssFilePrefix, setFssAutoDownload, generateFssExcel]);
+  }, [form.fssRegionName, form.fssRegionInternalCode, form.fssRegionExternalCode, task?.branch?.name, regionCodes, loadRegionCodes, findOltiariqRegion, setShowFssRegionModal, setFssFilePrefix, setFssAutoDownload, generateFssExcel]);
 
   const openFssRegionSelector = useCallback(async () => {
     setFssAutoDownload(false);
     const branchName = task?.branch?.name?.toLowerCase() || '';
     const isOltiariqBranch = branchName.includes('oltiariq');
     if (isOltiariqBranch) {
-      const list = regionCodes.length ? regionCodes : await loadRegionCodes();
-      const match = findOltiariqRegion(list);
-      if (match) {
-        setForm((prev: any) => ({
-          ...prev,
-          fssRegionInternalCode: match.internalCode,
-          fssRegionName: match.name,
-          fssRegionExternalCode: match.externalCode,
-        }));
-        setShowFssRegionModal(false);
-        return;
-      }
+      // Oltiariq uchun tuman avtomatik tanlanadi, formaga saqlamasdan
+      // Tuman tugmasi Oltiariq uchun yashirin, shuning uchun bu faqat himoya
+      return;
     }
     setShowFssRegionModal(true);
     if (!regionCodes.length) {
       await loadRegionCodes();
     }
-  }, [task?.branch?.name, regionCodes, loadRegionCodes, findOltiariqRegion, setForm, setShowFssRegionModal, setFssAutoDownload]);
+  }, [task?.branch?.name, regionCodes, loadRegionCodes, setShowFssRegionModal, setFssAutoDownload]);
 
   return {
     generatePdf,

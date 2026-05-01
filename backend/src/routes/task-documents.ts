@@ -4,8 +4,6 @@ import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { ValidationService } from '../services/validation.service';
 import { DocumentService } from '../services/document.service';
-import { AiService } from '../services/ai.service';
-import { compareInvoiceST1 } from '../ai/document.analyzer';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -209,149 +207,8 @@ router.post(
         );
       }
 
-      // AI processing transaction'dan keyin bajariladi (background'da)
-      // Bu timeout muammosini oldini oladi
-      // AI tekshiruv PDF va JPG fayllar uchun ishlaydi
-      let aiCheckResult = null;
-      if ((parsed.data.documentType === 'INVOICE' || parsed.data.documentType === 'ST') && 
-          (fileExtension === '.pdf' || fileExtension === '.jpg' || fileExtension === '.jpeg')) {
-        try {
-          // AI processing'ni async bajarish (response'ni kutmasdan)
-          // Bu foydalanuvchiga tezroq javob qaytarish imkonini beradi
-          (async () => {
-            try {
-              const documentService = new DocumentService(prisma);
-              const aiService = new AiService(prisma);
-
-              const extractedText = await documentService.getExtractedText(
-                result.taskDocument.id
-              );
-
-              if (extractedText) {
-                await aiService.processDocument(
-                  result.taskDocument.id,
-                  taskId,
-                  parsed.data.documentType!,
-                  extractedText
-                );
-
-                // If ST is uploaded and Invoice exists, run AI comparison
-                if (parsed.data.documentType === 'ST') {
-                  try {
-                    // Check if Invoice exists
-                    const invoiceDoc = await prisma.taskDocument.findFirst({
-                      where: {
-                        taskId,
-                        documentType: 'INVOICE',
-                      },
-                      include: {
-                        metadata: true,
-                        structuredData: true,
-                      },
-                    });
-
-                    if (invoiceDoc && invoiceDoc.metadata && invoiceDoc.structuredData) {
-                      // Get ST metadata and structured data
-                      const stDoc = await prisma.taskDocument.findUnique({
-                        where: { id: result.taskDocument.id },
-                        include: {
-                          metadata: true,
-                          structuredData: true,
-                        },
-                      });
-
-                      if (stDoc && stDoc.metadata && stDoc.structuredData) {
-                        // Parse structured data if it's a JSON string
-                        let invoiceStructured = invoiceDoc.structuredData.structuredData;
-                        if (typeof invoiceStructured === 'string') {
-                          try {
-                            invoiceStructured = JSON.parse(invoiceStructured);
-                          } catch (e) {
-                            console.error('Error parsing invoice structured data:', e);
-                            invoiceStructured = null;
-                          }
-                        }
-
-                        let stStructured = stDoc.structuredData.structuredData;
-                        if (typeof stStructured === 'string') {
-                          try {
-                            stStructured = JSON.parse(stStructured);
-                          } catch (e) {
-                            console.error('Error parsing ST structured data:', e);
-                            stStructured = null;
-                          }
-                        }
-
-                        // Run AI comparison (two-stage architecture: extraction + rule engine)
-                        console.log('[AI Check] Starting comparison for task:', taskId);
-                        const comparisonResult = await compareInvoiceST1(
-                          invoiceDoc.metadata.extractedText,
-                          invoiceStructured as any,
-                          stDoc.metadata.extractedText,
-                          stStructured as any
-                        );
-
-                        console.log('[AI Check] Comparison result:', {
-                          status: comparisonResult.status,
-                          errorsCount: comparisonResult.errors.length,
-                          errors: comparisonResult.errors,
-                        });
-
-                        // Determine result: FAIL if status is XATO, otherwise PASS
-                        const result: 'PASS' | 'FAIL' = (comparisonResult.status === 'XATO') ? 'FAIL' : 'PASS';
-
-                        console.log('[AI Check] Saving to database:', {
-                          taskId,
-                          checkType: 'INVOICE_ST',
-                          result,
-                          details: comparisonResult,
-                        });
-
-                        // Save AI check result - handle case when table doesn't exist
-                        try {
-                          const savedCheck = await prisma.aiCheck.create({
-                            data: {
-                              taskId,
-                              checkType: 'INVOICE_ST',
-                              result,
-                              details: comparisonResult as any, // Save new format: {status, errors}
-                            },
-                          });
-                          console.log('[AI Check] Successfully saved:', savedCheck.id);
-                        } catch (aiCheckError: any) {
-                          // If table doesn't exist, log warning but don't fail
-                          const isTableMissing = 
-                            aiCheckError?.code === 'P2021' || 
-                            aiCheckError?.code === 'P2010' ||
-                            aiCheckError?.prismaError?.code === '42P01' ||
-                            aiCheckError?.message?.includes('does not exist') ||
-                            aiCheckError?.message?.includes('не существует');
-                          
-                          if (isTableMissing) {
-                            console.warn('AiCheck table does not exist, skipping save');
-                          } else {
-                            // Other error - log but don't fail the upload
-                            console.error('Error saving AI check:', aiCheckError);
-                          }
-                        }
-                      }
-                    }
-                  } catch (aiError) {
-                    console.error('AI comparison error:', aiError);
-                    // Don't fail the upload if AI check fails
-                  }
-                }
-              }
-            } catch (aiProcessingError) {
-              console.error('AI processing error (background):', aiProcessingError);
-              // Don't fail the upload if AI processing fails
-            }
-          })();
-        } catch (aiError) {
-          console.error('Error starting AI processing:', aiError);
-          // Don't fail the upload if AI processing fails to start
-        }
-      }
+      const { socketEmitter } = require('../services/socketEmitter');
+      socketEmitter.broadcast('taskDocument:created', { taskId: taskId });
 
       res.json({
         success: true,
@@ -361,12 +218,6 @@ router.post(
           fileUrl: result.taskDocument.fileUrl,
           documentType: (result.taskDocument as any).documentType || null,
         },
-        // AI processing background'da bajarilmoqda
-        // Natijalarni ko'rish uchun /tasks/:id/ai-checks endpoint'ini chaqiring
-        aiCheck: null,
-        message: parsed.data.documentType === 'INVOICE' || parsed.data.documentType === 'ST'
-          ? 'Hujjat yuklandi. AI analizi background\'da bajarilmoqda. Natijalarni bir necha soniyadan keyin yangilash tugmasini bosing.'
-          : undefined,
       });
     } catch (error) {
       // Clean up uploaded file on error

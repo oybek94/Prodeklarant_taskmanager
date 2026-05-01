@@ -39,7 +39,7 @@ export interface KpiLog {
 export interface TaskError {
   id: number;
   stageName: string;
-  workerId: number;
+  workerId: number | null;
   amount: number;
   comment?: string;
   date: string;

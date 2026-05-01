@@ -202,7 +202,7 @@ model TaskError {
   id                 Int             @id @default(autoincrement())
   taskId             Int
   stageName          String
-  workerId           Int
+  workerId           Int?
   amount             Decimal         @db.Decimal(12, 2)
   comment            String?
   date               DateTime
@@ -222,7 +222,7 @@ model TaskError {
   createdById        Int
   createdBy          User            @relation("TaskErrorCreatedBy", fields: [createdById], references: [id])
   task               Task            @relation(fields: [taskId], references: [id])
-  worker             User            @relation("TaskErrorWorker", fields: [workerId], references: [id])
+  worker             User?           @relation("TaskErrorWorker", fields: [workerId], references: [id])
 }
 
 model Transaction {
@@ -1302,6 +1302,7 @@ model DashboardNote {
   isCompleted   Boolean   @default(false)
   completedAt   DateTime?
   completedById Int?
+  xpReward      Int?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

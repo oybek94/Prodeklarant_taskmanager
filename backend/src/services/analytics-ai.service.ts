@@ -323,11 +323,13 @@ export class AnalyticsAIService {
       const inputs: TopicAnalyticsInputs = {
         topicName,
         allAttempts: relevantAttempts,
-        workErrors: workErrors.map(e => ({
-          userId: e.workerId,
-          stageName: e.stageName,
-          amount: Number(e.amount),
-        })),
+        workErrors: workErrors
+          .filter(e => e.workerId !== null)
+          .map(e => ({
+            userId: e.workerId as number,
+            stageName: e.stageName,
+            amount: Number(e.amount),
+          })),
       };
 
       const client = OpenAIClient.getClient();

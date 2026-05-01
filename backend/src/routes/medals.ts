@@ -105,7 +105,7 @@ router.get('/nominations', requireAuth('ADMIN'), async (req, res) => {
       });
       const foundCount: Record<number, number> = {};
       foundErrors.forEach(e => {
-        if (e.createdById !== e.workerId) {
+        if (e.workerId !== null && e.createdById !== e.workerId) {
           foundCount[e.createdById] = (foundCount[e.createdById] || 0) + 1;
         }
       });
@@ -230,7 +230,7 @@ router.get('/nominations', requireAuth('ADMIN'), async (req, res) => {
       });
       const foundCount: Record<number, number> = {};
       foundErrors.forEach(e => {
-        if (e.createdById !== e.workerId) {
+        if (e.workerId !== null && e.createdById !== e.workerId) {
           foundCount[e.createdById] = (foundCount[e.createdById] || 0) + 1;
         }
       });

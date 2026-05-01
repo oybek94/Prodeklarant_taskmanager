@@ -1705,7 +1705,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
 
 const errorSchema = z.object({
   stageName: z.string(),
-  workerId: z.number(),
+  workerId: z.number().nullable(),
   amount: z.number(),
   comment: z.string().optional(),
   date: z.coerce.date(),
@@ -1713,7 +1713,7 @@ const errorSchema = z.object({
 
 const updateErrorSchema = z.object({
   stageName: z.string().optional(),
-  workerId: z.number().optional(),
+  workerId: z.number().nullable().optional(),
   amount: z.number().optional(),
   comment: z.string().optional(),
   date: z.coerce.date().optional(),
@@ -1756,25 +1756,27 @@ router.post('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
       },
     });
 
-    // Create a negative KPI log entry to deduct from worker's earned amount
-    // This will be reflected in their totalReceived calculation
+    // Create a negative KPI log entry only if a worker is specified
+    if (parsed.data.workerId !== null) {
       await (tx as any).kpiLog.create({
-      data: {
-        userId: parsed.data.workerId,
-        taskId: taskId,
-        stageName: parsed.data.stageName,
-        amount: -parsed.data.amount, // Negative amount to deduct
-        currency: 'USD',
-        amount_original: -parsed.data.amount,
-        currency_universal: 'USD',
-      },
-    });
+        data: {
+          userId: parsed.data.workerId,
+          taskId: taskId,
+          stageName: parsed.data.stageName,
+          amount: -parsed.data.amount, // Negative amount to deduct
+          currency: 'USD',
+          amount_original: -parsed.data.amount,
+          currency_universal: 'USD',
+        },
+      });
+    }
 
     return error;
   });
 
   res.status(201).json(result);
   socketEmitter.broadcast('admin_new_error_report', { error: result, event: 'Yangi xato hisoboti kelib tushdi' });
+  socketEmitter.broadcast('task:errorUpdated', { taskId });
 });
 
 router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest, res) => {
@@ -1800,20 +1802,24 @@ router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest
 
   await prisma.$transaction(async (tx) => {
     await (tx as any).taskError.delete({ where: { id: errorId } });
-    await (tx as any).kpiLog.create({
-      data: {
-        userId: error.workerId,
-        taskId: error.taskId,
-        stageName: error.stageName,
-        amount: Number(error.amount), // Revert deduction
-        currency: 'USD',
-        amount_original: Number(error.amount),
-        currency_universal: 'USD',
-      },
-    });
+    
+    if (error.workerId !== null) {
+      await (tx as any).kpiLog.create({
+        data: {
+          userId: error.workerId,
+          taskId: error.taskId,
+          stageName: error.stageName,
+          amount: Number(error.amount), // Revert deduction
+          currency: 'USD',
+          amount_original: Number(error.amount),
+          currency_universal: 'USD',
+        },
+      });
+    }
   });
 
   res.status(204).send();
+  socketEmitter.broadcast('task:errorUpdated', { taskId: error.taskId });
 });
 
 const rateErrorSchema = z.object({
@@ -1964,7 +1970,7 @@ router.patch('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest,
       where: { id: errorId },
       data: {
         ...(parsed.data.stageName && { stageName: parsed.data.stageName }),
-        ...(parsed.data.workerId && { workerId: parsed.data.workerId }),
+        ...(parsed.data.workerId !== undefined && { workerId: parsed.data.workerId }),
         ...(parsed.data.amount !== undefined && { amount: parsed.data.amount }),
         ...(parsed.data.comment !== undefined && { comment: parsed.data.comment }),
         ...(parsed.data.date && { date: parsed.data.date }),
@@ -1972,17 +1978,36 @@ router.patch('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest,
       include: { worker: { select: { id: true, name: true } } },
     });
 
-    if (parsed.data.amount !== undefined && Number(parsed.data.amount) !== Number(error.amount)) {
-      const diff = Number(parsed.data.amount) - Number(error.amount);
-      if (diff !== 0) {
+    const oldWorkerId = error.workerId;
+    const oldAmount = Number(error.amount);
+    const oldStageName = error.stageName;
+    const newWorkerId = next.workerId;
+    const newAmount = Number(next.amount);
+    const newStageName = next.stageName;
+
+    if (oldWorkerId !== newWorkerId || oldAmount !== newAmount || oldStageName !== newStageName) {
+      if (oldWorkerId !== null) {
         await (tx as any).kpiLog.create({
           data: {
-            userId: next.workerId,
+            userId: oldWorkerId,
             taskId: next.taskId,
-            stageName: next.stageName,
-            amount: -diff, // Adjust deduction by delta
+            stageName: oldStageName,
+            amount: oldAmount, // Revert deduction
             currency: 'USD',
-            amount_original: -diff,
+            amount_original: oldAmount,
+            currency_universal: 'USD',
+          },
+        });
+      }
+      if (newWorkerId !== null) {
+        await (tx as any).kpiLog.create({
+          data: {
+            userId: newWorkerId,
+            taskId: next.taskId,
+            stageName: newStageName,
+            amount: -newAmount, // Apply new deduction
+            currency: 'USD',
+            amount_original: -newAmount,
             currency_universal: 'USD',
           },
         });
@@ -1993,6 +2018,7 @@ router.patch('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest,
   });
 
   res.json(updated);
+  socketEmitter.broadcast('task:errorUpdated', { taskId: updated.taskId });
 });
 
 const updateTaskSchema = z.object({

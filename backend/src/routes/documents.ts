@@ -156,6 +156,9 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
 
       documents.push(document);
     }
+    
+    const { socketEmitter } = require('../services/socketEmitter');
+    socketEmitter.broadcast('taskDocument:created', { taskId: taskId });
 
     res.json(documents);
   } catch (error) {
@@ -438,6 +441,10 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     console.log(`[DELETE /documents/${id}] Deletion completed successfully`);
+    const { socketEmitter } = require('../services/socketEmitter');
+    if (document && document.taskId) {
+      socketEmitter.broadcast('taskDocument:deleted', { taskId: document.taskId });
+    }
     res.json({ success: true });
   } catch (error) {
     console.error(`[DELETE /documents/${req.params.id}] Error deleting document:`, error);

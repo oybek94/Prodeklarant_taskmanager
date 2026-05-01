@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useSocket } from '../contexts/SocketContext';
 import MonetaryInput from '../components/MonetaryInput';
 import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
@@ -24,7 +25,7 @@ interface TaskError {
   amount: number;
   comment?: string;
   date: string;
-  worker: { id: number; name: string };
+  worker?: { id: number; name: string } | null;
   createdAt: string;
   createdById: number;
 }
@@ -74,6 +75,37 @@ const TaskDetail = () => {
     }
   }, [id]);
 
+  const socket = useSocket();
+
+  useEffect(() => {
+    if (!socket || !id) return;
+    
+    const refresh = (taskId?: number) => {
+      if (taskId === undefined || taskId.toString() === id) {
+        loadTask();
+      }
+    };
+
+    const onTaskUpdated = (data: { taskId?: number }) => refresh(data.taskId);
+    const onStageUpdated = (data: { taskId?: number }) => refresh(data.taskId);
+    const onDocumentCreated = (data: { taskId?: number }) => refresh(data.taskId);
+    const onDocumentDeleted = (data: { taskId?: number }) => refresh(data.taskId);
+
+    socket.on('task:updated', onTaskUpdated);
+    socket.on('task:stageUpdated', onStageUpdated);
+    socket.on('taskDocument:created', onDocumentCreated);
+    socket.on('taskDocument:deleted', onDocumentDeleted);
+    socket.on('task:errorUpdated', onDocumentCreated);
+
+    return () => {
+      socket.off('task:updated', onTaskUpdated);
+      socket.off('task:stageUpdated', onStageUpdated);
+      socket.off('taskDocument:created', onDocumentCreated);
+      socket.off('taskDocument:deleted', onDocumentDeleted);
+      socket.off('task:errorUpdated', onDocumentCreated);
+    };
+  }, [socket, id]);
+
   const loadTask = async () => {
     try {
       setLoading(true);
@@ -119,7 +151,7 @@ const TaskDetail = () => {
       if (editingErrorId) {
         await apiClient.patch(`/tasks/${id}/errors/${editingErrorId}`, {
           stageName: errorForm.stageName,
-          workerId: parseInt(errorForm.workerId),
+          workerId: errorForm.workerId === 'CUSTOMER' ? null : parseInt(errorForm.workerId),
           amount: parseFloat(amountValue),
           comment: errorForm.comment,
           date: new Date(errorForm.date),
@@ -127,7 +159,7 @@ const TaskDetail = () => {
       } else {
         await apiClient.post(`/tasks/${id}/errors`, {
           stageName: errorForm.stageName,
-          workerId: parseInt(errorForm.workerId),
+          workerId: errorForm.workerId === 'CUSTOMER' ? null : parseInt(errorForm.workerId),
           amount: parseFloat(amountValue),
           comment: errorForm.comment,
           date: new Date(errorForm.date),
@@ -390,6 +422,7 @@ const TaskDetail = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         >
                           <option value="">Tanlang...</option>
+                          <option value="CUSTOMER">Mijoz talabi bo'yicha</option>
                           {workers.map((w) => (
                             <option key={w.id} value={w.id}>
                               {w.name}
@@ -469,7 +502,7 @@ const TaskDetail = () => {
                       <div className="flex-1">
                         <div className="font-medium">{error.stageName}</div>
                         <div className="text-sm text-gray-500 mt-1">
-                          Ishchi: {error.worker.name} | Summa: {error.amount} USD | Sana:{' '}
+                          Ishchi: {error.worker?.name || "Mijoz talabi bo'yicha"} | Summa: {error.amount} USD | Sana:{' '}
                           {formatDate(error.date)}
                         </div>
                         {error.comment && (
@@ -483,7 +516,7 @@ const TaskDetail = () => {
                               setEditingErrorId(error.id);
                               setErrorForm({
                                 stageName: error.stageName,
-                                workerId: error.worker.id.toString(),
+                                workerId: error.worker ? error.worker.id.toString() : 'CUSTOMER',
                                 amount: String(error.amount),
                                 comment: error.comment || '',
                                 date: new Date(error.date).toISOString().split('T')[0],

@@ -56,7 +56,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
     try {
       if (editingErrorId) {
         await apiClient.patch(`/tasks/${selectedTask.id}/errors/${editingErrorId}`, {
-          workerId: parseInt(errorForm.workerId),
+          workerId: errorForm.workerId === 'CUSTOMER' ? null : parseInt(errorForm.workerId),
           stageName: errorForm.stageName,
           amount: parseFloat(amountValue),
           comment: errorForm.comment,
@@ -65,7 +65,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
       } else {
         await apiClient.post(`/tasks/${selectedTask.id}/errors`, {
           taskTitle: selectedTask.title,
-          workerId: parseInt(errorForm.workerId),
+          workerId: errorForm.workerId === 'CUSTOMER' ? null : parseInt(errorForm.workerId),
           stageName: errorForm.stageName,
           amount: parseFloat(amountValue),
           comment: errorForm.comment,
@@ -116,7 +116,9 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
         {selectedTask.errors && selectedTask.errors.length > 0 ? (
           <div className="mb-4 space-y-2">
             {selectedTask.errors.map((error) => {
-              const workerName = workers.find((w) => w.id === error.workerId)?.name || `#${error.workerId}`;
+              const workerName = error.workerId === null 
+                ? "Mijoz talabi bo'yicha" 
+                : workers.find((w) => w.id === error.workerId)?.name || `#${error.workerId}`;
               return (
                 <div key={error.id} className="p-3 border rounded-lg bg-gray-50 flex items-start justify-between">
                   <div>
@@ -156,7 +158,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
                         onClick={() => {
                           setEditingErrorId(error.id);
                           setErrorForm({
-                            workerId: error.workerId.toString(),
+                            workerId: error.workerId === null ? 'CUSTOMER' : error.workerId.toString(),
                             stageName: error.stageName,
                             amount: String(error.amount),
                             comment: error.comment || '',
@@ -207,6 +209,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
             <select required value={errorForm.workerId} onChange={(e) => setErrorForm({ ...errorForm, workerId: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500">
               <option value="">Ishchini tanlang</option>
+              <option value="CUSTOMER">Mijoz talabi bo'yicha</option>
               {workers.map((w) => <option key={w.id} value={w.id.toString()}>{w.name}</option>)}
             </select>
           </div>

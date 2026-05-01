@@ -16,6 +16,7 @@ interface Note {
   createdBy: { id: number; name: string };
   assignedTo: { id: number; name: string } | null;
   completedBy: { id: number; name: string } | null;
+  xpReward: number | null;
   createdAt: string;
 }
 
@@ -25,6 +26,7 @@ const DashboardNotes: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState('');
   const [assignedToId, setAssignedToId] = useState<string>('');
+  const [xpReward, setXpReward] = useState<string>('');
   const [showArchive, setShowArchive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
@@ -72,10 +74,12 @@ const DashboardNotes: React.FC = () => {
       setSubmitting(true);
       await api.post('/dashboard-notes', {
         content,
-        assignedToId: assignedToId ? Number(assignedToId) : null
+        assignedToId: assignedToId ? Number(assignedToId) : null,
+        xpReward: xpReward ? Number(xpReward) : null,
       });
       setContent('');
       setAssignedToId('');
+      setXpReward('');
       if (!showArchive) {
         fetchData(); // refresh
       } else {
@@ -208,6 +212,13 @@ const DashboardNotes: React.FC = () => {
                       {note.assignedTo.name.split(' ')[0]}
                     </span>
                   )}
+                  
+                  {note.xpReward && (
+                    <span className="flex items-center gap-0.5 text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded font-bold border border-amber-200/50 dark:border-amber-700/50">
+                      <Icon icon="lucide:star" className="w-3 h-3" />
+                      {note.xpReward} XP
+                    </span>
+                  )}
 
                   {note.isCompleted && note.completedBy && (
                     <span className="flex items-center gap-0.5 text-emerald-500/80 bg-emerald-50/50 dark:bg-emerald-900/20 px-1 rounded ml-auto">
@@ -233,16 +244,27 @@ const DashboardNotes: React.FC = () => {
               required
               className="w-full text-sm bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all dark:text-white"
             />
-            <select
-              value={assignedToId}
-              onChange={(e) => setAssignedToId(e.target.value)}
-              className="w-full text-xs bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-500 dark:text-gray-400"
-            >
-              <option value="">(barchaga)</option>
-              {users.map(u => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={assignedToId}
+                onChange={(e) => setAssignedToId(e.target.value)}
+                className="flex-1 text-xs bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-500 dark:text-gray-400"
+              >
+                <option value="">(barchaga)</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="0"
+                value={xpReward}
+                onChange={(e) => setXpReward(e.target.value)}
+                placeholder="XP"
+                title="Vazifani bajargan xodimga beriladigan XP"
+                className="w-20 text-xs bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-700/50 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all dark:text-amber-100 placeholder:text-amber-600/50 dark:placeholder:text-amber-500/50 font-medium"
+              />
+            </div>
           </div>
           <button 
             type="submit" 

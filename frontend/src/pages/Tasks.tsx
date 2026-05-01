@@ -277,35 +277,57 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showArchive, page, filters.status, filters.clientId, filters.branchId, isModalMode]);
 
+  const selectedTaskIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    selectedTaskIdRef.current = selectedTask?.id || null;
+  }, [selectedTask]);
+
   // Socket.io: real-time task yangilanishlarni tinglash
   useEffect(() => {
     if (!socket || isModalMode) return;
-    const refresh = () => loadTasks(showArchive, filters as any);
+    const refresh = (taskId?: number) => {
+      loadTasks(showArchive, filters as any);
+      if (selectedTaskIdRef.current && (taskId === undefined || taskId === selectedTaskIdRef.current)) {
+        loadTaskDetail(selectedTaskIdRef.current);
+      }
+    };
     const onTaskCreated = (data: { createdBy: string }) => {
       toast(`${data.createdBy} yangi task yaratdi`, { icon: '📋' });
       refresh();
     };
-    const onTaskUpdated = (data: { updatedBy: string }) => {
+    const onTaskUpdated = (data: { updatedBy: string, taskId?: number }) => {
       toast(`${data.updatedBy} taskni yangiladi`, { icon: '✏️' });
-      refresh();
+      refresh(data.taskId);
     };
     const onTaskDeleted = (data: { deletedBy: string }) => {
       toast(`${data.deletedBy} taskni o'chirdi`, { icon: '🗑️' });
       refresh();
     };
-    const onStageUpdated = (data: { updatedBy: string }) => {
+    const onStageUpdated = (data: { updatedBy: string, taskId?: number }) => {
       toast(`${data.updatedBy} jarayonni yangiladi`, { icon: '🔄' });
-      refresh();
+      refresh(data.taskId);
+    };
+    const onDocumentCreated = (data: { taskId: number }) => {
+      refresh(data.taskId);
+    };
+    const onDocumentDeleted = (data: { taskId: number }) => {
+      refresh(data.taskId);
     };
     socket.on('task:created', onTaskCreated);
     socket.on('task:updated', onTaskUpdated);
     socket.on('task:deleted', onTaskDeleted);
     socket.on('task:stageUpdated', onStageUpdated);
+    socket.on('taskDocument:created', onDocumentCreated);
+    socket.on('taskDocument:deleted', onDocumentDeleted);
+    socket.on('task:errorUpdated', onDocumentCreated); // same handler as it just refreshes
     return () => {
       socket.off('task:created', onTaskCreated);
       socket.off('task:updated', onTaskUpdated);
       socket.off('task:deleted', onTaskDeleted);
       socket.off('task:stageUpdated', onStageUpdated);
+      socket.off('taskDocument:created', onDocumentCreated);
+      socket.off('taskDocument:deleted', onDocumentDeleted);
+      socket.off('task:errorUpdated', onDocumentCreated);
     };
   }, [socket, showArchive, filters, isModalMode]);
 

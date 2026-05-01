@@ -407,6 +407,21 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         }
       });
 
+      // Add XP from completed Dashboard Notes
+      const noteXpByWorker = await (prisma as any).dashboardNote.groupBy({
+        by: ['completedById'],
+        where: { isCompleted: true, completedAt: { gte: startDate, lte: endDate }, xpReward: { not: null } },
+        _sum: { xpReward: true }
+      });
+
+      noteXpByWorker.forEach((item: any) => {
+        if (item.completedById !== null) {
+          const currentCount = completedStagesMap.get(item.completedById) || 0;
+          completedStagesMap.set(item.completedById, currentCount + (item._sum.xpReward || 0));
+        }
+      });
+
+
       // Get error count for each worker in the date range
       const errorsByWorker = await prisma.taskError.groupBy({
         by: ['workerId'],
@@ -416,7 +431,9 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
       const errorCountMap = new Map<number, number>();
       errorsByWorker.forEach((item) => {
-        errorCountMap.set(item.workerId, item._count);
+        if (item.workerId !== null) {
+          errorCountMap.set(item.workerId, item._count);
+        }
       });
 
       // Combine all workers with their completed stages count (0 if no completed stages)

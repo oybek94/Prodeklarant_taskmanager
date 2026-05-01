@@ -219,21 +219,9 @@ export function useTaskData(userRole?: string) {
     }
   }, []);
 
-  const loadAiChecks = useCallback(async (taskId: number) => {
-    try {
-      setLoadingAiChecks(true);
-      const response = await apiClient.get(`/tasks/${taskId}/ai-checks`);
-      if (response.data.success && Array.isArray(response.data.checks)) {
-        setAiChecks(response.data.checks);
-      } else {
-        setAiChecks([]);
-      }
-    } catch (error) {
-      console.error('Error loading AI checks:', error);
-      setAiChecks([]);
-    } finally {
-      setLoadingAiChecks(false);
-    }
+  // AI Checks o'chirilgan - har doim bo'sh massiv qaytaradi
+  const loadAiChecks = useCallback(async (_taskId: number) => {
+    setAiChecks([]);
   }, []);
 
   /** Task detail'ni yuklash (modalni ochish uchun) */

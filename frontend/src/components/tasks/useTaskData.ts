@@ -1,6 +1,7 @@
 import toast from 'react-hot-toast';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import apiClient from '../../lib/api';
+import { useSocket } from '../../contexts/SocketContext';
 import type { Task, TaskDetail, TaskVersion, TaskDocument, AiCheck, Client, Branch, TaskStats } from './types';
 
 /**
@@ -43,6 +44,9 @@ export function useTaskData(userRole?: string) {
   const [expandedDocuments, setExpandedDocuments] = useState<Set<number>>(new Set());
   const [documentExtractedTexts, setDocumentExtractedTexts] = useState<Map<number, string>>(new Map());
   const [loadingExtractedTexts, setLoadingExtractedTexts] = useState<Set<number>>(new Set());
+
+  // === Socket ===
+  const socket = useSocket();
 
   // ==========================================
   // Data loading functions
@@ -206,16 +210,16 @@ export function useTaskData(userRole?: string) {
     }
   }, []);
 
-  const loadTaskDocuments = useCallback(async (taskId: number) => {
+  const loadTaskDocuments = useCallback(async (taskId: number, silent = false) => {
     try {
-      setLoadingDocuments(true);
+      if (!silent) setLoadingDocuments(true);
       const response = await apiClient.get(`/documents/task/${taskId}`);
       setTaskDocuments(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error loading task documents:', error);
       setTaskDocuments([]);
     } finally {
-      setLoadingDocuments(false);
+      if (!silent) setLoadingDocuments(false);
     }
   }, []);
 
@@ -310,6 +314,41 @@ export function useTaskData(userRole?: string) {
       }
     }
   }, [expandedDocuments, documentExtractedTexts, loadExtractedText]);
+
+  // ==========================================
+  // Socket.io real-time updates
+  // ==========================================
+  useEffect(() => {
+    if (!socket || !selectedTask?.id) return;
+
+    const handleStageUpdated = (data: { taskId: number; stageId: number; stage: any; updatedBy: string }) => {
+      if (data.taskId === selectedTask.id) {
+        loadTaskStages(selectedTask.id);
+      }
+    };
+
+    const handleDocumentCreated = (data: { taskId: number }) => {
+      if (data.taskId === selectedTask.id) {
+        loadTaskDocuments(selectedTask.id, true); // silent update
+      }
+    };
+
+    const handleDocumentDeleted = (data: { taskId: number }) => {
+      if (data.taskId === selectedTask.id) {
+        loadTaskDocuments(selectedTask.id, true); // silent update
+      }
+    };
+
+    socket.on('task:stageUpdated', handleStageUpdated);
+    socket.on('taskDocument:created', handleDocumentCreated);
+    socket.on('taskDocument:deleted', handleDocumentDeleted);
+
+    return () => {
+      socket.off('task:stageUpdated', handleStageUpdated);
+      socket.off('taskDocument:created', handleDocumentCreated);
+      socket.off('taskDocument:deleted', handleDocumentDeleted);
+    };
+  }, [socket, selectedTask?.id, loadTaskStages, loadTaskDocuments]);
 
   return {
     // State

@@ -88,6 +88,7 @@ const Layout = () => {
     ...(user?.role === 'ADMIN' ? [{ path: '/training/manage', label: 'O\'qitish Boshqaruvi', icon: 'lucide:book-open-check' }] : []),
     ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'lucide:user-cog' }] : []),
     ...(user?.role === 'ADMIN' ? [{ path: '/settings', label: 'Sozlamalar', icon: 'lucide:settings' }] : []),
+    ...(user?.role === 'ADMIN' || user?.role === 'OWNER' ? [{ path: '/data-assistant', label: 'AI Tahlilchi', icon: 'lucide:bot' }] : []),
     ...(user?.role !== 'SELLER' ? [{ path: '/faq', label: 'FAQ (Yordam)', icon: 'lucide:help-circle' }] : []),
     { path: '/profile', label: 'Profil', icon: 'lucide:user' },
   ];

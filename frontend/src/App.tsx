@@ -42,6 +42,7 @@ import SellerKpi from './pages/SellerKpi';
 import LeadWonAnimation from './components/LeadWonAnimation';
 import XpAnimation from './components/XpAnimation';
 import MedalAnimation from './components/notifications/MedalAnimation';
+import { DataAssistant } from './pages/DataAssistant';
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -358,6 +359,7 @@ const AppRoutes = () => {
         />
         <Route path="/profile" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER', 'SELLER']}><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/data-assistant" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><DataAssistant /></ProtectedRoute>} />
       </Route>
       <Route
         path="/"

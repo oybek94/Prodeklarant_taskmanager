@@ -108,9 +108,14 @@ const Invoices = () => {
     comment: '',
     date: new Date().toISOString().split('T')[0],
   });
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    const saved = sessionStorage.getItem('invoices_currentPage');
+    return saved ? parseInt(saved, 10) : 1;
+  });
   const PAGE_SIZE = 20;
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState<string>(() => {
+    return sessionStorage.getItem('invoices_searchQuery') || '';
+  });
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const filtersPanelRef = useRef<HTMLDivElement>(null);
   const [openTemplateDropdownId, setOpenTemplateDropdownId] = useState<number | null>(null);
@@ -135,7 +140,29 @@ const Invoices = () => {
     clientId: string;
     startDate: string;
     endDate: string;
-  }>({ branchId: '', clientId: '', startDate: '', endDate: '' });
+  }>(() => {
+    const saved = sessionStorage.getItem('invoices_filters');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // ignore
+      }
+    }
+    return { branchId: '', clientId: '', startDate: '', endDate: '' };
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('invoices_currentPage', currentPage.toString());
+  }, [currentPage]);
+
+  useEffect(() => {
+    sessionStorage.setItem('invoices_searchQuery', searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem('invoices_filters', JSON.stringify(filters));
+  }, [filters]);
 
 
   const hasActiveFilters =
@@ -738,6 +765,7 @@ const Invoices = () => {
                     onClick={() => {
                       setFilters({ branchId: '', clientId: '', startDate: '', endDate: '' });
                       setSearchQuery('');
+                      setCurrentPage(1);
                     }}
                     className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition-all text-sm"
                   >

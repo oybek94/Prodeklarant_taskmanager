@@ -164,7 +164,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
     
     const psrAmount = getPsrAmount(selectedTask);
     const netProfit = rep?.netProfit ?? (dealAmount - getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration));
-    const currency = 'UZS'; // backend UZS qaytaradi
+    const currency: 'USD' | 'UZS' = 'UZS'; // backend UZS qaytaradi
     const isPositive = netProfit >= 0;
     const totalProfit = netProfit + Number(selectedTask.adminEarnedAmount || 0);
 

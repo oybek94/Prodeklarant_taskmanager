@@ -24,6 +24,7 @@ interface InvoiceToolbarProps {
   setInvoysDropdownOpen: React.Dispatch<React.SetStateAction<boolean>>;
   // Download/generation functions
   generateSmrExcel: () => void;
+  generateCmrDoc: () => void;
   generateTirExcel: () => void;
   generateST1Excel: () => void;
   generateCommodityEkExcel: () => void;
@@ -54,6 +55,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = ({
   invoysDropdownOpen,
   setInvoysDropdownOpen,
   generateSmrExcel,
+  generateCmrDoc,
   generateTirExcel,
   generateST1Excel,
   generateCommodityEkExcel,
@@ -134,6 +136,17 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = ({
                   className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   TIR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    generateCmrDoc();
+                    setTirSmrDropdownOpen(false);
+                  }}
+                  disabled={templatesDisabled}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  CMR (Docx)
                 </button>
               </div>
             )}

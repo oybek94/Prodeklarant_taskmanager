@@ -13,6 +13,7 @@ import { ensureCmrForInvoice } from '../services/cmr-service';
 import { ensureTirForInvoice } from '../services/tir-service';
 import { generateST1Excel } from '../services/st1-excel';
 import { generateCommodityEkExcel } from '../services/commodity-ek-excel';
+import { generateCmrDocx } from '../services/cmr-doc';
 import fs from 'fs/promises';
 import { socketEmitter } from '../services/socketEmitter';
 
@@ -519,6 +520,67 @@ router.get('/:id/commodity-ek', requireAuth(), async (req: AuthRequest, res: Res
     res.end(outputBuffer);
   } catch (error: any) {
     console.error('Error generating CommodityEk Excel:', error);
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/:id/cmr-doc - CMR shabloniga (DOCX) ma'lumotlarni yozib yuklab olish
+router.get('/:id/cmr-doc', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        items: {
+          orderBy: { orderIndex: 'asc' }
+        },
+        client: true,
+        branch: true,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    let contract: any = null;
+    if (invoice.contractId) {
+      contract = await prisma.contract.findUnique({
+        where: { id: invoice.contractId }
+      });
+    } else if (invoice.contractNumber) {
+      contract = await prisma.contract.findFirst({
+        where: { clientId: invoice.clientId, contractNumber: invoice.contractNumber }
+      });
+    }
+
+    const companySettings = await prisma.companySettings.findFirst();
+
+    const buffer = await generateCmrDocx({
+      invoice,
+      items: invoice.items,
+      contract,
+      client: invoice.client,
+      companySettings,
+    });
+
+    const fileName = `CMR_${invoice.invoiceNumber || invoice.id}.docx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+  } catch (error: any) {
+    console.error('Error generating CMR Docx:', error);
     res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });

@@ -6,7 +6,7 @@ import type { Invoice as InvoiceType, RegionCode, FssFilePrefix, Task } from '..
 import {
   sanitizeFileName,
   getVehiclePlate,
-  downloadExcelResponse,
+  downloadDocumentResponse,
   waitForPaint,
 } from '../invoiceUtils';
 
@@ -213,7 +213,7 @@ export function useInvoiceDownloads({
         responseType: 'blob',
       });
       const fileName = overrideFileName || `${buildDownloadBase(filePrefix)}.xlsx`;
-      await downloadExcelResponse(response, fileName, `${errorLabel} yuklab olishda xatolik yuz berdi`);
+      await downloadDocumentResponse(response, fileName, `${errorLabel} yuklab olishda xatolik yuz berdi`);
       if (processType) trackProcessDownload(processType);
     } catch (error) {
       console.error(`Error downloading ${errorLabel}:`, error);
@@ -227,6 +227,23 @@ export function useInvoiceDownloads({
   const generateTirExcel = useCallback(() => downloadTemplate('tir', 'TIR', 'TIR', 'TIR'), [downloadTemplate]);
   const generateST1Excel = useCallback(() => downloadTemplate('st1', 'ST1', 'ST-1 shabloni', 'CERT'), [downloadTemplate]);
   const generateCommodityEkExcel = useCallback(() => downloadTemplate('commodity-ek', 'COMMODITY', 'Deklaratsiya shabloni', 'DECLARATION', 'CommodityEk_New.xlsx'), [downloadTemplate]);
+  const generateCmrDoc = useCallback(async () => {
+    if (!invoice?.id) {
+      alert('Invoice topilmadi');
+      return;
+    }
+    try {
+      const response = await apiClient.get(`/invoices/${invoice.id}/cmr-doc`, {
+        responseType: 'blob',
+      });
+      const fileName = `${buildDownloadBase('CMR')}.docx`;
+      await downloadDocumentResponse(response, fileName, `CMR shablonini yuklab olishda xatolik yuz berdi`);
+      trackProcessDownload('TIR');
+    } catch (error) {
+      console.error(`Error downloading CMR:`, error);
+      alert(error instanceof Error ? error.message : `CMR shablonini yuklab olishda xatolik yuz berdi`);
+    }
+  }, [invoice?.id, buildDownloadBase, trackProcessDownload]);
 
   // --- FSS Excel ---
 
@@ -244,7 +261,7 @@ export function useInvoiceDownloads({
       const response = await apiClient.get(url, { responseType: 'blob' });
       const prefix = override?.filePrefix || fssFilePrefix || 'Ichki';
       const fileName = `${buildDownloadBase(prefix.toUpperCase())}.xlsx`;
-      await downloadExcelResponse(response, fileName, 'FSS yuklab olishda xatolik yuz berdi');
+      await downloadDocumentResponse(response, fileName, 'FSS yuklab olishda xatolik yuz berdi');
       trackProcessDownload('CERT');
     } catch (error) {
       console.error('Error downloading FSS:', error);
@@ -259,7 +276,7 @@ export function useInvoiceDownloads({
     try {
       const response = await apiClient.get(`/invoices/${invoice.id}/xlsx`, { responseType: 'blob' });
       const fileName = `${buildInvoiceDownloadBase()}.xlsx`;
-      await downloadExcelResponse(response, fileName, 'Invoys Excel yuklab olishda xatolik yuz berdi');
+      await downloadDocumentResponse(response, fileName, 'Invoys Excel yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading Invoice Excel:', error);
       alert(error instanceof Error ? error.message : 'Invoys Excel yuklab olishda xatolik yuz berdi');
@@ -330,6 +347,7 @@ export function useInvoiceDownloads({
   return {
     generatePdf,
     generateSmrExcel,
+    generateCmrDoc,
     generateTirExcel,
     generateST1Excel,
     generateCommodityEkExcel,

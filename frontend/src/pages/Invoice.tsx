@@ -239,6 +239,7 @@ const Invoice = () => {
   const {
     generatePdf,
     generateSmrExcel,
+    generateCmrDoc,
     generateTirExcel,
     generateST1Excel,
     generateCommodityEkExcel,
@@ -453,6 +454,7 @@ const Invoice = () => {
           invoysDropdownOpen={invoysDropdownOpen}
           setInvoysDropdownOpen={setInvoysDropdownOpen}
           generateSmrExcel={generateSmrExcel}
+          generateCmrDoc={generateCmrDoc}
           generateTirExcel={generateTirExcel}
           generateST1Excel={generateST1Excel}
           generateCommodityEkExcel={generateCommodityEkExcel}

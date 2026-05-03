@@ -271,8 +271,8 @@ export const extractBlobErrorMessage = async (blob: Blob, fallback: string): Pro
   }
 };
 
-/** Excel response ni faylga yuklab olish */
-export const downloadExcelResponse = async (
+/** Document response ni faylga yuklab olish */
+export const downloadDocumentResponse = async (
   response: { data: Blob; status: number; headers?: any },
   fileName: string,
   fallbackError: string
@@ -282,7 +282,7 @@ export const downloadExcelResponse = async (
     throw new Error(message);
   }
   const contentType = String(response.headers?.['content-type'] || response.headers?.['Content-Type'] || '');
-  if (!contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+  if (!contentType.includes('spreadsheetml.sheet') && !contentType.includes('wordprocessingml.document') && !contentType.includes('application/pdf')) {
     const message = await extractBlobErrorMessage(response.data, fallbackError);
     throw new Error(message);
   }

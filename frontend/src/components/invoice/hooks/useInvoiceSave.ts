@@ -387,6 +387,12 @@ export function useInvoiceSave({
       }
 
       setMarkSnapshotAfterSave(true);
+      if (initialForChangeLogRef) {
+        initialForChangeLogRef.current = {
+          form: { ...currentForm },
+          items: normalizedItems,
+        };
+      }
       if (!silent) {
         toast.success(invoice ? 'Invoice muvaffaqiyatli yangilandi' : 'Invoice muvaffaqiyatli yaratildi');
       }

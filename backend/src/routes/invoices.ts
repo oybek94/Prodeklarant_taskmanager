@@ -1319,12 +1319,8 @@ router.post('/', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthR
         ? (existingInvoice.additionalInfo as Record<string, unknown>)
         : {};
       const incomingAi = (additionalInfo && typeof additionalInfo === 'object') ? (additionalInfo as Record<string, unknown>) : {};
-      const existingLog = Array.isArray(existingAi.changeLog) ? existingAi.changeLog : [];
-      const incomingLog = Array.isArray(incomingAi.changeLog) ? incomingAi.changeLog : [];
+      
       const mergedAdditionalInfo = { ...existingAi, ...incomingAi } as Record<string, unknown>;
-      if (incomingLog.length > 0) {
-        mergedAdditionalInfo.changeLog = [...existingLog, ...incomingLog];
-      }
 
       // Invoice'ni yangilash
       invoice = await prisma.invoice.update({

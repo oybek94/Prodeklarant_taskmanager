@@ -1,5 +1,7 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
+import toast from 'react-hot-toast';
+import { CopyIconButton } from '../CopyIconButton';
 import type { ViewTab } from './types';
 
 interface InvoiceAdditionalInfoDisplayProps {
@@ -93,8 +95,14 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
           </div>
         )}
         {isAdditionalInfoVisible('vehicleNumber') && form.vehicleNumber && (
-          <div>
-            <strong>Номер автотранспорта:</strong> {form.vehicleNumber}
+          <div className="flex items-center gap-2">
+            <div>
+              <strong>Номер автотранспорта:</strong> {form.vehicleNumber}
+            </div>
+            <CopyIconButton 
+              textToCopy={form.vehicleNumber} 
+              toastMessage="Avtomobil raqami nusxalandi" 
+            />
           </div>
         )}
         {isAdditionalInfoVisible('shipmentPlace') && form.shipmentPlace && (

@@ -1,4 +1,5 @@
 import React from 'react';
+import { CopyIconButton } from '../CopyIconButton';
 import type { Contract } from './types';
 
 interface InvoicePartiesProps {
@@ -170,16 +171,20 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
 
             <>
 
-              <div className="text-base font-bold text-black">
-
-                {contract?.buyerName}
-
+              <div className="flex items-start gap-2">
+                <div className="text-base font-bold text-black">
+                  {contract?.buyerName}
+                </div>
+                {contract?.buyerName && (
+                  <CopyIconButton textToCopy={contract.buyerName} toastMessage="Sotib oluvchi nomi nusxalandi" className="mt-[-2px]" />
+                )}
               </div>
 
               {contract?.buyerAddress && (
-
-                <div className="whitespace-pre-line">{contract?.buyerAddress}</div>
-
+                <div className="flex items-start gap-2">
+                  <div className="whitespace-pre-line">{contract?.buyerAddress}</div>
+                  <CopyIconButton textToCopy={contract.buyerAddress} toastMessage="Sotib oluvchi manzili nusxalandi" className="mt-[-2px]" />
+                </div>
               )}
 
               {contract?.buyerInn && (
@@ -246,7 +251,12 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
 
           ) : (
 
-            task?.client?.name || 'Mijoz tanlanmagan'
+            <div className="flex items-center gap-2">
+              <span className="text-base font-bold text-black">{task?.client?.name || 'Mijoz tanlanmagan'}</span>
+              {task?.client?.name && (
+                <CopyIconButton textToCopy={task.client.name} toastMessage="Sotib oluvchi nomi nusxalandi" />
+              )}
+            </div>
 
           )}
 

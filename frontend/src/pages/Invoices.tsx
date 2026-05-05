@@ -11,6 +11,7 @@ import { Icon } from '@iconify/react';
 import { useSocket } from '../contexts/SocketContext';
 import { useIsMobile } from '../utils/useIsMobile';
 import toast from 'react-hot-toast';
+import { CopyIconButton } from '../components/CopyIconButton';
 
 interface Invoice {
   id: number;
@@ -1227,7 +1228,15 @@ const Invoices = () => {
                         </span>
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 font-mono">
-                        {invoice.additionalInfo?.vehicleNumber || '-'}
+                        <div className="flex items-center gap-2">
+                          <span>{invoice.additionalInfo?.vehicleNumber || '-'}</span>
+                          {invoice.additionalInfo?.vehicleNumber && (
+                            <CopyIconButton 
+                              textToCopy={invoice.additionalInfo.vehicleNumber} 
+                              toastMessage="Avtomobil raqami nusxalandi" 
+                            />
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-2 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName].filter(Boolean).join(' / ') || undefined}>
                         {invoice.clientId ? (

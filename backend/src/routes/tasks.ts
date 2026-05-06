@@ -1363,6 +1363,7 @@ const updateStageSchema = z.object({
   afterHoursDeclaration: z.boolean().optional(),
   afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional(),
   skipValidation: z.boolean().optional(), // Skip document validation for ST stage
+  force: z.boolean().optional(), // Admin boshqa ishchining jarayonini qaytarish uchun
 });
 
 router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest, res) => {
@@ -1419,36 +1420,59 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
       }
     }
 
-    // Only the person who completed the stage can change its status (ADMIN ham o'zgartira olmaydi)
+    // Jarayonni TAYYOR dan BOSHLANMAGAN ga qaytarish logikasi
     if (stage.status === 'TAYYOR' && parsed.data.status !== 'TAYYOR') {
       if (!req.user) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const isStageOwner = stage.assignedToId === req.user.id;
+      const isAdmin = req.user.role === 'ADMIN';
 
-      if (!isStageOwner) {
+      if (!isStageOwner && !isAdmin) {
         return res.status(403).json({ 
-          error: 'Faqat jarayonni tayyor qilgan odam jarayon statusini o\'zgartirishi mumkin' 
+          error: 'Faqat jarayonni tayyor qilgan odam yoki admin jarayon statusini o\'zgartirishi mumkin' 
         });
-    }
-  }
+      }
 
-  // Agar jarayonni tugallanmagan (BOSHLANMAGAN) qilishga harakat qilinayotgan bo'lsa,
-  // faqat jarayonni tayyor qilgan odam buni qila oladi (ADMIN ham emas)
-  if (parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
+      // Agar admin boshqa ishchining jarayonini qaytarmoqchi bo'lsa, force talab qilinadi
+      if (isAdmin && !isStageOwner && !parsed.data.force) {
+        return res.status(409).json({
+          error: 'Bu jarayonni boshqa ishchi tugatgan. Qaytarishni tasdiqlang.',
+          requireConfirmation: true,
+          completedBy: stage.assignedTo?.name || 'Noma\'lum',
+          completedById: stage.assignedToId,
+          stageName: stage.name,
+        });
+      }
     }
 
-    const isStageOwner = stage.assignedToId === req.user.id;
+    // Agar jarayonni tugallanmagan (BOSHLANMAGAN) qilishga harakat qilinayotgan bo'lsa
+    if (parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
 
-    if (!isStageOwner) {
-      return res.status(403).json({ 
-        error: 'Faqat jarayonni tayyor qilgan odam jarayonni tugallanmagan qilishi mumkin' 
-      });
+      const isStageOwner = stage.assignedToId === req.user.id;
+      const isAdmin = req.user.role === 'ADMIN';
+
+      if (!isStageOwner && !isAdmin) {
+        return res.status(403).json({ 
+          error: 'Faqat jarayonni tayyor qilgan odam yoki admin jarayonni tugallanmagan qilishi mumkin' 
+        });
+      }
+
+      // Agar admin boshqa ishchining jarayonini qaytarmoqchi bo'lsa, force talab qilinadi
+      if (isAdmin && !isStageOwner && !parsed.data.force) {
+        return res.status(409).json({
+          error: 'Bu jarayonni boshqa ishchi tugatgan. Qaytarishni tasdiqlang.',
+          requireConfirmation: true,
+          completedBy: stage.assignedTo?.name || 'Noma\'lum',
+          completedById: stage.assignedToId,
+          stageName: stage.name,
+        });
+      }
     }
-  }
 
   const now = new Date();
 

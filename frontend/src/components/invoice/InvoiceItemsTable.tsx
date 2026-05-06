@@ -1,9 +1,10 @@
-import React, { type RefObject } from 'react';
+import React, { type RefObject, useMemo } from 'react';
 import type { InvoiceItem, ViewTab, VisibleColumns, ColumnLabels, ColumnLabelKey, InvoiceFormData } from './types';
 import { UNIT_OPTIONS, DEFAULT_COLUMN_LABELS } from './types';
 import { formatNumber, formatNumberFixed, numberToWordsRu, getCurrencySymbol } from './invoiceUtils';
 import { InvoiceWeightSummary } from './InvoiceWeightSummary';
 import { ExportPriceCalculator } from './ExportPriceCalculator';
+import { useTableKeyboardNav } from './hooks/useTableKeyboardNav';
 
 interface InvoiceItemsTableProps {
   viewTab: ViewTab;
@@ -71,6 +72,25 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
   showItemErrors,
 }) => {
   const isReadonly = isPdfMode || viewTab === 'spec' || viewTab === 'packing';
+  const { tableRef, handleCellKeyDown } = useTableKeyboardNav();
+
+  // Build a column-index map based on which columns are currently visible
+  // so arrow-left / arrow-right skip hidden columns.
+  const editableColKeys: (keyof VisibleColumns)[] = [
+    'tnved', 'plu', 'name', 'unit', 'package',
+    'quantity', 'packagesCount', 'gross', 'net', 'unitPrice',
+  ];
+  const colIndexMap = useMemo(() => {
+    const map: Partial<Record<keyof VisibleColumns, number>> = {};
+    let idx = 0;
+    for (const key of editableColKeys) {
+      if (effectiveColumns[key]) {
+        map[key] = idx++;
+      }
+    }
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveColumns]);
 
   const renderTableHeader = (py: string) => (
     <thead className="text-left">
@@ -228,7 +248,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         ) : (
           <>
             <div className="overflow-x-auto border border-black rounded-lg invoice-table-wrap flex flex-wrap justify-start items-start">
-              <table className="w-full text-sm items-table-compact border-0">
+              <table ref={tableRef} className="w-full text-sm items-table-compact border-0">
                 {renderTableHeader('py-3')}
                 <tbody>
                   {items.map((item, index) => (
@@ -236,29 +256,29 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       {effectiveColumns.index && <td className="px-2 py-2 text-center">{index + 1}</td>}
                       {effectiveColumns.tnved && (
                         <td className="px-2 py-2">
-                          <input type="text" value={item.tnvedCode || ''} onChange={(e) => handleItemChange(index, 'tnvedCode', e.target.value)} className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.tnvedCode?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="0810700001" />
+                          <input type="text" value={item.tnvedCode || ''} onChange={(e) => handleItemChange(index, 'tnvedCode', e.target.value)} className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.tnvedCode?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="0810700001" data-nav-row={index} data-nav-col={colIndexMap.tnved} onKeyDown={handleCellKeyDown} />
                         </td>
                       )}
                       {effectiveColumns.plu && (
                         <td className="px-2 py-2">
-                          <input type="text" value={item.pluCode || ''} onChange={(e) => handleItemChange(index, 'pluCode', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs" placeholder="4309371" />
+                          <input type="text" value={item.pluCode || ''} onChange={(e) => handleItemChange(index, 'pluCode', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs" placeholder="4309371" data-nav-row={index} data-nav-col={colIndexMap.plu} onKeyDown={handleCellKeyDown} />
                         </td>
                       )}
                       {effectiveColumns.name && (
                         <td className="px-2 py-2">
-                          <input type="text" value={item.name} onChange={(e) => handleNameChange(index, e.target.value)} list="invoice-tnved-products" className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.name?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Наименование товара" required />
+                          <input type="text" value={item.name} onChange={(e) => handleNameChange(index, e.target.value)} list="invoice-tnved-products" className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.name?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Наименование товара" required data-nav-row={index} data-nav-col={colIndexMap.name} onKeyDown={handleCellKeyDown} />
                         </td>
                       )}
                       {effectiveColumns.unit && (
                         <td className="px-2 py-2">
-                          <select value={item.unit || 'кг'} onChange={(e) => handleItemChange(index, 'unit', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center bg-white" required>
+                          <select value={item.unit || 'кг'} onChange={(e) => handleItemChange(index, 'unit', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center bg-white" required data-nav-row={index} data-nav-col={colIndexMap.unit} onKeyDown={handleCellKeyDown}>
                             {UNIT_OPTIONS.map((u) => (<option key={u} value={u}>{u}</option>))}
                           </select>
                         </td>
                       )}
                       {effectiveColumns.package && (
                         <td className="px-2 py-2">
-                          <select value={item.packageType || ''} onChange={(e) => handleItemChange(index, 'packageType', e.target.value)} className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.packageType?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'}`}>
+                          <select value={item.packageType || ''} onChange={(e) => handleItemChange(index, 'packageType', e.target.value)} className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.packageType?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'}`} data-nav-row={index} data-nav-col={colIndexMap.package} onKeyDown={handleCellKeyDown}>
                             <option value="">— Вид упаковки —</option>
                             {packagingTypes.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
                           </select>
@@ -266,27 +286,27 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                       )}
                       {effectiveColumns.quantity && (
                         <td className="px-2 py-2">
-                          <input type="number" value={('_quantityStr' in item && (item as any)._quantityStr !== undefined) ? (item as any)._quantityStr : (item.quantity === 0 || item.quantity == null ? '' : item.quantity)} onChange={(e) => { const v = e.target.value; handleItemChange(index, '_quantityStr' as any, v); handleItemChange(index, 'quantity', v === '' ? 0 : (parseFloat(v.replace(',','.')) || 0)); }} onBlur={() => handleItemChange(index, '_quantityStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" required placeholder="0" />
+                          <input type="number" value={('_quantityStr' in item && (item as any)._quantityStr !== undefined) ? (item as any)._quantityStr : (item.quantity === 0 || item.quantity == null ? '' : item.quantity)} onChange={(e) => { const v = e.target.value; handleItemChange(index, '_quantityStr' as any, v); handleItemChange(index, 'quantity', v === '' ? 0 : (parseFloat(v.replace(',','.')) || 0)); }} onBlur={() => handleItemChange(index, '_quantityStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" required placeholder="0" data-nav-row={index} data-nav-col={colIndexMap.quantity} onKeyDown={handleCellKeyDown} />
                         </td>
                       )}
                       {effectiveColumns.packagesCount && (
                         <td className="px-2 py-2">
-                          <input type="number" value={('_packagesCountStr' in item && (item as any)._packagesCountStr !== undefined) ? (item as any)._packagesCountStr : (item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_packagesCountStr' as any, raw); const num = raw === '' ? undefined : parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'packagesCount', isNaN(num as number) ? undefined : num); }} onBlur={() => handleItemChange(index, '_packagesCountStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" placeholder="" />
+                          <input type="number" value={('_packagesCountStr' in item && (item as any)._packagesCountStr !== undefined) ? (item as any)._packagesCountStr : (item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_packagesCountStr' as any, raw); const num = raw === '' ? undefined : parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'packagesCount', isNaN(num as number) ? undefined : num); }} onBlur={() => handleItemChange(index, '_packagesCountStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" placeholder="" data-nav-row={index} data-nav-col={colIndexMap.packagesCount} onKeyDown={handleCellKeyDown} />
                         </td>
                       )}
                       {effectiveColumns.gross && (
                         <td className="px-2 py-2">
-                          <input type="text" inputMode="decimal" value={getGrossWeightDisplayValue(index, item)} onChange={(e) => handleGrossWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyGrossWeightFormula(index); } }} onBlur={() => applyGrossWeightFormula(index)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="7802 yoki *8 (Enter)" title="Raqam yoki *8.5 — Enter bosganda Кол-во упаковки ga ko'paytiriladi, natija butun son" />
+                          <input type="text" inputMode="decimal" value={getGrossWeightDisplayValue(index, item)} onChange={(e) => handleGrossWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyGrossWeightFormula(index); } else { handleCellKeyDown(e); } }} onBlur={() => applyGrossWeightFormula(index)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="7802 yoki *8 (Enter)" title="Raqam yoki *8.5 — Enter bosganda Кол-во упаковки ga ko'paytiriladi, natija butun son" data-nav-row={index} data-nav-col={colIndexMap.gross} />
                         </td>
                       )}
                       {effectiveColumns.net && (
                         <td className="px-2 py-2">
-                          <input type="text" inputMode="decimal" value={getNetWeightDisplayValue(index, item)} onChange={(e) => handleNetWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyNetWeightFormula(index); } }} onBlur={() => applyNetWeightFormula(index)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.netWeight) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="7150 yoki *1.2 (Enter)" title="Raqam yoki *1.2 — Enter: Brutto − (1.2 × Кол-во упаковки), natija butun son" />
+                          <input type="text" inputMode="decimal" value={getNetWeightDisplayValue(index, item)} onChange={(e) => handleNetWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyNetWeightFormula(index); } else { handleCellKeyDown(e); } }} onBlur={() => applyNetWeightFormula(index)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.netWeight) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="7150 yoki *1.2 (Enter)" title="Raqam yoki *1.2 — Enter: Brutto − (1.2 × Кол-во упаковки), natija butun son" data-nav-row={index} data-nav-col={colIndexMap.net} />
                         </td>
                       )}
                       {effectiveColumns.unitPrice && (
                         <td className="px-2 py-2">
-                          <input type="number" value={('_unitPriceStr' in item && (item as any)._unitPriceStr !== undefined) ? (item as any)._unitPriceStr : (item.unitPrice === 0 ? '' : item.unitPrice)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_unitPriceStr' as any, raw); const num = parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0); }} onBlur={() => handleItemChange(index, '_unitPriceStr' as any, undefined)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.unitPrice) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} min="0" step="any" required placeholder="" />
+                          <input type="number" value={('_unitPriceStr' in item && (item as any)._unitPriceStr !== undefined) ? (item as any)._unitPriceStr : (item.unitPrice === 0 ? '' : item.unitPrice)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_unitPriceStr' as any, raw); const num = parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0); }} onBlur={() => handleItemChange(index, '_unitPriceStr' as any, undefined)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.unitPrice) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} min="0" step="any" required placeholder="" data-nav-row={index} data-nav-col={colIndexMap.unitPrice} onKeyDown={handleCellKeyDown} />
                         </td>
                       )}
                       {effectiveColumns.total && (

@@ -644,17 +644,19 @@ const Invoice = () => {
           </div>
         </form>
         </div>
-
-        {/* Requirements sticky note — outside invoice, on the right */}
-        {selectedContract?.requirements && (
-          <ContractRequirementsNote
-            requirements={selectedContract.requirements}
-            contractNumber={selectedContract.contractNumber}
-          />
-        )}
         </div>
 
       </div>
+
+      {/* Requirements floating note — fixed position, draggable */}
+      {(selectedContract?.requirements || task?.client?.requirements) && (
+        <ContractRequirementsNote
+          requirements={selectedContract?.requirements}
+          clientRequirements={task?.client?.requirements}
+          contractNumber={selectedContract?.contractNumber}
+          clientName={task?.client?.name}
+        />
+      )}
 
       <InvoiceModals
         showAdditionalInfoModal={showAdditionalInfoModal}

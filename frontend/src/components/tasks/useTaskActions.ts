@@ -142,7 +142,31 @@ export function useTaskActions(params: UseTaskActionsParams) {
       await loadTasks(showArchive, filters as any);
     } catch (error: any) {
       console.error('Error updating stage:', error);
-      if (error.response) {
+      // Admin boshqa ishchining jarayonini qaytarmoqchi bo'lganda tasdiqlash
+      if (error.response?.status === 409 && error.response?.data?.requireConfirmation) {
+        const { completedBy, stageName } = error.response.data;
+        const confirmed = confirm(
+          `⚠️ Diqqat!\n\n` +
+          `"${stageName}" jarayonini ${completedBy} tugatgan.\n\n` +
+          `Siz bu jarayonni tugallanmagan holatga qaytarmoqchimisiz?\n\n` +
+          `Tasdiqlash uchun "OK" tugmasini bosing.`
+        );
+        if (confirmed) {
+          try {
+            const newStatus = currentStatus === 'BOSHLANMAGAN' ? 'TAYYOR' : 'BOSHLANMAGAN';
+            await apiClient.patch(`/tasks/${selectedTask.id}/stages/${stageId}`, {
+              status: newStatus,
+              force: true,
+            });
+            await loadTaskDetail(selectedTask.id);
+            await loadTasks(showArchive, filters as any);
+            toast.success(`"${stageName}" jarayoni muvaffaqiyatli qaytarildi`);
+          } catch (forceError: any) {
+            console.error('Error force updating stage:', forceError);
+            toast.error(forceError.response?.data?.error || 'Jarayonni qaytarishda xatolik yuz berdi');
+          }
+        }
+      } else if (error.response) {
         toast.error(error.response.data?.error || error.message || 'Xatolik yuz berdi');
       } else if (error.request) {
         toast.error('Serverga javob kelmadi. Iltimos, qayta urinib ko\'ring.');

@@ -134,7 +134,30 @@ const TaskDetail = () => {
       await apiClient.patch(`/tasks/${id}/stages/${stageId}`, { status: newStatus });
       await loadTask();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+      // Admin boshqa ishchining jarayonini qaytarmoqchi bo'lganda tasdiqlash
+      if (error.response?.status === 409 && error.response?.data?.requireConfirmation) {
+        const { completedBy, stageName } = error.response.data;
+        const confirmed = confirm(
+          `⚠️ Diqqat!\n\n` +
+          `"${stageName}" jarayonini ${completedBy} tugatgan.\n\n` +
+          `Siz bu jarayonni tugallanmagan holatga qaytarmoqchimisiz?\n\n` +
+          `Tasdiqlash uchun "OK" tugmasini bosing.`
+        );
+        if (confirmed) {
+          try {
+            const newStatus = currentStatus === 'BOSHLANMAGAN' ? 'TAYYOR' : 'BOSHLANMAGAN';
+            await apiClient.patch(`/tasks/${id}/stages/${stageId}`, {
+              status: newStatus,
+              force: true,
+            });
+            await loadTask();
+          } catch (forceError: any) {
+            alert(forceError.response?.data?.error || 'Jarayonni qaytarishda xatolik yuz berdi');
+          }
+        }
+      } else {
+        alert(error.response?.data?.error || 'Xatolik yuz berdi');
+      }
     } finally {
       setUpdatingStage(null);
     }

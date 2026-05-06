@@ -7,7 +7,7 @@ interface ExportPriceCalculatorProps {
   form: InvoiceFormData;
   setForm: React.Dispatch<React.SetStateAction<InvoiceFormData>>;
   items: InvoiceItem[];
-  canEditEffective: boolean;
+  canEditEffective?: boolean;
 }
 
 interface RecommendedPrice {
@@ -16,7 +16,7 @@ interface RecommendedPrice {
   priceUsd: number;
 }
 
-export function ExportPriceCalculator({ form, setForm, items, canEditEffective }: ExportPriceCalculatorProps) {
+export function ExportPriceCalculator({ form, setForm, items }: ExportPriceCalculatorProps) {
   const [recommendedPrices, setRecommendedPrices] = useState<RecommendedPrice[]>([]);
   const [localPrices, setLocalPrices] = useState<Record<string, number>>({});
   const [loadingUsdRate, setLoadingUsdRate] = useState(false);
@@ -63,7 +63,7 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
 
   // Invoice yuklanganda yoki rate yo'q bo'lsa kursni olish
   useEffect(() => {
-    if (!usdToRubRate && canEditEffective) {
+    if (!usdToRubRate) {
       handleRefreshRate();
     }
   }, []);
@@ -83,7 +83,6 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
   };
 
   const updateField = (field: 'freightCost' | 'usdToRubRate', val: number) => {
-    if (!canEditEffective) return;
     setForm(prev => ({
       ...prev,
       additionalInfo: {
@@ -158,8 +157,7 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
                 step="any"
                 value={freightCost || ''}
                 onChange={(e) => updateField('freightCost', parseFloat(e.target.value) || 0)}
-                disabled={!canEditEffective}
-                className="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                className="allow-edit w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
               />
             </div>
 
@@ -172,20 +170,17 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
                   step="any"
                   value={usdToRubRate || ''}
                   onChange={(e) => updateField('usdToRubRate', parseFloat(e.target.value) || 0)}
-                  disabled={!canEditEffective}
-                  className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                  className="allow-edit w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
                 />
-                {canEditEffective && (
-                  <button
-                    type="button"
-                    onClick={handleRefreshRate}
-                    disabled={loadingUsdRate}
-                    title="Markaziy Bankdan (Rossiya) avtomatik olish"
-                    className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                  >
-                    <Icon icon={loadingUsdRate ? 'lucide:loader-2' : 'lucide:refresh-cw'} className={`w-4 h-4 ${loadingUsdRate ? 'animate-spin' : ''}`} />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleRefreshRate}
+                  disabled={loadingUsdRate}
+                  title="Markaziy Bankdan (Rossiya) avtomatik olish"
+                  className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                >
+                  <Icon icon={loadingUsdRate ? 'lucide:loader-2' : 'lucide:refresh-cw'} className={`w-4 h-4 ${loadingUsdRate ? 'animate-spin' : ''}`} />
+                </button>
               </div>
             </div>
           </div>
@@ -216,11 +211,9 @@ export function ExportPriceCalculator({ form, setForm, items, canEditEffective }
                         step="0.01"
                         value={row.recPrice || ''}
                         onChange={(e) => {
-                          if (!canEditEffective) return;
                           setLocalPrices(prev => ({ ...prev, [row.name]: parseFloat(e.target.value) || 0 }));
                         }}
-                        disabled={!canEditEffective}
-                        className="w-16 px-1 py-0.5 text-xs text-right border border-blue-200 rounded focus:border-blue-500 outline-none"
+                        className="allow-edit w-16 px-1 py-0.5 text-xs text-right border border-blue-200 rounded focus:border-blue-500 outline-none"
                       />
                     </td>
                     <td className="px-3 py-2 text-right">{row.summa.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>

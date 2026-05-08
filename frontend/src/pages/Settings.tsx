@@ -284,7 +284,7 @@ const Settings = () => {
   });
   const [deletingRegionCodeId, setDeletingRegionCodeId] = useState<number | null>(null);
   type TabType = 'general' | 'financial' | 'structure' | 'specs' | 'processes' | 'system';
-  const [activeTab, setActiveTab] = useState<TabType>('general');
+  const [activeTab, setActiveTab] = useState<TabType>(user?.role === 'ADMIN' ? 'general' : 'specs');
   const tabs = [
     { id: 'general', label: "Umumiy", icon: 'lucide:settings' },
     { id: 'financial', label: "Moliyaviy", icon: 'lucide:dollar-sign' },
@@ -968,13 +968,18 @@ const Settings = () => {
     }
   };
 
-  if (user?.role !== 'ADMIN') {
+  if (user?.role === 'SELLER' || !user) {
     return (
       <div className="text-center py-8 text-gray-500">
         Sizga bu sahifaga kirish ruxsati yo'q
       </div>
     );
   }
+
+  const visibleTabs = tabs.filter(tab => {
+    if (user?.role === 'ADMIN') return true;
+    return tab.id === 'structure' || tab.id === 'specs';
+  });
 
   return (
     <div className={`max-w-7xl mx-auto p-4 md:p-6 lg:p-8 ${isMobile ? 'pb-32' : ''}`}>
@@ -986,7 +991,7 @@ const Settings = () => {
               <h1 className="text-xl font-bold text-gray-800">Sozlamalar</h1>
               <p className="text-xs text-gray-500 mt-1">Asosiy ma'lumotlar, tariflar...</p>
             </div>
-            {tabs.map(tab => (
+            {visibleTabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
@@ -1398,7 +1403,8 @@ const Settings = () => {
                 <h2 className="text-xl font-bold text-gray-800">Tuzilma (Filial va Hududlar)</h2>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                {user?.role === 'ADMIN' && (
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-center mb-5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
@@ -1491,7 +1497,8 @@ const Settings = () => {
                       </div>
                     </div>
                   )}
-                </div>
+                  </div>
+                )}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-center mb-5">
                     <div className="flex items-center gap-3">

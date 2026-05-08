@@ -25,7 +25,10 @@ router.get('/', requireAuth(), async (_req, res) => {
 });
 
 // POST /api/region-codes - Create new region code
-router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+router.post('/', requireAuth(), async (req: AuthRequest, res) => {
+  if (req.user?.role === 'SELLER') {
+    return res.status(403).json({ error: 'Sizga ruxsat berilmagan' });
+  }
   try {
     const parsed = regionCodeSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -49,7 +52,10 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 });
 
 // DELETE /api/region-codes/:id - Delete region code
-router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
+  if (req.user?.role === 'SELLER') {
+    return res.status(403).json({ error: 'Sizga ruxsat berilmagan' });
+  }
   try {
     const id = Number(req.params.id);
     const existing = await prisma.regionCode.findUnique({ where: { id } });

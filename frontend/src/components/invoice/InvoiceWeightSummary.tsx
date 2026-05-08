@@ -23,8 +23,8 @@ export function InvoiceWeightSummary({ items, loaderWeight, trailerWeight, palle
   // Agar 'Примечание' da vehicleWeight yozilgan bo'lsa, avto og'irlik o'rniga shu ishlatiladi
   const autoWeight = vWeightNum > 0 ? vWeightNum : (loader + trailer);
 
-  const totalGross = goodsGross + autoWeight + pallet;
-  const maxWeight = 39950 - autoWeight - pallet;
+  const totalGross = goodsGross + autoWeight;
+  const maxWeight = 39950 - autoWeight;
   const difference = maxWeight - goodsGross;
 
   return (

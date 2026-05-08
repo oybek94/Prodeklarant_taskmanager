@@ -25,7 +25,7 @@ export function RecommendedPricesSection() {
   const [editCode, setEditCode] = useState('');
   const [editPriceUsd, setEditPriceUsd] = useState('');
 
-  const [syncing, setSyncing] = useState(false);
+
 
   useEffect(() => {
     loadPrices();
@@ -109,19 +109,7 @@ export function RecommendedPricesSection() {
     }
   };
 
-  const handleSyncFromSpecs = async () => {
-    if (!confirm('Shartnomalardagi barcha yangi spetsifikatsiyalarni avtomatik qo\'shishni xohlaysizmi?')) return;
-    try {
-      setSyncing(true);
-      const res = await apiClient.post('/recommended-prices/sync-from-specs');
-      alert(`Sinxronizatsiya tugadi. ${res.data.addedCount} ta yangi mahsulot qo'shildi.`);
-      await loadPrices();
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Sinxronizatsiyada xatolik yuz berdi');
-    } finally {
-      setSyncing(false);
-    }
-  };
+
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
@@ -133,15 +121,7 @@ export function RecommendedPricesSection() {
           <h2 className="text-base font-bold text-gray-800">Tavsiyaviy eksport narxlari</h2>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={handleSyncFromSpecs}
-            disabled={syncing}
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium disabled:opacity-50"
-            title="Sinxronlash"
-          >
-            <Icon icon={syncing ? "lucide:loader-2" : "lucide:refresh-cw"} className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-            Shartnomalardan olish
-          </button>
+
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium"

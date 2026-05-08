@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();
@@ -22,7 +22,10 @@ router.get('/', requireAuth(), async (_req, res) => {
 const createSchema = z.object({ name: z.string().min(1), code: z.string().optional() });
 
 /** Sozlamalar: faqat ADMIN qo‘shishi/o‘zgartirishi/o‘chirishi mumkin */
-router.post('/', requireAuth('ADMIN'), async (req, res) => {
+router.post('/', requireAuth(), async (req: AuthRequest, res) => {
+  if (req.user?.role === 'SELLER') {
+    return res.status(403).json({ error: 'Sizga ruxsat berilmagan' });
+  }
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const count = await prisma.packagingType.count();
@@ -36,7 +39,10 @@ router.post('/', requireAuth('ADMIN'), async (req, res) => {
   res.json({ id: String(created.id), name: created.name, code: created.code });
 });
 
-router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
+router.put('/:id', requireAuth(), async (req: AuthRequest, res) => {
+  if (req.user?.role === 'SELLER') {
+    return res.status(403).json({ error: 'Sizga ruxsat berilmagan' });
+  }
   const id = parseInt(req.params.id, 10);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
   const parsed = z.object({ name: z.string().min(1), code: z.string().optional() }).safeParse(req.body);
@@ -48,7 +54,10 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
   res.json({ id: String(updated.id), name: updated.name, code: updated.code });
 });
 
-router.delete('/:id', requireAuth('ADMIN'), async (req, res) => {
+router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
+  if (req.user?.role === 'SELLER') {
+    return res.status(403).json({ error: 'Sizga ruxsat berilmagan' });
+  }
   const id = parseInt(req.params.id, 10);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
   await prisma.packagingType.delete({ where: { id } });

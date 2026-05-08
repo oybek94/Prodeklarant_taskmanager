@@ -1555,6 +1555,14 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     }
   }, [isModalMode, modalContractId, selectedClient, showClientModal]);
 
+  if (user?.role === 'SELLER') {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        Sizga bu sahifaga kirish ruxsati yo'q
+      </div>
+    );
+  }
+
   return (
     <div className={isModalMode ? "" : `max-w-7xl mx-auto space-y-6 ${isMobile ? 'pb-32' : ''}`}>
       {!isModalMode && (

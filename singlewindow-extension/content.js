@@ -7,6 +7,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         } else {
             sendResponse({ success: false });
         }
+    } else if (request.action === "fill_st1_form") {
+        const data = request.data;
+        if (data) {
+            fillSt1Form(data);
+            sendResponse({ success: true });
+        } else {
+            sendResponse({ success: false });
+        }
     } else if (request.action === "check_products") {
         const data = request.data;
         console.log("Kengaytma qabul qilgan data:", data);
@@ -67,6 +75,31 @@ function fillForm(data) {
             console.warn(`[AutoFill] Element topilmadi: #IDFY_LBL_INDC_YNY`);
         }
     }, 500);
+}
+
+function fillSt1Form(data) {
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const yyyy = today.getFullYear();
+    const formattedDate = `${dd}.${mm}.${yyyy}`;
+
+    const fieldsMap = {
+        "ИзготовительНаименование": data.EXPPN_NM,
+        "ИзготовительАдрес": data.EXPPN_ADDR,
+        "ГрузоотправительНаименование": data.EXPPN_NM,
+        "ГрузоотправительАдрес": data.EXPPN_ADDR,
+        "ГрузополучательНаименование": data.IMPPN_NM,
+        "ГрузополучательАдрес": data.IMPPN_ADDR,
+        "ДатаОтгрузки": formattedDate,
+        "ТоварыТекст": "Сельскохозяйственные продукты"
+    };
+
+    for (const [name, value] of Object.entries(fieldsMap)) {
+        if (value !== undefined && value !== null) {
+            setInputValueByName(name, value);
+        }
+    }
 }
 
 // Qattiq (majburiy) bosish funksiyasi (barcha frameworklarni chetlab o'tishga harakat)

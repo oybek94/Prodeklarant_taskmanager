@@ -57,8 +57,8 @@ function sendToContentScript(action, mockData, statusDiv) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs && tabs[0]) {
             const url = tabs[0].url;
-            if (!url.includes('singlewindow.uz')) {
-                statusDiv.textContent = "Bu kengaytma faqat singlewindow.uz saytida ishlaydi.";
+            if (!url.includes('singlewindow.uz') && !url.includes('expertiza.uz')) {
+                statusDiv.textContent = "Bu kengaytma faqat singlewindow.uz yoki expertiza.uz saytida ishlaydi.";
                 statusDiv.style.color = "#ef4444";
                 return;
             }
@@ -71,7 +71,7 @@ function sendToContentScript(action, mockData, statusDiv) {
                     statusDiv.textContent = "Xatolik! Sayt to'liq yuklanganini tekshiring.";
                     statusDiv.style.color = "#ef4444";
                 } else if (response && response.success) {
-                    if (action === "fill_form") {
+                    if (action === "fill_form" || action === "fill_st1_form") {
                         statusDiv.textContent = "Shakl muvaffaqiyatli to'ldirildi!";
                         statusDiv.style.color = "#10b981";
                     } else if (action === "check_products") {
@@ -101,6 +101,13 @@ document.getElementById('fillFormBtn').addEventListener('click', async () => {
     const mockData = await getProdeklarantData(statusDiv);
     if (!mockData) return;
     sendToContentScript("fill_form", mockData, statusDiv);
+});
+
+document.getElementById('fillSt1Btn').addEventListener('click', async () => {
+    const statusDiv = document.getElementById('status');
+    const mockData = await getProdeklarantData(statusDiv);
+    if (!mockData) return;
+    sendToContentScript("fill_st1_form", mockData, statusDiv);
 });
 
 document.getElementById('checkDataBtn').addEventListener('click', async () => {

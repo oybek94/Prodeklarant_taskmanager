@@ -33,7 +33,7 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
     <div className="mb-0">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-800">Дополнительная информация</h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 no-screenshot">
           {!isBuyerConsignee && selectedContract?.consigneeName && (
             <button
               type="button"
@@ -99,10 +99,12 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
             <div>
               <strong>Номер автотранспорта:</strong> {form.vehicleNumber}
             </div>
-            <CopyIconButton 
-              textToCopy={form.vehicleNumber} 
-              toastMessage="Avtomobil raqami nusxalandi" 
-            />
+            <div className="no-screenshot">
+              <CopyIconButton 
+                textToCopy={form.vehicleNumber} 
+                toastMessage="Avtomobil raqami nusxalandi" 
+              />
+            </div>
           </div>
         )}
         {isAdditionalInfoVisible('shipmentPlace') && form.shipmentPlace && (

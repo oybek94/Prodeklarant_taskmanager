@@ -546,56 +546,58 @@ const Invoice = () => {
                 {/* Ajratuvchi chiziq */}
                 <div className="border-t-[1.5px] border-gray-400 my-4"></div>
 
-                {/* Дополнительная информация */}
-                <InvoiceAdditionalInfoDisplay
-                  form={form}
-                  viewTab={viewTab}
-                  selectedContract={selectedContract}
-                  isBuyerConsignee={isBuyerConsignee}
-                  isAdditionalInfoVisible={isAdditionalInfoVisible}
-                  customFields={customFields}
-                  specCustomFields={specCustomFields}
-                  addressCopySuccess={addressCopySuccess}
-                  setAddressCopySuccess={setAddressCopySuccess}
-                  setShowAdditionalInfoModal={setShowAdditionalInfoModal}
-                />
+                <div id="invoice-screenshot-area" className="bg-white">
+                  {/* Дополнительная информация */}
+                  <InvoiceAdditionalInfoDisplay
+                    form={form}
+                    viewTab={viewTab}
+                    selectedContract={selectedContract}
+                    isBuyerConsignee={isBuyerConsignee}
+                    isAdditionalInfoVisible={isAdditionalInfoVisible}
+                    customFields={customFields}
+                    specCustomFields={specCustomFields}
+                    addressCopySuccess={addressCopySuccess}
+                    setAddressCopySuccess={setAddressCopySuccess}
+                    setShowAdditionalInfoModal={setShowAdditionalInfoModal}
+                  />
 
-                {/* Ajratuvchi chiziq */}
-                <div className="border-t-[1.5px] border-gray-400 my-4"></div>
+                  {/* Ajratuvchi chiziq */}
+                  <div className="border-t-[1.5px] border-gray-400 my-4 no-screenshot"></div>
 
-                {/* Items Table */}
-                <InvoiceItemsTable
-                  viewTab={viewTab}
-                  isPdfMode={isPdfMode}
-                  canEditEffective={canEditEffective}
-                  items={items}
-                  effectiveColumns={effectiveColumns}
-                  visibleColumns={visibleColumns}
-                  columnLabels={columnLabels}
-                  totalColumnLabel={totalColumnLabel}
-                  leadingColumnsCount={leadingColumnsCount}
-                  invoiceCurrency={invoiceCurrency}
-                  columnsDropdownRef={columnsDropdownRef}
-                  columnsDropdownOpen={columnsDropdownOpen}
-                  setColumnsDropdownOpen={setColumnsDropdownOpen}
-                  setVisibleColumnsAndPersist={setVisibleColumnsAndPersist}
-                  setColumnLabels={setColumnLabels}
-                  addItem={addItem}
-                  removeItem={removeItem}
-                  handleItemChange={handleItemChange}
-                  handleNameChange={handleNameChange}
-                  handleNameEnChange={handleNameEnChange}
-                  handleGrossWeightChange={handleGrossWeightChange}
-                  handleNetWeightChange={handleNetWeightChange}
-                  applyGrossWeightFormula={applyGrossWeightFormula}
-                  applyNetWeightFormula={applyNetWeightFormula}
-                  getGrossWeightDisplayValue={getGrossWeightDisplayValue}
-                  getNetWeightDisplayValue={getNetWeightDisplayValue}
-                  packagingTypes={packagingTypes}
-                  form={form}
-                  setForm={setForm}
-                  showItemErrors={showItemErrors}
-                />
+                  {/* Items Table */}
+                  <InvoiceItemsTable
+                    viewTab={viewTab}
+                    isPdfMode={isPdfMode}
+                    canEditEffective={canEditEffective}
+                    items={items}
+                    effectiveColumns={effectiveColumns}
+                    visibleColumns={visibleColumns}
+                    columnLabels={columnLabels}
+                    totalColumnLabel={totalColumnLabel}
+                    leadingColumnsCount={leadingColumnsCount}
+                    invoiceCurrency={invoiceCurrency}
+                    columnsDropdownRef={columnsDropdownRef}
+                    columnsDropdownOpen={columnsDropdownOpen}
+                    setColumnsDropdownOpen={setColumnsDropdownOpen}
+                    setVisibleColumnsAndPersist={setVisibleColumnsAndPersist}
+                    setColumnLabels={setColumnLabels}
+                    addItem={addItem}
+                    removeItem={removeItem}
+                    handleItemChange={handleItemChange}
+                    handleNameChange={handleNameChange}
+                    handleNameEnChange={handleNameEnChange}
+                    handleGrossWeightChange={handleGrossWeightChange}
+                    handleNetWeightChange={handleNetWeightChange}
+                    applyGrossWeightFormula={applyGrossWeightFormula}
+                    applyNetWeightFormula={applyNetWeightFormula}
+                    getGrossWeightDisplayValue={getGrossWeightDisplayValue}
+                    getNetWeightDisplayValue={getNetWeightDisplayValue}
+                    packagingTypes={packagingTypes}
+                    form={form}
+                    setForm={setForm}
+                    showItemErrors={showItemErrors}
+                  />
+                </div>
 
                 {/* Notes */}
                 <InvoiceNotes

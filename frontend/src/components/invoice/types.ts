@@ -129,6 +129,7 @@ export interface Task {
     correspondentBankAccount?: string;
     correspondentBankSwift?: string;
     contractNumber?: string;
+    requirements?: string;
   };
   branch?: {
     id: number;

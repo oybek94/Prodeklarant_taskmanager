@@ -5,6 +5,9 @@ import { formatNumber, formatNumberFixed, numberToWordsRu, getCurrencySymbol } f
 import { InvoiceWeightSummary } from './InvoiceWeightSummary';
 import { ExportPriceCalculator } from './ExportPriceCalculator';
 import { useTableKeyboardNav } from './hooks/useTableKeyboardNav';
+import { Icon } from '@iconify/react';
+import html2canvas from 'html2canvas';
+import toast from 'react-hot-toast';
 
 interface InvoiceItemsTableProps {
   viewTab: ViewTab;
@@ -74,6 +77,104 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
   const isReadonly = isPdfMode || viewTab === 'spec' || viewTab === 'packing';
   const { tableRef, handleCellKeyDown } = useTableKeyboardNav();
 
+  const handleTakeScreenshot = async () => {
+    const element = document.getElementById('invoice-screenshot-area');
+    if (!element) {
+      toast.error("Skrinshot olinadigan hudud topilmadi");
+      return;
+    }
+    
+    try {
+      const toastId = toast.loading("Nusxa olinmoqda...");
+      
+      const originalArea = document.getElementById('invoice-screenshot-area');
+      const originalInputs = originalArea ? Array.from(originalArea.querySelectorAll('input, textarea, select')) : [];
+      originalInputs.forEach((el, i) => el.setAttribute('data-html2canvas-id', `input-${i}`));
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        ignoreElements: (el) => {
+          return el.classList.contains('no-screenshot');
+        },
+        onclone: (clonedDoc) => {
+          originalInputs.forEach((origEl) => {
+            const id = origEl.getAttribute('data-html2canvas-id');
+            const clonedEl = clonedDoc.querySelector(`[data-html2canvas-id="${id}"]`);
+            if (!clonedEl) return;
+            
+            if (clonedEl.tagName === 'INPUT' || clonedEl.tagName === 'TEXTAREA') {
+              const clonedInput = clonedEl as HTMLInputElement;
+              if (clonedInput.type !== 'checkbox' && clonedInput.type !== 'radio' && clonedInput.type !== 'hidden') {
+                const div = clonedDoc.createElement('div');
+                div.textContent = (origEl as HTMLInputElement).value || '';
+                div.className = origEl.className;
+                div.style.boxSizing = 'border-box';
+                div.style.overflow = 'visible';
+                div.style.whiteSpace = clonedEl.tagName === 'TEXTAREA' ? 'pre-wrap' : 'nowrap';
+                div.style.border = 'none';
+                div.style.background = 'transparent';
+                
+                const computedStyle = window.getComputedStyle(origEl);
+                div.style.textAlign = computedStyle.textAlign;
+                div.style.padding = computedStyle.padding;
+                div.style.display = 'flex';
+                div.style.alignItems = 'center';
+                if (computedStyle.textAlign === 'right') div.style.justifyContent = 'flex-end';
+                else if (computedStyle.textAlign === 'center') div.style.justifyContent = 'center';
+                
+                clonedEl.parentNode?.replaceChild(div, clonedEl);
+              }
+            } else if (clonedEl.tagName === 'SELECT') {
+              const div = clonedDoc.createElement('div');
+              const origSelect = origEl as HTMLSelectElement;
+              const selected = origSelect.selectedIndex >= 0 ? origSelect.options[origSelect.selectedIndex] : null;
+              div.textContent = selected ? selected.text : '';
+              div.className = origEl.className;
+              div.style.boxSizing = 'border-box';
+              div.style.overflow = 'visible';
+              div.style.whiteSpace = 'nowrap';
+              div.style.border = 'none';
+              div.style.background = 'transparent';
+              
+              const computedStyle = window.getComputedStyle(origEl);
+              div.style.textAlign = computedStyle.textAlign;
+              div.style.padding = computedStyle.padding;
+              div.style.display = 'flex';
+              div.style.alignItems = 'center';
+              if (computedStyle.textAlign === 'right') div.style.justifyContent = 'flex-end';
+              else if (computedStyle.textAlign === 'center') div.style.justifyContent = 'center';
+
+              clonedEl.parentNode?.replaceChild(div, clonedEl);
+            }
+          });
+        }
+      });
+
+      originalInputs.forEach((el) => el.removeAttribute('data-html2canvas-id'));
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          toast.error("Rasm yaratishda xatolik", { id: toastId });
+          return;
+        }
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          toast.success("Skrinshot nusxalandi! CTRL+V orqali joylashingiz mumkin.", { id: toastId, duration: 4000 });
+        } catch (err) {
+          console.error("Clipboard xatoligi:", err);
+          toast.error("Nusxalashda xatolik. Brauzer ruxsat bermagan bo'lishi mumkin.", { id: toastId });
+        }
+      }, 'image/png');
+    } catch (error) {
+      console.error("Screenshot xatoligi:", error);
+      toast.error("Skrinshot olishda xatolik yuz berdi");
+    }
+  };
+
   // Build a column-index map based on which columns are currently visible
   // so arrow-left / arrow-right skip hidden columns.
   const editableColKeys: (keyof VisibleColumns)[] = [
@@ -134,7 +235,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
           <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{totalColumnLabel}</th>
         )}
         {!isReadonly && effectiveColumns.actions && (
-          <th className={`px-2 ${py} text-center text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.actions}</th>
+          <th className={`px-2 ${py} text-center text-xs font-semibold no-screenshot`} style={{ verticalAlign: 'top' }}>{columnLabels.actions}</th>
         )}
       </tr>
     </thead>
@@ -172,7 +273,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
             {getCurrencySymbol(invoiceCurrency)} {formatNumberFixed(items.reduce((sum, i) => sum + i.totalPrice, 0))}
           </td>
         )}
-        {!isReadonly && effectiveColumns.actions && <td className="px-2 py-1" style={{ verticalAlign: 'top' }}></td>}
+        {!isReadonly && effectiveColumns.actions && <td className="px-2 py-1 no-screenshot" style={{ verticalAlign: 'top' }}></td>}
       </tr>
     </tfoot>
   );
@@ -183,7 +284,16 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         <div></div>
         {(viewTab === 'invoice' && canEditEffective) && (
           <div className="flex items-center gap-2">
-            <details ref={columnsDropdownRef} open={columnsDropdownOpen} className="relative">
+            <button
+              type="button"
+              onClick={handleTakeScreenshot}
+              className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm flex items-center gap-1 font-medium no-screenshot"
+              title="Invoys ma'lumotlarini rasmga olib nusxalash"
+            >
+              <Icon icon="lucide:camera" className="w-4 h-4" />
+              Nusxa olish
+            </button>
+            <details ref={columnsDropdownRef} open={columnsDropdownOpen} className="relative no-screenshot">
               <summary
                 className="list-none cursor-pointer px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
                 onClick={(e) => { e.preventDefault(); setColumnsDropdownOpen((prev) => !prev); }}
@@ -201,7 +311,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 </div>
               </div>
             </details>
-            <button type="button" onClick={addItem} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm">
+            <button type="button" onClick={addItem} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm no-screenshot">
               Qator qo'shish
             </button>
           </div>
@@ -315,7 +425,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                         </td>
                       )}
                       {effectiveColumns.actions && (
-                        <td className="px-2 py-2 text-center">
+                        <td className="px-2 py-2 text-center no-screenshot">
                           {items.length > 1 && (
                             <button type="button" onClick={() => removeItem(index)} className="text-red-600 hover:text-red-800 text-sm">✕</button>
                           )}

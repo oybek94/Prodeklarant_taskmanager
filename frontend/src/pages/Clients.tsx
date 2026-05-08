@@ -292,7 +292,7 @@ interface ClientsProps {
 
 const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, modalContractId, onCloseModal }) => {
   const { user } = useAuth();
-  const isManagerOnly = user?.role === 'MANAGER';
+  const isNonAdmin = user?.role !== 'ADMIN';
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const CLIENTS_PAGE_SIZE = 15;
@@ -602,11 +602,11 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
 
   // MANAGER: faqat shartnomalar; mijoz qo'shish/tahrirlash sahifalariga kirishni taqiqlash
   useEffect(() => {
-    if (!isManagerOnly) return;
+    if (!isNonAdmin) return;
     if (location.pathname === '/clients/new' || /^\/clients\/\d+\/edit$/.test(location.pathname)) {
       navigate('/clients', { replace: true });
     }
-  }, [isManagerOnly, location.pathname, navigate]);
+  }, [isNonAdmin, location.pathname, navigate]);
 
   // Handle ESC key to close modals
   useEffect(() => {
@@ -755,6 +755,11 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       setLoadingClient(true);
       const response = await apiClient.get(`/clients/${clientId}`);
       setSelectedClient(response.data);
+      if (isNonAdmin) {
+        setClientModalTab('contracts');
+      } else {
+        setClientModalTab('overview');
+      }
       setShowClientModal(true);
 
       // Load monthly tasks data
@@ -1560,7 +1565,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Clients</h1>
               <div className="text-sm text-gray-500 mt-1">Home &gt; Clients</div>
             </div>
-            {!isManagerOnly && (
+            {!isNonAdmin && (
               <button
                 onClick={() => {
                   if (isMobile) {
@@ -1842,23 +1847,18 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             {client.name}
                           </h3>
                         </div>
-                        {isManagerOnly ? (
-                          <p className="text-xs text-blue-500 dark:text-blue-400 mt-0.5 font-medium">Shartnomalar uchun bosing</p>
-                        ) : (
                           <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
                             <Icon icon="lucide:phone" className="w-3.5 h-3.5" />
                             <span className="truncate">{client.phone || '-'}</span>
                           </div>
-                        )}
                       </div>
 
-                      {!isManagerOnly && (
-                        <>
+                      <>
                           <div className="grid grid-cols-2 gap-3 mb-4 flex-1">
                             <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700/50 group-hover:bg-blue-50/50 dark:group-hover:bg-blue-900/10 transition-colors">
                               <div className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider mb-1">Deal Amount</div>
                               <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-                                {client.dealAmount ? (
+                                {isNonAdmin ? <span className="font-mono text-gray-400">***</span> : client.dealAmount ? (
                                   <CurrencyDisplay
                                     amount={Number(client.dealAmount)}
                                     originalCurrency={(client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
@@ -1884,15 +1884,16 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                   ? 'text-gray-600 dark:text-gray-400'
                                   : 'text-emerald-600 dark:text-emerald-400'
                                 }`}>
-                                <CurrencyDisplay
+                                {isNonAdmin ? <span className="font-mono opacity-70">***</span> : <CurrencyDisplay
                                   amount={Number(calculatedBalance)}
                                   originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
-                                />
+                                />}
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                              <button
+                            {!isNonAdmin && (
+                              <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                <button
                                 onClick={() => {
                                   if (isMobile) {
                                     navigate(`/clients/${client.id}/edit`);
@@ -1913,9 +1914,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                 <Icon icon="lucide:trash-2" className="w-4 h-4" />
                               </button>
                             </div>
+                            )}
                           </div>
                         </>
-                      )}
                     </div>
                   );
                 })
@@ -1994,7 +1995,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {!isManagerOnly && (
+                {!isNonAdmin && (
                   <button
                     onClick={() => {
                       if (isMobile) {
@@ -2080,8 +2081,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             {/* TAB: OVERVIEW */}
             {clientModalTab === 'overview' && (
               <div className="space-y-6">
-                {/* Top Financial Summary - faqat ADMIN */}
-                {!isManagerOnly && selectedClient.stats && (
+                {/* Top Financial Summary - barcha ko'radi, summalari yashiriladi */}
+                {selectedClient.stats && (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800 border border-blue-200 dark:border-blue-900/50 p-5 rounded-2xl shadow-sm">
@@ -2090,9 +2091,11 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           Barcha loyihalar summasi
                         </div>
                         <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                          ${selectedClient.stats.totalDealAmount !== undefined
-                            ? Number(selectedClient.stats.totalDealAmount).toFixed(2)
-                            : (Number(selectedClient.stats.totalTasks) * Number(selectedClient.stats.dealAmount)).toFixed(2)}
+                          {isNonAdmin ? <span className="font-mono text-gray-400">***</span> : (
+                            "$" + (selectedClient.stats.totalDealAmount !== undefined
+                              ? Number(selectedClient.stats.totalDealAmount).toFixed(2)
+                              : (Number(selectedClient.stats.totalTasks) * Number(selectedClient.stats.dealAmount)).toFixed(2))
+                          )}
                         </div>
                         {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
                           <div className="text-xs font-medium text-blue-600 mt-2 bg-blue-100/50 dark:bg-blue-900/30 dark:text-blue-400 inline-block px-2 py-1 rounded-md">
@@ -2106,7 +2109,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           Jami to'lovlar
                         </div>
                         <div className="text-3xl font-bold text-green-600 dark:text-emerald-400">
-                          <CurrencyDisplay amount={Number(selectedClient.stats.totalIncome)} originalCurrency="USD" />
+                          {isNonAdmin ? <span className="font-mono text-green-400/70">***</span> : <CurrencyDisplay amount={Number(selectedClient.stats.totalIncome)} originalCurrency="USD" />}
                         </div>
                       </div>
                       <div className={`p-5 rounded-2xl shadow-sm border ${selectedClient.stats.balance > 0
@@ -2125,7 +2128,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             ? 'text-yellow-600 dark:text-amber-500'
                             : 'text-green-600 dark:text-emerald-500'
                           }`}>
-                          <CurrencyDisplay amount={Number(selectedClient.stats.balance)} originalCurrency={selectedClient.balanceCurrency || 'USD'} />
+                          {isNonAdmin ? <span className="font-mono opacity-60">***</span> : <CurrencyDisplay amount={Number(selectedClient.stats.balance)} originalCurrency={selectedClient.balanceCurrency || 'USD'} />}
                         </div>
                       </div>
                     </div>
@@ -2141,9 +2144,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   </>
                 )}
 
-                {/* Client Info - faqat ADMIN */}
-                {!isManagerOnly && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Client Info - Telefon hamma ko'radi, summa yashiriladi */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
                       <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Telefon</div>
                       <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
@@ -2155,16 +2157,15 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Asosiy shartnoma summasi (1 ta task)</div>
                       <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
                         <Icon icon="lucide:file-text" className="w-4 h-4 text-gray-400" />
-                        {selectedClient.dealAmount ? (
+                        {isNonAdmin ? <span className="font-mono text-gray-400">***</span> : selectedClient.dealAmount ? (
                           <CurrencyDisplay amount={Number(selectedClient.dealAmount)} originalCurrency="USD" />
                         ) : '-'}
                       </div>
                     </div>
                   </div>
-                )}
 
-                {/* Kelishuv shartlari (Nasiya shartlari) - faqat ADMIN */}
-                {!isManagerOnly && (selectedClient.creditType || selectedClient.creditLimit) && (
+                {/* Kelishuv shartlari (Nasiya shartlari) - barcha ko'radi, limit yashiriladi */}
+                {(selectedClient.creditType || selectedClient.creditLimit) && (
                   <div className="bg-white dark:bg-slate-800 border border-blue-100 dark:border-blue-900/40 rounded-2xl p-6 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 dark:bg-blue-900/20 rounded-full -mr-16 -mt-16 opacity-50"></div>
                     <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2 relative z-10">
@@ -2190,7 +2191,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           <div className="font-bold text-blue-600 dark:text-blue-400 text-lg">
                             {selectedClient.creditType === 'TASK_COUNT'
                               ? `${Number(selectedClient.creditLimit)} ta ish`
-                              : <CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />}
+                              : isNonAdmin ? <span className="font-mono text-gray-400">***</span> : <CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />}
                           </div>
                         </div>
                       )}
@@ -2211,15 +2212,15 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           <span className="font-semibold block mb-0.5">Shart tafsiloti:</span>
                           {selectedClient.creditType === 'TASK_COUNT'
                             ? `${Number(selectedClient.creditLimit)} ta ishdan keyin to'lov qilish kerak`
-                            : `Qarzdorlik ${<CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />} ga yetganda to'lov qilish kerak`}
+                            : <span className="flex items-center gap-1">Qarzdorlik {isNonAdmin ? <span className="font-mono font-bold">***</span> : <CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />} ga yetganda to'lov qilish kerak</span>}
                         </div>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Stats Summary - faqat ADMIN */}
-                {!isManagerOnly && selectedClient.stats && (
+                {/* Stats Summary - barcha ko'radi */}
+                {selectedClient.stats && (
                   <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
                     <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
                       <Icon icon="lucide:bar-chart-2" className="w-5 h-5 text-indigo-500" />
@@ -2494,13 +2495,15 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     <Icon icon="lucide:receipt" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                     Tranzaksiyalar tarixi
                   </h3>
-                  <button
-                    onClick={() => setShowTransactionModal(true)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm flex items-center gap-2"
-                  >
-                    <Icon icon="lucide:plus" className="w-4 h-4" />
-                    Joriy to'lov qabul qilish
-                  </button>
+                  {!isNonAdmin && (
+                    <button
+                      onClick={() => setShowTransactionModal(true)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm flex items-center gap-2"
+                    >
+                      <Icon icon="lucide:plus" className="w-4 h-4" />
+                      Joriy to'lov qabul qilish
+                    </button>
+                  )}
                 </div>
                 {selectedClient.transactions.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-slate-800/30 rounded-xl border border-gray-100 dark:border-slate-700/50 border-dashed">
@@ -2513,7 +2516,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       <div key={transaction.id} className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm space-y-3">
                         <div className="flex justify-between items-center">
                           <div className="text-[13px] font-bold text-green-600 dark:text-emerald-400 bg-green-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-lg border border-green-100 dark:border-emerald-800/50">
-                            +${Number(transaction.amount).toFixed(2)} {transaction.currency}
+                            {isNonAdmin ? <span className="font-mono opacity-70">***</span> : `+$${Number(transaction.amount).toFixed(2)} ${transaction.currency}`}
                           </div>
                           <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
                             {formatDate(transaction.date)}
@@ -2543,7 +2546,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             <tr key={transaction.id} className="hover:bg-green-50/30 dark:hover:bg-slate-800 transition-colors">
                               <td className="px-5 py-4 whitespace-nowrap">
                                 <div className="text-sm font-bold text-green-600 dark:text-emerald-400 bg-green-50 dark:bg-emerald-900/20 inline-block px-3 py-1 rounded-lg border border-green-100 dark:border-emerald-800/50">
-                                  +${Number(transaction.amount).toFixed(2)} {transaction.currency}
+                                  {isNonAdmin ? <span className="font-mono opacity-70">***</span> : `+$${Number(transaction.amount).toFixed(2)} ${transaction.currency}`}
                                 </div>
                               </td>
                               <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-600 dark:text-gray-300">

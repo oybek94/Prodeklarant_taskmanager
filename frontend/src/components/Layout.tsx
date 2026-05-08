@@ -80,7 +80,7 @@ const Layout = () => {
       { path: '/invoices', label: 'Invoyslar', icon: 'lucide:file-text' },
       { path: '/transactions', label: 'Tranzaksiyalar', icon: 'lucide:receipt' },
     ] : []),
-    ...((user?.role === 'ADMIN' || user?.role === 'MANAGER') ? [{ path: '/clients', label: 'Mijozlar', icon: 'lucide:users' }] : []),
+    { path: '/clients', label: 'Mijozlar', icon: 'lucide:users' },
     ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/leads', label: 'Lidlar', icon: 'lucide:target' }] : []),
     ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/crm', label: 'CRM', icon: 'lucide:bar-chart-2' }] : []),
     ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/seller-kpi', label: 'Sotuvchi KPI', icon: 'lucide:target' }] : []),

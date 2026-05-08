@@ -23,6 +23,7 @@ const baseSchema = z.object({
   expenseCategory: z.string().optional(),
   taskId: z.number().optional(),
   branchId: z.number().optional(),
+  virtualCardId: z.number().optional().nullable(),
 });
 
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
@@ -383,6 +384,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         expenseCategory: data.expenseCategory ?? null,
         taskId: data.taskId ?? null,
         branchId: data.branchId ?? null,
+        virtualCardId: data.virtualCardId ?? null,
       },
     });
 
@@ -594,6 +596,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         expenseCategory: data.expenseCategory ?? null,
         taskId: data.taskId ?? null,
         branchId: data.branchId ?? null,
+        virtualCardId: data.virtualCardId ?? null,
       },
     });
 

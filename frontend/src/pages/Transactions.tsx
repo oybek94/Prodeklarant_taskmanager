@@ -123,6 +123,7 @@ const Transactions = () => {
     clientId: '',
     workerId: '',
     expenseCategory: '',
+    virtualCardId: '',
   });
   const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
   const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
@@ -390,6 +391,10 @@ const Transactions = () => {
         payload.workerId = parseInt(form.workerId);
       }
 
+      if (form.virtualCardId) {
+        payload.virtualCardId = parseInt(form.virtualCardId);
+      }
+
       await apiClient.post('/transactions', payload);
       setShowForm(false);
       setForm({
@@ -403,6 +408,7 @@ const Transactions = () => {
         clientId: '',
         workerId: '',
         expenseCategory: '',
+        virtualCardId: '',
       });
       await loadTransactions();
       setNewExpenseCategory('');
@@ -426,6 +432,7 @@ const Transactions = () => {
       clientId: transaction.client?.id ? transaction.client.id.toString() : '',
       workerId: transaction.worker?.id ? transaction.worker.id.toString() : '',
       expenseCategory: transaction.expenseCategory || '',
+      virtualCardId: (transaction as any).virtualCardId ? (transaction as any).virtualCardId.toString() : '',
     };
     setForm(newForm);
     setShowEditModal(true);
@@ -474,6 +481,10 @@ const Transactions = () => {
         payload.workerId = parseInt(form.workerId);
       }
 
+      if (form.virtualCardId) {
+        payload.virtualCardId = parseInt(form.virtualCardId);
+      }
+
       await apiClient.put(`/transactions/${editingTransaction.id}`, payload);
       setShowEditModal(false);
       setEditingTransaction(null);
@@ -488,6 +499,7 @@ const Transactions = () => {
         clientId: '',
         workerId: '',
         expenseCategory: '',
+        virtualCardId: '',
       });
       setMonetaryErrors({});
       await loadTransactions();
@@ -902,6 +914,27 @@ const Transactions = () => {
                   </select>
                 </div>
               )}
+
+              {(form.type === 'EXPENSE' || form.type === 'SALARY') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Virtual Karta (ixtiyoriy)
+                  </label>
+                  <select
+                    value={form.virtualCardId}
+                    onChange={(e) => setForm({ ...form, virtualCardId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Karta tanlang (ixtiyoriy)</option>
+                    <option value="1">1-karta: Operatsion xarajatlar</option>
+                    <option value="2">2-karta: Qarzlar kartasi</option>
+                    <option value="3">3-karta: Korxona xarajatlari</option>
+                    <option value="4">4-karta: Maosh kartam</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Tanlangan kartadan ushbu summa ayirib tashlanadi</p>
+                </div>
+              )}
+
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>

@@ -930,6 +930,38 @@ router.get('/ceo-stats', requireAuth('ADMIN'), async (_req: AuthRequest, res) =>
   try {
     const usdToUzsRate = Number(await getLatestExchangeRate('USD', 'UZS'));
 
+    // Virtual cards data calculation (Tasks from 2026-05-06 onwards)
+    const virtualCardsStartDate = new Date('2026-05-06T00:00:00+05:00');
+    const tasksCountFromToday = await prisma.task.count({
+      where: {
+        createdAt: { gte: virtualCardsStartDate }
+      }
+    });
+
+    const virtualCardTransactions = await prisma.transaction.findMany({
+      where: { virtualCardId: { not: null } }
+    });
+
+    const cardExpenses: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    for (const tx of virtualCardTransactions) {
+      if (tx.virtualCardId && tx.virtualCardId >= 1 && tx.virtualCardId <= 4) {
+        if (tx.amount_uzs) {
+          cardExpenses[tx.virtualCardId] += Number(tx.amount_uzs);
+        } else if (tx.convertedUzsAmount) {
+          cardExpenses[tx.virtualCardId] += Number(tx.convertedUzsAmount);
+        } else {
+          cardExpenses[tx.virtualCardId] += tx.currency === 'USD' ? Number(tx.amount) * usdToUzsRate : Number(tx.amount);
+        }
+      }
+    }
+
+    const virtualCards = [
+      { id: 1, name: 'Operatsion xarajatlar', description: 'Ishchi va Sertifikatchilarning ulushi', perTask: 400000, total: (tasksCountFromToday * 400000) - cardExpenses[1] },
+      { id: 2, name: 'Qarzlar kartasi', description: 'Qarzlarni berkitish uchun', perTask: 450000, total: (tasksCountFromToday * 450000) - cardExpenses[2] },
+      { id: 3, name: 'Korxona xarajatlari', description: 'Korxonani ishlab turishi uchun', perTask: 170000, total: (tasksCountFromToday * 170000) - cardExpenses[3] },
+      { id: 4, name: 'Maosh kartam', description: 'Shaxsiy maosh', perTask: 100000, total: (tasksCountFromToday * 100000) - cardExpenses[4] },
+    ];
+
     // 1. Jami tushum (Barcha bajarilgan ishlarning shartnoma summasi bo'yicha)
     const completedTasks = await prisma.task.findMany({
       where: {
@@ -1131,7 +1163,8 @@ router.get('/ceo-stats', requireAuth('ADMIN'), async (_req: AuthRequest, res) =>
         expensesByCategory,
         profitDynamics,
         totalInflow: totalInflowUzs,
-        totalOutflow: totalOutflowUzs
+        totalOutflow: totalOutflowUzs,
+        virtualCards
     });
   } catch (error: any) {
     console.error('Error fetching CEO stats:', error);

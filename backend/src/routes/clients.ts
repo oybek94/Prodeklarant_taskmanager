@@ -75,25 +75,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       }
     }
 
-    const isManagerOnly = req.user?.role === 'MANAGER';
-    if (isManagerOnly) {
-      const [clients, total] = await Promise.all([
-        prisma.client.findMany({
-          where,
-          select: { id: true, name: true, createdAt: true },
-          orderBy: { createdAt: 'desc' },
-          skip,
-          take,
-        }),
-        prisma.client.count({ where }),
-      ]);
-      return res.json({
-        data: clients,
-        total,
-        page: pageNum,
-        totalPages: Math.ceil(total / take)
-      });
-    }
+    // Removed early return for isNonAdmin
 
     // If we need to filter by debt, we must fetch all matching records, calculate debt, filter, then paginate.
     const shouldFilterDebt = hasDebt === 'yes' || hasDebt === 'no';
@@ -203,6 +185,19 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       }
       total = finalClients.length;
       finalClients = finalClients.slice(skip, skip + take);
+    }
+
+    const isNonAdmin = req.user?.role !== 'ADMIN';
+    if (isNonAdmin) {
+      finalClients = finalClients.map((client: any) => ({
+        ...client,
+        dealAmount: 0,
+        totalDealAmount: 0,
+        totalIncome: 0,
+        balance: 0,
+        initialDebt: 0,
+        initialDebtInUzs: 0
+      }));
     }
 
     res.json({
@@ -512,16 +507,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
-    const isManagerOnly = req.user?.role === 'MANAGER';
-
-    if (isManagerOnly) {
-      const client = await prisma.client.findUnique({
-        where: { id },
-        select: { id: true, name: true },
-      });
-      if (!client) return res.status(404).json({ error: 'Not found' });
-      return res.json({ ...client, tasks: [], transactions: [], stats: null });
-    }
+    const isNonAdmin = req.user?.role !== 'ADMIN';
 
     const client = await prisma.client.findUnique({
       where: { id },
@@ -583,16 +569,25 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       return acc;
     }, {});
 
+    if (isNonAdmin) {
+      client.dealAmount = 0;
+      (client as any).initialDebt = 0;
+      (client as any).initialDebtInUzs = 0;
+      (client as any).creditLimit = 0;
+      client.transactions = client.transactions.map(t => ({ ...t, amount: 0 }));
+      client.tasks = client.tasks.map(t => ({ ...t, snapshotDealAmount: 0 }));
+    }
+
     res.json({
       ...client,
       stats: {
-        dealAmount,
-        totalDealAmount, // Jami shartnoma summasi (PSR hisobga olingan)
-        totalIncome,
-        balance,
+        dealAmount: isNonAdmin ? 0 : dealAmount,
+        totalDealAmount: isNonAdmin ? 0 : totalDealAmount,
+        totalIncome: isNonAdmin ? 0 : totalIncome,
+        balance: isNonAdmin ? 0 : balance,
         tasksByBranch,
         totalTasks,
-        tasksWithPsr, // PSR bor bo'lgan tasklar soni
+        tasksWithPsr,
       },
     });
   } catch (error: any) {

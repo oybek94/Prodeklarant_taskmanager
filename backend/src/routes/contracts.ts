@@ -192,7 +192,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
 });
 
 // POST /contracts - Yangi shartnoma yaratish
-router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
     const parsed = contractSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -391,7 +391,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: 
 });
 
 // PUT /contracts/:id - Shartnoma yangilash
-router.put('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+router.put('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     const parsed = contractSchema.safeParse(req.body);
@@ -610,7 +610,7 @@ router.patch('/:id/delivery-terms', requireAuth(), async (req: AuthRequest, res:
 });
 
 // DELETE /contracts/:id - Shartnoma o'chirish
-router.delete('/:id', requireAuth('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+router.delete('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id);
 

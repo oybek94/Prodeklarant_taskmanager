@@ -59,29 +59,34 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
       const nameTrim = value.trim();
       if (!nameTrim) return newItems;
 
+      let foundTnved = false;
+
       // 1-qadam: Global TNVED ro'yxatidan qidirish (ustuvor)
       const globalMatch = invoiceProductOptions.find(
         (p) => p.name.trim().toLowerCase() === nameTrim.toLowerCase()
       );
-      if (globalMatch) {
-        if (globalMatch.code) newItems[index].tnvedCode = globalMatch.code;
-        return newItems;
+      if (globalMatch && globalMatch.code) {
+        newItems[index].tnvedCode = globalMatch.code;
+        foundTnved = true;
       }
 
-      // 2-qadam: Shartnoma spetsifikatsiyasidan qidirish (fallback)
+      // 2-qadam: Shartnoma spetsifikatsiyasidan qidirish (narx va fallback TNVED)
       if (selectedContractSpec.length > 0) {
         const specRow = selectedContractSpec.find(
           (r) => (r.productName || '').trim().toLowerCase() === nameTrim.toLowerCase()
         );
         if (specRow) {
-          if (specRow.tnvedCode != null && specRow.tnvedCode.trim() !== '') {
+          if (!foundTnved && specRow.tnvedCode != null && specRow.tnvedCode.trim() !== '') {
             newItems[index].tnvedCode = specRow.tnvedCode.trim();
           }
-          return newItems;
+          if (specRow.unitPrice != null) {
+            const up = Number(specRow.unitPrice);
+            newItems[index].unitPrice = up;
+            newItems[index].totalPrice = up * (newItems[index].netWeight ?? 0);
+          }
         }
       }
 
-      // 3-qadam: Hech qayerda topilmadi — tnvedCode bo'sh qoladi
       return newItems;
     });
   }, [selectedContractSpec, invoiceProductOptions]);

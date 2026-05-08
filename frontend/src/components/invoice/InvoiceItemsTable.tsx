@@ -99,6 +99,12 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
           return el.classList.contains('no-screenshot');
         },
         onclone: (clonedDoc) => {
+          const clonedArea = clonedDoc.getElementById('invoice-screenshot-area');
+          if (clonedArea) {
+            clonedArea.style.padding = '24px 32px';
+            clonedArea.style.boxSizing = 'border-box';
+          }
+          
           originalInputs.forEach((origEl) => {
             const id = origEl.getAttribute('data-html2canvas-id');
             const clonedEl = clonedDoc.querySelector(`[data-html2canvas-id="${id}"]`);

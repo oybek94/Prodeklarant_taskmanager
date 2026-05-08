@@ -48,6 +48,27 @@ export function InvoiceWeightSummary({ items, loaderWeight, trailerWeight, palle
         </div>
       </div>
       <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm flex-1 min-w-0">
+        {(() => {
+          const grouped = items.reduce((acc, item) => {
+            const key = `${item.tnvedCode || ''}_${item.name || ''}`;
+            if (!acc[key]) acc[key] = { name: item.name || '—', net: 0 };
+            acc[key].net += (item.netWeight || 0);
+            return acc;
+          }, {} as Record<string, { name: string, net: number }>);
+          const entries = Object.values(grouped).filter(g => g.net > 0);
+          if (entries.length === 0) return null;
+          return (
+            <div className="mb-3 pb-3 border-b border-gray-300">
+              <ul className="space-y-1 list-none font-medium text-gray-800">
+                {entries.map((g, i) => (
+                  <li key={`agg-${i}`}>
+                    {g.name} - {formatNumber(g.net)} кг (нетто)
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
         <ul className="space-y-1 list-none">
           {items.map((item, index) => {
             const qty = (item.packagesCount ?? item.quantity) ?? 0;

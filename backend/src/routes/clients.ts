@@ -570,12 +570,12 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     }, {});
 
     if (isNonAdmin) {
-      client.dealAmount = 0;
+      (client as any).dealAmount = 0;
       (client as any).initialDebt = 0;
       (client as any).initialDebtInUzs = 0;
       (client as any).creditLimit = 0;
-      client.transactions = client.transactions.map(t => ({ ...t, amount: 0 }));
-      client.tasks = client.tasks.map(t => ({ ...t, snapshotDealAmount: 0 }));
+      (client as any).transactions = client.transactions.map(t => ({ ...t, amount: 0 }));
+      (client as any).tasks = client.tasks.map(t => ({ ...t, snapshotDealAmount: 0 }));
     }
 
     res.json({

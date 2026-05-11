@@ -61,6 +61,7 @@ import exchangeRateRouter from './routes/exchange-rate';
 import faqRouter from './routes/faq';
 import medalsRouter from './routes/medals';
 import sellerKpiRouter from './routes/seller-kpi';
+import { initFinanceBot } from './services/finance-bot.service';
 
 const app = express();
 const httpServer = createServer(app);
@@ -318,6 +319,7 @@ validateEnvironment();
 initializeExchangeRateScheduler();
 initializeProcessScheduler();
 initCronJobs();
+initFinanceBot();
 
 // ===== Socket.io =====
 import { verifyAccessToken } from './utils/jwt';

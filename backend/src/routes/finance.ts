@@ -930,36 +930,35 @@ router.get('/ceo-stats', requireAuth('ADMIN'), async (_req: AuthRequest, res) =>
   try {
     const usdToUzsRate = Number(await getLatestExchangeRate('USD', 'UZS'));
 
-    // Virtual cards data calculation (Tasks from 2026-05-06 onwards)
-    const virtualCardsStartDate = new Date('2026-05-06T00:00:00+05:00');
-    const tasksCountFromToday = await prisma.task.count({
-      where: {
-        createdAt: { gte: virtualCardsStartDate }
-      }
-    });
-
     const virtualCardTransactions = await prisma.transaction.findMany({
       where: { virtualCardId: { not: null } }
     });
 
-    const cardExpenses: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    const cardBalances: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
     for (const tx of virtualCardTransactions) {
       if (tx.virtualCardId && tx.virtualCardId >= 1 && tx.virtualCardId <= 4) {
+        let txAmount = 0;
         if (tx.amount_uzs) {
-          cardExpenses[tx.virtualCardId] += Number(tx.amount_uzs);
+          txAmount = Number(tx.amount_uzs);
         } else if (tx.convertedUzsAmount) {
-          cardExpenses[tx.virtualCardId] += Number(tx.convertedUzsAmount);
+          txAmount = Number(tx.convertedUzsAmount);
         } else {
-          cardExpenses[tx.virtualCardId] += tx.currency === 'USD' ? Number(tx.amount) * usdToUzsRate : Number(tx.amount);
+          txAmount = tx.currency === 'USD' ? Number(tx.amount) * usdToUzsRate : Number(tx.amount);
+        }
+
+        if (tx.type === 'INCOME') {
+          cardBalances[tx.virtualCardId] += txAmount;
+        } else if (tx.type === 'EXPENSE') {
+          cardBalances[tx.virtualCardId] -= txAmount;
         }
       }
     }
 
     const virtualCards = [
-      { id: 1, name: 'Operatsion xarajatlar', description: 'Ishchi va Sertifikatchilarning ulushi', perTask: 400000, total: (tasksCountFromToday * 400000) - cardExpenses[1] },
-      { id: 2, name: 'Qarzlar kartasi', description: 'Qarzlarni berkitish uchun', perTask: 450000, total: (tasksCountFromToday * 450000) - cardExpenses[2] },
-      { id: 3, name: 'Korxona xarajatlari', description: 'Korxonani ishlab turishi uchun', perTask: 170000, total: (tasksCountFromToday * 170000) - cardExpenses[3] },
-      { id: 4, name: 'Maosh kartam', description: 'Shaxsiy maosh', perTask: 100000, total: (tasksCountFromToday * 100000) - cardExpenses[4] },
+      { id: 1, name: 'Operatsion xarajatlar', description: 'Ishchi va Sertifikatchilarning ulushi', perTask: 400000, total: cardBalances[1] },
+      { id: 2, name: 'Qarzlar kartasi', description: 'Qarzlarni berkitish uchun', perTask: 450000, total: cardBalances[2] },
+      { id: 3, name: 'Korxona xarajatlari', description: 'Korxonani ishlab turishi uchun', perTask: 170000, total: cardBalances[3] },
+      { id: 4, name: 'Maosh kartam', description: 'Shaxsiy maosh', perTask: 100000, total: cardBalances[4] },
     ];
 
     // 1. Jami tushum (Barcha bajarilgan ishlarning shartnoma summasi bo'yicha)

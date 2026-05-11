@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma, TaskStatus } from '@prisma/client';
 import crypto from 'crypto';
 import { prisma } from '../prisma';
+import { notifyTaskCompleted } from './finance-bot.service';
 
 /**
  * Calculate task status based on stages using the formula:
@@ -104,6 +105,11 @@ export async function updateTaskStatus(
     where: { id: taskId },
     data: { status: newStatus },
   });
+
+  if (oldStatus !== TaskStatus.YAKUNLANDI && newStatus === TaskStatus.YAKUNLANDI) {
+    // Fire and forget, don't wait for telegram API
+    notifyTaskCompleted(taskId).catch(err => console.error(err));
+  }
 
   // Return true if task entered TEKSHIRILGAN status (QR token generation needed)
   return oldStatus !== TaskStatus.TEKSHIRILGAN && newStatus === TaskStatus.TEKSHIRILGAN;

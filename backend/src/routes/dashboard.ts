@@ -880,38 +880,11 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         where: { branchId: oltiariqBranch.id },
       });
 
-      const accrued = { st1: 0, fito: 0, akt: 0 };
-      if (certifierConfigs.length === 0) {
-        accrued.st1 = taskCount * DEFAULT_CERTIFIER_FEES.st1Rate;
-        accrued.fito = taskCount * DEFAULT_CERTIFIER_FEES.fitoRate;
-        accrued.akt = taskCount * DEFAULT_CERTIFIER_FEES.aktRate;
-      } else {
-        const firstConfig = certifierConfigs[0];
-        const beforeFirstCount = await prisma.task.count({
-          where: {
-            branchId: oltiariqBranch.id,
-            createdAt: { lt: firstConfig.createdAt },
-          },
-        });
-        accrued.st1 += beforeFirstCount * Number(firstConfig.st1Rate);
-        accrued.fito += beforeFirstCount * Number(firstConfig.fitoRate);
-        accrued.akt += beforeFirstCount * Number(firstConfig.aktRate);
-
-        for (let i = 0; i < certifierConfigs.length; i += 1) {
-          const config = certifierConfigs[i];
-          const start = config.createdAt;
-          const end = certifierConfigs[i + 1]?.createdAt;
-          const count = await prisma.task.count({
-            where: {
-              branchId: oltiariqBranch.id,
-              createdAt: end ? { gte: start, lt: end } : { gte: start },
-            },
-          });
-          accrued.st1 += count * Number(config.st1Rate);
-          accrued.fito += count * Number(config.fitoRate);
-          accrued.akt += count * Number(config.aktRate);
-        }
-      }
+      const accrued = {
+        st1: taskCount * certifierRates.st1Rate,
+        fito: taskCount * certifierRates.fitoRate,
+        akt: taskCount * certifierRates.aktRate,
+      };
       const accruedTotal = accrued.st1 + accrued.fito + accrued.akt;
 
       const payments = await prisma.transaction.findMany({

@@ -295,7 +295,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const isNonAdmin = user?.role !== 'ADMIN';
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
-  const CLIENTS_PAGE_SIZE = 15;
+  const CLIENTS_PAGE_SIZE = 16;
   const [clientsPage, setClientsPage] = useState(1);
   const [clientsTotalPages, setClientsTotalPages] = useState(1);
   const [clientsTotalCount, setClientsTotalCount] = useState(0);

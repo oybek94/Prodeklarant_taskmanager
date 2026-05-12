@@ -258,10 +258,103 @@ export const getDebtDashboard = async (req: Request, res: Response) => {
       if (remainingInUsd > 0) totalActiveDebtUsd += remainingInUsd;
     });
 
+    const DEFAULT_CERTIFIER_FEES = {
+      st1Rate: 95000,
+      fitoRate: 80000,
+      aktRate: 25000,
+    };
+
+    let certifierDebt: any = null;
+    const oltiariqBranch = await prisma.branch.findFirst({
+      where: { name: 'Oltiariq' },
+      select: { id: true, name: true },
+    });
+
+    if (oltiariqBranch) {
+      const certifierModel = (prisma as any).certifierFeeConfig;
+      const certifierConfigs = certifierModel
+        ? await certifierModel.findMany({
+            where: { branchId: oltiariqBranch.id },
+            orderBy: { createdAt: 'asc' }
+          })
+        : [];
+        
+      const latestCertifierConfig =
+        certifierConfigs.length > 0 ? certifierConfigs[certifierConfigs.length - 1] : null;
+
+      const certifierRates = {
+        st1Rate: Number(latestCertifierConfig?.st1Rate ?? DEFAULT_CERTIFIER_FEES.st1Rate),
+        fitoRate: Number(latestCertifierConfig?.fitoRate ?? DEFAULT_CERTIFIER_FEES.fitoRate),
+        aktRate: Number(latestCertifierConfig?.aktRate ?? DEFAULT_CERTIFIER_FEES.aktRate),
+      };
+
+      const taskCount = await prisma.task.count({
+        where: { branchId: oltiariqBranch.id },
+      });
+
+      const accrued = {
+        st1: taskCount * certifierRates.st1Rate,
+        fito: taskCount * certifierRates.fitoRate,
+        akt: taskCount * certifierRates.aktRate,
+      };
+      
+      const accruedTotal = accrued.st1 + accrued.fito + accrued.akt;
+
+      const payments = await prisma.transaction.findMany({
+        where: {
+          type: 'EXPENSE',
+          expenseCategory: { not: null },
+        },
+        select: {
+          expenseCategory: true,
+          amount_uzs: true,
+          convertedUzsAmount: true,
+          amount: true,
+          branchId: true,
+        },
+      });
+
+      const paid = { st1: 0, fito: 0, akt: 0 };
+      for (const tx of payments) {
+        if (tx.branchId && tx.branchId !== oltiariqBranch.id) {
+          continue;
+        }
+        const amount = Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0);
+        const rawCategory = tx.expenseCategory || '';
+        const normalized = rawCategory.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        if (normalized.startsWith('ST1')) {
+          paid.st1 += amount;
+        } else if (normalized.startsWith('FITO')) {
+          paid.fito += amount;
+        } else if (normalized.startsWith('AKT')) {
+          paid.akt += amount;
+        }
+      }
+      const paidTotal = paid.st1 + paid.fito + paid.akt;
+
+      const remaining = {
+        st1: Math.max(accrued.st1 - paid.st1, 0),
+        fito: Math.max(accrued.fito - paid.fito, 0),
+        akt: Math.max(accrued.akt - paid.akt, 0),
+      };
+      const remainingTotal = remaining.st1 + remaining.fito + remaining.akt;
+
+      certifierDebt = {
+        branchId: oltiariqBranch.id,
+        branchName: oltiariqBranch.name,
+        taskCount,
+        rates: certifierRates,
+        accrued: { ...accrued, total: accruedTotal },
+        paid: { ...paid, total: paidTotal },
+        remaining: { ...remaining, total: remainingTotal },
+      };
+    }
+
     res.json({
       totalActiveDebtUsd,
       totalPaidUsd,
-      totalDebtsCount: debts.length
+      totalDebtsCount: debts.length,
+      certifierDebt
     });
   } catch (error) {
     res.status(500).json({ error: 'Dashboard xatosi' });

@@ -4,11 +4,17 @@ import DebtDashboard from '../components/debts/DebtDashboard';
 import DebtTable from '../components/debts/DebtTable';
 import { Icon } from '@iconify/react';
 import AddDebtModal from '../components/debts/AddDebtModal';
+import CertifierPayModal from '../components/debts/CertifierPayModal';
 import { useIsMobile } from '../utils/useIsMobile';
 
 const Debts = () => {
     const isMobile = useIsMobile();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isCertifierPayModalOpen, setIsCertifierPayModalOpen] = useState(false);
+    const [certifierPayType, setCertifierPayType] = useState<'ST1' | 'FITO' | null>(null);
+    const [certifierRemainingAmount, setCertifierRemainingAmount] = useState(0);
+    const [certifierBranchId, setCertifierBranchId] = useState<number | null>(null);
+
     const [debts, setDebts] = useState<any[]>([]);
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -79,7 +85,16 @@ const Debts = () => {
                 </button>
             </div>
             
-            <DebtDashboard stats={stats} loading={loading} />
+            <DebtDashboard 
+                stats={stats} 
+                loading={loading} 
+                onPayCertifier={(type, amount, branchId) => {
+                    setCertifierPayType(type);
+                    setCertifierRemainingAmount(amount);
+                    setCertifierBranchId(branchId);
+                    setIsCertifierPayModalOpen(true);
+                }}
+            />
             <DebtTable 
               debts={debts} 
               loading={loading} 
@@ -98,6 +113,18 @@ const Debts = () => {
                   setIsAddModalOpen(false);
                   reloadData();
               }} 
+            />
+
+            <CertifierPayModal
+              isOpen={isCertifierPayModalOpen}
+              onClose={() => setIsCertifierPayModalOpen(false)}
+              onSuccess={() => {
+                  setIsCertifierPayModalOpen(false);
+                  reloadData();
+              }}
+              type={certifierPayType}
+              remainingAmount={certifierRemainingAmount}
+              branchId={certifierBranchId}
             />
         </div>
     );

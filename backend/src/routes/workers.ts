@@ -56,7 +56,29 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       },
     });
 
-    res.json(workers);
+    const workersWithBalance = await Promise.all(
+      workers.map(async (worker) => {
+        try {
+          const paymentReport = await getWorkerPaymentReport(worker.id);
+          return {
+            ...worker,
+            currentDebt: Number(paymentReport.current.difference),
+            legacyDebt: Number(paymentReport.legacy.difference),
+            salaryCurrency: paymentReport.salaryCurrency,
+          };
+        } catch (e) {
+          // Fallback in case of error for a specific worker
+          return {
+            ...worker,
+            currentDebt: 0,
+            legacyDebt: 0,
+            salaryCurrency: 'UZS',
+          };
+        }
+      })
+    );
+
+    res.json(workersWithBalance);
   } catch (error: any) {
     console.error('Error fetching workers:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
@@ -206,8 +228,10 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
     totalSalary,
     totalPaid: totalSalary, // alias for backward compatibility
     totalEarned: Number(paymentReport.current.totalEarned),
+    totalErrors: Number(paymentReport.current.totalErrors),
     pending: Number(paymentReport.current.difference),
     legacyDebt: Number(paymentReport.legacy.difference),
+    legacyTotalErrors: Number(paymentReport.legacy.totalErrorsUsd),
     salaryCurrency: paymentReport.salaryCurrency,
     tasksAssigned,
     kpiLogs: kpiLogs.map((log: any) => ({

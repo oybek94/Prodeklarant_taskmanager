@@ -907,6 +907,15 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
       },
       errors: true,
       transactions: true,
+      kpiLogs: {
+        include: {
+          user: {
+            select: {
+              role: true,
+            }
+          }
+        }
+      },
     },
   });
   if (!task) return res.status(404).json({ error: 'Not found' });
@@ -1155,7 +1164,28 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     let certifierUzsReal = 0;
-    let certHiredWorkerUzs = workerPriceUzs; // Default holatda eskisini olamiz
+    
+    // Ishchilar va Admin daromadlarini alohida hisoblaymiz
+    let certHiredWorkerUzs = 0;
+    let localAdminEarnedUzs = 0;
+    if (task.kpiLogs && task.kpiLogs.length > 0) {
+        for (const log of task.kpiLogs) {
+            let logAmountUzs = 0;
+            if (log.currency === 'UZS' || log.amount_uzs != null || log.convertedUzsAmount != null) {
+                logAmountUzs = Number(log.amount_uzs ?? log.convertedUzsAmount ?? log.amount);
+            } else {
+                const rate = Number(log.exchange_rate ?? log.exchangeRate ?? task.snapshotDealAmount_exchange_rate ?? task.snapshotDealAmountExchangeRate ?? 1);
+                logAmountUzs = Number(log.amount) * rate;
+            }
+            
+            if ((log as any).user?.role === 'ADMIN') {
+                localAdminEarnedUzs += logAmountUzs;
+            } else {
+                certHiredWorkerUzs += logAmountUzs;
+            }
+        }
+    }
+
     if ('certifierFeeConfig' in prisma) {
         let certConfig: any = null;
         try {
@@ -1166,9 +1196,6 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
         } catch(e) {}
         if (certConfig) {
             certifierUzsReal = Number(certConfig.st1Rate || 0) + Number(certConfig.fitoRate || 0) + Number(certConfig.aktRate || 0) + Number(certConfig.fumigationRate || 0);
-            if (certConfig.hiredWorkerRate !== undefined && certConfig.hiredWorkerRate !== null) {
-                certHiredWorkerUzs = Number(certConfig.hiredWorkerRate || 0);
-            }
         }
     }
 
@@ -1186,7 +1213,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
         statePayment: davlatUzsReal,
         declarationPayment: tDeclarationPayment,
         hiredWorkerPayment: certHiredWorkerUzs,
-        netProfit: tDealAmount - certifierUzsReal - davlatUzsReal - tDeclarationPayment - certHiredWorkerUzs
+        netProfit: tDealAmount - certifierUzsReal - davlatUzsReal - tDeclarationPayment - certHiredWorkerUzs - localAdminEarnedUzs
     };
     
     // Eski logic bilan ishlashni davom etishi uchun
@@ -1200,80 +1227,18 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   // Amount must be in UZS (accounting base currency)
   let adminEarnedAmount = 0;
   try {
-    const STAGE_PERCENTAGES: Record<string, number> = {
-      'Invoys': 20,
-      'Zayavka': 10,
-      'TIR-SMR': 10,
-      'ST': 5,
-      'FITO': 5,
-      'Deklaratsiya': 15,
-      'Tekshirish': 15,
-      'Topshirish': 10,
-      'Pochta': 10,
-    };
-    
-    // Get workerPrice from snapshot or state payment (convert to UZS if needed)
-    // Use amount_uzs from universal fields when available
-    let workerPriceInUzs = 0;
-    if (task.snapshotWorkerPrice_amount_uzs !== null && task.snapshotWorkerPrice_amount_uzs !== undefined) {
-      // Use universal field
-      workerPriceInUzs = Number(task.snapshotWorkerPrice_amount_uzs);
-    } else if (task.snapshotWorkerPrice !== null && task.snapshotWorkerPrice !== undefined) {
-      const workerCurrency = task.snapshotWorkerPrice_currency || task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
-      if (workerCurrency === 'USD') {
-        const rate = task.snapshotWorkerPrice_exchange_rate
-          || task.snapshotDealAmount_exchange_rate
-          || task.snapshotDealAmountExchangeRate
-          || 1;
-        workerPriceInUzs = Number(calculateAmountUzs(Number(task.snapshotWorkerPrice), 'USD', new Decimal(rate)));
-      } else {
-        workerPriceInUzs = Number(task.snapshotWorkerPrice);
-      }
-    } else {
-      const taskCreatedAt = new Date(task.createdAt);
-      const statePayment = await prisma.statePayment.findFirst({
-        where: {
-          
-          createdAt: { lte: taskCreatedAt },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
-      if (statePayment) {
-        const workerCurrency = task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
-        if (workerCurrency === 'USD') {
-          const amountUsd = Number(statePayment.workerPrice_amount_original ?? statePayment.workerPrice);
-          if (statePayment.workerPrice_amount_uzs != null) {
-            workerPriceInUzs = Number(statePayment.workerPrice_amount_uzs);
+    if (task.kpiLogs && task.kpiLogs.length > 0) {
+      for (const log of task.kpiLogs) {
+        if ((log as any).user?.role === 'ADMIN') {
+          let logAmountUzs = 0;
+          if (log.currency === 'UZS' || log.amount_uzs != null || log.convertedUzsAmount != null) {
+              logAmountUzs = Number(log.amount_uzs ?? log.convertedUzsAmount ?? log.amount);
           } else {
-            const rate = task.snapshotDealAmount_exchange_rate
-              || task.snapshotDealAmountExchangeRate
-              || 1;
-            workerPriceInUzs = Number(calculateAmountUzs(amountUsd, 'USD', new Decimal(rate)));
+              const rate = Number(log.exchange_rate ?? log.exchangeRate ?? task.snapshotDealAmount_exchange_rate ?? task.snapshotDealAmountExchangeRate ?? 1);
+              logAmountUzs = Number(log.amount) * rate;
           }
-        } else {
-          workerPriceInUzs = Number(statePayment.workerPrice_amount_uzs ?? statePayment.workerPrice);
+          adminEarnedAmount += logAmountUzs;
         }
-      }
-    }
-    
-    // Calculate admin earned amount from completed stages assigned to ADMIN (in UZS)
-    for (const stage of task.stages) {
-      if (stage.status === 'TAYYOR' && stage.assignedTo?.role === 'ADMIN') {
-        let stageName = stage.name;
-        // Normalize stage names
-        if (stageName === 'Xujjat_tekshirish' || stageName === 'Xujjat tekshirish' || stageName === 'Tekshirish') {
-          stageName = 'Tekshirish';
-        } else if (stageName === 'Xujjat_topshirish' || stageName === 'Xujjat topshirish' || stageName === 'Topshirish') {
-          stageName = 'Topshirish';
-        } else if (stageName === 'Fito' || stageName === 'FITO') {
-          stageName = 'FITO';
-        }
-        
-        const percentage = STAGE_PERCENTAGES[stageName] || 0;
-        const earnedForThisStage = (workerPriceInUzs * percentage) / 100;
-        adminEarnedAmount += earnedForThisStage;
       }
     }
   } catch (error) {

@@ -436,7 +436,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         originalCurrency,
         originalAmount,
         {
-          exchangeRate: exchangeRate,
+          exchangeRate: originalCurrency === 'UZS' ? undefined : exchangeRate,
           paymentDate: data.date,
           comment: data.comment || undefined,
           isLegacyPayment: data.isLegacyPayment,
@@ -676,6 +676,33 @@ router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
           where: { id: balance.id },
           data: { balance: newBalance },
         });
+      }
+    }
+
+    // Agar bu ish haqi (SALARY) to'lovi bo'lsa, unga mos WorkerPayment'ni ham o'chiramiz
+    if (transaction.type === 'SALARY' && transaction.workerId) {
+      const amount = Number(transaction.originalAmount || transaction.amount);
+      const currency = transaction.originalCurrency || transaction.currency;
+      
+      const wpQuery: any = {
+        workerId: transaction.workerId,
+        paidCurrency: currency,
+      };
+
+      if (currency === 'USD') {
+        wpQuery.paidAmountUsd = { equals: amount };
+      } else {
+        wpQuery.paidAmountUzs = { equals: amount };
+      }
+
+      // Vaqti bo'yicha mos kelishi shart emas, oxirgi yaratilgan mos keladigan summani topamiz
+      const matchingWp = await tx.workerPayment.findFirst({
+        where: wpQuery,
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (matchingWp) {
+        await tx.workerPayment.delete({ where: { id: matchingWp.id } });
       }
     }
 

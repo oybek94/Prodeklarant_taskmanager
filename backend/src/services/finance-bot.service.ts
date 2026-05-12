@@ -53,6 +53,10 @@ export const initFinanceBot = () => {
 
   bot = new TelegramBot(token, { polling: true });
 
+  bot.on('polling_error', (error) => {
+    console.error('[FinanceBot] Polling error:', error.message);
+  });
+
   bot.onText(/\/(start|help)/, (msg) => {
     const chatId = msg.chat.id;
     const text = `Assalomu alaykum!\n\nBuyruqlar:\n/balans - Seyflardagi hozirgi qoldiqni ko'rish\n/chiqim - Seyfdan pul yechish (sarflash)`;

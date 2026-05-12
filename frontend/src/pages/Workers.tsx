@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
 import { useIsMobile } from '../utils/useIsMobile';
+import CurrencyDisplay from '../components/CurrencyDisplay';
 
 interface Worker {
   id: number;
@@ -14,6 +15,9 @@ interface Worker {
   branch?: { id: number; name: string };
   createdAt?: string;
   phone?: string;
+  currentDebt?: number;
+  legacyDebt?: number;
+  salaryCurrency?: 'USD' | 'UZS';
 }
 
 const Workers = () => {
@@ -75,8 +79,8 @@ const Workers = () => {
       // Use /api/workers endpoint instead of /api/users
       const response = await apiClient.get('/workers');
       if (Array.isArray(response.data)) {
-        // Filter to show only DEKLARANT and MANAGER roles (exclude ADMIN)
-        setWorkers(response.data.filter((w: any) => w.role === 'DEKLARANT' || w.role === 'MANAGER' || w.role === 'SELLER'));
+        // Filter to show all relevant roles including ADMIN
+        setWorkers(response.data.filter((w: any) => ['DEKLARANT', 'MANAGER', 'SELLER', 'ADMIN'].includes(w.role)));
       } else {
         console.error('Invalid response format:', response.data);
         setWorkers([]);
@@ -308,6 +312,28 @@ const Workers = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Debt Information */}
+                  {(worker.currentDebt !== undefined || worker.legacyDebt !== undefined) && (
+                    <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-gray-100 bg-orange-50/50 p-2 rounded-lg">
+                      <div>
+                        <div className="text-xs text-orange-600/80 mb-1 font-medium">Joriy qarz (UZS)</div>
+                        <div className={`text-sm font-bold ${worker.currentDebt && worker.currentDebt > 0 ? 'text-orange-700' : 'text-gray-900'}`}>
+                          {worker.currentDebt && worker.currentDebt > 0 
+                            ? <CurrencyDisplay amount={worker.currentDebt} originalCurrency={worker.salaryCurrency || 'UZS'} forceOriginal={true} /> 
+                            : '0'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-red-600/80 mb-1 font-medium">Eski qarz (USD)</div>
+                        <div className={`text-sm font-bold ${worker.legacyDebt && worker.legacyDebt > 0 ? 'text-red-700' : 'text-gray-900'}`}>
+                          {worker.legacyDebt && worker.legacyDebt > 0 
+                            ? <CurrencyDisplay amount={worker.legacyDebt} originalCurrency="USD" forceOriginal={true} /> 
+                            : '0'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Email and Phone */}
                   <div className="space-y-2 mb-4">

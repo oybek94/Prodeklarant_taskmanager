@@ -623,7 +623,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                         </div>
                         {financial.rep.hiredWorkerPayment !== undefined && (
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Yollanma ishchilar:</span>
+                            <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Ishchilar:</span>
                             <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
                               - {formatMoney(financial.rep.hiredWorkerPayment, financial.currency)}
                             </span>
@@ -650,7 +650,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                     {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
                       <div className="pt-3 border-t border-gray-200/60 flex items-center justify-between">
                         <span className="text-sm font-bold text-indigo-700 uppercase tracking-wider">
-                          Shaxsiy daromad:
+                          Qo'shimcha daromad:
                         </span>
                         <span className="text-lg font-black text-indigo-600">
                           + {formatMoney(Number(selectedTask.adminEarnedAmount), financial.currency)}

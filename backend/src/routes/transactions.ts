@@ -24,6 +24,7 @@ const baseSchema = z.object({
   taskId: z.number().optional(),
   branchId: z.number().optional(),
   virtualCardId: z.number().optional().nullable(),
+  isLegacyPayment: z.boolean().optional(),
 });
 
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
@@ -438,6 +439,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
           exchangeRate: exchangeRate,
           paymentDate: data.date,
           comment: data.comment || undefined,
+          isLegacyPayment: data.isLegacyPayment,
         }
       );
     } catch (error) {

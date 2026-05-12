@@ -66,47 +66,54 @@ export async function logKpiForStage(
     amount = Number(existingConfig.price);
   }
 
-  // KPI amounts are in USD by default
-  const currency: Currency = 'USD';
-  const amountDecimal = new Decimal(amount);
+  // Check user's preferred currency
+  const user = await (tx as any).user.findUnique({ where: { id: userId } });
+  const salaryCurrency: Currency = user?.salaryCurrency || 'UZS';
 
-  // Get exchange rate at stage completion time
+  // KPI amounts from config: assume config is in USD if amount < 1000, otherwise UZS
+  const configCurrency: Currency = amount >= 1000 ? 'UZS' : 'USD';
+  
+  let amountUsdDecimal = new Decimal(0);
+  let amountUzsDecimal = new Decimal(0);
   let exchangeRate: Decimal;
   const exchangeSource: ExchangeSource = 'CBU';
 
   try {
-    exchangeRate = await getExchangeRate(completionDate, currency, 'UZS', tx, exchangeSource);
+    exchangeRate = await getExchangeRate(completionDate, 'USD', 'UZS', tx, exchangeSource);
   } catch (error) {
     console.error(`Failed to get exchange rate for KPI log at ${completionDate.toISOString()}:`, error);
-    // Fallback to latest rate
     try {
-      exchangeRate = await getExchangeRate(new Date(), currency, 'UZS', tx, exchangeSource);
+      exchangeRate = await getExchangeRate(new Date(), 'USD', 'UZS', tx, exchangeSource);
     } catch (fallbackError) {
-      console.error('Failed to get latest exchange rate as fallback:', fallbackError);
-      // Last resort: use rate of 1 (invalid but prevents crash)
       exchangeRate = new Decimal(1);
     }
   }
 
-  // Calculate converted UZS amount
-  const amountUzs = calculateAmountUzs(amountDecimal, currency, exchangeRate);
+  if (configCurrency === 'USD') {
+    amountUsdDecimal = new Decimal(amount);
+    amountUzsDecimal = calculateAmountUzs(amountUsdDecimal, 'USD', exchangeRate);
+  } else {
+    amountUzsDecimal = new Decimal(amount);
+    amountUsdDecimal = amountUzsDecimal.div(exchangeRate);
+  }
+
+  // Universal monetary fields will be based on user's salaryCurrency
+  const finalAmount = salaryCurrency === 'UZS' ? amountUzsDecimal : amountUsdDecimal;
 
   // KpiLog yaratish
   await (tx as any).kpiLog.create({
     data: {
       userId,
       taskId,
-      stageName: normalizedStageName, // Normalized nom bilan saqlash
-      // Keep old fields for backward compatibility
-      amount: amountDecimal,
-      currency,
+      stageName: normalizedStageName,
+      amount: finalAmount, // Store the amount in user's currency
+      currency: salaryCurrency,
       exchangeRate,
-      convertedUzsAmount: amountUzs,
-      // Universal monetary fields
-      amount_original: amountDecimal,
-      currency_universal: currency,
+      convertedUzsAmount: amountUzsDecimal,
+      amount_original: finalAmount,
+      currency_universal: salaryCurrency,
       exchange_rate: exchangeRate,
-      amount_uzs: amountUzs,
+      amount_uzs: amountUzsDecimal,
       exchange_source: exchangeSource,
     },
   });

@@ -23,8 +23,24 @@ interface Stats {
   period: string;
   totalKPI: number;
   completedStages: number;
-  totalSalary: number;
   tasksAssigned: number;
+  totalEarned: number;
+  totalPaid: number;
+  pending: number;
+  legacyDebt: number;
+  salaryCurrency: 'USD' | 'UZS';
+  payments?: PaymentStat[];
+}
+
+interface PaymentStat {
+  id: number;
+  earnedAmountUsd: number;
+  paidAmountUsd: number;
+  paidAmountUzs: number;
+  paidCurrency: string;
+  paymentDate: string;
+  comment: string | null;
+  isLegacyPayment: boolean;
 }
 
 interface StageStat {
@@ -71,11 +87,6 @@ const Profile = () => {
   const [stageStatsLoading, setStageStatsLoading] = useState(true);
   const [errorStatsLoading, setErrorStatsLoading] = useState(true);
   const [period, setPeriod] = useState('all');
-  const [previousYearDebt, setPreviousYearDebt] = useState<{
-    totalEarned: number;
-    totalPaid: number;
-    balance: number;
-  } | null>(null);
   const [workerDetail, setWorkerDetail] = useState<WorkerDetail | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -88,6 +99,18 @@ const Profile = () => {
   });
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
 
+  // Earnings Modal States
+  const [showEarningsModal, setShowEarningsModal] = useState(false);
+  const [currentEarnings, setCurrentEarnings] = useState<any[]>([]);
+  const [earningsLoading, setEarningsLoading] = useState(false);
+
+  // New Modal States
+  const [showParticipationsModal, setShowParticipationsModal] = useState(false);
+  const [participations, setParticipations] = useState<any[]>([]);
+  const [participationsLoading, setParticipationsLoading] = useState(false);
+  const [showPaymentsModal, setShowPaymentsModal] = useState(false);
+  const [showErrorsModal, setShowErrorsModal] = useState(false);
+
   const workerId = id ? parseInt(id) : user?.id;
 
   useEffect(() => {
@@ -95,53 +118,12 @@ const Profile = () => {
       loadStats();
       loadStageStats();
       loadErrorStats();
-      loadPreviousYearDebt();
       if (id) {
         loadWorkerDetail();
       }
     }
     loadBranches();
   }, [workerId, period, id]);
-
-  const loadPreviousYearDebt = async () => {
-    if (!workerId) return;
-    try {
-      // Avval o'tgan yil (2024) uchun qidirib ko'ramiz
-      const previousYear = 2024;
-      console.log('Loading previous year debt for workerId:', workerId, 'year:', previousYear);
-      let response = await apiClient.get(`/workers/${workerId}/previous-year-debt?year=${previousYear}`);
-      console.log('Previous year debt API response (2024):', response.data);
-      
-      // Agar 2024 uchun topilmasa, 2025 uchun qidirib ko'ramiz
-      if (!response.data) {
-        const currentYear = new Date().getFullYear();
-        const lastYear = currentYear - 1;
-        if (lastYear !== previousYear) {
-          console.log('Trying year:', lastYear);
-          response = await apiClient.get(`/workers/${workerId}/previous-year-debt?year=${lastYear}`);
-          console.log('Previous year debt API response (' + lastYear + '):', response.data);
-        }
-      }
-      
-      if (response.data) {
-        const debtData = {
-          totalEarned: Number(response.data.totalEarned || 0),
-          totalPaid: Number(response.data.totalPaid || 0),
-          balance: Number(response.data.balance || 0),
-        };
-        console.log('Setting previous year debt:', debtData);
-        setPreviousYearDebt(debtData);
-      } else {
-        console.log('No previous year debt data found');
-        setPreviousYearDebt(null);
-      }
-    } catch (error: any) {
-      console.error('Error loading previous year debt:', error);
-      console.error('Error details:', error.response?.data || error.message);
-      // O'tgan yil qarzi yo'q bo'lishi mumkin
-      setPreviousYearDebt(null);
-    }
-  };
 
   const loadBranches = async () => {
     try {
@@ -179,6 +161,36 @@ const Profile = () => {
       });
     } catch (error) {
       console.error('Error loading worker detail:', error);
+    }
+  };
+
+  const openParticipationsModal = async () => {
+    setShowParticipationsModal(true);
+    setParticipationsLoading(true);
+    try {
+      const response = await apiClient.get(`/workers/${workerId}/participations`, {
+        params: { period }
+      });
+      setParticipations(response.data);
+    } catch (error) {
+      console.error('Error loading participations:', error);
+    } finally {
+      setParticipationsLoading(false);
+    }
+  };
+
+  const openEarningsModal = async () => {
+    setShowEarningsModal(true);
+    setEarningsLoading(true);
+    try {
+      const response = await apiClient.get(`/workers/${workerId}/current-earnings`, {
+        params: { period }
+      });
+      setCurrentEarnings(response.data);
+    } catch (error) {
+      console.error('Error loading current earnings:', error);
+    } finally {
+      setEarningsLoading(false);
     }
   };
 
@@ -344,116 +356,106 @@ const Profile = () => {
         ) : (
           <>
             {/* Summary Cards - Always show, even if no stage stats */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-              <div className="bg-blue-50 rounded-lg p-3">
-                <div className="text-xs text-blue-600 mb-1">Jami tasklarda ishtirok</div>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+              <div 
+                className="bg-blue-50 rounded-lg p-3 cursor-pointer hover:bg-blue-100 transition-colors"
+                onClick={openParticipationsModal}
+              >
+                <div className="text-xs text-blue-600 mb-1 flex items-center justify-between">
+                  <span>Jami tasklarda ishtirok</span>
+                  <Icon icon="lucide:info" className="w-4 h-4 opacity-70" />
+                </div>
                 <div className="text-xl font-bold text-blue-800">
                   {stageStats?.totals?.totalTasks ?? stageStats?.totals?.totalParticipation ?? 0}
                 </div>
               </div>
-              <div className="bg-green-50 rounded-lg p-3">
-                <div className="text-xs text-green-600 mb-1">Jami ishlab topilgan</div>
-                <div className="text-xl font-bold text-green-800">
+              <div className="bg-gray-100 rounded-lg p-3 border-2 border-gray-300">
+                <div className="text-xs text-gray-700 mb-1">O'tgan mavsum qoldig'i</div>
+                <div className="text-xl font-bold text-gray-900">
                   {loading ? (
                     <span className="text-gray-400">Yuklanmoqda...</span>
-                  ) : (() => {
-                    // Jadvaldagi "Ishlab topilgan (summa)" ustunidagi qatorlar yig‘indisi — jami shu yig‘indiga teng
-                    const sumFromTable = stageStats?.stageStats?.length
-                      ? stageStats.stageStats.reduce((s, stat) => s + Number(stat.earnedAmount), 0)
-                      : 0;
-                    const currentEarned = stageStats?.stageStats?.length
-                      ? sumFromTable
-                      : (stats ? Number(stats.totalKPI) : (stageStats?.totals?.totalEarned || 0));
-                    const previousYearEarned = previousYearDebt?.totalEarned || 0;
-                    const totalEarned = currentEarned + previousYearEarned;
-                    return (
-                      <CurrencyDisplay
-                        amount={totalEarned}
-                        originalCurrency="USD"
-                      />
-                    );
-                  })()}
+                  ) : (
+                    <CurrencyDisplay
+                      amount={stats?.legacyDebt || 0}
+                      originalCurrency="USD"
+                      forceOriginal={true}
+                    />
+                  )}
                 </div>
               </div>
-              <div className="bg-red-50 rounded-lg p-3">
-                <div className="text-xs text-red-600 mb-1">Jami xatolar summasi</div>
+              <div 
+                className="bg-green-50 rounded-lg p-3 border-2 border-green-200 cursor-pointer hover:bg-green-100 transition-colors"
+                onClick={openEarningsModal}
+              >
+                <div className="text-xs text-green-700 mb-1 flex items-center justify-between">
+                  <span>Joriy mavsum (Ishlab topilgan)</span>
+                  <Icon icon="lucide:info" className="w-4 h-4 opacity-70" />
+                </div>
+                <div className="text-xl font-bold text-green-900">
+                  {loading ? (
+                    <span className="text-gray-400">Yuklanmoqda...</span>
+                  ) : (
+                    <CurrencyDisplay
+                      amount={stats?.totalEarned || 0}
+                      originalCurrency={stats?.salaryCurrency || 'UZS'}
+                      forceOriginal={true}
+                    />
+                  )}
+                </div>
+              </div>
+              <div 
+                className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200 cursor-pointer hover:bg-purple-100 transition-colors"
+                onClick={() => setShowPaymentsModal(true)}
+              >
+                <div className="text-xs text-purple-700 mb-1 flex items-center justify-between">
+                  <span>Joriy mavsum (Olingan)</span>
+                  <Icon icon="lucide:info" className="w-4 h-4 opacity-70" />
+                </div>
+                <div className="text-xl font-bold text-purple-900">
+                  {loading ? (
+                    <span className="text-gray-400">Yuklanmoqda...</span>
+                  ) : (
+                    <CurrencyDisplay
+                      amount={stats?.totalPaid || 0}
+                      originalCurrency={stats?.salaryCurrency || 'UZS'}
+                      forceOriginal={true}
+                    />
+                  )}
+                </div>
+              </div>
+              <div className={`rounded-lg p-3 border-2 ${(stats?.pending || 0) > 0 ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
+                <div className={`text-xs mb-1 ${(stats?.pending || 0) > 0 ? 'text-orange-700' : 'text-gray-600'}`}>Joriy mavsum (Qolgan haq)</div>
+                <div className={`text-xl font-bold ${(stats?.pending || 0) > 0 ? 'text-orange-900' : 'text-gray-800'}`}>
+                  {loading ? (
+                    <span className="text-gray-400">Yuklanmoqda...</span>
+                  ) : (
+                    <CurrencyDisplay
+                      amount={stats?.pending || 0}
+                      originalCurrency={stats?.salaryCurrency || 'UZS'}
+                      forceOriginal={true}
+                    />
+                  )}
+                </div>
+              </div>
+              <div 
+                className="bg-red-50 rounded-lg p-3 cursor-pointer hover:bg-red-100 transition-colors"
+                onClick={() => setShowErrorsModal(true)}
+              >
+                <div className="text-xs text-red-600 mb-1 flex items-center justify-between">
+                  <span>Jami xatolar summasi</span>
+                  <Icon icon="lucide:info" className="w-4 h-4 opacity-70" />
+                </div>
                 <div className="text-xl font-bold text-red-800">
                   {errorStatsLoading ? (
                     <span className="text-gray-400">Yuklanmoqda...</span>
                   ) : (
                     <CurrencyDisplay
                       amount={Number(errorStats?.totalErrorAmount || 0)}
-                      originalCurrency="USD"
+                      originalCurrency="UZS"
                     />
                   )}
                 </div>
               </div>
-              <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200">
-                <div className="text-xs text-purple-600 mb-1">Jami olingan</div>
-                <div className="text-xl font-bold text-purple-800">
-                  {loading ? (
-                    <span className="text-gray-400">Yuklanmoqda...</span>
-                  ) : (() => {
-                    const currentReceived = stats 
-                      ? Number(stats.totalSalary)
-                      : (stageStats?.totals?.totalReceived || 0);
-                    const previousYearPaid = previousYearDebt?.totalPaid || 0;
-                    const totalReceived = currentReceived + previousYearPaid;
-                    return (
-                      <CurrencyDisplay
-                        amount={totalReceived}
-                        originalCurrency="USD"
-                      />
-                    );
-                  })()}
-                </div>
-              </div>
-              {(() => {
-                const sumFromTable = stageStats?.stageStats?.length
-                  ? stageStats.stageStats.reduce((s, stat) => s + Number(stat.earnedAmount), 0)
-                  : 0;
-                const currentEarned = stageStats?.stageStats?.length
-                  ? sumFromTable
-                  : (stats ? Number(stats.totalKPI) : (stageStats?.totals?.totalEarned || 0));
-                const previousYearEarned = previousYearDebt?.totalEarned || 0;
-                const totalEarned = currentEarned + previousYearEarned;
-
-                const currentReceived = stats
-                  ? Number(stats.totalSalary)
-                  : (stageStats?.totals?.totalReceived || 0);
-                const previousYearPaid = previousYearDebt?.totalPaid || 0;
-                const totalReceived = currentReceived + previousYearPaid;
-
-                const totalErrors = Number(errorStats?.totalErrorAmount || 0);
-                const totalPending = totalEarned - totalErrors - totalReceived;
-                const hasPending = totalPending > 0;
-                
-                return (
-                  <div className={`rounded-lg p-3 border-2 ${
-                    hasPending
-                      ? 'bg-orange-50 border-orange-200' 
-                      : 'bg-gray-50 border-gray-200'
-                  }`}>
-                    <div className={`text-xs mb-1 ${
-                      hasPending ? 'text-orange-600' : 'text-gray-600'
-                    }`}>
-                      Qolgan haq
-                    </div>
-                    <div className={`text-xl font-bold ${
-                      hasPending ? 'text-orange-800' : 'text-gray-800'
-                    }`}>
-                      {loading || errorStatsLoading ? (
-                        <span className="text-gray-400">Yuklanmoqda...</span>
-                      ) : (
-                        <CurrencyDisplay
-                          amount={totalPending}
-                          originalCurrency="USD"
-                        />
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
 
             {/* Stage Details Table and Pie Chart - Only show if there are stage stats */}
@@ -484,7 +486,7 @@ const Profile = () => {
                         {stagePayment > 0 ? (
                           <CurrencyDisplay
                             amount={stagePayment}
-                            originalCurrency="USD"
+                            originalCurrency="UZS"
                           />
                         ) : '-'}
                       </td>
@@ -494,7 +496,7 @@ const Profile = () => {
                         <td className="py-3 px-4 text-right text-green-600 font-semibold">
                           <CurrencyDisplay
                             amount={Number(stat.earnedAmount)}
-                            originalCurrency="USD"
+                            originalCurrency="UZS"
                           />
                         </td>
                       </tr>
@@ -767,29 +769,7 @@ const Profile = () => {
               </div>
             )}
 
-            {/* Recent Errors */}
-            {errorStats.errors && errorStats.errors.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">So'nggi xatolar</h3>
-                <div className="space-y-2">
-                  {errorStats.errors.slice(0, 10).map((error: any) => (
-                    <div key={error.id} className="border rounded-lg p-4 bg-red-50">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-800">{error.taskTitle}</div>
-                          <div className="text-sm text-gray-600 mt-1">
-                            Bosqich: {error.stageName} | Summa: <CurrencyDisplay amount={Number(error.amount)} originalCurrency="USD" /> | Sana: {new Date(error.date).toLocaleDateString()}
-                          </div>
-                          {error.comment && (
-                            <div className="text-sm text-gray-600 mt-2">{error.comment}</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
           </>
         ) : (
           <div className="text-center py-8 text-gray-400">Xatolar yo'q</div>
@@ -875,29 +855,28 @@ const Profile = () => {
                 <select
                   required
                   value={editForm.role}
-                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value as 'ADMIN' | 'MANAGER' | 'DEKLARANT', branchId: e.target.value === 'MANAGER' ? '' : editForm.branchId })}
+                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value as any })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="DEKLARANT">DEKLARANT</option>
-                  <option value="MANAGER">MANAGER</option>
-                  <option value="ADMIN">ADMIN</option>
+                  <option value="DEKLARANT">Deklarant</option>
+                  <option value="MANAGER">Menejer</option>
+                  <option value="ADMIN">Admin</option>
                 </select>
               </div>
 
               {editForm.role !== 'MANAGER' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Filial <span className="text-red-500">*</span>
+                    Filial
                   </label>
                   <select
-                    required={editForm.role !== ('MANAGER' as any)}
                     value={editForm.branchId}
                     onChange={(e) => setEditForm({ ...editForm, branchId: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Filialni tanlang</option>
+                    <option value="">Barchasi (barcha filiallar ishini ko'radi)</option>
                     {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id.toString()}>
+                      <option key={branch.id} value={branch.id}>
                         {branch.name}
                       </option>
                     ))}
@@ -907,34 +886,443 @@ const Profile = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Oylik maosh
+                  Oylik maosh (UZS)
                 </label>
                 <input
                   type="number"
-                  step="0.01"
                   value={editForm.salary}
                   onChange={(e) => setEditForm({ ...editForm, salary: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0.00"
+                  placeholder="Ixtiyoriy"
                 />
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex justify-end gap-3 mt-6">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Saqlash
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Current Earnings Breakdown Modal */}
+      {showEarningsModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEarningsModal(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-4xl mx-4"
+            style={{ 
+              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              maxHeight: '90vh'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Joriy mavsum (Ishlab topilgan) batafsil</h2>
+                <p className="text-sm text-gray-500 mt-1">Har bir ish va jarayon kesimida</p>
+              </div>
+              <button
+                onClick={() => setShowEarningsModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <Icon icon="lucide:x" className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {earningsLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                </div>
+              ) : currentEarnings.length > 0 ? (
+                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-700 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold border-b">Sana</th>
+                        <th className="px-4 py-3 font-semibold border-b">Task</th>
+                        <th className="px-4 py-3 font-semibold border-b">Jarayon</th>
+                        <th className="px-4 py-3 font-semibold border-b text-right">Summa (UZS)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {currentEarnings.map((earn) => (
+                        <tr key={earn.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                            {(() => {
+  const d = new Date(earn.createdAt);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${day}.${month}.${year} ${hours}:${minutes}`;
+})()}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-gray-800">
+                            {earn.taskTitle}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-800">
+                              {earn.stageName}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-green-600">
+                            {Number(earn.amount).toLocaleString()} UZS
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 font-bold sticky bottom-0">
+                      <tr>
+                        <td colSpan={3} className="px-4 py-3 text-right text-gray-700 border-t">
+                          Jami:
+                        </td>
+                        <td className="px-4 py-3 text-right text-green-700 border-t">
+                          {currentEarnings.reduce((sum, e) => sum + Number(e.amount), 0).toLocaleString()} UZS
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500 flex flex-col items-center">
+                  <Icon icon="lucide:inbox" className="w-12 h-12 mb-3 opacity-20" />
+                  <p>Hozircha joriy mavsumda hech qanday daromad yo'q</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl flex justify-end">
+              <button
+                onClick={() => setShowEarningsModal(false)}
+                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors font-medium"
+              >
+                Yopish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Participations Breakdown Modal */}
+      {showParticipationsModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowParticipationsModal(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-4xl mx-4"
+            style={{ 
+              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              maxHeight: '90vh'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Jami tasklarda ishtirok batafsil</h2>
+                <p className="text-sm text-gray-500 mt-1">Har bir bajarilgan jarayon kesimida</p>
+              </div>
+              <button
+                onClick={() => setShowParticipationsModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <Icon icon="lucide:x" className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {participationsLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : participations.length > 0 ? (
+                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-700 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold border-b">Sana</th>
+                        <th className="px-4 py-3 font-semibold border-b">Task</th>
+                        <th className="px-4 py-3 font-semibold border-b">Jarayon</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {participations.map((part, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                            {(() => {
+                              const d = new Date(part.completedAt);
+                              const day = String(d.getDate()).padStart(2, '0');
+                              const month = String(d.getMonth() + 1).padStart(2, '0');
+                              const year = d.getFullYear();
+                              const hours = String(d.getHours()).padStart(2, '0');
+                              const minutes = String(d.getMinutes()).padStart(2, '0');
+                              return `${day}.${month}.${year} ${hours}:${minutes}`;
+                            })()}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-gray-800">
+                            {part.task?.title || `Task #${part.taskId || '?'}`}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-800">
+                              {part.name}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500 flex flex-col items-center">
+                  <Icon icon="lucide:inbox" className="w-12 h-12 mb-3 opacity-20" />
+                  <p>Hozircha ishtiroklar yo'q</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl flex justify-end">
+              <button
+                onClick={() => setShowParticipationsModal(false)}
+                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors font-medium"
+              >
+                Yopish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Received Payments Breakdown Modal */}
+      {showPaymentsModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowPaymentsModal(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-4xl mx-4"
+            style={{ 
+              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              maxHeight: '90vh'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Joriy mavsumda olingan to'lovlar</h2>
+                <p className="text-sm text-gray-500 mt-1">Sizga berilgan barcha maosh va avanslar</p>
+              </div>
+              <button
+                onClick={() => setShowPaymentsModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <Icon icon="lucide:x" className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {stats?.payments && stats.payments.filter(p => !p.isLegacyPayment).length > 0 ? (
+                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-700 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold border-b">Sana</th>
+                        <th className="px-4 py-3 font-semibold border-b">Izoh</th>
+                        <th className="px-4 py-3 font-semibold border-b text-right">Summa (Asl)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {stats.payments.filter(p => !p.isLegacyPayment).map((payment: any) => (
+                        <tr key={payment.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                            {(() => {
+                              const d = new Date(payment.paymentDate);
+                              const day = String(d.getDate()).padStart(2, '0');
+                              const month = String(d.getMonth() + 1).padStart(2, '0');
+                              const year = d.getFullYear();
+                              const hours = String(d.getHours()).padStart(2, '0');
+                              const minutes = String(d.getMinutes()).padStart(2, '0');
+                              return `${day}.${month}.${year} ${hours}:${minutes}`;
+                            })()}
+                          </td>
+                          <td className="px-4 py-3 text-gray-800">
+                            {payment.comment || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-purple-600">
+                            {payment.paidCurrency === 'UZS' 
+                              ? `${Number(payment.paidAmountUzs).toLocaleString()} UZS`
+                              : `$${Number(payment.paidAmountUsd).toLocaleString()}`}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 font-bold sticky bottom-0">
+                      <tr>
+                        <td colSpan={2} className="px-4 py-3 text-right text-gray-700 border-t">
+                          Jami UZS hisobida:
+                        </td>
+                        <td className="px-4 py-3 text-right text-purple-700 border-t">
+                          {stats.payments
+                            .filter(p => !p.isLegacyPayment)
+                            .reduce((sum, p) => sum + (p.paidCurrency === 'UZS' ? Number(p.paidAmountUzs) : Number(p.paidAmountUsd) * 12000), 0)
+                            .toLocaleString()} UZS
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500 flex flex-col items-center">
+                  <Icon icon="lucide:inbox" className="w-12 h-12 mb-3 opacity-20" />
+                  <p>Hozircha to'lovlar olinmagan</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl flex justify-end">
+              <button
+                onClick={() => setShowPaymentsModal(false)}
+                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors font-medium"
+              >
+                Yopish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Errors Breakdown Modal */}
+      {showErrorsModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowErrorsModal(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-4xl mx-4"
+            style={{ 
+              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              maxHeight: '90vh'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Jami xatolar ro'yxati</h2>
+                <p className="text-sm text-gray-500 mt-1">Sizga yozilgan barcha jarimalar</p>
+              </div>
+              <button
+                onClick={() => setShowErrorsModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <Icon icon="lucide:x" className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {errorStatsLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                </div>
+              ) : errorStats?.errors && errorStats.errors.length > 0 ? (
+                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-700 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold border-b">Sana</th>
+                        <th className="px-4 py-3 font-semibold border-b">Task</th>
+                        <th className="px-4 py-3 font-semibold border-b">Izoh / Jarayon</th>
+                        <th className="px-4 py-3 font-semibold border-b text-right">Jarima</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {errorStats.errors.map((error: any) => (
+                        <tr key={error.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                            {(() => {
+                              const d = new Date(error.date);
+                              const day = String(d.getDate()).padStart(2, '0');
+                              const month = String(d.getMonth() + 1).padStart(2, '0');
+                              const year = d.getFullYear();
+                              return `${day}.${month}.${year}`;
+                            })()}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-gray-800">
+                            {error.taskTitle || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            <div><span className="font-medium text-gray-700">Jarayon:</span> {error.stageName}</div>
+                            {error.comment && <div className="text-xs text-gray-500 mt-1 italic">"{error.comment}"</div>}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-red-600">
+                            <CurrencyDisplay amount={Number(error.amount)} originalCurrency="UZS" forceOriginal={true} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 font-bold sticky bottom-0">
+                      <tr>
+                        <td colSpan={3} className="px-4 py-3 text-right text-gray-700 border-t">
+                          Jami:
+                        </td>
+                        <td className="px-4 py-3 text-right text-red-700 border-t">
+                          <CurrencyDisplay amount={errorStats.errors.reduce((sum: number, e: any) => sum + Number(e.amount), 0)} originalCurrency="UZS" forceOriginal={true} />
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500 flex flex-col items-center">
+                  <Icon icon="lucide:inbox" className="w-12 h-12 mb-3 opacity-20" />
+                  <p>Hozircha xatolar yo'q</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl flex justify-end">
+              <button
+                onClick={() => setShowErrorsModal(false)}
+                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors font-medium"
+              >
+                Yopish
+              </button>
+            </div>
           </div>
         </div>
       )}

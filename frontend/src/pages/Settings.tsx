@@ -1932,7 +1932,7 @@ const Settings = () => {
                         <Icon icon="lucide:wallet" className="w-5 h-5 text-violet-200" />
                         <h3 className="text-lg font-bold">Ishchilarga to'lovlar (KPI)</h3>
                       </div>
-                      <p className="text-violet-200 text-sm">Har bir bosqich uchun to'lanadigan summa (USD). Narxlar o'zgartirilganda eski tasklar oldingi narxda qoladi.</p>
+                      <p className="text-violet-200 text-sm">Har bir bosqich uchun to'lanadigan summa (UZS). Narxlar o'zgartirilganda eski tasklar oldingi narxda qoladi.</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
@@ -1976,7 +1976,7 @@ const Settings = () => {
                         <input type="text" value={newStageName} onChange={(e) => setNewStageName(e.target.value)} className="w-full px-3 py-2 border border-emerald-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" placeholder="Masalan: Qayta tekshirish" />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Boshlang'ich narx ($)</label>
+                        <label className="text-xs text-gray-500 mb-1 block">Boshlang'ich narx (UZS)</label>
                         <input type="number" step="0.01" min="0" value={newStagePrice} onChange={(e) => setNewStagePrice(e.target.value)} className="w-full px-3 py-2 border border-emerald-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 text-center font-semibold" placeholder="0" />
                       </div>
                     </div>
@@ -2072,7 +2072,6 @@ const Settings = () => {
                               {stage.stageName}
                             </div>
                             <div className="flex items-center gap-1">
-                              <span className="text-xs text-gray-400">$</span>
                               <input
                                 type="number"
                                 step="0.01"
@@ -2084,6 +2083,7 @@ const Settings = () => {
                                 })}
                                 className="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-center font-bold text-lg bg-white"
                               />
+                              <span className="text-xs text-gray-500 font-medium">UZS</span>
                             </div>
                           </div>
                         ))}
@@ -2145,7 +2145,7 @@ const Settings = () => {
                                   {configs.map(cfg => (
                                     <div key={cfg.id} className="bg-white px-3 py-2.5">
                                       <div className="text-xs text-gray-500 truncate">{cfg.stageName}</div>
-                                      <div className="text-sm font-bold text-blue-600">${Number(cfg.price).toFixed(2)}</div>
+                                      <div className="text-sm font-bold text-blue-600">{Number(cfg.price).toLocaleString()} UZS</div>
                                     </div>
                                   ))}
                                 </div>

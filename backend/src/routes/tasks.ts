@@ -1771,6 +1771,11 @@ router.post('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
         stageName: parsed.data.stageName,
         workerId: parsed.data.workerId,
         amount: parsed.data.amount,
+        amount_uzs: parsed.data.amount,
+        amount_original: parsed.data.amount,
+        convertedUzsAmount: parsed.data.amount,
+        currency: 'UZS',
+        currency_universal: 'UZS',
         comment: parsed.data.comment,
         date: parsed.data.date,
         createdById: req.user!.id,
@@ -1779,21 +1784,6 @@ router.post('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
         worker: { select: { id: true, name: true } },
       },
     });
-
-    // Create a negative KPI log entry only if a worker is specified
-    if (parsed.data.workerId !== null) {
-      await (tx as any).kpiLog.create({
-        data: {
-          userId: parsed.data.workerId,
-          taskId: taskId,
-          stageName: parsed.data.stageName,
-          amount: -parsed.data.amount, // Negative amount to deduct
-          currency: 'USD',
-          amount_original: -parsed.data.amount,
-          currency_universal: 'USD',
-        },
-      });
-    }
 
     return error;
   });
@@ -1826,20 +1816,6 @@ router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest
 
   await prisma.$transaction(async (tx) => {
     await (tx as any).taskError.delete({ where: { id: errorId } });
-    
-    if (error.workerId !== null) {
-      await (tx as any).kpiLog.create({
-        data: {
-          userId: error.workerId,
-          taskId: error.taskId,
-          stageName: error.stageName,
-          amount: Number(error.amount), // Revert deduction
-          currency: 'USD',
-          amount_original: Number(error.amount),
-          currency_universal: 'USD',
-        },
-      });
-    }
   });
 
   res.status(204).send();
@@ -1995,48 +1971,19 @@ router.patch('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest,
       data: {
         ...(parsed.data.stageName && { stageName: parsed.data.stageName }),
         ...(parsed.data.workerId !== undefined && { workerId: parsed.data.workerId }),
-        ...(parsed.data.amount !== undefined && { amount: parsed.data.amount }),
+        ...(parsed.data.amount !== undefined && { 
+          amount: parsed.data.amount,
+          amount_uzs: parsed.data.amount,
+          amount_original: parsed.data.amount,
+          convertedUzsAmount: parsed.data.amount,
+          currency: 'UZS',
+          currency_universal: 'UZS',
+        }),
         ...(parsed.data.comment !== undefined && { comment: parsed.data.comment }),
         ...(parsed.data.date && { date: parsed.data.date }),
       },
       include: { worker: { select: { id: true, name: true } } },
     });
-
-    const oldWorkerId = error.workerId;
-    const oldAmount = Number(error.amount);
-    const oldStageName = error.stageName;
-    const newWorkerId = next.workerId;
-    const newAmount = Number(next.amount);
-    const newStageName = next.stageName;
-
-    if (oldWorkerId !== newWorkerId || oldAmount !== newAmount || oldStageName !== newStageName) {
-      if (oldWorkerId !== null) {
-        await (tx as any).kpiLog.create({
-          data: {
-            userId: oldWorkerId,
-            taskId: next.taskId,
-            stageName: oldStageName,
-            amount: oldAmount, // Revert deduction
-            currency: 'USD',
-            amount_original: oldAmount,
-            currency_universal: 'USD',
-          },
-        });
-      }
-      if (newWorkerId !== null) {
-        await (tx as any).kpiLog.create({
-          data: {
-            userId: newWorkerId,
-            taskId: next.taskId,
-            stageName: newStageName,
-            amount: -newAmount, // Apply new deduction
-            currency: 'USD',
-            amount_original: -newAmount,
-            currency_universal: 'USD',
-          },
-        });
-      }
-    }
 
     return next;
   });

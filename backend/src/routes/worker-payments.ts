@@ -16,6 +16,7 @@ const createPaymentSchema = z.object({
   exchangeRate: z.number().positive().optional(),
   paymentDate: z.coerce.date().optional(),
   comment: z.string().optional(),
+  isLegacyPayment: z.boolean().optional().default(false),
 });
 
 // POST /api/worker-payments - Create new worker payment
@@ -26,7 +27,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
 
-    const { workerId, paidCurrency, paidAmount, exchangeRate, paymentDate, comment } = parsed.data;
+    const { workerId, paidCurrency, paidAmount, exchangeRate, paymentDate, comment, isLegacyPayment } = parsed.data;
 
     // Verify worker exists
     const worker = await prisma.user.findUnique({
@@ -57,21 +58,23 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         exchangeRate: exchangeRate ? new Decimal(exchangeRate) : undefined,
         paymentDate,
         comment,
+        isLegacyPayment,
       }
     );
 
-    // Return payment (USD values only, never expose UZS accounting values)
+    // Return payment
     res.status(201).json({
       id: payment.id,
       workerId: payment.workerId,
       earnedAmountUsd: Number(payment.earnedAmountUsd),
       paidCurrency: payment.paidCurrency,
       paidAmountUsd: Number(payment.paidAmountUsd),
+      paidAmountUzs: Number(payment.paidAmountUzs || 0),
       paymentDate: payment.paymentDate,
       comment: payment.comment,
+      isLegacyPayment: payment.isLegacyPayment,
       createdAt: payment.createdAt,
       worker: payment.worker,
-      // Never expose: paidAmountUzs, exchangeRate
     });
   } catch (error: any) {
     console.error('Error creating worker payment:', error);
@@ -108,13 +111,8 @@ router.get('/:workerId', requireAuth(), async (req: AuthRequest, res) => {
 
     const report = await getWorkerPaymentReport(workerId, dateRange);
 
-    // Return USD values only (never expose UZS accounting values)
-    res.json({
-      totalEarnedUsd: Number(report.totalEarnedUsd),
-      totalPaidUsd: Number(report.totalPaidUsd),
-      difference: Number(report.difference),
-      payments: report.payments,
-    });
+    // Return full dual balance report
+    res.json(report);
   } catch (error: any) {
     console.error('Error fetching worker payments:', error);
     res.status(500).json({
@@ -150,13 +148,8 @@ router.get('/:workerId/report', requireAuth(), async (req: AuthRequest, res) => 
 
     const report = await getWorkerPaymentReport(workerId, dateRange);
 
-    // Return USD values only (never expose UZS accounting values)
-    res.json({
-      totalEarnedUsd: Number(report.totalEarnedUsd),
-      totalPaidUsd: Number(report.totalPaidUsd),
-      difference: Number(report.difference),
-      payments: report.payments,
-    });
+    // Return full dual balance report
+    res.json(report);
   } catch (error: any) {
     console.error('Error fetching worker payment report:', error);
     res.status(500).json({

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { calculateTotalPaidUsd, calculateTotalEarnedUsd } from '../services/worker-payment';
+import { getWorkerPaymentReport } from '../services/worker-payment';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { TaskStatus } from '@prisma/client';
 
@@ -1004,34 +1004,17 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
     const workerDebtsRaw = await Promise.all(
       workerDebtUsers.map(async (worker) => {
-        const [paid, earnedNet] = await Promise.all([
-          calculateTotalPaidUsd(worker.id),
-          calculateTotalEarnedUsd(worker.id),
-        ]);
+        const paymentReport = await getWorkerPaymentReport(worker.id);
 
-        const previousYear = 2024;
-        const lastYear = new Date().getFullYear() - 1;
-        let previousDebt = await prisma.previousYearWorkerDebt.findFirst({
-          where: { workerId: worker.id, year: previousYear },
-        });
-        if (!previousDebt && lastYear !== previousYear) {
-          previousDebt = await prisma.previousYearWorkerDebt.findFirst({
-            where: { workerId: worker.id, year: lastYear },
-          });
-        }
-
-        const previousEarned = Number(previousDebt?.totalEarned || 0);
-        const previousPaid = Number(previousDebt?.totalPaid || 0);
-
-        const netEarnedThisYear = Number(earnedNet);
-        const totalPaidThisYear = Number(paid);
-        const pending = netEarnedThisYear + previousEarned - (totalPaidThisYear + previousPaid);
+        const netEarned = Number(paymentReport.current.totalEarned) + Number(paymentReport.legacy.initialDebtUsd);
+        const totalPaid = Number(paymentReport.current.totalPaid) + Number(paymentReport.legacy.totalPaidUsd);
+        const pending = Number(paymentReport.legacy.difference) + Number(paymentReport.current.difference);
 
         return {
           userId: worker.id,
           name: worker.name,
-          totalEarnedUsd: netEarnedThisYear + previousEarned,
-          totalPaidUsd: totalPaidThisYear + previousPaid,
+          totalEarnedUsd: netEarned,
+          totalPaidUsd: totalPaid,
           pendingUsd: pending,
         };
       })

@@ -167,8 +167,8 @@ const TaskDetail = () => {
     e.preventDefault();
     try {
       const amountValue = errorForm.amount.trim();
-      if (!/^\d{1,4}$/.test(amountValue)) {
-        alert('Summa faqat USD bo\'lishi va 4 xonagacha bo\'lishi kerak');
+      if (!/^\d{1,9}$/.test(amountValue)) {
+        alert('Summa faqat raqam bo\'lishi va 9 xonagacha bo\'lishi kerak');
         return;
       }
       if (editingErrorId) {
@@ -467,7 +467,7 @@ const TaskDetail = () => {
                             setErrorForm({ ...errorForm, amount: '' });
                             return;
                           }
-                          if (/^\d{0,4}$/.test(nextValue)) {
+                          if (/^\d{0,9}$/.test(nextValue)) {
                             setErrorForm({ ...errorForm, amount: nextValue });
                           }
                         }}
@@ -525,7 +525,7 @@ const TaskDetail = () => {
                       <div className="flex-1">
                         <div className="font-medium">{error.stageName}</div>
                         <div className="text-sm text-gray-500 mt-1">
-                          Ishchi: {error.worker?.name || "Mijoz talabi bo'yicha"} | Summa: {error.amount} USD | Sana:{' '}
+                          Ishchi: {error.worker?.name || "Mijoz talabi bo'yicha"} | Summa: {error.amount} so'm | Sana:{' '}
                           {formatDate(error.date)}
                         </div>
                         {error.comment && (

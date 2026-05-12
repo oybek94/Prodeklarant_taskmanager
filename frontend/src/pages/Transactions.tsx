@@ -124,6 +124,7 @@ const Transactions = () => {
     workerId: '',
     expenseCategory: '',
     virtualCardId: '',
+    isLegacyPayment: false,
   });
   const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
   const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
@@ -389,6 +390,7 @@ const Transactions = () => {
           return;
         }
         payload.workerId = parseInt(form.workerId);
+        payload.isLegacyPayment = form.isLegacyPayment;
       }
 
       if (form.virtualCardId) {
@@ -409,6 +411,7 @@ const Transactions = () => {
         workerId: '',
         expenseCategory: '',
         virtualCardId: '',
+        isLegacyPayment: false,
       });
       await loadTransactions();
       setNewExpenseCategory('');
@@ -433,6 +436,7 @@ const Transactions = () => {
       workerId: transaction.worker?.id ? transaction.worker.id.toString() : '',
       expenseCategory: transaction.expenseCategory || '',
       virtualCardId: (transaction as any).virtualCardId ? (transaction as any).virtualCardId.toString() : '',
+      isLegacyPayment: false, // Update logic can ignore this or retrieve it if needed
     };
     setForm(newForm);
     setShowEditModal(true);
@@ -479,6 +483,7 @@ const Transactions = () => {
           return;
         }
         payload.workerId = parseInt(form.workerId);
+        payload.isLegacyPayment = form.isLegacyPayment;
       }
 
       if (form.virtualCardId) {
@@ -500,6 +505,7 @@ const Transactions = () => {
         workerId: '',
         expenseCategory: '',
         virtualCardId: '',
+        isLegacyPayment: false,
       });
       setMonetaryErrors({});
       await loadTransactions();
@@ -912,6 +918,19 @@ const Transactions = () => {
                       </option>
                     ))}
                   </select>
+
+                  <div className="mt-3 flex items-center gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <input
+                      type="checkbox"
+                      id="isLegacyPayment"
+                      checked={form.isLegacyPayment}
+                      onChange={(e) => setForm({ ...form, isLegacyPayment: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <label htmlFor="isLegacyPayment" className="text-sm font-medium text-gray-700 cursor-pointer">
+                      O'tgan mavsum qarzidan chegirish (USD balans)
+                    </label>
+                  </div>
                 </div>
               )}
 

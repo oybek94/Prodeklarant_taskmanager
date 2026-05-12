@@ -49,8 +49,8 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amountValue = errorForm.amount.trim();
-    if (!/^\d{1,4}$/.test(amountValue)) {
-      toast.error("Summa faqat USD bo'lishi va 4 xonagacha bo'lishi kerak");
+    if (!/^\d{1,9}$/.test(amountValue)) {
+      toast.error("Summa faqat raqam bo'lishi va 9 xonagacha bo'lishi kerak");
       return;
     }
     try {
@@ -123,7 +123,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
                 <div key={error.id} className="p-3 border rounded-lg bg-gray-50 flex items-start justify-between">
                   <div>
                     <div className="text-sm font-medium text-gray-800">
-                      {error.stageName} — {formatMoney(Number(error.amount), 'USD')}
+                      {error.stageName} — {formatMoney(Number(error.amount), 'UZS')}
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
                       Xato qildi: {workerName} • Sana: {new Date(error.date).toLocaleDateString('uz-UZ')}
@@ -224,7 +224,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Summa <span className="text-red-500">*</span></label>
             <input type="text" inputMode="numeric" required value={errorForm.amount}
-              onChange={(e) => { const v = e.target.value; if (v === '' || /^\d{0,4}$/.test(v)) setErrorForm({ ...errorForm, amount: v }); }}
+              onChange={(e) => { const v = e.target.value; if (v === '' || /^\d{0,9}$/.test(v)) setErrorForm({ ...errorForm, amount: v }); }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               placeholder="0" />
           </div>

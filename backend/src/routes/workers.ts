@@ -182,13 +182,13 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
     return (amt > 0 && amt <= 1000) ? sum + amt : sum;
   }, 0);
 
-  // Get worker payment report - USD values only
+  // Get worker payment report - dual balance values
   const paymentReport = await getWorkerPaymentReport(workerId, {
     startDate: Object.keys(dateFilter).length > 0 ? dateFilter.gte : undefined,
     endDate: Object.keys(dateFilter).length > 0 ? dateFilter.lte : undefined,
   });
 
-  const totalSalary = Number(paymentReport.totalPaidUsd); // USD equivalent
+  const totalSalary = Number(paymentReport.current.totalPaid); // Current paid (UZS/USD)
 
   // Tasks assigned
   const tasksAssigned = await prisma.taskStage.count({
@@ -201,26 +201,30 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
 
   res.json({
     period,
-    totalKPI, // USD
+    totalKPI, // USD (legacy stats if needed)
     completedStages,
-    totalSalary, // USD equivalent
-    totalPaid: totalSalary, // USD equivalent (alias for backward compatibility)
-    totalEarned: Number(paymentReport.totalEarnedUsd), // USD (NET: Gross - Errors)
-    pending: Number(paymentReport.difference), // USD (NET)
+    totalSalary,
+    totalPaid: totalSalary, // alias for backward compatibility
+    totalEarned: Number(paymentReport.current.totalEarned),
+    pending: Number(paymentReport.current.difference),
+    legacyDebt: Number(paymentReport.legacy.difference),
+    salaryCurrency: paymentReport.salaryCurrency,
     tasksAssigned,
     kpiLogs: kpiLogs.map((log: any) => ({
       id: log.id,
-      amount: Number(log.amount_original ?? log.amount ?? 0), // USD only
+      amount: Number(log.amount_original ?? log.amount ?? 0),
       stageName: log.stageName,
       createdAt: log.createdAt,
     })),
     payments: paymentReport.payments.map((p: any) => ({
       id: p.id,
-      earnedAmountUsd: p.earnedAmountUsd, // USD
-      paidAmountUsd: p.paidAmountUsd, // USD equivalent
+      earnedAmountUsd: p.earnedAmountUsd,
+      paidAmountUsd: p.paidAmountUsd,
+      paidAmountUzs: p.paidAmountUzs || 0,
       paidCurrency: p.paidCurrency,
       paymentDate: p.paymentDate,
       comment: p.comment,
+      isLegacyPayment: p.isLegacyPayment,
     })),
   });
 });
@@ -249,17 +253,22 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
     yearAgo.setFullYear(yearAgo.getFullYear() - 1);
     dateFilter = { gte: yearAgo };
   } else if (period === 'all') {
-    dateFilter = {}; // No date filtering, include all history
+    const SEASON_SPLIT_DATE = new Date('2026-02-14T19:00:00.000Z');
+    dateFilter = { gte: SEASON_SPLIT_DATE }; // Joriy mavsum (15-fevraldan keyin)
   }
 
   if (startDate) dateFilter.gte = new Date(startDate as string);
   if (endDate) dateFilter.lte = new Date(endDate as string);
 
   // Load fixed stage prices from KPI configs (fallback when KpiLog is missing for old data)
-  const kpiConfigs = await prisma.kpiConfig.findMany();
+  const kpiConfigs = await prisma.kpiConfig.findMany({
+    orderBy: [{ stageName: 'asc' }, { effectiveFrom: 'desc' }]
+  });
   const stagePriceMap = new Map<string, number>();
   kpiConfigs.forEach((config) => {
-    stagePriceMap.set(config.stageName, Number(config.price));
+    if (!stagePriceMap.has(config.stageName)) {
+      stagePriceMap.set(config.stageName, Number(config.price));
+    }
   });
 
   // Get all completed stages for this worker
@@ -288,7 +297,7 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
       ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
     },
     orderBy: { createdAt: 'asc' }, // Ensure we get the earliest (actual stage completion) log first
-    select: { taskId: true, stageName: true, amount: true, amount_original: true },
+    select: { taskId: true, stageName: true, amount: true, amount_original: true, amount_uzs: true, convertedUzsAmount: true, currency: true, currency_universal: true },
   });
   const normalizeKpiStageName = (name: string): string => {
     if (name === 'Xujjat_tekshirish' || name === 'Xujjat tekshirish' || name === 'Tekshirish') return 'Tekshirish';
@@ -299,9 +308,22 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
   const kpiLogAmountByTaskAndStage = new Map<string, number>();
   kpiLogs.forEach((log) => {
     const key = `${log.taskId}-${normalizeKpiStageName(log.stageName)}`;
-    const amt = Number((log as any).amount_original ?? log.amount ?? 0);
+    
+    // UZS miqdorini aniqlash
+    let amt = Number((log as any).amount_uzs ?? (log as any).convertedUzsAmount ?? 0);
+    
+    // Agar UZS yo'q bo'lsa (eski ma'lumotlar), USD ni UZS ga o'giramiz
+    if (amt === 0) {
+      const fallbackAmt = Number((log as any).amount_original ?? log.amount ?? 0);
+      if (fallbackAmt > 0 && fallbackAmt < 1000) {
+        amt = fallbackAmt * 12000; // USD to UZS taxminiy kurs
+      } else {
+        amt = fallbackAmt; // Katta ehtimol bilan bu allaqachon UZS
+      }
+    }
+
     // Faqat eng birinchi musbat qiymatni olamiz. (bu asl bosqich yakunlangandagi summa)
-    // Keyinchalik kelgan xato bekor qilishlari (musbat) uni ustini yopib qo'ymasлиги kerak!
+    // Keyinchalik kelgan xato bekor qilishlari (musbat) uni ustini yopib qo'ymasligi kerak!
     if (amt > 0 && !kpiLogAmountByTaskAndStage.has(key)) {
       kpiLogAmountByTaskAndStage.set(key, amt);
     }
@@ -410,21 +432,18 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
 
     // Bosqich tugaganda KpiLog'da saqlangan summa (o'sha paytdagi tarif); yangi tariflar eski ishtiroklarga ta'sir qilmasin
     const logKey = `${stage.task.id}-${targetStageName}`;
-    const earnedForStage =
-      kpiLogAmountByTaskAndStage.get(logKey) ??
-      stagePriceMap.get(targetStageName) ??
-      STAGE_FIXED_PRICES[targetStageName] ??
-      0;
+    let earnedForStage = kpiLogAmountByTaskAndStage.get(logKey) ?? 0;
+    
     stageStats[targetStageName].earnedAmount += earnedForStage;
   }
 
-  // Get worker payment report for paid amounts (USD equivalent)
+  // Get worker payment report for paid amounts
   const paymentReport = await getWorkerPaymentReport(workerId, {
     startDate: Object.keys(dateFilter).length > 0 ? dateFilter.gte : undefined,
     endDate: Object.keys(dateFilter).length > 0 ? dateFilter.lte : undefined,
   });
 
-  const totalReceivedFromSalary = Number(paymentReport.totalPaidUsd); // USD equivalent
+  const totalReceivedFromSalary = Number(paymentReport.current.totalPaid);
 
   // Calculate pending amount and ensure percentage is correct
   Object.keys(stageStats).forEach(stageName => {
@@ -437,20 +456,27 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
   const stageStatsArray = Object.values(stageStats)
     .filter(stats => stats.participationCount > 0)
     .sort((a, b) => b.participationCount - a.participationCount)
-    .map(stats => ({
-      ...stats,
-      tariffUsd: stagePriceMap.get(stats.stageName) ?? STAGE_FIXED_PRICES[stats.stageName] ?? 0,
-    }));
+    .map(stats => {
+      let tariff = stagePriceMap.get(stats.stageName) ?? STAGE_FIXED_PRICES[stats.stageName] ?? 0;
+      if (tariff > 0 && tariff < 1000) {
+        tariff *= 12000;
+      }
+      return {
+        ...stats,
+        tariffUsd: tariff, // Bu endi aslida UZS
+      };
+    });
 
-  // Calculate totals - all amounts in USD; jami tasklar soni (bir xil taskda bir necha bosqich bo‘lsa ham 1 task)
-  const totalEarned = stageStatsArray.reduce((sum, s) => sum + s.earnedAmount, 0);
+  // Calculate totals - jami tasklar soni (bir xil taskda bir necha bosqich bo‘lsa ham 1 task)
   const uniqueTaskIds = new Set(completedStages.map((s) => s.task.id));
   const totals = {
     totalParticipation: stageStatsArray.reduce((sum, s) => sum + s.participationCount, 0),
     totalTasks: uniqueTaskIds.size,
-    totalEarned, // USD
-    totalReceived: totalReceivedFromSalary, // USD equivalent from WorkerPayment
-    totalPending: totalEarned - totalReceivedFromSalary, // USD
+    totalEarned: Number(paymentReport.current.totalEarned),
+    totalReceived: Number(paymentReport.current.totalPaid),
+    totalPending: Number(paymentReport.current.difference),
+    legacyDebt: Number(paymentReport.legacy.difference),
+    salaryCurrency: paymentReport.salaryCurrency,
   };
 
   res.json({
@@ -485,7 +511,8 @@ router.get('/:id/error-stats', requireAuth(), async (req, res) => {
     yearAgo.setFullYear(yearAgo.getFullYear() - 1);
     dateFilter = { gte: yearAgo };
   } else if (period === 'all') {
-    dateFilter = {}; // No date filtering, include all history
+    const SEASON_SPLIT_DATE = new Date('2026-02-14T19:00:00.000Z');
+    dateFilter = { gte: SEASON_SPLIT_DATE }; // Faqat Joriy mavsum (15-fevraldan keyin) xatoliklari
   }
 
   if (startDate) dateFilter.gte = new Date(startDate as string);
@@ -629,6 +656,144 @@ router.post('/previous-year-debts', requireAuth(), async (req: AuthRequest, res)
     res.json(debt);
   } catch (error: any) {
     console.error('Error saving previous year debt:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /api/workers/:id/current-earnings - Get detailed breakdown of current season earnings
+router.get('/:id/current-earnings', requireAuth(), async (req, res) => {
+  try {
+    const workerId = parseInt(req.params.id);
+    const { period = 'month', startDate, endDate } = req.query;
+
+    let dateFilter: any = {};
+    const now = new Date();
+
+    if (period === 'day') {
+      const today = new Date(now);
+      today.setHours(0, 0, 0, 0);
+      dateFilter = { gte: today };
+    } else if (period === 'week') {
+      const weekAgo = new Date(now);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      dateFilter = { gte: weekAgo };
+    } else if (period === 'month') {
+      const monthAgo = new Date(now);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      dateFilter = { gte: monthAgo };
+    } else if (period === 'year') {
+      const yearAgo = new Date(now);
+      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+      dateFilter = { gte: yearAgo };
+    }
+
+    if (startDate) dateFilter.gte = new Date(startDate as string);
+    if (endDate) dateFilter.lte = new Date(endDate as string);
+
+    const SEASON_SPLIT_DATE = new Date('2026-02-14T19:00:00.000Z');
+    let currentStartDate = SEASON_SPLIT_DATE;
+    if (dateFilter.gte && dateFilter.gte > SEASON_SPLIT_DATE) {
+       currentStartDate = dateFilter.gte;
+    }
+
+    const logs = await prisma.kpiLog.findMany({
+      where: {
+        userId: workerId,
+        createdAt: {
+          gte: currentStartDate,
+          ...(dateFilter.lte ? { lte: dateFilter.lte } : {})
+        }
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            title: true,
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json(logs.map(log => {
+      const amountUzs = Number((log as any).amount_uzs || (log as any).convertedUzsAmount || 0);
+      const amountUsd = Number((log as any).amount_original || (log as any).amount || 0);
+      
+      let finalAmount = amountUzs;
+      if (!finalAmount && amountUsd) {
+         finalAmount = amountUsd * 12000; // Fallback rate
+      }
+
+      return {
+        id: log.id,
+        taskId: log.taskId,
+        taskTitle: log.task?.title || `Task #${log.taskId}`,
+        stageName: log.stageName,
+        amount: finalAmount,
+        currency: 'UZS',
+        createdAt: log.createdAt,
+      };
+    }));
+  } catch (error: any) {
+    console.error('Error fetching current earnings:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /api/workers/:id/participations - Get all task participations
+router.get('/:id/participations', requireAuth(), async (req, res) => {
+  try {
+    const workerId = parseInt(req.params.id);
+    const { period = 'month', startDate, endDate } = req.query;
+
+    let dateFilter: any = {};
+    const now = new Date();
+
+    if (period === 'day') {
+      const today = new Date(now);
+      today.setHours(0, 0, 0, 0);
+      dateFilter = { gte: today };
+    } else if (period === 'week') {
+      const weekAgo = new Date(now);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      dateFilter = { gte: weekAgo };
+    } else if (period === 'month') {
+      const monthAgo = new Date(now);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      dateFilter = { gte: monthAgo };
+    } else if (period === 'year') {
+      const yearAgo = new Date(now);
+      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+      dateFilter = { gte: yearAgo };
+    }
+
+    if (startDate) dateFilter.gte = new Date(startDate as string);
+    if (endDate) dateFilter.lte = new Date(endDate as string);
+
+    const completedStages = await prisma.taskStage.findMany({
+      where: {
+        assignedToId: workerId,
+        status: 'TAYYOR',
+        completedAt: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            title: true
+          }
+        }
+      },
+      orderBy: {
+        completedAt: 'desc'
+      }
+    });
+
+    res.json(completedStages);
+  } catch (error: any) {
+    console.error('Error fetching participations:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });

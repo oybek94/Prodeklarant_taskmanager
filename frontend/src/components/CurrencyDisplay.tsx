@@ -8,6 +8,7 @@ interface CurrencyDisplayProps {
   exchangeRate?: number | null;
   exchangeSource?: 'CBU' | 'MANUAL' | null;
   showBoth?: boolean; // Override to show both currencies regardless of role
+  forceOriginal?: boolean; // Override to show original currency regardless of role
   className?: string;
 }
 
@@ -18,6 +19,7 @@ const CurrencyDisplay = ({
   exchangeRate,
   exchangeSource,
   showBoth = false,
+  forceOriginal = false,
   className = '',
 }: CurrencyDisplayProps) => {
   const originalCurrency = originalCurrencyProp || 'USD';
@@ -44,6 +46,15 @@ const CurrencyDisplay = ({
           </div>
         )}
       </div>
+    );
+  }
+
+  // Force original currency display
+  if (forceOriginal) {
+    return (
+      <span className={className}>
+        {formatAmount(amount, originalCurrency)}
+      </span>
     );
   }
 

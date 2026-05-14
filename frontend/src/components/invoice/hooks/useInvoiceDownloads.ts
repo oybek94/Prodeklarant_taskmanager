@@ -83,9 +83,13 @@ export function useInvoiceDownloads({
       document.documentElement.classList.remove('dark');
     }
 
+    // Avval pechat holatini o'rnatib, renderga vaqt beramiz
     setPdfIncludeSeal(includeSeal);
+    await waitForPaint();
     setIsPdfMode(true);
     await waitForPaint();
+    // Qo'shimcha kutish — React batch update to'liq renderlanishi uchun
+    await new Promise(r => setTimeout(r, 100));
 
     const element = invoiceRef.current;
     const canvas = await html2canvas(element, {

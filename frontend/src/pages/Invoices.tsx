@@ -1096,20 +1096,6 @@ const Invoices = () => {
                     </div>
 
                     <div className="flex gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                        className="p-1.5 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-400 border border-gray-100 dark:border-gray-600 active:scale-95 transition-transform"
-                      >
-                        <Icon icon="lucide:eye" className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
-                        className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-500 border border-blue-100/50 dark:border-blue-800 active:scale-95 transition-transform"
-                      >
-                        <Icon icon="lucide:pencil" className="w-4 h-4" />
-                      </button>
                       {canEdit && (
                         <button
                           type="button"
@@ -1274,76 +1260,7 @@ const Invoices = () => {
                         </button>
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700 shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 transition-all hover:shadow"
-                            title="Invoysni ko'rish"
-                          >
-                            <Icon icon="lucide:eye" className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/tasks/${invoice.taskId}/edit`)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700 transition-all hover:shadow"
-                            title="Taskni tahrirlash"
-                          >
-                            <Icon icon="lucide:clipboard-list" className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/invoices/task/${invoice.taskId}`)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-500 hover:text-blue-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-blue-50 dark:hover:bg-slate-700 shadow-sm ring-1 ring-blue-200/60 dark:ring-slate-700 transition-all hover:shadow"
-                            title="Tahrirlash"
-                          >
-                            <Icon icon="lucide:pencil" className="w-4 h-4" />
-                          </button>
-
-                          {/* Shablonlar dropdown */}
-                          <div className="relative" ref={openTemplateDropdownId === invoice.id ? templateDropdownRef : undefined} onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={() => setOpenTemplateDropdownId(openTemplateDropdownId === invoice.id ? null : invoice.id)}
-                              className={`inline-flex items-center justify-center w-8 h-8 rounded-lg shadow-sm ring-1 transition-all hover:shadow ${openTemplateDropdownId === invoice.id ? 'text-violet-700 bg-violet-100 ring-violet-300 dark:bg-violet-900/50 dark:text-violet-300 dark:ring-violet-600' : 'text-violet-500 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 hover:bg-violet-50 dark:hover:bg-slate-700 ring-violet-200/60 dark:ring-slate-700'}`}
-                              title="Shablonlarni yuklab olish"
-                            >
-                              <Icon icon="lucide:download" className="w-4 h-4" />
-                            </button>
-                            {openTemplateDropdownId === invoice.id && (
-                              <div className="absolute right-0 top-9 z-[200] min-w-[215px] bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-100 dark:border-slate-700 py-1.5">
-                                <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider border-b border-gray-100 dark:border-slate-700/60 mb-1">
-                                  Shablonlar yuklab olish
-                                </div>
-                                {[
-                                  { key: 'TIR', label: 'TIR', icon: 'lucide:truck', color: 'text-blue-600 dark:text-blue-400' },
-                                  { key: 'SMR', label: 'SMR (CMR)', icon: 'lucide:file-text', color: 'text-cyan-600 dark:text-cyan-400' },
-                                  { key: 'Tashqi', label: 'Tashqi (FSS)', icon: 'lucide:globe', color: 'text-emerald-600 dark:text-emerald-400' },
-                                  { key: 'ST-1', label: 'ST-1', icon: 'lucide:award', color: 'text-amber-600 dark:text-amber-400' },
-                                  { key: 'InvoysPechatli', label: 'Invoys (Pechatli)', icon: 'lucide:stamp', color: 'text-rose-600 dark:text-rose-400' },
-                                  { key: 'InvoysPechatsiz', label: 'Invoys (Pechatsiz)', icon: 'lucide:file', color: 'text-pink-600 dark:text-pink-400' },
-                                  { key: 'InvoysExcel', label: 'Invoys (Excel)', icon: 'lucide:table-2', color: 'text-green-600 dark:text-green-400' },
-                                  { key: 'Deklaratsiya', label: 'Deklaratsiya', icon: 'lucide:scroll', color: 'text-purple-600 dark:text-purple-400' },
-                                ].map((tmpl) => (
-                                  <button
-                                    key={tmpl.key}
-                                    type="button"
-                                    disabled={downloadingTemplate === `${invoice.id}-${tmpl.key}`}
-                                    onClick={() => downloadInvoiceTemplate(invoice.id, invoice.invoiceNumber, tmpl.key)}
-                                    className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                                  >
-                                    {downloadingTemplate === `${invoice.id}-${tmpl.key}` ? (
-                                      <Icon icon="lucide:loader-2" className={`w-4 h-4 animate-spin ${tmpl.color}`} />
-                                    ) : (
-                                      <Icon icon={tmpl.icon} className={`w-4 h-4 ${tmpl.color}`} />
-                                    )}
-                                    <span className="font-medium">{tmpl.label}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
+                        <div className="flex items-center justify-end gap-1 pr-2">
                           {canEdit && (
                             <>
                               <button

@@ -381,6 +381,18 @@ const AppRoutes = () => {
 import { ThemeProvider } from './contexts/ThemeContext';
 
 function App() {
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (document.activeElement?.tagName === 'INPUT' && (document.activeElement as HTMLInputElement).type === 'number') {
+        (document.activeElement as HTMLInputElement).blur();
+      }
+    };
+    document.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      document.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   return (
     <ThemeProvider>
       <AuthProvider>

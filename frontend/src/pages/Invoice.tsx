@@ -140,7 +140,21 @@ const Invoice = () => {
   } = useDeliveryTerms({ selectedContractId, contractIdFromQuery });
 
   const invoiceRef = useRef<HTMLDivElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const initialForChangeLogRef = useRef<{ form: Record<string, unknown>; items: InvoiceItem[] } | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        if (formRef.current && canEditEffective) {
+          formRef.current.requestSubmit();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [canEditEffective]);
   const [isPdfMode, setIsPdfMode] = useState(false);
   const [viewTab, setViewTab] = useState<ViewTab>('invoice');
   const [pdfIncludeSeal, setPdfIncludeSeal] = useState(true);
@@ -468,7 +482,7 @@ const Invoice = () => {
         {/* Invoice form + Requirements note side panel */}
         <div className="flex gap-6 items-start">
         <div className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden">
-        <form onSubmit={handleSubmit} className={`invoice-form${!canEditEffective ? ' invoice-form-readonly' : ''}`}>
+        <form ref={formRef} onSubmit={handleSubmit} className={`invoice-form${!canEditEffective ? ' invoice-form-readonly' : ''}`}>
 
           <datalist id="invoice-tnved-products">
             {invoiceProductOptions.map((p) => (

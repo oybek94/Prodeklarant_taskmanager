@@ -27,7 +27,18 @@ const SendEmailModal: React.FC<SendEmailModalProps> = ({
   sendingEmail, sendEmailError, setSendEmailError,
   taskDocuments, onClose, onSubmit,
 }) => {
+  const formRef = React.useRef<HTMLFormElement>(null);
+
   if (!show || !selectedTask) return null;
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      if (!sendingEmail && formRef.current) {
+        formRef.current.requestSubmit();
+      }
+    }
+  };
 
   return (
     <div
@@ -47,7 +58,7 @@ const SendEmailModal: React.FC<SendEmailModalProps> = ({
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
           Send Documents by Email
         </h3>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={onSubmit} onKeyDown={handleKeyDown} className="space-y-4">
           {/* Subject */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -130,7 +141,7 @@ const SendEmailModal: React.FC<SendEmailModalProps> = ({
               disabled={sendingEmail}
               className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sendingEmail ? 'Sending...' : 'Send'}
+              {sendingEmail ? 'Sending...' : 'Send (Ctrl+Enter)'}
             </button>
             <button
               type="button"

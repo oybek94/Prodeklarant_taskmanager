@@ -8,6 +8,8 @@ import { usePresence, getPageLabel } from '../hooks/usePresence';
 import { useTheme } from '../contexts/ThemeContext';
 import toast from 'react-hot-toast';
 import { GlobalRankUpWatcher } from './GlobalRankUpWatcher';
+import apiClient from '../lib/api';
+import BXMModal from './tasks/BxmModal';
 
 const Layout = () => {
   const { user, logout } = useAuth();
@@ -16,6 +18,44 @@ const Layout = () => {
   const { theme, toggleTheme } = useTheme();
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // BXM Modal state
+  const [showBXMModal, setShowBXMModal] = useState(false);
+  const [bxmMultiplier, setBxmMultiplier] = useState('1.5');
+  const [afterHoursDeclaration, setAfterHoursDeclaration] = useState(false);
+  const [currentBxmUsd, setCurrentBxmUsd] = useState(34.4);
+  const [currentBxmUzs, setCurrentBxmUzs] = useState(412000);
+  const [pendingDeclarationNotif, setPendingDeclarationNotif] = useState<AppNotification | null>(null);
+
+  const formatBxmAmountInSum = (multiplier: number) => {
+    return new Intl.NumberFormat('ru-RU').format(Math.round(multiplier * currentBxmUzs)) + ' UZS';
+  };
+
+  const handleBXMConfirm = async () => {
+    if (!pendingDeclarationNotif) return;
+    const processId = (pendingDeclarationNotif.metadata as any)?.taskProcessId;
+    
+    const multiplier = parseFloat(bxmMultiplier);
+    const paymentAmount = multiplier * currentBxmUzs;
+
+    if (multiplier > 1.0) {
+      if (!confirm(`BXM ${multiplier} barobari tanlandi. Davom etasizmi?`)) return;
+    }
+
+    try {
+      await confirmProcess(processId, { 
+        declarationPaymentAmount: paymentAmount,
+        afterHoursDeclaration,
+        bxmMultiplier: multiplier
+      });
+      toast.success('Tayyor deb belgilandi!');
+    } catch (err: any) {
+      toast.error(err.message || 'Xatolik');
+    } finally {
+      setShowBXMModal(false);
+      setPendingDeclarationNotif(null);
+    }
+  };
 
   // Bildirishnoma ruxsati so'rash
   useEffect(() => {
@@ -96,9 +136,28 @@ const Layout = () => {
   // Process Reminder bildirishnoma uchun action tugmalar
   const handleProcessConfirm = async (n: AppNotification) => {
     const processId = (n.metadata as any)?.taskProcessId;
+    const processType = (n.metadata as any)?.processType;
     if (!processId) return;
+
+    if (processType === 'DECLARATION') {
+      try {
+        const bxmResponse = await apiClient.get('/bxm/current');
+        setCurrentBxmUsd(Number(bxmResponse.data.amountUsd ?? bxmResponse.data.amount ?? 34.4));
+        setCurrentBxmUzs(Number(bxmResponse.data.amountUzs ?? 412000));
+      } catch (err) {
+        // Fallback to default
+        setCurrentBxmUsd(34.4);
+        setCurrentBxmUzs(412000);
+      }
+      setBxmMultiplier('1.5');
+      setAfterHoursDeclaration(false);
+      setPendingDeclarationNotif(n);
+      setShowBXMModal(true);
+      return;
+    }
+
     try {
-      await confirmProcess(processId);
+      await confirmProcess(processId, {});
       toast.success('Tayyor deb belgilandi!');
     } catch (err: any) {
       toast.error(err.message || 'Xatolik');
@@ -143,32 +202,37 @@ const Layout = () => {
     <div className="flex h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900 relative text-gray-900 dark:text-gray-100">
       {/* Sidebar */}
       {!isExamPage && (
-        <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-12' : 'w-0'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 overflow-hidden relative`}>
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <div className={`${sidebarOpen ? 'block' : 'hidden'}`}>
-              <img src="/logo.png" alt="Prodeklarant" className="h-8 w-auto" />
-              {user && <p className="text-sm text-gray-500 mt-2">{user.name}</p>}
-            </div>
-            {(sidebarOpen || !isDesktop) && (
+        <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-20' : 'w-0'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 overflow-hidden relative z-20`}>
+          <div className={`${sidebarOpen ? 'p-6' : 'py-4'} border-b border-gray-200 dark:border-gray-700 flex items-center justify-between`}>
+            {sidebarOpen && (
+              <div className="block">
+                <img src="/logo.png" alt="Prodeklarant" className="h-8 w-auto" />
+                {user && <p className="text-sm text-gray-500 mt-2 truncate">{user.name}</p>}
+              </div>
+            )}
+            {(!sidebarOpen && isDesktop) && (
+              <div className="w-full flex justify-center">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors flex-shrink-0"
+                  title="Menuni ochish"
+                >
+                  <Icon icon="lucide:menu" className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                </button>
+              </div>
+            )}
+            {sidebarOpen && (
               <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
+                onClick={() => setSidebarOpen(false)}
                 className="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0"
+                title="Menuni yopish"
               >
-                <Icon icon={sidebarOpen ? "lucide:x" : "lucide:menu"} className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                <Icon icon={isDesktop ? "lucide:chevron-left" : "lucide:x"} className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               </button>
             )}
           </div>
 
-          {!isDesktop && !sidebarOpen && (
-            <div className="p-3 border-b border-gray-200 flex justify-center">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                <Icon icon="lucide:menu" className="w-5 h-5" />
-              </button>
-            </div>
-          )}
+
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto p-4">
@@ -180,7 +244,7 @@ const Layout = () => {
                       navigate(item.path);
                       if (!isDesktop) setSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg transition-colors ${isActive(item.path)
+                    className={`w-full flex items-center ${sidebarOpen ? 'gap-3 px-4' : 'justify-center px-0'} py-3 rounded-xl transition-colors ${isActive(item.path)
                       ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                       }`}
@@ -223,7 +287,7 @@ const Layout = () => {
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={handleLogout}
-              className={`w-full flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} ${!sidebarOpen ? 'px-2' : 'px-4'} py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}
+              className={`w-full flex items-center ${sidebarOpen ? 'gap-3 px-4' : 'justify-center px-0'} py-3 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}
               title={!sidebarOpen ? 'Chiqish' : ''}
             >
               <Icon icon="lucide:log-out" className="w-5 h-5 flex-shrink-0" />
@@ -389,6 +453,20 @@ const Layout = () => {
         </main>
       </div>
       <GlobalRankUpWatcher />
+      
+      <BXMModal
+        show={showBXMModal}
+        bxmMultiplier={bxmMultiplier}
+        setBxmMultiplier={setBxmMultiplier}
+        afterHoursDeclaration={afterHoursDeclaration}
+        setAfterHoursDeclaration={setAfterHoursDeclaration}
+        formatBxmAmountInSum={formatBxmAmountInSum}
+        onConfirm={handleBXMConfirm}
+        onClose={() => {
+          setShowBXMModal(false);
+          setPendingDeclarationNotif(null);
+        }}
+      />
     </div>
   );
 };

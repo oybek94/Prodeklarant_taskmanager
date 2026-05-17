@@ -73,15 +73,8 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
         nextReminderTime = new Date(tp.downloadedAt.getTime() + reminder3 * 60 * 1000);
       }
 
-      // Qabul qiluvchilar: yuklab olgan ishchi + filial ishchilari
+      // Qabul qiluvchilar: faqat yuklab olgan ishchiga
       const recipientIds = new Set<number>([tp.userId]);
-      if (tp.task?.branchId != null) {
-        const branchUsers = await prisma.user.findMany({
-          where: { branchId: tp.task.branchId, active: true },
-          select: { id: true },
-        });
-        branchUsers.forEach((u) => recipientIds.add(u.id));
-      }
 
       const txOps: any[] = [
         prisma.taskProcessLog.create({

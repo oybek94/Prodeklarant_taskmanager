@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { getNotifStyle, useNotifications } from '../hooks/useNotifications';
 import type { AppNotification, NotificationType } from '../hooks/useNotifications';
+import BXMModal from '../components/tasks/BxmModal';
 
 const TYPE_LABELS: Record<NotificationType, string> = {
   TASK_CREATED: 'Yangi task',
@@ -24,6 +25,44 @@ const Notifications = () => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+
+  // BXM Modal state
+  const [showBXMModal, setShowBXMModal] = useState(false);
+  const [bxmMultiplier, setBxmMultiplier] = useState('1.5');
+  const [afterHoursDeclaration, setAfterHoursDeclaration] = useState(false);
+  const [currentBxmUsd, setCurrentBxmUsd] = useState(34.4);
+  const [currentBxmUzs, setCurrentBxmUzs] = useState(412000);
+  const [pendingDeclarationNotif, setPendingDeclarationNotif] = useState<AppNotification | null>(null);
+
+  const formatBxmAmountInSum = (multiplier: number) => {
+    return new Intl.NumberFormat('ru-RU').format(Math.round(multiplier * currentBxmUzs)) + ' UZS';
+  };
+
+  const handleBXMConfirm = async () => {
+    if (!pendingDeclarationNotif) return;
+    const processId = (pendingDeclarationNotif.metadata as any)?.taskProcessId;
+    
+    const multiplier = parseFloat(bxmMultiplier);
+    const paymentAmount = multiplier * currentBxmUzs;
+
+    if (multiplier > 1.0) {
+      if (!window.confirm(`BXM ${multiplier} barobari tanlandi. Davom etasizmi?`)) return;
+    }
+
+    try {
+      await confirmProcess(processId, { 
+        declarationPaymentAmount: paymentAmount,
+        afterHoursDeclaration,
+        bxmMultiplier: multiplier
+      });
+      setNotifications(prev => prev.filter(notif => notif.id !== pendingDeclarationNotif.id));
+    } catch (err: any) {
+      console.error('Process confirm error:', err);
+    } finally {
+      setShowBXMModal(false);
+      setPendingDeclarationNotif(null);
+    }
+  };
 
   const fetchAll = useCallback(async () => {
     try {
@@ -61,9 +100,28 @@ const Notifications = () => {
 
   const handleProcessConfirm = async (n: AppNotification) => {
     const processId = (n.metadata as any)?.taskProcessId;
+    const processType = (n.metadata as any)?.processType;
     if (!processId) return;
+
+    if (processType === 'DECLARATION') {
+      try {
+        const bxmResponse = await apiClient.get('/bxm/current');
+        setCurrentBxmUsd(Number(bxmResponse.data.amountUsd ?? bxmResponse.data.amount ?? 34.4));
+        setCurrentBxmUzs(Number(bxmResponse.data.amountUzs ?? 412000));
+      } catch (err) {
+        // Fallback to default
+        setCurrentBxmUsd(34.4);
+        setCurrentBxmUzs(412000);
+      }
+      setBxmMultiplier('1.5');
+      setAfterHoursDeclaration(false);
+      setPendingDeclarationNotif(n);
+      setShowBXMModal(true);
+      return;
+    }
+
     try {
-      await confirmProcess(processId);
+      await confirmProcess(processId, {});
       setNotifications(prev => prev.filter(notif => notif.id !== n.id));
     } catch (err: any) {
       console.error('Process confirm error:', err);
@@ -240,6 +298,20 @@ const Notifications = () => {
           })}
         </div>
       )}
+
+      <BXMModal
+        show={showBXMModal}
+        bxmMultiplier={bxmMultiplier}
+        setBxmMultiplier={setBxmMultiplier}
+        afterHoursDeclaration={afterHoursDeclaration}
+        setAfterHoursDeclaration={setAfterHoursDeclaration}
+        formatBxmAmountInSum={formatBxmAmountInSum}
+        onConfirm={handleBXMConfirm}
+        onClose={() => {
+          setShowBXMModal(false);
+          setPendingDeclarationNotif(null);
+        }}
+      />
     </div>
   );
 };

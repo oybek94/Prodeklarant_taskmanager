@@ -525,8 +525,15 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             </span>
                           )}
                           {deklarMultiplier != null && (
-                            <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                              BXM {deklarMultiplier} barobari
+                            <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full border border-blue-100 dark:border-blue-800/50">
+                              <span className="font-semibold text-blue-700 dark:text-blue-400 text-[11px]">
+                                BXM {deklarMultiplier} barobari
+                                {selectedTask.snapshotCustomsPayment != null && (
+                                  <span className="ml-1 text-blue-600 dark:text-blue-300">
+                                    ({new Intl.NumberFormat('ru-RU').format(Math.round(Number(selectedTask.snapshotCustomsPayment_amount_uzs || selectedTask.snapshotCustomsPayment)))} UZS)
+                                  </span>
+                                )}
+                              </span>
                               {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
                                 <button
                                   type="button"
@@ -534,7 +541,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                                     e.stopPropagation();
                                     await handleBXMEdit(stage);
                                   }}
-                                  className="ml-1 p-0.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+                                  className="ml-1 p-0.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/50 rounded transition-colors"
                                   title="BXM ni o'zgartirish"
                                 >
                                   <Icon icon="lucide:pencil" className="w-3 h-3" />

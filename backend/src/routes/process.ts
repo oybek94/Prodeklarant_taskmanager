@@ -24,6 +24,9 @@ const downloadSchema = z.object({
 
 const confirmRejectSchema = z.object({
   taskProcessId: z.number().int().positive(),
+  declarationPaymentAmount: z.number().nonnegative().optional(),
+  bxmMultiplier: z.number().positive().optional(),
+  afterHoursDeclaration: z.boolean().optional(),
 });
 
 const processSettingsSchema = z.object({
@@ -137,7 +140,7 @@ router.post('/confirm', requireAuth(), async (req: AuthRequest, res) => {
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
-    const { taskProcessId } = parsed.data;
+    const { taskProcessId, declarationPaymentAmount, bxmMultiplier, afterHoursDeclaration } = parsed.data;
     const userId = req.user!.id;
 
     const tp = await prisma.tasksProcess.findUnique({
@@ -183,6 +186,22 @@ router.post('/confirm', requireAuth(), async (req: AuthRequest, res) => {
       // Tegishli task stage ni avtomatik TAYYOR belgilash
       const stageNames = PROCESS_TYPE_TO_STAGE_NAMES[tp.processType];
       if (stageNames?.length) {
+        if (tp.processType === 'DECLARATION' && declarationPaymentAmount !== undefined) {
+          await tx.task.update({
+            where: { id: tp.taskId },
+            data: {
+              customsPaymentMultiplier: bxmMultiplier,
+              afterHoursDeclaration: afterHoursDeclaration ?? false,
+              snapshotCustomsPayment: declarationPaymentAmount,
+              snapshotCustomsPayment_amount_original: declarationPaymentAmount,
+              snapshotCustomsPayment_currency: 'UZS',
+              snapshotCustomsPayment_exchange_rate: 1,
+              snapshotCustomsPayment_amount_uzs: declarationPaymentAmount,
+              snapshotCustomsPayment_exchange_source: 'MANUAL',
+            }
+          });
+        }
+
         const stage = await tx.taskStage.findFirst({
           where: {
             taskId: tp.taskId,

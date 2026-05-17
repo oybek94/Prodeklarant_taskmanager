@@ -183,9 +183,9 @@ export function useNotifications() {
   }, []);
 
   // Process confirm/reject uchun mos API (eski sistemadan saqlab qolish)
-  const confirmProcess = useCallback(async (taskProcessId: number) => {
+  const confirmProcess = useCallback(async (taskProcessId: number, data?: any) => {
     try {
-      await apiClient.post('/process/confirm', { taskProcessId });
+      await apiClient.post('/process/confirm', { taskProcessId, ...data });
       await fetchNotifications();
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Tasdiqlashda xatolik');

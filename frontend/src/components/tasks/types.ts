@@ -82,6 +82,10 @@ export interface TaskDetail {
   snapshotPsrPrice?: number | null;
   snapshotWorkerPrice?: number | null;
   snapshotCustomsPayment?: number | null;
+  snapshotCustomsPayment_amount_uzs?: number | null;
+  snapshotCustomsPayment_amount_original?: number | null;
+  snapshotCustomsPayment_currency?: string | null;
+  snapshotCustomsPayment_exchange_rate?: number | null;
   customsPaymentMultiplier?: number | null;
   kpiLogs?: KpiLog[];
   errors?: TaskError[];

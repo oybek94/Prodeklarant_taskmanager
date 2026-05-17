@@ -299,6 +299,7 @@ const Settings = () => {
   const [processSettingsEdits, setProcessSettingsEdits] = useState<Record<string, { estimatedTime: string; reminder1: string; reminder2: string; reminder3: string }>>({});
   const [savingProcessSettings, setSavingProcessSettings] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const handleBackup = async () => {
     try {
@@ -315,6 +316,33 @@ const Settings = () => {
       alert("Zaxira o'rnatishda xatolik yuz berdi. Iltimos qayta urinib ko'ring.");
     } finally {
       setIsBackingUp(false);
+    }
+  };
+
+  const handleRestore = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm("DIQQAT! Bu amal bazadagi barcha joriy ma'lumotlarni O'CHIRIB TASHLAydi va o'rniga arxivdagi ma'lumotlarni yozadi. Haqiqatan ham davom ettirmoqchimisiz?")) {
+      event.target.value = '';
+      return;
+    }
+
+    try {
+      setIsRestoring(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await apiClient.post('/system/restore', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      alert(res.data.message || "Ma'lumotlar muvaffaqiyatli tiklandi!");
+      window.location.reload();
+    } catch (e: any) {
+      alert(e.response?.data?.error || "Tiklashda xatolik yuz berdi");
+    } finally {
+      setIsRestoring(false);
+      event.target.value = '';
     }
   };
 
@@ -2185,23 +2213,51 @@ const Settings = () => {
                   </div>
                 </div>
 
-                <button
-                  onClick={handleBackup}
-                  disabled={isBackingUp}
-                  className="flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl font-medium transition-colors shadow-sm"
-                >
-                  {isBackingUp ? (
-                    <>
-                      <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" />
-                      Yuklanmoqda...
-                    </>
-                  ) : (
-                    <>
-                      <Icon icon="lucide:download" className="w-5 h-5" />
-                      Zaxira faylini yuklab olish
-                    </>
-                  )}
-                </button>
+                <div className="flex flex-wrap gap-4">
+                  <button
+                    onClick={handleBackup}
+                    disabled={isBackingUp || isRestoring}
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl font-medium transition-colors shadow-sm"
+                  >
+                    {isBackingUp ? (
+                      <>
+                        <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" />
+                        Yuklanmoqda...
+                      </>
+                    ) : (
+                      <>
+                        <Icon icon="lucide:download" className="w-5 h-5" />
+                        Zaxira faylini yuklab olish
+                      </>
+                    )}
+                  </button>
+
+                  <div className="relative">
+                    <input 
+                      type="file" 
+                      accept=".zip,.json" 
+                      onChange={handleRestore}
+                      disabled={isBackingUp || isRestoring}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                    />
+                    <button
+                      disabled={isBackingUp || isRestoring}
+                      className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-medium transition-colors shadow-sm w-full"
+                    >
+                      {isRestoring ? (
+                        <>
+                          <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" />
+                          Tiklanmoqda...
+                        </>
+                      ) : (
+                        <>
+                          <Icon icon="lucide:upload" className="w-5 h-5" />
+                          Zaxiradan tiklash (Restore)
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

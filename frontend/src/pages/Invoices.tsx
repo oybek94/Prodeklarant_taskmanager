@@ -1088,10 +1088,16 @@ const Invoices = () => {
                   </div>
 
                   <div className="flex justify-between items-center border-t border-gray-50 dark:border-gray-700/50 pt-2">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-6">
                       <div>
                         <p className="text-gray-400 text-[10px] uppercase font-semibold">Avto</p>
                         <p className="font-mono font-bold text-gray-900 dark:text-gray-100 text-sm tracking-widest">{invoice.additionalInfo?.vehicleNumber || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-[10px] uppercase font-semibold text-right">Summa</p>
+                        <div className="font-bold text-gray-900 dark:text-gray-100 text-sm text-right">
+                          <CurrencyDisplay amount={invoice.totalAmount || 0} originalCurrency={invoice.currency} />
+                        </div>
                       </div>
                     </div>
 
@@ -1140,6 +1146,12 @@ const Invoices = () => {
                     <span className="inline-flex items-center gap-1.5">
                       <Icon icon="lucide:car" className="w-4 h-4 text-amber-500" />
                       Avtomobil
+                    </span>
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5 justify-end w-full">
+                      <Icon icon="lucide:coins" className="w-4 h-4 text-emerald-500" />
+                      Summa
                     </span>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
@@ -1223,6 +1235,9 @@ const Invoices = () => {
                             />
                           )}
                         </div>
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-gray-100">
+                        <CurrencyDisplay amount={invoice.totalAmount || 0} originalCurrency={invoice.currency} />
                       </td>
                       <td className="px-6 py-2 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName].filter(Boolean).join(' / ') || undefined}>
                         {invoice.clientId ? (

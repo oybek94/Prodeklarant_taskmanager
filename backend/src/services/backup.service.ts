@@ -3,6 +3,7 @@ import path from 'path';
 import archiver from 'archiver';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
+import TelegramBot from 'node-telegram-bot-api';
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/backups');
 
@@ -53,9 +54,10 @@ export class BackupService {
         zlib: { level: 9 } // Maximum siqish
       });
 
-      output.on('close', () => {
+      output.on('close', async () => {
         console.log(`[BACKUP] Muvaffaqiyatli saqlandi: ${filepath} (${archive.pointer()} bayt)`);
         this.cleanOldBackups();
+        await this.sendToTelegram(filepath, filename);
         resolve(filepath);
       });
 
@@ -96,5 +98,31 @@ export class BackupService {
         });
       }
     });
+  }
+
+  /**
+   * Zaxira qilingan ZIP faylni Telegram guruhiga yuboradi
+   */
+  static async sendToTelegram(filepath: string, filename: string) {
+    try {
+      const token = process.env.BACKUP_TELEGRAM_BOT_TOKEN;
+      const chatId = process.env.BACKUP_TELEGRAM_CHAT_ID;
+
+      if (!token || !chatId) {
+        console.warn('[BACKUP] BACKUP_TELEGRAM_BOT_TOKEN yoki BACKUP_TELEGRAM_CHAT_ID sozlanmagan. Telegramga yuborilmaydi.');
+        return;
+      }
+
+      console.log(`[BACKUP] Telegramga yuborilmoqda... (${filename})`);
+      const bot = new TelegramBot(token, { polling: false });
+      
+      await bot.sendDocument(chatId, filepath, {
+        caption: `📦 Prodeklarant Kunlik Zaxira\n📅 Sana: ${new Date().toLocaleString('uz-UZ')}\n📁 Fayl: ${filename}`
+      });
+
+      console.log('[BACKUP] Muvaffaqiyatli Telegramga yuborildi!');
+    } catch (error) {
+      console.error('[BACKUP] Telegramga yuborishda xatolik:', error);
+    }
   }
 }

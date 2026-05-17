@@ -200,7 +200,7 @@ app.get('/health', async (_req, res) => {
 });
 
 // Separate endpoint for database health check
-app.get('/health/db', async (_req, res) => {
+app.get(['/health/db', '/api/health/db'], async (_req, res) => {
   try {
     await Promise.race([
       prisma.$queryRaw`SELECT 1`,

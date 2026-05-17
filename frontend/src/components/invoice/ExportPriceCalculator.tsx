@@ -128,7 +128,7 @@ export function ExportPriceCalculator({ form, setForm, items }: ExportPriceCalcu
   if (items.length === 0) return null;
 
   return (
-    <div className="mt-8 pt-6 border-t border-gray-200">
+    <div className="mt-8 pt-6 border-t border-gray-200 no-screenshot">
       <div 
         className="flex items-center justify-between mb-4 cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-lg transition-colors select-none"
         onClick={() => setCalcVisible(!calcVisible)}

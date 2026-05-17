@@ -288,7 +288,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     <div className="mb-8">
       <div className="flex items-center justify-between mb-4">
         <div></div>
-        {(viewTab === 'invoice' && canEditEffective) && (
+        {viewTab === 'invoice' && (
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -299,27 +299,31 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
               <Icon icon="lucide:camera" className="w-4 h-4" />
               Nusxa olish
             </button>
-            <details ref={columnsDropdownRef} open={columnsDropdownOpen} className="relative no-screenshot">
-              <summary
-                className="list-none cursor-pointer px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-                onClick={(e) => { e.preventDefault(); setColumnsDropdownOpen((prev) => !prev); }}
-              >
-                Ustunlar
-              </summary>
-              <div className="absolute right-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-20">
-                <div className="grid grid-cols-1 gap-2 text-sm text-gray-700">
-                  {(['index', 'tnved', 'plu', 'name', 'unit', 'package', 'quantity', 'packagesCount', 'gross', 'net', 'unitPrice', 'total', 'actions'] as ColumnLabelKey[]).map((key) => (
-                    <div key={key} className="flex items-center gap-2">
-                      <input type="checkbox" checked={visibleColumns[key]} onChange={() => setVisibleColumnsAndPersist((prev) => ({ ...prev, [key]: !prev[key] }))} className="shrink-0" />
-                      <input type="text" value={columnLabels[key]} onChange={(e) => setColumnLabels((prev) => ({ ...prev, [key]: e.target.value }))} className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-xs" placeholder={DEFAULT_COLUMN_LABELS[key]} />
+            {canEditEffective && (
+              <>
+                <details ref={columnsDropdownRef} open={columnsDropdownOpen} className="relative no-screenshot">
+                  <summary
+                    className="list-none cursor-pointer px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={(e) => { e.preventDefault(); setColumnsDropdownOpen((prev) => !prev); }}
+                  >
+                    Ustunlar
+                  </summary>
+                  <div className="absolute right-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-20">
+                    <div className="grid grid-cols-1 gap-2 text-sm text-gray-700">
+                      {(['index', 'tnved', 'plu', 'name', 'unit', 'package', 'quantity', 'packagesCount', 'gross', 'net', 'unitPrice', 'total', 'actions'] as ColumnLabelKey[]).map((key) => (
+                        <div key={key} className="flex items-center gap-2">
+                          <input type="checkbox" checked={visibleColumns[key]} onChange={() => setVisibleColumnsAndPersist((prev) => ({ ...prev, [key]: !prev[key] }))} className="shrink-0" />
+                          <input type="text" value={columnLabels[key]} onChange={(e) => setColumnLabels((prev) => ({ ...prev, [key]: e.target.value }))} className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-xs" placeholder={DEFAULT_COLUMN_LABELS[key]} />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            </details>
-            <button type="button" onClick={addItem} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm no-screenshot">
-              Qator qo'shish
-            </button>
+                  </div>
+                </details>
+                <button type="button" onClick={addItem} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm no-screenshot">
+                  Qator qo'shish
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

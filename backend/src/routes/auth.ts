@@ -344,7 +344,19 @@ router.get('/me/xp', requireAuth(), async (req: AuthRequest, res) => {
     });
     
     const bountyXp = bountyXpResult._sum.bountyXp || 0;
-    const totalXP = completedStagesCount + bountyXp;
+
+    const noteXpResult = await (prisma as any).dashboardNote.aggregate({
+      where: {
+        completedById: req.user.id,
+        isCompleted: true,
+        completedAt: { gte: yearStart },
+        xpReward: { not: null }
+      },
+      _sum: { xpReward: true }
+    });
+    const noteXp = noteXpResult._sum.xpReward || 0;
+
+    const totalXP = completedStagesCount + bountyXp + noteXp;
 
     res.json({ xp: totalXP });
   } catch (error: any) {

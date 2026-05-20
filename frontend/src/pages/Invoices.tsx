@@ -348,10 +348,16 @@ const Invoices = () => {
       refresh(); 
     };
     
+    const onTaskErrorUpdated = (data: any) => {
+      console.log('Socket event (taskErrorUpdated) received in Invoices:', data);
+      refresh();
+    };
+
     socket.on('task:created', onTaskUpdated);
     socket.on('task:updated', onTaskUpdated);
     socket.on('task:deleted', onTaskUpdated);
     socket.on('task:stageUpdated', onTaskStageUpdated);
+    socket.on('task:errorUpdated', onTaskErrorUpdated);
     socket.on('invoice:saved', onInvoiceSaved);
     socket.on('invoice:deleted', onInvoiceDeleted);
 
@@ -360,6 +366,7 @@ const Invoices = () => {
       socket.off('task:updated', onTaskUpdated);
       socket.off('task:deleted', onTaskUpdated);
       socket.off('task:stageUpdated', onTaskStageUpdated);
+      socket.off('task:errorUpdated', onTaskErrorUpdated);
       socket.off('invoice:saved', onInvoiceSaved);
       socket.off('invoice:deleted', onInvoiceDeleted);
     };
@@ -1193,9 +1200,9 @@ const Invoices = () => {
                         if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) return;
                         navigate(`/invoices/task/${invoice.taskId}`);
                       }}
-                      className={`group transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${hasErrors ? 'border-l-4 border-l-red-500' : ''}`}
+                      className="group transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                     >
-                      <td className="w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold">
+                      <td className={`w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold border-l-4 ${hasErrors ? 'border-l-red-500' : 'border-l-transparent'}`}>
                         <button
                           type="button"
                           onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}

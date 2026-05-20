@@ -54,6 +54,42 @@ export async function calculateTotalEarned(
     }
   }
 
+  // DashboardNote completed rewards
+  const notesWhere: any = {
+    completedById: workerId,
+    isCompleted: true,
+    bountyReward: { not: null },
+  };
+
+  if (dateRange) {
+    if (dateRange.startDate || dateRange.endDate) {
+      notesWhere.completedAt = {};
+      if (dateRange.startDate) {
+        notesWhere.completedAt.gte = dateRange.startDate;
+      }
+      if (dateRange.endDate) {
+        notesWhere.completedAt.lte = dateRange.endDate;
+      }
+    }
+  }
+
+  const completedNotes = await (client as any).dashboardNote.findMany({ where: notesWhere });
+
+  for (const note of completedNotes) {
+    const amountUzs = Number(note.bountyReward || 0);
+    if (currency === 'UZS') {
+      total = total.plus(new Decimal(amountUzs));
+    } else {
+      let rate = new Decimal(12000);
+      try {
+        rate = await getExchangeRate(note.completedAt || new Date(), 'USD', 'UZS', client);
+      } catch {
+        // use fallback 12000
+      }
+      total = total.plus(new Decimal(amountUzs).div(rate));
+    }
+  }
+
   return total;
 }
 

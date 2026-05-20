@@ -363,7 +363,19 @@ router.get('/my-bonus', requireAuth(), async (req, res) => {
         awardedAt: { gte: start }
       }
     });
-    const totalBonus = medals.reduce((acc: number, m: any) => acc + Number(m.cashBonus), 0);
+    const totalMedalBonus = medals.reduce((acc: number, m: any) => acc + Number(m.cashBonus), 0);
+
+    const notes = await (prisma as any).dashboardNote.findMany({
+      where: {
+        completedById: (req as any).user?.id,
+        isCompleted: true,
+        completedAt: { gte: start },
+        bountyReward: { not: null }
+      }
+    });
+    const notesBonus = notes.reduce((acc: number, n: any) => acc + Number(n.bountyReward), 0);
+
+    const totalBonus = totalMedalBonus + notesBonus;
     res.json({ totalBonus });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

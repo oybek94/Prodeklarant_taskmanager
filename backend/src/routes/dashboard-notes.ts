@@ -26,7 +26,11 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       },
       orderBy: { createdAt: 'desc' }
     });
-    res.json(activeTasks);
+    const formatted = activeTasks.map((t: any) => ({
+      ...t,
+      bountyReward: t.bountyReward ? Number(t.bountyReward) : null,
+    }));
+    res.json(formatted);
   } catch (error) {
     console.error('Error fetching dashboard notes:', error);
     res.status(500).json({ error: 'Failed to fetch notes' });
@@ -49,7 +53,11 @@ router.get('/archive', requireAuth(), async (req: AuthRequest, res) => {
       orderBy: { completedAt: 'desc' },
       take: 100
     });
-    res.json(archivedTasks);
+    const formatted = archivedTasks.map((t: any) => ({
+      ...t,
+      bountyReward: t.bountyReward ? Number(t.bountyReward) : null,
+    }));
+    res.json(formatted);
   } catch (error) {
     console.error('Error fetching archived notes:', error);
     res.status(500).json({ error: 'Failed to fetch archive' });
@@ -59,7 +67,7 @@ router.get('/archive', requireAuth(), async (req: AuthRequest, res) => {
 // POST a new note
 router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const { content, assignedToId, xpReward } = req.body;
+    const { content, assignedToId, xpReward, bountyReward } = req.body;
     
     if (!content) {
       return res.status(400).json({ error: 'Content is required' });
@@ -71,6 +79,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         createdById: req.user!.id,
         assignedToId: assignedToId ? Number(assignedToId) : null,
         xpReward: xpReward ? Number(xpReward) : null,
+        bountyReward: bountyReward ? Number(bountyReward) : null,
       },
       include: {
         createdBy: { select: { id: true, name: true } },
@@ -84,16 +93,19 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
           userId: Number(assignedToId),
           type: 'SYSTEM',
           title: 'Yangi vazifa',
-          message: `Sizga yangi vazifa biriktirildi: "${content}"${xpReward ? ` (+${xpReward} XP)` : ''}`,
+          message: `Sizga yangi vazifa biriktirildi: "${content}"${xpReward ? ` (+${xpReward} XP)` : ''}${bountyReward ? ` (+${Number(bountyReward).toLocaleString()} UZS)` : ''}`,
         }
       });
     }
 
-    const message = `<b>Yangi vazifa qo'shildi!</b>\n\n<b>Vazifa:</b> ${content}\n<b>Kim tomonidan:</b> ${note.createdBy.name}${note.assignedTo ? `\n<b>Kimga:</b> ${note.assignedTo.name}` : ''}${note.xpReward ? `\n<b>Mukofot:</b> ${note.xpReward} XP ⭐️` : ''}`;
+    const message = `<b>Yangi vazifa qo'shildi!</b>\n\n<b>Vazifa:</b> ${content}\n<b>Kim tomonidan:</b> ${note.createdBy.name}${note.assignedTo ? `\n<b>Kimga:</b> ${note.assignedTo.name}` : ''}${note.xpReward ? `\n<b>Mukofot:</b> ${note.xpReward} XP ⭐️` : ''}${note.bountyReward ? `\n<b>Pul mukofoti:</b> ${Number(note.bountyReward).toLocaleString()} UZS 💰` : ''}`;
     await sendTelegramMessage(message);
 
     io.emit('dashboardNote:updated');
-    res.json(note);
+    res.json({
+      ...note,
+      bountyReward: note.bountyReward ? Number(note.bountyReward) : null,
+    });
   } catch (error) {
     console.error('Error creating note:', error);
     res.status(500).json({ error: 'Failed to create note' });
@@ -121,7 +133,10 @@ router.put('/:id/toggle', requireAuth(), async (req: AuthRequest, res) => {
     });
 
     io.emit('dashboardNote:updated');
-    res.json(note);
+    res.json({
+      ...note,
+      bountyReward: note.bountyReward ? Number(note.bountyReward) : null,
+    });
   } catch (error) {
     console.error('Error toggling note:', error);
     res.status(500).json({ error: 'Failed to update note' });

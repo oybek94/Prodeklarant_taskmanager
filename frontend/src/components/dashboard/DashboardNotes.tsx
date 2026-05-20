@@ -17,6 +17,7 @@ interface Note {
   assignedTo: { id: number; name: string } | null;
   completedBy: { id: number; name: string } | null;
   xpReward: number | null;
+  bountyReward: number | null;
   createdAt: string;
 }
 
@@ -27,6 +28,7 @@ const DashboardNotes: React.FC = () => {
   const [content, setContent] = useState('');
   const [assignedToId, setAssignedToId] = useState<string>('');
   const [xpReward, setXpReward] = useState<string>('');
+  const [bountyReward, setBountyReward] = useState<string>('');
   const [showArchive, setShowArchive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
@@ -76,10 +78,12 @@ const DashboardNotes: React.FC = () => {
         content,
         assignedToId: assignedToId ? Number(assignedToId) : null,
         xpReward: xpReward ? Number(xpReward) : null,
+        bountyReward: bountyReward ? Number(bountyReward) : null,
       });
       setContent('');
       setAssignedToId('');
       setXpReward('');
+      setBountyReward('');
       if (!showArchive) {
         fetchData(); // refresh
       } else {
@@ -220,6 +224,13 @@ const DashboardNotes: React.FC = () => {
                     </span>
                   )}
 
+                  {note.bountyReward && (
+                    <span className="flex items-center gap-0.5 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded font-bold border border-emerald-200/50 dark:border-emerald-900/30">
+                      <Icon icon="lucide:banknote" className="w-3.5 h-3.5 text-emerald-600" />
+                      {note.bountyReward.toLocaleString()} UZS
+                    </span>
+                  )}
+
                   {note.isCompleted && note.completedBy && (
                     <span className="flex items-center gap-0.5 text-emerald-500/80 bg-emerald-50/50 dark:bg-emerald-900/20 px-1 rounded ml-auto">
                       <Icon icon="lucide:check-circle-2" className="w-3 h-3" />
@@ -262,7 +273,16 @@ const DashboardNotes: React.FC = () => {
                 onChange={(e) => setXpReward(e.target.value)}
                 placeholder="XP"
                 title="Vazifani bajargan xodimga beriladigan XP"
-                className="w-20 text-xs bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-700/50 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all dark:text-amber-100 placeholder:text-amber-600/50 dark:placeholder:text-amber-500/50 font-medium"
+                className="w-16 text-xs bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-700/50 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all dark:text-amber-100 placeholder:text-amber-600/50 dark:placeholder:text-amber-500/50 font-medium"
+              />
+              <input
+                type="number"
+                min="0"
+                value={bountyReward}
+                onChange={(e) => setBountyReward(e.target.value)}
+                placeholder="Pul (UZS)"
+                title="Vazifani bajargan xodimga beriladigan pul mukofoti (UZS)"
+                className="w-24 text-xs bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-200/50 dark:border-emerald-700/50 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-emerald-100 placeholder:text-emerald-600/50 dark:placeholder:text-emerald-500/50 font-medium"
               />
             </div>
           </div>

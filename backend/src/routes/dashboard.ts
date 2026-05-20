@@ -513,6 +513,37 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       return acc;
     }, {});
 
+    // Include completed dashboard note bounty rewards
+    const notesWhere: any = {
+      isCompleted: true,
+      bountyReward: { not: null },
+    };
+    if (where.createdAt) {
+      notesWhere.completedAt = where.createdAt;
+    }
+    const completedNotes = await (prisma as any).dashboardNote.findMany({
+      where: notesWhere,
+      select: {
+        completedById: true,
+        bountyReward: true,
+      },
+    });
+
+    for (const note of completedNotes) {
+      if (note.completedById !== null) {
+        const userId = note.completedById;
+        if (!workerActivity[userId]) {
+          workerActivity[userId] = { userId, totalKPI: 0, totalKPIUzs: 0, count: 0 };
+        }
+        const rewardUzs = Number(note.bountyReward || 0);
+        // Fallback rate of 12500 for converting UZS to USD for kpiLogs display
+        const rewardUsd = rewardUzs / 12500;
+        workerActivity[userId].totalKPI += rewardUsd;
+        workerActivity[userId].totalKPIUzs += rewardUzs;
+        workerActivity[userId].count++;
+      }
+    }
+
     const workerActivityList = Object.values(workerActivity) as any[];
     const workerIds = workerActivityList.map((w) => w.userId);
 

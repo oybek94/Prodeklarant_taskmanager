@@ -1307,6 +1307,7 @@ model DashboardNote {
   completedAt   DateTime?
   completedById Int?
   xpReward      Int?
+  bountyReward  Decimal?  @db.Decimal(12, 2)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

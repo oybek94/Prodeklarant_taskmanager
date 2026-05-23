@@ -948,7 +948,7 @@ router.get('/ceo-stats', requireAuth('ADMIN'), async (_req: AuthRequest, res) =>
 
         if (tx.type === 'INCOME') {
           cardBalances[tx.virtualCardId] += txAmount;
-        } else if (tx.type === 'EXPENSE') {
+        } else if (tx.type === 'EXPENSE' || tx.type === 'SALARY') {
           cardBalances[tx.virtualCardId] -= txAmount;
         }
       }

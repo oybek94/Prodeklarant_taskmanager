@@ -108,8 +108,28 @@ export const initFinanceBot = () => {
         return;
       }
       state.amount = amount;
-      state.step = 'WAITING_COMMENT';
-      bot!.sendMessage(chatId, `💸 Summa: **${formatMoney(amount)} so'm**\n\nBu pul nima maqsadda sarflandi? Izoh yozing:`, { parse_mode: 'Markdown' });
+      
+      if (state.isSalary) {
+        state.comment = `${state.workerName || 'Ishchi'} oyligi`;
+        const cards = await getVirtualCardsBalance();
+        const card = cards.find(c => c.id === state.cardId);
+        const confirmText = `❓ **Tasdiqlaysizmi?**\n\nSeyf: ${card?.name}\nIshchi: ${state.workerName}\nSumma: ${formatMoney(state.amount)} so'm\nIzoh: ${state.comment}`;
+        bot!.sendMessage(chatId, confirmText, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Tasdiqlash', callback_data: 'chiqim_confirm' },
+                { text: '❌ Bekor qilish', callback_data: 'chiqim_cancel' }
+              ]
+            ]
+          }
+        });
+        state.step = 'WAITING_CONFIRMATION';
+      } else {
+        state.step = 'WAITING_COMMENT';
+        bot!.sendMessage(chatId, `💸 Summa: **${formatMoney(amount)} so'm**\n\nBu pul nima maqsadda sarflandi? Izoh yozing:`, { parse_mode: 'Markdown' });
+      }
     } else if (state.step === 'WAITING_COMMENT') {
       state.comment = msg.text;
       const cards = await getVirtualCardsBalance();
@@ -292,11 +312,88 @@ export const initFinanceBot = () => {
       const state = userStates[chatId];
       if (state && state.step === 'WAITING_CARD') {
         state.cardId = cardId;
+        
+        if (cardId === 1) {
+          state.step = 'WAITING_IS_SALARY';
+          await bot!.editMessageText('Bu chiqim ishchi oyligimi?', {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: 'Ha', callback_data: 'is_salary_yes' },
+                  { text: 'Yo\'q', callback_data: 'is_salary_no' }
+                ]
+              ]
+            }
+          });
+        } else {
+          state.step = 'WAITING_AMOUNT';
+          await bot!.editMessageText('Yaxshi. Qancha summa sarflandi? Raqamda yozing (masalan: 150000):', {
+            chat_id: chatId,
+            message_id: query.message.message_id
+          });
+        }
+      }
+      await bot!.answerCallbackQuery(query.id);
+    }
+    else if (query.data === 'is_salary_yes') {
+      const state = userStates[chatId];
+      if (state && state.step === 'WAITING_IS_SALARY') {
+        state.isSalary = true;
+        state.step = 'WAITING_WORKER';
+        try {
+          const users = await prisma.user.findMany({ where: { active: true }, select: { id: true, name: true } });
+          const keyboard: any[] = [];
+          for (let i = 0; i < users.length; i += 2) {
+            const row: any[] = [];
+            row.push({ text: users[i].name, callback_data: `salary_worker:${users[i].id}` });
+            if (i + 1 < users.length) {
+              row.push({ text: users[i + 1].name, callback_data: `salary_worker:${users[i + 1].id}` });
+            }
+            keyboard.push(row);
+          }
+          await bot!.editMessageText('Qaysi ishchining oyligi berilyapti? Tanlang:', {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      await bot!.answerCallbackQuery(query.id);
+    }
+    else if (query.data === 'is_salary_no') {
+      const state = userStates[chatId];
+      if (state && state.step === 'WAITING_IS_SALARY') {
+        state.isSalary = false;
         state.step = 'WAITING_AMOUNT';
         await bot!.editMessageText('Yaxshi. Qancha summa sarflandi? Raqamda yozing (masalan: 150000):', {
           chat_id: chatId,
           message_id: query.message.message_id
         });
+      }
+      await bot!.answerCallbackQuery(query.id);
+    }
+    else if (query.data.startsWith('salary_worker:')) {
+      const workerId = Number(query.data.split(':')[1]);
+      const state = userStates[chatId];
+      if (state && state.step === 'WAITING_WORKER') {
+        state.workerId = workerId;
+        state.step = 'WAITING_AMOUNT';
+        try {
+          const worker = await prisma.user.findUnique({ where: { id: workerId } });
+          state.workerName = worker?.name || 'Ishchi';
+          await bot!.editMessageText(`${state.workerName} uchun qancha oylik summa berildi? Raqamda yozing (masalan: 1500000):`, {
+            chat_id: chatId,
+            message_id: query.message.message_id
+          });
+        } catch (e) {
+          console.error(e);
+        }
       }
       await bot!.answerCallbackQuery(query.id);
     }
@@ -307,19 +404,45 @@ export const initFinanceBot = () => {
           const cards = await getVirtualCardsBalance();
           const card = cards.find(c => c.id === state.cardId);
 
-          await prisma.transaction.create({
-            data: {
-              type: 'EXPENSE',
-              amount: state.amount!,
-              currency: 'UZS',
-              date: new Date(),
-              comment: state.comment,
-              virtualCardId: state.cardId,
-              expenseCategory: card?.name
-            }
-          });
+          const txData: any = {
+            type: state.isSalary ? 'SALARY' : 'EXPENSE',
+            amount: state.amount!,
+            currency: 'UZS',
+            amount_original: state.amount!,
+            currency_universal: 'UZS',
+            exchange_rate: 1,
+            amount_uzs: state.amount!,
+            exchange_source: 'CBU',
+            date: new Date(),
+            comment: state.comment,
+            virtualCardId: state.cardId,
+            expenseCategory: state.isSalary ? 'SALARY' : card?.name
+          };
 
-          await bot!.editMessageText(`✅ **Muvaffaqiyatli saqlandi!**\n\nSeyf: ${card?.name}\nSumma: ${formatMoney(state.amount)} so'm\nIzoh: ${state.comment}`, {
+          if (state.isSalary && state.workerId) {
+            txData.workerId = state.workerId;
+          }
+
+          await prisma.transaction.create({
+            data: txData
+          });
+          
+          if (state.isSalary && state.workerId) {
+            try {
+              const { Decimal } = await import('@prisma/client/runtime/library');
+              const { createWorkerPayment } = await import('./worker-payment');
+              await createWorkerPayment(
+                state.workerId,
+                'UZS',
+                new Decimal(state.amount!),
+                { paymentDate: new Date(), comment: state.comment }
+              );
+            } catch (err) {
+              console.error('Failed to create WorkerPayment from bot:', err);
+            }
+          }
+
+          await bot!.editMessageText(`✅ **Muvaffaqiyatli saqlandi!**\n\nSeyf: ${card?.name}\n${state.isSalary ? `Ishchi: ${state.workerName}\n` : ''}Summa: ${formatMoney(state.amount)} so'm\nIzoh: ${state.comment}`, {
             chat_id: chatId,
             message_id: query.message.message_id,
             parse_mode: 'Markdown'

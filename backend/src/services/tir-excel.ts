@@ -154,6 +154,11 @@ export const generateTirExcel = async (payload: TirInvoicePayload) => {
   const totalGross = payload.items.reduce((sum, item) => sum + Number(item.grossWeight || 0), 0);
   const getPlaces = (item: InvoiceItem) => Number(item.packagesCount ?? item.quantity ?? 0);
   const totalPlaces = payload.items.reduce((sum, item) => sum + getPlaces(item), 0);
+
+  // Write bottom cells
+  sheet.getCell(map.totalGrossCell).value = totalGross ? `${Math.round(totalGross)} кг` : '';
+  sheet.getCell(map.totalPlacesCell).value = totalPlaces ? `${Math.round(totalPlaces)}` : '';
+
   const buildPlacesText = (item: InvoiceItem) => {
     const places = Number(item.quantity ?? 0);
     const packages = Number(item.packagesCount ?? 0);
@@ -168,6 +173,12 @@ export const generateTirExcel = async (payload: TirInvoicePayload) => {
   payload.items.forEach((item, index) => {
     const rowIndex = tableStartRow + index;
     if (rowIndex > tableEndRow) return;
+
+    const sheetRow = sheet.getRow(rowIndex);
+    if (sheetRow.hidden) {
+      sheetRow.hidden = false;
+    }
+
     const places = Math.round(getPlaces(item));
     sheet.getCell(`${map.placesPackCol}${rowIndex}`).value = buildPlacesText(item);
     sheet.getCell(`${map.nameTnvedCol}${rowIndex}`).value = item.tnvedCode
@@ -182,8 +193,6 @@ export const generateTirExcel = async (payload: TirInvoicePayload) => {
     sheet.getCell(`${map.nameTnvedCol}${rowIndex}`).value = '';
     sheet.getCell(`${map.grossCol}${rowIndex}`).value = '';
   }
-  sheet.getCell(map.totalGrossCell).value = totalGross ? `${Math.round(totalGross)} кг` : '';
-  sheet.getCell(map.totalPlacesCell).value = totalPlaces ? `${Math.round(totalPlaces)}` : '';
 
   // Ensure first sheet is active when file is opened (only mutate existing view to satisfy WorkbookView type)
   if (workbook.views?.[0] && typeof workbook.views[0] === 'object') {

@@ -384,7 +384,8 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
   sheet.getCell('E24').value = 'Республика Узбекистан';
 
   const tableStartRow = 34;
-  const tableEndRow = 41;
+  const tableEndRow = 45;
+
   const writeItemCell = (row: number, col: string, value: string) => {
     sheet.getCell(`${col}${row}`).value = value;
   };
@@ -409,6 +410,13 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
   payload.items.forEach((item, index) => {
     const row = tableStartRow + index;
     if (row > tableEndRow) return;
+    
+    // Qator skrit bo'lsa uni ochamiz
+    const sheetRow = sheet.getRow(row);
+    if (sheetRow.hidden) {
+      sheetRow.hidden = false;
+    }
+
     writeItemCell(row, 'B', String(index + 1));
     writeItemCell(row, 'K', formatPackage(item));
     writeItemCell(row, 'U', item.name || '');
@@ -443,6 +451,12 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
       } catch(e) {
         console.error("Merged failed:", e);
       }
+      
+      const sheetRow = sheet.getRow(tempRow);
+      if (sheetRow.hidden) {
+        sheetRow.hidden = false;
+      }
+
       const cell = sheet.getCell(`G${tempRow}`);
       cell.value = `Примечание: Температура при транспортировке ${additionalInfo.temperature}`;
       cell.alignment = { ...cell.alignment, wrapText: true, vertical: 'top', horizontal: 'left' };

@@ -71,10 +71,36 @@ router.post('/download', requireAuth(), async (req: AuthRequest, res) => {
       where: { processType: processTypeEnum },
     });
     const reminder1 = settings?.reminder1 ?? 10;
-    const downloadedAt = new Date();
-    const nextReminderTime = new Date(downloadedAt.getTime() + reminder1 * 60 * 1000);
 
-    // Edge case: if same taskId+processType+userId has IN_PROGRESS, skip duplicate (or create new - plan says allow multiple or upsert)
+    // Shuningdek, jarayon allaqachon yakunlangan bo'lsa (status completed/done bo'lsa), keyinchalik shablon qayta yuklab olinsa ham reminder yuborilmasin.
+    const isCompletedProcess = await prisma.tasksProcess.findFirst({
+      where: {
+        taskId,
+        processType: processTypeEnum,
+        status: 'DONE',
+      },
+    });
+
+    const stageNames = PROCESS_TYPE_TO_STAGE_NAMES[processTypeEnum];
+    const isCompletedStage = stageNames?.length
+      ? await prisma.taskStage.findFirst({
+          where: {
+            taskId,
+            name: { in: stageNames },
+            status: 'TAYYOR',
+          },
+        })
+      : null;
+
+    const isCompleted = !!(isCompletedProcess || isCompletedStage);
+
+    const downloadedAt = new Date();
+    // Agar jarayon allaqachon yakunlangan bo'lsa, keyingi eslatma vaqti null bo'ladi (reminder yuborilmaydi)
+    const nextReminderTime = isCompleted
+      ? null
+      : new Date(downloadedAt.getTime() + reminder1 * 60 * 1000);
+
+    // Edge case: if same taskId+processType+userId has IN_PROGRESS, skip duplicate
     const existing = await prisma.tasksProcess.findFirst({
       where: {
         taskId,
@@ -108,7 +134,6 @@ router.post('/download', requireAuth(), async (req: AuthRequest, res) => {
     });
 
     // Tegishli stage ni boshlangan (startedAt) belgilash
-    const stageNames = PROCESS_TYPE_TO_STAGE_NAMES[processTypeEnum];
     if (stageNames?.length) {
       const stage = await prisma.taskStage.findFirst({
         where: {

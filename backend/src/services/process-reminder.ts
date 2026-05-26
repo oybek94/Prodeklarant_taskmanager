@@ -9,9 +9,15 @@ const PROCESS_TYPE_LABELS: Record<string, string> = {
 };
 
 const PROCESS_TYPE_QUESTIONS: Record<string, string> = {
-  TIR: 'Tayyor bo\'ldimi?',
-  CERT: 'Zayavkalar jo\'natildimi?',
-  DECLARATION: 'Tayyor bo\'ldimi?',
+  TIR: 'TIR-SMR tayyormi?',
+  CERT: 'Sertifikat tayyormi?',
+  DECLARATION: 'Deklaratsiya tayyormi?',
+};
+
+const PROCESS_TYPE_TO_STAGE_NAMES: Record<string, string[]> = {
+  TIR: ['TIR-SMR'],
+  CERT: ['Zayavka'],
+  DECLARATION: ['Deklaratsiya'],
 };
 
 function getCarNumberFromTitle(title: string): string {
@@ -50,6 +56,41 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
   let processed = 0;
   for (const tp of due) {
     try {
+      // 1. Jarayon completed emasmi?
+      // a) TasksProcess done statusi bormi?
+      const isCompletedProcess = await prisma.tasksProcess.findFirst({
+        where: {
+          taskId: tp.taskId,
+          processType: tp.processType,
+          status: 'DONE',
+        },
+      });
+
+      // b) TaskStage statusi TAYYOR bo'lganmi?
+      const stageNames = PROCESS_TYPE_TO_STAGE_NAMES[tp.processType] || [];
+      const isCompletedStage = await prisma.taskStage.findFirst({
+        where: {
+          taskId: tp.taskId,
+          name: { in: stageNames },
+          status: 'TAYYOR',
+        },
+      });
+
+      const isCompleted = !!(isCompletedProcess || isCompletedStage);
+
+      // 2. Reminder yuborilgan user aynan shablonni yuklab olgan usermi?
+      // (tp.userId aynan yuklab olgan user id si)
+      const isSameUser = tp.userId > 0;
+
+      if (isCompleted || !isSameUser) {
+        // Eslatma yuborilmaydi va keyingi safar tekshirilmasligi uchun nextReminderTime = null qilinadi
+        await prisma.tasksProcess.update({
+          where: { id: tp.id },
+          data: { nextReminderTime: null },
+        });
+        continue;
+      }
+
       const settings = await prisma.processSettings.findUnique({
         where: { processType: tp.processType },
       });

@@ -53,7 +53,7 @@ export async function notify(params: NotifyParams): Promise<void> {
 
   if (recipients.length === 0) return;
 
-  // Invoicelarga aloqador bildirishnomalarni Sotuvchilarga (SALES) yubormaslik
+  // Invoicelarga aloqador bildirishnomalarni butunlay o'chirish (Yangi invoys yaratilganda bildirishnoma yuborilmaydi)
   const isInvoiceRelated =
     type === 'INVOICE_SAVED' ||
     type === 'INVOICE_CONFLICT' ||
@@ -62,19 +62,7 @@ export async function notify(params: NotifyParams): Promise<void> {
     message.toLowerCase().includes('invoys') ||
     message.toLowerCase().includes('invoice');
 
-  if (isInvoiceRelated) {
-    const salesUsers = await prisma.user.findMany({
-      where: {
-        id: { in: recipients },
-        role: 'SELLER'
-      },
-      select: { id: true }
-    });
-    const salesUserIds = salesUsers.map(u => u.id);
-    recipients = recipients.filter(id => !salesUserIds.includes(id));
-  }
-
-  if (recipients.length === 0) return;
+  if (isInvoiceRelated) return;
 
   const config = NOTIFICATION_CONFIG[type];
 

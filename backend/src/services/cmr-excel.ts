@@ -380,8 +380,12 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
   if (shipmentPlaceText) {
     sheet.getCell('E23').value = shipmentPlaceText;
     sheet.getCell('H67').value = shipmentPlaceText;
+    sheet.getCell('H71').value = shipmentPlaceText;
   }
   sheet.getCell('E24').value = 'Республика Узбекистан';
+  if (additionalInfo.deliveryTerms) {
+    sheet.getCell('F67').value = toPlain(additionalInfo.deliveryTerms);
+  }
 
   const tableStartRow = 34;
   const tableEndRow = 45;

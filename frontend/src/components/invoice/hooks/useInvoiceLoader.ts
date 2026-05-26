@@ -179,9 +179,7 @@ export function createLoadData({
                 tirNumber: '',
                 temperature: String(dupAi?.temperature || ''),
               }));
-              const loadedItems = dup.items && Array.isArray(dup.items) && dup.items.length > 0
-                ? dup.items.map(normalizeItem)
-                : [{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 } as InvoiceItem];
+              const loadedItems = [{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 } as InvoiceItem];
               setItems(loadedItems);
               setCustomFields([]);
               const dupSpecFields = dupAi?.specCustomFields;

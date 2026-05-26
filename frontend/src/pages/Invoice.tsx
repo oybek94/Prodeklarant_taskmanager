@@ -226,6 +226,7 @@ const Invoice = () => {
     fssFilePrefix, setFssFilePrefix,
     fssAutoDownload, setFssAutoDownload,
     addressCopySuccess, setAddressCopySuccess,
+    additionalFieldsOrder, setAdditionalFieldsOrder,
   } = useInvoiceModalsState();
 
   // Extracted hooks
@@ -343,6 +344,7 @@ const Invoice = () => {
     setColumnOrder,
     setCustomColumns,
     setAdditionalInfoVisible,
+    setAdditionalFieldsOrder,
     setContractDeliveryTerms,
     setDeliveryTermsOptions,
     initialForChangeLogRef,
@@ -378,6 +380,7 @@ const Invoice = () => {
     columnLabels,
     columnOrder,
     customColumns,
+    additionalFieldsOrder,
     packagingTypes,
     canEditEffective,
     invoiceNumberWarning,
@@ -594,6 +597,7 @@ const Invoice = () => {
                     addressCopySuccess={addressCopySuccess}
                     setAddressCopySuccess={setAddressCopySuccess}
                     setShowAdditionalInfoModal={setShowAdditionalInfoModal}
+                    additionalFieldsOrder={additionalFieldsOrder}
                   />
 
                   {/* Ajratuvchi chiziq */}
@@ -719,6 +723,8 @@ const Invoice = () => {
         toggleAdditionalInfoVisible={toggleAdditionalInfoVisible}
         isAdditionalInfoVisible={isAdditionalInfoVisible}
         addDeliveryTermOption={addDeliveryTermOption}
+        additionalFieldsOrder={additionalFieldsOrder}
+        setAdditionalFieldsOrder={setAdditionalFieldsOrder}
         showFssRegionModal={showFssRegionModal}
         setShowFssRegionModal={setShowFssRegionModal}
         regionCodes={regionCodes}

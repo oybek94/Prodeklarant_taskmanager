@@ -25,6 +25,7 @@ interface UseInvoiceLoaderParams {
   setColumnOrder?: (updater: any) => void;
   setCustomColumns?: (updater: any) => void;
   setAdditionalInfoVisible: (vis: Record<string, boolean>) => void;
+  setAdditionalFieldsOrder?: (order: string[]) => void;
   setContractDeliveryTerms: (terms: string[]) => void;
   setDeliveryTermsOptions: (terms: string[]) => void;
   initialForChangeLogRef: React.MutableRefObject<{ form: Record<string, unknown>; items: InvoiceItem[] } | null>;
@@ -54,6 +55,7 @@ export function createLoadData({
   setColumnOrder,
   setCustomColumns,
   setAdditionalInfoVisible,
+  setAdditionalFieldsOrder,
   setContractDeliveryTerms,
   setDeliveryTermsOptions,
   initialForChangeLogRef,
@@ -141,6 +143,9 @@ export function createLoadData({
               if (setCustomColumns && Array.isArray(dupAi?.customColumns)) {
                 setCustomColumns(dupAi.customColumns as string[]);
               }
+              if (setAdditionalFieldsOrder && Array.isArray(dupAi?.additionalFieldsOrder)) {
+                setAdditionalFieldsOrder(dupAi.additionalFieldsOrder as string[]);
+              }
               const todayIso = new Date().toISOString().split('T')[0];
               setForm((prev: any) => ({
                 ...prev,
@@ -181,12 +186,21 @@ export function createLoadData({
               }));
               const loadedItems = [{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 } as InvoiceItem];
               setItems(loadedItems);
-              setCustomFields([]);
+              const dupCustomFields = dupAi?.customFields;
+              setCustomFields(
+                Array.isArray(dupCustomFields)
+                  ? dupCustomFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
+                    id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
+                    label: String(f?.label ?? ''),
+                    value: String(f?.value ?? ''),
+                  }))
+                  : []
+              );
               const dupSpecFields = dupAi?.specCustomFields;
               setSpecCustomFields(
                 Array.isArray(dupSpecFields)
-                  ? dupSpecFields.map((f: { id?: string; label?: string; value?: string }) => ({
-                    id: String(f?.id ?? ''),
+                  ? dupSpecFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
+                    id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
                     label: String(f?.label ?? ''),
                     value: String(f?.value ?? ''),
                   }))
@@ -306,8 +320,26 @@ export function createLoadData({
             }));
             const loadedItems = (inv.items || []).map(normalizeItem);
             setItems(loadedItems);
-            setCustomFields(inv.additionalInfo?.customFields || []);
-            setSpecCustomFields(inv.additionalInfo?.specCustomFields || []);
+            const loadedCustomFields = inv.additionalInfo?.customFields;
+            setCustomFields(
+              Array.isArray(loadedCustomFields)
+                ? loadedCustomFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
+                  id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
+                  label: String(f?.label ?? ''),
+                  value: String(f?.value ?? ''),
+                }))
+                : []
+            );
+            const loadedSpecCustomFields = inv.additionalInfo?.specCustomFields;
+            setSpecCustomFields(
+              Array.isArray(loadedSpecCustomFields)
+                ? loadedSpecCustomFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
+                  id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
+                  label: String(f?.label ?? ''),
+                  value: String(f?.value ?? ''),
+                }))
+                : []
+            );
             const ai = inv.additionalInfo && typeof inv.additionalInfo === 'object' ? inv.additionalInfo as Record<string, unknown> : null;
             const savedVisible = getVisibleColumnsFromPayload(ai);
             if (savedVisible) setVisibleColumns(savedVisible);
@@ -322,6 +354,9 @@ export function createLoadData({
             }
             if (setCustomColumns && Array.isArray(ai?.customColumns)) {
               setCustomColumns(ai.customColumns as string[]);
+            }
+            if (setAdditionalFieldsOrder && Array.isArray(ai?.additionalFieldsOrder)) {
+              setAdditionalFieldsOrder(ai.additionalFieldsOrder as string[]);
             }
 
             initialForChangeLogRef.current = {

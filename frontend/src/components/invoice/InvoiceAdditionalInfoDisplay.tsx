@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { CopyIconButton } from '../CopyIconButton';
@@ -15,6 +15,7 @@ interface InvoiceAdditionalInfoDisplayProps {
   addressCopySuccess: boolean;
   setAddressCopySuccess: (v: boolean) => void;
   setShowAdditionalInfoModal: (v: boolean) => void;
+  additionalFieldsOrder?: string[];
 }
 
 export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplayProps> = ({
@@ -28,7 +29,102 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
   addressCopySuccess,
   setAddressCopySuccess,
   setShowAdditionalInfoModal,
+  additionalFieldsOrder,
 }) => {
+  const fieldOrder = useMemo(() => {
+    const order = additionalFieldsOrder ? [...additionalFieldsOrder] : [];
+    const baseFields = ['shipmentPlace', 'destination', 'origin', 'manufacturer', 'orderNumber', 'gln', 'temperature', 'harvestYear'];
+    const activeOrder = order.length > 0 ? order : [...baseFields];
+    const customKeys = customFields.map(f => `custom_${f.id}`);
+    const allActiveKeys = new Set([...baseFields, ...customKeys]);
+    
+    let merged = activeOrder.filter(key => allActiveKeys.has(key));
+    
+    customKeys.forEach(key => {
+      if (!merged.includes(key)) {
+        const tempIdx = merged.indexOf('temperature');
+        if (tempIdx !== -1) {
+          merged.splice(tempIdx, 0, key);
+        } else {
+          merged.push(key);
+        }
+      }
+    });
+    
+    baseFields.forEach(key => {
+      if (!merged.includes(key)) {
+        merged.push(key);
+      }
+    });
+    
+    return merged;
+  }, [additionalFieldsOrder, customFields]);
+
+  const renderFieldByKey = (key: string) => {
+    switch (key) {
+      case 'shipmentPlace':
+        return isAdditionalInfoVisible('shipmentPlace') && form.shipmentPlace ? (
+          <div key={key}>
+            <strong>Место отгрузки груза:</strong> {form.shipmentPlace}
+          </div>
+        ) : null;
+      case 'destination':
+        return isAdditionalInfoVisible('destination') && form.destination ? (
+          <div key={key}>
+            <strong>Место назначения:</strong> {form.destination}
+          </div>
+        ) : null;
+      case 'origin':
+        return isAdditionalInfoVisible('origin') ? (
+          <div key={key}>
+            <strong>Происхождение товара:</strong> {form.origin || 'Республика Узбекистан'}
+          </div>
+        ) : null;
+      case 'manufacturer':
+        return isAdditionalInfoVisible('manufacturer') && form.manufacturer ? (
+          <div key={key}>
+            <strong>Производитель:</strong> {form.manufacturer}
+          </div>
+        ) : null;
+      case 'orderNumber':
+        return isAdditionalInfoVisible('orderNumber') && form.orderNumber ? (
+          <div key={key}>
+            <strong>Номер заказа:</strong> {form.orderNumber}
+          </div>
+        ) : null;
+      case 'gln':
+        return isAdditionalInfoVisible('gln') && form.gln ? (
+          <div key={key}>
+            <strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}
+          </div>
+        ) : null;
+      case 'temperature':
+        return isAdditionalInfoVisible('temperature') && form.temperature ? (
+          <div key={key}>
+            <strong>Температура:</strong> {form.temperature}
+          </div>
+        ) : null;
+      case 'harvestYear':
+        return isAdditionalInfoVisible('harvestYear') && form.harvestYear ? (
+          <div key={key}>
+            <strong>Урожай:</strong> {form.harvestYear}
+          </div>
+        ) : null;
+      default:
+        if (key.startsWith('custom_')) {
+          const fieldId = key.replace('custom_', '');
+          const field = customFields.find(f => f.id === fieldId);
+          if (!field) return null;
+          return isAdditionalInfoVisible(`custom_${field.id}`) && field.value ? (
+            <div key={field.id}>
+              <strong>{field.label}:</strong> {field.value}
+            </div>
+          ) : null;
+        }
+        return null;
+    }
+  };
+
   return (
     <div className="mb-0">
       <div className="flex items-center justify-between mb-4">
@@ -107,62 +203,22 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
             </div>
           </div>
         )}
-        {isAdditionalInfoVisible('shipmentPlace') && form.shipmentPlace && (
-          <div>
-            <strong>Место отгрузки груза:</strong> {form.shipmentPlace}
-          </div>
-        )}
-        {isAdditionalInfoVisible('destination') && form.destination && (
-          <div>
-            <strong>Место назначения:</strong> {form.destination}
-          </div>
-        )}
         {isAdditionalInfoVisible('customsAddress') && form.customsAddress && (
           <div>
             <strong>Место там. очистки:</strong> {form.customsAddress}
           </div>
         )}
-        {isAdditionalInfoVisible('origin') && (
-          <div>
-            <strong>Происхождение товара:</strong> {form.origin || 'Республика Узбекистан'}
-          </div>
-        )}
-        {isAdditionalInfoVisible('manufacturer') && form.manufacturer && (
-          <div>
-            <strong>Производитель:</strong> {form.manufacturer}
-          </div>
-        )}
 
-        {isAdditionalInfoVisible('orderNumber') && form.orderNumber && (
-          <div>
-            <strong>Номер заказа:</strong> {form.orderNumber}
-          </div>
-        )}
-        {isAdditionalInfoVisible('gln') && form.gln && (
-          <div>
-            <strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}
-          </div>
-        )}
-
-        {viewTab === 'spec'
-          ? specCustomFields.map((field) =>
+        {viewTab === 'spec' ? (
+          specCustomFields.map((field) =>
             isAdditionalInfoVisible(`spec_${field.id}`) && field.value ? (
               <div key={field.id}>
                 <strong>{field.label}:</strong> {field.value}
               </div>
             ) : null
           )
-          : customFields.map((field) =>
-            isAdditionalInfoVisible(`custom_${field.id}`) && field.value ? (
-              <div key={field.id}>
-                <strong>{field.label}:</strong> {field.value}
-              </div>
-            ) : null
-          )}
-        {isAdditionalInfoVisible('harvestYear') && form.harvestYear && (
-          <div>
-            <strong>Урожай:</strong> {form.harvestYear}
-          </div>
+        ) : (
+          fieldOrder.map((key) => renderFieldByKey(key))
         )}
       </div>
     </div>

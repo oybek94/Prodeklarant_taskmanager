@@ -473,76 +473,142 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
     doc.fontSize(8);
     doc.x = 30;
     doc.moveDown(0.5);
-    if (info.deliveryTerms) {
-      const terms = tr(t, 'deliveryTerms', info.deliveryTerms);
-      setFont('Helvetica-Bold');
-      doc.text('Delivery Terms: ', { continued: true });
-      setFont('Helvetica');
-      doc.text(ensureUTF8(`${terms}`));
-      doc.moveDown(0.2);
+
+    const isVisible = (key: string) => {
+      if (!info.visibleAdditionalInfoFields) return true;
+      return info.visibleAdditionalInfoFields[key] !== false;
+    };
+
+    const rowsToPrint: { label: string; value: string }[] = [];
+
+    // 1. Standart upper fields
+    if (info.deliveryTerms && isVisible('deliveryTerms')) {
+      rowsToPrint.push({
+        label: 'Delivery Terms',
+        value: tr(t, 'deliveryTerms', info.deliveryTerms),
+      });
     }
-    if (info.vehicleNumber) {
-      setFont('Helvetica-Bold');
-      doc.text('Vehicle No: ', { continued: true });
-      setFont('Helvetica');
-      doc.text(ensureUTF8(`${info.vehicleNumber}`));
-      doc.moveDown(0.2);
+    if (info.vehicleNumber && isVisible('vehicleNumber')) {
+      rowsToPrint.push({
+        label: 'Vehicle No',
+        value: info.vehicleNumber,
+      });
     }
-    if (info.shipmentPlace) {
-      const place = tr(t, 'shipmentPlace', info.shipmentPlace);
-      setFont('Helvetica-Bold');
-      doc.text('Place of Shipment: ', { continued: true });
-      setFont('Helvetica');
-      doc.text(ensureUTF8(`${place}`));
-      doc.moveDown(0.2);
+    if (info.customsAddress && isVisible('customsAddress')) {
+      rowsToPrint.push({
+        label: 'Place of Customs Clearance',
+        value: tr(t, 'customsAddress', info.customsAddress),
+      });
     }
-    if (info.destination) {
-      const dest = tr(t, 'destination', info.destination);
-      setFont('Helvetica-Bold');
-      doc.text('Destination: ', { continued: true });
-      setFont('Helvetica');
-      doc.text(ensureUTF8(`${dest}`));
-      doc.moveDown(0.2);
-    }
-    if (info.origin) {
-      const origin = tr(t, 'origin', info.origin);
-      setFont('Helvetica-Bold');
-      doc.text('Country of Origin: ', { continued: true });
-      setFont('Helvetica');
-      doc.text(ensureUTF8(`${origin}`));
-      doc.moveDown(0.2);
-    }
-    if (info.manufacturer) {
-      const mfr = tr(t, 'manufacturer', info.manufacturer);
-      setFont('Helvetica-Bold');
-      doc.text('Manufacturer: ', { continued: true });
-      setFont('Helvetica');
-      doc.text(ensureUTF8(`${mfr}`));
-      doc.moveDown(0.2);
-    }
-    if (info.orderNumber) {
-      setFont('Helvetica-Bold');
-      doc.text('Order No: ', { continued: true });
-      setFont('Helvetica');
-      doc.text(ensureUTF8(`${info.orderNumber}`));
-      doc.moveDown(0.2);
-    }
-    if (info.gln) {
-      setFont('Helvetica-Bold');
-      doc.text('GS1 Global Location Number (GLN): ', { continued: true });
-      setFont('Helvetica');
-      doc.text(ensureUTF8(`${info.gln}`));
-      doc.moveDown(0.2);
-    }
-    if (info.harvestYear) {
-      const harvestTerm = tr(t, 'harvestYear', info.harvestYear);
-      setFont('Helvetica-Bold');
-      doc.text('Harvest: ', { continued: true });
-      setFont('Helvetica');
-      doc.text(ensureUTF8(`${harvestTerm}`));
-      doc.moveDown(0.2);
-    }
+
+    // 2. Reorderable lower fields
+    const customFields = Array.isArray(info.customFields) ? info.customFields : [];
+    const specCustomFields = Array.isArray(info.specCustomFields) ? info.specCustomFields : [];
+
+    const order = Array.isArray(info.additionalFieldsOrder) ? [...info.additionalFieldsOrder] : [];
+    const baseFields = ['shipmentPlace', 'destination', 'origin', 'manufacturer', 'orderNumber', 'gln', 'temperature', 'harvestYear'];
+    const activeOrder = order.length > 0 ? order : [...baseFields];
+    const customKeys = customFields.map((f: any) => `custom_${f.id}`);
+    const allActiveKeys = new Set([...baseFields, ...customKeys]);
     
+    let merged = activeOrder.filter(key => allActiveKeys.has(key));
+    
+    customKeys.forEach(key => {
+      if (!merged.includes(key)) {
+        const tempIdx = merged.indexOf('temperature');
+        if (tempIdx !== -1) {
+          merged.splice(tempIdx, 0, key);
+        } else {
+          merged.push(key);
+        }
+      }
+    });
+    
+    baseFields.forEach(key => {
+      if (!merged.includes(key)) {
+        merged.push(key);
+      }
+    });
+
+    merged.forEach((key) => {
+      if (!isVisible(key)) return;
+
+      if (key === 'shipmentPlace' && info.shipmentPlace) {
+        rowsToPrint.push({
+          label: 'Place of Shipment',
+          value: tr(t, 'shipmentPlace', info.shipmentPlace),
+        });
+      } else if (key === 'destination' && info.destination) {
+        rowsToPrint.push({
+          label: 'Destination',
+          value: tr(t, 'destination', info.destination),
+        });
+      } else if (key === 'origin' && (info.origin !== undefined ? info.origin : 'Республика Узбекистан')) {
+        const originVal = info.origin !== undefined ? info.origin : 'Республика Узбекистан';
+        rowsToPrint.push({
+          label: 'Country of Origin',
+          value: tr(t, 'origin', originVal),
+        });
+      } else if (key === 'manufacturer' && info.manufacturer) {
+        rowsToPrint.push({
+          label: 'Manufacturer',
+          value: tr(t, 'manufacturer', info.manufacturer),
+        });
+      } else if (key === 'orderNumber' && info.orderNumber) {
+        rowsToPrint.push({
+          label: 'Order No',
+          value: info.orderNumber,
+        });
+      } else if (key === 'gln' && info.gln) {
+        rowsToPrint.push({
+          label: 'GS1 Global Location Number (GLN)',
+          value: info.gln,
+        });
+      } else if (key === 'temperature' && info.temperature) {
+        rowsToPrint.push({
+          label: 'Temperature',
+          value: tr(t, 'temperature', info.temperature),
+        });
+      } else if (key === 'harvestYear' && info.harvestYear) {
+        rowsToPrint.push({
+          label: 'Harvest',
+          value: tr(t, 'harvestYear', info.harvestYear),
+        });
+      } else if (key.startsWith('custom_')) {
+        const fieldId = key.replace('custom_', '');
+        const field = customFields.find((f: any) => f.id === fieldId);
+        if (field && field.value) {
+          const labelTrans = tr(t, `custom_label_${field.id}`, field.label);
+          const valTrans = tr(t, `custom_value_${field.id}`, field.value);
+          rowsToPrint.push({
+            label: labelTrans,
+            value: valTrans,
+          });
+        }
+      }
+    });
+
+    // 3. Spec custom fields (rendered if visible)
+    specCustomFields.forEach((field: any) => {
+      if (field && field.id && isVisible(`spec_${field.id}`) && field.value) {
+        const labelTrans = tr(t, `spec_label_${field.id}`, field.label);
+        const valTrans = tr(t, `spec_value_${field.id}`, field.value);
+        rowsToPrint.push({
+          label: labelTrans,
+          value: valTrans,
+        });
+      }
+    });
+
+    // 4. Print collected rows
+    rowsToPrint.forEach((row) => {
+      setFont('Helvetica-Bold');
+      doc.text(`${row.label}: `, { continued: true });
+      setFont('Helvetica');
+      doc.text(ensureUTF8(row.value));
+      doc.moveDown(0.2);
+    });
+
     // Separator after Additional Info
     const infoSeparatorY = doc.y + 5;
     doc.lineWidth(1.2).moveTo(margin, infoSeparatorY).lineTo(pageWidth - margin, infoSeparatorY).stroke();

@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { Contract, CustomField, ViewTab, InvoiceFormData } from './types';
 
@@ -17,6 +18,8 @@ interface AdditionalInfoModalProps {
   toggleAdditionalInfoVisible: (key: string) => void;
   isAdditionalInfoVisible: (key: string) => boolean;
   addDeliveryTermOption: (term: string) => void;
+  additionalFieldsOrder: string[];
+  setAdditionalFieldsOrder: (order: string[]) => void;
   onClose: () => void;
   onShowAddField: () => void;
 }
@@ -41,9 +44,42 @@ export function AdditionalInfoModal({
   toggleAdditionalInfoVisible,
   isAdditionalInfoVisible,
   addDeliveryTermOption,
+  additionalFieldsOrder,
+  setAdditionalFieldsOrder,
   onClose,
   onShowAddField,
 }: AdditionalInfoModalProps) {
+  const [draggedFieldIdx, setDraggedFieldIdx] = useState<number | null>(null);
+  const [dragOverFieldIdx, setDragOverFieldIdx] = useState<number | null>(null);
+
+  const fieldOrder = useMemo(() => {
+    const order = [...additionalFieldsOrder];
+    const baseFields = ['shipmentPlace', 'destination', 'origin', 'manufacturer', 'orderNumber', 'gln', 'temperature', 'harvestYear'];
+    const activeOrder = order.length > 0 ? order : [...baseFields];
+    const customKeys = customFields.map(f => `custom_${f.id}`);
+    const allActiveKeys = new Set([...baseFields, ...customKeys]);
+    
+    let merged = activeOrder.filter(key => allActiveKeys.has(key));
+    
+    customKeys.forEach(key => {
+      if (!merged.includes(key)) {
+        const tempIdx = merged.indexOf('temperature');
+        if (tempIdx !== -1) {
+          merged.splice(tempIdx, 0, key);
+        } else {
+          merged.push(key);
+        }
+      }
+    });
+    
+    baseFields.forEach(key => {
+      if (!merged.includes(key)) {
+        merged.push(key);
+      }
+    });
+    
+    return merged;
+  }, [additionalFieldsOrder, customFields]);
 
   // Helper function dynamically to update notes while keeping user custom text
   const updateNotesWithWeights = (
@@ -69,6 +105,138 @@ export function AdditionalInfoModal({
     }
 
     return parts.join('\n');
+  };
+
+  const renderFieldByKey = (key: string) => {
+    switch (key) {
+      case 'shipmentPlace':
+        return (
+          <FieldWithVisibility
+            label="Место отгрузки груза:"
+            fieldKey="shipmentPlace"
+            value={form.shipmentPlace}
+            onChange={(v) => setForm({ ...form, shipmentPlace: v })}
+            onClear={() => setForm({ ...form, shipmentPlace: '' })}
+            toggleVisible={toggleAdditionalInfoVisible}
+            isVisible={isAdditionalInfoVisible}
+          />
+        );
+      case 'destination':
+        return (
+          <FieldWithVisibility
+            label="Место назначения:"
+            fieldKey="destination"
+            value={form.destination}
+            onChange={(v) => setForm({ ...form, destination: v })}
+            onClear={() => setForm({ ...form, destination: '' })}
+            toggleVisible={toggleAdditionalInfoVisible}
+            isVisible={isAdditionalInfoVisible}
+          />
+        );
+      case 'origin':
+        return (
+          <FieldWithVisibility
+            label="Происхождение товара:"
+            fieldKey="origin"
+            value={form.origin !== undefined ? form.origin : 'Республика Узбекистан'}
+            onChange={(v) => setForm({ ...form, origin: v })}
+            onClear={() => setForm({ ...form, origin: '' })}
+            toggleVisible={toggleAdditionalInfoVisible}
+            isVisible={isAdditionalInfoVisible}
+          />
+        );
+      case 'manufacturer':
+        return (
+          <FieldWithVisibility
+            label="Производитель:"
+            fieldKey="manufacturer"
+            value={form.manufacturer}
+            onChange={(v) => setForm({ ...form, manufacturer: v })}
+            onClear={() => setForm({ ...form, manufacturer: '' })}
+            toggleVisible={toggleAdditionalInfoVisible}
+            isVisible={isAdditionalInfoVisible}
+          />
+        );
+      case 'orderNumber':
+        return (
+          <FieldWithVisibility
+            label="Номер заказа:"
+            fieldKey="orderNumber"
+            value={form.orderNumber}
+            onChange={(v) => setForm({ ...form, orderNumber: v })}
+            onClear={() => setForm({ ...form, orderNumber: '' })}
+            toggleVisible={toggleAdditionalInfoVisible}
+            isVisible={isAdditionalInfoVisible}
+          />
+        );
+      case 'gln':
+        return (
+          <FieldWithVisibility
+            label="Глобальный идентификационный номер GS1 (GLN):"
+            fieldKey="gln"
+            value={form.gln}
+            onChange={(v) => setForm({ ...form, gln: v })}
+            onClear={() => setForm({ ...form, gln: '' })}
+            toggleVisible={toggleAdditionalInfoVisible}
+            isVisible={isAdditionalInfoVisible}
+            placeholder="Shartnomadan olinadi yoki qo'lda yoziladi"
+          />
+        );
+      case 'temperature':
+        return (
+          <FieldRow
+            label="Температура:"
+            actions={
+              <button type="button" onClick={() => setForm({ ...form, temperature: '' })} className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 text-sm font-bold" title="O'chirish">✕</button>
+            }
+          >
+            <input type="text" value={form.temperature || ''} onChange={(e) => setForm({ ...form, temperature: e.target.value })} className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="Masalan: +2 °C" />
+          </FieldRow>
+        );
+      case 'harvestYear':
+        return (
+          <FieldRow
+            label="Урожай:"
+            actions={
+              <>
+                <button type="button" onClick={() => toggleAdditionalInfoVisible('harvestYear')} className={`${isAdditionalInfoVisible('harvestYear') ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'} p-0.5 rounded hover:bg-gray-100`} title={isAdditionalInfoVisible('harvestYear') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                  <Icon icon={isAdditionalInfoVisible('harvestYear') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })} className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 text-sm font-bold" title="O'chirish">✕</button>
+              </>
+            }
+          >
+            <input type="text" value={form.harvestYear} onChange={(e) => setForm({ ...form, harvestYear: e.target.value })} className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          </FieldRow>
+        );
+      default:
+        if (key.startsWith('custom_')) {
+          const fieldId = key.replace('custom_', '');
+          const field = customFields.find(f => f.id === fieldId);
+          if (!field) return null;
+          return (
+            <FieldRow
+              label={`${field.label}:`}
+              actions={
+                <>
+                  <button type="button" onClick={() => toggleAdditionalInfoVisible(`custom_${field.id}`)} className={`${isAdditionalInfoVisible(`custom_${field.id}`) ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'} p-0.5 rounded hover:bg-gray-100`} title={isAdditionalInfoVisible(`custom_${field.id}`) ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
+                    <Icon icon={isAdditionalInfoVisible(`custom_${field.id}`) ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                  </button>
+                  <button type="button" onClick={() => setCustomFields(customFields.filter(f => f.id !== field.id))} className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 text-sm font-bold" title="O'chirish">✕</button>
+                </>
+              }
+            >
+              <input
+                type="text"
+                value={field.value}
+                onChange={(e) => setCustomFields(customFields.map(f => f.id === field.id ? { ...f, value: e.target.value } : f))}
+                className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </FieldRow>
+          );
+        }
+        return null;
+    }
   };
 
   return (
@@ -117,7 +285,7 @@ export function AdditionalInfoModal({
                         setAdditionalInfoError(null);
                       }
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm"
                   >
                     <option value="">Shartnomadan tanlang...</option>
                     {contractDeliveryTerms.map((term) => (
@@ -138,7 +306,7 @@ export function AdditionalInfoModal({
                           }
                         }}
                         placeholder="Условия поставки ni qo'lda kiriting"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        className="flex-1 px-2.5 py-1 border border-gray-300 rounded-md text-sm"
                       />
                       {canEditEffective && (
                         <button
@@ -149,7 +317,7 @@ export function AdditionalInfoModal({
                             addDeliveryTermOption(trimmed);
                             setForm({ ...form, deliveryTerms: trimmed });
                           }}
-                          className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
+                          className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 whitespace-nowrap"
                         >
                           Shartnomaga qo&apos;shish
                         </button>
@@ -181,7 +349,7 @@ export function AdditionalInfoModal({
                     }
                   }}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm"
                   placeholder="Условия поставки ni qo'lda kiriting (shartnomada kiritilmagan)"
                 />
               )}
@@ -200,7 +368,7 @@ export function AdditionalInfoModal({
                     type="text"
                     value={field.value}
                     onChange={(e) => setSpecCustomFields(specCustomFields.map(f => f.id === field.id ? { ...f, value: e.target.value } : f))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm"
                   />
                 </div>
               ))}
@@ -228,12 +396,12 @@ export function AdditionalInfoModal({
                       </button>
                     </div>
                     {options.length > 0 ? (
-                      <select value={form.customsAddress ?? ''} onChange={(e) => setForm({ ...form, customsAddress: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                      <select value={form.customsAddress ?? ''} onChange={(e) => setForm({ ...form, customsAddress: e.target.value })} className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
                         <option value="">Shartnomadan tanlang...</option>
                         {options.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
                       </select>
                     ) : (
-                      <input type="text" value={form.customsAddress ?? ''} onChange={(e) => setForm({ ...form, customsAddress: e.target.value })} placeholder="Место там. очистки" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                      <input type="text" value={form.customsAddress ?? ''} onChange={(e) => setForm({ ...form, customsAddress: e.target.value })} placeholder="Место там. очистки" className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm" />
                     )}
                   </div>
                 );
@@ -261,7 +429,7 @@ export function AdditionalInfoModal({
                       }
                     }}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm"
                   />
                   <div className="mt-3">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -280,18 +448,18 @@ export function AdditionalInfoModal({
                           notes: updateNotesWithWeights(form.notes, form.palletWeight, vWeight)
                         });
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm"
                       placeholder="Masalan: 16400"
                     />
                   </div>
                 </div>
                 <div className="md:col-span-1 w-[110px]">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Yuk tortuvchi</label>
-                  <input type="number" min={0} step="any" value={form.loaderWeight} onChange={(e) => setForm({ ...form, loaderWeight: e.target.value })} className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right" placeholder="кг" />
+                  <input type="number" min={0} step="any" value={form.loaderWeight} onChange={(e) => setForm({ ...form, loaderWeight: e.target.value })} className="w-full h-[30px] px-2.5 py-1 border border-gray-300 rounded-md text-sm text-right" placeholder="кг" />
                 </div>
                 <div className="md:col-span-1 w-[110px]">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Pritsep</label>
-                  <input type="number" min={0} step="any" value={form.trailerWeight} onChange={(e) => setForm({ ...form, trailerWeight: e.target.value })} className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right" placeholder="кг" />
+                  <input type="number" min={0} step="any" value={form.trailerWeight} onChange={(e) => setForm({ ...form, trailerWeight: e.target.value })} className="w-full h-[30px] px-2.5 py-1 border border-gray-300 rounded-md text-sm text-right" placeholder="кг" />
                 </div>
                 <div className="md:col-span-1 w-[110px]">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Poddon</label>
@@ -308,7 +476,7 @@ export function AdditionalInfoModal({
                         notes: updateNotesWithWeights(form.notes, pWeight, form.vehicleWeight ?? '')
                       });
                     }}
-                    className="w-full h-[38px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right"
+                    className="w-full h-[30px] px-2.5 py-1 border border-gray-300 rounded-md text-sm text-right"
                     placeholder="кг"
                   />
                 </div>
@@ -318,127 +486,69 @@ export function AdditionalInfoModal({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">TIR №:</label>
-                  <input type="text" value={form.tirNumber} onChange={(e) => setForm({ ...form, tirNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                  <input type="text" value={form.tirNumber} onChange={(e) => setForm({ ...form, tirNumber: e.target.value })} className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">SMR №:</label>
-                  <input type="text" value={form.smrNumber} onChange={(e) => setForm({ ...form, smrNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                  <input type="text" value={form.smrNumber} onChange={(e) => setForm({ ...form, smrNumber: e.target.value })} className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm" />
                 </div>
               </div>
 
-              {/* Место отгрузки груза */}
-              <FieldWithVisibility
-                label="Место отгрузки груза:"
-                fieldKey="shipmentPlace"
-                value={form.shipmentPlace}
-                onChange={(v) => setForm({ ...form, shipmentPlace: v })}
-                onClear={() => setForm({ ...form, shipmentPlace: '' })}
-                toggleVisible={toggleAdditionalInfoVisible}
-                isVisible={isAdditionalInfoVisible}
-              />
-
-              {/* Место назначения */}
-              <FieldWithVisibility
-                label="Место назначения:"
-                fieldKey="destination"
-                value={form.destination}
-                onChange={(v) => setForm({ ...form, destination: v })}
-                onClear={() => setForm({ ...form, destination: '' })}
-                toggleVisible={toggleAdditionalInfoVisible}
-                isVisible={isAdditionalInfoVisible}
-              />
-
-              {/* Происхождение товара */}
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="block text-sm font-medium text-gray-700">Происхождение товара:</label>
-                  <button type="button" onClick={() => toggleAdditionalInfoVisible('origin')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('origin') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                    <Icon icon={isAdditionalInfoVisible('origin') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
-                  </button>
+              {/* Dinamik tartiblangan qo'shimcha maydonlar (Место отгрузки dan boshlab) */}
+              <div className="space-y-1.5 pt-2 mt-2 border-t border-gray-100">
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  Поля документа (порядок можно изменить перетаскиванием)
                 </div>
-                <input type="text" value={form.origin || 'Республика Узбекистан'} readOnly className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-100" />
-              </div>
-
-              {/* Производитель */}
-              <FieldWithVisibility
-                label="Производитель:"
-                fieldKey="manufacturer"
-                value={form.manufacturer}
-                onChange={(v) => setForm({ ...form, manufacturer: v })}
-                onClear={() => setForm({ ...form, manufacturer: '' })}
-                toggleVisible={toggleAdditionalInfoVisible}
-                isVisible={isAdditionalInfoVisible}
-              />
-
-              {/* Номер заказа */}
-              <FieldWithVisibility
-                label="Номер заказа:"
-                fieldKey="orderNumber"
-                value={form.orderNumber}
-                onChange={(v) => setForm({ ...form, orderNumber: v })}
-                onClear={() => setForm({ ...form, orderNumber: '' })}
-                toggleVisible={toggleAdditionalInfoVisible}
-                isVisible={isAdditionalInfoVisible}
-              />
-
-              {/* GLN */}
-              <FieldWithVisibility
-                label="Глобальный идентификационный номер GS1 (GLN):"
-                fieldKey="gln"
-                value={form.gln}
-                onChange={(v) => setForm({ ...form, gln: v })}
-                onClear={() => setForm({ ...form, gln: '' })}
-                toggleVisible={toggleAdditionalInfoVisible}
-                isVisible={isAdditionalInfoVisible}
-                placeholder="Shartnomadan olinadi yoki qo'lda yoziladi"
-              />
-
-
-
-              {/* Dinamik maydonlar */}
-              {customFields.map((field) => (
-                <div key={field.id}>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <label className="block text-sm font-medium text-gray-700">{field.label}:</label>
-                      <button type="button" onClick={() => toggleAdditionalInfoVisible(`custom_${field.id}`)} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible(`custom_${field.id}`) ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                        <Icon icon={isAdditionalInfoVisible(`custom_${field.id}`) ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
-                      </button>
+                {fieldOrder.map((key, idx) => {
+                  const isDragging = draggedFieldIdx === idx;
+                  const isDragOver = dragOverFieldIdx === idx;
+                  return (
+                    <div
+                      key={key}
+                      draggable={canEditEffective}
+                      onDragStart={(e) => {
+                        setDraggedFieldIdx(idx);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragOverFieldIdx(idx);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedFieldIdx(null);
+                        setDragOverFieldIdx(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedFieldIdx !== null && draggedFieldIdx !== idx) {
+                          const next = [...fieldOrder];
+                          const [moved] = next.splice(draggedFieldIdx, 1);
+                          next.splice(idx, 0, moved);
+                          setAdditionalFieldsOrder(next);
+                        }
+                        setDraggedFieldIdx(null);
+                        setDragOverFieldIdx(null);
+                      }}
+                      className={`flex items-center gap-2 p-1 px-2 border rounded-md transition-all ${
+                        isDragging ? 'opacity-40' : ''
+                      } ${
+                        isDragOver ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                    >
+                      {canEditEffective && (
+                        <div
+                          className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 shrink-0"
+                          title="Sudrab joyini o'zgartirish"
+                        >
+                          <Icon icon="lucide:grip-vertical" className="w-4 h-4" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        {renderFieldByKey(key)}
+                      </div>
                     </div>
-                    <button type="button" onClick={() => setCustomFields(customFields.filter(f => f.id !== field.id))} className="text-red-500 hover:text-red-700 text-sm" title="O'chirish">✕</button>
-                  </div>
-                  <input
-                    type="text"
-                    value={field.value}
-                    onChange={(e) => setCustomFields(customFields.map(f => f.id === field.id ? { ...f, value: e.target.value } : f))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
-                </div>
-              ))}
-
-              {/* Температура */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <label className="block text-sm font-medium text-gray-700">Температура:</label>
-                  </div>
-                  <button type="button" onClick={() => setForm({ ...form, temperature: '' })} className="text-red-500 hover:text-red-700 text-sm" title="O'chirish">✕</button>
-                </div>
-                <input type="text" value={form.temperature || ''} onChange={(e) => setForm({ ...form, temperature: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Masalan: +2 °C" />
-              </div>
-
-              {/* Урожай */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <label className="block text-sm font-medium text-gray-700">Урожай:</label>
-                    <button type="button" onClick={() => toggleAdditionalInfoVisible('harvestYear')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('harvestYear') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                      <Icon icon={isAdditionalInfoVisible('harvestYear') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button type="button" onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })} className="text-red-500 hover:text-red-700 text-sm" title="O'chirish">✕</button>
-                </div>
-                <input type="text" value={form.harvestYear} onChange={(e) => setForm({ ...form, harvestYear: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                  );
+                })}
               </div>
 
               {/* Yangi maydon tugmasi */}
@@ -469,6 +579,33 @@ export function AdditionalInfoModal({
   );
 }
 
+/* Yordamchi inline layout komponenti */
+function FieldRow({
+  label,
+  children,
+  actions,
+}: {
+  label: string;
+  children: React.ReactNode;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3 w-full">
+      <div className="w-56 shrink-0 text-sm font-medium text-gray-700 truncate" title={label}>
+        {label}
+      </div>
+      <div className="flex-1 min-w-0">
+        {children}
+      </div>
+      {actions && (
+        <div className="flex items-center gap-1 shrink-0">
+          {actions}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* Yordamchi ichki komponent — label + ko'z + ✕ + input */
 function FieldWithVisibility({
   label,
@@ -490,17 +627,36 @@ function FieldWithVisibility({
   placeholder?: string;
 }) {
   return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2">
-          <label className="block text-sm font-medium text-gray-700">{label}</label>
-          <button type="button" onClick={() => toggleVisible(fieldKey)} className={`${isVisible(fieldKey) ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'} text-sm`} title={isVisible(fieldKey) ? 'Invoysda yashirish' : "Invoysda ko'rsatish"}>
+    <FieldRow
+      label={label}
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={() => toggleVisible(fieldKey)}
+            className={`${isVisible(fieldKey) ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'} p-0.5 rounded hover:bg-gray-100`}
+            title={isVisible(fieldKey) ? 'Invoysda yashirish' : "Invoysda ko'rsatish"}
+          >
             <Icon icon={isVisible(fieldKey) ? 'mdi:eye' : 'mdi:eye-off'} className="text-lg" />
           </button>
-        </div>
-        <button type="button" onClick={onClear} className="text-red-500 hover:text-red-700 text-sm" title="O'chirish">✕</button>
-      </div>
-      <input type="text" value={value} onChange={(e) => onChange(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder={placeholder} />
-    </div>
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 text-sm font-bold"
+            title="O'chirish"
+          >
+            ✕
+          </button>
+        </>
+      }
+    >
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+        placeholder={placeholder}
+      />
+    </FieldRow>
   );
 }

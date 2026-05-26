@@ -261,16 +261,20 @@ const invoiceSchema = z.object({
     })).max(100).optional(),
     // Custom fieldlar
     customFields: z.array(z.object({
+      id: z.union([z.string(), z.number()]).optional().transform(v => v !== undefined ? String(v) : undefined),
       label: z.string().max(200),
       value: z.string().max(1000),
     })).max(20).optional(),
     specCustomFields: z.array(z.object({
+      id: z.union([z.string(), z.number()]).optional().transform(v => v !== undefined ? String(v) : undefined),
       label: z.string().max(200),
+      value: z.string().max(1000).optional().nullable().transform(v => v ?? ''),
     })).max(20).optional(),
     // Ustunlar sozlamalari
     visibleColumns: z.record(z.string(), z.boolean()).optional(),
     columnLabels: z.record(z.string(), z.string().max(200)).optional(),
     visibleAdditionalInfoFields: z.record(z.string(), z.boolean()).optional(),
+    additionalFieldsOrder: z.array(z.string()).optional(),
     // O'zgarishlar jurnali
     changeLog: z.array(z.object({
       timestamp: z.string().max(50).optional(),

@@ -76,6 +76,7 @@ interface UseInvoiceSaveParams {
   columnLabels: Record<string, string>;
   columnOrder: string[];
   customColumns: string[];
+  additionalFieldsOrder: string[];
   packagingTypes: { name: string; code?: string }[];
   canEditEffective: boolean;
   invoiceNumberWarning: string | null;
@@ -111,6 +112,7 @@ export function useInvoiceSave({
   columnLabels,
   columnOrder,
   customColumns,
+  additionalFieldsOrder,
   packagingTypes,
   canEditEffective,
   invoiceNumberWarning,
@@ -344,6 +346,7 @@ export function useInvoiceSave({
             columnOrder,
             customColumns,
             visibleAdditionalInfoFields: additionalInfoVisible,
+            additionalFieldsOrder: additionalFieldsOrder,
           };
           if (invoice) {
             const taskErrorsCount = ((invoice as unknown as Record<string, unknown>).task as { _count?: { errors?: number } } | undefined)?._count?.errors ?? 0;

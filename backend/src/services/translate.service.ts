@@ -128,12 +128,63 @@ export function buildTranslatableTexts(data: {
 
   // Additional info
   if (additionalInfo) {
-    if (additionalInfo.deliveryTerms) texts.deliveryTerms = additionalInfo.deliveryTerms;
-    if (additionalInfo.shipmentPlace) texts.shipmentPlace = additionalInfo.shipmentPlace;
-    if (additionalInfo.destination) texts.destination = additionalInfo.destination;
-    if (additionalInfo.origin) texts.origin = additionalInfo.origin;
-    if (additionalInfo.manufacturer) texts.manufacturer = additionalInfo.manufacturer;
-    if (additionalInfo.harvestYear) texts.harvestYear = additionalInfo.harvestYear;
+    const isVisible = (key: string) => {
+      if (!additionalInfo.visibleAdditionalInfoFields) return true;
+      return additionalInfo.visibleAdditionalInfoFields[key] !== false;
+    };
+
+    if (additionalInfo.deliveryTerms && isVisible('deliveryTerms')) {
+      texts.deliveryTerms = additionalInfo.deliveryTerms;
+    }
+    if (additionalInfo.shipmentPlace && isVisible('shipmentPlace')) {
+      texts.shipmentPlace = additionalInfo.shipmentPlace;
+    }
+    if (additionalInfo.destination && isVisible('destination')) {
+      texts.destination = additionalInfo.destination;
+    }
+    if (additionalInfo.origin && isVisible('origin')) {
+      texts.origin = additionalInfo.origin;
+    }
+    if (additionalInfo.manufacturer && isVisible('manufacturer')) {
+      texts.manufacturer = additionalInfo.manufacturer;
+    }
+    if (additionalInfo.harvestYear && isVisible('harvestYear')) {
+      texts.harvestYear = additionalInfo.harvestYear;
+    }
+    if (additionalInfo.customsAddress && isVisible('customsAddress')) {
+      texts.customsAddress = additionalInfo.customsAddress;
+    }
+    if (additionalInfo.temperature && isVisible('temperature')) {
+      texts.temperature = additionalInfo.temperature;
+    }
+
+    // Custom fields
+    if (Array.isArray(additionalInfo.customFields)) {
+      additionalInfo.customFields.forEach((field: any) => {
+        if (field && field.id && isVisible(`custom_${field.id}`)) {
+          if (field.label && field.label.trim()) {
+            texts[`custom_label_${field.id}`] = field.label.trim();
+          }
+          if (field.value && field.value.trim()) {
+            texts[`custom_value_${field.id}`] = field.value.trim();
+          }
+        }
+      });
+    }
+
+    // Spec custom fields
+    if (Array.isArray(additionalInfo.specCustomFields)) {
+      additionalInfo.specCustomFields.forEach((field: any) => {
+        if (field && field.id && isVisible(`spec_${field.id}`)) {
+          if (field.label && field.label.trim()) {
+            texts[`spec_label_${field.id}`] = field.label.trim();
+          }
+          if (field.value && field.value.trim()) {
+            texts[`spec_value_${field.id}`] = field.value.trim();
+          }
+        }
+      });
+    }
   }
 
   if (invoice) {

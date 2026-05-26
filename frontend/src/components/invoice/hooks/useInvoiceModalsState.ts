@@ -24,6 +24,7 @@ export const useInvoiceModalsState = () => {
   const [fssAutoDownload, setFssAutoDownload] = useState(true);
 
   const [addressCopySuccess, setAddressCopySuccess] = useState(false);
+  const [additionalFieldsOrder, setAdditionalFieldsOrder] = useState<string[]>([]);
 
   return {
     showAdditionalInfoModal,
@@ -56,5 +57,7 @@ export const useInvoiceModalsState = () => {
     setFssAutoDownload,
     addressCopySuccess,
     setAddressCopySuccess,
+    additionalFieldsOrder,
+    setAdditionalFieldsOrder,
   };
 };

@@ -39,6 +39,8 @@ interface InvoiceModalsProps {
   setShowAddFieldModal: (val: boolean) => void;
   newFieldLabel: string;
   setNewFieldLabel: (label: string) => void;
+  additionalFieldsOrder: string[];
+  setAdditionalFieldsOrder: (order: string[]) => void;
 }
 
 export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
@@ -59,6 +61,8 @@ export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
   toggleAdditionalInfoVisible,
   isAdditionalInfoVisible,
   addDeliveryTermOption,
+  additionalFieldsOrder,
+  setAdditionalFieldsOrder,
 
   showFssRegionModal,
   setShowFssRegionModal,
@@ -96,6 +100,8 @@ export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
           toggleAdditionalInfoVisible={toggleAdditionalInfoVisible}
           isAdditionalInfoVisible={isAdditionalInfoVisible}
           addDeliveryTermOption={addDeliveryTermOption}
+          additionalFieldsOrder={additionalFieldsOrder}
+          setAdditionalFieldsOrder={setAdditionalFieldsOrder}
           onClose={() => setShowAdditionalInfoModal(false)}
           onShowAddField={() => setShowAddFieldModal(true)}
         />

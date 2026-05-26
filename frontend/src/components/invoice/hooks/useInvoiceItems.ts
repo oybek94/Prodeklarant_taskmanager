@@ -195,12 +195,22 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
     setItems((prev) => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev);
   }, []);
 
+  const handleCustomFieldChange = useCallback((index: number, key: string, value: string) => {
+    setItems((prev) => {
+      const newItems = [...prev];
+      const customFields = { ...newItems[index].customFields, [key]: value };
+      newItems[index] = { ...newItems[index], customFields };
+      return newItems;
+    });
+  }, []);
+
   return {
     items,
     setItems,
     editingGrossWeight,
     editingNetWeight,
     handleItemChange,
+    handleCustomFieldChange,
     handleNameChange,
     handleNameEnChange,
     handleGrossWeightChange,
@@ -213,3 +223,4 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
     removeItem,
   };
 }
+

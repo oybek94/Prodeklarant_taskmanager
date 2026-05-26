@@ -293,6 +293,7 @@ const invoiceSchema = z.object({
     unitPrice: z.number(),
     totalPrice: z.number(),
     orderIndex: z.number().optional(),
+    customFields: z.unknown().optional().nullable().transform(v => v ?? undefined),
   })).optional(),
 }).refine((data) => data.taskId || data.clientId, {
   message: "taskId yoki clientId bo'lishi kerak",
@@ -1431,6 +1432,7 @@ router.post('/', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthR
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
           orderIndex: item.orderIndex ?? index,
+          customFields: item.customFields ? (item.customFields as Prisma.InputJsonValue) : undefined,
         }))
       });
     }

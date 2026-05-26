@@ -21,6 +21,7 @@ export interface InvoiceItem {
   unitPrice: number;
   totalPrice: number;
   orderIndex?: number;
+  customFields?: Record<string, any>;
 }
 
 export interface Invoice {
@@ -271,7 +272,23 @@ export const DEFAULT_VISIBLE_COLUMNS = {
   actions: true,
 };
 
-export type VisibleColumns = typeof DEFAULT_VISIBLE_COLUMNS;
+export type VisibleColumns = Record<string, boolean>;
+
+export const DEFAULT_COLUMN_ORDER: string[] = [
+  'index',
+  'tnved',
+  'plu',
+  'name',
+  'unit',
+  'package',
+  'quantity',
+  'packagesCount',
+  'gross',
+  'net',
+  'unitPrice',
+  'total',
+  'actions',
+];
 
 export const DEFAULT_COLUMN_LABELS = {
   index: '№',
@@ -289,8 +306,8 @@ export const DEFAULT_COLUMN_LABELS = {
   actions: 'Amallar',
 };
 
-export type ColumnLabels = typeof DEFAULT_COLUMN_LABELS;
-export type ColumnLabelKey = keyof typeof DEFAULT_COLUMN_LABELS;
+export type ColumnLabels = Record<string, string>;
+export type ColumnLabelKey = string;
 
 // --- Utility Functions ---
 

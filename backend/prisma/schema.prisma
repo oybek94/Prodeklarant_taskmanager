@@ -823,6 +823,7 @@ model InvoiceItem {
   orderIndex    Int      @default(0)
   createdAt     DateTime @default(now())
   packagesCount Decimal? @db.Decimal(12, 2)
+  customFields  Json?
   invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId, orderIndex])

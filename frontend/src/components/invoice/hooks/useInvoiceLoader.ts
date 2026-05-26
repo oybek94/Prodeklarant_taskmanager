@@ -22,6 +22,8 @@ interface UseInvoiceLoaderParams {
   setSpecCustomFields: (fields: { id: string; label: string; value: string }[]) => void;
   setVisibleColumns: (updater: any) => void;
   setColumnLabels: (updater: any) => void;
+  setColumnOrder?: (updater: any) => void;
+  setCustomColumns?: (updater: any) => void;
   setAdditionalInfoVisible: (vis: Record<string, boolean>) => void;
   setContractDeliveryTerms: (terms: string[]) => void;
   setDeliveryTermsOptions: (terms: string[]) => void;
@@ -49,6 +51,8 @@ export function createLoadData({
   setSpecCustomFields,
   setVisibleColumns,
   setColumnLabels,
+  setColumnOrder,
+  setCustomColumns,
   setAdditionalInfoVisible,
   setContractDeliveryTerms,
   setDeliveryTermsOptions,
@@ -114,6 +118,7 @@ export function createLoadData({
                 contractId?: number | null;
                 contractNumber?: string | null;
                 additionalInfo?: Record<string, unknown>;
+                items?: InvoiceItem[];
               };
               if (dup.contractId != null) {
                 setSelectedContractId(String(dup.contractId));
@@ -129,6 +134,12 @@ export function createLoadData({
               }
               if (dupAi?.visibleAdditionalInfoFields && typeof dupAi.visibleAdditionalInfoFields === 'object') {
                 setAdditionalInfoVisible(dupAi.visibleAdditionalInfoFields as Record<string, boolean>);
+              }
+              if (setColumnOrder && Array.isArray(dupAi?.columnOrder)) {
+                setColumnOrder(dupAi.columnOrder as string[]);
+              }
+              if (setCustomColumns && Array.isArray(dupAi?.customColumns)) {
+                setCustomColumns(dupAi.customColumns as string[]);
               }
               const todayIso = new Date().toISOString().split('T')[0];
               setForm((prev: any) => ({
@@ -168,7 +179,10 @@ export function createLoadData({
                 tirNumber: '',
                 temperature: String(dupAi?.temperature || ''),
               }));
-              setItems([{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 }] as InvoiceItem[]);
+              const loadedItems = dup.items && Array.isArray(dup.items) && dup.items.length > 0
+                ? dup.items.map(normalizeItem)
+                : [{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 } as InvoiceItem];
+              setItems(loadedItems);
               setCustomFields([]);
               const dupSpecFields = dupAi?.specCustomFields;
               setSpecCustomFields(
@@ -304,6 +318,12 @@ export function createLoadData({
             }
             if (ai?.visibleAdditionalInfoFields && typeof ai.visibleAdditionalInfoFields === 'object') {
               setAdditionalInfoVisible(ai.visibleAdditionalInfoFields as Record<string, boolean>);
+            }
+            if (setColumnOrder && Array.isArray(ai?.columnOrder)) {
+              setColumnOrder(ai.columnOrder as string[]);
+            }
+            if (setCustomColumns && Array.isArray(ai?.customColumns)) {
+              setCustomColumns(ai.customColumns as string[]);
             }
 
             initialForChangeLogRef.current = {

@@ -74,6 +74,8 @@ interface UseInvoiceSaveParams {
   additionalInfoVisible: Record<string, boolean>;
   visibleColumns: Record<string, boolean>;
   columnLabels: Record<string, string>;
+  columnOrder: string[];
+  customColumns: string[];
   packagingTypes: { name: string; code?: string }[];
   canEditEffective: boolean;
   invoiceNumberWarning: string | null;
@@ -107,6 +109,8 @@ export function useInvoiceSave({
   additionalInfoVisible,
   visibleColumns,
   columnLabels,
+  columnOrder,
+  customColumns,
   packagingTypes,
   canEditEffective,
   invoiceNumberWarning,
@@ -337,6 +341,8 @@ export function useInvoiceSave({
             specCustomFields: specCustomFields,
             visibleColumns,
             columnLabels,
+            columnOrder,
+            customColumns,
             visibleAdditionalInfoFields: additionalInfoVisible,
           };
           if (invoice) {
@@ -411,7 +417,7 @@ export function useInvoiceSave({
     } finally {
       setSaving(false);
     }
-  }, [form, items, invoice, task, taskId, clientId, selectedContractId, canEditEffective, invoiceNumberWarning, additionalInfoError, customFields, specCustomFields, additionalInfoVisible, visibleColumns, columnLabels, packagingTypes, newInvoiceTaskForm, buildChangeLog, setForm, setItems, setInvoice, setTask, setSelectedContractId, setAdditionalInfoError, setShowAdditionalInfoModal, setSaving, setMarkSnapshotAfterSave, setInvoiceNumberWarning, navigate]);
+  }, [form, items, invoice, task, taskId, clientId, selectedContractId, canEditEffective, invoiceNumberWarning, additionalInfoError, customFields, specCustomFields, additionalInfoVisible, visibleColumns, columnLabels, columnOrder, customColumns, packagingTypes, newInvoiceTaskForm, buildChangeLog, setForm, setItems, setInvoice, setTask, setSelectedContractId, setAdditionalInfoError, setShowAdditionalInfoModal, setSaving, setMarkSnapshotAfterSave, setInvoiceNumberWarning, navigate]);
 
   return { handleSubmit, buildChangeLog, showItemErrors };
 }

@@ -1,4 +1,4 @@
-import React, { type RefObject, useMemo } from 'react';
+import React, { type RefObject, useMemo, useState } from 'react';
 import type { InvoiceItem, ViewTab, VisibleColumns, ColumnLabels, ColumnLabelKey, InvoiceFormData } from './types';
 import { UNIT_OPTIONS, DEFAULT_COLUMN_LABELS } from './types';
 import { formatNumber, formatNumberFixed, numberToWordsRu, getCurrencySymbol } from './invoiceUtils';
@@ -17,6 +17,11 @@ interface InvoiceItemsTableProps {
   effectiveColumns: VisibleColumns;
   visibleColumns: VisibleColumns;
   columnLabels: ColumnLabels;
+  columnOrder: string[];
+  customColumns: string[];
+  moveColumn: (fromIndex: number, toIndex: number) => void;
+  onAddCustomColumn: (label: string) => void;
+  onRemoveCustomColumn: (key: string) => void;
   totalColumnLabel: string;
   leadingColumnsCount: number;
   invoiceCurrency: string;
@@ -28,6 +33,7 @@ interface InvoiceItemsTableProps {
   addItem: () => void;
   removeItem: (index: number) => void;
   handleItemChange: (index: number, field: keyof InvoiceItem, value: any) => void;
+  handleCustomFieldChange: (index: number, key: string, value: string) => void;
   handleNameChange: (index: number, value: string) => void;
   handleNameEnChange: (index: number, value: string) => void;
   handleGrossWeightChange: (index: number, value: string) => void;
@@ -50,6 +56,11 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
   effectiveColumns,
   visibleColumns,
   columnLabels,
+  columnOrder,
+  customColumns,
+  moveColumn,
+  onAddCustomColumn,
+  onRemoveCustomColumn,
   totalColumnLabel,
   leadingColumnsCount,
   invoiceCurrency,
@@ -61,6 +72,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
   addItem,
   removeItem,
   handleItemChange,
+  handleCustomFieldChange,
   handleNameChange,
   handleNameEnChange,
   handleGrossWeightChange,
@@ -76,6 +88,10 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
 }) => {
   const isReadonly = isPdfMode || viewTab === 'spec' || viewTab === 'packing';
   const { tableRef, handleCellKeyDown } = useTableKeyboardNav();
+
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [newColLabel, setNewColLabel] = useState('');
 
   const handleTakeScreenshot = async () => {
     const element = document.getElementById('invoice-screenshot-area');
@@ -181,108 +197,194 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     }
   };
 
+
+
+  const orderedVisibleColumns = useMemo(() => {
+    return columnOrder.filter((key) => {
+      if (key === 'actions' && isReadonly) return false;
+      return effectiveColumns[key as keyof VisibleColumns];
+    });
+  }, [columnOrder, effectiveColumns, isReadonly]);
+
   // Build a column-index map based on which columns are currently visible
   // so arrow-left / arrow-right skip hidden columns.
-  const editableColKeys: (keyof VisibleColumns)[] = [
-    'tnved', 'plu', 'name', 'unit', 'package',
-    'quantity', 'packagesCount', 'gross', 'net', 'unitPrice',
-  ];
   const colIndexMap = useMemo(() => {
     const map: Partial<Record<keyof VisibleColumns, number>> = {};
     let idx = 0;
-    for (const key of editableColKeys) {
-      if (effectiveColumns[key]) {
-        map[key] = idx++;
+    for (const key of columnOrder) {
+      if (key === 'actions' || key === 'index' || key === 'total') continue;
+      if (effectiveColumns[key as keyof VisibleColumns]) {
+        map[key as keyof VisibleColumns] = idx++;
       }
     }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveColumns]);
+  }, [effectiveColumns, columnOrder]);
 
   const renderTableHeader = (py: string) => (
     <thead className="text-left">
       <tr className="bg-white text-gray-900 font-semibold border-b-2 border-gray-800">
-        {effectiveColumns.index && (
-          <th className={`px-2 ${py} text-center text-xs font-semibold w-12`} style={{ verticalAlign: 'top' }}>{columnLabels.index}</th>
-        )}
-        {effectiveColumns.tnved && (
-          <th className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.tnved}</th>
-        )}
-        {effectiveColumns.plu && (
-          <th className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.plu}</th>
-        )}
-        {effectiveColumns.name && (
-          <th className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.name}</th>
-        )}
-        {effectiveColumns.unit && (
-          <th className={`px-2 ${py} text-center text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.unit}</th>
-        )}
-        {effectiveColumns.package && (
-          <th className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.package}</th>
-        )}
-        {effectiveColumns.quantity && (
-          <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.quantity}</th>
-        )}
-        {effectiveColumns.packagesCount && (
-          <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.packagesCount}</th>
-        )}
-        {effectiveColumns.gross && (
-          <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.gross}</th>
-        )}
-        {effectiveColumns.net && (
-          <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{columnLabels.net}</th>
-        )}
-        {effectiveColumns.unitPrice && (
-          <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-            {columnLabels.unitPrice}
-          </th>
-        )}
-        {effectiveColumns.total && (
-          <th className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>{totalColumnLabel}</th>
-        )}
-        {!isReadonly && effectiveColumns.actions && (
-          <th className={`px-2 ${py} text-center text-xs font-semibold no-screenshot`} style={{ verticalAlign: 'top' }}>{columnLabels.actions}</th>
-        )}
+        {orderedVisibleColumns.map((key) => {
+          switch (key) {
+            case 'index':
+              return (
+                <th key={key} className={`px-2 ${py} text-center text-xs font-semibold w-12`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.index}
+                </th>
+              );
+            case 'tnved':
+              return (
+                <th key={key} className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.tnved}
+                </th>
+              );
+            case 'plu':
+              return (
+                <th key={key} className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.plu}
+                </th>
+              );
+            case 'name':
+              return (
+                <th key={key} className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.name}
+                </th>
+              );
+            case 'unit':
+              return (
+                <th key={key} className={`px-2 ${py} text-center text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.unit}
+                </th>
+              );
+            case 'package':
+              return (
+                <th key={key} className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.package}
+                </th>
+              );
+            case 'quantity':
+              return (
+                <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.quantity}
+                </th>
+              );
+            case 'packagesCount':
+              return (
+                <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.packagesCount}
+                </th>
+              );
+            case 'gross':
+              return (
+                <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.gross}
+                </th>
+              );
+            case 'net':
+              return (
+                <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.net}
+                </th>
+              );
+            case 'unitPrice':
+              return (
+                <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.unitPrice}
+                </th>
+              );
+            case 'total':
+              return (
+                <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  {totalColumnLabel}
+                </th>
+              );
+            case 'actions':
+              return (
+                <th key={key} className={`px-2 ${py} text-center text-xs font-semibold no-screenshot`} style={{ verticalAlign: 'top' }}>
+                  {columnLabels.actions}
+                </th>
+              );
+            default:
+              if (key.startsWith('custom_')) {
+                return (
+                  <th key={key} className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                    {columnLabels[key]}
+                  </th>
+                );
+              }
+              return null;
+          }
+        })}
       </tr>
     </thead>
   );
 
-  const renderTableFooter = () => (
-    <tfoot>
-      <tr className="bg-white font-semibold border-t-2 border-gray-800">
-        {leadingColumnsCount > 0 && (
-          <td className="px-2 py-1 text-center" colSpan={leadingColumnsCount} style={{ verticalAlign: 'top' }}>Всего:</td>
-        )}
-        {effectiveColumns.quantity && (
-          <td className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
-            {(() => { const t = items.reduce((sum, i) => sum + i.quantity, 0); return t !== 0 ? formatNumber(t) : ''; })()}
-          </td>
-        )}
-        {effectiveColumns.packagesCount && (
-          <td className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
-            {formatNumber(items.reduce((sum, i) => sum + (i.packagesCount ?? 0), 0))}
-          </td>
-        )}
-        {effectiveColumns.gross && (
-          <td className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
-            {formatNumber(items.reduce((sum, i) => sum + (i.grossWeight || 0), 0))}
-          </td>
-        )}
-        {effectiveColumns.net && (
-          <td className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
-            {formatNumber(items.reduce((sum, i) => sum + (i.netWeight || 0), 0))}
-          </td>
-        )}
-        {effectiveColumns.unitPrice && <td className="px-2 py-1" style={{ verticalAlign: 'top' }}></td>}
-        {effectiveColumns.total && (
-          <td className="px-2 py-1 text-right font-bold" style={{ verticalAlign: 'top' }}>
-            {getCurrencySymbol(invoiceCurrency)} {formatNumberFixed(items.reduce((sum, i) => sum + i.totalPrice, 0))}
-          </td>
-        )}
-        {!isReadonly && effectiveColumns.actions && <td className="px-2 py-1 no-screenshot" style={{ verticalAlign: 'top' }}></td>}
-      </tr>
-    </tfoot>
-  );
+  const renderTableFooter = () => {
+    const SUM_COLUMNS = ['quantity', 'packagesCount', 'gross', 'net', 'total'];
+    const firstSumColIdx = orderedVisibleColumns.findIndex(key => SUM_COLUMNS.includes(key));
+
+    return (
+      <tfoot>
+        <tr className="bg-white font-semibold border-t-2 border-gray-800">
+          {firstSumColIdx > 0 && (
+            <td className="px-2 py-1 text-center" colSpan={firstSumColIdx} style={{ verticalAlign: 'top' }}>
+              Всего:
+            </td>
+          )}
+          {firstSumColIdx === -1 && (
+            <td className="px-2 py-1 text-center" colSpan={orderedVisibleColumns.length} style={{ verticalAlign: 'top' }}>
+              Всего:
+            </td>
+          )}
+          {firstSumColIdx !== -1 && orderedVisibleColumns.slice(firstSumColIdx).map((key) => {
+            switch (key) {
+              case 'quantity':
+                return (
+                  <td key={key} className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
+                    {(() => {
+                      const t = items.reduce((sum, i) => sum + i.quantity, 0);
+                      return t !== 0 ? formatNumber(t) : '';
+                    })()}
+                  </td>
+                );
+              case 'packagesCount':
+                return (
+                  <td key={key} className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
+                    {formatNumber(items.reduce((sum, i) => sum + (i.packagesCount ?? 0), 0))}
+                  </td>
+                );
+              case 'gross':
+                return (
+                  <td key={key} className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
+                    {formatNumber(items.reduce((sum, i) => sum + (i.grossWeight || 0), 0))}
+                  </td>
+                );
+              case 'net':
+                return (
+                  <td key={key} className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
+                    {formatNumber(items.reduce((sum, i) => sum + (i.netWeight || 0), 0))}
+                  </td>
+                );
+              case 'total':
+                return (
+                  <td key={key} className="px-2 py-1 text-right font-bold" style={{ verticalAlign: 'top' }}>
+                    {getCurrencySymbol(invoiceCurrency)} {formatNumberFixed(items.reduce((sum, i) => sum + i.totalPrice, 0))}
+                  </td>
+                );
+              case 'unitPrice':
+              case 'actions':
+                return <td key={key} className="px-2 py-1" style={{ verticalAlign: 'top' }}></td>;
+              default:
+                if (key.startsWith('custom_')) {
+                  return <td key={key} className="px-2 py-1" style={{ verticalAlign: 'top' }}></td>;
+                }
+                return null;
+            }
+          })}
+        </tr>
+      </tfoot>
+    );
+  };
 
   return (
     <div className="mb-8">
@@ -308,14 +410,113 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                   >
                     Ustunlar
                   </summary>
-                  <div className="absolute right-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-20">
-                    <div className="grid grid-cols-1 gap-2 text-sm text-gray-700">
-                      {(['index', 'tnved', 'plu', 'name', 'unit', 'package', 'quantity', 'packagesCount', 'gross', 'net', 'unitPrice', 'total', 'actions'] as ColumnLabelKey[]).map((key) => (
-                        <div key={key} className="flex items-center gap-2">
-                          <input type="checkbox" checked={visibleColumns[key]} onChange={() => setVisibleColumnsAndPersist((prev) => ({ ...prev, [key]: !prev[key] }))} className="shrink-0" />
-                          <input type="text" value={columnLabels[key]} onChange={(e) => setColumnLabels((prev) => ({ ...prev, [key]: e.target.value }))} className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-xs" placeholder={DEFAULT_COLUMN_LABELS[key]} />
+                  <div className="absolute right-0 mt-2 w-96 max-h-[75vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl p-3 z-20">
+                    <div className="mb-2 pb-2 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Ustunlar tartibi va nomi
+                    </div>
+                    <div className="space-y-1 text-sm text-gray-700">
+                      {columnOrder.map((key, idx) => (
+                        <div
+                          key={key}
+                          className={`flex items-center gap-2 py-1 px-1.5 hover:bg-gray-50 rounded transition-colors group ${
+                            dragOverIndex === idx ? 'border-b-2 border-blue-500' : ''
+                          } ${draggedIndex === idx ? 'opacity-50' : ''}`}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setDragOverIndex(idx);
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (draggedIndex !== null && draggedIndex !== idx) {
+                              moveColumn(draggedIndex, idx);
+                            }
+                            setDraggedIndex(null);
+                            setDragOverIndex(null);
+                          }}
+                        >
+                          {/* Drag Handle */}
+                          <div
+                            draggable
+                            onDragStart={(e) => {
+                              setDraggedIndex(idx);
+                              e.dataTransfer.effectAllowed = 'move';
+                            }}
+                            onDragEnd={() => {
+                              setDraggedIndex(null);
+                              setDragOverIndex(null);
+                            }}
+                            className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 shrink-0"
+                            title="Ustun tartibini o'zgartirish uchun sudrang"
+                          >
+                            <Icon icon="lucide:grip-vertical" className="w-4 h-4" />
+                          </div>
+
+                          <input 
+                            type="checkbox" 
+                            checked={visibleColumns[key] ?? false} 
+                            onChange={() => setVisibleColumnsAndPersist((prev) => ({ ...prev, [key]: !prev[key] }))} 
+                            className="shrink-0 rounded text-blue-600 focus:ring-blue-500 border-gray-300 w-4 h-4 cursor-pointer" 
+                          />
+                          
+                          <input 
+                            type="text" 
+                            value={columnLabels[key] || ''} 
+                            onChange={(e) => setColumnLabels((prev) => ({ ...prev, [key]: e.target.value }))} 
+                            className="flex-1 min-w-0 px-2 py-1 border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded text-xs font-medium text-gray-800" 
+                            placeholder={DEFAULT_COLUMN_LABELS[key as keyof typeof DEFAULT_COLUMN_LABELS] || 'Ustun nomi'} 
+                          />
+
+                          {key.startsWith('custom_') && (
+                            <button
+                              type="button"
+                              onClick={() => onRemoveCustomColumn(key)}
+                              className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors shrink-0"
+                              title="Ustunni o'chirish"
+                            >
+                              <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       ))}
+                    </div>
+
+                    {/* Yangi ustun qo'shish qismi */}
+                    <div className="pt-3 mt-3 border-t border-gray-100">
+                      <div className="text-xs font-semibold text-gray-500 mb-1.5">
+                        Yangi ustun qo'shish
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newColLabel}
+                          onChange={(e) => setNewColLabel(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (newColLabel.trim()) {
+                                onAddCustomColumn(newColLabel.trim());
+                                setNewColLabel('');
+                              }
+                            }
+                          }}
+                          placeholder="Ustun nomi (masalan: Izoh)"
+                          className="flex-1 px-2 py-1.5 border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded text-xs text-gray-800"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (newColLabel.trim()) {
+                              onAddCustomColumn(newColLabel.trim());
+                              setNewColLabel('');
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700 transition-colors shrink-0 flex items-center gap-1"
+                        >
+                          <Icon icon="lucide:plus" className="w-3.5 h-3.5" />
+                          Qo'shish
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </details>
@@ -337,22 +538,47 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 <tbody>
                   {items.map((item, index) => (
                     <tr key={index} className="border-b border-gray-200">
-                      {effectiveColumns.index && <td className="px-2 py-4 text-center">{index + 1}</td>}
-                      {effectiveColumns.tnved && <td className="px-2 py-4">{item.tnvedCode || ''}</td>}
-                      {effectiveColumns.plu && <td className="px-2 py-4">{item.pluCode || ''}</td>}
-                      {effectiveColumns.name && (
-                        <td className="px-2 py-4">
-                          <div>{item.name || ''}</div>
-                        </td>
-                      )}
-                      {effectiveColumns.unit && <td className="px-2 py-4 text-center">{item.unit || ''}</td>}
-                      {effectiveColumns.package && <td className="px-2 py-4">{item.packageType || ''}</td>}
-                      {effectiveColumns.quantity && <td className="px-2 py-4 text-right">{item.quantity != null && item.quantity !== 0 ? formatNumber(item.quantity) : ''}</td>}
-                      {effectiveColumns.packagesCount && <td className="px-2 py-4 text-right">{item.packagesCount != null && item.packagesCount !== 0 ? formatNumber(item.packagesCount) : ''}</td>}
-                      {effectiveColumns.gross && <td className="px-2 py-4 text-right">{formatNumber(item.grossWeight || 0)}</td>}
-                      {effectiveColumns.net && <td className="px-2 py-4 text-right">{formatNumber(item.netWeight || 0)}</td>}
-                      {effectiveColumns.unitPrice && <td className="px-2 py-4 text-right">{formatNumber(item.unitPrice)}</td>}
-                      {effectiveColumns.total && <td className="px-2 py-4 text-right font-semibold">{item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}</td>}
+                      {orderedVisibleColumns.map((key) => {
+                        switch (key) {
+                          case 'index':
+                            return <td key={key} className="px-2 py-4 text-center">{index + 1}</td>;
+                          case 'tnved':
+                            return <td key={key} className="px-2 py-4">{item.tnvedCode || ''}</td>;
+                          case 'plu':
+                            return <td key={key} className="px-2 py-4">{item.pluCode || ''}</td>;
+                          case 'name':
+                            return (
+                              <td key={key} className="px-2 py-4">
+                                <div>{item.name || ''}</div>
+                              </td>
+                            );
+                          case 'unit':
+                            return <td key={key} className="px-2 py-4 text-center">{item.unit || ''}</td>;
+                          case 'package':
+                            return <td key={key} className="px-2 py-4">{item.packageType || ''}</td>;
+                          case 'quantity':
+                            return <td key={key} className="px-2 py-4 text-right">{item.quantity != null && item.quantity !== 0 ? formatNumber(item.quantity) : ''}</td>;
+                          case 'packagesCount':
+                            return <td key={key} className="px-2 py-4 text-right">{item.packagesCount != null && item.packagesCount !== 0 ? formatNumber(item.packagesCount) : ''}</td>;
+                          case 'gross':
+                            return <td key={key} className="px-2 py-4 text-right">{formatNumber(item.grossWeight || 0)}</td>;
+                          case 'net':
+                            return <td key={key} className="px-2 py-4 text-right">{formatNumber(item.netWeight || 0)}</td>;
+                          case 'unitPrice':
+                            return <td key={key} className="px-2 py-4 text-right">{formatNumber(item.unitPrice)}</td>;
+                          case 'total':
+                            return <td key={key} className="px-2 py-4 text-right font-semibold">{item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}</td>;
+                          default:
+                            if (key.startsWith('custom_')) {
+                              return (
+                                <td key={key} className="px-2 py-4">
+                                  {item.customFields?.[key] || ''}
+                                </td>
+                              );
+                            }
+                            return null;
+                        }
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -373,74 +599,109 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 <tbody>
                   {items.map((item, index) => (
                     <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                      {effectiveColumns.index && <td className="px-2 py-2 text-center">{index + 1}</td>}
-                      {effectiveColumns.tnved && (
-                        <td className="px-2 py-2">
-                          <input type="text" value={item.tnvedCode || ''} onChange={(e) => handleItemChange(index, 'tnvedCode', e.target.value)} className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.tnvedCode?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="0810700001" data-nav-row={index} data-nav-col={colIndexMap.tnved} onKeyDown={handleCellKeyDown} />
-                        </td>
-                      )}
-                      {effectiveColumns.plu && (
-                        <td className="px-2 py-2">
-                          <input type="text" value={item.pluCode || ''} onChange={(e) => handleItemChange(index, 'pluCode', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs" placeholder="4309371" data-nav-row={index} data-nav-col={colIndexMap.plu} onKeyDown={handleCellKeyDown} />
-                        </td>
-                      )}
-                      {effectiveColumns.name && (
-                        <td className="px-2 py-2">
-                          <input type="text" value={item.name} onChange={(e) => handleNameChange(index, e.target.value)} list="invoice-tnved-products" className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.name?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Наименование товара" required data-nav-row={index} data-nav-col={colIndexMap.name} onKeyDown={handleCellKeyDown} />
-                        </td>
-                      )}
-                      {effectiveColumns.unit && (
-                        <td className="px-2 py-2">
-                          <select value={item.unit || 'кг'} onChange={(e) => handleItemChange(index, 'unit', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center bg-white" required data-nav-row={index} data-nav-col={colIndexMap.unit} onKeyDown={handleCellKeyDown}>
-                            {UNIT_OPTIONS.map((u) => (<option key={u} value={u}>{u}</option>))}
-                          </select>
-                        </td>
-                      )}
-                      {effectiveColumns.package && (
-                        <td className="px-2 py-2">
-                          <select value={item.packageType || ''} onChange={(e) => handleItemChange(index, 'packageType', e.target.value)} className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.packageType?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'}`} data-nav-row={index} data-nav-col={colIndexMap.package} onKeyDown={handleCellKeyDown}>
-                            <option value="">— Вид упаковки —</option>
-                            {packagingTypes.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
-                          </select>
-                        </td>
-                      )}
-                      {effectiveColumns.quantity && (
-                        <td className="px-2 py-2">
-                          <input type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()} value={('_quantityStr' in item && (item as any)._quantityStr !== undefined) ? (item as any)._quantityStr : (item.quantity === 0 || item.quantity == null ? '' : item.quantity)} onChange={(e) => { const v = e.target.value; handleItemChange(index, '_quantityStr' as any, v); handleItemChange(index, 'quantity', v === '' ? 0 : (parseFloat(v.replace(',','.')) || 0)); }} onBlur={() => handleItemChange(index, '_quantityStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" required placeholder="0" data-nav-row={index} data-nav-col={colIndexMap.quantity} onKeyDown={handleCellKeyDown} />
-                        </td>
-                      )}
-                      {effectiveColumns.packagesCount && (
-                        <td className="px-2 py-2">
-                          <input type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()} value={('_packagesCountStr' in item && (item as any)._packagesCountStr !== undefined) ? (item as any)._packagesCountStr : (item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_packagesCountStr' as any, raw); const num = raw === '' ? undefined : parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'packagesCount', isNaN(num as number) ? undefined : num); }} onBlur={() => handleItemChange(index, '_packagesCountStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" placeholder="" data-nav-row={index} data-nav-col={colIndexMap.packagesCount} onKeyDown={handleCellKeyDown} />
-                        </td>
-                      )}
-                      {effectiveColumns.gross && (
-                        <td className="px-2 py-2">
-                          <input type="text" inputMode="decimal" value={getGrossWeightDisplayValue(index, item)} onChange={(e) => handleGrossWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyGrossWeightFormula(index); } else { handleCellKeyDown(e); } }} onBlur={() => applyGrossWeightFormula(index)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="7802 yoki *8 (Enter)" title="Raqam yoki *8.5 — Enter bosganda Кол-во упаковки ga ko'paytiriladi, natija butun son" data-nav-row={index} data-nav-col={colIndexMap.gross} />
-                        </td>
-                      )}
-                      {effectiveColumns.net && (
-                        <td className="px-2 py-2">
-                          <input type="text" inputMode="decimal" value={getNetWeightDisplayValue(index, item)} onChange={(e) => handleNetWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyNetWeightFormula(index); } else { handleCellKeyDown(e); } }} onBlur={() => applyNetWeightFormula(index)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.netWeight) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="7150 yoki *1.2 (Enter)" title="Raqam yoki *1.2 — Enter: Brutto − (1.2 × Кол-во упаковки), natija butun son" data-nav-row={index} data-nav-col={colIndexMap.net} />
-                        </td>
-                      )}
-                      {effectiveColumns.unitPrice && (
-                        <td className="px-2 py-2">
-                          <input type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()} value={('_unitPriceStr' in item && (item as any)._unitPriceStr !== undefined) ? (item as any)._unitPriceStr : (item.unitPrice === 0 ? '' : item.unitPrice)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_unitPriceStr' as any, raw); const num = parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0); }} onBlur={() => handleItemChange(index, '_unitPriceStr' as any, undefined)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.unitPrice) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} min="0" step="any" required placeholder="" data-nav-row={index} data-nav-col={colIndexMap.unitPrice} onKeyDown={handleCellKeyDown} />
-                        </td>
-                      )}
-                      {effectiveColumns.total && (
-                        <td className="px-2 py-2">
-                          <div className={`text-right font-semibold text-xs px-2 py-1 rounded ${showItemErrors && !(Number(item.totalPrice) > 0) ? 'border border-red-500 bg-red-50' : ''}`}>{item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}</div>
-                        </td>
-                      )}
-                      {effectiveColumns.actions && (
-                        <td className="px-2 py-2 text-center no-screenshot">
-                          {items.length > 1 && (
-                            <button type="button" onClick={() => removeItem(index)} className="text-red-600 hover:text-red-800 text-sm">✕</button>
-                          )}
-                        </td>
-                      )}
+                      {orderedVisibleColumns.map((key) => {
+                        switch (key) {
+                          case 'index':
+                            return <td key={key} className="px-2 py-2 text-center">{index + 1}</td>;
+                          case 'tnved':
+                            return (
+                              <td key={key} className="px-2 py-2">
+                                <input type="text" value={item.tnvedCode || ''} onChange={(e) => handleItemChange(index, 'tnvedCode', e.target.value)} className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.tnvedCode?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="0810700001" data-nav-row={index} data-nav-col={colIndexMap.tnved} onKeyDown={handleCellKeyDown} />
+                              </td>
+                            );
+                          case 'plu':
+                            return (
+                              <td key={key} className="px-2 py-2">
+                                <input type="text" value={item.pluCode || ''} onChange={(e) => handleItemChange(index, 'pluCode', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs" placeholder="4309371" data-nav-row={index} data-nav-col={colIndexMap.plu} onKeyDown={handleCellKeyDown} />
+                              </td>
+                            );
+                          case 'name':
+                            return (
+                              <td key={key} className="px-2 py-2">
+                                <input type="text" value={item.name} onChange={(e) => handleNameChange(index, e.target.value)} list="invoice-tnved-products" className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.name?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Наименование товара" required data-nav-row={index} data-nav-col={colIndexMap.name} onKeyDown={handleCellKeyDown} />
+                              </td>
+                            );
+                          case 'unit':
+                            return (
+                              <td key={key} className="px-2 py-2">
+                                <select value={item.unit || 'кг'} onChange={(e) => handleItemChange(index, 'unit', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center bg-white" required data-nav-row={index} data-nav-col={colIndexMap.unit} onKeyDown={handleCellKeyDown}>
+                                  {UNIT_OPTIONS.map((u) => (<option key={u} value={u}>{u}</option>))}
+                                </select>
+                              </td>
+                            );
+                          case 'package':
+                            return (
+                              <td key={key} className="px-2 py-2">
+                                <select value={item.packageType || ''} onChange={(e) => handleItemChange(index, 'packageType', e.target.value)} className={`w-full px-2 py-1 border rounded text-xs ${showItemErrors && !item.packageType?.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'}`} data-nav-row={index} data-nav-col={colIndexMap.package} onKeyDown={handleCellKeyDown}>
+                                  <option value="">— Вид упаковки —</option>
+                                  {packagingTypes.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
+                                </select>
+                              </td>
+                            );
+                          case 'quantity':
+                            return (
+                              <td key={key} className="px-2 py-2">
+                                <input type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()} value={('_quantityStr' in item && (item as any)._quantityStr !== undefined) ? (item as any)._quantityStr : (item.quantity === 0 || item.quantity == null ? '' : item.quantity)} onChange={(e) => { const v = e.target.value; handleItemChange(index, '_quantityStr' as any, v); handleItemChange(index, 'quantity', v === '' ? 0 : (parseFloat(v.replace(',','.')) || 0)); }} onBlur={() => handleItemChange(index, '_quantityStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" required placeholder="0" data-nav-row={index} data-nav-col={colIndexMap.quantity} onKeyDown={handleCellKeyDown} />
+                              </td>
+                            );
+                          case 'packagesCount':
+                            return (
+                              <td key={key} className="px-2 py-2">
+                                <input type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()} value={('_packagesCountStr' in item && (item as any)._packagesCountStr !== undefined) ? (item as any)._packagesCountStr : (item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_packagesCountStr' as any, raw); const num = raw === '' ? undefined : parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'packagesCount', isNaN(num as number) ? undefined : num); }} onBlur={() => handleItemChange(index, '_packagesCountStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" placeholder="" data-nav-row={index} data-nav-col={colIndexMap.packagesCount} onKeyDown={handleCellKeyDown} />
+                              </td>
+                            );
+                          case 'gross':
+                            return (
+                              <td key={key} className="px-2 py-2">
+                                <input type="text" inputMode="decimal" value={getGrossWeightDisplayValue(index, item)} onChange={(e) => handleGrossWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyGrossWeightFormula(index); } else { handleCellKeyDown(e); } }} onBlur={() => applyGrossWeightFormula(index)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="7802 yoki *8 (Enter)" title="Raqam yoki *8.5 — Enter bosganda Кол-во упаковки ga ko'paytiriladi, natija butun son" data-nav-row={index} data-nav-col={colIndexMap.gross} />
+                              </td>
+                            );
+                          case 'net':
+                            return (
+                              <td key={key} className="px-2 py-2">
+                                <input type="text" inputMode="decimal" value={getNetWeightDisplayValue(index, item)} onChange={(e) => handleNetWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyNetWeightFormula(index); } else { handleCellKeyDown(e); } }} onBlur={() => applyNetWeightFormula(index)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.netWeight) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="7150 yoki *1.2 (Enter)" title="Raqam yoki *1.2 — Enter: Brutto − (1.2 × Кол-во упаковки), natija butun son" data-nav-row={index} data-nav-col={colIndexMap.net} />
+                              </td>
+                            );
+                          case 'unitPrice':
+                            return (
+                              <td key={key} className="px-2 py-2">
+                                <input type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()} value={('_unitPriceStr' in item && (item as any)._unitPriceStr !== undefined) ? (item as any)._unitPriceStr : (item.unitPrice === 0 ? '' : item.unitPrice)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_unitPriceStr' as any, raw); const num = parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0); }} onBlur={() => handleItemChange(index, '_unitPriceStr' as any, undefined)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.unitPrice) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} min="0" step="any" required placeholder="" data-nav-row={index} data-nav-col={colIndexMap.unitPrice} onKeyDown={handleCellKeyDown} />
+                              </td>
+                            );
+                          case 'total':
+                            return (
+                              <td key={key} className="px-2 py-2">
+                                <div className={`text-right font-semibold text-xs px-2 py-1 rounded ${showItemErrors && !(Number(item.totalPrice) > 0) ? 'border border-red-500 bg-red-50' : ''}`}>{item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}</div>
+                              </td>
+                            );
+                          case 'actions':
+                            return (
+                              <td key={key} className="px-2 py-2 text-center no-screenshot">
+                                {items.length > 1 && (
+                                  <button type="button" onClick={() => removeItem(index)} className="text-red-600 hover:text-red-800 text-sm">✕</button>
+                                )}
+                              </td>
+                            );
+                          default:
+                            if (key.startsWith('custom_')) {
+                              return (
+                                <td key={key} className="px-2 py-2">
+                                  <input
+                                    type="text"
+                                    value={item.customFields?.[key] || ''}
+                                    onChange={(e) => handleCustomFieldChange(index, key, e.target.value)}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                    placeholder=""
+                                    data-nav-row={index}
+                                    data-nav-col={colIndexMap[key]}
+                                    onKeyDown={handleCellKeyDown}
+                                  />
+                                </td>
+                              );
+                            }
+                            return null;
+                        }
+                      })}
                     </tr>
                   ))}
                 </tbody>

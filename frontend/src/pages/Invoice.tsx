@@ -180,6 +180,13 @@ const Invoice = () => {
     setVisibleColumns,
     setVisibleColumnsAndPersist,
     latestVisibleColumnsRef,
+    columnOrder,
+    setColumnOrder,
+    customColumns,
+    setCustomColumns,
+    addCustomColumn,
+    removeCustomColumn,
+    moveColumn,
     columnsDropdownOpen,
     setColumnsDropdownOpen,
     columnsDropdownRef,
@@ -230,6 +237,7 @@ const Invoice = () => {
     editingGrossWeight,
     editingNetWeight,
     handleItemChange,
+    handleCustomFieldChange,
     handleNameChange,
     handleNameEnChange,
     handleGrossWeightChange,
@@ -332,6 +340,8 @@ const Invoice = () => {
     setSpecCustomFields,
     setVisibleColumns,
     setColumnLabels,
+    setColumnOrder,
+    setCustomColumns,
     setAdditionalInfoVisible,
     setContractDeliveryTerms,
     setDeliveryTermsOptions,
@@ -366,6 +376,8 @@ const Invoice = () => {
     additionalInfoVisible,
     visibleColumns,
     columnLabels,
+    columnOrder,
+    customColumns,
     packagingTypes,
     canEditEffective,
     invoiceNumberWarning,
@@ -380,6 +392,15 @@ const Invoice = () => {
     navigate,
     newInvoiceTaskForm,
   });
+
+  const handleAddCustomColumn = useCallback((label: string) => {
+    addCustomColumn(label, setColumnLabels);
+  }, [addCustomColumn, setColumnLabels]);
+
+  const handleRemoveCustomColumn = useCallback((key: string) => {
+    removeCustomColumn(key, setColumnLabels);
+  }, [removeCustomColumn, setColumnLabels]);
+
   const {
     selectedContract,
     isSellerShipper,
@@ -587,6 +608,11 @@ const Invoice = () => {
                     effectiveColumns={effectiveColumns}
                     visibleColumns={visibleColumns}
                     columnLabels={columnLabels}
+                    columnOrder={columnOrder}
+                    customColumns={customColumns}
+                    moveColumn={moveColumn}
+                    onAddCustomColumn={handleAddCustomColumn}
+                    onRemoveCustomColumn={handleRemoveCustomColumn}
                     totalColumnLabel={totalColumnLabel}
                     leadingColumnsCount={leadingColumnsCount}
                     invoiceCurrency={invoiceCurrency}
@@ -598,6 +624,7 @@ const Invoice = () => {
                     addItem={addItem}
                     removeItem={removeItem}
                     handleItemChange={handleItemChange}
+                    handleCustomFieldChange={handleCustomFieldChange}
                     handleNameChange={handleNameChange}
                     handleNameEnChange={handleNameEnChange}
                     handleGrossWeightChange={handleGrossWeightChange}

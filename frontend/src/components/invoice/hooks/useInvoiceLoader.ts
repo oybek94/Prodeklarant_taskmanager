@@ -2,7 +2,7 @@ import apiClient from '../../../lib/api';
 import axios from 'axios';
 import type { InvoiceItem, SpecRow } from '../types';
 import { normalizeItem } from '../invoiceUtils';
-import { getVisibleColumnsFromPayload } from '../types';
+import { getVisibleColumnsFromPayload, getLocalDateString } from '../types';
 
 interface UseInvoiceLoaderParams {
   clientId: string | undefined;
@@ -95,7 +95,7 @@ export function createLoadData({
             ...prev,
             contractNumber: contract.contractNumber,
             paymentTerms: contract.deliveryTerms || prev.paymentTerms,
-            date: new Date().toISOString().split('T')[0],
+            date: getLocalDateString(),
             gln: contract.gln != null ? contract.gln : prev.gln,
           }));
 
@@ -146,7 +146,7 @@ export function createLoadData({
               if (setAdditionalFieldsOrder && Array.isArray(dupAi?.additionalFieldsOrder)) {
                 setAdditionalFieldsOrder(dupAi.additionalFieldsOrder as string[]);
               }
-              const todayIso = new Date().toISOString().split('T')[0];
+              const todayIso = getLocalDateString();
               setForm((prev: any) => ({
                 ...prev,
                 invoiceNumber: nextInvoiceNumber ?? prev.invoiceNumber,
@@ -284,7 +284,7 @@ export function createLoadData({
             setForm((prev: any) => ({
               ...prev,
               invoiceNumber: inv.invoiceNumber || undefined,
-              date: inv.date ? inv.date.split('T')[0] : new Date().toISOString().split('T')[0],
+              date: inv.date ? inv.date.split('T')[0] : getLocalDateString(),
               currency: inv.currency || 'USD',
               contractNumber: inv.contractNumber || '',
               paymentTerms: inv.additionalInfo?.paymentTerms ?? prev.paymentTerms,

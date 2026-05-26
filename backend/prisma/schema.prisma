@@ -198,6 +198,13 @@ model TaskStage {
   createdAt    DateTime    @default(now())
   assignedTo   User?       @relation("StageAssignedTo", fields: [assignedToId], references: [id])
   task         Task        @relation(fields: [taskId], references: [id])
+
+  @@index([taskId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([completedAt])
+  @@index([assignedToId, status])
+  @@index([taskId, status])
 }
 
 model TaskError {
@@ -225,6 +232,12 @@ model TaskError {
   createdBy          User            @relation("TaskErrorCreatedBy", fields: [createdById], references: [id])
   task               Task            @relation(fields: [taskId], references: [id])
   worker             User?           @relation("TaskErrorWorker", fields: [workerId], references: [id])
+
+  @@index([taskId])
+  @@index([workerId])
+  @@index([date])
+  @@index([createdById])
+  @@index([workerId, date])
 }
 
 model Transaction {
@@ -256,6 +269,14 @@ model Transaction {
   task               Task?           @relation(fields: [taskId], references: [id])
   worker             User?           @relation("TransactionWorker", fields: [workerId], references: [id])
   debtPayment        DebtPayment?
+
+  @@index([type])
+  @@index([date])
+  @@index([clientId])
+  @@index([workerId])
+  @@index([branchId])
+  @@index([type, date])
+  @@index([expenseCategory])
 }
 
 model KpiConfig {
@@ -317,6 +338,10 @@ model KpiLog {
   exchange_source    ExchangeSource?
   task               Task            @relation(fields: [taskId], references: [id])
   user               User            @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([taskId])
+  @@index([userId, createdAt])
 }
 
 model AuditLog {
@@ -328,6 +353,9 @@ model AuditLog {
   payload   Json?
   createdAt DateTime @default(now())
   user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([entity, entityId])
 }
 
 model TaskVersion {

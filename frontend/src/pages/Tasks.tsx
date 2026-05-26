@@ -5,7 +5,7 @@ import { useTaskData } from '../components/tasks/useTaskData';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import * as XLSX from 'xlsx';
+// xlsx dynamic import — faqat eksport paytida yuklanadi (350KB tejash)
 import { Icon } from '@iconify/react';
 import { useIsMobile } from '../utils/useIsMobile';
 import DateInput from '../components/DateInput';
@@ -285,11 +285,16 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   // Socket.io: real-time task yangilanishlarni tinglash
   useEffect(() => {
     if (!socket || isModalMode) return;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const refresh = (taskId?: number) => {
-      loadTasks(showArchive, filters as any);
-      if (selectedTaskIdRef.current && (taskId === undefined || taskId === selectedTaskIdRef.current)) {
-        loadTaskDetail(selectedTaskIdRef.current);
-      }
+      // Debounce: 1.5 sekundda faqat bitta so'rov yuboriladi
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        loadTasks(showArchive, filters as any);
+        if (selectedTaskIdRef.current && (taskId === undefined || taskId === selectedTaskIdRef.current)) {
+          loadTaskDetail(selectedTaskIdRef.current);
+        }
+      }, 1500);
     };
     const onTaskCreated = (data: { createdBy: string }) => {
       toast(`${data.createdBy} yangi task yaratdi`, { icon: '📋' });
@@ -321,6 +326,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     socket.on('taskDocument:deleted', onDocumentDeleted);
     socket.on('task:errorUpdated', onDocumentCreated); // same handler as it just refreshes
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
       socket.off('task:created', onTaskCreated);
       socket.off('task:updated', onTaskUpdated);
       socket.off('task:deleted', onTaskDeleted);
@@ -501,13 +507,16 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   };
 
   // Export to Excel function
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     const tasksToExport = showArchive ? filteredArchiveTasks : (Array.isArray(tasks) ? tasks : []);
 
     if (tasksToExport.length === 0) {
       toast.error('Eksport qilish uchun ma\'lumotlar yo\'q');
       return;
     }
+
+    // Dynamic import — faqat kerak bo'lganda yuklanadi
+    const XLSX = await import('xlsx');
 
     // Prepare data for Excel
     const excelData = tasksToExport.map((task) => {
@@ -603,7 +612,8 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
         return obj;
       });
 
-      // Excel yaratish
+      // Excel yaratish (dynamic import)
+      const XLSX = await import('xlsx');
       const ws = XLSX.utils.json_to_sheet(excelData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Hisobot');

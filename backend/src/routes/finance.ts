@@ -229,7 +229,8 @@ router.get('/debtors', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
             currency: true,
           },
         },
-      }
+      },
+      take: 1000, // Cheksiz so'rovni oldini olish
     });
 
     const debtors = allClients

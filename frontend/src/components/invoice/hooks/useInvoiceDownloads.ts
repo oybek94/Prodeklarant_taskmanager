@@ -1,6 +1,4 @@
 import { useCallback } from 'react';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 import apiClient from '../../../lib/api';
 import type { Invoice as InvoiceType, RegionCode, FssFilePrefix, Task } from '../types';
 import {
@@ -90,6 +88,9 @@ export function useInvoiceDownloads({
     await waitForPaint();
     // Qo'shimcha kutish — React batch update to'liq renderlanishi uchun
     await new Promise(r => setTimeout(r, 100));
+
+    const { default: html2canvas } = await import('html2canvas');
+    const { jsPDF } = await import('jspdf');
 
     const element = invoiceRef.current;
     const canvas = await html2canvas(element, {

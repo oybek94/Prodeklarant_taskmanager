@@ -373,4 +373,4 @@ const TaskTable: React.FC<TaskTableProps> = ({
   );
 };
 
-export default TaskTable;
+export default React.memo(TaskTable);

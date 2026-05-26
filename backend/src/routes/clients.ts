@@ -604,27 +604,42 @@ router.get('/:id/monthly-tasks', async (req, res) => {
   const client = await prisma.client.findUnique({ where: { id } });
   if (!client) return res.status(404).json({ error: 'Not found' });
 
-  // Get tasks for the last 12 months
+  // Get tasks for the last 12 months — bitta SQL so'rov bilan 12 ta COUNT o'rniga
   const now = new Date();
-  const months: { month: string; count: number; year: number; monthIndex: number }[] = [];
+  const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
+  const monthlyData = await prisma.$queryRaw<
+    { month_start: Date; count: bigint }[]
+  >`
+    SELECT
+      date_trunc('month', "createdAt") AS month_start,
+      COUNT(*)::bigint AS count
+    FROM "Task"
+    WHERE "clientId" = ${id}
+      AND "createdAt" >= ${twelveMonthsAgo}
+    GROUP BY date_trunc('month', "createdAt")
+    ORDER BY month_start ASC
+  `;
+
+  // So'rov natijasini map qilib, barcha 12 oyni to'ldirish
+  const countMap = new Map<string, number>();
+  for (const row of monthlyData) {
+    const d = new Date(row.month_start);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    countMap.set(key, Number(row.count));
+  }
+
+  const months: { month: string; count: number; year: number; monthIndex: number }[] = [];
   for (let i = 11; i >= 0; i--) {
     const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
-
+    const key = `${monthStart.getFullYear()}-${monthStart.getMonth()}`;
     const monthName = monthStart.toLocaleDateString('uz-UZ', { month: 'short', year: 'numeric' });
-
-    const count = await prisma.task.count({
-      where: {
-        clientId: id,
-        createdAt: {
-          gte: monthStart,
-          lte: monthEnd,
-        },
-      },
+    months.push({
+      month: monthName,
+      count: countMap.get(key) || 0,
+      year: monthStart.getFullYear(),
+      monthIndex: monthStart.getMonth(),
     });
-
-    months.push({ month: monthName, count, year: monthStart.getFullYear(), monthIndex: monthStart.getMonth() });
   }
 
   res.json(months);

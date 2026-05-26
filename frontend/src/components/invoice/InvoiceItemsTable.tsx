@@ -6,7 +6,6 @@ import { InvoiceWeightSummary } from './InvoiceWeightSummary';
 import { ExportPriceCalculator } from './ExportPriceCalculator';
 import { useTableKeyboardNav } from './hooks/useTableKeyboardNav';
 import { Icon } from '@iconify/react';
-import html2canvas from 'html2canvas';
 import toast from 'react-hot-toast';
 
 interface InvoiceItemsTableProps {
@@ -102,6 +101,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     
     try {
       const toastId = toast.loading("Nusxa olinmoqda...");
+      const { default: html2canvas } = await import('html2canvas');
       
       const originalArea = document.getElementById('invoice-screenshot-area');
       const originalInputs = originalArea ? Array.from(originalArea.querySelectorAll('input, textarea, select')) : [];

@@ -134,7 +134,7 @@ export function useTaskData(userRole?: string) {
       } else {
         if (filters.status) params.status = filters.status;
         params.page = '1';
-        params.limit = '5000';
+        params.limit = '200'; // 5000 dan kamaytrildi — server-side limit bilan himoyalangan
       }
       if (filters.clientId) params.clientId = filters.clientId;
       if (filters.branchId) params.branchId = filters.branchId;

@@ -3,6 +3,7 @@ import { prisma } from '../prisma';
 import { getWorkerPaymentReport } from '../services/worker-payment';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { TaskStatus } from '@prisma/client';
+import { appCache, CACHE_TTL } from '../services/cache';
 
 const router = Router();
 
@@ -309,6 +310,14 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
 router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const { startDate, endDate, branchId, workerId } = req.query;
+    
+    // Cache kalitini so'rov parametrlariga qarab yaratish
+    const cacheKey = `dashboard:stats:${startDate || ''}:${endDate || ''}:${branchId || ''}:${workerId || ''}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const where: any = {};
     if (startDate || endDate) {
       where.createdAt = {};
@@ -764,7 +773,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       });
 
       // Debug logging
-      console.log(`[Dashboard] sumNetProfitForRange: Found ${rangeTasks.length} completed tasks in range ${start.toISOString()} to ${end.toISOString()}`);
+
 
       let usd = 0;
       let uzs = 0;
@@ -788,9 +797,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         const netProfit = dealAmount - branchPayments;
 
         // Debug logging for first few tasks
-        if (usdCount + uzsCount < 3) {
-          console.log(`[Dashboard] Task ${task.id}: baseDealAmount=${baseDealAmount}, psrAmount=${psrAmount}, dealAmount=${dealAmount}, branchPayments=${branchPayments}, netProfit=${netProfit}, currency=${clientCurrency}`);
-        }
+
 
         // Count all completed tasks, even if net profit is 0 or negative
         // This ensures accurate reporting
@@ -803,7 +810,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         }
       }
 
-      console.log(`[Dashboard] sumNetProfitForRange result: USD=${usd} (${usdCount} tasks), UZS=${uzs} (${uzsCount} tasks)`);
+
 
       return { usd, uzs, usdCount, uzsCount };
     };
@@ -823,9 +830,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       branchWhere.stages = { some: { assignedTo: parseInt(workerId as string) } };
     }
 
-    // Debug: Check total tasks
-    const totalTasksCount = await prisma.task.count({ where: branchWhere });
-    console.log('[Dashboard] Total tasks count:', totalTasksCount);
+    // Debug so'rov o'chirildi (performance uchun)
 
     // Debug: branchId null checks removed for schema compatibility
 
@@ -835,12 +840,11 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       _count: true,
     });
 
-    console.log('[Dashboard] tasksByBranch raw:', JSON.stringify(tasksByBranch, null, 2));
-    console.log('[Dashboard] tasksByBranch length:', tasksByBranch.length);
+
 
     // Get branch details
     const branchIds = tasksByBranch.map((t: any) => t.branchId).filter((id: any) => id !== null);
-    console.log('[Dashboard] branchIds extracted:', branchIds);
+
 
     const branchDetails = branchIds.length > 0
       ? await prisma.branch.findMany({
@@ -849,8 +853,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       })
       : [];
 
-    console.log('[Dashboard] branchDetails found:', JSON.stringify(branchDetails, null, 2));
-    console.log('[Dashboard] branchDetails count:', branchDetails.length);
+
 
     const tasksByBranchWithNames = tasksByBranch.map((t: any) => {
       if (t.branchId === null) {
@@ -867,15 +870,14 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       };
     });
 
-    console.log('[Dashboard] tasksByBranchWithNames:', JSON.stringify(tasksByBranchWithNames, null, 2));
-    console.log('[Dashboard] tasksByBranchWithNames length:', tasksByBranchWithNames.length);
+
 
     // Ensure tasksByBranch is always an array
     const finalTasksByBranch = Array.isArray(tasksByBranchWithNames)
       ? tasksByBranchWithNames
       : [];
 
-    console.log('[Dashboard] Final tasksByBranch being sent:', JSON.stringify(finalTasksByBranch, null, 2));
+
 
     const DEFAULT_CERTIFIER_FEES = {
       st1Rate: 95000,
@@ -1026,7 +1028,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
 
     const workerDebts = workerDebtsRaw;
 
-    res.json({
+    const responseData = {
       newTasks,
       completedTasks,
       tasksByStatus: tasksByStatus.map((t: any) => ({ status: t.status, count: t._count })),
@@ -1046,7 +1048,12 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       monthlyNetProfit,
       yearlyNetProfit,
       tasksByBranch: finalTasksByBranch,
-    });
+    };
+
+    // Natijani 5 daqiqaga keshlash
+    appCache.set(cacheKey, responseData, CACHE_TTL.DASHBOARD_STATS);
+
+    res.json(responseData);
   } catch (error: any) {
     console.error('Error fetching dashboard stats:', error);
     // Return partial data with empty arrays to prevent frontend errors

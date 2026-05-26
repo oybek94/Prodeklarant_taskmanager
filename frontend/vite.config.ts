@@ -12,4 +12,19 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-charts': ['apexcharts', 'react-apexcharts', 'chart.js', 'recharts', 'react-chartjs-2'],
+          'vendor-editor': ['@tiptap/react', '@tiptap/starter-kit'],
+          'vendor-xlsx': ['xlsx'],
+          'vendor-pdf': ['jspdf', 'html2canvas'],
+          'vendor-ui': ['framer-motion', 'lucide-react', '@iconify/react'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 500,
+  },
 })

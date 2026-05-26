@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
+import { appCache } from '../services/cache';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { computeDurations } from '../services/stage-duration';
@@ -143,6 +144,7 @@ router.get('/archive-report', requireAuth(), async (req: AuthRequest, res) => {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 500, // Cheksiz natijalarni oldini olish — faqat oxirgi 500 ta
     });
 
     // Invoice mavjud bo'lgan tasklarni formatlash, yo'qlarni bo'sh ko'rsatish
@@ -195,7 +197,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     const pageNum = safeInt(page);
     const limitNum = safeInt(limit);
     const skip = pageNum && limitNum ? (pageNum - 1) * limitNum : undefined;
-    const take = limitNum || undefined;
+    const take = limitNum || 500; // Default limit — cheksiz so'rov oldini olish
     
     // Role'ga qarab filial filter qo'shish
     const user = req.user;
@@ -247,7 +249,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
         driverPhone: true,
         customsPaymentMultiplier: true,
         createdAt: true,
-        client: true, 
+        client: { select: { id: true, name: true, phone: true, dealAmount: true, dealAmountCurrency: true } },
         branch: true,
         createdBy: {
           select: {
@@ -737,6 +739,8 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     res.status(201).json(task);
     // Real-time: barcha foydalanuvchilarga yangi task haqida xabar berish
     socketEmitter.broadcastExcept(req.user!.id, 'task:created', { task, createdBy: req.user!.name });
+    // Dashboard keshni tozalash — yangi task qo'shildi
+    appCache.invalidate('dashboard:');
     // Bildirishnoma
     getAllActiveUserIds().then(userIds => {
       notify({

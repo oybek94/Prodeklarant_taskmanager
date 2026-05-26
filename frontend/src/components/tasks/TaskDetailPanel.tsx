@@ -1090,4 +1090,4 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   );
 };
 
-export default TaskDetailPanel;
+export default React.memo(TaskDetailPanel);

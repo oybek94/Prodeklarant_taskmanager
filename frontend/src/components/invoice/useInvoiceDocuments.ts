@@ -1,6 +1,4 @@
 import { useCallback } from 'react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import apiClient from '../../lib/api';
 import { downloadExcelResponse } from './invoiceUtils';
 import type { FssFilePrefix } from './types';
@@ -171,6 +169,9 @@ export function useInvoiceDocuments({
 
     try {
       const element = invoiceRef.current;
+      const { default: html2canvas } = await import('html2canvas');
+      const { default: jsPDF } = await import('jspdf');
+
       const canvas = await html2canvas(element, {
         scale: 3,
         useCORS: true,

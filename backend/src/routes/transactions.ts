@@ -262,17 +262,45 @@ router.get('/stats/monthly', requireAuth(), async (req: AuthRequest, res) => {
 // Get worker salary statistics (for ADMIN only)
 router.get('/worker-stats', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
-    // Get all KPI logs (total earned) - use amount_uzs for accounting
-    const allKpiLogs = await prisma.kpiLog.findMany({});
-    const totalEarned = allKpiLogs.reduce((sum: number, log: any) => sum + Number(log.amount_uzs || log.convertedUzsAmount || log.amount || 0), 0);
+    // KPI jami ishlab topilgan summa — aggregate bilan (findMany o'rniga)
+    const kpiAgg = await prisma.kpiLog.aggregate({
+      _sum: {
+        amount_uzs: true,
+      },
+    });
+    // Fallback: agar amount_uzs bo'sh bo'lsa, convertedUzsAmount yoki amount dan olamiz
+    let totalEarned = Number(kpiAgg._sum.amount_uzs || 0);
+    if (totalEarned === 0) {
+      // Fallback — faqat agar amount_uzs hech qachon to'ldirilmagan bo'lsa
+      const kpiFallback = await prisma.kpiLog.aggregate({
+        _sum: {
+          convertedUzsAmount: true,
+          amount: true,
+        },
+      });
+      totalEarned = Number(kpiFallback._sum.convertedUzsAmount || kpiFallback._sum.amount || 0);
+    }
 
-    // Get all SALARY transactions (total paid) - use amount_uzs for accounting
-    const allSalaryTransactions = await prisma.transaction.findMany({
+    // SALARY transaksiyalari jami to'langan summa — aggregate bilan (findMany o'rniga)
+    const salaryAgg = await prisma.transaction.aggregate({
       where: {
         type: 'SALARY',
       },
+      _sum: {
+        amount_uzs: true,
+      },
     });
-    const totalPaid = allSalaryTransactions.reduce((sum: number, t: any) => sum + Number(t.amount_uzs || t.convertedUzsAmount || t.amount || 0), 0);
+    let totalPaid = Number(salaryAgg._sum.amount_uzs || 0);
+    if (totalPaid === 0) {
+      const salaryFallback = await prisma.transaction.aggregate({
+        where: { type: 'SALARY' },
+        _sum: {
+          convertedUzsAmount: true,
+          amount: true,
+        },
+      });
+      totalPaid = Number(salaryFallback._sum.convertedUzsAmount || salaryFallback._sum.amount || 0);
+    }
 
     // Calculate total pending
     const totalPending = totalEarned - totalPaid;

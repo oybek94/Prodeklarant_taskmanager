@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { Icon } from '@iconify/react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,51 +11,32 @@ import { GlobalRankUpWatcher } from './GlobalRankUpWatcher';
 import apiClient from '../lib/api';
 import BXMModal from './tasks/BxmModal';
 
-const Layout = () => {
-  const { user, logout } = useAuth();
+// Vaqt formatini olish
+const timeAgo = (dateStr: string): string => {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'hozir';
+  if (diffMin < 60) return `${diffMin} daq.`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} soat`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay} kun`;
+};
+
+/**
+ * Memoized notification bell + dropdown panel.
+ * Calls useNotifications() internally so Layout does NOT re-render
+ * when the notifications array reference changes every 60s.
+ */
+const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
+  onProcessConfirmWithBXM: (n: AppNotification, confirmFn: (processId: number, data?: any) => Promise<void>) => void;
+}) => {
   const { notifications, unreadCount, confirmProcess, rejectProcess, markRead, markAllRead, dismissNotification } = useNotifications();
-  const { onlineUsers } = usePresence();
-  const { theme, toggleTheme } = useTheme();
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-
-  // BXM Modal state
-  const [showBXMModal, setShowBXMModal] = useState(false);
-  const [bxmMultiplier, setBxmMultiplier] = useState('1.5');
-  const [afterHoursDeclaration, setAfterHoursDeclaration] = useState(false);
-  const [currentBxmUsd, setCurrentBxmUsd] = useState(34.4);
-  const [currentBxmUzs, setCurrentBxmUzs] = useState(412000);
-  const [pendingDeclarationNotif, setPendingDeclarationNotif] = useState<AppNotification | null>(null);
-
-  const formatBxmAmountInSum = (multiplier: number) => {
-    return new Intl.NumberFormat('ru-RU').format(Math.round(multiplier * currentBxmUzs)) + ' UZS';
-  };
-
-  const handleBXMConfirm = async () => {
-    if (!pendingDeclarationNotif) return;
-    const processId = (pendingDeclarationNotif.metadata as any)?.taskProcessId;
-    
-    const multiplier = parseFloat(bxmMultiplier);
-    const paymentAmount = multiplier * currentBxmUzs;
-
-    if (multiplier > 1.0) {
-      if (!confirm(`BXM ${multiplier} barobari tanlandi. Davom etasizmi?`)) return;
-    }
-
-    try {
-      await confirmProcess(processId, { 
-        declarationPaymentAmount: paymentAmount,
-        afterHoursDeclaration,
-        bxmMultiplier: multiplier
-      });
-      toast.success('Tayyor deb belgilandi!');
-    } catch (err: any) {
-      toast.error(err.message || 'Xatolik');
-    } finally {
-      setShowBXMModal(false);
-      setPendingDeclarationNotif(null);
-    }
-  };
+  const navigate = useNavigate();
 
   // Bildirishnoma ruxsati so'rash
   useEffect(() => {
@@ -71,6 +52,233 @@ const Layout = () => {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleProcessConfirm = useCallback(async (n: AppNotification) => {
+    const processId = (n.metadata as any)?.taskProcessId;
+    const processType = (n.metadata as any)?.processType;
+    if (!processId) return;
+
+    if (processType === 'DECLARATION') {
+      onProcessConfirmWithBXM(n, confirmProcess);
+      return;
+    }
+
+    try {
+      await confirmProcess(processId, {});
+      toast.success('Tayyor deb belgilandi!');
+    } catch (err: any) {
+      toast.error(err.message || 'Xatolik');
+    }
+  }, [confirmProcess, onProcessConfirmWithBXM]);
+
+  const handleProcessReject = useCallback(async (n: AppNotification) => {
+    const processId = (n.metadata as any)?.taskProcessId;
+    if (!processId) return;
+    try {
+      await rejectProcess(processId);
+      toast('Hali yo\'q deb belgilandi', { icon: '⏳' });
+    } catch (err: any) {
+      toast.error(err.message || 'Xatolik');
+    }
+  }, [rejectProcess]);
+
+  const handleNotificationClick = useCallback((n: AppNotification) => {
+    if (n.actionUrl) {
+      navigate(n.actionUrl);
+      setNotificationPanelOpen(false);
+    }
+    markRead(n.id);
+  }, [navigate, markRead]);
+
+  return (
+    <div className="relative" ref={panelRef}>
+      <button
+        onClick={() => setNotificationPanelOpen(!notificationPanelOpen)}
+        className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+      >
+        <Icon icon="lucide:bell" className="w-5 h-5" />
+        {unreadCount > 0 && (
+          <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-xs font-medium text-white bg-red-500 rounded-full animate-pulse">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {/* Bildirishnoma Panel */}
+      {notificationPanelOpen && (
+        <div className="absolute right-0 mt-1 w-80 sm:w-[26rem] max-h-[32rem] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-xl">
+            <div className="flex items-center gap-2">
+              <Icon icon="lucide:bell-ring" className="w-5 h-5 text-indigo-600" />
+              <span className="font-semibold text-gray-800 dark:text-gray-200">Bildirishnomalar</span>
+              {unreadCount > 0 && (
+                <span className="text-xs bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full">{unreadCount}</span>
+              )}
+            </div>
+            {notifications.length > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                Barchasini o'qish
+              </button>
+            )}
+          </div>
+
+          {/* Notifications List */}
+          <div className="overflow-y-auto flex-1">
+            {notifications.length === 0 ? (
+              <div className="p-10 text-center text-gray-400">
+                <Icon icon="lucide:bell-off" className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm font-medium">Bildirishnomalar yo'q</p>
+                <p className="text-xs mt-1 text-gray-400">Yangi xabarlar shu yerda ko'rinadi</p>
+              </div>
+            ) : (
+              notifications.slice(0, 10).map((n) => {
+                const style = getNotifStyle(n.color);
+                const isProcessReminder = n.type === 'PROCESS_REMINDER';
+                const isEscalation = n.type === 'PROCESS_ESCALATED';
+                return (
+                  <div
+                    key={n.id}
+                    className={`p-3 border-b border-gray-50 dark:border-gray-700/50 ${style.bg} ${style.darkBg} transition-colors`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-lg flex-shrink-0 mt-0.5">{n.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            onClick={() => handleNotificationClick(n)}
+                            className={`text-sm font-semibold ${style.text} ${style.darkText} hover:underline text-left truncate`}
+                          >
+                            {n.title}
+                          </button>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <span className="text-[10px] text-gray-400">{timeAgo(n.createdAt)}</span>
+                            <button
+                              onClick={() => dismissNotification(n.id)}
+                              className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
+                              title="Yopish"
+                            >
+                              <Icon icon="lucide:x" className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <p className={`text-xs mt-0.5 ${style.text} ${style.darkText} opacity-80`}>{n.message}</p>
+
+                        {/* Process Reminder action tugmalari */}
+                        {(isProcessReminder || isEscalation) && (
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={() => handleProcessConfirm(n)}
+                              className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                            >
+                              <Icon icon="lucide:check" className="w-3 h-3" />
+                              Tayyor
+                            </button>
+                            <button
+                              onClick={() => handleProcessReject(n)}
+                              className="px-3 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors flex items-center gap-1"
+                            >
+                              <Icon icon="lucide:clock" className="w-3 h-3" />
+                              Hali yo'q
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Footer */}
+          {notifications.length > 10 && (
+            <div className="p-3 border-t border-gray-100 dark:border-gray-700 text-center">
+              <button
+                onClick={() => {
+                  navigate('/notifications');
+                  setNotificationPanelOpen(false);
+                }}
+                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                Hammasini ko'rish ({notifications.length})
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+const Layout = () => {
+  const { user, logout } = useAuth();
+  const { onlineUsers } = usePresence();
+  const { theme, toggleTheme } = useTheme();
+
+  // BXM Modal state
+  const [showBXMModal, setShowBXMModal] = useState(false);
+  const [bxmMultiplier, setBxmMultiplier] = useState('1.5');
+  const [afterHoursDeclaration, setAfterHoursDeclaration] = useState(false);
+  const [currentBxmUsd, setCurrentBxmUsd] = useState(34.4);
+  const [currentBxmUzs, setCurrentBxmUzs] = useState(412000);
+  const [pendingDeclarationNotif, setPendingDeclarationNotif] = useState<AppNotification | null>(null);
+  const [pendingConfirmFn, setPendingConfirmFn] = useState<{ fn: (processId: number, data?: any) => Promise<void> } | null>(null);
+
+  const formatBxmAmountInSum = (multiplier: number) => {
+    return new Intl.NumberFormat('ru-RU').format(Math.round(multiplier * currentBxmUzs)) + ' UZS';
+  };
+
+  const handleBXMConfirm = async () => {
+    if (!pendingDeclarationNotif || !pendingConfirmFn) return;
+    const processId = (pendingDeclarationNotif.metadata as any)?.taskProcessId;
+    
+    const multiplier = parseFloat(bxmMultiplier);
+    const paymentAmount = multiplier * currentBxmUzs;
+
+    if (multiplier > 1.0) {
+      if (!confirm(`BXM ${multiplier} barobari tanlandi. Davom etasizmi?`)) return;
+    }
+
+    try {
+      await pendingConfirmFn.fn(processId, { 
+        declarationPaymentAmount: paymentAmount,
+        afterHoursDeclaration,
+        bxmMultiplier: multiplier
+      });
+      toast.success('Tayyor deb belgilandi!');
+    } catch (err: any) {
+      toast.error(err.message || 'Xatolik');
+    } finally {
+      setShowBXMModal(false);
+      setPendingDeclarationNotif(null);
+      setPendingConfirmFn(null);
+    }
+  };
+
+  // Callback for NotificationBell when a DECLARATION process needs BXM modal
+  const handleProcessConfirmWithBXM = useCallback(async (
+    n: AppNotification,
+    confirmFn: (processId: number, data?: any) => Promise<void>
+  ) => {
+    try {
+      const bxmResponse = await apiClient.get('/bxm/current');
+      setCurrentBxmUsd(Number(bxmResponse.data.amountUsd ?? bxmResponse.data.amount ?? 34.4));
+      setCurrentBxmUzs(Number(bxmResponse.data.amountUzs ?? 412000));
+    } catch (err) {
+      // Fallback to default
+      setCurrentBxmUsd(34.4);
+      setCurrentBxmUzs(412000);
+    }
+    setBxmMultiplier('1.5');
+    setAfterHoursDeclaration(false);
+    setPendingDeclarationNotif(n);
+    setPendingConfirmFn({ fn: confirmFn });
+    setShowBXMModal(true);
   }, []);
 
   const navigate = useNavigate();
@@ -133,70 +341,7 @@ const Layout = () => {
     { path: '/profile', label: 'Profil', icon: 'lucide:user' },
   ];
 
-  // Process Reminder bildirishnoma uchun action tugmalar
-  const handleProcessConfirm = async (n: AppNotification) => {
-    const processId = (n.metadata as any)?.taskProcessId;
-    const processType = (n.metadata as any)?.processType;
-    if (!processId) return;
 
-    if (processType === 'DECLARATION') {
-      try {
-        const bxmResponse = await apiClient.get('/bxm/current');
-        setCurrentBxmUsd(Number(bxmResponse.data.amountUsd ?? bxmResponse.data.amount ?? 34.4));
-        setCurrentBxmUzs(Number(bxmResponse.data.amountUzs ?? 412000));
-      } catch (err) {
-        // Fallback to default
-        setCurrentBxmUsd(34.4);
-        setCurrentBxmUzs(412000);
-      }
-      setBxmMultiplier('1.5');
-      setAfterHoursDeclaration(false);
-      setPendingDeclarationNotif(n);
-      setShowBXMModal(true);
-      return;
-    }
-
-    try {
-      await confirmProcess(processId, {});
-      toast.success('Tayyor deb belgilandi!');
-    } catch (err: any) {
-      toast.error(err.message || 'Xatolik');
-    }
-  };
-
-  const handleProcessReject = async (n: AppNotification) => {
-    const processId = (n.metadata as any)?.taskProcessId;
-    if (!processId) return;
-    try {
-      await rejectProcess(processId);
-      toast('Hali yo\'q deb belgilandi', { icon: '⏳' });
-    } catch (err: any) {
-      toast.error(err.message || 'Xatolik');
-    }
-  };
-
-  // Bildirishnoma bosilganda — actionUrl ga o'tish
-  const handleNotificationClick = (n: AppNotification) => {
-    if (n.actionUrl) {
-      navigate(n.actionUrl);
-      setNotificationPanelOpen(false);
-    }
-    markRead(n.id);
-  };
-
-  // Vaqt formatini olish
-  const timeAgo = (dateStr: string): string => {
-    const now = new Date();
-    const date = new Date(dateStr);
-    const diffMs = now.getTime() - date.getTime();
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return 'hozir';
-    if (diffMin < 60) return `${diffMin} daq.`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr} soat`;
-    const diffDay = Math.floor(diffHr / 24);
-    return `${diffDay} kun`;
-  };
 
   return (
     <div className="flex h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900 relative text-gray-900 dark:text-gray-100">
@@ -322,126 +467,7 @@ const Layout = () => {
 
               {/* 🔔 Bildirishnoma Bell */}
               {user?.role !== 'SELLER' && (
-                <div className="relative" ref={panelRef}>
-                <button
-                  onClick={() => setNotificationPanelOpen(!notificationPanelOpen)}
-                  className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <Icon icon="lucide:bell" className="w-5 h-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-xs font-medium text-white bg-red-500 rounded-full animate-pulse">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* Bildirishnoma Panel */}
-                {notificationPanelOpen && (
-                  <div className="absolute right-0 mt-1 w-80 sm:w-[26rem] max-h-[32rem] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 flex flex-col">
-                    {/* Header */}
-                    <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-xl">
-                      <div className="flex items-center gap-2">
-                        <Icon icon="lucide:bell-ring" className="w-5 h-5 text-indigo-600" />
-                        <span className="font-semibold text-gray-800 dark:text-gray-200">Bildirishnomalar</span>
-                        {unreadCount > 0 && (
-                          <span className="text-xs bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full">{unreadCount}</span>
-                        )}
-                      </div>
-                      {notifications.length > 0 && (
-                        <button
-                          onClick={markAllRead}
-                          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-                        >
-                          Barchasini o'qish
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Notifications List */}
-                    <div className="overflow-y-auto flex-1">
-                      {notifications.length === 0 ? (
-                        <div className="p-10 text-center text-gray-400">
-                          <Icon icon="lucide:bell-off" className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                          <p className="text-sm font-medium">Bildirishnomalar yo'q</p>
-                          <p className="text-xs mt-1 text-gray-400">Yangi xabarlar shu yerda ko'rinadi</p>
-                        </div>
-                      ) : (
-                        notifications.slice(0, 10).map((n) => {
-                          const style = getNotifStyle(n.color);
-                          const isProcessReminder = n.type === 'PROCESS_REMINDER';
-                          const isEscalation = n.type === 'PROCESS_ESCALATED';
-                          return (
-                            <div
-                              key={n.id}
-                              className={`p-3 border-b border-gray-50 dark:border-gray-700/50 ${style.bg} ${style.darkBg} transition-colors`}
-                            >
-                              <div className="flex items-start gap-2.5">
-                                <span className="text-lg flex-shrink-0 mt-0.5">{n.icon}</span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <button
-                                      onClick={() => handleNotificationClick(n)}
-                                      className={`text-sm font-semibold ${style.text} ${style.darkText} hover:underline text-left truncate`}
-                                    >
-                                      {n.title}
-                                    </button>
-                                    <div className="flex items-center gap-1 flex-shrink-0">
-                                      <span className="text-[10px] text-gray-400">{timeAgo(n.createdAt)}</span>
-                                      <button
-                                        onClick={() => dismissNotification(n.id)}
-                                        className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
-                                        title="Yopish"
-                                      >
-                                        <Icon icon="lucide:x" className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                  <p className={`text-xs mt-0.5 ${style.text} ${style.darkText} opacity-80`}>{n.message}</p>
-
-                                  {/* Process Reminder action tugmalari */}
-                                  {(isProcessReminder || isEscalation) && (
-                                    <div className="flex gap-2 mt-2">
-                                      <button
-                                        onClick={() => handleProcessConfirm(n)}
-                                        className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
-                                      >
-                                        <Icon icon="lucide:check" className="w-3 h-3" />
-                                        Tayyor
-                                      </button>
-                                      <button
-                                        onClick={() => handleProcessReject(n)}
-                                        className="px-3 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors flex items-center gap-1"
-                                      >
-                                        <Icon icon="lucide:clock" className="w-3 h-3" />
-                                        Hali yo'q
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    {/* Footer */}
-                    {notifications.length > 10 && (
-                      <div className="p-3 border-t border-gray-100 dark:border-gray-700 text-center">
-                        <button
-                          onClick={() => {
-                            navigate('/notifications');
-                            setNotificationPanelOpen(false);
-                          }}
-                          className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-                        >
-                          Hammasini ko'rish ({notifications.length})
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                <NotificationBell onProcessConfirmWithBXM={handleProcessConfirmWithBXM} />
               )}
             </div>
           </header>
@@ -465,6 +491,7 @@ const Layout = () => {
         onClose={() => {
           setShowBXMModal(false);
           setPendingDeclarationNotif(null);
+          setPendingConfirmFn(null);
         }}
       />
     </div>

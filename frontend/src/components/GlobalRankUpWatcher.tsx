@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import apiClient from '../lib/api';
-import { getCsgoRank } from '../pages/Dashboard';
+import { getCsgoRank } from '../utils/csgoRanks';
 import { RankUpCeremony } from './RankUpCeremony';
 
 export const GlobalRankUpWatcher = () => {

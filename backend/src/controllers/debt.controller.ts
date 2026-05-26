@@ -57,47 +57,99 @@ export const getDebts = async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
 
-    // Fetch all records with payments to filter by status correctly
-    // Since calculating 'remaining' is done in memory
-    const allDebts = await prisma.debt.findMany({
-      include: {
-        person: true,
-        payments: true
-      },
-      orderBy: [
-        { dueDate: { sort: 'asc', nulls: 'last' } as any },
-        { date: 'desc' }
-      ]
-    });
+    if (status === 'active' || status === 'paid') {
+      // Status filtri bor — raw SQL bilan DB darajasida filter qilamiz
+      // Bu barcha qarzlarni xotiraga yuklashning oldini oladi
+      const havingCondition = status === 'active'
+        ? `HAVING d.amount - COALESCE(SUM(dp.amount), 0) > 0`
+        : `HAVING d.amount - COALESCE(SUM(dp.amount), 0) <= 0`;
 
-    const processedDebts = allDebts.map(debt => {
-      const totalPaid = debt.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-      const remaining = Number(debt.amount) - totalPaid;
+      // Jami sonni olish
+      const countResult = await prisma.$queryRawUnsafe<{ cnt: bigint }[]>(`
+        SELECT COUNT(*) AS cnt FROM (
+          SELECT d.id
+          FROM "Debt" d
+          LEFT JOIN "DebtPayment" dp ON dp."debtId" = d.id
+          GROUP BY d.id, d.amount
+          ${havingCondition}
+        ) sub
+      `);
+      const total = Number(countResult[0]?.cnt || 0);
 
-      return {
-        ...debt,
-        name: debt.person.name,
-        totalPaid,
-        remaining
-      };
-    });
-    
-    let filteredDebts = processedDebts;
-    if (status === 'active') {
-      filteredDebts = processedDebts.filter(d => d.remaining > 0);
-    } else if (status === 'paid') {
-      filteredDebts = processedDebts.filter(d => d.remaining <= 0);
+      // Filtrlangan va paginatsiya qilingan ID'larni olish
+      const filteredIds = await prisma.$queryRawUnsafe<{ id: number }[]>(`
+        SELECT d.id
+        FROM "Debt" d
+        LEFT JOIN "DebtPayment" dp ON dp."debtId" = d.id
+        GROUP BY d.id, d.amount, d."dueDate", d.date
+        ${havingCondition}
+        ORDER BY d."dueDate" ASC NULLS LAST, d.date DESC
+        LIMIT ${limit} OFFSET ${skip}
+      `);
+
+      const ids = filteredIds.map(r => r.id);
+
+      // Agar natija bo'lmasa
+      if (ids.length === 0) {
+        return res.json({ debts: [], total, page, totalPages: Math.ceil(total / limit) });
+      }
+
+      // ID'lar bo'yicha to'liq ma'lumot olish
+      const debts = await prisma.debt.findMany({
+        where: { id: { in: ids } },
+        include: {
+          person: true,
+          payments: true,
+        },
+        orderBy: [
+          { dueDate: { sort: 'asc', nulls: 'last' } as any },
+          { date: 'desc' },
+        ],
+      });
+
+      const processedDebts = debts.map(debt => {
+        const totalPaid = debt.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        const remaining = Number(debt.amount) - totalPaid;
+        return { ...debt, name: debt.person.name, totalPaid, remaining };
+      });
+
+      res.json({
+        debts: processedDebts,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+      });
+    } else {
+      // Status filtri yo'q — Prisma take/skip bilan DB darajasida paginatsiya
+      const [allDebts, total] = await Promise.all([
+        prisma.debt.findMany({
+          include: {
+            person: true,
+            payments: true,
+          },
+          orderBy: [
+            { dueDate: { sort: 'asc', nulls: 'last' } as any },
+            { date: 'desc' },
+          ],
+          skip,
+          take: limit,
+        }),
+        prisma.debt.count(),
+      ]);
+
+      const processedDebts = allDebts.map(debt => {
+        const totalPaid = debt.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        const remaining = Number(debt.amount) - totalPaid;
+        return { ...debt, name: debt.person.name, totalPaid, remaining };
+      });
+
+      res.json({
+        debts: processedDebts,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+      });
     }
-
-    const total = filteredDebts.length;
-    const paginatedDebts = filteredDebts.slice(skip, skip + limit);
-
-    res.json({
-      debts: paginatedDebts,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit)
-    });
   } catch (error) {
     console.error('Qarzlarni olish xatosi:', error);
     res.status(500).json({ error: 'Qarzlarni olishda xato yuz berdi' });

@@ -2,47 +2,58 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider, useSocket } from './contexts/SocketContext';
 import { Toaster, toast } from 'react-hot-toast';
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Layout from './components/Layout';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Tasks from './pages/Tasks';
-import TaskErrorBoundary from './components/tasks/TaskErrorBoundary';
-import TaskDetail from './pages/TaskDetail';
-import Transactions from './pages/Transactions';
-import Clients from './pages/Clients';
-import ClientDetail from './pages/ClientDetail';
-import Workers from './pages/Workers';
-import WorkerReport from './pages/WorkerReport';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import Training from './pages/Training';
-import TrainingDetail from './pages/TrainingDetail';
-import TrainingManagement from './pages/TrainingManagement';
-import TrainingManageDetail from './pages/TrainingManageDetail';
-import TrainingStageDetail from './pages/TrainingStageDetail';
-import TrainingStageEdit from './pages/TrainingStageEdit';
-import Exam from './pages/Exam';
-import ExamResult from './pages/ExamResult';
-import ClientLogin from './pages/ClientLogin';
-import ClientDashboard from './pages/ClientDashboard';
-import Finance from './pages/Finance';
-import Invoice from './pages/Invoice';
-import Invoices from './pages/Invoices';
-import Reports from './pages/Reports';
-import QRVerification from './pages/QRVerification';
-import Leads from './pages/Leads';
-import LeadDetail from './pages/LeadDetail';
-import CrmDashboard from './pages/CrmDashboard';
-import Notifications from './pages/Notifications';
-import Debts from './pages/Debts';
-import FAQ from './pages/FAQ';
-import SellerKpi from './pages/SellerKpi';
 import LeadWonAnimation from './components/LeadWonAnimation';
 import XpAnimation from './components/XpAnimation';
 import MedalAnimation from './components/notifications/MedalAnimation';
-import { DataAssistant } from './pages/DataAssistant';
+
+// Lazy-loaded page components for code splitting
+const Login = lazy(() => import('./pages/Login'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Tasks = lazy(() => import('./pages/Tasks'));
+const TaskErrorBoundary = lazy(() => import('./components/tasks/TaskErrorBoundary'));
+const TaskDetail = lazy(() => import('./pages/TaskDetail'));
+const Transactions = lazy(() => import('./pages/Transactions'));
+const Clients = lazy(() => import('./pages/Clients'));
+const ClientDetail = lazy(() => import('./pages/ClientDetail'));
+const Workers = lazy(() => import('./pages/Workers'));
+const WorkerReport = lazy(() => import('./pages/WorkerReport'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Training = lazy(() => import('./pages/Training'));
+const TrainingDetail = lazy(() => import('./pages/TrainingDetail'));
+const TrainingManagement = lazy(() => import('./pages/TrainingManagement'));
+const TrainingManageDetail = lazy(() => import('./pages/TrainingManageDetail'));
+const TrainingStageDetail = lazy(() => import('./pages/TrainingStageDetail'));
+const TrainingStageEdit = lazy(() => import('./pages/TrainingStageEdit'));
+const Exam = lazy(() => import('./pages/Exam'));
+const ExamResult = lazy(() => import('./pages/ExamResult'));
+const ClientLogin = lazy(() => import('./pages/ClientLogin'));
+const ClientDashboard = lazy(() => import('./pages/ClientDashboard'));
+const Finance = lazy(() => import('./pages/Finance'));
+const Invoice = lazy(() => import('./pages/Invoice'));
+const Invoices = lazy(() => import('./pages/Invoices'));
+const Reports = lazy(() => import('./pages/Reports'));
+const QRVerification = lazy(() => import('./pages/QRVerification'));
+const Leads = lazy(() => import('./pages/Leads'));
+const LeadDetail = lazy(() => import('./pages/LeadDetail'));
+const CrmDashboard = lazy(() => import('./pages/CrmDashboard'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Debts = lazy(() => import('./pages/Debts'));
+const FAQ = lazy(() => import('./pages/FAQ'));
+const SellerKpi = lazy(() => import('./pages/SellerKpi'));
+const DataAssistant = lazy(() => import('./pages/DataAssistant').then(m => ({ default: m.DataAssistant })));
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <span className="text-sm text-gray-500 dark:text-gray-400">Yuklanmoqda...</span>
+    </div>
+  </div>
+);
 
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -103,6 +114,7 @@ const AppRoutes = () => {
   }
 
   return (
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route
         path="/login"
@@ -375,6 +387,7 @@ const AppRoutes = () => {
         }
       />
     </Routes>
+    </Suspense>
   );
 };
 

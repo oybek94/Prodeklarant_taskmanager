@@ -684,13 +684,11 @@ const Transactions = () => {
               value={filters.startDate}
               onChange={(val) => { setFilters({ ...filters, startDate: val }); setTransactionsPage(1); }}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
-              title="Boshlanish sanasi"
             />
             <DateInput
               value={filters.endDate}
               onChange={(val) => { setFilters({ ...filters, endDate: val }); setTransactionsPage(1); }}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
-              title="Tugash sanasi"
             />
           </div>
         </div>

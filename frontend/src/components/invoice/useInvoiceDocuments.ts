@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import apiClient from '../../lib/api';
-import { downloadExcelResponse } from './invoiceUtils';
+import { downloadDocumentResponse } from './invoiceUtils';
 import type { FssFilePrefix } from './types';
 
 interface UseInvoiceDocumentsOptions {
@@ -50,7 +50,7 @@ export function useInvoiceDocuments({
         responseType: 'blob',
       });
       const fileName = `${buildDownloadBase('SMR')}.xlsx`;
-      await downloadExcelResponse(response, fileName, 'CMR yuklab olishda xatolik yuz berdi');
+      await downloadDocumentResponse(response, fileName, 'CMR yuklab olishda xatolik yuz berdi');
       trackProcessDownload('TIR');
     } catch (error) {
       console.error('Error downloading CMR:', error);
@@ -68,7 +68,7 @@ export function useInvoiceDocuments({
         responseType: 'blob',
       });
       const fileName = `${buildDownloadBase('TIR')}.xlsx`;
-      await downloadExcelResponse(response, fileName, 'TIR yuklab olishda xatolik yuz berdi');
+      await downloadDocumentResponse(response, fileName, 'TIR yuklab olishda xatolik yuz berdi');
       trackProcessDownload('TIR');
     } catch (error) {
       console.error('Error downloading TIR:', error);
@@ -94,7 +94,7 @@ export function useInvoiceDocuments({
         const response = await apiClient.get(url, { responseType: 'blob' });
         const prefix = override?.filePrefix || fssFilePrefix || 'Ichki';
         const fileName = `${buildDownloadBase(prefix.toUpperCase())}.xlsx`;
-        await downloadExcelResponse(response, fileName, 'FSS yuklab olishda xatolik yuz berdi');
+        await downloadDocumentResponse(response, fileName, 'FSS yuklab olishda xatolik yuz berdi');
         trackProcessDownload('CERT');
       } catch (error) {
         console.error('Error downloading FSS:', error);
@@ -114,7 +114,7 @@ export function useInvoiceDocuments({
         responseType: 'blob',
       });
       const fileName = `${buildInvoiceDownloadBase()}.xlsx`;
-      await downloadExcelResponse(response, fileName, 'Invoys Excel yuklab olishda xatolik yuz berdi');
+      await downloadDocumentResponse(response, fileName, 'Invoys Excel yuklab olishda xatolik yuz berdi');
     } catch (error) {
       console.error('Error downloading Invoice Excel:', error);
       alert(error instanceof Error ? error.message : 'Invoys Excel yuklab olishda xatolik yuz berdi');
@@ -131,7 +131,7 @@ export function useInvoiceDocuments({
         responseType: 'blob',
       });
       const fileName = `${buildDownloadBase('ST1')}.xlsx`;
-      await downloadExcelResponse(response, fileName, 'ST-1 shabloni yuklab olishda xatolik yuz berdi');
+      await downloadDocumentResponse(response, fileName, 'ST-1 shabloni yuklab olishda xatolik yuz berdi');
       trackProcessDownload('CERT');
     } catch (error) {
       console.error('Error downloading ST-1 Excel:', error);
@@ -149,7 +149,7 @@ export function useInvoiceDocuments({
         responseType: 'blob',
       });
       const fileName = 'CommodityEk_New.xlsx';
-      await downloadExcelResponse(response, fileName, 'Deklaratsiya shabloni yuklab olishda xatolik yuz berdi');
+      await downloadDocumentResponse(response, fileName, 'Deklaratsiya shabloni yuklab olishda xatolik yuz berdi');
       trackProcessDownload('DECLARATION');
     } catch (error) {
       console.error('Error downloading Deklaratsiya Excel:', error);

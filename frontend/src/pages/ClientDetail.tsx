@@ -3,8 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import AddTransactionModal from '../components/AddTransactionModal';
-import AddTaskModal from '../components/AddTaskModal';
 import EmptyValue from '../components/common/EmptyValue';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';

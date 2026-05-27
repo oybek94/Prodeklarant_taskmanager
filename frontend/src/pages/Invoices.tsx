@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../lib/api';
+import { formatDateTime } from '../utils/dateFormatting';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +13,7 @@ import { useSocket } from '../contexts/SocketContext';
 import { useIsMobile } from '../utils/useIsMobile';
 import toast from 'react-hot-toast';
 import { CopyIconButton } from '../components/CopyIconButton';
+import { TableSkeleton } from '../components/common/Skeleton';
 
 interface Invoice {
   id: number;
@@ -563,7 +565,7 @@ const Invoices = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('uz-UZ');
+    return formatDateTime(dateString);
   };
 
   const getStatusBadgeClass = (status: string | undefined): string => {
@@ -607,8 +609,12 @@ const Invoices = () => {
     );
   }, [totalPagesServer]);
 
-  if (loading) {
-    return <div className="p-6">Yuklanmoqda...</div>;
+  if (loading && invoices.length === 0) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <TableSkeleton columns={7} rows={8} />
+      </div>
+    );
   }
 
   return (
@@ -630,14 +636,14 @@ const Invoices = () => {
           <button
             type="button"
             onClick={() => setShowFiltersPanel(!showFiltersPanel)}
-            className={`flex items-center gap-2 p-2 sm:p-2.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-all shadow-sm z-10 ${showFiltersPanel && !isMobile ? 'opacity-0 pointer-events-none' : ''}`}
+            className={`relative flex items-center gap-2 p-2 sm:p-2.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-all shadow-sm z-10 ${showFiltersPanel && !isMobile ? 'opacity-0 pointer-events-none' : ''}`}
             title="Qidirish va filtrlash"
           >
             <Icon icon="lucide:filter" className="w-5 h-5" />
             <span className="hidden sm:inline text-sm font-medium">Filtrlar</span>
-            {hasActiveFilters && (
+            {Object.values(filters).filter(Boolean).length > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-800">
-                {Object.values(filters).filter(Boolean).length + (searchQuery.trim() ? 1 : 0)}
+                {Object.values(filters).filter(Boolean).length}
               </span>
             )}
           </button>
@@ -1131,8 +1137,8 @@ const Invoices = () => {
             <table className="min-w-full">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-100/80 dark:border-gray-700/80">
-                  <th className="w-28 px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
+                  <th className="w-28 px-4 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
+                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
                       <Icon icon="lucide:hash" className="w-4 h-4 text-blue-500" />
                       №
                     </span>
@@ -1143,14 +1149,14 @@ const Invoices = () => {
                       Mijoz
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
+                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
                       <Icon icon="lucide:map-pin" className="w-4 h-4 text-indigo-500" />
                       Filial
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
+                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
                       <Icon icon="lucide:car" className="w-4 h-4 text-amber-500" />
                       Avtomobil
                     </span>
@@ -1167,20 +1173,20 @@ const Invoices = () => {
                       Sotuvchi / Qabul qiluvchi
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
+                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
                       <Icon icon="lucide:calendar" className="w-4 h-4 text-cyan-500" />
                       Sana
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
+                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
                       <Icon icon="lucide:circle-dot" className="w-4 h-4 text-rose-500" />
                       Status
                     </span>
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors pr-8">
-                    <span className="inline-flex items-center gap-1.5 justify-end w-full">
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5 justify-center w-full">
                       <Icon icon="lucide:sliders-horizontal" className="w-4 h-4 text-slate-500" />
                       Amallar
                     </span>
@@ -1202,11 +1208,11 @@ const Invoices = () => {
                       }}
                       className="group transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                     >
-                      <td className={`w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold border-l-4 ${hasErrors ? 'border-l-red-500' : 'border-l-transparent'}`}>
+                      <td className={`w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold border-l-4 text-center ${hasErrors ? 'border-l-red-500' : 'border-l-transparent'}`}>
                         <button
                           type="button"
                           onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                          className="text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline cursor-pointer text-left"
+                          className="text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline cursor-pointer"
                         >
                           #{invoice.invoiceNumber}
                         </button>
@@ -1227,13 +1233,13 @@ const Invoices = () => {
                           (invoice.client?.name || '-')
                         )}
                       </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm">
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-center">
                         <span className={`inline-flex items-center justify-center w-24 text-center px-1 py-1 rounded-md font-medium ${filialCellClass}`}>
                           {invoice.task?.branch?.name ?? invoice.branch?.name ?? '-'}
                         </span>
                       </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 font-mono">
-                        <div className="flex items-center gap-2">
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 font-mono text-center">
+                        <div className="flex items-center justify-center gap-2">
                           <span>{invoice.additionalInfo?.vehicleNumber || '-'}</span>
                           {invoice.additionalInfo?.vehicleNumber && (
                             <CopyIconButton 
@@ -1268,10 +1274,10 @@ const Invoices = () => {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 text-center">
                         {formatDate(invoice.date)}
                       </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm">
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-center">
                         <button
                           type="button"
                           onClick={() => setShowTaskModalId(invoice.taskId)}
@@ -1281,8 +1287,8 @@ const Invoices = () => {
                           {invoice.task?.status ?? '—'}
                         </button>
                       </td>
-                      <td className="px-6 py-2 whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1 pr-2">
+                      <td className="px-6 py-2 whitespace-nowrap text-center">
+                        <div className="flex items-center justify-center gap-1">
                           {canEdit && (
                             <>
                               <button

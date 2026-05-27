@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import apiClient from '../../lib/api';
 import toast from 'react-hot-toast';
 import { Icon } from '@iconify/react';
+import DateInput from '../DateInput';
 
 const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
     const [amount, setAmount] = useState(debt?.remaining || '');
@@ -73,7 +74,7 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
                     <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 p-4 rounded-xl mb-6">
                         <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-1">{debt.name}</p>
                         <div className="flex justify-between items-end">
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{new Intl.NumberFormat('uz-UZ').format(debt.remaining)} <span className="text-lg text-gray-500 font-medium">{debt.currency}</span></p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{new Intl.NumberFormat('en-US').format(debt.remaining).replace(/,/g, ' ').replace(/\./g, ',')} <span className="text-lg text-gray-500 font-medium">{debt.currency}</span></p>
                             <span className="text-xs text-gray-700 dark:text-gray-300 font-semibold bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">Qoldiq summa</span>
                         </div>
                     </div>
@@ -119,10 +120,9 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
-                            <input 
-                                type="date" 
+                            <DateInput 
                                 value={date} 
-                                onChange={(e) => setDate(e.target.value)}
+                                onChange={(val) => setDate(val)}
                                 className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg focus:ring-1 focus:ring-gray-900 dark:focus:ring-white focus:border-gray-900 dark:focus:border-white px-3 py-2 text-sm transition-shadow"
                                 required
                             />

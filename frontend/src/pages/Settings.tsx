@@ -752,16 +752,16 @@ const Settings = () => {
   };
 
   const formatCurrency = (amount: number, currency: 'USD' | 'UZS') => {
-    return new Intl.NumberFormat('uz-UZ', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency,
       minimumFractionDigits: currency === 'USD' ? 2 : 0,
       maximumFractionDigits: currency === 'USD' ? 2 : 0,
-    }).format(amount).replace(/,/g, ' ');
+    }).format(amount).replace(/,/g, ' ').replace(/\./g, ',');
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('uz-UZ', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -1115,7 +1115,7 @@ const Settings = () => {
                     ) : yearlyGoalConfig ? (
                       <div className="space-y-2 text-sm">
                         <div><span className="font-semibold">Yil:</span> {yearlyGoalConfig.year}</div>
-                        <div><span className="font-semibold">Maqsad:</span> {yearlyGoalConfig.targetTasks.toLocaleString('uz-UZ')} task</div>
+                        <div><span className="font-semibold">Maqsad:</span> {yearlyGoalConfig.targetTasks.toLocaleString('en-US')} task</div>
                       </div>
                     ) : (
                       <div className="text-center py-4 text-gray-400">

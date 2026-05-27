@@ -4,7 +4,7 @@ import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
 import Chart from 'react-apexcharts';
 
-const fmt = (n: number) => new Intl.NumberFormat('uz-UZ').format(Math.round(n));
+const fmt = (n: number) => new Intl.NumberFormat('en-US').format(Math.round(n)).replace(/,/g, ' ').replace(/\./g, ',');
 const fmtUsd = (n: number) => `$ ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.round(n))}`;
 
 export default function WorkerReport() {
@@ -245,7 +245,7 @@ export default function WorkerReport() {
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">To'lov tarixi</p>
               {legacyPayments.map((p: any) => (
                 <div key={p.id} className="flex justify-between items-center bg-amber-50/60 rounded-lg px-3 py-2 text-sm">
-                  <span className="text-gray-600">{new Date(p.paymentDate).toLocaleDateString('ru-RU')}</span>
+                  <span className="text-gray-600">{new Date(p.paymentDate).toLocaleDateString('en-US')}</span>
                   <span className="text-gray-500 text-xs flex-1 mx-3 truncate">{p.comment || '-'}</span>
                   <span className="font-bold text-amber-700">{fmtUsd(p.paidAmountUsd)}</span>
                 </div>
@@ -336,7 +336,7 @@ export default function WorkerReport() {
               <tbody className="divide-y divide-gray-100/80">
                 {currentPayments.map((p: any) => (
                   <tr key={p.id} className="hover:bg-gray-50/50">
-                    <td className="px-6 py-3 text-gray-600 whitespace-nowrap">{new Date(p.paymentDate).toLocaleDateString('ru-RU')}</td>
+                    <td className="px-6 py-3 text-gray-600 whitespace-nowrap">{new Date(p.paymentDate).toLocaleDateString('en-US')}</td>
                     <td className="px-6 py-3 text-gray-700">{p.comment || '-'}</td>
                     <td className="px-6 py-3 text-right font-bold text-purple-600 whitespace-nowrap">
                       {p.paidCurrency === 'UZS' ? `${fmt(p.paidAmountUzs)} so'm` : fmtUsd(p.paidAmountUsd)}
@@ -374,7 +374,7 @@ export default function WorkerReport() {
               ) : (
                 kpiStats.logs.slice(0, 100).map((log: any) => (
                   <tr key={log.id} className="hover:bg-gray-50/50">
-                    <td className="px-6 py-3 font-medium text-gray-900 whitespace-nowrap">{new Date(log.createdAt).toLocaleDateString('ru-RU')}</td>
+                    <td className="px-6 py-3 font-medium text-gray-900 whitespace-nowrap">{new Date(log.createdAt).toLocaleDateString('en-US')}</td>
                     <td className="px-6 py-3">
                       <span className="bg-indigo-50 text-indigo-600 px-2.5 py-1 text-xs font-semibold rounded-full border border-indigo-100">{log.stageName}</span>
                     </td>

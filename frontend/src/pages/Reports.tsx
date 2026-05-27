@@ -126,16 +126,16 @@ const Reports = () => {
   }, [reportType, view, user]);
 
   const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('uz-UZ', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency === 'USD' ? 'USD' : 'UZS',
       minimumFractionDigits: 0,
       maximumFractionDigits: currency === 'USD' ? 2 : 0,
-    }).format(amount).replace(/,/g, ' ');
+    }).format(amount).replace(/,/g, ' ').replace(/\./g, ',');
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('uz-UZ');
+    return new Date(dateString).toLocaleDateString('en-US');
   };
 
   if (user?.role !== 'ADMIN') {
@@ -355,7 +355,7 @@ const Reports = () => {
                     {reportData.metadata.exchangeRatesUsed.map((rate, idx) => (
                       <tr key={idx}>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                          {rate.rate.toLocaleString('uz-UZ', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                          {rate.rate.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <span className={`px-2 py-1 rounded text-xs ${
@@ -430,7 +430,7 @@ const Reports = () => {
                               {tx.amount_original} {tx.currency_universal}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
-                              {tx.exchange_rate ? tx.exchange_rate.toLocaleString('uz-UZ', {
+                              {tx.exchange_rate ? tx.exchange_rate.toLocaleString('en-US', {
                                 minimumFractionDigits: 4,
                                 maximumFractionDigits: 4
                               }) : '-'}

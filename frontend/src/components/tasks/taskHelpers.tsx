@@ -3,15 +3,11 @@ import { Icon } from '@iconify/react';
 import React from 'react';
 import type { TaskStage } from './types';
 
-/** Sanani formatlash: "20 Mar 2026; 14:35" */
+import { formatDateTime } from '../../utils/dateFormatting';
+
+/** Sanani formatlash: "27.05.2026, 14:30" */
 export const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = date.toLocaleDateString('en-GB', { month: 'short' });
-  const year = date.getFullYear();
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  return `${day} ${month} ${year}; ${hours}:${minutes}`;
+  return formatDateTime(dateString);
 };
 
 /** Fayl hajmini formatlash: "1.23 MB" */
@@ -195,10 +191,10 @@ export const evaluateStageTime = (
 
 /** Pul miqdorini formatlash */
 export const formatMoney = (amount: number, currency: 'USD' | 'UZS'): string => {
-  const formatted = new Intl.NumberFormat('uz-UZ', {
+  const formatted = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: currency === 'USD' ? 2 : 0,
     maximumFractionDigits: currency === 'USD' ? 2 : 0,
-  }).format(amount).replace(/,/g, ' ');
+  }).format(amount).replace(/,/g, ' ').replace(/\./g, ',');
   return currency === 'USD' ? `$ ${formatted}` : `UZS ${formatted}`;
 };
 

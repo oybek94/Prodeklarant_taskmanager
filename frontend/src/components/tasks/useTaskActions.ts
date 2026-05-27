@@ -213,14 +213,14 @@ export function useTaskActions(params: UseTaskActionsParams) {
 
         if (clientCurrency === 'USD') {
           additionalPayment = (multiplier - 1) * modals.currentBxmUsd;
-          formattedAdditional = new Intl.NumberFormat('uz-UZ', {
+          formattedAdditional = new Intl.NumberFormat('en-US', {
             style: 'currency', currency: 'USD', minimumFractionDigits: 2,
-          }).format(additionalPayment).replace(/,/g, ' ');
+          }).format(additionalPayment).replace(/,/g, ' ').replace(/\./g, ',');
         } else {
           additionalPayment = (multiplier - 1) * modals.currentBxmUzs;
-          formattedAdditional = new Intl.NumberFormat('uz-UZ', {
+          formattedAdditional = new Intl.NumberFormat('en-US', {
             style: 'currency', currency: 'UZS', minimumFractionDigits: 0, maximumFractionDigits: 0,
-          }).format(additionalPayment).replace(/,/g, ' ');
+          }).format(additionalPayment).replace(/,/g, ' ').replace(/\./g, ',');
         }
 
         const payerLabel = (selectedTask.afterHoursPayer || 'CLIENT') === 'CLIENT' ? 'mijoz' : 'kompaniya';

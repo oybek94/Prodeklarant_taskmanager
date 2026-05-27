@@ -105,10 +105,32 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       where.OR = [
         { invoiceNumber: { contains: q, mode: 'insensitive' } },
         { contractNumber: { contains: q, mode: 'insensitive' } },
+        { contract: { contractNumber: { contains: q, mode: 'insensitive' } } },
         { client: { name: { contains: q, mode: 'insensitive' } } },
-        // additionalInfo qidiruvi JSON bo'lgani uchun Prisma bilan har doim ham to'g'ri ishlamasligi mumkin
-        // Shuning uchun bu yerda qoldirmadik yoki PostgreSQL xos so'rov qo'shish kerak. 
-        // Asosiy qidiruvni shu yerda bajaramiz.
+        {
+          additionalInfo: {
+            path: ['vehicleNumber'],
+            equals: q,
+          }
+        },
+        {
+          additionalInfo: {
+            path: ['vehicleNumber'],
+            equals: q.toUpperCase(),
+          }
+        },
+        {
+          additionalInfo: {
+            path: ['trailerNumber'],
+            equals: q,
+          }
+        },
+        {
+          additionalInfo: {
+            path: ['trailerNumber'],
+            equals: q.toUpperCase(),
+          }
+        }
       ];
     }
 

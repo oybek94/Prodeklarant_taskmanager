@@ -9,6 +9,11 @@ import CurrencyDisplay from '../components/CurrencyDisplay';
 import { formatCurrencyForRole, shouldShowExchangeRate, type Role } from '../utils/currencyFormatting';
 import { Icon } from '@iconify/react';
 import { useIsMobile } from '../utils/useIsMobile';
+import { formatDateTime } from '../utils/dateFormatting';
+import toast from 'react-hot-toast';
+import { Button } from '../components/common/Button';
+import { TableSkeleton } from '../components/common/Skeleton';
+import EmptyValue from '../components/common/EmptyValue';
 
 // Handle ESC key to close modal
 const useEscKey = (isOpen: boolean, onClose: () => void) => {
@@ -528,7 +533,7 @@ const Transactions = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('uz-UZ');
+    return formatDateTime(dateString);
   };
 
   // Transactions are now server-side paginated, so 'transactions' holds exactly the current page's data
@@ -538,11 +543,11 @@ const Transactions = () => {
   const formatCurrency = (amount: number, currency: string = 'UZS') => {
     if (currency === 'UZS') {
       // UZS (sum) uchun: 6 016 640 sum formatida (sum kichik shriftda)
-      const formatted = new Intl.NumberFormat('uz-UZ', {
+      const formatted = new Intl.NumberFormat('en-US', {
         style: 'decimal',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-      }).format(amount).replace(/,/g, ' ');
+      }).format(amount).replace(/,/g, ' ').replace(/\./g, ',');
       return (
         <>
           {formatted} <small className="text-sm opacity-75">sum</small>
@@ -550,12 +555,12 @@ const Transactions = () => {
       );
     } else {
       // USD uchun
-      return new Intl.NumberFormat('uz-UZ', {
+      return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-      }).format(amount).replace(/,/g, ' ');
+      }).format(amount).replace(/,/g, ' ').replace(/\./g, ',');
     }
   };
 
@@ -675,17 +680,15 @@ const Transactions = () => {
             </select>
           )}
           <div className="flex gap-2 lg:col-span-2">
-            <input
-              type="date"
+            <DateInput
               value={filters.startDate}
-              onChange={(e) => { setFilters({ ...filters, startDate: e.target.value }); setTransactionsPage(1); }}
+              onChange={(val) => { setFilters({ ...filters, startDate: val }); setTransactionsPage(1); }}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
               title="Boshlanish sanasi"
             />
-            <input
-              type="date"
+            <DateInput
               value={filters.endDate}
-              onChange={(e) => { setFilters({ ...filters, endDate: e.target.value }); setTransactionsPage(1); }}
+              onChange={(val) => { setFilters({ ...filters, endDate: val }); setTransactionsPage(1); }}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors"
               title="Tugash sanasi"
             />
@@ -1315,7 +1318,9 @@ const Transactions = () => {
       )}
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500 font-medium bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/60 dark:border-slate-700/60 shadow-sm">Yuklanmoqda...</div>
+        <div className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/60 dark:border-slate-700/60 shadow-sm p-4">
+          <TableSkeleton columns={6} rows={10} />
+        </div>
       ) : isMobile ? (
         <div className="space-y-3">
           {paginatedTransactions.map((t) => (
@@ -1323,11 +1328,13 @@ const Transactions = () => {
               <div className="flex justify-between items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="font-black text-gray-900 dark:text-gray-100 text-base truncate leading-tight mb-1">
-                    {t.type === 'INCOME' && t.client
-                      ? t.client.name
-                      : t.type === 'SALARY' && t.worker
-                        ? t.worker.name
-                        : t.expenseCategory || '-'}
+                    <span className="font-medium text-gray-800 dark:text-gray-200">
+                      {t.type === 'INCOME' && t.client
+                        ? t.client.name
+                        : t.type === 'SALARY' && t.worker
+                          ? t.worker.name
+                          : <EmptyValue value={t.expenseCategory} />}
+                    </span>
                   </p>
                   <div className="flex items-center gap-2">
                     <span
@@ -1345,7 +1352,7 @@ const Transactions = () => {
                 </div>
                 <div className="text-right shrink-0">
                   <p className={`text-base font-bold tracking-tight ${t.type === 'INCOME' ? 'text-emerald-600' : t.type === 'EXPENSE' ? 'text-rose-600' : 'text-indigo-600'}`}>
-                    {t.type === 'EXPENSE' ? '-' : t.type === 'INCOME' ? '+' : ''}{new Intl.NumberFormat('uz-UZ').format(t.amount).replace(/,/g, ' ')} <small className="text-[10px] font-bold uppercase">{t.currency}</small>
+                    {t.type === 'EXPENSE' ? '-' : t.type === 'INCOME' ? '+' : ''}{new Intl.NumberFormat('en-US').format(t.amount).replace(/,/g, ' ').replace(/\./g, ',')} <small className="text-[10px] font-bold uppercase">{t.currency}</small>
                   </p>
                 </div>
               </div>
@@ -1398,8 +1405,8 @@ const Transactions = () => {
             <table className="min-w-full">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-white/80 dark:bg-slate-800/90 backdrop-blur-md border-b border-gray-100/80 dark:border-slate-700/80">
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
+                  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
+                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
                       <Icon icon="lucide:hash" className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                       Type
                     </span>
@@ -1410,20 +1417,20 @@ const Transactions = () => {
                       Client/Worker/Category
                     </span>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
+                  <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center justify-end gap-1.5 w-full">
                       <Icon icon="lucide:coins" className="w-4 h-4 text-amber-500" />
                       Amount
                     </span>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
+                  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
                       <Icon icon="lucide:credit-card" className="w-4 h-4 text-indigo-500" />
                       To'lov usuli
                     </span>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
+                  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
+                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
                       <Icon icon="lucide:calendar" className="w-4 h-4 text-cyan-500" />
                       Date
                     </span>
@@ -1434,8 +1441,8 @@ const Transactions = () => {
                       Comment
                     </span>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5 justify-end w-full">
+                  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
+                    <span className="inline-flex items-center gap-1.5 justify-center w-full">
                       <Icon icon="lucide:sliders-horizontal" className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                       Actions
                     </span>
@@ -1458,7 +1465,7 @@ const Transactions = () => {
                 ) : (
                   paginatedTransactions.map((t, index) => (
                     <tr key={t.id} className="group transition-all duration-200 hover:bg-white/80 dark:hover:bg-slate-800/80 hover:shadow-sm">
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
                         <span
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${t.type === 'INCOME'
                             ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 ring-1 ring-emerald-200 dark:ring-emerald-800/50'
@@ -1475,12 +1482,12 @@ const Transactions = () => {
                           ? t.client.name
                           : t.type === 'SALARY' && t.worker
                             ? t.worker.name
-                            : t.expenseCategory || '-'}
+                            : <EmptyValue value={t.expenseCategory} />}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-800 dark:text-gray-100">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-800 dark:text-gray-100 text-right">
                         {t.amount} {t.currency}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-300">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-300 text-center">
                         {t.paymentMethod ? (
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${t.paymentMethod === 'CASH'
                             ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 ring-1 ring-blue-200 dark:ring-blue-800/50'
@@ -1492,17 +1499,17 @@ const Transactions = () => {
                           <span className="text-gray-400 dark:text-slate-500">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-400">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-700 dark:text-gray-400">
                         {formatDate(t.date)}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         <div className="max-w-xs truncate" title={t.comment || undefined}>
-                          {t.comment || '-'}
+                          <EmptyValue value={t.comment} />
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                      <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
                         {user?.role === 'ADMIN' ? (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => {
                                 if (isMobile) {

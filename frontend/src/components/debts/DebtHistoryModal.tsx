@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
 import apiClient from '../../lib/api';
 import toast from 'react-hot-toast';
+import DateInput from '../DateInput';
 
 const DebtHistoryModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
     const [editingPayment, setEditingPayment] = useState<any>(null);
@@ -19,11 +20,11 @@ const DebtHistoryModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
     const formatDate = (dateString: string) => {
         if (!dateString) return '';
         const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
-        return new Date(dateString).toLocaleDateString('uz-UZ', options);
+        return new Date(dateString).toLocaleDateString('en-US', options);
     };
 
     const formatCurrency = (amount: number, currency: string) => {
-        return new Intl.NumberFormat('uz-UZ', { style: 'currency', currency }).format(amount);
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount).replace(/,/g, ' ').replace(/\./g, ',');
     };
 
     const handleEditClick = (payment: any) => {
@@ -127,7 +128,7 @@ const DebtHistoryModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sana</label>
-                                                    <input type="date" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-2 py-1.5 text-sm" required />
+                                                    <DateInput value={editForm.date} onChange={val => setEditForm({...editForm, date: val})} className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-2 py-1.5 text-sm" required />
                                                 </div>
                                             </div>
                                             <div className="mb-3">

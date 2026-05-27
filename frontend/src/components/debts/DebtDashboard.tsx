@@ -6,10 +6,10 @@ const DebtDashboard = ({ stats, loading, onPayCertifier }: { stats: any, loading
     
     const formatCurrency = (amount: number, currency: string = 'USD') => {
         if (currency === 'UZS') {
-            const formatted = new Intl.NumberFormat('uz-UZ').format(amount).replace(/,/g, ' ');
+            const formatted = new Intl.NumberFormat('en-US').format(amount).replace(/,/g, ' ').replace(/\./g, ',');
             return <>{formatted} <small className="text-sm opacity-75">sum</small></>;
         }
-        return new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount).replace(/,/g, ' ');
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount).replace(/,/g, ' ').replace(/\./g, ',');
     };
 
     return (
@@ -71,8 +71,8 @@ const DebtDashboard = ({ stats, loading, onPayCertifier }: { stats: any, loading
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-xs text-gray-400">Hisoblangan: {new Intl.NumberFormat('uz-UZ').format(stats.certifierDebt.accrued.st1)}</p>
-                                    <p className="text-xs text-gray-400">To'langan: {new Intl.NumberFormat('uz-UZ').format(stats.certifierDebt.paid.st1)}</p>
+                                    <p className="text-xs text-gray-400">Hisoblangan: {new Intl.NumberFormat('en-US').format(stats.certifierDebt.accrued.st1)}</p>
+                                    <p className="text-xs text-gray-400">To'langan: {new Intl.NumberFormat('en-US').format(stats.certifierDebt.paid.st1)}</p>
                                 </div>
                             </div>
                             <button 
@@ -93,8 +93,8 @@ const DebtDashboard = ({ stats, loading, onPayCertifier }: { stats: any, loading
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-xs text-gray-400">Hisoblangan: {new Intl.NumberFormat('uz-UZ').format(stats.certifierDebt.accrued.fito)}</p>
-                                    <p className="text-xs text-gray-400">To'langan: {new Intl.NumberFormat('uz-UZ').format(stats.certifierDebt.paid.fito)}</p>
+                                    <p className="text-xs text-gray-400">Hisoblangan: {new Intl.NumberFormat('en-US').format(stats.certifierDebt.accrued.fito)}</p>
+                                    <p className="text-xs text-gray-400">To'langan: {new Intl.NumberFormat('en-US').format(stats.certifierDebt.paid.fito)}</p>
                                 </div>
                             </div>
                             <button 

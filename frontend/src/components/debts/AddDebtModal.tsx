@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import apiClient from '../../lib/api';
 import toast from 'react-hot-toast';
 import { Icon } from '@iconify/react';
+import DateInput from '../DateInput';
 
 const AddDebtModal = ({ isOpen, onClose, onSuccess }: any) => {
     const [name, setName] = useState('');
@@ -112,21 +113,19 @@ const AddDebtModal = ({ isOpen, onClose, onSuccess }: any) => {
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Olingan / Berilgan sana</label>
-                            <input 
-                                type="date" 
+                            <DateInput 
                                 value={date} 
-                                onChange={(e) => setDate(e.target.value)}
+                                onChange={(val) => setDate(val)}
                                 className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg focus:ring-1 focus:ring-gray-900 dark:focus:ring-white focus:border-gray-900 dark:focus:border-white px-3 py-2 text-sm transition-shadow"
                                 required
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Qaytarilish muddati</label>
-                            <input 
-                                type="date" 
+                            <DateInput 
                                 value={dueDate} 
-                                onChange={(e) => setDueDate(e.target.value)}
-                            className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg focus:ring-1 focus:ring-gray-900 dark:focus:ring-white focus:border-gray-900 dark:focus:border-white px-3 py-2 text-sm transition-shadow"
+                                onChange={(val) => setDueDate(val)}
+                                className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg focus:ring-1 focus:ring-gray-900 dark:focus:ring-white focus:border-gray-900 dark:focus:border-white px-3 py-2 text-sm transition-shadow"
                             />
                         </div>
                     </div>

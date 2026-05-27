@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '../common/Button';
 
 interface BXMModalProps {
   show: boolean;
@@ -61,18 +62,20 @@ const BXMModal: React.FC<BXMModalProps> = ({
 
         {/* Buttons */}
         <div className="flex gap-3">
-          <button
+          <Button
             onClick={onConfirm}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            variant="primary"
+            className="flex-1"
           >
             Tasdiqlash
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={onClose}
-            className="flex-1 px-4 py-2 bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-700 transition-colors font-medium"
+            variant="secondary"
+            className="flex-1"
           >
             Bekor qilish
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import toast from 'react-hot-toast';
 import React from 'react';
+import { Button } from '../common/Button';
 import apiClient from '../../lib/api';
 import DateInput from '../DateInput';
 import { formatMoney } from './taskHelpers';
@@ -240,14 +241,21 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500" />
           </div>
           <div className="flex gap-3 pt-4">
-            <button type="button" onClick={() => onClose()}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+            <Button
+              type="button"
+              onClick={() => onClose()}
+              variant="secondary"
+              className="flex-1"
+            >
               Bekor qilish
-            </button>
-            <button type="submit"
-              className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              className="flex-1 bg-orange-600 hover:bg-orange-700 focus:ring-orange-500" // Override primary color since it's an error/orange theme
+            >
               Saqlash
-            </button>
+            </Button>
           </div>
         </form>
       </div>

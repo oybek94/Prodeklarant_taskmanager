@@ -8,7 +8,10 @@ import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 import { useIsMobile } from '../utils/useIsMobile';
+import { formatCurrencyForRole, type Role, shouldShowExchangeRate } from '../utils/currencyFormatting';
+import { formatDateOnly } from '../utils/dateFormatting';
 import { getDefaultTnvedProducts } from '../utils/tnvedProducts';
+import EmptyValue, { formatEmpty } from '../components/common/EmptyValue';
 import Tasks from './Tasks';
 
 const resolveUploadUrl = (url?: string | null) => {
@@ -1503,11 +1506,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = date.toLocaleDateString('en-GB', { month: 'short' });
-    const year = date.getFullYear();
-    return `${day} ${month} ${year}`;
+    return formatDateOnly(dateString);
   };
 
   const formatChange = (change: number) => {
@@ -1857,7 +1856,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         </div>
                           <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
                             <Icon icon="lucide:phone" className="w-3.5 h-3.5" />
-                            <span className="truncate">{client.phone || '-'}</span>
+                            <span className="truncate"><EmptyValue value={client.phone} /></span>
                           </div>
                       </div>
 
@@ -2158,7 +2157,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Telefon</div>
                       <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
                         <Icon icon="lucide:phone" className="w-4 h-4 text-gray-400" />
-                        {selectedClient.phone || '-'}
+                        <EmptyValue value={selectedClient.phone} />
                       </div>
                     </div>
                     <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
@@ -2445,11 +2444,11 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                               {task.status}
                             </span>
                           </div>
-                          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight">{task.title || '-'}</h4>
+                          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight"><EmptyValue value={task.title} /></h4>
                           <div className="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400">
                             <span className="flex items-center gap-1">
                               <Icon icon="lucide:building" className="w-3.5 h-3.5" />
-                              {task.branch?.name || '-'}
+                              <EmptyValue value={task.branch?.name} />
                             </span>
                             <span>{new Date(task.createdAt).toLocaleDateString('uz-UZ')}</span>
                           </div>
@@ -2472,9 +2471,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           {selectedClient.tasks.slice(0, 10).map(task => (
                             <tr key={task.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800 transition-colors">
                               <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 border-l-[3px] border-transparent hover:border-blue-500">#{task.id}</td>
-                              <td className="px-5 py-4 text-sm text-gray-700 dark:text-gray-300 max-w-[200px] truncate" title={task.title}>{task.title || '-'}</td>
+                              <td className="px-5 py-4 text-sm text-gray-700 dark:text-gray-300 max-w-[200px] truncate" title={formatEmpty(task.title)}><EmptyValue value={task.title} /></td>
                               <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">
-                                <span className="px-2 py-1 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 text-xs rounded-md border border-gray-200/50 dark:border-slate-700/50">{task.branch?.name || '-'}</span>
+                                <span className="px-2 py-1 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 text-xs rounded-md border border-gray-200/50 dark:border-slate-700/50"><EmptyValue value={task.branch?.name} /></span>
                               </td>
                               <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{new Date(task.createdAt).toLocaleDateString('uz-UZ')}</td>
                               <td className="px-5 py-4 whitespace-nowrap">
@@ -3328,8 +3327,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       <table className="min-w-full border border-gray-300 rounded-lg text-sm">
                         <thead>
                           <tr className="bg-gray-100">
-                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-20">Товар №</th>
                             <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-24">Спецификация №</th>
+                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-20">Товар №</th>
                             <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-28">TNVED kod</th>
                             <th className="px-2 py-2 text-left font-medium text-gray-700 border-b">Mahsulot nomi</th>
                             <th className="px-2 py-2 text-left font-medium text-gray-700 border-b">Botanik nomi</th>
@@ -3343,21 +3342,6 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                               <td className="px-2 py-1">
                                 <input
                                   type="text"
-                                  value={row.productNumber ?? ''}
-                                  onChange={(e) => {
-                                    setContractFormAndRef((prev) => {
-                                      const next = [...(prev.specification || [])];
-                                      next[idx] = { ...next[idx], productNumber: e.target.value };
-                                      return { ...prev, specification: next };
-                                    });
-                                  }}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                                  placeholder="Товар №"
-                                />
-                              </td>
-                              <td className="px-2 py-1">
-                                <input
-                                  type="text"
                                   value={row.specNumber ?? ''}
                                   onChange={(e) => {
                                     setContractFormAndRef((prev) => {
@@ -3368,6 +3352,21 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                   }}
                                   className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                                   placeholder="Спецификация №"
+                                />
+                              </td>
+                              <td className="px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={row.productNumber ?? ''}
+                                  onChange={(e) => {
+                                    setContractFormAndRef((prev) => {
+                                      const next = [...(prev.specification || [])];
+                                      next[idx] = { ...next[idx], productNumber: e.target.value };
+                                      return { ...prev, specification: next };
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                  placeholder="Товар №"
                                 />
                               </td>
                               <td className="px-2 py-1">
@@ -3861,10 +3860,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sana *</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={transactionForm.date}
-                    onChange={(e) => setTransactionForm({ ...transactionForm, date: e.target.value })}
+                    onChange={(val) => setTransactionForm({ ...transactionForm, date: val })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
                     required
                   />

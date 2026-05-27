@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
 import apiClient from '../../lib/api';
+import DateInput from '../DateInput';
 
 const CertifierPayModal = ({ 
     isOpen, 
@@ -84,7 +85,7 @@ const CertifierPayModal = ({
                             placeholder="0"
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                            Qolgan qarz: {new Intl.NumberFormat('uz-UZ').format(remainingAmount)} UZS
+                            Qolgan qarz: {new Intl.NumberFormat('en-US').format(remainingAmount).replace(/,/g, ' ').replace(/\./g, ',')} UZS
                         </p>
                     </div>
 
@@ -92,11 +93,10 @@ const CertifierPayModal = ({
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Sana
                         </label>
-                        <input
-                            type="date"
+                        <DateInput
                             required
                             value={date}
-                            onChange={(e) => setDate(e.target.value)}
+                            onChange={(val) => setDate(val)}
                             className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:text-white transition-all"
                         />
                     </div>

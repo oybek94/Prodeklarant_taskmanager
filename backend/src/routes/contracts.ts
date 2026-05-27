@@ -644,5 +644,24 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res: Response) => 
   }
 });
 
+// PATCH /contracts/:id/requirements - Update contract requirements only
+router.patch('/:id/requirements', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const requirements = req.body.requirements;
+    
+    const contract = await prisma.contract.update({
+      where: { id },
+      data: {
+        requirements: requirements || null,
+      },
+    });
+    res.json(contract);
+  } catch (error: any) {
+    console.error('Error updating contract requirements:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
 export default router;
 

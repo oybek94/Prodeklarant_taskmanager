@@ -60,12 +60,12 @@ const Finance = () => {
   // Valyutani formatlash funksiyasi
   const formatCurrency = (amount: number) => {
     if (loading) return 'Yuklanmoqda...';
-    return new Intl.NumberFormat('uz-UZ', {
+    return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'UZS',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-    }).format(amount).replace(/,/g, ' ');
+    }).format(amount).replace(/,/g, ' ').replace(/\./g, ',');
   };
 
   const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'];

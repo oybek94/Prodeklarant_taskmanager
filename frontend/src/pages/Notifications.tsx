@@ -35,7 +35,7 @@ const Notifications = () => {
   const [pendingDeclarationNotif, setPendingDeclarationNotif] = useState<AppNotification | null>(null);
 
   const formatBxmAmountInSum = (multiplier: number) => {
-    return new Intl.NumberFormat('ru-RU').format(Math.round(multiplier * currentBxmUzs)) + ' UZS';
+    return new Intl.NumberFormat('en-US').format(Math.round(multiplier * currentBxmUzs)).replace(/,/g, ' ').replace(/\./g, ',') + ' UZS';
   };
 
   const handleBXMConfirm = async () => {

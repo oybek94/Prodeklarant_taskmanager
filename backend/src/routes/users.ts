@@ -281,63 +281,82 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
 });
 
 router.delete('/:id', requireAuth('ADMIN'), async (req, res) => {
-  const userId = parseInt(req.params.id);
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-  const [
-    taskCount,
-    taskStageCount,
-    taskErrorCount,
-    taskVersionCount,
-    kpiLogCount,
-    transactionCount,
-    taskDocumentCount,
-    archiveDocumentCount,
-    workerPaymentCount,
-    previousYearDebtCount,
-  ] = await Promise.all([
-    prisma.task.count({
-      where: { OR: [{ createdById: userId }, { updatedById: userId }] },
-    }),
-    prisma.taskStage.count({ where: { assignedToId: userId } }),
-    prisma.taskError.count({
-      where: { OR: [{ workerId: userId }, { createdById: userId }] },
-    }),
-    prisma.taskVersion.count({ where: { changedBy: userId } }),
-    prisma.kpiLog.count({ where: { userId } }),
-    prisma.transaction.count({ where: { workerId: userId } }),
-    prisma.taskDocument.count({ where: { uploadedById: userId } }),
-    prisma.archiveDocument.count({ where: { uploadedById: userId } }),
-    prisma.workerPayment.count({ where: { workerId: userId } }),
-    prisma.previousYearWorkerDebt.count({ where: { workerId: userId } }),
-  ]);
-
-  const hasParticipation =
-    taskCount > 0 ||
-    taskStageCount > 0 ||
-    taskErrorCount > 0 ||
-    taskVersionCount > 0 ||
-    kpiLogCount > 0 ||
-    transactionCount > 0 ||
-    taskDocumentCount > 0 ||
-    archiveDocumentCount > 0 ||
-    workerPaymentCount > 0 ||
-    previousYearDebtCount > 0;
-
-  if (hasParticipation) {
-    if (user.active) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { active: false },
-      });
+  try {
+    const userId = parseInt(req.params.id);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
-    return res.status(204).send();
-  }
+    const [
+      taskCount,
+      taskStageCount,
+      taskErrorCount,
+      taskVersionCount,
+      kpiLogCount,
+      transactionCount,
+      taskDocumentCount,
+      archiveDocumentCount,
+      workerPaymentCount,
+      previousYearDebtCount,
+    ] = await Promise.all([
+      prisma.task.count({
+        where: { OR: [{ createdById: userId }, { updatedById: userId }] },
+      }),
+      prisma.taskStage.count({ where: { assignedToId: userId } }),
+      prisma.taskError.count({
+        where: { OR: [{ workerId: userId }, { createdById: userId }] },
+      }),
+      prisma.taskVersion.count({ where: { changedBy: userId } }),
+      prisma.kpiLog.count({ where: { userId } }),
+      prisma.transaction.count({ where: { workerId: userId } }),
+      prisma.taskDocument.count({ where: { uploadedById: userId } }),
+      prisma.archiveDocument.count({ where: { uploadedById: userId } }),
+      prisma.workerPayment.count({ where: { workerId: userId } }),
+      prisma.previousYearWorkerDebt.count({ where: { workerId: userId } }),
+    ]);
 
-  await prisma.user.delete({ where: { id: userId } });
-  res.status(204).send();
+    const hasParticipation =
+      taskCount > 0 ||
+      taskStageCount > 0 ||
+      taskErrorCount > 0 ||
+      taskVersionCount > 0 ||
+      kpiLogCount > 0 ||
+      transactionCount > 0 ||
+      taskDocumentCount > 0 ||
+      archiveDocumentCount > 0 ||
+      workerPaymentCount > 0 ||
+      previousYearDebtCount > 0;
+
+    if (hasParticipation) {
+      if (user.active) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { active: false },
+        });
+      }
+      return res.status(204).send();
+    }
+
+    try {
+      await prisma.user.delete({ where: { id: userId } });
+      res.status(204).send();
+    } catch (dbError: any) {
+      // If it fails due to a foreign key constraint, just deactivate instead
+      if (dbError.code === 'P2003') {
+        if (user.active) {
+          await prisma.user.update({
+            where: { id: userId },
+            data: { active: false },
+          });
+        }
+        return res.status(204).send();
+      }
+      throw dbError;
+    }
+  } catch (error: any) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
 });
 
 export default router;

@@ -306,7 +306,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Shartnoma</div>
             <div className="text-sm font-bold text-gray-800 dark:text-gray-200 font-mono truncate">
               {selectedTask.invoice?.contract?.contractNumber
-                ? `№ ${selectedTask.invoice.contract.contractNumber}${selectedTask.invoice.contract.contractDate ? `, kun: ${new Date(selectedTask.invoice.contract.contractDate).toLocaleDateString('uz-UZ')}` : ''}`
+                ? `№ ${selectedTask.invoice.contract.contractNumber}${selectedTask.invoice.contract.contractDate ? `, kun: ${new Date(selectedTask.invoice.contract.contractDate).toLocaleDateString('en-US')}` : ''}`
                 : selectedTask.invoice?.contractNumber
                   ? `№ ${selectedTask.invoice.contractNumber}`
                   : 'Biriktirilmagan'}
@@ -530,7 +530,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                                 BXM {deklarMultiplier} barobari
                                 {selectedTask.snapshotCustomsPayment != null && (
                                   <span className="ml-1 text-blue-600 dark:text-blue-300">
-                                    ({new Intl.NumberFormat('ru-RU').format(Math.round(Number(selectedTask.snapshotCustomsPayment_amount_uzs || selectedTask.snapshotCustomsPayment)))} UZS)
+                                    ({new Intl.NumberFormat('en-US').format(Math.round(Number(selectedTask.snapshotCustomsPayment_amount_uzs || selectedTask.snapshotCustomsPayment))).replace(/,/g, ' ').replace(/\./g, ',')} UZS)
                                   </span>
                                 )}
                               </span>
@@ -705,11 +705,11 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                               {log.stageName}:
                             </span>
                             <span className="font-bold text-gray-900 dark:text-white px-2.5 py-1 bg-white dark:bg-slate-600 rounded-md shadow-sm border border-gray-100 dark:border-slate-500">
-                              {new Intl.NumberFormat('uz-UZ', {
+                              {new Intl.NumberFormat('en-US', {
                                 style: 'currency',
                                 currency: 'USD',
                                 minimumFractionDigits: 2,
-                              }).format(log.amount).replace(/,/g, ' ')}
+                              }).format(log.amount).replace(/,/g, ' ').replace(/\./g, ',')}
                             </span>
                           </div>
                         ))}
@@ -719,11 +719,11 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                           Jami tushum:
                         </span>
                         <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
-                          {new Intl.NumberFormat('uz-UZ', {
+                          {new Intl.NumberFormat('en-US', {
                             style: 'currency',
                             currency: 'USD',
                             minimumFractionDigits: 2,
-                          }).format(totalAmount).replace(/,/g, ' ')}
+                          }).format(totalAmount).replace(/,/g, ' ').replace(/\./g, ',')}
                         </span>
                       </div>
                     </div>
@@ -844,7 +844,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             <div className="text-xs text-gray-500 dark:text-gray-400">{doc.description}</div>
                           )}
                           <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
-                            {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt || '').toLocaleDateString('uz-UZ')}
+                            {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt || '').toLocaleDateString('en-US')}
                           </div>
                         </div>
                       </div>

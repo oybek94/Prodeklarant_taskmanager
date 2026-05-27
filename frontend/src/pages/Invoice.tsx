@@ -426,6 +426,18 @@ const Invoice = () => {
   });
 
 
+  const handleUpdateContractRequirements = async (newRequirements: string) => {
+    if (!selectedContractId) return;
+    try {
+      await apiClient.patch(`/contracts/${selectedContractId}/requirements`, { requirements: newRequirements });
+      setContracts(contracts.map(c => c.id.toString() === selectedContractId.toString() ? { ...c, requirements: newRequirements } : c));
+      toast.success("Shartnoma eslatmasi saqlandi");
+    } catch (error) {
+      console.error(error);
+      toast.error("Xatolik yuz berdi");
+    }
+  };
+
   if (loading) {
     return (
 
@@ -696,12 +708,13 @@ const Invoice = () => {
       </div>
 
       {/* Requirements floating note — fixed position, draggable */}
-      {(selectedContract?.requirements || task?.client?.requirements) && (
+      {(selectedContract || task?.client?.requirements) && (
         <ContractRequirementsNote
           requirements={selectedContract?.requirements}
           clientRequirements={task?.client?.requirements}
           contractNumber={selectedContract?.contractNumber}
           clientName={task?.client?.name}
+          onUpdateRequirements={canEditEffective ? handleUpdateContractRequirements : undefined}
         />
       )}
 

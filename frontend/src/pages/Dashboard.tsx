@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import DateInput from '../components/DateInput';
+import { Skeleton } from '../components/common/Skeleton';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -593,10 +595,17 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Yuklanmoqda...</p>
+      <div className="min-h-screen p-4 sm:p-6 lg:p-8 space-y-6 bg-[#f3f4f6] dark:bg-gray-900">
+        <Skeleton className="h-40 sm:h-48 w-full rounded-[24px]" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <Skeleton className="h-28 sm:h-32 rounded-[20px]" />
+          <Skeleton className="h-28 sm:h-32 rounded-[20px]" />
+          <Skeleton className="h-28 sm:h-32 rounded-[20px]" />
+          <Skeleton className="h-28 sm:h-32 rounded-[20px]" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Skeleton className="h-[400px] sm:h-[500px] lg:col-span-2 rounded-2xl" />
+          <Skeleton className="h-[400px] sm:h-[500px] rounded-2xl" />
         </div>
       </div>
     );

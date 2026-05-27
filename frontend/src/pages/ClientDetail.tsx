@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import AddTransactionModal from '../components/AddTransactionModal';
+import AddTaskModal from '../components/AddTaskModal';
+import EmptyValue from '../components/common/EmptyValue';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { useIsMobile } from '../utils/useIsMobile';
@@ -678,7 +681,7 @@ const ClientDetail = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <div className="text-sm text-gray-500">Telefon</div>
-              <div className="font-medium">{client.phone || '-'}</div>
+              <div className="font-medium"><EmptyValue value={client.phone} /></div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Kelishuv summasi (bitta task)</div>
@@ -1074,7 +1077,7 @@ const ClientDetail = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDate(t.date)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{t.comment || '-'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900"><EmptyValue value={t.comment} /></td>
                     </tr>
                   ))}
                 </tbody>

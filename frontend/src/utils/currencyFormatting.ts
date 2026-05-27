@@ -60,46 +60,46 @@ export function formatCurrencyForRole(
   
   // If role only sees USD and original is USD, show USD
   if (visibility.usd && !visibility.uzs && originalCurrency === 'USD') {
-    const formatted = new Intl.NumberFormat('uz-UZ', {
+    const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
-    return formatted.replace(/,/g, ' ');
+    return formatted.replace(/,/g, ' ').replace(/\./g, ',');
   }
   
   // If role only sees UZS, show UZS (convert if needed)
   if (!visibility.usd && visibility.uzs) {
     const uzsAmount = amountUzs !== undefined ? amountUzs : (originalCurrency === 'UZS' ? amount : (amount * (exchangeRate || 1)));
-    const formatted = new Intl.NumberFormat('uz-UZ', {
+    const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'UZS',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(uzsAmount);
-    return formatted.replace(/,/g, ' ');
+    return formatted.replace(/,/g, ' ').replace(/\./g, ',');
   }
   
   // If role sees both, show original currency
   if (visibility.usd && visibility.uzs) {
-    const formatted = new Intl.NumberFormat('uz-UZ', {
+    const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: originalCurrency,
       minimumFractionDigits: originalCurrency === 'USD' ? 2 : 0,
       maximumFractionDigits: originalCurrency === 'USD' ? 2 : 0,
     }).format(amount);
-    return formatted.replace(/,/g, ' ');
+    return formatted.replace(/,/g, ' ').replace(/\./g, ',');
   }
   
   // Default fallback
-  const formatted = new Intl.NumberFormat('uz-UZ', {
+  const formatted = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
-  return formatted.replace(/,/g, ' ');
+  return formatted.replace(/,/g, ' ').replace(/\./g, ',');
 }
 
 /**
@@ -107,14 +107,14 @@ export function formatCurrencyForRole(
  * Uses space as thousand separator instead of comma
  */
 export function formatAmount(amount: number, currency: 'USD' | 'UZS'): string {
-  const formatted = new Intl.NumberFormat('uz-UZ', {
+  const formatted = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency,
     minimumFractionDigits: currency === 'USD' ? 2 : 0,
     maximumFractionDigits: currency === 'USD' ? 2 : 0,
   }).format(amount);
   
-  // Replace commas with spaces for thousand separators
-  return formatted.replace(/,/g, ' ');
+  // Replace commas with spaces for thousand separators, and dots with commas for decimals
+  return formatted.replace(/,/g, ' ').replace(/\./g, ',');
 }
 

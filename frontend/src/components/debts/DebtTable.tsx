@@ -4,6 +4,7 @@ import apiClient from '../../lib/api';
 import toast from 'react-hot-toast';
 import DebtPaymentModal from './DebtPaymentModal';
 import DebtHistoryModal from './DebtHistoryModal';
+import { formatDateTime } from '../../utils/dateFormatting';
 import { useIsMobile } from '../../utils/useIsMobile';
 
 const DebtTable = ({
@@ -35,13 +36,13 @@ const DebtTable = ({
 
     const formatCurrency = (amount: number, currency: string = 'USD') => {
         if (currency === 'UZS') {
-            return `${new Intl.NumberFormat('uz-UZ').format(amount).replace(/,/g, ' ')} UZS`;
+            return `${new Intl.NumberFormat('en-US').format(amount).replace(/,/g, ' ').replace(/\./g, ',')} UZS`;
         }
-        return new Intl.NumberFormat('uz-UZ', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount).replace(/,/g, ' ');
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount).replace(/,/g, ' ').replace(/\./g, ',');
     };
 
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('uz-UZ');
+        return formatDateTime(dateString);
     };
 
     const getDaysRemaining = (dueDateString: string | null) => {
@@ -200,9 +201,9 @@ const DebtTable = ({
                             <tr className="bg-gray-50 dark:bg-gray-800/50">
                                 <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800">Shaxs/Korxona</th>
                                 <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800">Muddat</th>
-                                <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800">Jami qarz</th>
-                                <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800">To'lov Holati</th>
-                                <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800 text-right">Amallar</th>
+                                <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800 text-right">Jami qarz</th>
+                                <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800 text-center">To'lov Holati</th>
+                                <th className="p-3 font-semibold text-gray-700 dark:text-gray-300 text-sm border-b border-gray-200 dark:border-gray-800 text-center">Amallar</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -268,9 +269,9 @@ const DebtTable = ({
                                                 )}
                                             </td>
 
-                                            <td className="p-3 border-b border-gray-100 dark:border-gray-800">
+                                            <td className="p-3 border-b border-gray-100 dark:border-gray-800 text-right">
                                                 <p className="font-bold text-gray-900">{formatCurrency(debt.amount, debt.currency)}</p>
-                                                <p className="text-xs text-gray-500">{debt.comment}</p>
+                                                <p className="text-xs text-gray-500 text-left">{debt.comment}</p>
                                             </td>
 
                                             <td className="p-3 border-b border-gray-50 w-48">
@@ -288,8 +289,8 @@ const DebtTable = ({
                                                 </div>
                                             </td>
 
-                                            <td className="p-3 border-b border-gray-50 text-right">
-                                                <div className="flex justify-end gap-2 items-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                                            <td className="p-3 border-b border-gray-50 text-center">
+                                                <div className="flex justify-center gap-2 items-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                                                     {!isPaid && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); setSelectedDebt(debt); setPaymentModalOpen(true); }}

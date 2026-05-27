@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { Icon } from '@iconify/react';
 
 type DateInputProps = {
   value: string;
@@ -53,6 +54,7 @@ const formatWithDots = (raw: string) => {
 
 const DateInput = ({ value, onChange, required, className, placeholder, disabled, name }: DateInputProps) => {
   const [displayValue, setDisplayValue] = useState(toDisplay(value));
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setDisplayValue(toDisplay(value));
@@ -79,20 +81,57 @@ const DateInput = ({ value, onChange, required, className, placeholder, disabled
     }
   };
 
+  const handleIconClick = () => {
+    if (disabled) return;
+    try {
+      dateInputRef.current?.showPicker();
+    } catch (e) {
+      dateInputRef.current?.focus();
+    }
+  };
+
+  // Extract w-full or flex-1 to the wrapper if present
+  const wrapperClasses = `relative flex items-center ${className?.includes('w-full') ? 'w-full' : ''} ${className?.includes('flex-1') ? 'flex-1' : ''}`;
+  const inputClasses = `${className || 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white/50 focus:bg-white transition-colors'} pr-10`;
+
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      value={displayValue}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      placeholder={placeholder || 'DD.MM.YYYY'}
-      className={className}
-      required={required}
-      disabled={disabled}
-      name={name}
-      autoComplete="off"
-    />
+    <div className={wrapperClasses}>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={displayValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        placeholder={placeholder || 'DD.MM.YYYY'}
+        className={inputClasses}
+        required={required}
+        disabled={disabled}
+        name={name}
+        autoComplete="off"
+      />
+      <div 
+        className="absolute right-0 inset-y-0 flex items-center justify-center pr-3 cursor-pointer"
+        onClick={handleIconClick}
+      >
+        <Icon icon="lucide:calendar" className="w-4 h-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+      </div>
+      <input
+        type="date"
+        ref={dateInputRef}
+        value={value || ''}
+        onChange={(e) => {
+          if (e.target.value) {
+            onChange(e.target.value);
+            setDisplayValue(toDisplay(e.target.value));
+          } else {
+            onChange('');
+            setDisplayValue('');
+          }
+        }}
+        disabled={disabled}
+        className="absolute opacity-0 pointer-events-none w-0 h-0"
+      />
+    </div>
   );
 };
 

@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import {
   formatDate, getStatusInfo, getAvatarColor, getInitials,
 } from './taskHelpers';
+import { formatRelativeTime } from '../../utils/dateFormatting';
 import type { Task } from './types';
 import { useIsMobile } from '../../utils/useIsMobile';
 
@@ -232,29 +233,29 @@ const TaskTable: React.FC<TaskTableProps> = ({
                   Klient
                 </th>
                 {isArchive && (
-                  <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
+                  <th className={`px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                     Filial
                   </th>
                 )}
                 {isArchive && (
-                  <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
+                  <th className={`px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                     PSR
                   </th>
                 )}
                 {isArchive && (
-                  <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
+                  <th className={`px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                     BXM
                   </th>
                 )}
-                <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
+                <th className={`px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                   Start Date
                 </th>
                 {isArchive && (
-                  <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
+                  <th className={`px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                     Vaqt
                   </th>
                 )}
-                <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
+                <th className={`px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
                   Status
                 </th>
                 <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
@@ -317,14 +318,14 @@ const TaskTable: React.FC<TaskTableProps> = ({
                         </div>
                       </td>
                       {isArchive && (
-                        <td className={`px-3 py-2 whitespace-nowrap text-sm text-gray-900 border-b ${colors.borderCell}`}>
+                        <td className={`px-3 py-2 whitespace-nowrap text-center text-sm text-gray-900 border-b ${colors.borderCell}`}>
                           <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-transparent dark:border-blue-800/50 rounded-full">
                             {task.branch.name}
                           </span>
                         </td>
                       )}
                       {isArchive && (
-                        <td className={`px-3 py-2 whitespace-nowrap text-xs text-gray-900 border-b ${colors.borderCell}`}>
+                        <td className={`px-3 py-2 whitespace-nowrap text-center text-xs text-gray-900 border-b ${colors.borderCell}`}>
                           <span className={`px-2 py-1 text-xs font-medium rounded-full border border-transparent ${task.hasPsr ? 'bg-green-100 text-green-800 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50' : 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                             }`}>
                             {task.hasPsr ? 'Bor' : 'Yo\'q'}
@@ -332,24 +333,24 @@ const TaskTable: React.FC<TaskTableProps> = ({
                         </td>
                       )}
                       {isArchive && (
-                        <td className={`px-3 py-2 whitespace-nowrap text-xs text-gray-900 border-b ${colors.borderCell}`}>
+                        <td className={`px-3 py-2 whitespace-nowrap text-center text-xs text-gray-900 border-b ${colors.borderCell}`}>
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${getBXMColor(task.customsPaymentMultiplier)}`}>
                             {task.customsPaymentMultiplier ? `${task.customsPaymentMultiplier} BXM` : '-'}
                           </span>
                         </td>
                       )}
-                      <td className={`px-3 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-400 border-b ${colors.borderCell}`}>
-                        {formatDate(task.createdAt)}
+                      <td className={`px-3 py-2 whitespace-nowrap text-center text-xs text-gray-900 dark:text-gray-400 border-b ${colors.borderCell}`}>
+                        {formatRelativeTime(task.createdAt)}
                       </td>
                       {isArchive && (
-                        <td className={`px-3 py-2 whitespace-nowrap text-xs text-gray-900 border-b ${colors.borderCell}`}>
-                          <div className="flex items-center gap-1.5">
+                        <td className={`px-3 py-2 whitespace-nowrap text-center text-xs text-gray-900 border-b ${colors.borderCell}`}>
+                          <div className="flex items-center justify-center gap-1.5">
                             <Icon icon="lucide:clock" className={`w-3.5 h-3.5 ${totalDuration.color}`} />
                             <span className={`font-medium ${totalDuration.color}`}>{totalDuration.text}</span>
                           </div>
                         </td>
                       )}
-                      <td className={`px-3 py-2 whitespace-nowrap text-sm border-b ${colors.borderCell}`}>
+                      <td className={`px-3 py-2 whitespace-nowrap text-center text-sm border-b ${colors.borderCell}`}>
                         <span
                           className={`px-2 py-1 text-xs font-medium rounded-full ${statusInfo.color} shadow-sm`}
                         >

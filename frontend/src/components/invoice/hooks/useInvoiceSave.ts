@@ -226,6 +226,54 @@ export function useInvoiceSave({
       return;
     }
 
+    const eps = 1e-6;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const packageType = (item.packageType || '').trim();
+      const ptLower = packageType.toLowerCase();
+      const gross = Number(item.grossWeight) || 0;
+      const net = Number(item.netWeight) || 0;
+      const qty = (item.packagesCount ?? Number(item.quantity)) || 0;
+
+      const prefix = `${i + 1}-qatordagi tovar (${item.name || 'Nomsiz'}): `;
+
+      if (ptLower === 'навалом') {
+        if (net > gross + eps) {
+          setShowItemErrors(true);
+          toast.error(`${prefix}Навалом qadoq turida netto og‘irligi brutto og‘irligidan katta bo‘lishi mumkin emas.`);
+          return;
+        }
+      } else {
+        if (Math.abs(net - gross) < eps) {
+          setShowItemErrors(true);
+          toast.error(`${prefix}Навалом bo‘lmagan qadoq turida netto va brutto og‘irligi teng bo‘lishi mumkin emas.`);
+          return;
+        }
+        if (net > gross + eps) {
+          setShowItemErrors(true);
+          toast.error(`${prefix}Netto og‘irligi brutto og‘irligidan kichik bo‘lishi kerak.`);
+          return;
+        }
+      }
+
+      if (qty > 0 && (ptLower === 'дер.ящик' || ptLower === 'пласт.ящик')) {
+        const tarePerPkg = (gross - net) / qty;
+        if (ptLower === 'дер.ящик') {
+          if (tarePerPkg < 0.7 - eps || tarePerPkg > 2.5 + eps) {
+            setShowItemErrors(true);
+            toast.error(`${prefix}дер.ящик og‘irligi 0.7 kg – 2.5 kg oralig‘ida bo‘lishi kerak.`);
+            return;
+          }
+        } else if (ptLower === 'пласт.ящик') {
+          if (tarePerPkg < 0.1 - eps || tarePerPkg > 2 + eps) {
+            setShowItemErrors(true);
+            toast.error(`${prefix}пласт.ящик og‘irligi 0.1 kg – 2 kg oralig‘ida bo‘lishi kerak.`);
+            return;
+          }
+        }
+      }
+    }
+
     const hasValidItems =
       items.length > 0 &&
       items.every((item) => {

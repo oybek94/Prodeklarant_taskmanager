@@ -76,9 +76,9 @@ export const syncItemsFromSpec = (currentItems: InvoiceItem[], spec: SpecRow[]):
 export const getTareRange = (packageType: string): { min: number; max: number } | null => {
   const key = (packageType || '').trim().toLowerCase().replace(/\s+/g, '');
   const ranges: Record<string, { min: number; max: number }> = {
-    'дер.ящик': { min: 0.8, max: 2.5 },
-    'пласт.ящик': { min: 0.3, max: 0.7 },
-    'пласт.ящик.': { min: 0.3, max: 0.7 },
+    'дер.ящик': { min: 0.7, max: 2.5 },
+    'пласт.ящик': { min: 0.1, max: 2 },
+    'пласт.ящик.': { min: 0.1, max: 2 },
     мешки: { min: 0.01, max: 0.1 },
     'картон.короб.': { min: 0.3, max: 2.5 },
     'картон.короб': { min: 0.3, max: 2.5 },

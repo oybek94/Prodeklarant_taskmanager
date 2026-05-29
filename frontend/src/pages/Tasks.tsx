@@ -980,6 +980,22 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
             onLoadVersions={loadTaskVersions}
             onLoadAiChecks={loadAiChecks}
             onRefreshTasks={() => loadTasks(showArchive, filters as any)}
+            onDropFiles={async (files: File[]) => {
+              if (!selectedTask) return;
+              try {
+                const formData = new FormData();
+                files.forEach((f) => formData.append('files', f));
+                formData.append('names', JSON.stringify(files.map((f) => f.name)));
+                formData.append('descriptions', JSON.stringify(files.map(() => '')));
+                await apiClient.post(`/documents/task/${selectedTask.id}`, formData, {
+                  headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                toast.success(`${files.length} ta hujjat yuklandi`);
+                await loadTaskDocuments(selectedTask.id);
+              } catch (error: any) {
+                toast.error(error.response?.data?.error || 'Hujjat yuklashda xatolik');
+              }
+            }}
             formatInvoiceExtractedText={formatInvoiceExtractedText}
             formatBxmAmountInSum={formatBxmAmountInSum}
           />

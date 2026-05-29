@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 
 import apiClient from '../../lib/api';
 import { useFileHelpers } from './useFileHelpers';
@@ -108,6 +108,7 @@ interface TaskDetailPanelProps {
   onLoadVersions: (taskId: number) => void;
   onLoadAiChecks: (taskId: number) => void;
   onRefreshTasks: () => void;
+  onDropFiles: (files: File[]) => Promise<void>;
   formatInvoiceExtractedText: (text: string, documentType?: string) => string;
   formatBxmAmountInSum: (multiplier: number) => string;
 }
@@ -151,10 +152,51 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   onLoadVersions: loadTaskVersions,
   onLoadAiChecks: loadAiChecks,
   onRefreshTasks: loadTasks,
+  onDropFiles,
   formatInvoiceExtractedText,
   formatBxmAmountInSum,
 }) => {
   const { downloadBlob } = useFileHelpers();
+
+  // ── Drag-and-drop ──
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const dragCounter = useRef(0);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current -= 1;
+    if (dragCounter.current === 0) setIsDragOver(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    setIsUploading(true);
+    try {
+      await onDropFiles(files);
+    } finally {
+      setIsUploading(false);
+    }
+  }, [onDropFiles]);
 
   // Moliyaviy hisoblashlarni bir marta bajarish (10+ IIFE ni almashtiradi)
   const financial = useMemo(() => {
@@ -204,16 +246,44 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
     >
       <div
         className={`bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/50 dark:border-slate-700/50 p-5 md:p-6 w-full overflow-y-auto custom-scrollbar relative overflow-x-hidden ${
-          isMobile 
-            ? 'h-full rounded-none pt-20 pb-32 px-4' 
+          isMobile
+            ? 'h-full rounded-none pt-20 pb-32 px-4'
             : 'max-w-4xl max-h-[90vh] rounded-3xl'
-        }`}
+        } ${isDragOver ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}
         style={{
           animation: isMobile ? 'none' : 'modalFadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
         }}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       >
         {/* Decorative top solid bar */}
         <div className="absolute top-0 left-0 right-0 h-2 bg-indigo-600 z-50"></div>
+
+        {/* Drag-and-drop overlay */}
+        {(isDragOver || isUploading) && (
+          <div className={`absolute inset-0 z-[200] rounded-3xl flex flex-col items-center justify-center gap-3 pointer-events-none transition-all ${
+            isUploading
+              ? 'bg-indigo-50/95 dark:bg-indigo-900/80'
+              : 'bg-indigo-50/90 dark:bg-indigo-900/70 border-2 border-dashed border-indigo-400'
+          }`}>
+            <div className="w-20 h-20 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center">
+              {isUploading
+                ? <Icon icon="lucide:loader-2" className="w-10 h-10 text-indigo-500 animate-spin" />
+                : <Icon icon="lucide:file-down" className="w-10 h-10 text-indigo-500" />
+              }
+            </div>
+            <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-300">
+              {isUploading ? 'Yuklanmoqda...' : 'Hujjatlarni qo\'yib yuboring'}
+            </p>
+            {!isUploading && (
+              <p className="text-sm text-indigo-500 dark:text-indigo-400">
+                Fayllar hujjatlar bo'limiga avtomatik qo'shiladi
+              </p>
+            )}
+          </div>
+        )}
 
         {isMobile && (
           <button

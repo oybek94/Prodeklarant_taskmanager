@@ -3,7 +3,7 @@ import { getCurrencyVisibility, formatAmount, type Role } from '../utils/currenc
 
 interface CurrencyDisplayProps {
   amount: number;
-  originalCurrency?: 'USD' | 'UZS' | null;
+  originalCurrency?: string | null;
   amountUzs?: number;
   exchangeRate?: number | null;
   exchangeSource?: 'CBU' | 'MANUAL' | null;
@@ -23,6 +23,8 @@ const CurrencyDisplay = ({
   className = '',
 }: CurrencyDisplayProps) => {
   const originalCurrency = originalCurrencyProp || 'USD';
+  // USD/UZS bo'lmagan valyutalar (RUB, EUR va h.k.) uchun har doim asl valyutada ko'rsatish
+  const isNonStandard = originalCurrency !== 'USD' && originalCurrency !== 'UZS';
   const { user } = useAuth();
   const role = (user?.role || 'DEKLARANT') as Role;
   const visibility = getCurrencyVisibility(role);
@@ -49,8 +51,8 @@ const CurrencyDisplay = ({
     );
   }
 
-  // Force original currency display
-  if (forceOriginal) {
+  // Force original currency display (yoki USD/UZS bo'lmagan valyutalar uchun)
+  if (forceOriginal || isNonStandard) {
     return (
       <span className={className}>
         {formatAmount(amount, originalCurrency)}

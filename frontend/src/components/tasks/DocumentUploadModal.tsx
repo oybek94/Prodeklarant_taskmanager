@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast';
-import React from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { getFileIcon, formatFileSize } from './taskHelpers';
 import type { TaskStage } from './types';
@@ -31,7 +31,9 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   uploading = false,
   uploadProgress = 0,
 }) => {
-  if (!show) return null;
+  const [isDragOver, setIsDragOver] = useState(false);
+  // dragCounter — nested elementlarga kirish/chiqishda flickerni oldini olish
+  const dragCounter = useRef(0);
 
   const handleClose = () => {
     onClose();
@@ -49,15 +51,74 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     setDocumentDescriptions(documentDescriptions.filter((_, i) => i !== index));
   };
 
+  const addFiles = useCallback((files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const newFiles = Array.from(files);
+    setUploadFiles(prev => [...prev, ...newFiles]);
+    setDocumentNames(prev => [...prev, ...newFiles.map(() => '')]);
+    setDocumentDescriptions(prev => [...prev, ...newFiles.map(() => '')]);
+  }, [setUploadFiles, setDocumentNames, setDocumentDescriptions]);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current -= 1;
+    if (dragCounter.current === 0) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    setIsDragOver(false);
+    addFiles(e.dataTransfer.files);
+  }, [addFiles]);
+
+  if (!show) return null;
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
       <div
-        className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+        className={`bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto relative transition-all duration-150 ${
+          isDragOver ? 'ring-2 ring-indigo-500 ring-offset-2' : ''
+        }`}
         onClick={(e) => e.stopPropagation()}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       >
+        {/* Drag overlay — modal ustida ko'rinadigan qatlam */}
+        {isDragOver && (
+          <div className="absolute inset-0 z-50 rounded-lg bg-indigo-50/90 border-2 border-dashed border-indigo-400 flex flex-col items-center justify-center gap-3 pointer-events-none">
+            <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
+              <Icon icon="lucide:file-down" className="w-8 h-8 text-indigo-500" />
+            </div>
+            <p className="text-lg font-semibold text-indigo-700">Fayllarni qo'yib yuboring</p>
+            <p className="text-sm text-indigo-500">Bir nechta fayl bir vaqtda qabul qilinadi</p>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-800">
@@ -90,24 +151,34 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           className="space-y-4"
           noValidate
         >
-          {/* File input */}
+          {/* File input + drag hint */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Fayllar (bir nechta tanlash mumkin)
             </label>
-            <input
-              type="file"
-              multiple
-              onChange={onFileSelect}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+
+            <div className="flex items-center gap-3">
+              <input
+                type="file"
+                multiple
+                onChange={onFileSelect}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+              <div className="flex items-center gap-1.5 text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+                <Icon icon="lucide:move-down-left" className="w-3.5 h-3.5" />
+                yoki oynaga tashlang
+              </div>
+            </div>
 
             {/* Selected files grid */}
             {uploadFiles.length > 0 && (
               <div className="mt-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                   {uploadFiles.map((file, index) => (
-                    <div key={index} className="relative flex flex-col items-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                    <div
+                      key={index}
+                      className="relative flex flex-col items-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                    >
                       <button
                         type="button"
                         onClick={() => removeFile(index)}

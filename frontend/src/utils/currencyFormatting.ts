@@ -106,15 +106,23 @@ export function formatCurrencyForRole(
  * Format amount with currency symbol (simple version)
  * Uses space as thousand separator instead of comma
  */
-export function formatAmount(amount: number, currency: 'USD' | 'UZS'): string {
-  const formatted = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: currency === 'USD' ? 2 : 0,
-    maximumFractionDigits: currency === 'USD' ? 2 : 0,
-  }).format(amount);
-  
-  // Replace commas with spaces for thousand separators, and dots with commas for decimals
-  return formatted.replace(/,/g, ' ').replace(/\./g, ',');
+export function formatAmount(amount: number, currency: string): string {
+  const decimals = currency === 'UZS' ? 0 : 2;
+  try {
+    const formatted = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(amount);
+    return formatted.replace(/,/g, ' ').replace(/\./g, ',');
+  } catch {
+    // Noma'lum valyuta kodi uchun fallback: raqam + kod
+    const formatted = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(amount);
+    return `${formatted.replace(/,/g, ' ').replace(/\./g, ',')} ${currency}`;
+  }
 }
 

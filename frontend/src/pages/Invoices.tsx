@@ -23,7 +23,7 @@ interface Invoice {
   taskId: number;
   clientId: number;
   date: string;
-  currency: 'USD' | 'UZS';
+  currency: string;
   totalAmount: number;
   additionalInfo?: { vehicleNumber?: string;[k: string]: unknown };
   task?: {
@@ -42,6 +42,7 @@ interface Invoice {
     sellerName: string;
     buyerName: string;
     consigneeName?: string | null;
+    contractCurrency?: string | null;
   };
   branch?: {
     id: number;
@@ -1055,13 +1056,9 @@ const Invoices = () => {
                 className={`cursor-pointer bg-white dark:bg-gray-800 rounded-xl shadow-sm border ${hasErrors ? 'border-l-4 border-l-red-500 border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-700'} p-3 space-y-2`}
               >
                 <div className="flex justify-between items-center">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                    className="text-blue-600 dark:text-blue-400 font-bold text-base hover:underline"
-                  >
+                  <span className="text-gray-900 dark:text-gray-100 font-bold text-base font-mono">
                     #{invoice.invoiceNumber}
-                  </button>
+                  </span>
                   <button
                     type="button"
                     onClick={() => setShowTaskModalId(invoice.taskId)}
@@ -1076,20 +1073,7 @@ const Invoices = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-gray-400 text-[10px] uppercase font-semibold">Mijoz</p>
                       <p className="font-bold text-gray-900 dark:text-slate-200 text-sm truncate">
-                        {invoice.clientId ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowClientModalId(invoice.clientId);
-                              setShowContractModalId(null);
-                            }}
-                            className="hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline text-left"
-                          >
-                            {invoice.client?.name || '-'}
-                          </button>
-                        ) : (
-                          invoice.client?.name || '-'
-                        )}
+                        {invoice.client?.name || '-'}
                       </p>
                     </div>
                     <div className="text-right">
@@ -1109,7 +1093,11 @@ const Invoices = () => {
                       <div>
                         <p className="text-gray-400 text-[10px] uppercase font-semibold text-right">Summa</p>
                         <div className="font-bold text-gray-900 dark:text-gray-100 text-sm text-right">
-                          <CurrencyDisplay amount={invoice.totalAmount || 0} originalCurrency={invoice.currency} />
+                          <CurrencyDisplay
+                            amount={invoice.totalAmount || 0}
+                            originalCurrency={invoice.contract?.contractCurrency || invoice.currency}
+                            forceOriginal
+                          />
                         </div>
                       </div>
                     </div>
@@ -1209,29 +1197,12 @@ const Invoices = () => {
                       className="group transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                     >
                       <td className={`w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold border-l-4 text-center ${hasErrors ? 'border-l-red-500' : 'border-l-transparent'}`}>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/invoices/task/${invoice.taskId}`, { state: { viewOnly: true } })}
-                          className="text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline cursor-pointer"
-                        >
+                        <span className="text-gray-800 dark:text-gray-200 font-mono">
                           #{invoice.invoiceNumber}
-                        </button>
+                        </span>
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                        {invoice.clientId ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowClientModalId(invoice.clientId);
-                              setShowContractModalId(null);
-                            }}
-                            className="text-left w-full hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline focus:outline-none focus:ring-0"
-                          >
-                            {invoice.client?.name || '-'}
-                          </button>
-                        ) : (
-                          (invoice.client?.name || '-')
-                        )}
+                        {invoice.client?.name || '-'}
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-center">
                         <span className={`inline-flex items-center justify-center w-24 text-center px-1 py-1 rounded-md font-medium ${filialCellClass}`}>
@@ -1250,7 +1221,11 @@ const Invoices = () => {
                         </div>
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-gray-100">
-                        <CurrencyDisplay amount={invoice.totalAmount || 0} originalCurrency={invoice.currency} />
+                        <CurrencyDisplay
+                          amount={invoice.totalAmount || 0}
+                          originalCurrency={invoice.contract?.contractCurrency || invoice.currency}
+                          forceOriginal
+                        />
                       </td>
                       <td className="px-6 py-2 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName].filter(Boolean).join(' / ') || undefined}>
                         {invoice.clientId ? (

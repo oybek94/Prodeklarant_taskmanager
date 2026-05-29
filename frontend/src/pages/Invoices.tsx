@@ -232,6 +232,8 @@ const Invoices = () => {
 
   const [totalCount, setTotalCount] = useState(0);
   const [totalPagesServer, setTotalPagesServer] = useState(1);
+  // Birinchi data yuklanmaguncha clamp ishlamasligi uchun
+  const hasLoadedRef = useRef(false);
 
   // loadInvoices function debounced with search query
   const loadInvoices = useCallback(async (isBackground = false) => {
@@ -262,6 +264,7 @@ const Invoices = () => {
         setTotalCount(0);
         setTotalPagesServer(1);
       }
+      hasLoadedRef.current = true;
     } catch (error) {
       console.error('Error loading invoices:', error);
       setInvoices([]);
@@ -605,6 +608,7 @@ const Invoices = () => {
   const endItem = Math.min(currentPage * PAGE_SIZE, totalCount);
 
   useEffect(() => {
+    if (!hasLoadedRef.current) return;
     setCurrentPage((prev) =>
       Math.min(prev, Math.max(1, totalPagesServer))
     );

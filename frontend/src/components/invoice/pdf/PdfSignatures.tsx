@@ -50,34 +50,43 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({ contract, viewTab,
 
   if (!contract.supplierDirector) return null;
 
+  const signatureUrl = contract.sellerSignatureUrl || contract.signatureUrl;
+  const sealUrl = contract.sellerSealUrl || contract.sealUrl;
+  const hasImages = pdfIncludeSeal && (signatureUrl || sealUrl);
+
   return (
-    <View style={{ flexDirection: 'row', marginTop: sc(20), alignItems: 'flex-start' }}>
-      <View style={{ width: '50%' }}>
-        <View style={{ marginBottom: sc(10) }}>
+    <View style={{ marginTop: sc(20) }}>
+      {/* Руководитель Поставщика + imzo/pechat yonida */}
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'column', justifyContent: 'center' }}>
           <Text style={{ fontSize: sc(9), fontWeight: 'bold' }}>Руководитель Поставщика:</Text>
           <Text style={{ fontSize: sc(9) }}>{contract.supplierDirector}</Text>
         </View>
-        {contract.goodsReleasedBy && (
-          <View>
-            <Text style={{ fontSize: sc(9), fontWeight: 'bold' }}>Товар отпустил:</Text>
-            <Text style={{ fontSize: sc(9) }}>{contract.goodsReleasedBy}</Text>
+
+        {hasImages && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: sc(12) }}>
+            {signatureUrl && (
+              <Image
+                src={resolveUploadUrl(signatureUrl)}
+                style={{ height: sc(50), objectFit: 'contain', marginRight: sc(6) }}
+              />
+            )}
+            {sealUrl && (
+              <Image
+                src={resolveUploadUrl(sealUrl)}
+                style={{ height: sc(100), objectFit: 'contain' }}
+              />
+            )}
           </View>
         )}
       </View>
-      <View style={{ width: '50%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
-        {(contract.sellerSignatureUrl || contract.signatureUrl) && pdfIncludeSeal && (
-          <Image
-            src={resolveUploadUrl(contract.sellerSignatureUrl || contract.signatureUrl)}
-            style={{ height: sc(60), objectFit: 'contain', marginRight: sc(10) }}
-          />
-        )}
-        {(contract.sellerSealUrl || contract.sealUrl) && pdfIncludeSeal && (
-          <Image
-            src={resolveUploadUrl(contract.sellerSealUrl || contract.sealUrl)}
-            style={{ height: sc(120), objectFit: 'contain' }}
-          />
-        )}
-      </View>
+
+      {contract.goodsReleasedBy && (
+        <View style={{ marginTop: sc(8) }}>
+          <Text style={{ fontSize: sc(9), fontWeight: 'bold' }}>Товар отпустил:</Text>
+          <Text style={{ fontSize: sc(9) }}>{contract.goodsReleasedBy}</Text>
+        </View>
+      )}
     </View>
   );
 };

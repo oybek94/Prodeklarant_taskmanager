@@ -240,7 +240,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
       </View>
 
       {showSumWords && (
-        <View style={{ fontSize: sc(9), marginTop: 0, marginBottom: sc(6), paddingLeft: sc(20) }}>
+        <View style={{ fontSize: sc(7), marginTop: 0, marginBottom: sc(4), paddingLeft: sc(20) }}>
           <Text>Сумма прописью: {numberToWordsRu(items.reduce((s, i) => s + i.totalPrice, 0), invoiceCurrency)}</Text>
         </View>
       )}

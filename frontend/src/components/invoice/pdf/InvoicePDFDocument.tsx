@@ -45,16 +45,20 @@ const H = {
   sumWords: 15,
   notes: 60,           // Примечания bloki (agar bor bo'lsa)
   signatures: 80,
+  // spec ko'rinishida 4 ta ishtirokchi: sarlavha(21) + har biri imzo(40)+pechat(100)+matn(35)+padding(10) ≈ 240
+  signaturesSpec: 240,
 };
 
 const calcScale = (
   itemCount: number,
   hasNotes: boolean,
   addFieldsCount: number,
+  viewTab: string,
 ): number => {
   const addInfoH = H.addInfoTitle + addFieldsCount * H.addInfoRow + H.addInfoBottom;
+  const sigH = viewTab === 'spec' ? H.signaturesSpec : H.signatures;
   const fixed = H.header + H.divider * 3 + H.parties + addInfoH +
-                H.tableOverhead + H.sumWords + H.signatures +
+                H.tableOverhead + H.sumWords + sigH +
                 (hasNotes ? H.notes : 0);
   const total = fixed + itemCount * H.tableRow;
   if (total <= AVAILABLE_HEIGHT) return 1.0;
@@ -98,7 +102,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
     ...specCustomFields.map(f => isAdditionalInfoVisible(`spec_${f.id}`) && !!f.value),
   ].filter(Boolean).length;
 
-  const scale = calcScale(items.length, !!form.notes, visibleAddFields);
+  const scale = calcScale(items.length, !!form.notes, visibleAddFields, viewTab);
   const sc = (v: number) => Math.round(v * scale);
 
   const pageStyle = {

@@ -64,8 +64,11 @@ const calcScale = (
   const overhead = viewTab === 'spec' ? 1.12 : 1.0;
   const total = (fixed + itemCount * H.tableRow) * overhead;
   if (total <= AVAILABLE_HEIGHT) return 1.0;
-  // 0.40 — 2-listga chiqishni qat'iy oldini olish uchun pastki chegara
-  return Math.max(0.40, AVAILABLE_HEIGHT / total);
+  const computed = AVAILABLE_HEIGHT / total;
+  // Spec: pechat belgilangan o'lchamidan max 10% kichrayishi mumkin (scale >= 0.90)
+  // Invoice: 0.40 gacha kichrayishi mumkin
+  const minScale = viewTab === 'spec' ? 0.90 : 0.40;
+  return Math.max(minScale, computed);
 };
 
 export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({

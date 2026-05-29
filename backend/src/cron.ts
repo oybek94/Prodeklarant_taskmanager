@@ -2,6 +2,8 @@ import cron from 'node-cron';
 import { prisma } from './prisma';
 import { socketEmitter } from './services/socketEmitter';
 import { BackupService } from './services/backup.service';
+import { MedalService } from './services/medalService';
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subWeeks, subMonths, subQuarters, subYears } from 'date-fns';
 
 export const initCronJobs = () => {
   // Run on the 1st of every month at midnight
@@ -207,4 +209,85 @@ export const initCronJobs = () => {
     }
   });
   console.log('[CRON] Seller KPI kundalik tekshiruvi (20:00) ishga tushdi.');
+
+  // ===============================
+  // AVTOMATIK MEDALLAR (CS-THEMED)
+  // ===============================
+
+  // Haftalik medallar: Dushanba kuni soat 00:05 da ishlaydi (o'tgan hafta uchun)
+  cron.schedule('5 0 * * 1', async () => {
+    console.log('[CRON] Haftalik medallar hisoblanmoqda...');
+    try {
+      const refDate = subWeeks(new Date(), 1); // o'tgan hafta
+      const startDate = startOfWeek(refDate, { weekStartsOn: 1 });
+      const endDate = endOfWeek(refDate, { weekStartsOn: 1 });
+      
+      const getWeek = (d: Date) => {
+        const d1 = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        const dayNum = d1.getUTCDay() || 7;
+        d1.setUTCDate(d1.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d1.getUTCFullYear(),0,1));
+        return Math.ceil((((d1.getTime() - yearStart.getTime()) / 86400000) + 1)/7);
+      };
+      const periodStr = `${startDate.getFullYear()}-W${getWeek(startDate)}`;
+
+      const noms = await MedalService.calculateWeeklyWinners(startDate, endDate, periodStr);
+      await MedalService.awardMedals(noms, 'Hafta qahramonlari aniqlandi! Barcha yutuqdorlarni tabriklaymiz!');
+      console.log('[CRON] Haftalik medallar taqsimlandi.');
+    } catch (e) {
+      console.error('[CRON] Haftalik medallar xatolik:', e);
+    }
+  });
+
+  // Oylik medallar: Har oyning 1-sanasida soat 00:10 da ishlaydi (o'tgan oy uchun)
+  cron.schedule('10 0 1 * *', async () => {
+    console.log('[CRON] Oylik medallar hisoblanmoqda...');
+    try {
+      const refDate = subMonths(new Date(), 1); // o'tgan oy
+      const startDate = startOfMonth(refDate);
+      const endDate = endOfMonth(refDate);
+      const periodStr = `${startDate.getFullYear()}-${(startDate.getMonth() + 1).toString().padStart(2, '0')}`;
+
+      const noms = await MedalService.calculateMonthlyWinners(startDate, endDate, periodStr);
+      await MedalService.awardMedals(noms, 'Oylik qahramonlar aniqlandi! O\'tgan oyning eng zo\'rlari:');
+      console.log('[CRON] Oylik medallar taqsimlandi.');
+    } catch (e) {
+      console.error('[CRON] Oylik medallar xatolik:', e);
+    }
+  });
+
+  // Choraklik medallar: Yanvar, Aprel, Iyul, Oktabrning 1-sanasida soat 00:15 da
+  cron.schedule('15 0 1 1,4,7,10 *', async () => {
+    console.log('[CRON] Choraklik medallar hisoblanmoqda...');
+    try {
+      const refDate = subQuarters(new Date(), 1); // o'tgan chorak
+      const startDate = startOfQuarter(refDate);
+      const endDate = endOfQuarter(refDate);
+      const periodStr = `${startDate.getFullYear()}-Q${Math.floor(startDate.getMonth() / 3) + 1}`;
+
+      const noms = await MedalService.calculateQuarterlyWinners(startDate, endDate, periodStr);
+      await MedalService.awardMedals(noms, 'Choraklik qahramonlar aniqlandi! Ular haqiqiy afsonalar:');
+      console.log('[CRON] Choraklik medallar taqsimlandi.');
+    } catch (e) {
+      console.error('[CRON] Choraklik medallar xatolik:', e);
+    }
+  });
+
+  // Yillik medallar: Har yili 1-Yanvarda soat 00:20 da
+  cron.schedule('20 0 1 1 *', async () => {
+    console.log('[CRON] Yillik medallar hisoblanmoqda...');
+    try {
+      const refDate = subYears(new Date(), 1); // o'tgan yil
+      const startDate = startOfYear(refDate);
+      const endDate = endOfYear(refDate);
+      const periodStr = `${startDate.getFullYear()}`;
+
+      const noms = await MedalService.calculateYearlyWinners(startDate, endDate, periodStr);
+      await MedalService.awardMedals(noms, 'Yil yulduzlari aniqlandi! Butun kompaniya qahramoni:');
+      console.log('[CRON] Yillik medallar taqsimlandi.');
+    } catch (e) {
+      console.error('[CRON] Yillik medallar xatolik:', e);
+    }
+  });
 };
+

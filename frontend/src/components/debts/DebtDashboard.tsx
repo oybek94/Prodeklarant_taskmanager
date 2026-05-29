@@ -1,105 +1,187 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
 
-const DebtDashboard = ({ stats, loading, onPayCertifier }: { stats: any, loading: boolean, onPayCertifier?: (type: 'ST1' | 'FITO', amount: number, branchId: number | null) => void }) => {
-    if (loading && !stats) return <div className="animate-pulse h-32 bg-white/50 rounded-2xl"></div>;
-    
+const DebtDashboard = ({ stats, loading, onPayCertifier }: {
+    stats: any;
+    loading: boolean;
+    onPayCertifier?: (type: 'ST1' | 'FITO', amount: number, branchId: number | null) => void;
+}) => {
+    if (loading && !stats) return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[1, 2, 3].map(i => (
+                <div key={i} className="h-28 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 animate-pulse" />
+            ))}
+        </div>
+    );
+
     const formatCurrency = (amount: number, currency: string = 'USD') => {
         if (currency === 'UZS') {
             const formatted = new Intl.NumberFormat('en-US').format(amount).replace(/,/g, ' ').replace(/\./g, ',');
             return <>{formatted} <small className="text-sm opacity-75">sum</small></>;
         }
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount).replace(/,/g, ' ').replace(/\./g, ',');
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 })
+            .format(amount).replace(/,/g, ' ').replace(/\./g, ',');
     };
 
+    const statCards = [
+        {
+            label: 'Aktiv Qarzlar',
+            sublabel: 'Jami USD',
+            value: formatCurrency(stats?.totalActiveDebtUsd || 0, 'USD'),
+            icon: 'lucide:trending-up',
+            accent: 'border-l-rose-500',
+            iconBg: 'bg-rose-50 dark:bg-rose-900/20',
+            iconColor: 'text-rose-500 dark:text-rose-400',
+        },
+        {
+            label: "To'langan",
+            sublabel: 'Jami USD',
+            value: formatCurrency(stats?.totalPaidUsd || 0, 'USD'),
+            icon: 'lucide:check-circle-2',
+            accent: 'border-l-emerald-500',
+            iconBg: 'bg-emerald-50 dark:bg-emerald-900/20',
+            iconColor: 'text-emerald-500 dark:text-emerald-400',
+        },
+        {
+            label: 'Qarz Rekordlari',
+            sublabel: 'Umumiy soni',
+            value: stats?.totalDebtsCount || 0,
+            icon: 'lucide:users',
+            accent: 'border-l-indigo-500',
+            iconBg: 'bg-indigo-50 dark:bg-indigo-900/20',
+            iconColor: 'text-indigo-500 dark:text-indigo-400',
+        },
+    ];
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="text-xs text-gray-500 font-semibold tracking-wider uppercase">Aktiv Qarzlar (Jami USD)</div>
-                    <div className="w-8 h-8 flex items-center justify-center">
-                        <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-gray-400" />
+        <div className="space-y-4">
+            {/* Stat cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {statCards.map(({ label, sublabel, value, icon, accent, iconBg, iconColor }) => (
+                    <div
+                        key={label}
+                        className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 border-l-4 ${accent} p-5 flex items-center gap-4`}
+                    >
+                        <div className={`w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+                            <Icon icon={icon} className={`w-5 h-5 ${iconColor}`} />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                {label}
+                                <span className="normal-case ml-1 opacity-70">· {sublabel}</span>
+                            </p>
+                            <p className="text-2xl font-semibold text-gray-900 dark:text-white tracking-tight mt-0.5">
+                                {value}
+                            </p>
+                        </div>
                     </div>
-                </div>
-                <div className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
-                    {formatCurrency(stats?.totalActiveDebtUsd || 0, 'USD')}
-                </div>
+                ))}
             </div>
 
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="text-xs text-gray-500 font-semibold tracking-wider uppercase">To'langan (Jami USD)</div>
-                    <div className="w-8 h-8 flex items-center justify-center">
-                        <Icon icon="lucide:check-circle" className="w-5 h-5 text-gray-400" />
-                    </div>
-                </div>
-                <div className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
-                    {formatCurrency(stats?.totalPaidUsd || 0, 'USD')}
-                </div>
-            </div>
-            
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="text-xs text-gray-500 font-semibold tracking-wider uppercase">Qarz Rekordlari</div>
-                    <div className="w-8 h-8 flex items-center justify-center">
-                        <Icon icon="lucide:users" className="w-5 h-5 text-gray-400" />
-                    </div>
-                </div>
-                <div className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
-                    {stats?.totalDebtsCount || 0}
-                </div>
-            </div>
-
+            {/* Certifier debt panel */}
             {stats?.certifierDebt && (
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden flex flex-col justify-between col-span-1 md:col-span-2 lg:col-span-3">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="text-xs text-gray-500 font-semibold tracking-wider uppercase">
-                            ST va FITO Qarzlar ({stats.certifierDebt.branchName})
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="flex items-center gap-3 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                        <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                            <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <div className="w-8 h-8 flex items-center justify-center bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg">
-                            <Icon icon="lucide:file-text" className="w-5 h-5" />
+                        <div>
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                                ST va FITO Qarzlar
+                            </span>
+                            <span className="ml-2 text-xs text-gray-400">
+                                {stats.certifierDebt.branchName}
+                            </span>
                         </div>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                            <div className="flex justify-between items-start mb-2">
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-gray-100 dark:bg-gray-700">
+                        {/* ST Qarz */}
+                        <div className="bg-white dark:bg-gray-800 p-5 space-y-4">
+                            <div className="flex items-start justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">ST Qarz</p>
-                                    <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">ST Qarz</p>
+                                    <p className="text-2xl font-semibold text-gray-900 dark:text-white">
                                         {formatCurrency(stats.certifierDebt.remaining.st1, 'UZS')}
-                                    </div>
+                                    </p>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-xs text-gray-400">Hisoblangan: {new Intl.NumberFormat('en-US').format(stats.certifierDebt.accrued.st1)}</p>
-                                    <p className="text-xs text-gray-400">To'langan: {new Intl.NumberFormat('en-US').format(stats.certifierDebt.paid.st1)}</p>
+                                <div className="text-right space-y-0.5">
+                                    <p className="text-xs text-gray-400">
+                                        Hisoblangan: <span className="text-gray-600 dark:text-gray-300 font-medium">
+                                            {new Intl.NumberFormat('en-US').format(stats.certifierDebt.accrued.st1)}
+                                        </span>
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                        To'langan: <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                            {new Intl.NumberFormat('en-US').format(stats.certifierDebt.paid.st1)}
+                                        </span>
+                                    </p>
                                 </div>
                             </div>
-                            <button 
+
+                            {stats.certifierDebt.accrued.st1 > 0 && (
+                                <div>
+                                    <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                                        <div
+                                            className="h-1.5 rounded-full bg-blue-500 transition-all duration-700"
+                                            style={{ width: `${Math.min(100, (stats.certifierDebt.paid.st1 / stats.certifierDebt.accrued.st1) * 100)}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1 text-right">
+                                        {((stats.certifierDebt.paid.st1 / stats.certifierDebt.accrued.st1) * 100).toFixed(0)}% to'langan
+                                    </p>
+                                </div>
+                            )}
+
+                            <button
                                 onClick={() => onPayCertifier && onPayCertifier('ST1', stats.certifierDebt.remaining.st1, stats.certifierDebt.branchId)}
-                                className="w-full mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition font-medium flex items-center justify-center gap-2"
+                                className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                             >
                                 <Icon icon="lucide:credit-card" className="w-4 h-4" />
                                 ST To'lov
                             </button>
                         </div>
-                        
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                            <div className="flex justify-between items-start mb-2">
+
+                        {/* FITO Qarz */}
+                        <div className="bg-white dark:bg-gray-800 p-5 space-y-4">
+                            <div className="flex items-start justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">FITO Qarz</p>
-                                    <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">FITO Qarz</p>
+                                    <p className="text-2xl font-semibold text-gray-900 dark:text-white">
                                         {formatCurrency(stats.certifierDebt.remaining.fito, 'UZS')}
-                                    </div>
+                                    </p>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-xs text-gray-400">Hisoblangan: {new Intl.NumberFormat('en-US').format(stats.certifierDebt.accrued.fito)}</p>
-                                    <p className="text-xs text-gray-400">To'langan: {new Intl.NumberFormat('en-US').format(stats.certifierDebt.paid.fito)}</p>
+                                <div className="text-right space-y-0.5">
+                                    <p className="text-xs text-gray-400">
+                                        Hisoblangan: <span className="text-gray-600 dark:text-gray-300 font-medium">
+                                            {new Intl.NumberFormat('en-US').format(stats.certifierDebt.accrued.fito)}
+                                        </span>
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                        To'langan: <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                            {new Intl.NumberFormat('en-US').format(stats.certifierDebt.paid.fito)}
+                                        </span>
+                                    </p>
                                 </div>
                             </div>
-                            <button 
+
+                            {stats.certifierDebt.accrued.fito > 0 && (
+                                <div>
+                                    <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                                        <div
+                                            className="h-1.5 rounded-full bg-emerald-500 transition-all duration-700"
+                                            style={{ width: `${Math.min(100, (stats.certifierDebt.paid.fito / stats.certifierDebt.accrued.fito) * 100)}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1 text-right">
+                                        {((stats.certifierDebt.paid.fito / stats.certifierDebt.accrued.fito) * 100).toFixed(0)}% to'langan
+                                    </p>
+                                </div>
+                            )}
+
+                            <button
                                 onClick={() => onPayCertifier && onPayCertifier('FITO', stats.certifierDebt.remaining.fito, stats.certifierDebt.branchId)}
-                                className="w-full mt-3 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 transition font-medium flex items-center justify-center gap-2"
+                                className="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                             >
                                 <Icon icon="lucide:credit-card" className="w-4 h-4" />
                                 FITO To'lov

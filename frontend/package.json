@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@iconify/react": "^6.0.2",
+    "@react-pdf/renderer": "^4.5.1",
     "@tinymce/tinymce-react": "^6.3.0",
     "@tiptap/extension-code-block-lowlight": "^3.14.0",
     "@tiptap/extension-image": "^3.14.0",

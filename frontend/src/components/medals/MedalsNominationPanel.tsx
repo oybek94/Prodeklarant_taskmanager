@@ -85,6 +85,26 @@ const MedalsNominationPanel: React.FC<MedalsNominationPanelProps> = ({ onClose, 
     }
   };
 
+  const handleForceCron = async () => {
+    if (!window.confirm(`Rostdan ham hozirgi ${activeTab} davr uchun barcha medallarni avtomatik tarzda barchaga e'lon qilib topshirmoqchimisiz? (Bu Cron-job sinovi)`)) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const res = await apiClient.post('/medals/force-cron', { type: activeTab });
+      if (res.data.awarded && res.data.awarded.length > 0) {
+        toast.success(`Muvaffaqiyatli! ${res.data.awarded.length} ta medal tarqatildi va e'lon qilindi.`);
+      } else {
+        toast.error('G\'oliblar topilmadi yoki bu davr uchun medallar allaqachon tarqatilgan.');
+      }
+      fetchNominations(); // reload lists
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Xatolik yuz berdi');
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <motion.div
@@ -124,8 +144,14 @@ const MedalsNominationPanel: React.FC<MedalsNominationPanelProps> = ({ onClose, 
             </button>
           ))}
           
-          <div className="ml-auto flex items-center px-4 font-bold text-gray-500 dark:text-gray-400">
-            Davr: {periodStr}
+          <div className="ml-auto flex items-center gap-4 px-4 font-bold text-gray-500 dark:text-gray-400">
+            <span>Davr: {periodStr}</span>
+            <button
+              onClick={handleForceCron}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs transition-colors flex items-center gap-1.5"
+            >
+              <span>🚀</span> Avtomatlashtirishni Sinash
+            </button>
           </div>
         </div>
 

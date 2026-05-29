@@ -35,6 +35,7 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
 }) => {
   const { notifications, unreadCount, confirmProcess, rejectProcess, markRead, markAllRead, dismissNotification } = useNotifications();
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -64,22 +65,28 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
       return;
     }
 
+    setActionLoadingId(n.id);
     try {
       await confirmProcess(processId, {});
       toast.success('Tayyor deb belgilandi!');
     } catch (err: any) {
       toast.error(err.message || 'Xatolik');
+    } finally {
+      setActionLoadingId(null);
     }
   }, [confirmProcess, onProcessConfirmWithBXM]);
 
   const handleProcessReject = useCallback(async (n: AppNotification) => {
     const processId = (n.metadata as any)?.taskProcessId;
     if (!processId) return;
+    setActionLoadingId(n.id);
     try {
       await rejectProcess(processId);
       toast('Hali yo\'q deb belgilandi', { icon: '⏳' });
     } catch (err: any) {
       toast.error(err.message || 'Xatolik');
+    } finally {
+      setActionLoadingId(null);
     }
   }, [rejectProcess]);
 
@@ -99,7 +106,7 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
       >
         <Icon icon="lucide:bell" className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-xs font-medium text-white bg-red-500 rounded-full animate-pulse">
+          <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-xs font-medium text-white bg-red-500 rounded-full">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -173,14 +180,18 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
                           <div className="flex gap-2 mt-2">
                             <button
                               onClick={() => handleProcessConfirm(n)}
-                              className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                              disabled={actionLoadingId === n.id}
+                              className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                              <Icon icon="lucide:check" className="w-3 h-3" />
+                              {actionLoadingId === n.id
+                                ? <Icon icon="lucide:loader-2" className="w-3 h-3 animate-spin" />
+                                : <Icon icon="lucide:check" className="w-3 h-3" />}
                               Tayyor
                             </button>
                             <button
                               onClick={() => handleProcessReject(n)}
-                              className="px-3 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors flex items-center gap-1"
+                              disabled={actionLoadingId === n.id}
+                              className="px-3 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                               <Icon icon="lucide:clock" className="w-3 h-3" />
                               Hali yo'q

@@ -683,21 +683,6 @@ const Dashboard = () => {
                       </div>
                     )}
 
-                    {/* Tungi Boyqush Admin Reminder */}
-                    {user?.role === 'ADMIN' && (
-                      <div className="mt-4 mb-2 flex items-center justify-between bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/30 dark:to-fuchsia-900/20 border border-purple-200 dark:border-purple-800/50 rounded-xl p-3 shadow-sm">
-                        <div className="flex items-center gap-3">
-                          <div className="text-2xl">🦉</div>
-                          <div>
-                            <h3 className="text-sm font-bold text-purple-800 dark:text-purple-300">"Tungi Boyqush" medalini topshirish</h3>
-                            <p className="text-xs text-purple-700 dark:text-purple-400">Oyning eng mehnatkash xodimini rag'batlantirish esdan chiqmasin.</p>
-                          </div>
-                        </div>
-                        <button onClick={() => setShowNominationsModal('MONTHLY')} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg transition-colors">
-                          Nomzodlarni ko'rish
-                        </button>
-                      </div>
-                    )}
 
                     {/* Achievements Showcase (Medals Cabinet) */}
                     <div className="mt-3 flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white/50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/60 dark:border-gray-700/50 shadow-sm backdrop-blur-md self-start inline-flex min-h-[52px]">
@@ -706,7 +691,8 @@ const Dashboard = () => {
                       </span>
 
                       {myMedals.length > 0 ? myMedals.map((medal) => {
-                        const details = MEDAL_DETAILS[medal.medalType];
+                        const details = MEDAL_DETAILS[medal.medalType as keyof typeof MEDAL_DETAILS];
+                        if (!details) return null;
                         return (
                           <div key={medal.id} className="relative group cursor-pointer flex items-center justify-center" onClick={() => navigate('/profile')}>
                             <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform ${details.bgClass} border-2 border-white dark:border-gray-700 overflow-hidden`}>

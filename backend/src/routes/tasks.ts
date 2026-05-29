@@ -1618,6 +1618,25 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
       // Pass completedAt date for exchange rate lookup
       const completedAtDate = now; // Stage completion time
       await logKpiForStage(tx, taskId, upd.name, req.user?.id, completedAtDate);
+
+      // Stage TAYYOR bo'lganda tegishli process bildirishnomalarini o'chirish
+      const STAGE_TO_PROCESS_TYPE: Record<string, string> = {
+        'TIR-SMR': 'TIR',
+        'Zayavka': 'CERT',
+        'Deklaratsiya': 'DECLARATION',
+      };
+      const relatedProcessType = STAGE_TO_PROCESS_TYPE[stage.name];
+      if (relatedProcessType) {
+        const relatedProcesses = await (tx as any).tasksProcess.findMany({
+          where: { taskId, processType: relatedProcessType },
+          select: { id: true },
+        });
+        for (const rp of relatedProcesses) {
+          await (tx as any).$executeRawUnsafe(
+            `UPDATE "Notification" SET "read" = true WHERE "read" = false AND metadata->>'taskProcessId' = '${rp.id}'`
+          );
+        }
+      }
     } else if (parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
       // Agar jarayonni TAYYORdan BOSHLANMAGANga o'zgartirsa, KPI log'ni o'chirish
       // Stage nomini normalize qilish (logKpiForStage bilan bir xil)

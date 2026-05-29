@@ -88,6 +88,12 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
           where: { id: tp.id },
           data: { nextReminderTime: null },
         });
+        // Mavjud o'qilmagan bildirishnomalarni ham o'chirish
+        if (isCompleted) {
+          await prisma.$executeRawUnsafe(
+            `UPDATE "Notification" SET "read" = true WHERE "read" = false AND metadata->>'taskProcessId' = '${tp.id}'`
+          );
+        }
         continue;
       }
 

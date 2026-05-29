@@ -40,6 +40,9 @@ import { SertifikatErrorWarning } from '../components/invoice/SertifikatErrorWar
 import { ContractRequirementsNote } from '../components/invoice/ContractRequirementsNote';
 import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
 
+import { pdf } from '@react-pdf/renderer';
+import { InvoicePDFDocument } from '../components/invoice/pdf/InvoicePDFDocument';
+
 import type {
   InvoiceItem,
   Invoice as InvoiceType,
@@ -260,7 +263,7 @@ const Invoice = () => {
 
 
   const {
-    generatePdf,
+    generatePdf: oldGeneratePdf,
     generateSmrExcel,
     generateCmrDoc,
     generateTirExcel,
@@ -425,6 +428,61 @@ const Invoice = () => {
     getEffectiveColumns,
   });
 
+
+  const orderedVisibleColumns = useMemo(() => {
+    return columnOrder.filter((key) => {
+      if (key === 'actions') return false; // PDF da actions umuman chiqmaydi
+      return effectiveColumns[key as keyof VisibleColumns];
+    });
+  }, [columnOrder, effectiveColumns]);
+
+  const generatePdf = useCallback(async (includeSeal: boolean) => {
+    try {
+      const toastId = toast.loading("PDF tayyorlanmoqda...");
+      const doc = (
+        <InvoicePDFDocument
+          viewTab={viewTab}
+          form={form}
+          invoice={invoice}
+          selectedContract={selectedContract}
+          contracts={contracts}
+          task={task}
+          isSellerShipper={isSellerShipper}
+          isBuyerConsignee={isBuyerConsignee}
+          isAdditionalInfoVisible={isAdditionalInfoVisible}
+          customFields={customFields}
+          specCustomFields={specCustomFields}
+          additionalFieldsOrder={additionalFieldsOrder}
+          items={items}
+          orderedVisibleColumns={orderedVisibleColumns}
+          columnLabels={columnLabels}
+          totalColumnLabel={totalColumnLabel}
+          invoiceCurrency={invoiceCurrency}
+          pdfIncludeSeal={includeSeal}
+        />
+      );
+      
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const inv = invoice?.invoiceNumber || form.invoiceNumber || 'Invoice';
+      const plate = form.vehicleNumber?.trim() ? ` АВТО ${form.vehicleNumber.trim()}` : '';
+      link.download = `${inv}${plate}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success("PDF muvaffaqiyatli yuklab olindi", { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error("PDF yaratishda xatolik yuz berdi");
+    }
+  }, [
+    viewTab, form, invoice, selectedContract, contracts, task, isSellerShipper, isBuyerConsignee, 
+    isAdditionalInfoVisible, customFields, specCustomFields, additionalFieldsOrder, items, 
+    orderedVisibleColumns, columnLabels, totalColumnLabel, invoiceCurrency
+  ]);
 
   const handleUpdateContractRequirements = async (newRequirements: string) => {
     if (!selectedContractId) return;

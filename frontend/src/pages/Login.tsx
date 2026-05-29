@@ -50,33 +50,81 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 relative overflow-hidden font-sans">
-      {/* Background Decorative Elements - Bright & Vibrant */}
-      <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-indigo-200/40 rounded-full mix-blend-multiply filter blur-[120px] opacity-70 animate-pulse"></div>
-      <div className="absolute top-[10%] right-[-10%] w-[40%] h-[40%] bg-violet-200/40 rounded-full mix-blend-multiply filter blur-[120px] opacity-70 animate-pulse" style={{ animationDelay: '2s' }}></div>
-      <div className="absolute bottom-[-10%] left-[10%] w-[50%] h-[50%] bg-blue-200/40 rounded-full mix-blend-multiply filter blur-[120px] opacity-70 animate-pulse" style={{ animationDelay: '4s' }}></div>
+    <div className="min-h-screen flex bg-gray-50">
 
-      <div className="w-full max-w-md px-6 relative z-10">
-        {/* Card Container - White Glassmorphism */}
-        <div className="bg-white/80 backdrop-blur-2xl border border-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[40px] p-10 sm:p-12 relative overflow-hidden group">
+      {/* ── Chap: Brand paneli (desktop) ── */}
+      <div className="hidden lg:flex w-[420px] xl:w-[460px] flex-shrink-0 flex-col justify-between bg-indigo-600 p-12 relative overflow-hidden">
+        {/* Nuqta tarmog'i */}
+        <div
+          className="absolute inset-0 opacity-[0.12]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)',
+            backgroundSize: '28px 28px',
+          }}
+        />
+        {/* Pastki chap gradient yog'du */}
+        <div className="absolute bottom-0 left-0 w-72 h-72 bg-indigo-500 rounded-full blur-3xl opacity-40 -translate-x-1/2 translate-y-1/2" />
 
-          {/* Top Decorative Line */}
-          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+        {/* Logo + nom */}
+        <div className="relative flex items-center gap-3">
+          <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center border border-white/20">
+            <img src="/favicon.png" alt="ProDeklarant" className="w-6 h-6 object-contain" />
+          </div>
+          <span className="text-white font-semibold text-lg tracking-tight">ProDeklarant</span>
+        </div>
 
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-3xl shadow-xl shadow-slate-200/50 mb-6 transform group-hover:scale-110 transition-transform duration-500 border border-slate-100">
-              <img src="/favicon.png" alt="ProDeklarant Logo" className="w-12 h-12 object-contain" />
+        {/* Asosiy matn */}
+        <div className="relative space-y-4">
+          <h2 className="text-3xl font-bold text-white leading-snug">
+            Bojxona deklaratsiyasi<br />boshqaruv tizimi
+          </h2>
+          <p className="text-indigo-200 text-sm leading-relaxed max-w-xs">
+            Tasklar, invoyslar, xodimlar va moliyaviy hisobotlarni bir platformada boshqaring.
+          </p>
+
+          <div className="pt-4 flex flex-col gap-2.5">
+            {[
+              { icon: 'lucide:layers', text: 'Jarayonlarni real-vaqtda kuzatish' },
+              { icon: 'lucide:users', text: 'Ko\'p foydalanuvchili rollar tizimi' },
+              { icon: 'lucide:bar-chart-2', text: 'KPI va moliyaviy hisobotlar' },
+            ].map(({ icon, text }) => (
+              <div key={text} className="flex items-center gap-2.5 text-indigo-100 text-sm">
+                <Icon icon={icon} className="w-4 h-4 flex-shrink-0 text-indigo-300" />
+                <span>{text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="relative flex items-center gap-2 text-indigo-300 text-xs">
+          <Icon icon="lucide:shield-check" className="w-3.5 h-3.5" />
+          <span>Xavfsiz va ishonchli platforma</span>
+        </div>
+      </div>
+
+      {/* ── O'ng: Forma paneli ── */}
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm">
+
+          {/* Mobile logo */}
+          <div className="lg:hidden flex items-center gap-2.5 mb-8">
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <img src="/favicon.png" alt="ProDeklarant" className="w-5 h-5 object-contain" />
             </div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-3">
-              ProDeklarant
-            </h1>
-            <p className="text-slate-500 text-sm font-semibold tracking-wide uppercase opacity-70">
-              Xush kelibsiz!
-            </p>
+            <span className="font-semibold text-gray-900 tracking-tight">ProDeklarant</span>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Hidden Email Input (Maintained for logic compatibility) */}
+          {/* Sarlavha */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight mb-1">
+              Tizimga kirish
+            </h1>
+            <p className="text-sm text-gray-500">Parolingizni kiriting davom etish uchun</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Yashirin email (mantiq moslik uchun saqlanadi) */}
             <div className="hidden">
               <input
                 type="text"
@@ -85,63 +133,65 @@ const Login = () => {
               />
             </div>
 
-            <div className="space-y-3">
-              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
-                Tizim Paroli
+            {/* Parol maydoni */}
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700">
+                Parol
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                  <Icon icon="lucide:lock" className="h-5 w-5 text-slate-300 transition-colors" />
-                </div>
+                <Icon
+                  icon="lucide:lock"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  placeholder="••••••••"
-                  className="w-full bg-slate-50 border-2 border-slate-100 text-slate-900 px-6 py-4 pl-14 rounded-2xl focus:outline-none focus:ring-0 focus:border-indigo-500 transition-all placeholder-slate-300 font-bold"
+                  placeholder="Parolingizni kiriting"
+                  className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-5 flex items-center text-slate-300 hover:text-indigo-500 transition-colors focus:outline-none"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
                 >
-                  <Icon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} className="h-5 w-5" />
+                  <Icon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
+            {/* Xato xabari */}
             {error && (
-              <div className="flex items-center gap-3 p-4 bg-red-50 border-2 border-red-100 rounded-2xl text-red-600 text-sm animate-shake">
-                <Icon icon="lucide:alert-circle" className="w-5 h-5 flex-shrink-0" />
-                <span className="font-bold">{error}</span>
+              <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <Icon icon="lucide:alert-circle" className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <span className="text-sm text-red-600">{error}</span>
               </div>
             )}
 
+            {/* Kirish tugmasi */}
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center items-center py-5 px-6 rounded-2xl text-base font-black text-white bg-slate-900 hover:bg-slate-800 focus:outline-none shadow-xl shadow-slate-200 transition-all duration-300 active:scale-[0.98] disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             >
               {isLoading ? (
-                <div className="flex items-center gap-3">
-                  <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" />
+                <>
+                  <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
                   <span>Kutilmoqda...</span>
-                </div>
+                </>
               ) : (
-                <div className="flex items-center gap-2">
+                <>
                   <span>Kirish</span>
-                  <Icon icon="lucide:arrow-right" className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </div>
+                  <Icon icon="lucide:arrow-right" className="w-4 h-4" />
+                </>
               )}
             </button>
           </form>
 
-          <div className="mt-12 text-center">
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
-              Powered by ProDeklarant Engine
-            </p>
-          </div>
+          <p className="mt-10 text-center text-xs text-gray-400">
+            © {new Date().getFullYear()} ProDeklarant
+          </p>
         </div>
       </div>
     </div>
@@ -149,4 +199,3 @@ const Login = () => {
 };
 
 export default Login;
-

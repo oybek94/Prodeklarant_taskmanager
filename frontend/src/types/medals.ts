@@ -13,7 +13,6 @@ export type MedalType =
   | 'SHIELD'
   | 'EAGLE_EYE'
   | 'GOLDEN_KD'
-  | 'GROWTH_CHAMPION'
   | 'NIGHT_OWL'
   | 'COMPANY_PILLAR'
   | 'PROBLEM_SOLVER'
@@ -58,7 +57,7 @@ export function formatPeriod(period: string) {
 
 export const MEDAL_DETAILS: Record<MedalType, { name: string; description: string; icon: string; image: string; color: string; bgClass: string; tier: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'; cashBonus: number; xpBonus: number }> = {
   FAST_WORKER: {
-    name: 'Tezkor Deklarant',
+    name: 'Entry Fragger',
     description: 'Bir hafta ichida eng ko\'p jarayonlarni muvaffaqiyatli yopgan xodim.',
     icon: '🏃‍♂️',
     image: fastWorkerImg,
@@ -69,7 +68,7 @@ export const MEDAL_DETAILS: Record<MedalType, { name: string; description: strin
     xpBonus: 20
   },
   SHIELD: {
-    name: 'Hafta Qalqoni',
+    name: 'Flawless Defuser',
     description: 'Hafta davomida eng ko\'p jarayonni bajarib, mutlaqo 0 ta xato qilgan.',
     icon: '🛡️',
     image: shieldImg,
@@ -80,7 +79,7 @@ export const MEDAL_DETAILS: Record<MedalType, { name: string; description: strin
     xpBonus: 10
   },
   EAGLE_EYE: {
-    name: 'Lochin Ko\'z',
+    name: 'Overwatch',
     description: 'Boshqa xodimlarning eng ko\'p xatosini topib, tizimga kiritgan.',
     icon: '🦅',
     image: eagleEyeImg,
@@ -91,7 +90,7 @@ export const MEDAL_DETAILS: Record<MedalType, { name: string; description: strin
     xpBonus: 20
   },
   GOLDEN_KD: {
-    name: 'Oltin K/D Master',
+    name: 'Top Fragger',
     description: 'Oy davomida K/D reytingida eng yuqori ko\'rsatkichga erishgan.',
     icon: '💎',
     image: goldenKdImg,
@@ -101,19 +100,8 @@ export const MEDAL_DETAILS: Record<MedalType, { name: string; description: strin
     cashBonus: 500000,
     xpBonus: 100
   },
-  GROWTH_CHAMPION: {
-    name: 'O\'sish Chempioni',
-    description: 'O\'tgan oyga nisbatan o\'z natijalarini foiz hisobida eng ko\'p yaxshilagan.',
-    icon: '📈',
-    image: growthImg,
-    color: 'text-green-500',
-    bgClass: 'bg-green-100 dark:bg-green-900/30',
-    tier: 'MONTHLY',
-    cashBonus: 300000,
-    xpBonus: 60
-  },
   NIGHT_OWL: {
-    name: 'Tungi Boyqush',
+    name: 'Midnight Operative',
     description: 'Jamoa bilan tanlanadi (Mehnatsevarlik ramzi).',
     icon: '🦉',
     image: nightOwlImg,
@@ -124,7 +112,7 @@ export const MEDAL_DETAILS: Record<MedalType, { name: string; description: strin
     xpBonus: 40
   },
   COMPANY_PILLAR: {
-    name: 'Kompaniya Ustuni',
+    name: 'The Global Elite',
     description: 'Oxirgi 3 oy davomida K/D reytingi eng yuqori bo\'lgan xodim.',
     icon: '👑',
     image: companyPillarImg,
@@ -135,7 +123,7 @@ export const MEDAL_DETAILS: Record<MedalType, { name: string; description: strin
     xpBonus: 300
   },
   PROBLEM_SOLVER: {
-    name: 'Muammolar Kushandasi',
+    name: 'Clutch Master',
     description: 'Oxirgi 3 oyda eng ko\'p sheriklarining xatosini topgan xodim.',
     icon: '🧠',
     image: problemSolverImg,
@@ -146,7 +134,7 @@ export const MEDAL_DETAILS: Record<MedalType, { name: string; description: strin
     xpBonus: 200
   },
   YEAR_STAR: {
-    name: 'Yil Deklaranti',
+    name: 'HLTV #1 Player',
     description: 'Yil davomida eng ko\'p XP to\'plagan, eng baland K/D ga ega bo\'lgan mutlaq chempion.',
     icon: '🌟',
     image: yearStarImg,

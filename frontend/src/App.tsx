@@ -88,9 +88,9 @@ const AppRoutes = () => {
     const handleQuality = (data: any) => {
       if (data.userId === user.id) {
          toast((t) => (
-           <div className="flex flex-col gap-1 bg-yellow-50 p-1 rounded">
-             <span className="font-bold text-yellow-600">🏆 Oylik Sifat Indeksi!</span>
-             <span className="text-sm border-t border-yellow-200 mt-1 pt-1">{data.message}</span>
+           <div className="flex flex-col gap-1">
+             <span className="font-bold text-amber-600 dark:text-amber-400">🏆 Oylik Sifat Indeksi!</span>
+             <span className="text-sm text-gray-700 dark:text-gray-200 border-t border-gray-200 dark:border-gray-600 mt-1 pt-1">{data.message}</span>
            </div>
          ), { duration: 10000 });
       }
@@ -107,8 +107,11 @@ const AppRoutes = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-600">Yuklanmoqda...</div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-[3px] border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-gray-500 dark:text-gray-400">Yuklanmoqda...</span>
+        </div>
       </div>
     );
   }

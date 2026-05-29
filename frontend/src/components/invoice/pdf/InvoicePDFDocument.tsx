@@ -45,8 +45,8 @@ const H = {
   sumWords: 15,
   notes: 60,           // Примечания bloki (agar bor bo'lsa)
   signatures: 80,
-  // spec ko'rinishida 4 ta ishtirokchi: sarlavha(21) + har biri imzo(40)+pechat(100)+matn(35)+padding(10) ≈ 240
-  signaturesSpec: 240,
+  // spec: sarlavha(18) + imzo(40) + pechat(100) + marginlar(20) ≈ 180
+  signaturesSpec: 180,
 };
 
 const calcScale = (
@@ -62,7 +62,8 @@ const calcScale = (
                 (hasNotes ? H.notes : 0);
   const total = fixed + itemCount * H.tableRow;
   if (total <= AVAILABLE_HEIGHT) return 1.0;
-  return Math.max(0.55, AVAILABLE_HEIGHT / total);
+  // 0.40 — 2-listga chiqishni qat'iy oldini olish uchun pastki chegara
+  return Math.max(0.40, AVAILABLE_HEIGHT / total);
 };
 
 export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({

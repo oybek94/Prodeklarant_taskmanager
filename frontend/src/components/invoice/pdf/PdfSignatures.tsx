@@ -13,36 +13,68 @@ interface PdfSignaturesProps {
 export const PdfSignatures: React.FC<PdfSignaturesProps> = ({ contract, viewTab, pdfIncludeSeal, scale = 1 }) => {
   const sc = (v: number) => Math.round(v * scale);
   if (viewTab === 'spec') {
-    const participants = [
-      contract.sellerName ? { label: 'Продавец', name: contract.sellerName, director: contract.supplierDirector, signatureUrl: contract.sellerSignatureUrl, sealUrl: contract.sellerSealUrl } : null,
-      contract.buyerName ? { label: 'Покупатель', name: contract.buyerName, director: contract.buyerDirector, signatureUrl: contract.buyerSignatureUrl, sealUrl: contract.buyerSealUrl } : null,
-      contract.shipperName ? { label: 'Грузоотправитель', name: contract.shipperName, director: undefined, signatureUrl: undefined, sealUrl: undefined } : null,
-      contract.consigneeName ? { label: 'Грузополучатель', name: contract.consigneeName, director: contract.consigneeDirector, signatureUrl: contract.consigneeSignatureUrl, sealUrl: contract.consigneeSealUrl } : null,
-    ].filter(Boolean) as Array<{ label: string; name: string; director?: string; signatureUrl?: string; sealUrl?: string }>;
+    const seller = contract.sellerName ? {
+      label: 'Продавец',
+      name: contract.sellerName,
+      director: contract.supplierDirector,
+      signatureUrl: contract.sellerSignatureUrl,
+      sealUrl: contract.sellerSealUrl,
+    } : null;
 
-    if (!participants.length) return null;
+    const buyer = contract.buyerName ? {
+      label: 'Покупатель',
+      name: contract.buyerName,
+      director: contract.buyerDirector,
+      signatureUrl: contract.buyerSignatureUrl,
+      sealUrl: contract.buyerSealUrl,
+    } : null;
+
+    if (!seller && !buyer) return null;
+
+    // Imzo + pechat balandligi (scale hisobga olingan)
+    const imgH = sc(40) + sc(100) + sc(6); // imzo + pechat + oraliq
+
+    const InfoCol = ({ party }: { party: NonNullable<typeof seller> }) => (
+      <View style={{ flex: 1, paddingRight: sc(6) }}>
+        <Text style={{ fontSize: sc(9), fontWeight: 'bold', marginBottom: sc(3) }}>{party.label}</Text>
+        <Text style={{ fontSize: sc(8) }}>{party.name}</Text>
+        {party.director && (
+          <Text style={{ fontSize: sc(8), color: '#4b5563', marginTop: sc(2) }}>
+            {party.label === 'Покупатель' ? party.director : `Директор ${party.director}`}
+          </Text>
+        )}
+      </View>
+    );
+
+    const ImgCol = ({ party }: { party: NonNullable<typeof seller> }) => (
+      <View style={{ flex: 1, alignItems: 'center', minHeight: imgH }}>
+        {party.signatureUrl && pdfIncludeSeal && (
+          <Image
+            src={resolveUploadUrl(party.signatureUrl)}
+            style={{ height: sc(40), objectFit: 'contain', marginBottom: sc(4) }}
+          />
+        )}
+        {party.sealUrl && pdfIncludeSeal && (
+          <Image
+            src={resolveUploadUrl(party.sealUrl)}
+            style={{ height: sc(100), objectFit: 'contain' }}
+          />
+        )}
+      </View>
+    );
 
     return (
-      <View style={{ marginTop: sc(20) }}>
-        <Text style={{ fontSize: sc(11), fontWeight: 'bold', marginBottom: sc(10) }}>Подписи сторон</Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          {participants.map((p, idx) => (
-            <View key={idx} style={{ flex: 1, padding: sc(5) }}>
-              <Text style={{ fontSize: sc(10), fontWeight: 'bold', marginBottom: sc(5) }}>{p.label}</Text>
-              <Text style={{ fontSize: sc(9) }}>{p.name}</Text>
-              {p.director && (
-                <Text style={{ fontSize: sc(9), color: '#4b5563', marginTop: sc(2) }}>
-                  {p.label === 'Покупатель' || p.label === 'Грузополучатель' ? p.director : `Директор ${p.director}`}
-                </Text>
-              )}
-              {p.signatureUrl && pdfIncludeSeal && (
-                <Image src={resolveUploadUrl(p.signatureUrl)} style={{ height: sc(40), objectFit: 'contain', marginTop: sc(5) }} />
-              )}
-              {p.sealUrl && pdfIncludeSeal && (
-                <Image src={resolveUploadUrl(p.sealUrl)} style={{ height: sc(100), objectFit: 'contain', marginTop: sc(5) }} />
-              )}
-            </View>
-          ))}
+      <View style={{ marginTop: sc(14) }}>
+        <Text style={{ fontSize: sc(9), fontWeight: 'bold', marginBottom: sc(8) }}>Подписи сторон</Text>
+        <View style={{ flexDirection: 'row' }}>
+          {/* Col 1: Продавец ma'lumotlari */}
+          {seller && <InfoCol party={seller} />}
+          {/* Col 2: Продавец imzo + pechat */}
+          {seller && <ImgCol party={seller} />}
+          {/* Col 3: Покупатель ma'lumotlari */}
+          {buyer && <InfoCol party={buyer} />}
+          {/* Col 4: Покупатель imzo + pechat */}
+          {buyer && <ImgCol party={buyer} />}
         </View>
       </View>
     );

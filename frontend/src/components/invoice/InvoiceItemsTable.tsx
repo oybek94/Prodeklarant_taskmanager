@@ -41,6 +41,9 @@ interface InvoiceItemsTableProps {
   applyNetWeightFormula: (index: number) => void;
   getGrossWeightDisplayValue: (index: number, item: InvoiceItem) => string;
   getNetWeightDisplayValue: (index: number, item: InvoiceItem) => string;
+  handlePackagesCountChange: (index: number, value: string) => void;
+  applyPackagesCountFormula: (index: number) => void;
+  getPackagesCountDisplayValue: (index: number, item: InvoiceItem) => string;
   packagingTypes: { id: string; name: string; code?: string }[];
   form: InvoiceFormData;
   setForm: React.Dispatch<React.SetStateAction<InvoiceFormData>>;
@@ -80,6 +83,9 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
   applyNetWeightFormula,
   getGrossWeightDisplayValue,
   getNetWeightDisplayValue,
+  handlePackagesCountChange,
+  applyPackagesCountFormula,
+  getPackagesCountDisplayValue,
   packagingTypes,
   form,
   setForm,
@@ -647,7 +653,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                           case 'packagesCount':
                             return (
                               <td key={key} className="px-2 py-2">
-                                <input type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()} value={('_packagesCountStr' in item && (item as any)._packagesCountStr !== undefined) ? (item as any)._packagesCountStr : (item.packagesCount === undefined || item.packagesCount === null ? '' : item.packagesCount)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_packagesCountStr' as any, raw); const num = raw === '' ? undefined : parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'packagesCount', isNaN(num as number) ? undefined : num); }} onBlur={() => handleItemChange(index, '_packagesCountStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" placeholder="" data-nav-row={index} data-nav-col={colIndexMap.packagesCount} onKeyDown={handleCellKeyDown} />
+                                <input type="text" inputMode="decimal" value={getPackagesCountDisplayValue(index, item)} onChange={(e) => handlePackagesCountChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyPackagesCountFormula(index); } else { handleCellKeyDown(e); } }} onBlur={() => applyPackagesCountFormula(index)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="" title="/100 — Enter: Brutto / 100 natijasini yozadi" data-nav-row={index} data-nav-col={colIndexMap.packagesCount} />
                               </td>
                             );
                           case 'gross':

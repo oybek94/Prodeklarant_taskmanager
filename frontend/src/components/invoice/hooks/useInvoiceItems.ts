@@ -11,6 +11,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
   const [items, setItems] = useState<InvoiceItem[]>([createDefaultItem()]);
   const [editingGrossWeight, setEditingGrossWeight] = useState<{ index: number; value: string } | null>(null);
   const [editingNetWeight, setEditingNetWeight] = useState<{ index: number; value: string } | null>(null);
+  const [editingPackagesCount, setEditingPackagesCount] = useState<{ index: number; value: string } | null>(null);
 
   const handleItemChange = useCallback((index: number, field: keyof InvoiceItem, value: string | number | undefined) => {
     setItems((prev) => {
@@ -184,6 +185,44 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
     return item.netWeight !== undefined && item.netWeight !== null ? String(item.netWeight) : '';
   }, [editingNetWeight]);
 
+  const handlePackagesCountChange = useCallback((index: number, value: string) => {
+    setEditingPackagesCount({ index, value });
+  }, []);
+
+  const applyPackagesCountFormula = useCallback((index: number) => {
+    if (editingPackagesCount?.index !== index) return;
+    const v = editingPackagesCount.value.trim();
+    if (v === '') {
+      handleItemChange(index, 'packagesCount', undefined);
+      setEditingPackagesCount(null);
+      return;
+    }
+    if (v.startsWith('/')) {
+      const divisor = parseFloat(v.slice(1).trim().replace(',', '.'));
+      if (Number.isNaN(divisor) || divisor === 0) {
+        setEditingPackagesCount(null);
+        return;
+      }
+      setItems((prev) => {
+        const grossWeight = prev[index]?.grossWeight ?? 0;
+        const result = grossWeight / divisor;
+        const next = [...prev];
+        next[index] = { ...next[index], packagesCount: result };
+        return next;
+      });
+      setEditingPackagesCount(null);
+      return;
+    }
+    const num = parseFloat(v.replace(',', '.'));
+    handleItemChange(index, 'packagesCount', Number.isNaN(num) ? undefined : num);
+    setEditingPackagesCount(null);
+  }, [editingPackagesCount, handleItemChange, setItems]);
+
+  const getPackagesCountDisplayValue = useCallback((index: number, item: InvoiceItem) => {
+    if (editingPackagesCount?.index === index) return editingPackagesCount.value;
+    return item.packagesCount !== undefined && item.packagesCount !== null ? String(item.packagesCount) : '';
+  }, [editingPackagesCount]);
+
   const addItem = useCallback(() => {
     setItems((prev) => [
       ...prev,
@@ -219,6 +258,9 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
     handleNetWeightChange,
     applyNetWeightFormula,
     getNetWeightDisplayValue,
+    handlePackagesCountChange,
+    applyPackagesCountFormula,
+    getPackagesCountDisplayValue,
     addItem,
     removeItem,
   };

@@ -250,6 +250,9 @@ const Invoice = () => {
     handleNetWeightChange,
     applyNetWeightFormula,
     getNetWeightDisplayValue,
+    handlePackagesCountChange,
+    applyPackagesCountFormula,
+    getPackagesCountDisplayValue,
     addItem,
     removeItem,
   } = useInvoiceItems({ selectedContractSpec, invoiceProductOptions });
@@ -707,6 +710,9 @@ const Invoice = () => {
                     applyNetWeightFormula={applyNetWeightFormula}
                     getGrossWeightDisplayValue={getGrossWeightDisplayValue}
                     getNetWeightDisplayValue={getNetWeightDisplayValue}
+                    handlePackagesCountChange={handlePackagesCountChange}
+                    applyPackagesCountFormula={applyPackagesCountFormula}
+                    getPackagesCountDisplayValue={getPackagesCountDisplayValue}
                     packagingTypes={packagingTypes}
                     form={form}
                     setForm={setForm}

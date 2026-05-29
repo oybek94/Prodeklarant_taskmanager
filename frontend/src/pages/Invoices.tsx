@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../lib/api';
-import { formatDateTime } from '../utils/dateFormatting';
+import { formatDateOnly } from '../utils/dateFormatting';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { useAuth } from '../contexts/AuthContext';
@@ -566,7 +566,7 @@ const Invoices = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return formatDateTime(dateString);
+    return formatDateOnly(dateString);
   };
 
   const getStatusBadgeClass = (status: string | undefined): string => {

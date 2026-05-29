@@ -76,13 +76,13 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({ contract, viewTab,
           {signatureUrl && (
             <Image
               src={resolveUploadUrl(signatureUrl)}
-              style={{ height: sc(50), objectFit: 'contain', marginRight: sc(6) }}
+              style={{ height: sc(60), objectFit: 'contain', marginRight: sc(10) }}
             />
           )}
           {sealUrl && (
             <Image
               src={resolveUploadUrl(sealUrl)}
-              style={{ height: sc(100), objectFit: 'contain' }}
+              style={{ height: sc(120), objectFit: 'contain' }}
             />
           )}
         </View>

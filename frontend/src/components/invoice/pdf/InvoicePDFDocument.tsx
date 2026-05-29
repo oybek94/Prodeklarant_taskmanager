@@ -45,8 +45,8 @@ const H = {
   sumWords: 15,
   notes: 60,           // Примечания bloki (agar bor bo'lsa)
   signatures: 80,
-  // spec: sarlavha(18) + imzo(35) + pechat(80) + marginlar(20) ≈ 153
-  signaturesSpec: 155,
+  // spec: sarlavha(18) + imzo(40) + pechat(100) + marginlar(20) ≈ 178
+  signaturesSpec: 178,
 };
 
 const calcScale = (
@@ -60,12 +60,12 @@ const calcScale = (
   const fixed = H.header + H.divider * 3 + H.parties + addInfoH +
                 H.tableOverhead + H.sumWords + sigH +
                 (hasNotes ? H.notes : 0);
-  const total = fixed + itemCount * H.tableRow;
-  // spec uchun 80pt xavfsizlik chegarasi (taxminiy H qiymatlari biroz past)
-  const targetH = viewTab === 'spec' ? AVAILABLE_HEIGHT - 80 : AVAILABLE_HEIGHT;
-  if (total <= targetH) return targetH / AVAILABLE_HEIGHT; // spec uchun ≤1.0
+  // Spec uchun 12% ortiqcha (H taxminlari pastroq, xavfsizlik uchun)
+  const overhead = viewTab === 'spec' ? 1.12 : 1.0;
+  const total = (fixed + itemCount * H.tableRow) * overhead;
+  if (total <= AVAILABLE_HEIGHT) return 1.0;
   // 0.40 — 2-listga chiqishni qat'iy oldini olish uchun pastki chegara
-  return Math.max(0.40, targetH / total);
+  return Math.max(0.40, AVAILABLE_HEIGHT / total);
 };
 
 export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({

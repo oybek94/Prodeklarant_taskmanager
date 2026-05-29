@@ -55,36 +55,36 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({ contract, viewTab,
   const hasImages = pdfIncludeSeal && (signatureUrl || sealUrl);
 
   return (
-    <View style={{ marginTop: sc(20) }}>
-      {/* Руководитель Поставщика + imzo/pechat yonida */}
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <View style={{ flexDirection: 'column', justifyContent: 'center' }}>
+    <View style={{ flexDirection: 'row', marginTop: sc(20), alignItems: 'flex-start' }}>
+      {/* Chap ustun: barcha matnlar */}
+      <View style={{ flexDirection: 'column', justifyContent: 'flex-start' }}>
+        <View style={{ marginBottom: sc(8) }}>
           <Text style={{ fontSize: sc(9), fontWeight: 'bold' }}>Руководитель Поставщика:</Text>
           <Text style={{ fontSize: sc(9) }}>{contract.supplierDirector}</Text>
         </View>
-
-        {hasImages && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: sc(12) }}>
-            {signatureUrl && (
-              <Image
-                src={resolveUploadUrl(signatureUrl)}
-                style={{ height: sc(50), objectFit: 'contain', marginRight: sc(6) }}
-              />
-            )}
-            {sealUrl && (
-              <Image
-                src={resolveUploadUrl(sealUrl)}
-                style={{ height: sc(100), objectFit: 'contain' }}
-              />
-            )}
+        {contract.goodsReleasedBy && (
+          <View>
+            <Text style={{ fontSize: sc(9), fontWeight: 'bold' }}>Товар отпустил:</Text>
+            <Text style={{ fontSize: sc(9) }}>{contract.goodsReleasedBy}</Text>
           </View>
         )}
       </View>
 
-      {contract.goodsReleasedBy && (
-        <View style={{ marginTop: sc(8) }}>
-          <Text style={{ fontSize: sc(9), fontWeight: 'bold' }}>Товар отпустил:</Text>
-          <Text style={{ fontSize: sc(9) }}>{contract.goodsReleasedBy}</Text>
+      {/* O'ng ustun: imzo va pechat */}
+      {hasImages && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: sc(16) }}>
+          {signatureUrl && (
+            <Image
+              src={resolveUploadUrl(signatureUrl)}
+              style={{ height: sc(50), objectFit: 'contain', marginRight: sc(6) }}
+            />
+          )}
+          {sealUrl && (
+            <Image
+              src={resolveUploadUrl(sealUrl)}
+              style={{ height: sc(100), objectFit: 'contain' }}
+            />
+          )}
         </View>
       )}
     </View>

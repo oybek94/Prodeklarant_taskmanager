@@ -32,7 +32,7 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({ contract, viewTab,
     if (!seller && !buyer) return null;
 
     // Imzo + pechat balandligi (scale hisobga olingan)
-    const imgH = sc(40) + sc(100) + sc(6); // imzo + pechat + oraliq
+    const imgH = sc(50) + sc(140) + sc(6); // imzo + pechat + oraliq
 
     const InfoCol = ({ party }: { party: NonNullable<typeof seller> }) => (
       <View style={{ flex: 1, paddingRight: sc(6) }}>
@@ -51,13 +51,13 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({ contract, viewTab,
         {party.signatureUrl && pdfIncludeSeal && (
           <Image
             src={resolveUploadUrl(party.signatureUrl)}
-            style={{ height: sc(40), objectFit: 'contain', marginBottom: sc(4) }}
+            style={{ height: sc(50), objectFit: 'contain', marginBottom: sc(4) }}
           />
         )}
         {party.sealUrl && pdfIncludeSeal && (
           <Image
             src={resolveUploadUrl(party.sealUrl)}
-            style={{ height: sc(100), objectFit: 'contain' }}
+            style={{ height: sc(140), objectFit: 'contain' }}
           />
         )}
       </View>

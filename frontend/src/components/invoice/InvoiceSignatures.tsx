@@ -88,14 +88,14 @@ export function SpecSignatures({ contract }: SpecSignaturesProps) {
                   )}
                 </div>
                 {p.signatureUrl && (
-                  <div className="h-16 flex items-start justify-start overflow-hidden">
-                    <img src={resolveUploadUrl(p.signatureUrl)} alt="" className="h-full w-auto max-w-full object-contain" />
+                  <div className="h-20 flex items-start justify-start overflow-visible">
+                    <img src={resolveUploadUrl(p.signatureUrl)} alt="" className="h-full w-auto max-w-none object-contain" />
                   </div>
                 )}
               </div>
               {p.sealUrl && (
-                <div className="h-[215px] flex flex-col items-start justify-start overflow-hidden">
-                  <img src={resolveUploadUrl(p.sealUrl)} alt="" className="h-full w-auto max-w-full object-contain" />
+                <div className="h-[180px] flex flex-col items-start justify-start overflow-visible">
+                  <img src={resolveUploadUrl(p.sealUrl)} alt="" className="h-[180px] w-[180px] max-w-none object-contain -ml-4" />
                 </div>
               )}
             </div>

@@ -1,6 +1,6 @@
 import { prisma } from '../prisma';
 import { TaskProcessLogAction } from '@prisma/client';
-import { notify, getAdminUserIds } from './notificationService';
+import { notify } from './notificationService';
 
 const PROCESS_TYPE_LABELS: Record<string, string> = {
   TIR: 'TIR-SMR',
@@ -134,21 +134,6 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
       ];
 
       if (newRemindersSent >= 3) {
-        // Escalate: notify admins
-        const adminIds = await getAdminUserIds();
-        const escalateTitle = `${prefix} — ${label}`;
-        const escalateMessage = 'Ish bajarilmadi! Admin e\'tiboriga yuborildi.';
-
-        await notify({
-          userIds: adminIds,
-          type: 'PROCESS_ESCALATED',
-          title: escalateTitle,
-          message: escalateMessage,
-          actionUrl,
-          taskId: tp.taskId,
-          metadata: { taskProcessId: tp.id, processType: tp.processType },
-        });
-
         txOps.push(
           prisma.tasksProcess.update({
             where: { id: tp.id },

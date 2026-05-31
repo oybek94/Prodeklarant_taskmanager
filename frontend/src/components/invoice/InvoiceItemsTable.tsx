@@ -659,7 +659,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                           case 'gross':
                             return (
                               <td key={key} className="px-2 py-2">
-                                <input type="text" inputMode="decimal" value={getGrossWeightDisplayValue(index, item)} onChange={(e) => handleGrossWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyGrossWeightFormula(index); } else { handleCellKeyDown(e); } }} onBlur={() => applyGrossWeightFormula(index)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="7802 yoki *8 (Enter)" title="Raqam yoki *8.5 — Enter bosganda Кол-во упаковки ga ko'paytiriladi, natija butun son" data-nav-row={index} data-nav-col={colIndexMap.gross} />
+                                <input type="text" inputMode="decimal" value={getGrossWeightDisplayValue(index, item)} onChange={(e) => handleGrossWeightChange(index, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyGrossWeightFormula(index); } else { handleCellKeyDown(e); } }} onBlur={() => applyGrossWeightFormula(index)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="7802 yoki *8 (Enter)" title="Raqam, *8.5 yoki =22500 — *8.5: Кол-во×8.5 (yaxlit); =22500: 22500 dan boshqa qatorlar bruttosi ayiriladi (saqlanadi)" data-nav-row={index} data-nav-col={colIndexMap.gross} />
                               </td>
                             );
                           case 'net':

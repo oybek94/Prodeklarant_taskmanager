@@ -2,6 +2,31 @@ import { useState, useCallback } from 'react';
 import type { InvoiceItem, SpecRow } from '../types';
 import { createDefaultItem } from '../types';
 
+// "=N" formulali qatorlar uchun: changedIndex qatori o'zgarganda boshqa qatorlarni qayta hisoblash
+function recalcEqualFormulaRows(items: InvoiceItem[], changedIndex: number): void {
+  for (let i = 0; i < items.length; i++) {
+    if (i === changedIndex) continue;
+    const f = items[i].grossWeightFormula?.trim();
+    if (!f?.startsWith('=')) continue;
+    const total = parseFloat(f.slice(1).trim().replace(',', '.'));
+    if (Number.isNaN(total)) continue;
+    const sumOthers = items.reduce((acc, row, j) => j !== i ? acc + (row.grossWeight ?? 0) : acc, 0);
+    const gross = Math.round(total - sumOthers);
+    items[i] = { ...items[i], grossWeight: gross };
+    const pkgF = items[i].packagesCountFormula?.trim();
+    if (pkgF?.startsWith('/')) {
+      const d = parseFloat(pkgF.slice(1).replace(',', '.'));
+      if (!Number.isNaN(d) && d !== 0) items[i].packagesCount = Math.round(gross / d);
+    }
+    const netF = items[i].netWeightFormula?.trim();
+    if (netF?.startsWith('*')) {
+      const m = parseFloat(netF.slice(1).replace(',', '.'));
+      if (!Number.isNaN(m)) items[i].netWeight = Math.round(gross - m * (items[i].packagesCount ?? 0));
+    }
+    items[i].totalPrice = (items[i].netWeight ?? 0) * (items[i].unitPrice ?? 0);
+  }
+}
+
 interface UseInvoiceItemsParams {
   selectedContractSpec: SpecRow[];
   invoiceProductOptions: Array<{ name: string; code: string }>;
@@ -24,6 +49,28 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
         newItems[index].netWeightFormula = undefined;
       }
 
+      // Foydalanuvchi Кол-во упаковки ni qo'lda o'zgartirganda formulani tozalash
+      if (field === 'packagesCount') {
+        newItems[index].packagesCountFormula = undefined;
+      }
+
+      // Foydalanuvchi Bruttoni qo'lda (plain raqam) o'zgartirganda '=N' formulani tozalash
+      if (field === 'grossWeight') {
+        newItems[index].grossWeightFormula = undefined;
+      }
+
+      // Brutto o'zgarganda: avval Кол-во упаковки formulasi (/N) bo'yicha qayta hisoblash (yaxlitlangan)
+      if (field === 'grossWeight') {
+        setEditingPackagesCount((p) => (p?.index === index ? null : p));
+        const pkgFormula = newItems[index].packagesCountFormula?.trim();
+        if (pkgFormula?.startsWith('/')) {
+          const divisor = parseFloat(pkgFormula.slice(1).trim().replace(',', '.'));
+          if (!Number.isNaN(divisor) && divisor !== 0) {
+            newItems[index].packagesCount = Math.round(Number(value ?? 0) / divisor);
+          }
+        }
+      }
+
       // Brutto yoki Кол-во упаковки o'zgarganda: agar netto formulasi bor bo'lsa, formula bo'yicha yangilash; yo'q bo'lsa nettoni tozalash
       if (field === 'grossWeight' || field === 'packagesCount') {
         setEditingNetWeight((p) => (p?.index === index ? null : p));
@@ -32,7 +79,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
           const mult = parseFloat(formula.slice(1).trim().replace(',', '.'));
           if (!Number.isNaN(mult)) {
             const gross = field === 'grossWeight' ? (value ?? 0) : (newItems[index].grossWeight ?? 0);
-            const pkgCount = field === 'packagesCount' ? (value ?? 0) : (newItems[index].packagesCount ?? 0);
+            const pkgCount = newItems[index].packagesCount ?? 0;
             newItems[index].netWeight = Math.round(Number(gross) - mult * Number(pkgCount));
           } else {
             newItems[index].netWeight = undefined;
@@ -47,6 +94,11 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
         const netWeight = newItems[index].netWeight ?? 0;
         const unitPrice = newItems[index].unitPrice ?? 0;
         newItems[index].totalPrice = netWeight * unitPrice;
+      }
+
+      // Brutto o'zgarganda: '=N' formulali boshqa qatorlarni qayta hisoblash
+      if (field === 'grossWeight') {
+        recalcEqualFormulaRows(newItems, index);
       }
 
       return newItems;
@@ -119,10 +171,40 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
         const pkgCount = prev[index]?.packagesCount ?? 0;
         const result = Math.round(pkgCount * multiplier);
         const next = [...prev];
-        next[index] = { ...next[index], grossWeight: result };
+        next[index] = { ...next[index], grossWeight: result, grossWeightFormula: undefined };
         const netWeight = next[index].netWeight ?? 0;
         const unitPrice = next[index].unitPrice ?? 0;
         next[index].totalPrice = netWeight * unitPrice;
+        recalcEqualFormulaRows(next, index);
+        return next;
+      });
+      setEditingGrossWeight(null);
+      return;
+    }
+    if (v.startsWith('=')) {
+      const total = parseFloat(v.slice(1).trim().replace(',', '.'));
+      if (Number.isNaN(total)) {
+        setEditingGrossWeight(null);
+        return;
+      }
+      setItems((prev) => {
+        const next = [...prev];
+        const sumOthers = next.reduce((acc, item, j) => j !== index ? acc + (item.grossWeight ?? 0) : acc, 0);
+        const gross = Math.round(total - sumOthers);
+        next[index] = { ...next[index], grossWeight: gross, grossWeightFormula: v };
+        // Cascade: Кол-во упаковки formulasi
+        const pkgF = next[index].packagesCountFormula?.trim();
+        if (pkgF?.startsWith('/')) {
+          const d = parseFloat(pkgF.slice(1).replace(',', '.'));
+          if (!Number.isNaN(d) && d !== 0) next[index].packagesCount = Math.round(gross / d);
+        }
+        // Cascade: Нетто formulasi
+        const netF = next[index].netWeightFormula?.trim();
+        if (netF?.startsWith('*')) {
+          const m = parseFloat(netF.slice(1).replace(',', '.'));
+          if (!Number.isNaN(m)) next[index].netWeight = Math.round(gross - m * (next[index].packagesCount ?? 0));
+        }
+        next[index].totalPrice = (next[index].netWeight ?? 0) * (next[index].unitPrice ?? 0);
         return next;
       });
       setEditingGrossWeight(null);
@@ -205,9 +287,18 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
       }
       setItems((prev) => {
         const grossWeight = prev[index]?.grossWeight ?? 0;
-        const result = grossWeight / divisor;
+        const result = Math.round(grossWeight / divisor);
         const next = [...prev];
-        next[index] = { ...next[index], packagesCount: result };
+        next[index] = { ...next[index], packagesCount: result, packagesCountFormula: v };
+        // Кол-во упаковки o'zgardi: netto formulasi (*M) bo'lsa qayta hisoblash
+        const netFormula = next[index].netWeightFormula?.trim();
+        if (netFormula?.startsWith('*')) {
+          const mult = parseFloat(netFormula.slice(1).trim().replace(',', '.'));
+          if (!Number.isNaN(mult)) {
+            next[index].netWeight = Math.round(grossWeight - mult * result);
+          }
+        }
+        next[index].totalPrice = (next[index].netWeight ?? 0) * (next[index].unitPrice ?? 0);
         return next;
       });
       setEditingPackagesCount(null);

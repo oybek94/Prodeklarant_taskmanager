@@ -3,6 +3,7 @@ import { prisma } from './prisma';
 import { socketEmitter } from './services/socketEmitter';
 import { BackupService } from './services/backup.service';
 import { MedalService } from './services/medalService';
+import { notify } from './services/notificationService';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subWeeks, subMonths, subQuarters, subYears } from 'date-fns';
 
 export const initCronJobs = () => {
@@ -180,27 +181,22 @@ export const initCronJobs = () => {
 
       // Adminlarga xabar yuborish
       if (underperformers.length > 0) {
-        const adminIds = await prisma.user.findMany({
+        const admins = await prisma.user.findMany({
           where: { role: 'ADMIN', active: true },
           select: { id: true },
         });
 
-        const message = underperformers.map(u => 
+        const message = underperformers.map(u =>
           `⚠️ ${u.name}: ${u.calls}/40 qo'ng'iroq, ${u.subscribers}/20 obunachi`
         ).join('\n');
 
-        for (const admin of adminIds) {
-          await prisma.notification.create({
-            data: {
-              userId: admin.id,
-              type: 'SYSTEM',
-              title: 'Kunlik KPI hisoboti',
-              message: `Bugun KPI bajarilmagan sotuvchilar:\n${message}`,
-              metadata: { underperformers },
-            },
-          });
-          socketEmitter.toUser(admin.id, 'SELLER_KPI_REPORT', { underperformers });
-        }
+        await notify({
+          userIds: admins.map(a => a.id),
+          type: 'SYSTEM',
+          title: 'Kunlik KPI hisoboti',
+          message: `Bugun KPI bajarilmagan sotuvchilar:\n${message}`,
+          metadata: { underperformers },
+        });
       }
 
       console.log(`[CRON] Seller KPI tekshiruvi yakunlandi. ${underperformers.length} ta sotuvchi KPI bajarmadi.`);

@@ -7,7 +7,6 @@ import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
 import { updateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
 import { socketEmitter } from '../services/socketEmitter';
-import { notify, getAdminUserIds } from '../services/notificationService';
 
 const router = Router();
 
@@ -298,18 +297,6 @@ router.post('/reject', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     if (newRemindersSent >= 3) {
-      // Escalate: status=ESCALATED, notify admins
-      const admins = await prisma.user.findMany({
-        where: { role: 'ADMIN', active: true },
-        select: { id: true },
-      });
-      const task = await prisma.task.findUnique({
-        where: { id: tp.taskId },
-        select: { id: true },
-      });
-      const actionUrl = task ? `/tasks/${task.id}` : undefined;
-      const message = `Task #${tp.taskId} - ${tp.processType}. Ish bajarilmadi, administratorlarga yuborildi.`;
-
       await prisma.$transaction([
         prisma.tasksProcess.update({
           where: { id: taskProcessId },
@@ -329,29 +316,7 @@ router.post('/reject', requireAuth(), async (req: AuthRequest, res) => {
             action: TaskProcessLogAction.ESCALATED,
           },
         }),
-        ...admins.map((a) =>
-          prisma.inAppNotification.create({
-            data: {
-              userId: a.id,
-              taskId: tp.taskId,
-              taskProcessId,
-              message,
-              actionUrl,
-              read: false,
-            },
-          })
-        ),
-      ]);
-      // Yangi notification tizimi orqali ham yuborish
-      notify({
-        userIds: admins.map(a => a.id),
-        type: 'PROCESS_ESCALATED',
-        title: `Task #${tp.taskId} — ${tp.processType}`,
-        message,
-        actionUrl: actionUrl || undefined,
-        taskId: tp.taskId,
-        metadata: { taskProcessId, processType: tp.processType },
-      });
+        ]);
     } else {
       await prisma.$transaction([
         prisma.tasksProcess.update({

@@ -18,6 +18,10 @@ export interface InvoiceItem {
   netWeight?: number;
   /** Netto formulasi, masalan "*1.2" — Brutto/Кол-во упаковки o'zgarganda shu bo'yicha qayta hisoblanadi */
   netWeightFormula?: string;
+  /** Кол-во упаковки formulasi, masalan "/10" — Brutto o'zgarganda shu bo'yicha qayta hisoblanadi */
+  packagesCountFormula?: string;
+  /** Brutto formulasi, masalan "=22500" — boshqa qatorlar bruttosi o'zgarganda 22500 - boshqa_brutolar hisoblanadi */
+  grossWeightFormula?: string;
   unitPrice: number;
   totalPrice: number;
   orderIndex?: number;

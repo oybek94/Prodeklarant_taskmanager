@@ -236,10 +236,10 @@ export const waitForPaint = (): Promise<void> =>
     });
   });
 
-/** Avtomobil raqamidan faqat birinchi plastinkani olish (slash dan oldin) */
+/** Avtomobil raqamidan faqat birinchi plastinkani olish (slash, pastki chiziq va h.k. dan oldin) */
 export const getVehiclePlate = (value?: string): string => {
   if (!value) return '';
-  return value.split('/')[0].trim();
+  return value.split(/[\/_+,]/)[0].trim();
 };
 
 /** Task sarlavhasini shakllantirish: "DZA-123 АВТО 40232BAA" */

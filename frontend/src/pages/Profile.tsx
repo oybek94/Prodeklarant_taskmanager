@@ -13,9 +13,8 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { Pie, Bar } from 'react-chartjs-2';
+import { Pie, Bar, Doughnut } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-// No longer using ActivityCalendar
 import TrophyRoom from '../components/medals/TrophyRoom';
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
@@ -51,7 +50,6 @@ interface StageStat {
   receivedAmount: number;
   pendingAmount: number;
   percentage: number;
-  /** Har bir bosqich uchun amalda qo‘llanadigan to‘lov summasi (USD) — Sozlamalar tarifi */
   tariffUsd?: number;
 }
 
@@ -77,6 +75,14 @@ interface WorkerDetail {
   branch?: { id: number; name: string };
 }
 
+const PERIOD_OPTIONS = [
+  { value: 'day', label: 'Bugun', icon: 'lucide:calendar' },
+  { value: 'week', label: 'Hafta', icon: 'lucide:calendar-range' },
+  { value: 'month', label: 'Oy', icon: 'lucide:calendar-days' },
+  { value: 'year', label: 'Yil', icon: 'lucide:calendar-clock' },
+  { value: 'all', label: 'Barchasi', icon: 'lucide:infinity' },
+];
+
 const Profile = () => {
   const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
@@ -101,12 +107,10 @@ const Profile = () => {
   });
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
 
-  // Earnings Modal States
   const [showEarningsModal, setShowEarningsModal] = useState(false);
   const [currentEarnings, setCurrentEarnings] = useState<any[]>([]);
   const [earningsLoading, setEarningsLoading] = useState(false);
 
-  // New Modal States
   const [showParticipationsModal, setShowParticipationsModal] = useState(false);
   const [participations, setParticipations] = useState<any[]>([]);
   const [participationsLoading, setParticipationsLoading] = useState(false);
@@ -146,7 +150,6 @@ const Profile = () => {
     }
   };
 
-  // Handle ESC key to close modal
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && showEditModal) {
@@ -209,7 +212,7 @@ const Profile = () => {
   const loadStats = async () => {
     try {
       setLoading(true);
-      setStats(null); // Clear old stats when period changes
+      setStats(null);
       const response = await apiClient.get(`/workers/${workerId}/stats`, {
         params: { period },
       });
@@ -275,13 +278,11 @@ const Profile = () => {
         role: editForm.role,
         salary: editForm.salary ? parseFloat(editForm.salary) : undefined,
       };
-      // BranchId ni yuborish - agar tanlangan bo'lsa yoki MANAGER bo'lsa
       if (editForm.role === 'MANAGER') {
         updateData.branchId = null;
       } else if (editForm.branchId) {
         updateData.branchId = parseInt(editForm.branchId);
       }
-      // Agar branchId bo'sh bo'lsa va MANAGER bo'lmasa, branchId ni yubormaymiz (mavjud qiymat saqlanadi)
       if (editForm.password) {
         updateData.password = editForm.password;
       }
@@ -290,7 +291,6 @@ const Profile = () => {
       setShowEditModal(false);
       await loadWorkerDetail();
       if (id) {
-        // If viewing someone else's profile, reload stats too
         await loadStats();
       }
     } catch (error: any) {
@@ -311,1138 +311,715 @@ const Profile = () => {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const displayUser = id ? workerDetail : user;
   const isAdmin = user?.role === 'ADMIN';
 
+  const roleLabels: Record<string, string> = {
+    ADMIN: 'Administrator',
+    MANAGER: 'Menejer',
+    DEKLARANT: 'Deklarant',
+    CERTIFICATE_WORKER: 'Sertifikat xodimi',
+    WORKER: 'Ishchi',
+    OPERATOR: 'Operator',
+    ACCOUNTANT: 'Buxgalter',
+    OWNER: 'Egasi',
+    SELLER: 'Sotuvchi',
+  };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Xayrli tong';
+    if (hour < 18) return 'Xayrli kun';
+    return 'Xayrli kech';
+  };
+
+  const getUserInitials = (name?: string) => {
+    if (!name) return '??';
+    return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const totalTasksCount = stageStats?.totals?.totalTasks ?? stageStats?.totals?.totalParticipation ?? 0;
+  const paymentProgress = stats && stats.totalEarned > 0
+    ? Math.min(100, Math.round((stats.totalPaid / stats.totalEarned) * 100))
+    : 0;
+
   return (
-    <div>
-
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Personal Cabinet</h1>
-        {isAdmin && id && (
-          <div className="flex gap-2">
-            <button
-              onClick={handleEdit}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <Icon icon="lucide:pencil" className="w-4 h-4" />
-              O'zgartirish
-            </button>
-            <button
-              onClick={handleDelete}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-            >
-              <Icon icon="lucide:trash-2" className="w-4 h-4" />
-              O'chirish
-            </button>
+    <div className="space-y-6 pb-8">
+      {/* ─── Clean Header ─── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-indigo-50/80 via-purple-50/80 to-pink-50/80 dark:from-indigo-900/30 dark:via-purple-900/30 dark:to-pink-900/30 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-xl font-bold text-indigo-600 dark:text-indigo-400">
+            {getUserInitials(displayUser?.name)}
           </div>
-        )}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {getGreeting()}, {displayUser?.name || 'Foydalanuvchi'}!
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                {roleLabels[displayUser?.role || ''] || displayUser?.role}
+              </span>
+              {workerDetail?.branch && (
+                <>
+                  <span className="text-gray-300 dark:text-gray-600">•</span>
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
+                    <Icon icon="lucide:map-pin" className="w-3.5 h-3.5 mr-1" />
+                    {workerDetail.branch.name}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          {/* Period Selector */}
+          <div className="flex items-center p-1 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700">
+            {PERIOD_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setPeriod(opt.value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  period === opt.value
+                    ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <Icon icon={opt.icon} className="w-4 h-4" />
+                <span className="hidden sm:inline">{opt.label}</span>
+              </button>
+            ))}
+          </div>
+          {isAdmin && id && (
+            <div className="flex gap-2">
+              <button onClick={handleEdit} className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-300 transition-colors shadow-sm">
+                <Icon icon="lucide:pencil" className="w-4 h-4" />
+              </button>
+              <button onClick={handleDelete} className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl text-red-500 transition-colors shadow-sm">
+                <Icon icon="lucide:trash-2" className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="mb-6">
-        <TrophyRoom />
-      </div>
+      {/* ─── KPI Stat Cards ─── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {/* Tasks */}
+        <button onClick={openParticipationsModal} className="bg-gradient-to-br from-white to-blue-50/80 dark:from-gray-800 dark:to-blue-900/20 rounded-2xl p-5 border border-blue-100/50 dark:border-blue-800/40 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-md hover:shadow-blue-500/10 transition-all text-left group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+              <Icon icon="lucide:check-circle-2" className="w-5 h-5 text-blue-500" />
+            </div>
+            <Icon icon="lucide:arrow-up-right" className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-blue-400 transition-colors" />
+          </div>
+          <p className="text-sm font-semibold text-blue-600/80 dark:text-blue-400 mb-1">Jami ishtirok</p>
+          <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
+            {stageStatsLoading ? '...' : totalTasksCount}
+          </p>
+        </button>
 
+        {/* Earned */}
+        <button onClick={openEarningsModal} className="bg-gradient-to-br from-white to-emerald-50/80 dark:from-gray-800 dark:to-emerald-900/20 rounded-2xl p-5 border border-emerald-100/50 dark:border-emerald-800/40 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-md hover:shadow-emerald-500/10 transition-all text-left group relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50 dark:bg-emerald-900/10 rounded-bl-3xl -z-0" />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
+                <Icon icon="lucide:trending-up" className="w-5 h-5 text-emerald-500" />
+              </div>
+              <Icon icon="lucide:arrow-up-right" className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-emerald-400 transition-colors" />
+            </div>
+            <p className="text-sm font-semibold text-emerald-600/80 dark:text-emerald-400 mb-1">Ishlab topilgan</p>
+            <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
+              {loading ? '...' : <CurrencyDisplay amount={stats?.totalEarned || 0} originalCurrency="UZS" forceOriginal={true} />}
+            </p>
+          </div>
+        </button>
 
-      {/* Stage Statistics */}
-      <div className="mt-6 bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-800">Jarayonlar bo'yicha statistika</h2>
-          <select
-            value={period}
-            onChange={(e) => {
-              setPeriod(e.target.value);
-            }}
-            className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
-          >
-            <option value="day">Kun</option>
-            <option value="week">Hafta</option>
-            <option value="month">Oy</option>
-            <option value="year">Yil</option>
-              <option value="all">Barchasi</option>
-          </select>
+        {/* Paid */}
+        <button onClick={() => setShowPaymentsModal(true)} className="bg-gradient-to-br from-white to-indigo-50/80 dark:from-gray-800 dark:to-indigo-900/20 rounded-2xl p-5 border border-indigo-100/50 dark:border-indigo-800/40 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md hover:shadow-indigo-500/10 transition-all text-left group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
+              <Icon icon="lucide:wallet" className="w-5 h-5 text-indigo-500" />
+            </div>
+            <Icon icon="lucide:arrow-up-right" className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-indigo-400 transition-colors" />
+          </div>
+          <p className="text-sm font-semibold text-indigo-600/80 dark:text-indigo-400 mb-1">Olingan maosh</p>
+          <p className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400">
+            {loading ? '...' : <CurrencyDisplay amount={stats?.totalPaid || 0} originalCurrency="UZS" forceOriginal={true} />}
+          </p>
+        </button>
+
+        {/* Pending */}
+        <div className="bg-gradient-to-br from-white to-amber-50/80 dark:from-gray-800 dark:to-amber-900/20 rounded-2xl p-5 border border-amber-100/50 dark:border-amber-800/40 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+              <Icon icon="lucide:clock" className="w-5 h-5 text-amber-500" />
+            </div>
+          </div>
+          <p className="text-sm font-semibold text-amber-600/80 dark:text-amber-400 mb-1">Qolgan haq</p>
+          <p className="text-xl font-extrabold text-gray-900 dark:text-white">
+            {loading ? '...' : <CurrencyDisplay amount={stats?.pending || 0} originalCurrency="UZS" forceOriginal={true} />}
+          </p>
         </div>
 
-        {stageStatsLoading ? (
-          <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
-        ) : (
-          <>
-            {/* Summary Cards - Always show, even if no stage stats */}
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
-              <div 
-                className="bg-blue-50 rounded-lg p-3 cursor-pointer hover:bg-blue-100 transition-colors"
-                onClick={openParticipationsModal}
-              >
-                <div className="text-xs text-blue-600 mb-1 flex items-center justify-between">
-                  <span>Jami tasklarda ishtirok</span>
-                  <Icon icon="lucide:info" className="w-4 h-4 opacity-70" />
-                </div>
-                <div className="text-xl font-bold text-blue-800">
-                  {stageStats?.totals?.totalTasks ?? stageStats?.totals?.totalParticipation ?? 0}
-                </div>
-              </div>
-              <div className="bg-gray-100 rounded-lg p-3 border-2 border-gray-300">
-                <div className="text-xs text-gray-700 mb-1">O'tgan mavsum qoldig'i</div>
-                <div className="text-xl font-bold text-gray-900">
-                  {loading ? (
-                    <span className="text-gray-400">Yuklanmoqda...</span>
-                  ) : (
-                    <CurrencyDisplay
-                      amount={stats?.legacyDebt || 0}
-                      originalCurrency="USD"
-                      forceOriginal={true}
-                    />
-                  )}
-                </div>
-              </div>
-              <div 
-                className="bg-green-50 rounded-lg p-3 border-2 border-green-200 cursor-pointer hover:bg-green-100 transition-colors"
-                onClick={openEarningsModal}
-              >
-                <div className="text-xs text-green-700 mb-1 flex items-center justify-between">
-                  <span>Joriy mavsum (Ishlab topilgan)</span>
-                  <Icon icon="lucide:info" className="w-4 h-4 opacity-70" />
-                </div>
-                <div className="text-xl font-bold text-green-900">
-                  {loading ? (
-                    <span className="text-gray-400">Yuklanmoqda...</span>
-                  ) : (
-                    <CurrencyDisplay
-                      amount={stats?.totalEarned || 0}
-                      originalCurrency="UZS"
-                      forceOriginal={true}
-                    />
-                  )}
-                </div>
-              </div>
-              <div 
-                className="bg-purple-50 rounded-lg p-3 border-2 border-purple-200 cursor-pointer hover:bg-purple-100 transition-colors"
-                onClick={() => setShowPaymentsModal(true)}
-              >
-                <div className="text-xs text-purple-700 mb-1 flex items-center justify-between">
-                  <span>Joriy mavsum (Olingan)</span>
-                  <Icon icon="lucide:info" className="w-4 h-4 opacity-70" />
-                </div>
-                <div className="text-xl font-bold text-purple-900">
-                  {loading ? (
-                    <span className="text-gray-400">Yuklanmoqda...</span>
-                  ) : (
-                    <CurrencyDisplay
-                      amount={stats?.totalPaid || 0}
-                      originalCurrency="UZS"
-                      forceOriginal={true}
-                    />
-                  )}
-                </div>
-              </div>
-              <div className={`rounded-lg p-3 border-2 ${(stats?.pending || 0) > 0 ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
-                <div className={`text-xs mb-1 ${(stats?.pending || 0) > 0 ? 'text-orange-700' : 'text-gray-600'}`}>Joriy mavsum (Qolgan haq)</div>
-                <div className={`text-xl font-bold ${(stats?.pending || 0) > 0 ? 'text-orange-900' : 'text-gray-800'}`}>
-                  {loading ? (
-                    <span className="text-gray-400">Yuklanmoqda...</span>
-                  ) : (
-                    <CurrencyDisplay
-                      amount={stats?.pending || 0}
-                      originalCurrency="UZS"
-                      forceOriginal={true}
-                    />
-                  )}
-                </div>
-              </div>
-              <div 
-                className="bg-red-50 rounded-lg p-3 cursor-pointer hover:bg-red-100 transition-colors"
-                onClick={() => setShowErrorsModal(true)}
-              >
-                <div className="text-xs text-red-600 mb-1 flex items-center justify-between">
-                  <span>Jami xatolar summasi</span>
-                  <Icon icon="lucide:info" className="w-4 h-4 opacity-70" />
-                </div>
-                <div className="text-xl font-bold text-red-800">
-                  {errorStatsLoading ? (
-                    <span className="text-gray-400">Yuklanmoqda...</span>
-                  ) : (
-                    <CurrencyDisplay
-                      amount={Number(errorStats?.totalErrorAmount || 0)}
-                      originalCurrency="UZS"
-                      forceOriginal={true}
-                    />
-                  )}
-                </div>
-              </div>
+        {/* Legacy Debt */}
+        <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-700/30 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center">
+              <Icon icon="lucide:history" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
             </div>
+          </div>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">O'tgan mavsum</p>
+          <p className="text-xl font-extrabold text-gray-900 dark:text-white">
+            {loading ? '...' : <CurrencyDisplay amount={stats?.legacyDebt || 0} originalCurrency="USD" forceOriginal={true} />}
+          </p>
+        </div>
 
-            {/* Stage Details Table and Pie Chart - Only show if there are stage stats */}
-            {stageStats && stageStats.stageStats.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Table - 50% */}
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Jarayon</th>
-                    <th className="text-center py-3 px-4 font-semibold text-gray-700">Bosqich to'lovi</th>
-                    <th className="text-center py-3 px-4 font-semibold text-gray-700">Ishtirok</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Ishlab topilgan (summa)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stageStats.stageStats.map((stat, idx) => {
-                      // Bosqich to'lovi — amalda qo‘llanadigan tarif (Sozlamalar), yoki o‘rtacha (eski API uchun)
-                      const stagePayment = stat.tariffUsd ?? (stat.participationCount > 0
-                        ? Number(stat.earnedAmount) / stat.participationCount
-                        : 0);
-                      
-                      return (
-                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 font-medium text-gray-800">{stat.stageName}</td>
-                        <td className="py-3 px-4 text-center text-gray-800 font-semibold">
-                        {stagePayment > 0 ? (
-                          <CurrencyDisplay
-                            amount={stagePayment}
-                            originalCurrency="UZS"
-                            forceOriginal={true}
-                          />
-                        ) : '-'}
-                      </td>
-                        <td className="py-3 px-4 text-center text-gray-800 font-semibold">
-                          {stat.participationCount}
+        {/* Errors */}
+        <button onClick={() => setShowErrorsModal(true)} className="bg-gradient-to-br from-white to-red-50/80 dark:from-gray-800 dark:to-red-900/20 rounded-2xl p-5 border border-red-100/50 dark:border-red-800/40 hover:border-red-300 dark:hover:border-red-600 hover:shadow-md hover:shadow-red-500/10 transition-all text-left group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+              <Icon icon="lucide:shield-alert" className="w-5 h-5 text-red-500" />
+            </div>
+            <Icon icon="lucide:arrow-up-right" className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-red-400 transition-colors" />
+          </div>
+          <p className="text-sm font-semibold text-red-600/80 dark:text-red-400 mb-1">Jami xatolar</p>
+          <p className="text-xl font-extrabold text-red-600 dark:text-red-400">
+            {errorStatsLoading ? '...' : <CurrencyDisplay amount={Number(errorStats?.totalErrorAmount || 0)} originalCurrency="UZS" forceOriginal={true} />}
+          </p>
+        </button>
+      </div>
+
+      {/* ─── Middle Section (Payment Progress & Stage Chart) ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Payment Progress Ring */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col items-center relative">
+          <div className="w-full flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">To'lov Holati</h3>
+            <span className="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md">Joriy mavsum</span>
+          </div>
+          
+          <div className="w-48 h-48 my-4 relative flex items-center justify-center">
+            <Doughnut
+              data={{
+                labels: ['To\'langan', 'Qolgan haq'],
+                datasets: [{
+                  data: [paymentProgress, 100 - paymentProgress],
+                  backgroundColor: ['#10b981', '#f3f4f6'],
+                  hoverBackgroundColor: ['#059669', '#e5e7eb'],
+                  borderWidth: 0,
+                  borderRadius: 8,
+                }],
+              }}
+              options={{
+                cutout: '80%',
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false }, tooltip: { enabled: false }, datalabels: { display: false } },
+              }}
+            />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-4xl font-extrabold text-gray-900 dark:text-white">{paymentProgress}%</span>
+              <span className="text-sm font-medium text-gray-500 mt-1">To'landi</span>
+            </div>
+          </div>
+          
+          <div className="w-full grid grid-cols-2 gap-4 mt-4">
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
+              <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">To'langan</span>
+              </div>
+              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                {loading ? '...' : <CurrencyDisplay amount={stats?.totalPaid || 0} originalCurrency="UZS" forceOriginal={true} />}
+              </p>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
+              <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-500" />
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Qolgan</span>
+              </div>
+              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                {loading ? '...' : <CurrencyDisplay amount={stats?.pending || 0} originalCurrency="UZS" forceOriginal={true} />}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Trophy Room (Adapted to clean style) */}
+        <div className="lg:col-span-2">
+          <TrophyRoom />
+        </div>
+      </div>
+
+      {/* ─── Stage Statistics & Calendar ─── */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        
+        {/* Stage Statistics List */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between p-6 border-b border-gray-50 dark:border-gray-700/50">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Jarayonlar Statistikasi</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Siz ishtirok etgan barcha bosqichlar ro'yxati</p>
+            </div>
+            <button onClick={openParticipationsModal} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-4 py-2 rounded-xl transition-colors">
+              Barchasini ko'rish
+            </button>
+          </div>
+          
+          <div className="p-0 overflow-x-auto flex-1 custom-scrollbar">
+            {stageStatsLoading ? (
+              <div className="flex justify-center py-16"><div className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" /></div>
+            ) : stageStats && stageStats.stageStats.length > 0 ? (
+              <table className="w-full text-sm text-left whitespace-nowrap">
+                <thead>
+                  <tr className="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-widest border-b border-gray-100 dark:border-gray-800/80">
+                    <th className="px-6 py-5 font-bold">Jarayon nomi</th>
+                    <th className="px-6 py-5 font-bold text-center">Tarif</th>
+                    <th className="px-6 py-5 font-bold text-center">Ishtirok</th>
+                    <th className="px-6 py-5 font-bold text-right">Summa</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50 dark:divide-gray-800/40">
+                  {stageStats.stageStats.map((stat, idx) => {
+                    const stagePayment = stat.tariffUsd ?? (stat.participationCount > 0 ? Number(stat.earnedAmount) / stat.participationCount : 0);
+                    const colors = ['bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-orange-500', 'bg-rose-500', 'bg-amber-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'];
+                    const color = colors[idx % colors.length];
+
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors group">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3.5">
+                            <span className={`w-2 h-2 rounded-full ${color} shadow-sm`} />
+                            <span className="font-semibold text-gray-800 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{stat.stageName}</span>
+                          </div>
                         </td>
-                        <td className="py-3 px-4 text-right text-green-600 font-semibold">
-                          <CurrencyDisplay
-                            amount={Number(stat.earnedAmount)}
-                            originalCurrency="UZS"
-                            forceOriginal={true}
-                          />
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-gray-500 dark:text-gray-400 font-medium">
+                            {stagePayment > 0 ? <CurrencyDisplay amount={stagePayment} originalCurrency="UZS" forceOriginal={true} /> : '-'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center justify-center min-w-[32px] h-7 px-3 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300">
+                            {stat.participationCount}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                            <CurrencyDisplay amount={Number(stat.earnedAmount)} originalCurrency="UZS" forceOriginal={true} />
+                          </span>
                         </td>
                       </tr>
                     );
-                    })}
-                  </tbody>
-                </table>
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                <Icon icon="lucide:clipboard-list" className="w-12 h-12 mb-3 opacity-20" />
+                <p>Ma'lumot topilmadi</p>
               </div>
+            )}
+          </div>
+        </div>
 
-              {/* Pie Chart - 50% */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Ishtirok foizi</h3>
-                <div className="flex flex-col items-center">
+        {/* Activity Calendar */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 flex flex-col relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          
+          <div className="flex items-center justify-between mb-6 relative z-10">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Umumiy Faollik</h2>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider">So'nggi 6 oy</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
+              <Icon icon="lucide:calendar-days" className="w-5 h-5 text-indigo-500" />
+            </div>
+          </div>
+          
+          <div className="flex-1 flex flex-col justify-center relative z-10">
+            {contributions.length > 0 ? (
+              <>
+                <div className="overflow-x-auto custom-scrollbar pb-4 pt-2">
                   {(() => {
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    const totalParticipation = stageStats.totals.totalParticipation || 1;
-                    const colors = [
-                      '#3b82f6', // blue
-                      '#10b981', // green
-                      '#8b5cf6', // purple
-                      '#f97316', // orange
-                      '#ef4444', // red
-                      '#eab308', // yellow
-                      '#ec4899', // pink
-                      '#6366f1', // indigo
-                      '#14b8a6', // teal
-                    ];
-                    
-                    const chartData = {
-                      labels: stageStats.stageStats.map(stat => stat.stageName),
-                      datasets: [
-                        {
-                          data: stageStats.stageStats.map(stat => stat.participationCount),
-                          backgroundColor: stageStats.stageStats.map((_, idx) => colors[idx % colors.length]),
-                          borderColor: '#fff',
-                          borderWidth: 2,
-                        },
-                      ],
-                    };
-                    
-                    const chartOptions = {
-                      responsive: true,
-                      maintainAspectRatio: true,
-                      plugins: {
-                        legend: {
-                          display: false,
-                        },
-                        datalabels: {
-                          color: '#fff',
-                          font: {
-                            size: 9,
-                            weight: 'bold' as const,
-                          },
-                          formatter: (value: number, context: any) => {
-                            const label = context.chart.data.labels[context.dataIndex];
-                            const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
-                            const percentage = total > 0 ? ((value / total) * 100).toFixed(0) : '0';
-                            // Agar segment kichik bo'lsa (5% dan kichik), faqat foizni ko'rsat
-                            if (Number(percentage) < 5) {
-                              return '';
-                            }
-                            // Katta segmentlarda jarayon nomi va foizni ko'rsat
-                            return `${label}\n${percentage}%`;
-                          },
-                          anchor: 'center' as const,
-                          align: 'center' as const,
-                          textAlign: 'center' as const,
-                        },
-                        tooltip: {
-                          callbacks: {
-                            label: (context: any) => {
-                              const label = context.label || '';
-                              const value = context.parsed || 0;
-                              const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
-                              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
-                              return `${label}: ${value} (${percentage}%)`;
-                            },
-                          },
-                        },
-                      },
-                    };
-                    
+                    const map = new Map();
+                    contributions.forEach((a: any) => map.set(a.date, a.count));
+
+                    const today = new Date();
+                    const startDate = new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000);
+                    const startDay = startDate.getDay();
+                    const startOfGrid = new Date(startDate.getTime() - startDay * 24 * 60 * 60 * 1000);
+                    const weeks: { date: string; count: number; isFuture: boolean }[][] = [];
+                    let currentWeek: { date: string; count: number; isFuture: boolean }[] = [];
+
+                    for (let d = new Date(startOfGrid); d <= today; d.setDate(d.getDate() + 1)) {
+                      const dLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+                      const dateStr = dLocal.toISOString().split('T')[0];
+                      const count = map.get(dateStr) || 0;
+                      currentWeek.push({ date: dateStr, count, isFuture: dLocal > today });
+                      if (currentWeek.length === 7) {
+                        weeks.push(currentWeek);
+                        currentWeek = [];
+                      }
+                    }
+                    if (currentWeek.length > 0) weeks.push(currentWeek);
+
                     return (
-                      <div className="w-full" style={{ maxWidth: '400px' }}>
-                        <Pie data={chartData} options={chartOptions} />
+                      <div className="flex gap-[4px] sm:gap-[5px] mt-1 w-max mx-auto">
+                        <div className="flex flex-col gap-[4px] sm:gap-[5px] pr-2 text-[10px] font-medium text-gray-400 dark:text-gray-500 items-end mt-0.5">
+                          {['Yak', '', 'Sesh', '', 'Pay', '', 'Shan'].map((label, i) => (
+                            <div key={i} className={`h-[12px] sm:h-[14px] ${!label ? 'opacity-0' : ''}`}>{label || '.'}</div>
+                          ))}
+                        </div>
+                        {weeks.map((week, i) => (
+                          <div key={i} className="flex flex-col gap-[4px] sm:gap-[5px]">
+                            {week.map((day, j) => {
+                              let colorClass = 'bg-gray-100 dark:bg-gray-700/50';
+                              if (day.isFuture) colorClass = 'bg-transparent opacity-0 pointer-events-none';
+                              else if (day.count > 15) colorClass = 'bg-indigo-600 dark:bg-indigo-500';
+                              else if (day.count > 8) colorClass = 'bg-indigo-500 dark:bg-indigo-600';
+                              else if (day.count > 3) colorClass = 'bg-indigo-400 dark:bg-indigo-700';
+                              else if (day.count > 0) colorClass = 'bg-indigo-300 dark:bg-indigo-800';
+
+                              return (
+                                <div
+                                  key={j}
+                                  title={`${day.date}: ${day.count} ta vazifa`}
+                                  className={`w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] rounded-[3px] sm:rounded-[4px] transition-all cursor-pointer hover:ring-2 hover:ring-gray-300 ${colorClass}`}
+                                />
+                              );
+                            })}
+                          </div>
+                        ))}
                       </div>
                     );
                   })()}
                 </div>
-              </div>
-            </div>
-            )}
-
-            {/* Charts */}
-            {stageStats && stageStats.stageStats.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-              {/* Participation Chart */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Ishtirok soni</h3>
-                <div style={{ height: '300px' }}>
-                  <Bar
-                    data={{
-                      labels: stageStats.stageStats.map(stat => stat.stageName),
-                      datasets: [
-                        {
-                          label: 'Ishtirok soni',
-                          data: stageStats.stageStats.map(stat => stat.participationCount),
-                          backgroundColor: '#3b82f6',
-                          borderColor: '#2563eb',
-                          borderWidth: 1,
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: false,
-                        },
-                        tooltip: {
-                          callbacks: {
-                            label: (context: any) => {
-                              return `Ishtirok: ${context.parsed.y}`;
-                            },
-                          },
-                        },
-                      },
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          ticks: {
-                            stepSize: 1,
-                          },
-                        },
-                      },
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Earnings Chart */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Ishlab topilgan summa</h3>
-                <div style={{ height: '300px' }}>
-                  <Bar
-                    data={{
-                      labels: stageStats.stageStats.map(stat => stat.stageName),
-                      datasets: [
-                        {
-                          label: 'Ishlab topilgan summa',
-                          data: stageStats.stageStats.map(stat => Number(stat.earnedAmount)),
-                          backgroundColor: '#10b981',
-                          borderColor: '#059669',
-                          borderWidth: 1,
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: false,
-                        },
-                        tooltip: {
-                          callbacks: {
-                            label: (context: any) => {
-                              return `Summa: ${context.parsed.y.toLocaleString('ru-RU')}`;
-                            },
-                          },
-                        },
-                      },
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          ticks: {
-                            callback: function(value: any) {
-                              return value.toLocaleString('ru-RU');
-                            },
-                          },
-                        },
-                      },
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-            )}
-            
-            {/* Show message if no stage stats but summary cards are shown */}
-            {(!stageStats || stageStats.stageStats.length === 0) && (
-              <div className="text-center py-8 text-gray-400 mt-6">
-                Hozircha jarayonlar bo'yicha ma'lumotlar yo'q
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Contribution Graph - Dashboard Style */}
-      {contributions.length > 0 && (
-        <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col justify-center mt-6">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-3xl group-hover:opacity-100 transition-opacity duration-700 pointer-events-none opacity-50"></div>
-
-          <div className="flex items-center gap-3 mb-6 relative z-10">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30">
-              <Icon icon="lucide:calendar-days" className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Umumiy Faollik</h2>
-              <p className="text-[11px] font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase mt-0.5">Jonli Holat (So'nggi 6 oy)</p>
-            </div>
-          </div>
-
-          <div className="relative z-10 overflow-x-auto custom-scrollbar pb-4 pt-2 px-1">
-            {(() => {
-              const map = new Map();
-              contributions.forEach((a: any) => map.set(a.date, a.count));
-
-              const today = new Date();
-              const daysToSubtract = 180;
-              const startDate = new Date(today.getTime() - daysToSubtract * 24 * 60 * 60 * 1000);
-
-              const startDay = startDate.getDay();
-              const startOfGrid = new Date(startDate.getTime() - startDay * 24 * 60 * 60 * 1000);
-              const weeks = [];
-              let currentWeek = [];
-
-              for (let d = new Date(startOfGrid); d <= today; d.setDate(d.getDate() + 1)) {
-                // Set time to noon to avoid timezone shift dropping dates
-                const dLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
-                const dateStr = dLocal.toISOString().split('T')[0];
-                const count = map.get(dateStr) || 0;
-
-                currentWeek.push({ date: dateStr, count, isFuture: dLocal > today });
-
-                if (currentWeek.length === 7) {
-                  weeks.push(currentWeek);
-                  currentWeek = [];
-                }
-              }
-              if (currentWeek.length > 0) {
-                weeks.push(currentWeek);
-              }
-
-              return (
-                <div className="flex gap-[3px] sm:gap-[5px] mt-1 w-max">
-                  <div className="flex flex-col gap-[3px] sm:gap-[5px] pr-2 text-[10px] font-medium text-gray-400 dark:text-gray-500 items-end mt-0.5">
-                    <div className="h-[12px] sm:h-[14px]">Yak</div>
-                    <div className="h-[12px] sm:h-[14px] opacity-0">Dush</div>
-                    <div className="h-[12px] sm:h-[14px]">Sesh</div>
-                    <div className="h-[12px] sm:h-[14px] opacity-0">Chor</div>
-                    <div className="h-[12px] sm:h-[14px]">Pay</div>
-                    <div className="h-[12px] sm:h-[14px] opacity-0">Jum</div>
-                    <div className="h-[12px] sm:h-[14px]">Shan</div>
+                
+                <div className="flex items-center justify-between text-[11px] font-medium text-gray-400 dark:text-gray-500 mt-4 border-t border-gray-50 dark:border-gray-700/50 pt-4">
+                  <span>Kam faollik</span>
+                  <div className="flex gap-1.5">
+                    {['bg-gray-100 dark:bg-gray-700/50', 'bg-indigo-300 dark:bg-indigo-800', 'bg-indigo-400 dark:bg-indigo-700', 'bg-indigo-500 dark:bg-indigo-600', 'bg-indigo-600 dark:bg-indigo-500'].map((c, i) => (
+                      <div key={i} className={`w-3 h-3 rounded-[3px] ${c}`} />
+                    ))}
                   </div>
-                  {weeks.map((week, i) => (
-                    <div key={i} className="flex flex-col gap-[3px] sm:gap-[5px]">
-                      {week.map((day, j) => {
-                        let colorClass = "bg-gray-100 dark:bg-gray-800/80";
-                        if (day.isFuture) colorClass = "bg-transparent opacity-0 pointer-events-none";
-                        else if (day.count > 0 && day.count <= 3) colorClass = "bg-emerald-200 dark:bg-emerald-800/70";
-                        else if (day.count > 3 && day.count <= 8) colorClass = "bg-emerald-400 dark:bg-emerald-600/90";
-                        else if (day.count > 8 && day.count <= 15) colorClass = "bg-emerald-500 dark:bg-emerald-500";
-                        else if (day.count > 15) colorClass = "bg-emerald-600 dark:bg-emerald-400";
-
-                        return (
-                          <div
-                            key={j}
-                            title={`${day.date}: ${day.count} ta vazifa bajarildi`}
-                            className={`w-[12px] h-[12px] sm:w-[14px] sm:h-[14px] rounded-[3px] sm:rounded-[4px] transition-colors cursor-pointer hover:ring-2 hover:ring-gray-400/50 ${colorClass}`}
-                          ></div>
-                        )
-                      })}
-                    </div>
-                  ))}
+                  <span>Ko'p</span>
                 </div>
-              );
-            })()}
-          </div>
-
-          <div className="relative z-10 flex items-center justify-end gap-2 mt-auto pt-4 text-[11px] font-medium text-gray-500 dark:text-gray-400 lg:pl-10">
-            <span>Kam</span>
-            <div className="flex gap-[3px] sm:gap-[5px]">
-              <div className="w-[12px] h-[12px] rounded-[3px] bg-gray-100 dark:bg-gray-800/80"></div>
-              <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-200 dark:bg-emerald-800/70"></div>
-              <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-400 dark:bg-emerald-600/90"></div>
-              <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-500 dark:bg-emerald-500"></div>
-              <div className="w-[12px] h-[12px] rounded-[3px] bg-emerald-600 dark:bg-emerald-400"></div>
-            </div>
-            <span>Ko'p</span>
-          </div>
-        </div>
-      )}
-
-      {/* Error Statistics */}
-      <div className="mt-6 bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-800">Xatoliklar statistikasi</h2>
-        </div>
-
-        {errorStatsLoading ? (
-          <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
-        ) : errorStats && errorStats.totalErrors > 0 ? (
-          <>
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-              <div className="bg-red-50 rounded-lg p-3">
-                <div className="text-xs text-red-600 mb-1">Jami xatolar</div>
-                <div className="text-xl font-bold text-red-800">
-                  {errorStats.totalErrors}
-                </div>
-              </div>
-              <div className="bg-orange-50 rounded-lg p-3">
-                <div className="text-xs text-orange-600 mb-1">Jami undirilgan summa</div>
-                <div className="text-xl font-bold text-orange-800">
-                  <CurrencyDisplay
-                    amount={Number(errorStats.totalErrorAmount)}
-                    originalCurrency="UZS"
-                    forceOriginal={true}
-                  />
-                </div>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-3">
-                <div className="text-xs text-yellow-600 mb-1">O'rtacha xato summasi</div>
-                <div className="text-xl font-bold text-yellow-800">
-                  <CurrencyDisplay
-                    amount={errorStats.totalErrors > 0 ? (Number(errorStats.totalErrorAmount) / errorStats.totalErrors) : 0}
-                    originalCurrency="UZS"
-                    forceOriginal={true}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Errors by Stage */}
-            {errorStats.errorsByStage && errorStats.errorsByStage.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Bosqichlar bo'yicha xatolar</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Bosqich</th>
-                        <th className="text-center py-3 px-4 font-semibold text-gray-700">Xatolar soni</th>
-                        <th className="text-right py-3 px-4 font-semibold text-gray-700">Jami summa</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {errorStats.errorsByStage.map((stage: any, idx: number) => (
-                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 px-4 font-medium text-gray-800">{stage.stageName}</td>
-                          <td className="py-3 px-4 text-center text-gray-800 font-semibold">
-                            {stage.count}
-                          </td>
-                          <td className="py-3 px-4 text-right text-red-600 font-semibold">
-                            <CurrencyDisplay
-                              amount={Number(stage.totalAmount)}
-                              originalCurrency="UZS"
-                              forceOriginal={true}
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-sm text-gray-400">
+                <Icon icon="lucide:activity" className="w-8 h-8 mb-2 opacity-20" />
+                <p>Faollik yo'q</p>
               </div>
             )}
-
-
-          </>
-        ) : (
-          <div className="text-center py-8 text-gray-400">Xatolar yo'q</div>
-        )}
+          </div>
+        </div>
       </div>
+      {/* ═══════════════════════  MODALS  ═══════════════════════ */}
+
 
       {/* Edit Modal */}
       {showEditModal && workerDetail && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{
-            animation: 'backdropFadeIn 0.3s ease-out'
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowEditModal(false);
-            }
-          }}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4"
-            style={{
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-800">Ishchini tahrirlash</h2>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
-              >
-                ×
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ism <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ishchi ismi"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={editForm.email}
-                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="email@example.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Yangi parol
-                </label>
-                <input
-                  type="password"
-                  value={editForm.password}
-                  onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Parolni o'zgartirish uchun kiriting (ixtiyoriy)"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Role <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={editForm.role}
-                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value as any })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="DEKLARANT">Deklarant</option>
-                  <option value="MANAGER">Menejer</option>
-                  <option value="ADMIN">Admin</option>
+        <ModalShell onClose={() => setShowEditModal(false)}>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Ishchini tahrirlash</h2>
+            <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
+              <Icon icon="lucide:x" className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+          <form onSubmit={handleUpdate} className="space-y-4">
+            <FieldGroup label="Ism" required>
+              <input type="text" required value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white" placeholder="Ishchi ismi" />
+            </FieldGroup>
+            <FieldGroup label="Email" required>
+              <input type="email" required value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white" placeholder="email@example.com" />
+            </FieldGroup>
+            <FieldGroup label="Yangi parol">
+              <input type="password" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white" placeholder="Ixtiyoriy" />
+            </FieldGroup>
+            <FieldGroup label="Role" required>
+              <select required value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value as any })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white">
+                <option value="DEKLARANT">Deklarant</option>
+                <option value="MANAGER">Menejer</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </FieldGroup>
+            {editForm.role !== 'MANAGER' && (
+              <FieldGroup label="Filial">
+                <select value={editForm.branchId} onChange={(e) => setEditForm({ ...editForm, branchId: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white">
+                  <option value="">Barchasi</option>
+                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
-              </div>
-
-              {editForm.role !== 'MANAGER' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Filial
-                  </label>
-                  <select
-                    value={editForm.branchId}
-                    onChange={(e) => setEditForm({ ...editForm, branchId: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Barchasi (barcha filiallar ishini ko'radi)</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Oylik maosh (UZS)
-                </label>
-                <input
-                  type="number"
-                  value={editForm.salary}
-                  onChange={(e) => setEditForm({ ...editForm, salary: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ixtiyoriy"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Saqlash
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+              </FieldGroup>
+            )}
+            <FieldGroup label="Oylik maosh (UZS)">
+              <input type="number" value={editForm.salary} onChange={(e) => setEditForm({ ...editForm, salary: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white" placeholder="Ixtiyoriy" />
+            </FieldGroup>
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+              <button type="button" onClick={() => setShowEditModal(false)} className="px-5 py-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors font-medium">Bekor qilish</button>
+              <button type="submit" className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-semibold">Saqlash</button>
+            </div>
+          </form>
+        </ModalShell>
       )}
 
-      {/* Current Earnings Breakdown Modal */}
+      {/* Earnings Modal */}
       {showEarningsModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowEarningsModal(false);
-            }
-          }}
+        <TableModal
+          title="Joriy mavsum (Ishlab topilgan)"
+          subtitle="Har bir ish va jarayon kesimida"
+          onClose={() => setShowEarningsModal(false)}
+          loading={earningsLoading}
+          empty={currentEarnings.length === 0}
+          emptyText="Hozircha joriy mavsumda hech qanday daromad yo'q"
         >
-          <div 
-            className="bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-4xl mx-4"
-            style={{ 
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              maxHeight: '90vh'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">Joriy mavsum (Ishlab topilgan) batafsil</h2>
-                <p className="text-sm text-gray-500 mt-1">Har bir ish va jarayon kesimida</p>
-              </div>
-              <button
-                onClick={() => setShowEarningsModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <Icon icon="lucide:x" className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              {earningsLoading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-                </div>
-              ) : currentEarnings.length > 0 ? (
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-700 sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold border-b">Sana</th>
-                        <th className="px-4 py-3 font-semibold border-b">Task</th>
-                        <th className="px-4 py-3 font-semibold border-b">Jarayon</th>
-                        <th className="px-4 py-3 font-semibold border-b text-right">Summa (UZS)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {currentEarnings.map((earn) => (
-                        <tr key={earn.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                            {(() => {
-  const d = new Date(earn.createdAt);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  return `${day}.${month}.${year} ${hours}:${minutes}`;
-})()}
-                          </td>
-                          <td className="px-4 py-3 font-medium text-gray-800">
-                            {earn.taskTitle}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-800">
-                              {earn.stageName}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-green-600">
-                            {Number(earn.amount).toLocaleString()} UZS
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50 font-bold sticky bottom-0">
-                      <tr>
-                        <td colSpan={3} className="px-4 py-3 text-right text-gray-700 border-t">
-                          Jami:
-                        </td>
-                        <td className="px-4 py-3 text-right text-green-700 border-t">
-                          {currentEarnings.reduce((sum, e) => sum + Number(e.amount), 0).toLocaleString()} UZS
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500 flex flex-col items-center">
-                  <Icon icon="lucide:inbox" className="w-12 h-12 mb-3 opacity-20" />
-                  <p>Hozircha joriy mavsumda hech qanday daromad yo'q</p>
-                </div>
-              )}
-            </div>
-            
-            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl flex justify-end">
-              <button
-                onClick={() => setShowEarningsModal(false)}
-                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors font-medium"
-              >
-                Yopish
-              </button>
-            </div>
-          </div>
-        </div>
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 sticky top-0">
+              <tr>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">Sana</th>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">Task</th>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">Jarayon</th>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700 text-right">Summa</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+              {currentEarnings.map((earn) => (
+                <tr key={earn.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(earn.createdAt)}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{earn.taskTitle}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">{earn.stageName}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{Number(earn.amount).toLocaleString()} UZS</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50 dark:bg-gray-700/50 font-bold sticky bottom-0">
+              <tr>
+                <td colSpan={3} className="px-4 py-3 text-right text-gray-600 dark:text-gray-300 border-t border-gray-200 dark:border-gray-600">Jami:</td>
+                <td className="px-4 py-3 text-right text-emerald-700 dark:text-emerald-400 border-t border-gray-200 dark:border-gray-600">{currentEarnings.reduce((sum, e) => sum + Number(e.amount), 0).toLocaleString()} UZS</td>
+              </tr>
+            </tfoot>
+          </table>
+        </TableModal>
       )}
 
-      {/* Participations Breakdown Modal */}
+      {/* Participations Modal */}
       {showParticipationsModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowParticipationsModal(false);
-            }
-          }}
+        <TableModal
+          title="Jami tasklarda ishtirok"
+          subtitle="Har bir bajarilgan jarayon kesimida"
+          onClose={() => setShowParticipationsModal(false)}
+          loading={participationsLoading}
+          empty={participations.length === 0}
+          emptyText="Hozircha ishtiroklar yo'q"
         >
-          <div 
-            className="bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-4xl mx-4"
-            style={{ 
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              maxHeight: '90vh'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">Jami tasklarda ishtirok batafsil</h2>
-                <p className="text-sm text-gray-500 mt-1">Har bir bajarilgan jarayon kesimida</p>
-              </div>
-              <button
-                onClick={() => setShowParticipationsModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <Icon icon="lucide:x" className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              {participationsLoading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : participations.length > 0 ? (
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-700 sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold border-b">Sana</th>
-                        <th className="px-4 py-3 font-semibold border-b">Task</th>
-                        <th className="px-4 py-3 font-semibold border-b">Jarayon</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {participations.map((part, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                            {(() => {
-                              const d = new Date(part.completedAt);
-                              const day = String(d.getDate()).padStart(2, '0');
-                              const month = String(d.getMonth() + 1).padStart(2, '0');
-                              const year = d.getFullYear();
-                              const hours = String(d.getHours()).padStart(2, '0');
-                              const minutes = String(d.getMinutes()).padStart(2, '0');
-                              return `${day}.${month}.${year} ${hours}:${minutes}`;
-                            })()}
-                          </td>
-                          <td className="px-4 py-3 font-medium text-gray-800">
-                            {part.task?.title || `Task #${part.taskId || '?'}`}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-800">
-                              {part.name}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500 flex flex-col items-center">
-                  <Icon icon="lucide:inbox" className="w-12 h-12 mb-3 opacity-20" />
-                  <p>Hozircha ishtiroklar yo'q</p>
-                </div>
-              )}
-            </div>
-            
-            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl flex justify-end">
-              <button
-                onClick={() => setShowParticipationsModal(false)}
-                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors font-medium"
-              >
-                Yopish
-              </button>
-            </div>
-          </div>
-        </div>
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 sticky top-0">
+              <tr>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">Sana</th>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">Task</th>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">Jarayon</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+              {participations.map((part, idx) => (
+                <tr key={idx} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(part.completedAt)}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{part.task?.title || `Task #${part.taskId || '?'}`}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">{part.name}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableModal>
       )}
 
-      {/* Received Payments Breakdown Modal */}
+      {/* Payments Modal */}
       {showPaymentsModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowPaymentsModal(false);
-            }
-          }}
+        <TableModal
+          title="Joriy mavsumda olingan to'lovlar"
+          subtitle="Sizga berilgan barcha maosh va avanslar"
+          onClose={() => setShowPaymentsModal(false)}
+          loading={false}
+          empty={!stats?.payments || stats.payments.filter(p => !p.isLegacyPayment).length === 0}
+          emptyText="Hozircha to'lovlar olinmagan"
         >
-          <div 
-            className="bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-4xl mx-4"
-            style={{ 
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              maxHeight: '90vh'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">Joriy mavsumda olingan to'lovlar</h2>
-                <p className="text-sm text-gray-500 mt-1">Sizga berilgan barcha maosh va avanslar</p>
-              </div>
-              <button
-                onClick={() => setShowPaymentsModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <Icon icon="lucide:x" className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              {stats?.payments && stats.payments.filter(p => !p.isLegacyPayment).length > 0 ? (
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-700 sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold border-b">Sana</th>
-                        <th className="px-4 py-3 font-semibold border-b">Izoh</th>
-                        <th className="px-4 py-3 font-semibold border-b text-right">Summa (Asl)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {stats.payments.filter(p => !p.isLegacyPayment).map((payment: any) => (
-                        <tr key={payment.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                            {(() => {
-                              const d = new Date(payment.paymentDate);
-                              const day = String(d.getDate()).padStart(2, '0');
-                              const month = String(d.getMonth() + 1).padStart(2, '0');
-                              const year = d.getFullYear();
-                              const hours = String(d.getHours()).padStart(2, '0');
-                              const minutes = String(d.getMinutes()).padStart(2, '0');
-                              return `${day}.${month}.${year} ${hours}:${minutes}`;
-                            })()}
-                          </td>
-                          <td className="px-4 py-3 text-gray-800">
-                            {payment.comment || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-purple-600">
-                            {payment.paidCurrency === 'UZS' 
-                              ? `${Number(payment.paidAmountUzs).toLocaleString('ru-RU')} UZS`
-                              : `${(Number(payment.paidAmountUsd) * 12000).toLocaleString('ru-RU')} UZS`}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50 font-bold sticky bottom-0">
-                      <tr>
-                        <td colSpan={2} className="px-4 py-3 text-right text-gray-700 border-t">
-                          Jami UZS hisobida:
-                        </td>
-                        <td className="px-4 py-3 text-right text-purple-700 border-t">
-                          {stats.payments
-                            .filter(p => !p.isLegacyPayment)
-                            .reduce((sum, p) => sum + (p.paidCurrency === 'UZS' ? Number(p.paidAmountUzs) : Number(p.paidAmountUsd) * 12000), 0)
-                            .toLocaleString('ru-RU')} UZS
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500 flex flex-col items-center">
-                  <Icon icon="lucide:inbox" className="w-12 h-12 mb-3 opacity-20" />
-                  <p>Hozircha to'lovlar olinmagan</p>
-                </div>
-              )}
-            </div>
-            
-            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl flex justify-end">
-              <button
-                onClick={() => setShowPaymentsModal(false)}
-                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors font-medium"
-              >
-                Yopish
-              </button>
-            </div>
-          </div>
-        </div>
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 sticky top-0">
+              <tr>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">Sana</th>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">Izoh</th>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700 text-right">Summa</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+              {stats?.payments?.filter(p => !p.isLegacyPayment).map((payment: any) => (
+                <tr key={payment.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(payment.paymentDate)}</td>
+                  <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{payment.comment || '-'}</td>
+                  <td className="px-4 py-3 text-right font-bold text-violet-600 dark:text-violet-400">
+                    {payment.paidCurrency === 'UZS'
+                      ? `${Number(payment.paidAmountUzs).toLocaleString('ru-RU')} UZS`
+                      : `${(Number(payment.paidAmountUsd) * 12000).toLocaleString('ru-RU')} UZS`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50 dark:bg-gray-700/50 font-bold sticky bottom-0">
+              <tr>
+                <td colSpan={2} className="px-4 py-3 text-right text-gray-600 dark:text-gray-300 border-t border-gray-200 dark:border-gray-600">Jami:</td>
+                <td className="px-4 py-3 text-right text-violet-700 dark:text-violet-400 border-t border-gray-200 dark:border-gray-600">
+                  {(stats?.payments || [])
+                    .filter(p => !p.isLegacyPayment)
+                    .reduce((sum, p) => sum + (p.paidCurrency === 'UZS' ? Number(p.paidAmountUzs) : Number(p.paidAmountUsd) * 12000), 0)
+                    .toLocaleString('ru-RU')} UZS
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </TableModal>
       )}
 
-      {/* Errors Breakdown Modal */}
+      {/* Errors Modal */}
       {showErrorsModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
-          style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowErrorsModal(false);
-            }
-          }}
+        <TableModal
+          title="Jami xatolar ro'yxati"
+          subtitle="Sizga yozilgan barcha jarimalar"
+          onClose={() => setShowErrorsModal(false)}
+          loading={errorStatsLoading}
+          empty={!errorStats?.errors || errorStats.errors.length === 0}
+          emptyText="Hozircha xatolar yo'q"
         >
-          <div 
-            className="bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-4xl mx-4"
-            style={{ 
-              animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              maxHeight: '90vh'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">Jami xatolar ro'yxati</h2>
-                <p className="text-sm text-gray-500 mt-1">Sizga yozilgan barcha jarimalar</p>
-              </div>
-              <button
-                onClick={() => setShowErrorsModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <Icon icon="lucide:x" className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              {errorStatsLoading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-                </div>
-              ) : errorStats?.errors && errorStats.errors.length > 0 ? (
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-700 sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold border-b">Sana</th>
-                        <th className="px-4 py-3 font-semibold border-b">Task</th>
-                        <th className="px-4 py-3 font-semibold border-b">Izoh / Jarayon</th>
-                        <th className="px-4 py-3 font-semibold border-b text-right">Jarima</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {errorStats.errors.map((error: any) => (
-                        <tr key={error.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                            {(() => {
-                              const d = new Date(error.date);
-                              const day = String(d.getDate()).padStart(2, '0');
-                              const month = String(d.getMonth() + 1).padStart(2, '0');
-                              const year = d.getFullYear();
-                              return `${day}.${month}.${year}`;
-                            })()}
-                          </td>
-                          <td className="px-4 py-3 font-medium text-gray-800">
-                            {error.taskTitle || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            <div><span className="font-medium text-gray-700">Jarayon:</span> {error.stageName}</div>
-                            {error.comment && <div className="text-xs text-gray-500 mt-1 italic">"{error.comment}"</div>}
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-red-600">
-                            <CurrencyDisplay amount={Number(error.amount)} originalCurrency="UZS" forceOriginal={true} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50 font-bold sticky bottom-0">
-                      <tr>
-                        <td colSpan={3} className="px-4 py-3 text-right text-gray-700 border-t">
-                          Jami:
-                        </td>
-                        <td className="px-4 py-3 text-right text-red-700 border-t">
-                          <CurrencyDisplay amount={errorStats.errors.reduce((sum: number, e: any) => sum + Number(e.amount), 0)} originalCurrency="UZS" forceOriginal={true} />
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500 flex flex-col items-center">
-                  <Icon icon="lucide:inbox" className="w-12 h-12 mb-3 opacity-20" />
-                  <p>Hozircha xatolar yo'q</p>
-                </div>
-              )}
-            </div>
-            
-            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl flex justify-end">
-              <button
-                onClick={() => setShowErrorsModal(false)}
-                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors font-medium"
-              >
-                Yopish
-              </button>
-            </div>
-          </div>
-        </div>
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 sticky top-0">
+              <tr>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">Sana</th>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">Task</th>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">Izoh / Jarayon</th>
+                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider border-b border-gray-100 dark:border-gray-700 text-right">Jarima</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+              {errorStats?.errors?.map((error: any) => (
+                <tr key={error.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDateOnly(error.date)}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{error.taskTitle || '-'}</td>
+                  <td className="px-4 py-3">
+                    <span className="font-medium text-gray-700 dark:text-gray-300">{error.stageName}</span>
+                    {error.comment && <p className="text-xs text-gray-400 mt-0.5 italic">"{error.comment}"</p>}
+                  </td>
+                  <td className="px-4 py-3 text-right font-bold text-red-600 dark:text-red-400">
+                    <CurrencyDisplay amount={Number(error.amount)} originalCurrency="UZS" forceOriginal={true} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50 dark:bg-gray-700/50 font-bold sticky bottom-0">
+              <tr>
+                <td colSpan={3} className="px-4 py-3 text-right text-gray-600 dark:text-gray-300 border-t border-gray-200 dark:border-gray-600">Jami:</td>
+                <td className="px-4 py-3 text-right text-red-700 dark:text-red-400 border-t border-gray-200 dark:border-gray-600">
+                  <CurrencyDisplay amount={errorStats?.errors?.reduce((sum: number, e: any) => sum + Number(e.amount), 0) || 0} originalCurrency="UZS" forceOriginal={true} />
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </TableModal>
       )}
     </div>
   );
 };
+
+/* ─── Shared UI Helpers ─── */
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatDateOnly(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+}
+
+function ModalShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
+      style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 border border-gray-200 dark:border-gray-700"
+        style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function TableModal({ title, subtitle, onClose, loading, empty, emptyText, children }: {
+  title: string; subtitle: string; onClose: () => void;
+  loading: boolean; empty: boolean; emptyText: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
+      style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col w-full max-w-4xl mx-4 border border-gray-200 dark:border-gray-700"
+        style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)', maxHeight: '90vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h2>
+            <p className="text-sm text-gray-400 mt-0.5">{subtitle}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
+            <Icon icon="lucide:x" className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex justify-center items-center py-16">
+              <div className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-500 rounded-full animate-spin" />
+            </div>
+          ) : empty ? (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
+              <Icon icon="lucide:inbox" className="w-12 h-12 mb-3 opacity-20" />
+              <p className="text-sm">{emptyText}</p>
+            </div>
+          ) : children}
+        </div>
+
+        <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+          <button onClick={onClose} className="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl transition-colors font-semibold">Yopish</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FieldGroup({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
 
 export default Profile;

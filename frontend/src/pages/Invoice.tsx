@@ -74,6 +74,7 @@ import {
   getTareRange,
   isTareInRange,
   numberToWordsRu,
+  getVehiclePlate,
 } from '../components/invoice/invoiceUtils';
 
 import { useDeliveryTerms } from '../components/invoice/useDeliveryTerms';
@@ -470,7 +471,8 @@ const Invoice = () => {
       const link = document.createElement('a');
       link.href = url;
       const inv = invoice?.invoiceNumber || form.invoiceNumber || 'Invoice';
-      const plate = form.vehicleNumber?.trim() ? ` АВТО ${form.vehicleNumber.trim()}` : '';
+      const plateStr = getVehiclePlate(form.vehicleNumber);
+      const plate = plateStr ? ` АВТО ${plateStr}` : '';
       link.download = `${inv}${plate}.pdf`;
       document.body.appendChild(link);
       link.click();

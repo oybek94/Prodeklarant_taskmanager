@@ -184,14 +184,16 @@ export function AdditionalInfoModal({
         );
       case 'temperature':
         return (
-          <FieldRow
+          <FieldWithVisibility
             label="Температура:"
-            actions={
-              <button type="button" onClick={() => setForm({ ...form, temperature: '' })} className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 text-sm font-bold" title="O'chirish">✕</button>
-            }
-          >
-            <input type="text" value={form.temperature || ''} onChange={(e) => setForm({ ...form, temperature: e.target.value })} className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="Masalan: +2 °C" />
-          </FieldRow>
+            fieldKey="temperature"
+            value={form.temperature || ''}
+            onChange={(v) => setForm({ ...form, temperature: v })}
+            onClear={() => setForm({ ...form, temperature: '' })}
+            toggleVisible={toggleAdditionalInfoVisible}
+            isVisible={isAdditionalInfoVisible}
+            placeholder="Masalan: +2 °C"
+          />
         );
       case 'harvestYear':
         return (

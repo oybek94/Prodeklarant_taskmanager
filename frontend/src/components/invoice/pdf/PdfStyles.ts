@@ -26,7 +26,7 @@ export const styles = StyleSheet.create({
     marginBottom: 10,
   },
   headerTitleContainer: {
-    flex: 1,
+    flex: 1.5,
     paddingRight: 15,
   },
   headerTitle: {
@@ -36,7 +36,7 @@ export const styles = StyleSheet.create({
     marginBottom: 5,
   },
   headerLogoContainer: {
-    flex: 1,
+    flex: 0.5,
     alignItems: 'center',
     justifyContent: 'center',
   },

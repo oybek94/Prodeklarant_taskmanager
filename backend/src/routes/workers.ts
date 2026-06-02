@@ -822,5 +822,76 @@ router.get('/:id/participations', requireAuth(), async (req, res) => {
   }
 });
 
+// GET /api/workers/:id/contributions - Get worker contributions for the last year
+router.get('/:id/contributions', requireAuth(), async (req, res) => {
+  try {
+    const workerId = parseInt(req.params.id);
+
+    const yearAgo = new Date();
+    yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+    yearAgo.setHours(0, 0, 0, 0);
+
+    const completedStages = await prisma.taskStage.findMany({
+      where: {
+        assignedToId: workerId,
+        status: 'TAYYOR',
+        completedAt: {
+          gte: yearAgo,
+        },
+      },
+      select: {
+        completedAt: true,
+      },
+    });
+
+    const contributionMap: Record<string, number> = {};
+
+    completedStages.forEach((stage) => {
+      if (stage.completedAt) {
+        // format date to YYYY-MM-DD
+        const dateStr = stage.completedAt.toISOString().split('T')[0];
+        contributionMap[dateStr] = (contributionMap[dateStr] || 0) + 1;
+      }
+    });
+
+    // First find max
+    let maxCount = 1;
+    for (const key in contributionMap) {
+      if (contributionMap[key] > maxCount) maxCount = contributionMap[key];
+    }
+
+    const getLevel = (count: number) => {
+      if (count === 0) return 0;
+      // Using fixed thresholds is often better for predictability, but relative is okay too.
+      // Let's use standard thresholds: 1-3 (1), 4-7 (2), 8-15 (3), 16+ (4)
+      if (count <= 3) return 1;
+      if (count <= 7) return 2;
+      if (count <= 15) return 3;
+      return 4;
+    };
+
+    // Generate all dates in the last year to ensure the calendar fills up properly
+    const fullContributions: { date: string; count: number; level: number }[] = [];
+    const currentDate = new Date(yearAgo);
+    const today = new Date();
+    
+    while (currentDate <= today) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const count = contributionMap[dateStr] || 0;
+      fullContributions.push({
+        date: dateStr,
+        count,
+        level: getLevel(count),
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    res.json(fullContributions);
+  } catch (error: any) {
+    console.error('Error fetching contributions:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
 export default router;
 

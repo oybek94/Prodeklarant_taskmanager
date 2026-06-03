@@ -102,7 +102,7 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
     <div className="relative" ref={panelRef}>
       <button
         onClick={() => setNotificationPanelOpen(!notificationPanelOpen)}
-        className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
       >
         <Icon icon="lucide:bell" className="w-5 h-5" />
         {unreadCount > 0 && (
@@ -114,9 +114,9 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
 
       {/* Bildirishnoma Panel */}
       {notificationPanelOpen && (
-        <div className="absolute right-0 mt-1 w-80 sm:w-[26rem] max-h-[32rem] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 flex flex-col">
+        <div className="absolute right-0 mt-1 w-80 sm:w-[26rem] max-h-[32rem] bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-xl shadow-2xl z-50 flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-xl">
+          <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-gray-950 rounded-t-xl">
             <div className="flex items-center gap-2">
               <Icon icon="lucide:bell-ring" className="w-5 h-5 text-indigo-600" />
               <span className="font-semibold text-gray-800 dark:text-gray-200">Bildirishnomalar</span>
@@ -150,7 +150,7 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
                 return (
                   <div
                     key={n.id}
-                    className={`p-3 border-b border-gray-50 dark:border-gray-700/50 ${style.bg} ${style.darkBg} transition-colors`}
+                    className={`p-3 border-b border-gray-50 dark:border-white/5 ${style.bg} ${style.darkBg} transition-colors`}
                   >
                     <div className="flex items-start gap-2.5">
                       <span className="text-lg flex-shrink-0 mt-0.5">{n.icon}</span>
@@ -208,7 +208,7 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
 
           {/* Footer */}
           {notifications.length > 10 && (
-            <div className="p-3 border-t border-gray-100 dark:border-gray-700 text-center">
+            <div className="p-3 border-t border-gray-100 dark:border-white/5 text-center">
               <button
                 onClick={() => {
                   navigate('/notifications');
@@ -374,10 +374,10 @@ const Layout = () => {
 
 
   return (
-    <div className="flex h-screen h-[100dvh] bg-gray-50 dark:bg-gray-950 relative text-gray-900 dark:text-gray-100 md:p-3 p-0 gap-0 md:gap-3">
+    <div className="flex h-screen h-[100dvh] bg-gray-50 dark:bg-black relative text-gray-900 dark:text-gray-100 md:p-3 p-0 gap-0 md:gap-3">
       {/* Sidebar */}
       {!isExamPage && (
-        <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-20' : 'w-0'} bg-gradient-to-b from-brand-dark to-brand-blue dark:bg-gray-900 md:rounded-2xl flex flex-col transition-all duration-300 overflow-hidden relative z-20 flex-shrink-0 md:shadow-lg md:shadow-brand-dark/20 dark:shadow-none dark:border dark:border-gray-800/60`}>
+        <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-20' : 'w-0'} bg-gradient-to-b from-brand-dark to-brand-blue dark:from-gray-950 dark:to-slate-950 md:rounded-2xl flex flex-col transition-all duration-300 overflow-hidden relative z-20 flex-shrink-0 md:shadow-lg md:shadow-brand-dark/20 dark:shadow-none dark:border dark:border-white/5`}>
           {/* Nuqta tarmog'i */}
           <div
             className="absolute inset-0 opacity-10 pointer-events-none"
@@ -387,9 +387,9 @@ const Layout = () => {
             }}
           />
           {/* Pastki chap gradient yog'du */}
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/5 dark:bg-brand-blue/10 rounded-full blur-3xl opacity-50 dark:opacity-20 -translate-x-1/2 translate-y-1/3 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/5 dark:bg-indigo-500/10 rounded-full blur-3xl opacity-50 dark:opacity-30 -translate-x-1/2 translate-y-1/3 pointer-events-none" />
 
-          <div className={`${sidebarOpen ? 'p-6' : 'py-4'} border-b border-white/10 dark:border-gray-800 flex items-center justify-between relative z-10`}>
+          <div className={`${sidebarOpen ? 'p-6' : 'py-4'} border-b border-white/10 dark:border-white/5 flex items-center justify-between relative z-10`}>
             {sidebarOpen && (
               <div className="block">
                 <div className="flex items-center gap-2">
@@ -405,7 +405,7 @@ const Layout = () => {
               <div className="w-full flex justify-center">
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="p-2.5 bg-white/10 hover:bg-white/20 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-xl transition-colors flex-shrink-0 relative z-10"
+                  className="p-2.5 bg-white/10 hover:bg-white/20 dark:bg-white/5 dark:hover:bg-white/10 rounded-xl transition-colors flex-shrink-0 relative z-10"
                   title="Menuni ochish"
                 >
                   <Icon icon="lucide:menu" className="w-5 h-5 text-white dark:text-gray-300" />
@@ -415,7 +415,7 @@ const Layout = () => {
             {sidebarOpen && (
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="p-2 bg-white/10 hover:bg-white/20 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0 relative z-10"
+                className="p-2 bg-white/10 hover:bg-white/20 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg transition-colors flex-shrink-0 relative z-10"
                 title="Menuni yopish"
               >
                 <Icon icon={isDesktop ? "lucide:chevron-left" : "lucide:x"} className="w-5 h-5 text-white dark:text-gray-300" />
@@ -445,7 +445,7 @@ const Layout = () => {
                           }}
                           className={`w-full flex items-center ${sidebarOpen ? 'gap-3 px-4' : 'justify-center px-0'} py-2.5 rounded-xl transition-colors ${isActive(item.path)
                             ? 'bg-white/15 dark:bg-indigo-500/10 text-white dark:text-indigo-400 font-medium shadow-sm dark:shadow-none border border-white/5 dark:border-transparent'
-                            : 'text-indigo-100 dark:text-gray-400 hover:bg-white/10 dark:hover:bg-gray-800 hover:text-white dark:hover:text-gray-200'
+                            : 'text-indigo-100 dark:text-gray-400 hover:bg-white/10 dark:hover:bg-white/5 hover:text-white dark:hover:text-gray-200'
                             }`}
                           title={!sidebarOpen ? item.label : ''}
                         >
@@ -462,7 +462,7 @@ const Layout = () => {
 
           {/* Online foydalanuvchilar */}
           {sidebarOpen && onlineUsers.length > 0 && (
-            <div className="px-4 pb-2 border-t border-white/10 dark:border-gray-800 pt-3 relative z-10">
+            <div className="px-4 pb-2 border-t border-white/10 dark:border-white/5 pt-3 relative z-10">
               <p className="text-xs font-semibold text-indigo-200 dark:text-gray-400 uppercase mb-2 flex items-center gap-1.5">
                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]" />
                 Online ({onlineUsers.length})
@@ -479,17 +479,17 @@ const Layout = () => {
             </div>
           )}
           {!sidebarOpen && onlineUsers.length > 0 && (
-            <div className="flex flex-col items-center gap-1 py-2 border-t border-white/10 dark:border-gray-800 relative z-10" title={`${onlineUsers.length} ta foydalanuvchi online`}>
+            <div className="flex flex-col items-center gap-1 py-2 border-t border-white/10 dark:border-white/5 relative z-10" title={`${onlineUsers.length} ta foydalanuvchi online`}>
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]" />
               <span className="text-[10px] text-indigo-200 dark:text-gray-400">{onlineUsers.length}</span>
             </div>
           )}
 
           {/* Logout Button */}
-          <div className="p-4 border-t border-white/10 dark:border-gray-800 relative z-10">
+          <div className="p-4 border-t border-white/10 dark:border-white/5 relative z-10">
             <button
               onClick={handleLogout}
-              className={`w-full flex items-center ${sidebarOpen ? 'gap-3 px-4' : 'justify-center px-0'} py-3 rounded-xl text-indigo-100 dark:text-gray-400 hover:bg-white/10 dark:hover:bg-gray-800 hover:text-white dark:hover:text-gray-200 transition-colors`}
+              className={`w-full flex items-center ${sidebarOpen ? 'gap-3 px-4' : 'justify-center px-0'} py-3 rounded-xl text-indigo-100 dark:text-gray-400 hover:bg-white/10 dark:hover:bg-white/5 hover:text-white dark:hover:text-gray-200 transition-colors`}
               title={!sidebarOpen ? 'Chiqish' : ''}
             >
               <Icon icon="lucide:log-out" className="w-5 h-5 flex-shrink-0" />
@@ -500,16 +500,16 @@ const Layout = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800 md:rounded-2xl md:shadow-sm md:border border-gray-200/60 dark:border-gray-700/60">
+      <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-950 md:rounded-2xl md:shadow-sm md:border border-gray-200/60 dark:border-white/5">
         {/* Main Content Area (Scrollable) */}
         <main className={`flex-1 ${!isDesktop ? 'overflow-y-auto' : (isInvoicesPage || isExamPage ? 'overflow-hidden flex flex-col' : 'overflow-y-auto')} flex flex-col`}>
           {/* Top Header */}
           {!isExamPage && (
-            <header className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-gray-700/50">
+            <header className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-white/5">
               {!isDesktop && (
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="p-2 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   <Icon icon="lucide:menu" className="w-5 h-5" />
                 </button>
@@ -518,7 +518,7 @@ const Layout = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={toggleTheme}
-                  className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
                   title={theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}
                 >
                   <Icon icon={theme === 'dark' ? "lucide:sun" : "lucide:moon"} className="w-5 h-5" />

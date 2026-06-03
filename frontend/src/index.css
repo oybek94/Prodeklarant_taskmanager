@@ -25,6 +25,14 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 html,
 body,
 #root {

@@ -296,7 +296,7 @@ const Layout = () => {
   const location = useLocation();
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
-    if (typeof window !== 'undefined') return window.innerWidth >= 768;
+    if (typeof window !== 'undefined') return window.innerWidth >= 1280;
     return true;
   });
 
@@ -306,12 +306,18 @@ const Layout = () => {
   });
 
   useEffect(() => {
+    let prevWidth = window.innerWidth;
     const handleResize = () => {
-      const desktop = window.innerWidth >= 768;
-      setIsDesktop(desktop);
-      setSidebarOpen(desktop);
+      const currentWidth = window.innerWidth;
+      setIsDesktop(currentWidth >= 768);
+      
+      if (prevWidth >= 1280 && currentWidth < 1280) {
+        setSidebarOpen(false);
+      } else if (prevWidth < 1280 && currentWidth >= 1280) {
+        setSidebarOpen(true);
+      }
+      prevWidth = currentWidth;
     };
-    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -420,7 +426,7 @@ const Layout = () => {
 
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-4 relative z-10 custom-scrollbar">
+          <nav className={`flex-1 overflow-y-auto ${sidebarOpen ? 'p-4 custom-scrollbar' : 'py-4 px-0 hide-scrollbar'} relative z-10`}>
             <div className="space-y-6">
               {Object.entries(groupedNavItems).map(([group, items]) => (
                 <div key={group}>
@@ -495,38 +501,41 @@ const Layout = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800 md:rounded-2xl md:shadow-sm md:border border-gray-200/60 dark:border-gray-700/60">
-        {/* Top Header */}
-        {!isExamPage && (
-          <header className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-gray-700/50">
-            {!isDesktop && (
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                <Icon icon="lucide:menu" className="w-5 h-5" />
-              </button>
-            )}
-            <div className="flex-1" />
-            <div className="flex items-center gap-2">
-              <button
-                onClick={toggleTheme}
-                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                title={theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}
-              >
-                <Icon icon={theme === 'dark' ? "lucide:sun" : "lucide:moon"} className="w-5 h-5" />
-              </button>
-
-              {/* 🔔 Bildirishnoma Bell */}
-              {user?.role !== 'SELLER' && (
-                <NotificationBell onProcessConfirmWithBXM={handleProcessConfirmWithBXM} />
+        {/* Main Content Area (Scrollable) */}
+        <main className={`flex-1 ${!isDesktop ? 'overflow-y-auto' : (isInvoicesPage || isExamPage ? 'overflow-hidden flex flex-col' : 'overflow-y-auto')} flex flex-col`}>
+          {/* Top Header */}
+          {!isExamPage && (
+            <header className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-gray-700/50">
+              {!isDesktop && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  <Icon icon="lucide:menu" className="w-5 h-5" />
+                </button>
               )}
-            </div>
-          </header>
-        )}
+              <div className="flex-1" />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  title={theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}
+                >
+                  <Icon icon={theme === 'dark' ? "lucide:sun" : "lucide:moon"} className="w-5 h-5" />
+                </button>
 
-        {/* Main Content Outlet */}
-        <main className={`flex-1 ${!isDesktop ? 'overflow-y-auto' : (isInvoicesPage || isExamPage ? 'overflow-hidden flex flex-col' : 'overflow-y-auto')} ${isExamPage ? 'p-0' : 'px-4 pt-4 pb-32 md:p-6'}`}>
-          <Outlet />
+                {/* 🔔 Bildirishnoma Bell */}
+                {user?.role !== 'SELLER' && (
+                  <NotificationBell onProcessConfirmWithBXM={handleProcessConfirmWithBXM} />
+                )}
+              </div>
+            </header>
+          )}
+
+          {/* Main Content Outlet */}
+          <div className={`flex-1 ${isInvoicesPage || isExamPage ? 'overflow-hidden flex flex-col' : ''} ${isExamPage ? 'p-0' : 'px-4 pt-4 pb-32 md:p-6'}`}>
+            <Outlet />
+          </div>
         </main>
       </div>
       <GlobalRankUpWatcher />

@@ -102,35 +102,20 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     
     if (search) {
       const q = (search as string).trim();
+      // additionalInfo JSONB ichidan qidiruv uchun raw SQL (ILIKE - case-insensitive)
+      const jsonMatchIds = await prisma.$queryRaw<{ id: number }[]>`
+        SELECT id FROM "Invoice"
+        WHERE "additionalInfo"::text ILIKE ${'%' + q + '%'}
+      `;
+      const matchedIds = jsonMatchIds.map((r) => r.id);
+
       where.OR = [
         { invoiceNumber: { contains: q, mode: 'insensitive' } },
         { contractNumber: { contains: q, mode: 'insensitive' } },
         { contract: { contractNumber: { contains: q, mode: 'insensitive' } } },
         { client: { name: { contains: q, mode: 'insensitive' } } },
-        {
-          additionalInfo: {
-            path: ['vehicleNumber'],
-            equals: q,
-          }
-        },
-        {
-          additionalInfo: {
-            path: ['vehicleNumber'],
-            equals: q.toUpperCase(),
-          }
-        },
-        {
-          additionalInfo: {
-            path: ['trailerNumber'],
-            equals: q,
-          }
-        },
-        {
-          additionalInfo: {
-            path: ['trailerNumber'],
-            equals: q.toUpperCase(),
-          }
-        }
+        { task: { title: { contains: q, mode: 'insensitive' } } },
+        ...(matchedIds.length > 0 ? [{ id: { in: matchedIds } }] : []),
       ];
     }
 

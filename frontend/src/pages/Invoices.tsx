@@ -162,10 +162,12 @@ const Invoices = () => {
 
   useEffect(() => {
     sessionStorage.setItem('invoices_searchQuery', searchQuery);
+    setCurrentPage(1);
   }, [searchQuery]);
 
   useEffect(() => {
     sessionStorage.setItem('invoices_filters', JSON.stringify(filters));
+    setCurrentPage(1);
   }, [filters]);
 
 
@@ -603,7 +605,23 @@ const Invoices = () => {
   };
 
   const totalPages = totalPagesServer;
-  const paginatedInvoices = invoices;
+  const paginatedInvoices = useMemo(() => {
+    if (!searchQuery.trim()) return invoices;
+    const q = searchQuery.trim().toLowerCase();
+    return invoices.filter((inv) => {
+      const addInfo = inv.additionalInfo as Record<string, unknown> | undefined;
+      const vehicleNumber = (addInfo?.vehicleNumber as string ?? '').toLowerCase();
+      const trailerNumber = (addInfo?.trailerNumber as string ?? '').toLowerCase();
+      return (
+        inv.invoiceNumber?.toLowerCase().includes(q) ||
+        inv.contractNumber?.toLowerCase().includes(q) ||
+        inv.client?.name?.toLowerCase().includes(q) ||
+        inv.task?.title?.toLowerCase().includes(q) ||
+        vehicleNumber.includes(q) ||
+        trailerNumber.includes(q)
+      );
+    });
+  }, [invoices, searchQuery]);
   const startItem = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const endItem = Math.min(currentPage * PAGE_SIZE, totalCount);
 

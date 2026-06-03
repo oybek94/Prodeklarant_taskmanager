@@ -660,7 +660,13 @@ const Dashboard = () => {
                     </h1>
                     <p className="text-sm sm:text-base font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
                       <Icon icon="lucide:calendar-clock" className="w-4 h-4 opacity-70" />
-                      {new Date().toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      {(() => {
+                        const now = new Date();
+                        const months = ['yanvar','fevral','mart','aprel','may','iyun','iyul','avgust','sentyabr','oktyabr','noyabr','dekabr'];
+                        const weekdays = ['Yakshanba','Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba'];
+                        const day = String(now.getDate()).padStart(2, '0');
+                        return `${day} ${months[now.getMonth()]}, ${weekdays[now.getDay()]}`;
+                      })()}
                     </p>
 
                     {/* Unrated Errors Alert for Admin */}

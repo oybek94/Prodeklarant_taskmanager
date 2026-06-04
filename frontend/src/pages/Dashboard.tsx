@@ -141,7 +141,7 @@ const Dashboard = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
-  const [rankingPeriod, setRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('yearly');
+  const [rankingPeriod, setRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
 
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
@@ -1325,21 +1325,21 @@ const Dashboard = () => {
                                       {(() => {
                                         const userMedals = allMedals.filter((m: any) => m.userId === w.userId);
                                         if (userMedals.length === 0) return null;
-                                        const tierScore: Record<string, number> = { 'YEARLY': 4, 'QUARTERLY': 3, 'MONTHLY': 2, 'WEEKLY': 1 };
-                                        const topMedal = userMedals.sort((a: any, b: any) => {
-                                          const aScore = tierScore[MEDAL_DETAILS[a.medalType as keyof typeof MEDAL_DETAILS]?.tier || 'WEEKLY'] || 0;
-                                          const bScore = tierScore[MEDAL_DETAILS[b.medalType as keyof typeof MEDAL_DETAILS]?.tier || 'WEEKLY'] || 0;
-                                          return bScore - aScore;
-                                        })[0];
-                                        const details = MEDAL_DETAILS[topMedal.medalType as keyof typeof MEDAL_DETAILS];
-                                        if (!details) return null;
                                         return (
-                                          <div className="group/medal relative cursor-help flex items-center justify-center -ml-1 hover:z-[100]">
-                                            <img src={details.image} alt={details.name} className="w-5 h-5 drop-shadow-md rounded-full" />
-                                            <div className={`absolute ${index < 3 ? 'top-full mt-2' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2 w-max max-w-[200px] p-2 bg-gray-900/95 text-white text-[10px] rounded-lg opacity-0 invisible group-hover/medal:opacity-100 group-hover/medal:visible transition-all z-[100] pointer-events-none whitespace-normal text-center border border-gray-700 shadow-xl`}>
-                                              <div className={`font-bold ${details.color}`}>{details.name}</div>
-                                              <div className="text-gray-400 mt-0.5">{TIER_LABELS[details.tier]}</div>
-                                            </div>
+                                          <div className="flex flex-wrap gap-1 ml-1 items-center">
+                                            {userMedals.map((medal: any, medalIndex: number) => {
+                                              const details = MEDAL_DETAILS[medal.medalType as keyof typeof MEDAL_DETAILS];
+                                              if (!details) return null;
+                                              return (
+                                                <div key={medal.id || medalIndex} className="group/medal relative cursor-help flex items-center justify-center hover:z-[100]">
+                                                  <img src={details.image} alt={details.name} className="w-5 h-5 drop-shadow-md rounded-full" />
+                                                  <div className={`absolute ${index < 3 ? 'top-full mt-2' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2 w-max max-w-[200px] p-2 bg-gray-900/95 text-white text-[10px] rounded-lg opacity-0 invisible group-hover/medal:opacity-100 group-hover/medal:visible transition-all z-[100] pointer-events-none whitespace-normal text-center border border-gray-700 shadow-xl`}>
+                                                    <div className={`font-bold ${details.color}`}>{details.name}</div>
+                                                    <div className="text-gray-400 mt-0.5">{TIER_LABELS[details.tier]}</div>
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
                                           </div>
                                         );
                                       })()}

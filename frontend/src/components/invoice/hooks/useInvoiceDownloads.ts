@@ -294,9 +294,22 @@ export function useInvoiceDownloads({
     setFssFilePrefix(prefix);
     setFssAutoDownload(true);
 
-    // Oltiariq filiali uchun — formani o'zgartirmasdan to'g'ridan-to'g'ri yuklab olish.
-    // setForm() chaqirilmaydi, shuning uchun form "dirty" bo'lmaydi va
-    // boshqa shablonlarni yuklab olish imkoniyati saqlanib qoladi.
+    // Tuman tanlangan bo'lsa, o'sha tumanni yuklab olish
+    const hasSavedRegion =
+      form.fssRegionName &&
+      (form.fssRegionInternalCode || form.fssRegionExternalCode);
+    if (hasSavedRegion) {
+      await generateFssExcel({
+        internalCode: form.fssRegionInternalCode,
+        name: form.fssRegionName,
+        externalCode: form.fssRegionExternalCode,
+        filePrefix: prefix,
+        templateType: prefix === 'Ichki' ? 'ichki' : 'tashqi',
+      });
+      return;
+    }
+
+    // Agar tuman tanlanmagan bo'lsa va Oltiariq filiali bo'lsa, Oltiariq tumani avtomatik yuklanadi
     const branchName = task?.branch?.name?.toLowerCase() || '';
     const isOltiariqBranch = branchName.includes('oltiariq');
     if (isOltiariqBranch) {
@@ -313,21 +326,6 @@ export function useInvoiceDownloads({
         return;
       }
     }
-
-    // Boshqa filiallar uchun — saqlangan tuman ma'lumotlari bilan yuklab olish
-    const hasSavedRegion =
-      form.fssRegionName &&
-      (form.fssRegionInternalCode || form.fssRegionExternalCode);
-    if (hasSavedRegion) {
-      await generateFssExcel({
-        internalCode: form.fssRegionInternalCode,
-        name: form.fssRegionName,
-        externalCode: form.fssRegionExternalCode,
-        filePrefix: prefix,
-        templateType: prefix === 'Ichki' ? 'ichki' : 'tashqi',
-      });
-      return;
-    }
     setShowFssRegionModal(true);
     if (!regionCodes.length) {
       await loadRegionCodes();
@@ -336,13 +334,6 @@ export function useInvoiceDownloads({
 
   const openFssRegionSelector = useCallback(async () => {
     setFssAutoDownload(false);
-    const branchName = task?.branch?.name?.toLowerCase() || '';
-    const isOltiariqBranch = branchName.includes('oltiariq');
-    if (isOltiariqBranch) {
-      // Oltiariq uchun tuman avtomatik tanlanadi, formaga saqlamasdan
-      // Tuman tugmasi Oltiariq uchun yashirin, shuning uchun bu faqat himoya
-      return;
-    }
     setShowFssRegionModal(true);
     if (!regionCodes.length) {
       await loadRegionCodes();

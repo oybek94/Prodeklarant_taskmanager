@@ -44,7 +44,7 @@ function tr(translated: Record<string, string>, key: string, fallback: string): 
 export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   const t = data.translatedRequisites;
   const doc = new PDFDocument({
-    margin: 30,
+    margins: { top: 60, bottom: 30, left: 30, right: 30 },
     size: 'A4',
     autoFirstPage: true,
     info: {
@@ -108,7 +108,7 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   const rightColumnX = pageWidth - margin;
 
   // Header
-  let headerY = 30;
+  let headerY = 60;
   doc.fontSize(9);
   setFont('Helvetica');
 
@@ -148,7 +148,7 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   doc.fontSize(32);
   setFont('Helvetica-Bold');
   const invoiceTitleWidth = doc.widthOfString('INVOICE');
-  doc.text('INVOICE', rightColumnX - invoiceTitleWidth, 30);
+  doc.text('INVOICE', rightColumnX - invoiceTitleWidth, 60);
 
   // Separator
   const separatorY = headerY + 20;

@@ -155,8 +155,8 @@ export async function generateCommodityEkExcel(
     additionalInfo.producerRegionCode ??
     additionalInfo.regionCode
   );
-  /** I ustuni (4-qatordan boshlab): Oltiariq filialida 1730203, qolgan filiallarda tanlangan tuman kodi */
-  const valueForIColumn = isOltiariq ? '1730203' : tanlanganTumanKodi;
+  /** I ustuni (4-qatordan boshlab): Oltiariq filialida tanlanmagan bo'lsa 1730203, qolgan holatlarda tanlangan tuman kodi */
+  const valueForIColumn = tanlanganTumanKodi ? tanlanganTumanKodi : (isOltiariq ? '1730203' : '');
 
   const setFixedCell = (sheetToUse: ExcelJS.Worksheet, cell: string, value: string, asNumber?: boolean) => {
     const c = sheetToUse.getCell(cell);

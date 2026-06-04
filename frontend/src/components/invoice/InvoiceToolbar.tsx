@@ -156,9 +156,6 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = ({
         {/* Tuman tugmasi */}
         {invoysStageReady && viewTab === 'invoice' && (
           (() => {
-            const branchName = task?.branch?.name?.toLowerCase() || '';
-            const isOltiariqBranch = branchName.includes('oltiariq');
-            if (isOltiariqBranch) return null;
             return (
               <button
                 type="button"

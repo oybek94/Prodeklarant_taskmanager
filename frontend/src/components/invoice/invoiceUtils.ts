@@ -21,7 +21,7 @@ export const formatNumber = (value?: number): string =>
   value !== undefined && value !== null && !Number.isNaN(value)
     ? value.toLocaleString('ru-RU', {
         minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
-        maximumFractionDigits: 2,
+        maximumFractionDigits: 10,
       })
     : '';
 

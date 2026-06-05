@@ -1,7 +1,7 @@
 import React, { type RefObject, useMemo, useState } from 'react';
 import type { InvoiceItem, ViewTab, VisibleColumns, ColumnLabels, ColumnLabelKey, InvoiceFormData } from './types';
 import { UNIT_OPTIONS, DEFAULT_COLUMN_LABELS } from './types';
-import { formatNumber, formatNumberFixed, numberToWordsRu, getCurrencySymbol } from './invoiceUtils';
+import { formatNumber, formatNumberFixed, formatUnitPrice, numberToWordsRu, getCurrencySymbol } from './invoiceUtils';
 import { InvoiceWeightSummary } from './InvoiceWeightSummary';
 import { ExportPriceCalculator } from './ExportPriceCalculator';
 import { useTableKeyboardNav } from './hooks/useTableKeyboardNav';
@@ -571,7 +571,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                           case 'net':
                             return <td key={key} className="px-2 py-4 text-right">{formatNumber(item.netWeight || 0)}</td>;
                           case 'unitPrice':
-                            return <td key={key} className="px-2 py-4 text-right">{formatNumber(item.unitPrice)}</td>;
+                            return <td key={key} className="px-2 py-4 text-right">{formatUnitPrice(item.unitPrice)}</td>;
                           case 'total':
                             return <td key={key} className="px-2 py-4 text-right font-semibold">{item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice)}</td>;
                           default:

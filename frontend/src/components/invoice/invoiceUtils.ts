@@ -21,7 +21,16 @@ export const formatNumber = (value?: number): string =>
   value !== undefined && value !== null && !Number.isNaN(value)
     ? value.toLocaleString('ru-RU', {
         minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
-        maximumFractionDigits: 10,
+        maximumFractionDigits: 2,
+      })
+    : '';
+
+/** Raqamni rus formatida chiqarish (narx uchun, 0-3 kasr) */
+export const formatUnitPrice = (value?: number): string =>
+  value !== undefined && value !== null && !Number.isNaN(value)
+    ? value.toLocaleString('ru-RU', {
+        minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+        maximumFractionDigits: 3,
       })
     : '';
 

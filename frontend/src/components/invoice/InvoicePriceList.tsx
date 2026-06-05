@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Contract, InvoiceItem, InvoiceFormData } from './types';
 import { resolveUploadUrl } from './types';
-import { formatDate, formatNumberFixed } from './invoiceUtils';
+import { formatDate, formatNumberFixed, formatUnitPrice } from './invoiceUtils';
 
 interface InvoicePriceListProps {
   contract: Contract | null;
@@ -140,7 +140,7 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = ({
                     <td className="px-3 py-4 text-center">{idx + 1}</td>
                     <td className="px-3 py-4">{item.name}</td>
                     <td className="px-3 py-4 text-center">{item.unit || '---'}</td>
-                    <td className="px-3 py-4 text-right font-semibold">{formatNumberFixed(item.unitPrice)}</td>
+                    <td className="px-3 py-4 text-right font-semibold">{formatUnitPrice(item.unitPrice)}</td>
                     <td className="px-3 py-4 text-center">{deliveryTerms || '---'}</td>
                   </tr>
                 ))

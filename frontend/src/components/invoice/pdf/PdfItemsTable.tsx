@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { styles } from './PdfStyles';
-import { formatNumber, formatNumberFixed, numberToWordsRu, getCurrencySymbol } from '../invoiceUtils';
+import { formatNumber, formatNumberFixed, formatUnitPrice, numberToWordsRu, getCurrencySymbol } from '../invoiceUtils';
 
 interface PdfItemsTableProps {
   items: any[];
@@ -25,7 +25,7 @@ const getCellText = (key: string, item: any): string => {
     case 'packagesCount': return item.packagesCount != null && item.packagesCount !== 0 ? formatNumber(item.packagesCount) : '';
     case 'gross': return formatNumber(item.grossWeight || 0);
     case 'net': return formatNumber(item.netWeight || 0);
-    case 'unitPrice': return formatNumber(item.unitPrice);
+    case 'unitPrice': return formatUnitPrice(item.unitPrice);
     case 'total': return item.totalPrice === 0 ? '' : formatNumberFixed(item.totalPrice);
     default:
       if (key.startsWith('custom_')) return item.customFields?.[key] || '';

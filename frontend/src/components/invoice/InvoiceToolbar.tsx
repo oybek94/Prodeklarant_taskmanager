@@ -33,6 +33,7 @@ interface InvoiceToolbarProps {
   generatePdfEn: () => void;
   openFssRegionSelector: () => void;
   openFssRegionPicker: (type: FssFilePrefix) => void;
+  onOpenTaskModal: () => void;
 }
 
 export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = ({
@@ -64,12 +65,23 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = ({
   generatePdfEn,
   openFssRegionSelector,
   openFssRegionPicker,
+  onOpenTaskModal,
 }) => {
   return (
     <div className="mb-6 flex items-center justify-between">
       <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Invoice</h1>
 
       <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onOpenTaskModal}
+          disabled={!taskId}
+          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          title="Task jarayonlarini ko'rish va o'zgartirish"
+        >
+          <Icon icon="lucide:layers" className="w-4 h-4" />
+          Jarayonlar
+        </button>
         {!invoysStageReady && (
           <button
             type="button"

@@ -42,6 +42,7 @@ import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
 
 import { pdf } from '@react-pdf/renderer';
 import { InvoicePDFDocument } from '../components/invoice/pdf/InvoicePDFDocument';
+import Tasks from './Tasks';
 
 import type {
   InvoiceItem,
@@ -104,6 +105,7 @@ const Invoice = () => {
 
   const [saving, setSaving] = useState(false);
   const [markingReady, setMarkingReady] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
 
   const [task, setTask] = useState<Task | null>(null);
 
@@ -576,6 +578,7 @@ const Invoice = () => {
           generatePdfEn={generatePdfEn}
           openFssRegionSelector={openFssRegionSelector}
           openFssRegionPicker={openFssRegionPicker}
+          onOpenTaskModal={() => setShowTaskModal(true)}
         />
 
         {/* Invoice form + Requirements note side panel */}
@@ -820,6 +823,9 @@ const Invoice = () => {
         newFieldLabel={newFieldLabel}
         setNewFieldLabel={setNewFieldLabel}
       />
+      {showTaskModal && taskId && (
+        <Tasks isModalMode={true} modalTaskId={Number(taskId)} onCloseModal={() => setShowTaskModal(false)} />
+      )}
     </div>
 
   );

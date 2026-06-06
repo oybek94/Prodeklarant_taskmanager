@@ -106,6 +106,11 @@ const Invoice = () => {
   const [saving, setSaving] = useState(false);
   const [markingReady, setMarkingReady] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskModalMounted, setTaskModalMounted] = useState(false);
+
+  useEffect(() => {
+    if (showTaskModal && !taskModalMounted) setTaskModalMounted(true);
+  }, [showTaskModal]);
 
   const [task, setTask] = useState<Task | null>(null);
 
@@ -823,8 +828,10 @@ const Invoice = () => {
         newFieldLabel={newFieldLabel}
         setNewFieldLabel={setNewFieldLabel}
       />
-      {showTaskModal && taskId && (
-        <Tasks isModalMode={true} modalTaskId={Number(taskId)} onCloseModal={() => setShowTaskModal(false)} />
+      {taskModalMounted && taskId && (
+        <div style={{ display: showTaskModal ? undefined : 'none' }}>
+          <Tasks isModalMode={true} modalTaskId={Number(taskId)} onCloseModal={() => setShowTaskModal(false)} />
+        </div>
       )}
     </div>
 

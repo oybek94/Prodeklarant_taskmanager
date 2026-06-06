@@ -419,6 +419,16 @@ const Dashboard = () => {
   };
   const formatUzs = (value: number) => value.toLocaleString('uz-UZ');
 
+  const medalsByUserId = useMemo(() => {
+    const map = new Map<number, UserMedal[]>();
+    for (const medal of allMedals) {
+      const existing = map.get(medal.userId);
+      if (existing) existing.push(medal);
+      else map.set(medal.userId, [medal]);
+    }
+    return map;
+  }, [allMedals]);
+
   const chartDataWithLabels = useMemo(() => {
     if (!chartData?.tasksCompleted || !chartData?.dateRange) {
       return { labels: [], current: [], previous: [] };
@@ -1323,7 +1333,7 @@ const Dashboard = () => {
                                       <span className="font-bold text-[14px] text-white leading-none pr-1">{w.name}</span>
                                       <span className="text-[9px] uppercase font-black tracking-widest text-white/90 bg-black/40 px-1.5 py-0.5 rounded border border-white/10">{rank.short}</span>
                                       {(() => {
-                                        const userMedals = allMedals.filter((m: any) => m.userId === w.userId);
+                                        const userMedals = medalsByUserId.get(w.userId) ?? [];
                                         if (userMedals.length === 0) return null;
                                         return (
                                           <div className="flex flex-wrap gap-1 ml-1 items-center">

@@ -1142,8 +1142,8 @@ const Invoices = () => {
           })}
         </div>
       ) : (
-        <div className="flex-1 flex flex-col min-h-0 bg-white/70 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 dark:border-gray-700/50 overflow-visible ring-1 ring-black/5 dark:ring-white/5">
-          <div className="flex-1 overflow-visible sm:overflow-auto bg-transparent">
+        <div className="flex flex-col sm:flex-1 sm:min-h-0 bg-white/70 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 dark:border-gray-700/50 overflow-visible ring-1 ring-black/5 dark:ring-white/5">
+          <div className="sm:flex-1 overflow-x-auto overflow-y-visible sm:overflow-auto bg-transparent">
             <table className="min-w-full">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-100/80 dark:border-gray-700/80">
@@ -1329,38 +1329,38 @@ const Invoices = () => {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
 
-          {/* Pagination */}
-          {(totalPagesServer > 1 || totalCount > PAGE_SIZE) && (
-            <div className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100/60 bg-white/50 backdrop-blur-sm">
-              <p className="text-sm text-gray-600">
-                {startItem}-{endItem} / {totalCount} invoice
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage <= 1}
-                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  title="Oldingi sahifa"
-                >
-                  <Icon icon="lucide:chevron-left" className="w-5 h-5" />
-                </button>
-                <div className="px-3 py-1 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 shadow-sm">
-                  {currentPage} / {totalPagesServer}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPagesServer, p + 1))}
-                  disabled={currentPage >= totalPagesServer}
-                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  title="Keyingi sahifa"
-                >
-                  <Icon icon="lucide:chevron-right" className="w-5 h-5" />
-                </button>
-              </div>
+      {/* Pagination — mobil va desktop uchun umumiy */}
+      {(totalPagesServer > 1 || totalCount > PAGE_SIZE) && invoices.length > 0 && (
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 mt-2 border border-gray-100/60 dark:border-gray-700/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-sm">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {startItem}-{endItem} / {totalCount} invoice
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Oldingi sahifa"
+            >
+              <Icon icon="lucide:chevron-left" className="w-5 h-5" />
+            </button>
+            <div className="px-3 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-200 shadow-sm">
+              {currentPage} / {totalPagesServer}
             </div>
-          )}
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPagesServer, p + 1))}
+              disabled={currentPage >= totalPagesServer}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Keyingi sahifa"
+            >
+              <Icon icon="lucide:chevron-right" className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       )}
 

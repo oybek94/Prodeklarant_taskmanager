@@ -82,6 +82,28 @@ export const useFileHelpers = () => {
    * @param filename - Fayl nomi (masalan: "sticker-123.png")
    */
   const downloadBlob = (blob: Blob, filename: string): void => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isPdf = filename.toLowerCase().endsWith('.pdf') || blob.type === 'application/pdf';
+
+    if (isIOS && isPdf) {
+      // Web Share API with files — sends actual file, not a blob URL.
+      const pdfBlob = blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' });
+      const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+      if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+        navigator.share({ files: [file], title: filename }).catch(() => {
+          const url = window.URL.createObjectURL(pdfBlob);
+          window.open(url, '_blank');
+          setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+        });
+        return;
+      }
+      // Fallback: open in new tab (older iOS)
+      const url = window.URL.createObjectURL(pdfBlob);
+      window.open(url, '_blank');
+      setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+      return;
+    }
+
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

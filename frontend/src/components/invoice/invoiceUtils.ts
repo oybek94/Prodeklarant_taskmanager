@@ -295,6 +295,28 @@ export const downloadDocumentResponse = async (
     const message = await extractBlobErrorMessage(response.data, fallbackError);
     throw new Error(message);
   }
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isPdf = fileName.toLowerCase().endsWith('.pdf') || response.data.type === 'application/pdf';
+
+  if (isIOS && isPdf) {
+    const pdfBlob = response.data.type === 'application/pdf'
+      ? response.data
+      : new Blob([response.data], { type: 'application/pdf' });
+    const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+    if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+      navigator.share({ files: [file], title: fileName }).catch(() => {
+        const url = window.URL.createObjectURL(pdfBlob);
+        window.open(url, '_blank');
+        setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+      });
+      return;
+    }
+    const url = window.URL.createObjectURL(pdfBlob);
+    window.open(url, '_blank');
+    setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+    return;
+  }
+
   const url = window.URL.createObjectURL(response.data);
   const link = document.createElement('a');
   link.href = url;

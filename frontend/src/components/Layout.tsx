@@ -296,7 +296,7 @@ const Layout = () => {
   const location = useLocation();
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
-    if (typeof window !== 'undefined') return window.innerWidth >= 1280;
+    if (typeof window !== 'undefined') return window.innerWidth > 1440;
     return true;
   });
 
@@ -311,9 +311,9 @@ const Layout = () => {
       const currentWidth = window.innerWidth;
       setIsDesktop(currentWidth >= 768);
       
-      if (prevWidth >= 1280 && currentWidth < 1280) {
+      if (prevWidth > 1440 && currentWidth <= 1440) {
         setSidebarOpen(false);
-      } else if (prevWidth < 1280 && currentWidth >= 1280) {
+      } else if (prevWidth <= 1440 && currentWidth > 1440) {
         setSidebarOpen(true);
       }
       prevWidth = currentWidth;
@@ -533,7 +533,7 @@ const Layout = () => {
           )}
 
           {/* Main Content Outlet */}
-          <div className={`flex-1 ${isInvoicesPage || isExamPage ? 'overflow-hidden flex flex-col' : ''} ${isExamPage ? 'p-0' : 'px-4 pt-4 pb-32 md:p-6'}`}>
+          <div className={`flex-1 ${isInvoicesPage || isExamPage ? 'md:overflow-hidden md:flex md:flex-col' : ''} ${isExamPage ? 'p-0' : 'px-4 pt-4 pb-32 md:p-6'}`}>
             <Outlet />
           </div>
         </main>

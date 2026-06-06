@@ -57,13 +57,13 @@ const SendEmailModal: React.FC<SendEmailModalProps> = ({
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       >
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-          Send Documents by Email
+          Hujjatlarni elektron pochta orqali yuborish
         </h3>
         <form ref={formRef} onSubmit={onSubmit} onKeyDown={handleKeyDown} className="space-y-4">
           {/* Subject */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Subject <span className="text-red-500">*</span>
+              Mavzu <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -71,26 +71,26 @@ const SendEmailModal: React.FC<SendEmailModalProps> = ({
               onChange={(e) => setSendEmailForm((f) => ({ ...f, subject: e.target.value }))}
               required
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-              placeholder="Email subject"
+              placeholder="Email mavzusi"
             />
           </div>
           {/* Body */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Message (optional)
+              Xabar (ixtiyoriy)
             </label>
             <textarea
               value={sendEmailForm.body}
               onChange={(e) => setSendEmailForm((f) => ({ ...f, body: e.target.value }))}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none"
-              placeholder="Message body"
+              placeholder="Xabar matni"
             />
           </div>
           {/* Recipients */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Recipients <span className="text-red-500">*</span>
+              Qabul qiluvchilar <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -104,7 +104,7 @@ const SendEmailModal: React.FC<SendEmailModalProps> = ({
           {/* CC */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              CC (optional)
+              Nusxa (CC) (ixtiyoriy)
             </label>
             <input
               type="text"
@@ -142,7 +142,7 @@ const SendEmailModal: React.FC<SendEmailModalProps> = ({
               disabled={sendingEmail}
               className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sendingEmail ? 'Sending...' : 'Send (Ctrl+Enter)'}
+              {sendingEmail ? 'Yuborilmoqda...' : 'Yuborish (Ctrl+Enter)'}
             </button>
             <button
               type="button"
@@ -150,7 +150,7 @@ const SendEmailModal: React.FC<SendEmailModalProps> = ({
               disabled={sendingEmail}
               className="flex-1 px-4 py-2 bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-700 transition-colors font-medium disabled:opacity-50"
             >
-              Cancel
+              Bekor qilish
             </button>
           </div>
         </form>

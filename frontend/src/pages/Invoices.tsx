@@ -1214,9 +1214,9 @@ const Invoices = () => {
                         <div className="flex items-center justify-center gap-2">
                           <span>{invoice.additionalInfo?.vehicleNumber || '-'}</span>
                           {invoice.additionalInfo?.vehicleNumber && (
-                            <CopyIconButton 
-                              textToCopy={invoice.additionalInfo.vehicleNumber} 
-                              toastMessage="Avtomobil raqami nusxalandi" 
+                            <CopyIconButton
+                              textToCopy={invoice.additionalInfo.vehicleNumber}
+                              toastMessage="Avtomobil raqami nusxalandi"
                             />
                           )}
                         </div>

@@ -336,7 +336,7 @@ const Layout = () => {
 
   const rawNavItems = [
     // Asosiy
-    ...(user?.role !== 'SELLER' ? [{ path: '/dashboard', label: 'Dashboard', icon: 'lucide:layout-dashboard', group: 'Asosiy' }] : []),
+    ...(user?.role !== 'SELLER' ? [{ path: '/dashboard', label: 'Asosiy panel', icon: 'lucide:layout-dashboard', group: 'Asosiy' }] : []),
     
     // Ish jarayoni
     ...((user?.role !== 'SELLER') ? [{ path: '/tasks', label: 'Vazifalar', icon: 'lucide:clipboard-list', group: 'Ish jarayoni' }] : []),

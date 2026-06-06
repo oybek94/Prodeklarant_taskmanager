@@ -75,10 +75,10 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
                 <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
-                Task name <span className="text-red-500">*</span>
+                Vazifa nomi <span className="text-red-500">*</span>
               </label>
               <input type="text" value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                required className={inputStyle} placeholder="Type here" />
+                required className={inputStyle} placeholder="Vazifa nomini kiriting" />
             </div>
 
             {/* 2. Mijoz */}
@@ -143,7 +143,7 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
                   </button>
                   <button type="button" onClick={() => setEditForm({ ...editForm, afterHoursPayer: 'COMPANY' })}
                     className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.afterHoursPayer === 'COMPANY' ? btnActive : btnInactive}`}>
-                    Men to'layman
+                    Kompaniya to'laydi
                   </button>
                 </div>
               </div>
@@ -153,21 +153,21 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
                 <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
-                Sho'pir tel raqami
+                Haydovchi tel raqami
               </label>
               <input type="tel" value={editForm.driverPhone} onChange={(e) => setEditForm({ ...editForm, driverPhone: e.target.value })}
-                className={inputStyle} placeholder="+998901234567" />
+                className={inputStyle} placeholder="+998" />
             </div>
 
             {/* 7. Comments */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
                 <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
-                Comments
+                Izohlar
               </label>
               <textarea value={editForm.comments} onChange={(e) => setEditForm({ ...editForm, comments: e.target.value })}
                 className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-600 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm resize-none bg-white dark:bg-slate-800 dark:text-white dark:placeholder-gray-500"
-                rows={4} placeholder="Type here" />
+                rows={4} placeholder="Vazifa haqida qo'shimcha ma'lumotlar" />
             </div>
           </div>
 

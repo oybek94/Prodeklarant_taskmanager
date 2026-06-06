@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface PreviewModalProps {
   previewDocument: { url: string; type: string; name: string } | null;
@@ -6,15 +7,17 @@ interface PreviewModalProps {
 }
 
 const PreviewModal: React.FC<PreviewModalProps> = ({ previewDocument, onClose }) => {
-  if (!previewDocument) return null;
-
   return (
-    <div
+    <AnimatePresence>
+      {previewDocument && (
+    <motion.div
       className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[120] backdrop-blur-sm"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
       onClick={onClose}
     >
-      <div
+      <motion.div
         className="bg-white rounded-lg shadow-2xl p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
@@ -69,8 +72,10 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ previewDocument, onClose })
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

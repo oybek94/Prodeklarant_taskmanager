@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { formatDateOnly } from '../utils/dateFormatting';
@@ -99,8 +100,6 @@ const Invoices = () => {
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<number | null>(null);
   const isMobile = useIsMobile();
-  const [deleteModalAnimated, setDeleteModalAnimated] = useState(false);
-  const [deleteModalClosing, setDeleteModalClosing] = useState(false);
   const [showTaskModalId, setShowTaskModalId] = useState<number | null>(null);
   const [showClientModalId, setShowClientModalId] = useState<number | null>(null);
   const [showContractModalId, setShowContractModalId] = useState<number | null>(null);
@@ -202,26 +201,6 @@ const Invoices = () => {
     navigate('/invoices', { replace: true, state: {} });
   }, [openErrorModalForTaskId, invoices]);
 
-  useEffect(() => {
-    if (showDeleteConfirmModal && invoiceToDelete && !deleteModalClosing) {
-      const id = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setDeleteModalAnimated(true));
-      });
-      return () => cancelAnimationFrame(id);
-    }
-    if (!showDeleteConfirmModal) setDeleteModalAnimated(false);
-  }, [showDeleteConfirmModal, invoiceToDelete, deleteModalClosing]);
-
-  useEffect(() => {
-    if (!deleteModalClosing) return;
-    const t = setTimeout(() => {
-      setShowDeleteConfirmModal(false);
-      setInvoiceToDelete(null);
-      setDeleteModalClosing(false);
-      setDeleteModalAnimated(false);
-    }, 220);
-    return () => clearTimeout(t);
-  }, [deleteModalClosing]);
 
   useEffect(() => {
     if (selectedClientId) {
@@ -1365,15 +1344,18 @@ const Invoices = () => {
       )}
 
       {/* Xatolik qo'shish modali — Status BOSHLANMAGAN emas yoki Sertifikat olib chiqish TAYYOR bo'lganda tahrirlashdan oldin majburiy */}
+      <AnimatePresence>
       {showErrorModal && invoiceForErrorModal && (
-        <div
+        <motion.div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setShowErrorModal(false);
           }}
         >
-          <div
+          <motion.div
             className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4"
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
@@ -1514,22 +1496,24 @@ const Invoices = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Invoice o'chirish tasdiq modali */}
+      <AnimatePresence>
       {showDeleteConfirmModal && invoiceToDelete && (
-        <div
-          className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 transition-opacity duration-200 ease-out ${deleteModalClosing || !deleteModalAnimated ? 'opacity-0' : 'opacity-100'
-            }`}
+        <motion.div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setDeleteModalClosing(true);
+            if (e.target === e.currentTarget) { setShowDeleteConfirmModal(false); setInvoiceToDelete(null); }
           }}
         >
-          <div
-            className={`bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 transition-all duration-200 ease-out ${deleteModalClosing ? 'opacity-0 scale-95' : deleteModalAnimated ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-              }`}
+          <motion.div
+            className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4"
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-semibold text-gray-800 mb-2">Invoysni o&apos;chirish</h2>
@@ -1539,7 +1523,7 @@ const Invoices = () => {
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
-                onClick={() => setDeleteModalClosing(true)}
+                onClick={() => { setShowDeleteConfirmModal(false); setInvoiceToDelete(null); }}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
               >
                 Bekor qilish
@@ -1552,7 +1536,8 @@ const Invoices = () => {
                   try {
                     await apiClient.delete(`/invoices/${invoiceToDelete.id}`);
                     loadInvoices();
-                    setDeleteModalClosing(true);
+                    setShowDeleteConfirmModal(false);
+                    setInvoiceToDelete(null);
                   } catch (err: unknown) {
                     const e = err as { response?: { data?: { error?: string } } };
                     alert(e.response?.data?.error || 'Invoice o\'chirishda xatolik');
@@ -1566,9 +1551,10 @@ const Invoices = () => {
                 {deletingInvoiceId === invoiceToDelete.id ? 'O\'chirilmoqda...' : 'Ha, o\'chirish'}
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {showTaskModalId && (
         <Tasks isModalMode={true} modalTaskId={showTaskModalId} onCloseModal={() => setShowTaskModalId(null)} />

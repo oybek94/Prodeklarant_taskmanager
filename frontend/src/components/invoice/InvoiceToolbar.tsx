@@ -68,10 +68,10 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = ({
   onOpenTaskModal,
 }) => {
   return (
-    <div className="mb-6 flex items-center justify-between">
+    <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Invoice</h1>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
         <button
           type="button"
           onClick={onOpenTaskModal}

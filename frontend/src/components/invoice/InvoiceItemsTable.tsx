@@ -393,11 +393,11 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
   };
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-4">
+    <div className="mb-8 w-full">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4 sm:gap-0">
         <div></div>
         {viewTab === 'invoice' && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={handleTakeScreenshot}

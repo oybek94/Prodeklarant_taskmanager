@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { motion } from 'framer-motion';
 import type { RegionCode, FssFilePrefix } from './types';
 
 interface FssRegionModalProps {
@@ -39,8 +40,8 @@ export function FssRegionModal({
   }, [regionCodes, regionSearch]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 max-w-xl w-full mx-4 max-h-[85vh] overflow-y-auto">
+    <motion.div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+      <motion.div className="bg-white rounded-lg shadow-xl p-6 max-w-xl w-full mx-4 max-h-[85vh] overflow-y-auto" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-800">Hudud kodini tanlang</h2>
           <button
@@ -113,7 +114,7 @@ export function FssRegionModal({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

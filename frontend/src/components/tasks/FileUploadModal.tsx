@@ -1,5 +1,6 @@
 import toast from 'react-hot-toast';
 import React, { useState, useRef, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import type { TaskStage } from './types';
 
@@ -37,8 +38,6 @@ export default function FileUploadModal({
 }: FileUploadModalProps) {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  if (!show || !stageName) return null;
 
   // Helpers
   const isCertStage = stageName === 'Sertifikat olib chiqish';
@@ -108,16 +107,18 @@ export default function FileUploadModal({
   const accentColor = isST ? 'orange' : isInvoice ? 'blue' : 'emerald';
 
   return (
-    <div
+    <AnimatePresence>
+      {show && stageName && (
+    <motion.div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] backdrop-blur-sm"
-      style={{ animation: 'fadeIn 0.2s ease-out' }}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
+      <motion.div
         className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full mx-4 overflow-hidden max-w-lg"
-        style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       >
         {/* Header */}
         <div className={`${headerBgClass} px-6 py-5 text-white`}>
@@ -297,7 +298,9 @@ export default function FileUploadModal({
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

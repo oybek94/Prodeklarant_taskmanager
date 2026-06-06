@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router-dom';
 
@@ -34,8 +35,6 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  if (!show) return null;
-
   const handleClose = () => {
     if (isMobile && editTaskId) {
       navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
@@ -50,18 +49,20 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
   const btnInactive = "bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600 hover:border-blue-500";
 
   return (
-    <div
+    <AnimatePresence>
+      {show && (
+    <motion.div
       className={isMobile && editTaskId
         ? 'fixed inset-0 bg-white dark:bg-slate-900 flex items-start justify-center z-[110]'
         : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm'}
-      style={isMobile && editTaskId ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
-      <div
+      <motion.div
         className={isMobile && editTaskId
           ? 'bg-white dark:bg-slate-900 w-full h-full px-6 py-6 overflow-y-auto'
           : 'bg-white dark:bg-slate-900 rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto'}
-        style={isMobile && editTaskId ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Taskni tahrirlash</h2>
@@ -181,8 +182,10 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import apiClient from '../../lib/api';
 import toast from 'react-hot-toast';
 import { formatMoney } from '../tasks/taskHelpers';
@@ -13,8 +14,6 @@ interface UnratedErrorsModalProps {
 export const UnratedErrorsModal: React.FC<UnratedErrorsModalProps> = ({ show, onClose, errors, onRateSuccess }) => {
   const [ratingValue, setRatingValue] = useState<number>(10);
   const [ratingErrorId, setRatingErrorId] = useState<number | null>(null);
-
-  if (!show) return null;
 
   const handleRateError = async (errorId: number, taskId: number) => {
     if (ratingValue < 0 || ratingValue > 10) {
@@ -32,8 +31,18 @@ export const UnratedErrorsModal: React.FC<UnratedErrorsModalProps> = ({ show, on
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-end z-[110] backdrop-blur-sm transition-all" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 w-full max-w-md h-full shadow-2xl overflow-y-auto flex flex-col" onClick={e => e.stopPropagation()}>
+    <AnimatePresence>
+      {show && (
+    <motion.div
+      className="fixed inset-0 bg-black bg-opacity-50 flex justify-end z-[110] backdrop-blur-sm"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="bg-white dark:bg-gray-800 w-full max-w-md h-full shadow-2xl overflow-y-auto flex flex-col"
+        initial={{ x: 300, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 300, opacity: 0 }} transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/80 sticky top-0 z-10">
           <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
             <i className="fas fa-gavel text-orange-500"></i> Baholanmagan xatolar
@@ -96,7 +105,9 @@ export const UnratedErrorsModal: React.FC<UnratedErrorsModalProps> = ({ show, on
             ))
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

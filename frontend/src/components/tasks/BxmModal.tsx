@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '../common/Button';
 
 interface BXMModalProps {
@@ -19,17 +20,17 @@ const BXMModal: React.FC<BXMModalProps> = ({
   formatBxmAmountInSum,
   onConfirm, onClose,
 }) => {
-  if (!show) return null;
-
   return (
-    <div
+    <AnimatePresence>
+      {show && (
+    <motion.div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[120] backdrop-blur-sm"
-      style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div
+      <motion.div
         className="bg-white dark:bg-slate-900 dark:text-gray-100 rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
-        style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       >
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
           Deklaratsiya To'lovi
@@ -77,8 +78,10 @@ const BXMModal: React.FC<BXMModalProps> = ({
             Bekor qilish
           </Button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

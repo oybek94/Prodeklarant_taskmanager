@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import apiClient from '../lib/api';
 import { markArticleAsRead } from '../utils/articleStorage';
 import { useAuth } from '../contexts/AuthContext';
@@ -579,13 +580,15 @@ export default function TrainingStageDetail() {
       </main>
 
       {/* Savollar Modali */}
-      {isQuestionsModalOpen && stageId && trainingId && (
-        <QuestionsModal
-          stageId={stageId}
-          trainingId={trainingId}
-          onClose={() => setIsQuestionsModalOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {isQuestionsModalOpen && stageId && trainingId && (
+          <QuestionsModal
+            stageId={stageId}
+            trainingId={trainingId}
+            onClose={() => setIsQuestionsModalOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

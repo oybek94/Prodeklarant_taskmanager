@@ -1,5 +1,6 @@
 import toast from 'react-hot-toast';
 import React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '../common/Button';
 import apiClient from '../../lib/api';
 import DateInput from '../DateInput';
@@ -42,8 +43,6 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
   show, selectedTask, workers, user, errorForm, setErrorForm,
   editingErrorId, setEditingErrorId, onClose, onSuccess, setSelectedTask,
 }) => {
-  if (!show || !selectedTask) return null;
-
   const [ratingErrorId, setRatingErrorId] = React.useState<number | null>(null);
   const [ratingValue, setRatingValue] = React.useState<number>(10);
 
@@ -103,11 +102,18 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
   };
 
   return (
-    <div
+    <AnimatePresence>
+      {show && selectedTask && (
+    <motion.div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
+      <motion.div
+        className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4"
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-800">Xatolar</h2>
           <button onClick={() => { setEditingErrorId(null); onClose(); }} className="text-gray-400 hover:text-gray-600 text-2xl font-bold">×</button>
@@ -258,8 +264,10 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

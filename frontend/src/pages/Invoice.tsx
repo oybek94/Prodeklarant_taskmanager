@@ -173,16 +173,6 @@ const Invoice = () => {
   const pdfMenuRef = useRef<HTMLDivElement | null>(null);
   const defaultVisibleColumns = DEFAULT_VISIBLE_COLUMNS;
 
-  // Mobil ekranlar uchun invoys masshtabini hisoblaymiz (faqat ortadagi oq blok uchun)
-  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-  // Invoysning original kengligi ~950px deb faraz qilamiz
-  const invoiceScale = windowWidth < 1024 ? Math.min(1, (windowWidth - 32) / 950) : 1;
-
   const duplicateInvoiceIdFromState = (location.state as { duplicateInvoiceId?: number })?.duplicateInvoiceId ?? null;
 
   // Ustunlar boshqaruvi (extracted hook)
@@ -618,10 +608,9 @@ const Invoice = () => {
 
           <div
             ref={invoiceRef}
-            className={`flex flex-col bg-white ${isPdfMode ? 'px-10 pt-8 pb-6' : 'rounded-lg shadow-lg px-14 pt-10 pb-8'}${isPdfMode ? ' pdf-mode' : ''}`}
+            className={`flex flex-col bg-white ${isPdfMode ? 'px-10 pt-8 pb-6 pdf-mode' : 'rounded-lg shadow-lg px-4 md:px-14 pt-6 md:pt-10 pb-6 md:pb-8'}`}
             style={{ 
-              minWidth: isPdfMode ? undefined : '950px',
-              ...(invoiceScale < 1 && !isPdfMode ? { zoom: invoiceScale } as React.CSSProperties : {})
+              minWidth: isPdfMode ? '950px' : undefined,
             }}
           >
 

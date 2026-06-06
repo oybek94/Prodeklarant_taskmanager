@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
@@ -176,8 +177,14 @@ export default function QuestionsModal({ stageId, trainingId, onClose }: Questio
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
+        >
+            <motion.div
+              className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            >
                 <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/80">
                     <h2 className="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-3">
                         <Icon icon="lucide:database" className="text-indigo-600" />
@@ -293,7 +300,7 @@ export default function QuestionsModal({ stageId, trainingId, onClose }: Questio
                         </div>
                     )}
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 }

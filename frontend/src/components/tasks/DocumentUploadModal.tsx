@@ -1,5 +1,6 @@
 import toast from 'react-hot-toast';
 import React, { useState, useCallback, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { getFileIcon, formatFileSize } from './taskHelpers';
 import type { TaskStage } from './types';
@@ -91,17 +92,19 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     addFiles(e.dataTransfer.files);
   }, [addFiles]);
 
-  if (!show) return null;
-
   return (
-    <div
+    <AnimatePresence>
+      {show && (
+    <motion.div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
-      <div
+      <motion.div
         className={`bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto relative transition-all duration-150 ${
           isDragOver ? 'ring-2 ring-indigo-500 ring-offset-2' : ''
         }`}
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
         onClick={(e) => e.stopPropagation()}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
@@ -249,8 +252,10 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             </div>
           )}
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

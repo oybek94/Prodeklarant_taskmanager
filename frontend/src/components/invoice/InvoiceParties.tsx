@@ -22,9 +22,9 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
   const contract = contracts.find(c => c.id.toString() === selectedContractId);
 
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] gap-x-4 relative">
+    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-y-6 md:gap-y-0 md:gap-x-4 relative">
 
-      <div className="pr-4">
+      <div className="md:pr-4">
 
         <h3 className="font-semibold text-gray-800 mb-2">
           {isSellerShipper ? 'Продавец/Грузоотправитель' : 'Sotuvchi'}
@@ -155,11 +155,11 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
       </div>
 
       {/* Vertikal ajratuvchi chiziq */}
-      <div className="w-[1.5px] bg-gray-400 relative">
+      <div className="hidden md:block w-[1.5px] bg-gray-400 relative">
         <div className="absolute top-[-24px] bottom-[-16px] left-0 w-full bg-gray-400"></div>
       </div>
 
-      <div className="pl-4">
+      <div className="md:pl-4">
 
         <h3 className="font-semibold text-gray-800 mb-2">
           {isBuyerConsignee ? 'Покупатель/Грузополучатель' : 'Покупатель'}

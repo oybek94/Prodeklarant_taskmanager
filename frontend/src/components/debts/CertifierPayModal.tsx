@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import apiClient from '../../lib/api';
 import DateInput from '../DateInput';
@@ -29,8 +30,6 @@ const CertifierPayModal = ({
         }
     }, [isOpen, remainingAmount]);
 
-    if (!isOpen || !type) return null;
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -60,8 +59,10 @@ const CertifierPayModal = ({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in-up">
+        <AnimatePresence>
+        {isOpen && type && (
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+            <motion.div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}>
                 <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-800">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                         {type} To'lov Qilish
@@ -119,8 +120,10 @@ const CertifierPayModal = ({
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
+        )}
+        </AnimatePresence>
     );
 };
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatePresence } from 'framer-motion';
 import type { RegionCode, ViewTab, Contract, CustomField, FssFilePrefix } from './types';
 import { AdditionalInfoModal } from './AdditionalInfoModal';
 import { FssRegionModal } from './FssRegionModal';
@@ -83,85 +84,91 @@ export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
 }) => {
   return (
     <>
-      {showAdditionalInfoModal && (
-        <AdditionalInfoModal
-          form={form}
-          setForm={setForm}
-          viewTab={viewTab}
-          canEditEffective={canEditEffective}
-          selectedContract={selectedContract}
-          contractDeliveryTerms={contractDeliveryTerms}
-          customFields={customFields}
-          setCustomFields={setCustomFields}
-          specCustomFields={specCustomFields}
-          setSpecCustomFields={setSpecCustomFields}
-          additionalInfoError={additionalInfoError}
-          setAdditionalInfoError={setAdditionalInfoError}
-          toggleAdditionalInfoVisible={toggleAdditionalInfoVisible}
-          isAdditionalInfoVisible={isAdditionalInfoVisible}
-          addDeliveryTermOption={addDeliveryTermOption}
-          additionalFieldsOrder={additionalFieldsOrder}
-          setAdditionalFieldsOrder={setAdditionalFieldsOrder}
-          onClose={() => setShowAdditionalInfoModal(false)}
-          onShowAddField={() => setShowAddFieldModal(true)}
-        />
-      )}
+      <AnimatePresence>
+        {showAdditionalInfoModal && (
+          <AdditionalInfoModal
+            form={form}
+            setForm={setForm}
+            viewTab={viewTab}
+            canEditEffective={canEditEffective}
+            selectedContract={selectedContract}
+            contractDeliveryTerms={contractDeliveryTerms}
+            customFields={customFields}
+            setCustomFields={setCustomFields}
+            specCustomFields={specCustomFields}
+            setSpecCustomFields={setSpecCustomFields}
+            additionalInfoError={additionalInfoError}
+            setAdditionalInfoError={setAdditionalInfoError}
+            toggleAdditionalInfoVisible={toggleAdditionalInfoVisible}
+            isAdditionalInfoVisible={isAdditionalInfoVisible}
+            addDeliveryTermOption={addDeliveryTermOption}
+            additionalFieldsOrder={additionalFieldsOrder}
+            setAdditionalFieldsOrder={setAdditionalFieldsOrder}
+            onClose={() => setShowAdditionalInfoModal(false)}
+            onShowAddField={() => setShowAddFieldModal(true)}
+          />
+        )}
+      </AnimatePresence>
 
-      {showFssRegionModal && (
-        <FssRegionModal
-          regionCodes={regionCodes}
-          regionCodesLoading={regionCodesLoading}
-          regionSearch={regionSearch}
-          setRegionSearch={setRegionSearch}
-          currentRegionName={form.fssRegionName}
-          currentRegionInternalCode={form.fssRegionInternalCode}
-          onSelect={async (region) => {
-            const nextForm = {
-              ...form,
-              fssRegionInternalCode: region.internalCode,
-              fssRegionName: region.name,
-              fssRegionExternalCode: region.externalCode,
-            };
-            setForm(nextForm);
-            setShowFssRegionModal(false);
-            setRegionSearch('');
-            await handleSubmit(undefined, nextForm, true);
-            if (fssAutoDownload) {
-              generateFssExcel({
-                internalCode: region.internalCode,
-                name: region.name,
-                externalCode: region.externalCode,
-                filePrefix: fssFilePrefix,
-                templateType: fssFilePrefix === 'Ichki' ? 'ichki' : 'tashqi',
-              });
-            }
-          }}
-          onClose={() => setShowFssRegionModal(false)}
-          onReload={loadRegionCodes}
-        />
-      )}
+      <AnimatePresence>
+        {showFssRegionModal && (
+          <FssRegionModal
+            regionCodes={regionCodes}
+            regionCodesLoading={regionCodesLoading}
+            regionSearch={regionSearch}
+            setRegionSearch={setRegionSearch}
+            currentRegionName={form.fssRegionName}
+            currentRegionInternalCode={form.fssRegionInternalCode}
+            onSelect={async (region) => {
+              const nextForm = {
+                ...form,
+                fssRegionInternalCode: region.internalCode,
+                fssRegionName: region.name,
+                fssRegionExternalCode: region.externalCode,
+              };
+              setForm(nextForm);
+              setShowFssRegionModal(false);
+              setRegionSearch('');
+              await handleSubmit(undefined, nextForm, true);
+              if (fssAutoDownload) {
+                generateFssExcel({
+                  internalCode: region.internalCode,
+                  name: region.name,
+                  externalCode: region.externalCode,
+                  filePrefix: fssFilePrefix,
+                  templateType: fssFilePrefix === 'Ichki' ? 'ichki' : 'tashqi',
+                });
+              }
+            }}
+            onClose={() => setShowFssRegionModal(false)}
+            onReload={loadRegionCodes}
+          />
+        )}
+      </AnimatePresence>
 
-      {showAddFieldModal && (
-        <AddFieldModal
-          newFieldLabel={newFieldLabel}
-          setNewFieldLabel={setNewFieldLabel}
-          onClose={() => setShowAddFieldModal(false)}
-          onAdd={(label) => {
-            const newField = {
-              id: Date.now().toString(),
-              label,
-              value: '',
-            };
-            if (viewTab === 'spec') {
-              setSpecCustomFields([...specCustomFields, newField]);
-            } else {
-              setCustomFields([...customFields, newField]);
-            }
-            setNewFieldLabel('');
-            setShowAddFieldModal(false);
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {showAddFieldModal && (
+          <AddFieldModal
+            newFieldLabel={newFieldLabel}
+            setNewFieldLabel={setNewFieldLabel}
+            onClose={() => setShowAddFieldModal(false)}
+            onAdd={(label) => {
+              const newField = {
+                id: Date.now().toString(),
+                label,
+                value: '',
+              };
+              if (viewTab === 'spec') {
+                setSpecCustomFields([...specCustomFields, newField]);
+              } else {
+                setCustomFields([...customFields, newField]);
+              }
+              setNewFieldLabel('');
+              setShowAddFieldModal(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 };

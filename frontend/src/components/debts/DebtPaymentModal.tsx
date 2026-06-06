@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import apiClient from '../../lib/api';
 import toast from 'react-hot-toast';
 import { Icon } from '@iconify/react';
@@ -55,11 +56,11 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
         }
     };
 
-    if (!isOpen || !debt) return null;
-
     return (
-        <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 w-full max-w-md overflow-hidden animate-fade-in-up">
+        <AnimatePresence>
+        {isOpen && debt && (
+        <motion.div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+            <motion.div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 w-full max-w-md overflow-hidden" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}>
                 <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         <Icon icon="lucide:check-circle-2" className="text-gray-500 w-5 h-5"/>
@@ -169,8 +170,10 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
+        )}
+        </AnimatePresence>
     );
 };
 

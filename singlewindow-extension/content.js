@@ -86,7 +86,7 @@ function fillSt1Form(data) {
 
     const fieldsMap = {
         "ИзготовительНаименование": data.EXPPN_NM,
-        "ИзготовительАдрес": data.EXPPN_ADDR,
+        "ИзготовительАдрес": data.EXPPN_ADDR_CLEAN || data.EXPPN_ADDR,
         "ГрузоотправительНаименование": data.EXPPN_NM,
         "ГрузоотправительАдрес": data.EXPPN_ADDR,
         "ГрузополучательНаименование": data.IMPPN_NM,

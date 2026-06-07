@@ -20,7 +20,7 @@ export const PdfParties: React.FC<PdfPartiesProps> = ({
   const titleSt = { fontSize: fz, fontWeight: 'bold' as const, marginBottom: sc(3) };
   const bankTitleSt = { ...nameSt, marginTop: sc(4), marginBottom: sc(1) };
 
-  const sellerTitle = isSellerShipper ? 'Продавец/Грузоотправитель' : 'Sotuvchi';
+  const sellerTitle = isSellerShipper ? 'Продавец/Грузоотправитель/Изготовитель' : 'Продавец';
   const buyerTitle = isBuyerConsignee ? 'Покупатель/Грузополучатель' : 'Покупатель';
 
   return (
@@ -71,6 +71,26 @@ export const PdfParties: React.FC<PdfPartiesProps> = ({
               </View>
             )}
           </>
+        )}
+
+        {!isSellerShipper && selectedContract?.shipperName && (
+          <View style={{ marginTop: sc(15) }}>
+            <Text style={titleSt}>Грузоотправитель/Изготовитель</Text>
+            <Text style={nameSt}>{selectedContract.shipperName}</Text>
+            {selectedContract.shipperAddress && <Text style={txt}>{selectedContract.shipperAddress}</Text>}
+            {selectedContract.shipperInn && <Text style={txt}>ИНН: {selectedContract.shipperInn}</Text>}
+            {selectedContract.shipperOgrn && <Text style={txt}>ОГРН: {selectedContract.shipperOgrn}</Text>}
+            {selectedContract.shipperDetails ? (
+              <Text style={[txt, { marginTop: sc(4) }]}>{selectedContract.shipperDetails}</Text>
+            ) : selectedContract.shipperBankName ? (
+              <View style={{ marginTop: sc(4) }}>
+                <Text style={bankTitleSt}>Платежные реквизиты:</Text>
+                <Text style={txt}>Банк: {selectedContract.shipperBankName}{selectedContract.shipperBankSwift ? `, SWIFT: ${selectedContract.shipperBankSwift}` : ''}</Text>
+                {selectedContract.shipperBankAddress && <Text style={txt}>Адрес: {selectedContract.shipperBankAddress}</Text>}
+                {selectedContract.shipperBankAccount && <Text style={txt}>Расчётный счёт: {selectedContract.shipperBankAccount}</Text>}
+              </View>
+            ) : null}
+          </View>
         )}
       </View>
 

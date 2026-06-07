@@ -152,7 +152,20 @@ const buildGoodsDescription = (items: InvoiceItem[]) => {
 
 const buildSender = (contract?: Contract | null) => {
   if (!contract) return '';
-  return [contract.sellerName, contract.sellerLegalAddress].filter(Boolean).join('\n');
+  const sellerName = contract.sellerName || '';
+  const sellerAddress = contract.sellerLegalAddress || '';
+  const shipperName = contract.shipperName || '';
+  const shipperAddress = contract.shipperAddress || '';
+
+  if (shipperName && sellerName && shipperName.trim() !== sellerName.trim()) {
+    return [
+      shipperName,
+      shipperAddress,
+      `п/п ${sellerName}`
+    ].filter(Boolean).join('\n');
+  }
+
+  return [sellerName, sellerAddress].filter(Boolean).join('\n');
 };
 
 const buildReceiver = (contract?: Contract | null) => {

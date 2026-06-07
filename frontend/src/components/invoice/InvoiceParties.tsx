@@ -27,7 +27,7 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
       <div className="md:pr-4">
 
         <h3 className="font-semibold text-gray-800 mb-2">
-          {isSellerShipper ? 'Продавец/Грузоотправитель' : 'Sotuvchi'}
+          {isSellerShipper ? 'Продавец/Грузоотправитель/Изготовитель' : 'Продавец'}
         </h3>
 
         <div className="text-[15px] text-black space-y-1">
@@ -151,6 +151,44 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
           )}
 
         </div>
+
+        {/* Грузоотправитель — sotuvchi va yukni jo'natuvchi boshqa bo'lsa */}
+        {!isSellerShipper && selectedContract?.shipperName && (
+          <div className="mt-6">
+            <h3 className="font-semibold text-gray-800 mb-2">Грузоотправитель/Изготовитель</h3>
+            <div className="text-[15px] text-black space-y-1">
+              <div className="flex items-start gap-2">
+                <div className="text-base font-bold text-black">{selectedContract.shipperName}</div>
+                {selectedContract.shipperName && (
+                  <CopyIconButton textToCopy={selectedContract.shipperName} toastMessage="Yuk jo'natuvchi nomi nusxalandi" className="mt-[-2px]" />
+                )}
+              </div>
+              {selectedContract.shipperAddress && (
+                <div className="flex items-start gap-2">
+                  <div className="whitespace-pre-line">{selectedContract.shipperAddress}</div>
+                  <CopyIconButton textToCopy={selectedContract.shipperAddress} toastMessage="Yuk jo'natuvchi manzili nusxalandi" className="mt-[-2px]" />
+                </div>
+              )}
+              {selectedContract.shipperInn && <div>ИНН: {selectedContract.shipperInn}</div>}
+              {selectedContract.shipperOgrn && <div>ОГРН: {selectedContract.shipperOgrn}</div>}
+              {selectedContract.shipperDetails ? (
+                <div className="mt-2">
+                  <div className="whitespace-pre-line text-black">{selectedContract.shipperDetails}</div>
+                </div>
+              ) : (selectedContract.shipperBankName && (
+                <div className="mt-2">
+                  <div className="text-base font-bold text-black">Платежные реквизиты:</div>
+                  <div>
+                    Банк: {selectedContract.shipperBankName}
+                    {selectedContract.shipperBankSwift && <span>, SWIFT: {selectedContract.shipperBankSwift}</span>}
+                  </div>
+                  {selectedContract.shipperBankAddress && <div>Адрес: {selectedContract.shipperBankAddress}</div>}
+                  {selectedContract.shipperBankAccount && <div>Расчётный счёт: {selectedContract.shipperBankAccount}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
 

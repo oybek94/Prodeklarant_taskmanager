@@ -24,9 +24,17 @@ export function useInvoiceExtension(
 
       const selectedContract = contracts.find(c => c.id.toString() === selectedContractId);
 
+      const isSellerShipper = !selectedContract?.shipperName || selectedContract.shipperName.trim() === selectedContract.sellerName.trim();
+      const exppnNm = isSellerShipper ? (selectedContract?.sellerName || '') : (selectedContract?.shipperName || selectedContract?.sellerName || '');
+      const exppnAddr = isSellerShipper 
+        ? (selectedContract?.sellerLegalAddress || '') 
+        : [selectedContract?.shipperAddress || '', `п/п ${selectedContract?.sellerName || ''}`].filter(Boolean).join('\n');
+      const exppnAddrClean = isSellerShipper ? (selectedContract?.sellerLegalAddress || '') : (selectedContract?.shipperAddress || '');
+
       const exportData = {
-        EXPPN_NM: selectedContract?.sellerName || '',
-        EXPPN_ADDR: selectedContract?.sellerLegalAddress || '',
+        EXPPN_NM: exppnNm,
+        EXPPN_ADDR: exppnAddr,
+        EXPPN_ADDR_CLEAN: exppnAddrClean,
         EXPPN_REGN_TP_NM: form.fssRegionName || '',
         IMPPN_NM: selectedContract?.buyerName || '',
         IMPPN_ADDR: selectedContract?.buyerAddress || '',

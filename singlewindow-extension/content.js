@@ -88,7 +88,7 @@ function fillSt1Form(data) {
         "ИзготовительНаименование": data.EXPPN_NM,
         "ИзготовительАдрес": data.EXPPN_ADDR_CLEAN || data.EXPPN_ADDR,
         "ГрузоотправительНаименование": data.EXPPN_NM,
-        "ГрузоотправительАдрес": data.EXPPN_ADDR,
+        "ГрузоотправительАдрес": data.ST1_GRZ_ADDR || data.EXPPN_ADDR,
         "ГрузополучательНаименование": data.IMPPN_NM,
         "ГрузополучательАдрес": data.IMPPN_ADDR,
         "ДатаОтгрузки": formattedDate,

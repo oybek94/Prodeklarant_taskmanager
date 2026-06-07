@@ -173,9 +173,12 @@ export function generateInvoicePDF(data: InvoiceData): any {
   const buyerColumnX = sellerColumnX + sellerColumnWidth + columnGap; // O'ng kolonka X pozitsiyasi
   const buyerColumnWidth = availableWidth / 2; // O'ng kolonka kengligi (yarim)
   
+  const isSellerShipper = !data.contract?.shipperName || data.contract.shipperName.trim() === (data.contract.sellerName || '').trim();
+  const sellerTitle = isSellerShipper ? 'Продавец/Грузоотправитель/Изготовитель' : 'Продавец';
+
   doc.fontSize(8); // Sarlavha font o'lchami
   setFont('Helvetica-Bold');
-  doc.text(ensureUTF8('Sotuvchi'), sellerColumnX, sellerStartY);
+  doc.text(ensureUTF8(sellerTitle), sellerColumnX, sellerStartY);
   doc.fontSize(8); // Ma'lumotlar font o'lchami
   setFont('Helvetica');
   
@@ -288,14 +291,75 @@ export function generateInvoicePDF(data: InvoiceData): any {
       }
     }
   }
+
+  if (!isSellerShipper && data.contract?.shipperName) {
+    currentY += 15;
+    setFont('Helvetica-Bold');
+    doc.text(ensureUTF8('Грузоотправитель/Изготовитель'), sellerColumnX, currentY);
+    setFont('Helvetica');
+    currentY += 9;
+
+    setFont('Helvetica-Bold');
+    const _txtShipper = ensureUTF8(data.contract.shipperName);
+    const _hShipper = doc.heightOfString(_txtShipper, { width: sellerColumnWidth });
+    doc.text(_txtShipper, sellerColumnX, currentY, { width: sellerColumnWidth });
+    setFont('Helvetica');
+    currentY += _hShipper + 3;
+
+    if (data.contract.shipperAddress) {
+      const _txt = ensureUTF8(data.contract.shipperAddress);
+      const _h = doc.heightOfString(_txt, { width: sellerColumnWidth });
+      doc.text(_txt, sellerColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h + 5;
+    }
+    if (data.contract.shipperInn) {
+      const _txt = ensureUTF8(`ИНН: ${data.contract.shipperInn}`);
+      const _h = doc.heightOfString(_txt, { width: sellerColumnWidth });
+      doc.text(_txt, sellerColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h + 3;
+    }
+    if (data.contract.shipperOgrn) {
+      const _txt = ensureUTF8(`ОГРН: ${data.contract.shipperOgrn}`);
+      const _h = doc.heightOfString(_txt, { width: sellerColumnWidth });
+      doc.text(_txt, sellerColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h + 3;
+    }
+    if (data.contract.shipperDetails) {
+      const _txt = ensureUTF8(data.contract.shipperDetails).replace(/\n{2,}/g, '\n').trim();
+      const _h = doc.heightOfString(_txt, { width: sellerColumnWidth });
+      doc.text(_txt, sellerColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _h + 5;
+    } else if (data.contract.shipperBankName) {
+      const bankText = ensureUTF8(`Банк: ${data.contract.shipperBankName}${data.contract.shipperBankSwift ? `, SWIFT: ${data.contract.shipperBankSwift}` : ''}`);
+      const _hBank = doc.heightOfString(bankText, { width: sellerColumnWidth });
+      doc.text(bankText, sellerColumnX, currentY, { width: sellerColumnWidth });
+      currentY += _hBank + 5;
+
+      if (data.contract.shipperBankAddress) {
+        const _txt = ensureUTF8(`Адрес: ${data.contract.shipperBankAddress}`);
+        const _h = doc.heightOfString(_txt, { width: sellerColumnWidth });
+        doc.text(_txt, sellerColumnX, currentY, { width: sellerColumnWidth });
+        currentY += _h + 3;
+      }
+      if (data.contract.shipperBankAccount) {
+        const _txt = ensureUTF8(`Расчётный счёт: ${data.contract.shipperBankAccount}`);
+        const _h = doc.heightOfString(_txt, { width: sellerColumnWidth });
+        doc.text(_txt, sellerColumnX, currentY, { width: sellerColumnWidth });
+        currentY += _h + 3;
+      }
+    }
+  }
   
   // O'ng kolonka: Sotib oluvchi
   const buyerStartY = sellerStartY;
   let buyerCurrentY = buyerStartY + 9; // Ko'proq padding
   
+  const isBuyerConsignee = !data.contract?.consigneeName || data.contract.consigneeName.trim() === (data.contract.buyerName || '').trim();
+  const buyerTitle = isBuyerConsignee ? 'Покупатель/Грузополучатель' : 'Покупатель';
+
   doc.fontSize(8); // Sarlavha font o'lchami
   setFont('Helvetica-Bold');
-  doc.text(ensureUTF8('Sotib oluvchi'), buyerColumnX, buyerStartY);
+  doc.text(ensureUTF8(buyerTitle), buyerColumnX, buyerStartY);
   doc.fontSize(8); // Ma'lumotlar font o'lchami
   setFont('Helvetica');
   
@@ -410,6 +474,64 @@ export function generateInvoicePDF(data: InvoiceData): any {
       if (data.client.correspondentBankSwift) {
         doc.text(ensureUTF8(`SWIFT: ${data.client.correspondentBankSwift}`), buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
         buyerCurrentY += 8;
+      }
+    }
+  }
+
+  if (!isBuyerConsignee && data.contract?.consigneeName) {
+    buyerCurrentY += 15;
+    setFont('Helvetica-Bold');
+    doc.text(ensureUTF8('Грузополучатель'), buyerColumnX, buyerCurrentY);
+    setFont('Helvetica');
+    buyerCurrentY += 9;
+
+    setFont('Helvetica-Bold');
+    const _txtConsignee = ensureUTF8(data.contract.consigneeName);
+    const _hConsignee = doc.heightOfString(_txtConsignee, { width: buyerColumnWidth });
+    doc.text(_txtConsignee, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+    setFont('Helvetica');
+    buyerCurrentY += _hConsignee + 3;
+
+    if (data.contract.consigneeAddress) {
+      const _txt = ensureUTF8(data.contract.consigneeAddress);
+      const _h = doc.heightOfString(_txt, { width: buyerColumnWidth });
+      doc.text(_txt, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h + 5;
+    }
+    if (data.contract.consigneeInn) {
+      const _txt = ensureUTF8(`ИНН: ${data.contract.consigneeInn}`);
+      const _h = doc.heightOfString(_txt, { width: buyerColumnWidth });
+      doc.text(_txt, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h + 3;
+    }
+    if (data.contract.consigneeOgrn) {
+      const _txt = ensureUTF8(`ОГРН: ${data.contract.consigneeOgrn}`);
+      const _h = doc.heightOfString(_txt, { width: buyerColumnWidth });
+      doc.text(_txt, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h + 3;
+    }
+    if (data.contract.consigneeDetails) {
+      const _txt = ensureUTF8(data.contract.consigneeDetails).replace(/\n{2,}/g, '\n').trim();
+      const _h = doc.heightOfString(_txt, { width: buyerColumnWidth });
+      doc.text(_txt, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _h + 5;
+    } else if (data.contract.consigneeBankName) {
+      const bankText = ensureUTF8(`Банк: ${data.contract.consigneeBankName}${data.contract.consigneeBankSwift ? `, SWIFT: ${data.contract.consigneeBankSwift}` : ''}`);
+      const _hBank = doc.heightOfString(bankText, { width: buyerColumnWidth });
+      doc.text(bankText, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+      buyerCurrentY += _hBank + 5;
+
+      if (data.contract.consigneeBankAddress) {
+        const _txt = ensureUTF8(`Адрес: ${data.contract.consigneeBankAddress}`);
+        const _h = doc.heightOfString(_txt, { width: buyerColumnWidth });
+        doc.text(_txt, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+        buyerCurrentY += _h + 3;
+      }
+      if (data.contract.consigneeBankAccount) {
+        const _txt = ensureUTF8(`Расчётный счёт: ${data.contract.consigneeBankAccount}`);
+        const _h = doc.heightOfString(_txt, { width: buyerColumnWidth });
+        doc.text(_txt, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
+        buyerCurrentY += _h + 3;
       }
     }
   }

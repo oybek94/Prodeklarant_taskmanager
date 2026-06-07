@@ -28,13 +28,17 @@ export function useInvoiceExtension(
       const exppnNm = isSellerShipper ? (selectedContract?.sellerName || '') : (selectedContract?.shipperName || selectedContract?.sellerName || '');
       const exppnAddr = isSellerShipper 
         ? (selectedContract?.sellerLegalAddress || '') 
-        : [selectedContract?.shipperAddress || '', `п/п ${selectedContract?.sellerName || ''}`].filter(Boolean).join('\n');
+        : [selectedContract?.shipperAddress || '', `п/п ${selectedContract?.sellerName || ''}`].filter(Boolean).join('. ');
       const exppnAddrClean = isSellerShipper ? (selectedContract?.sellerLegalAddress || '') : (selectedContract?.shipperAddress || '');
+      const st1GrzAddr = isSellerShipper
+        ? (selectedContract?.sellerLegalAddress || '')
+        : [selectedContract?.shipperAddress || '', `п/п ${selectedContract?.sellerName || ''} ${selectedContract?.sellerLegalAddress || ''}`.trim()].filter(Boolean).join('\n');
 
       const exportData = {
         EXPPN_NM: exppnNm,
         EXPPN_ADDR: exppnAddr,
         EXPPN_ADDR_CLEAN: exppnAddrClean,
+        ST1_GRZ_ADDR: st1GrzAddr,
         EXPPN_REGN_TP_NM: form.fssRegionName || '',
         IMPPN_NM: selectedContract?.buyerName || '',
         IMPPN_ADDR: selectedContract?.buyerAddress || '',

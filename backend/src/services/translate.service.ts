@@ -91,6 +91,9 @@ export function buildTranslatableTexts(data: {
     if (contract.consigneeName) texts.consigneeName = contract.consigneeName;
     if (contract.consigneeAddress) texts.consigneeAddress = contract.consigneeAddress;
     if (contract.consigneeDetails) texts.consigneeDetails = contract.consigneeDetails;
+    if (contract.shipperName) texts.shipperName = contract.shipperName;
+    if (contract.shipperAddress) texts.shipperAddress = contract.shipperAddress;
+    if (contract.shipperDetails) texts.shipperDetails = contract.shipperDetails;
 
     // Bank info (only if not in details)
     if (!contract.sellerDetails) {
@@ -106,6 +109,10 @@ export function buildTranslatableTexts(data: {
     if (!contract.consigneeDetails) {
       if (contract.consigneeBankName) texts.consigneeBankName = contract.consigneeBankName;
       if (contract.consigneeBankAddress) texts.consigneeBankAddress = contract.consigneeBankAddress;
+    }
+    if (!contract.shipperDetails) {
+      if (contract.shipperBankName) texts.shipperBankName = contract.shipperBankName;
+      if (contract.shipperBankAddress) texts.shipperBankAddress = contract.shipperBankAddress;
     }
   } else {
     if (company) {

@@ -74,7 +74,7 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({
       <div className="flex-1 min-w-0 md:pl-4 w-full md:w-auto">
 
         <div className="space-y-1 md:mb-4 flex flex-col items-start md:items-end">
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex flex-wrap md:flex-nowrap items-center gap-1 md:whitespace-nowrap w-full pb-1 md:pb-0">
             {(isPdfMode || viewTab === 'spec' || viewTab === 'packing') ? (
               <div className="space-y-1 text-left md:text-right">
                 <div className="text-base md:text-lg text-gray-900">
@@ -111,12 +111,14 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({
                 </div>
 
                 <span className="text-base md:text-lg text-gray-700">от</span>
-                <DateInput
-                  value={form.date}
-                  onChange={(value: any) => setForm({ ...form, date: value })}
-                  className="px-2 py-1 border border-gray-300 rounded text-base md:text-lg font-semibold"
-                  required
-                />
+                <div>
+                  <DateInput
+                    value={form.date}
+                    onChange={(value: any) => setForm({ ...form, date: value })}
+                    className="w-28 md:w-36 px-2 py-1 border border-gray-300 rounded text-base md:text-lg font-semibold"
+                    required
+                  />
+                </div>
 
                 <span className="text-base md:text-lg text-gray-700">г.</span>
               </>

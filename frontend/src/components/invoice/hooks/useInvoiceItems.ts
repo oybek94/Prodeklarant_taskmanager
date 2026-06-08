@@ -30,9 +30,28 @@ function recalcEqualFormulaRows(items: InvoiceItem[], changedIndex: number): voi
 interface UseInvoiceItemsParams {
   selectedContractSpec: SpecRow[];
   invoiceProductOptions: Array<{ name: string; code: string }>;
+  tareRules?: Array<{ packageType: string; tareWeight: number }>;
 }
 
-export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }: UseInvoiceItemsParams) {
+function applyRulesToItem(item: InvoiceItem, tareRules?: Array<{packageType: string, tareWeight: number}>): InvoiceItem {
+  if (!tareRules?.length) return item;
+  const rule = tareRules.find(r => r.packageType === item.packageType);
+  if (rule) {
+    const formula = item.netWeightFormula?.trim();
+    if (!formula || formula === `*${rule.tareWeight}`) {
+      const newItem = { ...item };
+      newItem.netWeightFormula = `*${rule.tareWeight}`;
+      const gross = newItem.grossWeight ?? 0;
+      const pkgCount = newItem.packagesCount ?? 0;
+      newItem.netWeight = Math.round(Number(gross) - rule.tareWeight * Number(pkgCount));
+      newItem.totalPrice = newItem.netWeight * (newItem.unitPrice ?? 0);
+      return newItem;
+    }
+  }
+  return item;
+}
+
+export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, tareRules }: UseInvoiceItemsParams) {
   const [items, setItems] = useState<InvoiceItem[]>([createDefaultItem()]);
   const [editingGrossWeight, setEditingGrossWeight] = useState<{ index: number; value: string } | null>(null);
   const [editingNetWeight, setEditingNetWeight] = useState<{ index: number; value: string } | null>(null);
@@ -78,7 +97,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
         if (formula?.startsWith('*')) {
           const mult = parseFloat(formula.slice(1).trim().replace(',', '.'));
           if (!Number.isNaN(mult)) {
-            const gross = field === 'grossWeight' ? (value ?? 0) : (newItems[index].grossWeight ?? 0);
+            const gross = newItems[index].grossWeight ?? 0;
             const pkgCount = newItems[index].packagesCount ?? 0;
             newItems[index].netWeight = Math.round(Number(gross) - mult * Number(pkgCount));
           } else {
@@ -89,8 +108,12 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
         }
       }
 
+      if (field === 'grossWeight' || field === 'packagesCount' || field === 'packageType') {
+         newItems[index] = applyRulesToItem(newItems[index], tareRules);
+      }
+
       // Total price ni hisoblash: Нетто * Цена за ед.изм.
-      if (field === 'netWeight' || field === 'unitPrice' || field === 'grossWeight' || field === 'packagesCount') {
+      if (field === 'netWeight' || field === 'unitPrice' || field === 'grossWeight' || field === 'packagesCount' || field === 'packageType') {
         const netWeight = newItems[index].netWeight ?? 0;
         const unitPrice = newItems[index].unitPrice ?? 0;
         newItems[index].totalPrice = netWeight * unitPrice;
@@ -103,7 +126,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
 
       return newItems;
     });
-  }, []);
+  }, [tareRules]);
 
   const handleNameChange = useCallback((index: number, value: string) => {
     setItems((prev) => {
@@ -172,6 +195,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
         const result = Math.round(pkgCount * multiplier);
         const next = [...prev];
         next[index] = { ...next[index], grossWeight: result, grossWeightFormula: undefined };
+        next[index] = applyRulesToItem(next[index], tareRules);
         const netWeight = next[index].netWeight ?? 0;
         const unitPrice = next[index].unitPrice ?? 0;
         next[index].totalPrice = netWeight * unitPrice;
@@ -204,6 +228,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
           const m = parseFloat(netF.slice(1).replace(',', '.'));
           if (!Number.isNaN(m)) next[index].netWeight = Math.round(gross - m * (next[index].packagesCount ?? 0));
         }
+        next[index] = applyRulesToItem(next[index], tareRules);
         next[index].totalPrice = (next[index].netWeight ?? 0) * (next[index].unitPrice ?? 0);
         return next;
       });
@@ -214,7 +239,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
     const num = parseFloat(v.replace(',', '.'));
     handleItemChange(index, 'grossWeight', Number.isNaN(num) ? undefined : num);
     setEditingGrossWeight(null);
-  }, [editingGrossWeight, handleItemChange, setItems]);
+  }, [editingGrossWeight, handleItemChange, setItems, tareRules]);
 
   const getGrossWeightDisplayValue = useCallback((index: number, item: InvoiceItem) => {
     if (editingGrossWeight?.index === index) return editingGrossWeight.value;
@@ -267,6 +292,25 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
     return item.netWeight !== undefined && item.netWeight !== null ? String(item.netWeight) : '';
   }, [editingNetWeight]);
 
+  const applyMassNetWeightFormula = useCallback((packageType: string, tareWeight: number) => {
+    setItems((prev) => {
+      return prev.map((item) => {
+        if (item.packageType === packageType) {
+          const grossWeight = item.grossWeight ?? 0;
+          const pkgCount = item.packagesCount ?? 0;
+          const result = Math.round(grossWeight - tareWeight * pkgCount);
+          return {
+            ...item,
+            netWeight: result,
+            netWeightFormula: `*${tareWeight}`,
+            totalPrice: result * (item.unitPrice ?? 0),
+          };
+        }
+        return item;
+      });
+    });
+  }, [setItems]);
+
   const handlePackagesCountChange = useCallback((index: number, value: string) => {
     setEditingPackagesCount({ index, value });
   }, []);
@@ -298,6 +342,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
             next[index].netWeight = Math.round(grossWeight - mult * result);
           }
         }
+        next[index] = applyRulesToItem(next[index], tareRules);
         next[index].totalPrice = (next[index].netWeight ?? 0) * (next[index].unitPrice ?? 0);
         return next;
       });
@@ -307,7 +352,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
     const num = parseFloat(v.replace(',', '.'));
     handleItemChange(index, 'packagesCount', Number.isNaN(num) ? undefined : num);
     setEditingPackagesCount(null);
-  }, [editingPackagesCount, handleItemChange, setItems]);
+  }, [editingPackagesCount, handleItemChange, setItems, tareRules]);
 
   const getPackagesCountDisplayValue = useCallback((index: number, item: InvoiceItem) => {
     if (editingPackagesCount?.index === index) return editingPackagesCount.value;
@@ -354,6 +399,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions }:
     getPackagesCountDisplayValue,
     addItem,
     removeItem,
+    applyMassNetWeightFormula,
   };
 }
 

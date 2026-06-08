@@ -233,6 +233,7 @@ const Invoice = () => {
   // Extracted hooks
   const { packagingTypes, invoiceProductOptions } = useProductOptions(selectedContractSpec);
   const { invoiceNumberWarning, setInvoiceNumberWarning } = useInvoiceNumberCheck(form.invoiceNumber, selectedContractId, invoice?.id);
+  const tareRules = Array.isArray(form.additionalInfo?.tareRules) ? form.additionalInfo.tareRules as Array<{packageType: string, tareWeight: number}> : [];
   const {
     items,
     setItems,
@@ -253,7 +254,8 @@ const Invoice = () => {
     getPackagesCountDisplayValue,
     addItem,
     removeItem,
-  } = useInvoiceItems({ selectedContractSpec, invoiceProductOptions });
+    applyMassNetWeightFormula,
+  } = useInvoiceItems({ selectedContractSpec, invoiceProductOptions, tareRules });
   useInvoiceExtension(form, items, contracts, selectedContractId);
 
 
@@ -721,6 +723,7 @@ const Invoice = () => {
                     applyPackagesCountFormula={applyPackagesCountFormula}
                     getPackagesCountDisplayValue={getPackagesCountDisplayValue}
                     packagingTypes={packagingTypes}
+                    applyMassNetWeightFormula={applyMassNetWeightFormula}
                     form={form}
                     setForm={setForm}
                     showItemErrors={showItemErrors}

@@ -5,7 +5,7 @@ import apiClient from '../../lib/api';
 import toast from 'react-hot-toast';
 import DateInput from '../DateInput';
 
-const DebtHistoryModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
+const DebtHistoryModal = React.memo(({ isOpen, onClose, debt, onSuccess }: any) => {
     const [editingPayment, setEditingPayment] = useState<any>(null);
     const [editForm, setEditForm] = useState({
         amount: '',
@@ -193,6 +193,6 @@ const DebtHistoryModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
         )}
         </AnimatePresence>
     );
-};
+});
 
 export default DebtHistoryModal;

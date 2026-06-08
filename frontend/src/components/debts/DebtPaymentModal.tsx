@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { Icon } from '@iconify/react';
 import DateInput from '../DateInput';
 
-const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
+const DebtPaymentModal = React.memo(({ isOpen, onClose, debt, onSuccess }: any) => {
     const [amount, setAmount] = useState(debt?.remaining || '');
     const [currency, setCurrency] = useState(debt?.currency || 'USD');
     const [paymentMethod, setPaymentMethod] = useState('CASH');
@@ -175,6 +175,6 @@ const DebtPaymentModal = ({ isOpen, onClose, debt, onSuccess }: any) => {
         )}
         </AnimatePresence>
     );
-};
+});
 
 export default DebtPaymentModal;

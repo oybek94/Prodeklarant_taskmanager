@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../lib/api';
 import DebtDashboard from '../components/debts/DebtDashboard';
 import DebtTable from '../components/debts/DebtTable';
@@ -22,7 +22,7 @@ const Debts = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
 
-    const fetchDebts = async () => {
+    const fetchDebts = useCallback(async () => {
         try {
             setLoading(true);
             const params = new URLSearchParams([
@@ -38,24 +38,41 @@ const Debts = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [page, filters]);
 
-    const fetchDashboard = async () => {
+    const fetchDashboard = useCallback(async () => {
         try {
             const res = await apiClient.get('/debts/dashboard');
             setStats(res.data);
         } catch (error) {
             console.error('Dashboard statistikasida xato:', error);
         }
-    };
+    }, []);
 
-    useEffect(() => { fetchDebts(); }, [page, filters]);
-    useEffect(() => { fetchDashboard(); }, []);
+    useEffect(() => { fetchDebts(); }, [fetchDebts]);
+    useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
-    const reloadData = () => {
+    const reloadData = useCallback(() => {
         fetchDebts();
         fetchDashboard();
-    };
+    }, [fetchDebts, fetchDashboard]);
+
+    const handlePayCertifier = useCallback((type: 'ST1' | 'FITO', amount: number, branchId: number | null) => {
+        setCertifierPayType(type);
+        setCertifierRemainingAmount(amount);
+        setCertifierBranchId(branchId);
+        setIsCertifierPayModalOpen(true);
+    }, []);
+
+    const handleAddSuccess = useCallback(() => {
+        setIsAddModalOpen(false);
+        reloadData();
+    }, [reloadData]);
+
+    const handleCertifierSuccess = useCallback(() => {
+        setIsCertifierPayModalOpen(false);
+        reloadData();
+    }, [reloadData]);
 
     return (
         <div className={`space-y-5 ${isMobile ? 'pb-32' : 'pb-10'}`}>
@@ -88,12 +105,7 @@ const Debts = () => {
             <DebtDashboard
                 stats={stats}
                 loading={loading}
-                onPayCertifier={(type, amount, branchId) => {
-                    setCertifierPayType(type);
-                    setCertifierRemainingAmount(amount);
-                    setCertifierBranchId(branchId);
-                    setIsCertifierPayModalOpen(true);
-                }}
+                onPayCertifier={handlePayCertifier}
             />
 
             <DebtTable
@@ -110,13 +122,13 @@ const Debts = () => {
             <AddDebtModal
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
-                onSuccess={() => { setIsAddModalOpen(false); reloadData(); }}
+                onSuccess={handleAddSuccess}
             />
 
             <CertifierPayModal
                 isOpen={isCertifierPayModalOpen}
                 onClose={() => setIsCertifierPayModalOpen(false)}
-                onSuccess={() => { setIsCertifierPayModalOpen(false); reloadData(); }}
+                onSuccess={handleCertifierSuccess}
                 type={certifierPayType}
                 remainingAmount={certifierRemainingAmount}
                 branchId={certifierBranchId}

@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react';
 import apiClient from '../../lib/api';
 import DateInput from '../DateInput';
 
-const CertifierPayModal = ({ 
+const CertifierPayModal = React.memo(({ 
     isOpen, 
     onClose, 
     onSuccess, 
@@ -125,6 +125,6 @@ const CertifierPayModal = ({
         )}
         </AnimatePresence>
     );
-};
+});
 
 export default CertifierPayModal;

@@ -186,6 +186,25 @@ export function useInvoiceItemsManager({
     return item.netWeight !== undefined && item.netWeight !== null ? String(item.netWeight) : '';
   };
 
+  const applyMassNetWeightFormula = (packageType: string, tareWeight: number) => {
+    setItems((prev) => {
+      return prev.map((item) => {
+        if (item.packageType === packageType) {
+          const grossWeight = item.grossWeight ?? 0;
+          const pkgCount = item.packagesCount ?? 0;
+          const result = Math.round(grossWeight - tareWeight * pkgCount);
+          return {
+            ...item,
+            netWeight: result,
+            netWeightFormula: `*${tareWeight}`,
+            totalPrice: result * (item.unitPrice ?? 0),
+          };
+        }
+        return item;
+      });
+    });
+  };
+
   return {
     expandedSublists,
     toggleItemSublist,
@@ -202,5 +221,6 @@ export function useInvoiceItemsManager({
     handleNetWeightChange,
     applyNetWeightFormula,
     getNetWeightDisplayValue,
+    applyMassNetWeightFormula,
   };
 }

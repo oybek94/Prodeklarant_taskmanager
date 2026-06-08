@@ -1,11 +1,22 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
 
-const DebtDashboard = ({ stats, loading, onPayCertifier }: {
+interface DebtDashboardProps {
     stats: any;
     loading: boolean;
     onPayCertifier?: (type: 'ST1' | 'FITO', amount: number, branchId: number | null) => void;
-}) => {
+}
+
+const formatCurrency = (amount: number, currency: string = 'USD') => {
+    if (currency === 'UZS') {
+        const formatted = new Intl.NumberFormat('en-US').format(amount).replace(/,/g, ' ').replace(/\./g, ',');
+        return <>{formatted} <small className="text-sm opacity-75">sum</small></>;
+    }
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 })
+        .format(amount).replace(/,/g, ' ').replace(/\./g, ',');
+};
+
+const DebtDashboard: React.FC<DebtDashboardProps> = React.memo(({ stats, loading, onPayCertifier }) => {
     if (loading && !stats) return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[1, 2, 3].map(i => (
@@ -13,15 +24,6 @@ const DebtDashboard = ({ stats, loading, onPayCertifier }: {
             ))}
         </div>
     );
-
-    const formatCurrency = (amount: number, currency: string = 'USD') => {
-        if (currency === 'UZS') {
-            const formatted = new Intl.NumberFormat('en-US').format(amount).replace(/,/g, ' ').replace(/\./g, ',');
-            return <>{formatted} <small className="text-sm opacity-75">sum</small></>;
-        }
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 })
-            .format(amount).replace(/,/g, ' ').replace(/\./g, ',');
-    };
 
     const statCards = [
         {
@@ -192,6 +194,6 @@ const DebtDashboard = ({ stats, loading, onPayCertifier }: {
             )}
         </div>
     );
-};
+});
 
 export default DebtDashboard;

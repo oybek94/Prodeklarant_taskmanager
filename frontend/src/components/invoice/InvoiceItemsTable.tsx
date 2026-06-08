@@ -46,6 +46,7 @@ interface InvoiceItemsTableProps {
   applyPackagesCountFormula: (index: number) => void;
   getPackagesCountDisplayValue: (index: number, item: InvoiceItem) => string;
   packagingTypes: { id: string; name: string; code?: string }[];
+  applyMassNetWeightFormula: (packageType: string, tareWeight: number) => void;
   form: InvoiceFormData;
   setForm: React.Dispatch<React.SetStateAction<InvoiceFormData>>;
   showItemErrors?: boolean;
@@ -88,6 +89,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
   applyPackagesCountFormula,
   getPackagesCountDisplayValue,
   packagingTypes,
+  applyMassNetWeightFormula,
   form,
   setForm,
   showItemErrors,
@@ -98,6 +100,50 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [newColLabel, setNewColLabel] = useState('');
+
+  const [massPackageType, setMassPackageType] = useState('');
+  const [massTareWeight, setMassTareWeight] = useState('');
+  
+  const tareRules: Array<{packageType: string, tareWeight: number}> = Array.isArray(form.additionalInfo?.tareRules) ? form.additionalInfo.tareRules : [];
+
+  const handleApplyMassTare = () => {
+    if (!massPackageType) {
+      toast.error("Qadoq turini tanlang");
+      return;
+    }
+    const tare = parseFloat(massTareWeight.replace(',', '.'));
+    if (isNaN(tare) || tare < 0) {
+      toast.error("Yaroqli vazn kiriting");
+      return;
+    }
+    
+    const newRules = [...tareRules];
+    const existingIdx = newRules.findIndex(r => r.packageType === massPackageType);
+    if (existingIdx >= 0) {
+      newRules[existingIdx].tareWeight = tare;
+    } else {
+      newRules.push({ packageType: massPackageType, tareWeight: tare });
+    }
+    
+    setForm(prev => ({
+      ...prev,
+      additionalInfo: { ...prev.additionalInfo, tareRules: newRules }
+    }));
+
+    applyMassNetWeightFormula(massPackageType, tare);
+    setMassPackageType('');
+    setMassTareWeight('');
+    toast.success(`${massPackageType} uchun umumiy qoida qo'shildi`);
+  };
+
+  const handleRemoveTareRule = (index: number) => {
+    const newRules = [...tareRules];
+    newRules.splice(index, 1);
+    setForm(prev => ({
+      ...prev,
+      additionalInfo: { ...prev.additionalInfo, tareRules: newRules }
+    }));
+  };
 
   const handleTakeScreenshot = async () => {
     const element = document.getElementById('invoice-screenshot-area');
@@ -396,7 +442,58 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
   return (
     <div className="mb-8 w-full">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4 sm:gap-0">
-        <div></div>
+        <div className="flex flex-col gap-2 w-full sm:w-auto">
+          {tareRules.map((rule, idx) => (
+            <div key={idx} className="flex items-center gap-2 bg-blue-50/80 px-2 py-1.5 rounded-lg border border-blue-200 shadow-sm text-sm w-max">
+              <span className="font-semibold text-blue-800">{rule.packageType}:</span>
+              <span className="text-gray-700 font-medium">{rule.tareWeight} kg</span>
+              <button
+                type="button"
+                onClick={() => handleRemoveTareRule(idx)}
+                className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-0.5 rounded transition-colors ml-1"
+                title="O'chirish"
+              >
+                <Icon icon="lucide:x" className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          <div className="flex flex-wrap items-center gap-2 bg-blue-50/50 p-1.5 rounded-lg border border-blue-100 shadow-sm no-screenshot w-full sm:w-auto">
+            <span className="text-xs font-semibold text-blue-800 ml-1 whitespace-nowrap hidden md:inline">Ommaviy Tara:</span>
+            <select
+              className="px-2 py-1.5 border border-blue-200 rounded text-sm bg-white text-gray-700 min-w-[120px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              value={massPackageType}
+              onChange={(e) => setMassPackageType(e.target.value)}
+            >
+              <option value="">Qadoq turi...</option>
+              {packagingTypes.map((pt) => (
+                <option key={pt.id} value={pt.name}>{pt.name}</option>
+              ))}
+            </select>
+            <div className="relative">
+              <input
+                type="text"
+                className="px-2 py-1.5 border border-blue-200 rounded text-sm w-20 text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="0.5"
+                value={massTareWeight}
+                onChange={(e) => setMassTareWeight(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleApplyMassTare();
+                  }
+                }}
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">kg</span>
+            </div>
+            <button
+              type="button"
+              className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm active:bg-blue-800"
+              onClick={handleApplyMassTare}
+            >
+              Qo'llash
+            </button>
+          </div>
+        </div>
         {viewTab === 'invoice' && (
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button

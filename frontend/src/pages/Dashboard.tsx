@@ -109,23 +109,19 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-6">
-          <div className="lg:col-span-2">
-            <DashboardLeaderboard
-              stats={stats}
-              loading={loading}
-              rankingPeriod={rankingPeriod}
-              setRankingPeriod={setRankingPeriod}
-              medalsByUserId={medalsByUserId}
-            />
-          </div>
-          <div className="lg:col-span-1 space-y-6">
-            <DashboardYearlyGoal
-              stats={stats}
-              completedSummary={completedSummary}
-              loadingCompletedSummary={loadingCompletedSummary}
-            />
-            <DashboardProcessTimes premiumStats={premiumStats} />
-          </div>
+          <DashboardYearlyGoal
+            stats={stats}
+            completedSummary={completedSummary}
+            loadingCompletedSummary={loadingCompletedSummary}
+          />
+          <DashboardLeaderboard
+            stats={stats}
+            loading={loading}
+            rankingPeriod={rankingPeriod}
+            setRankingPeriod={setRankingPeriod}
+            medalsByUserId={medalsByUserId}
+          />
+          <DashboardProcessTimes premiumStats={premiumStats} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">

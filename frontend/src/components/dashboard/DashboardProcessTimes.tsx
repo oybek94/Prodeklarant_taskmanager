@@ -7,7 +7,7 @@ interface DashboardProcessTimesProps {
 
 export const DashboardProcessTimes: React.FC<DashboardProcessTimesProps> = ({ premiumStats }) => {
   return (
-    <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col h-full" style={{ height: '515px' }}>
+    <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col h-full" style={{ height: '565px' }}>
       {/* Premium Glow Effect */}
       <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-teal-500/10 dark:bg-teal-500/20 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
 

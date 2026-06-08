@@ -20,7 +20,7 @@ export const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({
   medalsByUserId,
 }) => {
   return (
-    <div className="bg-slate-900/95 backdrop-blur-xl rounded-[20px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-slate-700/50 relative overflow-hidden group flex flex-col h-full ring-1 ring-white/5" style={{ height: '515px' }}>
+    <div className="bg-slate-900/95 backdrop-blur-xl rounded-[20px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-slate-700/50 relative overflow-hidden group flex flex-col h-full ring-1 ring-white/5" style={{ height: '565px' }}>
       {/* Premium Effect */}
       <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
 

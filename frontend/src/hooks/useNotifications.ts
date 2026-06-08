@@ -110,6 +110,7 @@ export function useNotifications() {
   const isFirstFetchRef = useRef(true);
 
   const fetchNotifications = useCallback(async () => {
+    if (!localStorage.getItem('accessToken')) return;
     try {
       const response = await apiClient.get('/notifications?unread=true');
       const data: AppNotification[] = Array.isArray(response.data) ? response.data : [];

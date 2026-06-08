@@ -1,7 +1,28 @@
 import React, { useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
 import type { ChartData } from '../../types/dashboard';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
 
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 interface DashboardMainChartProps {
   chartData: ChartData | null;
   period: 'weekly' | 'monthly' | 'yearly';

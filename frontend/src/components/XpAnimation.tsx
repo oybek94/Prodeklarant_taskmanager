@@ -102,6 +102,7 @@ export default function XpAnimation() {
 
     useEffect(() => {
         const fetchUnreadXpAnimations = async () => {
+            if (!localStorage.getItem('accessToken')) return;
             try {
                 const res = await apiClient.get('/notifications?unread=true');
                 const notifications = res.data;

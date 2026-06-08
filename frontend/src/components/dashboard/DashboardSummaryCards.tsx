@@ -2,6 +2,24 @@ import React from 'react';
 import { Icon } from '@iconify/react';
 import { Line } from 'react-chartjs-2';
 import type { CompletedSummary } from '../../types/dashboard';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Filler
+} from 'chart.js';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Filler
+);
 
 interface DashboardSummaryCardsProps {
   completedSummary: CompletedSummary | null;

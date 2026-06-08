@@ -93,6 +93,7 @@ export default function LeadWonAnimation() {
     // Oflayn holatda saqlangan tabriklarni tekshirish
     useEffect(() => {
         const fetchUnreadCelebrations = async () => {
+            if (!localStorage.getItem('accessToken')) return;
             try {
                 const res = await apiClient.get('/notifications?unread=true');
                 const notifications = res.data;

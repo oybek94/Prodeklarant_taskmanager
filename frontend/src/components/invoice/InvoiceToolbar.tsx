@@ -36,7 +36,7 @@ interface InvoiceToolbarProps {
   onOpenTaskModal: () => void;
 }
 
-export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = ({
+export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
   invoysStageReady,
   markingReady,
   taskId,
@@ -383,4 +383,4 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = ({
       </div>
     </div>
   );
-};
+});

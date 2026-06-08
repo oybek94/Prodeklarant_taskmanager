@@ -8,7 +8,7 @@ interface InvoiceNotesProps {
   setNotes: (notes: string) => void;
 }
 
-export const InvoiceNotes: React.FC<InvoiceNotesProps> = ({
+export const InvoiceNotes: React.FC<InvoiceNotesProps> = React.memo(({
   viewTab,
   isPdfMode,
   notes,
@@ -37,4 +37,4 @@ export const InvoiceNotes: React.FC<InvoiceNotesProps> = ({
       )}
     </div>
   );
-};
+});

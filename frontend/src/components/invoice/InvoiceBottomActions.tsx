@@ -11,7 +11,7 @@ interface InvoiceBottomActionsProps {
   navigate: (delta: number) => void;
 }
 
-export const InvoiceBottomActions: React.FC<InvoiceBottomActionsProps> = ({
+export const InvoiceBottomActions: React.FC<InvoiceBottomActionsProps> = React.memo(({
   additionalInfoError,
   canEditEffective,
   invoysStageReady,
@@ -57,4 +57,4 @@ export const InvoiceBottomActions: React.FC<InvoiceBottomActionsProps> = ({
       )}
     </div>
   );
-};
+});

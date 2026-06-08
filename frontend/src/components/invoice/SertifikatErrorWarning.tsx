@@ -8,7 +8,7 @@ interface SertifikatErrorWarningProps {
   navigate: (path: string, options?: { state?: any }) => void;
 }
 
-export const SertifikatErrorWarning: React.FC<SertifikatErrorWarningProps> = ({
+export const SertifikatErrorWarning: React.FC<SertifikatErrorWarningProps> = React.memo(({
   sertifikatStageCompleted,
   canEdit,
   taskHasErrors,
@@ -31,4 +31,4 @@ export const SertifikatErrorWarning: React.FC<SertifikatErrorWarningProps> = ({
       </button>
     </div>
   );
-};
+});

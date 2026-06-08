@@ -19,7 +19,7 @@ interface InvoiceHeaderProps {
   showItemErrors?: boolean;
 }
 
-export const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({
+export const InvoiceHeader: React.FC<InvoiceHeaderProps> = React.memo(({
   viewTab,
   isPdfMode,
   form,
@@ -155,4 +155,4 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({
 
     </div>
   );
-};
+});

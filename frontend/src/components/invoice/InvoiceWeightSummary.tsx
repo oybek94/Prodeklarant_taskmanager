@@ -1,3 +1,4 @@
+import React from 'react';
 import type { InvoiceItem } from './types';
 import { formatNumber, isTareInRange } from './invoiceUtils';
 
@@ -13,7 +14,7 @@ interface InvoiceWeightSummaryProps {
  * Maksimal og'irlik, farq, tare tekshiruvi paneli.
  * PDF da va Spetsifikatsiya tabida ko'rinmaydi — buni parent kontrol qiladi.
  */
-export function InvoiceWeightSummary({ items, loaderWeight, trailerWeight, palletWeight, vehicleWeight }: InvoiceWeightSummaryProps) {
+export const InvoiceWeightSummary = React.memo(function InvoiceWeightSummary({ items, loaderWeight, trailerWeight, palletWeight, vehicleWeight }: InvoiceWeightSummaryProps) {
   const goodsGross = items.reduce((sum, item) => sum + (item.grossWeight || 0), 0);
   const loader = Number(loaderWeight) || 0;
   const trailer = Number(trailerWeight) || 0;
@@ -89,4 +90,4 @@ export function InvoiceWeightSummary({ items, loaderWeight, trailerWeight, palle
       </div>
     </div>
   );
-}
+});

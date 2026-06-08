@@ -11,7 +11,7 @@ interface InvoicePartiesProps {
   isBuyerConsignee: boolean;
 }
 
-export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
+export const InvoiceParties: React.FC<InvoicePartiesProps> = React.memo(({
   selectedContractId,
   contracts,
   selectedContract,
@@ -332,4 +332,4 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = ({
 
     </div>
   );
-};
+});

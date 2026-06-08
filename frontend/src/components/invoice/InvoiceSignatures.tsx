@@ -1,3 +1,4 @@
+import React from 'react';
 import type { Contract } from './types';
 import { resolveUploadUrl } from './types';
 
@@ -10,7 +11,7 @@ interface InvoiceSignaturesProps {
 /**
  * Direktor, imzo va muhr ko'rsatish qismi — Invoys va Upakovochniy list tablarida ko'rinadi.
  */
-export function InvoiceSignatures({ contract, isPdfMode, pdfIncludeSeal }: InvoiceSignaturesProps) {
+export const InvoiceSignatures = React.memo(function InvoiceSignatures({ contract, isPdfMode, pdfIncludeSeal }: InvoiceSignaturesProps) {
   if (!contract.supplierDirector) return null;
 
   return (
@@ -49,7 +50,7 @@ export function InvoiceSignatures({ contract, isPdfMode, pdfIncludeSeal }: Invoi
       </div>
     </div>
   );
-}
+});
 
 interface SpecSignaturesProps {
   contract: Contract & { buyerDirector?: string; consigneeDirector?: string };
@@ -60,7 +61,7 @@ interface SpecSignaturesProps {
 /**
  * Spetsifikatsiya tabidagi barcha tomonlarning imzolari.
  */
-export function SpecSignatures({ contract }: SpecSignaturesProps) {
+export const SpecSignatures = React.memo(function SpecSignatures({ contract }: SpecSignaturesProps) {
   const participants = [
     contract.sellerName ? { label: 'Продавец', name: contract.sellerName, director: contract.supplierDirector, signatureUrl: contract.sellerSignatureUrl, sealUrl: contract.sellerSealUrl } : null,
     contract.buyerName ? { label: 'Покупатель', name: contract.buyerName, director: contract.buyerDirector, signatureUrl: contract.buyerSignatureUrl, sealUrl: contract.buyerSealUrl } : null,
@@ -104,4 +105,4 @@ export function SpecSignatures({ contract }: SpecSignaturesProps) {
       </div>
     </div>
   );
-}
+});

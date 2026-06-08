@@ -5,7 +5,7 @@ interface InvoiceConflictWarningProps {
   editors: Array<{ name: string }>;
 }
 
-export const InvoiceConflictWarning: React.FC<InvoiceConflictWarningProps> = ({ editors }) => {
+export const InvoiceConflictWarning: React.FC<InvoiceConflictWarningProps> = React.memo(({ editors }) => {
   if (editors.length === 0) return null;
 
   return (
@@ -17,4 +17,4 @@ export const InvoiceConflictWarning: React.FC<InvoiceConflictWarningProps> = ({ 
       </span>
     </div>
   );
-};
+});

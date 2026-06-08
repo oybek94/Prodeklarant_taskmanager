@@ -18,7 +18,7 @@ interface InvoiceAdditionalInfoDisplayProps {
   additionalFieldsOrder?: string[];
 }
 
-export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplayProps> = ({
+export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplayProps> = React.memo(({
   form,
   viewTab,
   selectedContract,
@@ -223,4 +223,4 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
       </div>
     </div>
   );
-};
+});

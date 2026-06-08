@@ -428,6 +428,14 @@ const Invoice = () => {
     getLeadingColumnsCount,
     getEffectiveColumns,
   });
+  
+  const handleSetNotes = useCallback((val: string) => {
+    setForm(prev => ({ ...prev, notes: val }));
+  }, []);
+
+  const handleOpenTaskModal = useCallback(() => {
+    setShowTaskModal(true);
+  }, []);
 
 
   const orderedVisibleColumns = useMemo(() => {
@@ -573,7 +581,7 @@ const Invoice = () => {
           generatePdfEn={generatePdfEn}
           openFssRegionSelector={openFssRegionSelector}
           openFssRegionPicker={openFssRegionPicker}
-          onOpenTaskModal={() => setShowTaskModal(true)}
+          onOpenTaskModal={handleOpenTaskModal}
         />
 
         {/* Invoice form + Requirements note side panel */}
@@ -724,7 +732,7 @@ const Invoice = () => {
                   viewTab={viewTab}
                   isPdfMode={isPdfMode}
                   notes={form.notes}
-                  setNotes={(val) => setForm({ ...form, notes: val })}
+                  setNotes={handleSetNotes}
                 />
 
                 {/* Руководитель Поставщика va Товар отпустил */}

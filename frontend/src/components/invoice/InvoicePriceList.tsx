@@ -16,7 +16,7 @@ interface InvoicePriceListProps {
  * Dizayni Invoice sahifasidagi komponentlar (InvoiceHeader, InvoiceItemsTable, InvoiceSignatures)
  * bilan bir xil uslubda qurilgan. PDF rejimida ham ekrandagi ko'rinish saqlanadi.
  */
-export const InvoicePriceList: React.FC<InvoicePriceListProps> = ({
+export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
   contract,
   form,
   items,
@@ -193,4 +193,4 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = ({
       )}
     </div>
   );
-};
+});

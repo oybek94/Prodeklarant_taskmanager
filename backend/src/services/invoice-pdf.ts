@@ -174,7 +174,7 @@ export function generateInvoicePDF(data: InvoiceData): any {
   const buyerColumnWidth = availableWidth / 2; // O'ng kolonka kengligi (yarim)
   
   const isSellerShipper = !data.contract?.shipperName || data.contract.shipperName.trim() === (data.contract.sellerName || '').trim();
-  const sellerTitle = isSellerShipper ? 'Продавец/Грузоотправитель/Изготовитель' : 'Продавец';
+  const sellerTitle = isSellerShipper ? 'Продавец/Грузоотправитель' : 'Продавец';
 
   doc.fontSize(8); // Sarlavha font o'lchami
   setFont('Helvetica-Bold');

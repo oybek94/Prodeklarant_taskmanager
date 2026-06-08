@@ -27,7 +27,7 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = React.memo(({
       <div className="md:pr-4">
 
         <h3 className="font-semibold text-gray-800 mb-2">
-          {isSellerShipper ? 'Продавец/Грузоотправитель/Изготовитель' : 'Продавец'}
+          {isSellerShipper ? 'Продавец/Грузоотправитель' : 'Продавец'}
         </h3>
 
         <div className="text-[15px] text-black space-y-1">

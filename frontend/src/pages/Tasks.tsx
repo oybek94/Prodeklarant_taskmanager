@@ -114,16 +114,20 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     });
   };
 
+  const hasLoadedTaskModalRef = useRef<number | null>(null);
+
   useEffect(() => {
-    if (isModalMode && modalTaskId) {
+    if (isModalMode && modalTaskId && hasLoadedTaskModalRef.current !== modalTaskId) {
+      hasLoadedTaskModalRef.current = modalTaskId;
+      const { setAfterHoursDeclaration, setShowTaskModal } = modals;
       loadTaskDetail(modalTaskId, {
         onLoaded: (taskData) => {
-          modals.setAfterHoursDeclaration(Boolean(taskData.afterHoursDeclaration));
-          modals.setShowTaskModal(true);
+          setAfterHoursDeclaration(Boolean(taskData.afterHoursDeclaration));
+          setShowTaskModal(true);
         }
       });
     }
-  }, [isModalMode, modalTaskId, loadTaskDetail, modals]);
+  }, [isModalMode, modalTaskId, loadTaskDetail, modals.setAfterHoursDeclaration, modals.setShowTaskModal]);
 
   const modalWasOpenRef = useRef(false);
   useEffect(() => {

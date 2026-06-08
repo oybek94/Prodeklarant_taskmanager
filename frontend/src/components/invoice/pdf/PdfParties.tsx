@@ -20,7 +20,7 @@ export const PdfParties: React.FC<PdfPartiesProps> = ({
   const titleSt = { fontSize: fz, fontWeight: 'bold' as const, marginBottom: sc(3) };
   const bankTitleSt = { ...nameSt, marginTop: sc(4), marginBottom: sc(1) };
 
-  const sellerTitle = isSellerShipper ? 'Продавец/Грузоотправитель/Изготовитель' : 'Продавец';
+  const sellerTitle = isSellerShipper ? 'Продавец/Грузоотправитель' : 'Продавец';
   const buyerTitle = isBuyerConsignee ? 'Покупатель/Грузополучатель' : 'Покупатель';
 
   return (

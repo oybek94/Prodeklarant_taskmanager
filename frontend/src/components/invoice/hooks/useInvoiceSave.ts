@@ -395,6 +395,7 @@ export function useInvoiceSave({
             customColumns,
             visibleAdditionalInfoFields: additionalInfoVisible,
             additionalFieldsOrder: additionalFieldsOrder,
+            tareRules: currentForm.additionalInfo?.tareRules,
           };
           if (invoice) {
             const taskErrorsCount = ((invoice as unknown as Record<string, unknown>).task as { _count?: { errors?: number } } | undefined)?._count?.errors ?? 0;

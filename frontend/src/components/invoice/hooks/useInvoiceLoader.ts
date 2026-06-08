@@ -183,6 +183,10 @@ export function createLoadData({
                 carrier: '',
                 tirNumber: '',
                 temperature: String(dupAi?.temperature || ''),
+                additionalInfo: {
+                  ...(prev.additionalInfo || {}),
+                  tareRules: dupAi?.tareRules ?? [],
+                }
               }));
               const loadedItems = [{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 } as InvoiceItem];
               setItems(loadedItems);
@@ -317,6 +321,10 @@ export function createLoadData({
               carrier: inv.additionalInfo?.carrier ?? prev.carrier,
               tirNumber: inv.additionalInfo?.tirNumber ?? prev.tirNumber,
               temperature: inv.additionalInfo?.temperature ?? prev.temperature,
+              additionalInfo: {
+                ...(prev.additionalInfo || {}),
+                tareRules: inv.additionalInfo?.tareRules ?? [],
+              }
             }));
             const loadedItems = (inv.items || []).map(normalizeItem);
             setItems(loadedItems);

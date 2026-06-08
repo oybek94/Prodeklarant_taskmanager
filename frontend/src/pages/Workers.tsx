@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
-import { Icon } from '@iconify/react';
 import { useIsMobile } from '../utils/useIsMobile';
-import CurrencyDisplay from '../components/CurrencyDisplay';
 import { usePresence } from '../hooks/usePresence';
+import WorkerCard from '../components/workers/WorkerCard';
+import WorkerFormModal from '../components/workers/WorkerFormModal';
 
 interface Worker {
   id: number;
@@ -44,44 +44,11 @@ const Workers = () => {
     salary: '',
   });
 
-  useEffect(() => {
-    loadWorkers();
-    loadBranches();
-  }, []);
-
-  const loadBranches = async () => {
-    try {
-      const response = await apiClient.get('/branches');
-      setBranches(response.data);
-    } catch (error) {
-      console.error('Error loading branches:', error);
-    }
-  };
-
-  // Handle ESC key to close modal
-  useEffect(() => {
-    const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && showForm) {
-        if (isMobile && (isNewWorkerRoute || editWorkerId)) {
-          navigate('/workers');
-        } else {
-          setShowForm(false);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleEscKey);
-    return () => {
-      window.removeEventListener('keydown', handleEscKey);
-    };
-  }, [showForm, isMobile, isNewWorkerRoute, editWorkerId, navigate]);
-
-  const loadWorkers = async () => {
+  const loadWorkers = useCallback(async () => {
     try {
       setLoading(true);
-      // Use /api/workers endpoint instead of /api/users
       const response = await apiClient.get('/workers');
       if (Array.isArray(response.data)) {
-        // Filter to show all relevant roles including ADMIN and only active workers
         setWorkers(response.data.filter((w: any) => ['DEKLARANT', 'MANAGER', 'SELLER', 'ADMIN'].includes(w.role) && w.active !== false));
       } else {
         console.error('Invalid response format:', response.data);
@@ -90,16 +57,58 @@ const Workers = () => {
     } catch (error: any) {
       console.error('Error loading workers:', error);
       setWorkers([]);
-      // Show error message to user if it's not a 403 (forbidden)
       if (error.response?.status !== 403) {
         console.warn('Failed to load workers:', error.response?.data || error.message);
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const loadBranches = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/branches');
+      setBranches(response.data);
+    } catch (error) {
+      console.error('Error loading branches:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadWorkers();
+    loadBranches();
+  }, [loadWorkers, loadBranches]);
+
+  const handleCloseForm = useCallback(() => {
+    if (isMobile && (isNewWorkerRoute || editWorkerId)) {
+      navigate('/workers');
+    } else {
+      setShowForm(false);
+    }
+    setEditingWorker(null);
+    setForm({
+      name: '',
+      password: '',
+      role: 'DEKLARANT',
+      branchId: '',
+      salary: '',
+    });
+  }, [isMobile, isNewWorkerRoute, editWorkerId, navigate]);
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showForm) {
+        handleCloseForm();
+      }
+    };
+    window.addEventListener('keydown', handleEscKey);
+    return () => {
+      window.removeEventListener('keydown', handleEscKey);
+    };
+  }, [showForm, handleCloseForm]);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingWorker) {
@@ -126,19 +135,7 @@ const Workers = () => {
           salary: form.salary ? parseFloat(form.salary) : undefined,
         });
       }
-      if (isMobile && (isNewWorkerRoute || editWorkerId)) {
-        navigate('/workers');
-      } else {
-        setShowForm(false);
-      }
-      setEditingWorker(null);
-      setForm({
-        name: '',
-        password: '',
-        role: 'DEKLARANT',
-        branchId: '',
-        salary: '',
-      });
+      handleCloseForm();
       await loadWorkers();
     } catch (error: any) {
       console.error('Error saving worker:', error);
@@ -146,9 +143,9 @@ const Workers = () => {
       const errorText = typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage);
       alert(errorText);
     }
-  };
+  }, [editingWorker, form, handleCloseForm, loadWorkers]);
 
-  const handleEdit = (worker: Worker) => {
+  const handleEdit = useCallback((worker: Worker) => {
     setEditingWorker(worker);
     setForm({
       name: worker.name,
@@ -159,7 +156,7 @@ const Workers = () => {
     });
     setOpenMenuId(null);
     setShowForm(true);
-  };
+  }, []);
 
   useEffect(() => {
     if (!isMobile || !editWorkerId) return;
@@ -167,10 +164,9 @@ const Workers = () => {
     if (worker) {
       handleEdit(worker);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile, editWorkerId, workers]);
+  }, [isMobile, editWorkerId, workers, handleEdit]);
 
-  const handleDelete = async (workerId: number) => {
+  const handleDelete = useCallback(async (workerId: number) => {
     if (!confirm('Bu ishchini o\'chirishni xohlaysizmi? Bu amalni qaytarib bo\'lmaydi.')) return;
 
     try {
@@ -182,7 +178,7 @@ const Workers = () => {
       const errorMessage = error.response?.data?.error || error.message || 'Xatolik yuz berdi';
       alert(errorMessage);
     }
-  };
+  }, [loadWorkers]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -224,303 +220,35 @@ const Workers = () => {
               Ishchilar topilmadi
             </div>
           ) : (
-            workers.map((worker) => {
-              // Calculate experience from createdAt
-              const getExperience = () => {
-                if (!worker.createdAt) return '0 Years';
-                const created = new Date(worker.createdAt);
-                const now = new Date();
-                const years = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24 * 365));
-                return `${years} Years`;
-              };
-
-              // Get initials for avatar
-              const getInitials = () => {
-                const names = worker.name.split(' ');
-                if (names.length >= 2) {
-                  return (names[0][0] + names[1][0]).toUpperCase();
-                }
-                return worker.name.charAt(0).toUpperCase();
-              };
-
-              const isOnline = onlineUsers.some(u => u.id === worker.id);
-              const roleStyle = worker.role === 'ADMIN' ? 'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400'
-                : worker.role === 'MANAGER' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400'
-                : worker.role === 'SELLER' ? 'bg-pink-100 text-pink-700 dark:bg-pink-500/10 dark:text-pink-400'
-                : 'bg-teal-100 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400';
-
-              return (
-                <div key={worker.id} className="bg-white dark:bg-slate-900 rounded-[28px] p-5 shadow-sm border border-gray-200 dark:border-slate-700 hover:shadow-md transition-all duration-300 flex flex-col h-full">
-                  {/* Top: Avatar & Info */}
-                  <div className="flex items-center gap-3 mb-5">
-                    <div className="relative">
-                      <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-sm">
-                        {getInitials()}
-                      </div>
-                      <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 ${isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-slate-600'}`}></div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-900 dark:text-white text-lg truncate">{worker.name}</h3>
-                      <p className="text-gray-500 dark:text-gray-400 text-xs truncate">{worker.branch?.name || 'N/A'}</p>
-                    </div>
-                  </div>
-
-                  {/* Middle: Role & Social/Contact Icons */}
-                  <div className="flex items-center justify-between mb-6">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide ${roleStyle}`}>
-                      {worker.role}
-                    </span>
-                    <div className="flex items-center gap-1.5 relative">
-                      {worker.email && (
-                        <div className="w-8 h-8 rounded-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors" title={worker.email}>
-                          <Icon icon="lucide:mail" className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-                      {worker.phone && (
-                        <div className="w-8 h-8 rounded-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors" title={worker.phone}>
-                          <Icon icon="lucide:phone" className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-                      
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(openMenuId === worker.id ? null : worker.id);
-                        }}
-                        className="w-8 h-8 rounded-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                      >
-                        <Icon icon="lucide:more-horizontal" className="w-3.5 h-3.5" />
-                      </button>
-                      
-                      {openMenuId === worker.id && (
-                        <div
-                          className="absolute right-0 top-10 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 py-1.5 min-w-[140px] z-20"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={() => {
-                              if (isMobile) {
-                                navigate(`/workers/${worker.id}/edit`);
-                              } else {
-                                handleEdit(worker);
-                              }
-                            }}
-                            className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 flex items-center gap-2 cursor-pointer transition-colors"
-                          >
-                            <Icon icon="lucide:pencil" className="w-3.5 h-3.5" />
-                            O'zgartirish
-                          </button>
-                          <button
-                            onClick={() => handleDelete(worker.id)}
-                            className="w-full text-left px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 cursor-pointer transition-colors"
-                          >
-                            <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
-                            O'chirish
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Stats / Numbers */}
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-400 dark:text-gray-500 text-xs font-medium">Tajriba</span>
-                    <span className="text-xl font-bold text-gray-900 dark:text-white">{getExperience()}</span>
-                  </div>
-                  
-                  {worker.currentDebt !== undefined && worker.currentDebt > 0 && (
-                    <div className="flex items-center justify-between mb-2 mt-1.5">
-                      <span className="text-orange-400 dark:text-orange-500/80 text-xs font-medium">Joriy qarz</span>
-                      <span className="text-lg font-bold text-orange-600 dark:text-orange-400">
-                        <CurrencyDisplay amount={worker.currentDebt} originalCurrency={worker.salaryCurrency || 'UZS'} forceOriginal={true} />
-                      </span>
-                    </div>
-                  )}
-                  {worker.legacyDebt !== undefined && worker.legacyDebt > 0 && (
-                    <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-red-400 dark:text-red-500/80 text-xs font-medium">Eski qarz</span>
-                      <span className="text-lg font-bold text-red-600 dark:text-red-400">
-                        <CurrencyDisplay amount={worker.legacyDebt} originalCurrency="USD" forceOriginal={true} />
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Spacer to push bottom section down */}
-                  <div className="mt-6 flex-grow"></div>
-
-                  {/* Bottom: Action Buttons */}
-                  <div className="flex gap-2 mt-auto pt-2">
-                    <button
-                      onClick={() => navigate(`/workers/${worker.id}/report`)}
-                      className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors border border-gray-200 dark:border-slate-700/50"
-                      title="Hisobot"
-                    >
-                      <Icon icon="lucide:bar-chart-2" className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => navigate(`/workers/${worker.id}`)}
-                      className="flex-1 h-12 bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-full font-medium text-sm transition-colors shadow-[0_4px_14px_0_rgba(59,130,246,0.39)]"
-                    >
-                      Batafsil
-                    </button>
-                  </div>
-                </div>
-              );
-            })
+            workers.map((worker) => (
+              <WorkerCard
+                key={worker.id}
+                worker={worker}
+                isOnline={onlineUsers.some(u => u.id === worker.id)}
+                openMenuId={openMenuId}
+                isMobile={isMobile}
+                setOpenMenuId={setOpenMenuId}
+                handleEdit={handleEdit}
+                handleDelete={handleDelete}
+              />
+            ))
           )}
         </div>
       )}
 
-      {/* Add Worker Modal */}
-      {showWorkerForm && (
-        <div
-          className={isMobile && (isNewWorkerRoute || editWorkerId)
-            ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
-            : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
-          style={isMobile && (isNewWorkerRoute || editWorkerId) ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              if (isMobile && (isNewWorkerRoute || editWorkerId)) {
-                navigate('/workers');
-              } else {
-                setShowForm(false);
-              }
-            }
-          }}
-        >
-          <div
-            className={isMobile && (isNewWorkerRoute || editWorkerId)
-              ? 'bg-white w-full h-full p-6 overflow-y-auto'
-              : 'bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4'}
-            style={isMobile && (isNewWorkerRoute || editWorkerId) ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {editingWorker ? 'Ishchini tahrirlash' : 'Yangi ishchi qo\'shish'}
-              </h2>
-              <button
-                onClick={() => {
-                  if (isMobile && (isNewWorkerRoute || editWorkerId)) {
-                    navigate('/workers');
-                  } else {
-                    setShowForm(false);
-                  }
-                  setEditingWorker(null);
-                  setForm({
-                    name: '',
-                    password: '',
-                    role: 'DEKLARANT',
-                    branchId: '',
-                    salary: '',
-                  });
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
-              >
-                ×
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ism <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ishchi ismi"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Parol <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Parol"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Role <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value as 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'SELLER', branchId: e.target.value === 'MANAGER' ? '' : form.branchId })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="DEKLARANT">DEKLARANT</option>
-                  <option value="MANAGER">MANAGER</option>
-                  <option value="SELLER">SOTUVCHI (SELLER)</option>
-                  <option value="ADMIN">ADMIN</option>
-                </select>
-              </div>
-
-              {form.role !== 'MANAGER' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Filial <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    required={form.role !== ('MANAGER' as any)}
-                    value={form.branchId}
-                    onChange={(e) => setForm({ ...form, branchId: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Filialni tanlang</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id.toString()}>
-                        {branch.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Oylik maosh
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.salary}
-                  onChange={(e) => setForm({ ...form, salary: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Qo'shish
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Add/Edit Worker Modal */}
+      <WorkerFormModal
+        showForm={showForm}
+        isMobile={isMobile}
+        isNewWorkerRoute={isNewWorkerRoute}
+        editWorkerId={editWorkerId}
+        editingWorker={editingWorker}
+        form={form}
+        setForm={setForm}
+        branches={branches}
+        handleSubmit={handleSubmit}
+        handleClose={handleCloseForm}
+      />
     </div>
   );
 };

@@ -112,13 +112,13 @@ export function RecommendedPricesSection() {
 
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-6 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-center mb-5">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
             <Icon icon="lucide:dollar-sign" className="w-4 h-4 text-green-600" />
           </div>
-          <h2 className="text-base font-bold text-gray-800">Tavsiyaviy eksport narxlari</h2>
+          <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">Tavsiyaviy eksport narxlari</h2>
         </div>
         <div className="flex gap-2">
 
@@ -141,14 +141,14 @@ export function RecommendedPricesSection() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Mahsulot nomi"
-              className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
+              className="col-span-2 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
             />
             <input
               type="text"
               value={newCode}
               onChange={(e) => setNewCode(e.target.value)}
               placeholder="TN VED (ixtiyoriy)"
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
+              className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
             />
             <input
               type="number"
@@ -157,7 +157,7 @@ export function RecommendedPricesSection() {
               value={newPrice}
               onChange={(e) => setNewPrice(e.target.value)}
               placeholder="Narx (USD)"
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
+              className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
             />
           </div>
           <div className="mt-3 flex justify-end">
@@ -172,16 +172,16 @@ export function RecommendedPricesSection() {
       )}
 
       {loading ? (
-        <div className="py-8 text-center text-gray-500">Yuklanmoqda...</div>
+        <div className="py-8 text-center text-gray-500 dark:text-slate-400">Yuklanmoqda...</div>
       ) : prices.length === 0 ? (
-        <div className="py-8 text-center text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+        <div className="py-8 text-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-gray-200 dark:border-slate-700">
           <Icon icon="lucide:box" className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">Hali mahsulotlar kiritilmagan.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-slate-700">
           <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
+            <thead className="bg-gray-50 dark:bg-slate-900/50 text-gray-500 dark:text-slate-400 border-b border-gray-200 dark:border-slate-700">
               <tr>
                 <th className="px-4 py-3 font-medium">Mahsulot nomi</th>
                 <th className="px-4 py-3 font-medium w-40">TN VED kod</th>
@@ -191,7 +191,7 @@ export function RecommendedPricesSection() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {prices.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50/50">
+                <tr key={item.id} className="hover:bg-gray-50 dark:bg-slate-900/50/50">
                   {editingId === item.id ? (
                     <>
                       <td className="px-4 py-2">
@@ -225,23 +225,23 @@ export function RecommendedPricesSection() {
                         <button onClick={handleSaveEdit} className="text-green-600 hover:text-green-700 p-1" title="Saqlash">
                           <Icon icon="lucide:check" className="w-4 h-4" />
                         </button>
-                        <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 p-1" title="Bekor qilish">
+                        <button onClick={cancelEdit} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:text-slate-300 p-1" title="Bekor qilish">
                           <Icon icon="lucide:x" className="w-4 h-4" />
                         </button>
                       </td>
                     </>
                   ) : (
                     <>
-                      <td className="px-4 py-3 font-medium text-gray-900">{item.productName}</td>
-                      <td className="px-4 py-3 text-gray-500">{item.tnvedCode || '-'}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{item.productName}</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-slate-400">{item.tnvedCode || '-'}</td>
                       <td className="px-4 py-3 text-right font-medium text-green-600">
                         ${Number(item.priceUsd).toFixed(2)}
                       </td>
                       <td className="px-4 py-3 text-right space-x-2">
-                        <button onClick={() => startEdit(item)} className="text-gray-400 hover:text-blue-600 transition-colors p-1" title="Tahrirlash">
+                        <button onClick={() => startEdit(item)} className="text-gray-400 dark:text-slate-500 hover:text-blue-600 dark:text-blue-400 transition-colors p-1" title="Tahrirlash">
                           <Icon icon="lucide:edit-2" className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(item.id, item.productName)} className="text-gray-400 hover:text-red-600 transition-colors p-1" title="O'chirish">
+                        <button onClick={() => handleDelete(item.id, item.productName)} className="text-gray-400 dark:text-slate-500 hover:text-red-600 dark:text-red-400 transition-colors p-1" title="O'chirish">
                           <Icon icon="lucide:trash-2" className="w-4 h-4" />
                         </button>
                       </td>

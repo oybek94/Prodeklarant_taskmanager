@@ -53,21 +53,21 @@ export const SystemTab = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-6 sm:p-8">
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center">
+          <div className="w-12 h-12 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl flex items-center justify-center">
             <Icon icon="lucide:database-backup" className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Ma'lumotlar zaxirasi</h2>
-            <p className="text-sm text-gray-500 mt-1">Dasturdagi barcha ma'lumotlarni zaxira nusxasini ko'chirib olish</p>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Ma'lumotlar zaxirasi</h2>
+            <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Dasturdagi barcha ma'lumotlarni zaxira nusxasini ko'chirib olish</p>
           </div>
         </div>
 
-        <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 mb-6">
+        <div className="bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 rounded-xl p-4 mb-6">
           <div className="flex gap-3">
-            <Icon icon="lucide:alert-triangle" className="w-5 h-5 text-orange-500 flex-shrink-0" />
-            <p className="text-sm text-orange-800">
+            <Icon icon="lucide:alert-triangle" className="w-5 h-5 text-orange-500 dark:text-orange-400 flex-shrink-0" />
+            <p className="text-sm text-orange-800 dark:text-orange-200">
               Zaxira nusxasi (Backup) barcha jadvallardagi ma'lumotlarni o'z ichiga oladi. Dasturda kutilmaganda
               turli jiddiy muammolar bo'lib, ma'lumotlar o'chib ketsa, shu orqali uni qayta tiklasangiz bo'ladi.
             </p>

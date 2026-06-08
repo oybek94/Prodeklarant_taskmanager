@@ -182,18 +182,27 @@ const Transactions = () => {
          setTransactionsTotalCount(Array.isArray(data) ? data.length : 0);
       }
 
-      const categorySet = new Set<string>(expenseCategories);
-      (Array.isArray(data) ? data : [])
-        .map((tx: Transaction) => tx.expenseCategory)
-        .filter((category: string | undefined): category is string => Boolean(category && category.trim()))
-        .forEach((category: string) => categorySet.add(category.trim()));
-      setExpenseCategories(Array.from(categorySet));
+      setExpenseCategories(prev => {
+        const categorySet = new Set<string>(prev);
+        let changed = false;
+        (Array.isArray(data) ? data : [])
+          .map((tx: Transaction) => tx.expenseCategory)
+          .filter((category: string | undefined): category is string => Boolean(category && category.trim()))
+          .forEach((category: string) => {
+            const trimmed = category.trim();
+            if (!categorySet.has(trimmed)) {
+              categorySet.add(trimmed);
+              changed = true;
+            }
+          });
+        return changed ? Array.from(categorySet) : prev;
+      });
     } catch (error) {
       console.error('Error loading transactions:', error);
     } finally {
       setLoading(false);
     }
-  }, [transactionsPage, filters, expenseCategories]);
+  }, [transactionsPage, filters]);
 
   const loadClients = useCallback(async () => {
     try {

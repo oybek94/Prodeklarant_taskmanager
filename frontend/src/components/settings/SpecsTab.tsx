@@ -166,27 +166,27 @@ export const SpecsTab = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="flex items-center gap-3 border-b border-gray-200 pb-3">
+      <div className="flex items-center gap-3 border-b border-gray-200 dark:border-slate-700 pb-3">
         <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
-          <Icon icon="lucide:box" className="w-5 h-5 text-blue-600" />
+          <Icon icon="lucide:box" className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </div>
-        <h2 className="text-xl font-bold text-gray-800">Spetsifikatsiyalar</h2>
+        <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">Spetsifikatsiyalar</h2>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
         <RecommendedPricesSection />
 
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-6 hover:shadow-md transition-shadow">
           <div className="flex justify-between items-center mb-5">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                <Icon icon="lucide:package" className="w-4 h-4 text-blue-600" />
+              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                <Icon icon="lucide:package" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </div>
-              <h2 className="text-base font-bold text-gray-800">TNVED Mahsulotlari</h2>
+              <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">TNVED Mahsulotlari</h2>
             </div>
             <button
               onClick={handleResetTnved}
-              className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
               title="Asli holatiga qaytarish"
             >
               <Icon icon="lucide:rotate-ccw" className="w-4 h-4" />
@@ -194,7 +194,7 @@ export const SpecsTab = () => {
             </button>
           </div>
 
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-500/10 rounded-lg border border-blue-100">
             <h3 className="text-sm font-semibold text-blue-800 mb-3">Yangi mahsulot qo'shish</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <input
@@ -202,21 +202,21 @@ export const SpecsTab = () => {
                 value={tnvedName}
                 onChange={(e) => setTnvedName(e.target.value)}
                 placeholder="Mahsulot nomi"
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
               />
               <input
                 type="text"
                 value={tnvedCode}
                 onChange={(e) => setTnvedCode(e.target.value)}
                 placeholder="TNVED kodi"
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
               />
               <input
                 type="text"
                 value={tnvedBotanical}
                 onChange={(e) => setTnvedBotanical(e.target.value)}
                 placeholder="Botanika nomi (ixtiyoriy)"
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
               />
             </div>
             <button
@@ -230,16 +230,16 @@ export const SpecsTab = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Mahsulot</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">TNVED kodi</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Botanika nomi</th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Amallar</th>
+                <tr className="border-b border-gray-200 dark:border-slate-700">
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-slate-300">Mahsulot</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-slate-300">TNVED kodi</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-slate-300">Botanika nomi</th>
+                  <th className="text-center py-3 px-4 font-semibold text-gray-700 dark:text-slate-300">Amallar</th>
                 </tr>
               </thead>
               <tbody>
                 {tnvedProducts.map((product) => (
-                  <tr key={product.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                  <tr key={product.id} className="border-b border-gray-50 hover:bg-gray-50 dark:bg-slate-900/50 transition-colors">
                     <td className="py-3 px-4">
                       {editingTnvedId === product.id ? (
                         <input
@@ -249,7 +249,7 @@ export const SpecsTab = () => {
                           className="w-full px-2 py-1 border border-blue-300 rounded outline-none"
                         />
                       ) : (
-                        <span className="text-gray-800 font-medium">{product.name}</span>
+                        <span className="text-gray-800 dark:text-slate-200 font-medium">{product.name}</span>
                       )}
                     </td>
                     <td className="py-3 px-4">
@@ -261,10 +261,10 @@ export const SpecsTab = () => {
                           className="w-full px-2 py-1 border border-blue-300 rounded outline-none"
                         />
                       ) : (
-                        <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-600 text-xs">{product.code}</code>
+                        <code className="bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded text-gray-600 dark:text-slate-300 text-xs">{product.code}</code>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-gray-500 italic">
+                    <td className="py-3 px-4 text-gray-500 dark:text-slate-400 italic">
                       {editingTnvedId === product.id ? (
                         <input
                           type="text"
@@ -281,12 +281,12 @@ export const SpecsTab = () => {
                         {editingTnvedId === product.id ? (
                           <>
                             <button onClick={handleSaveTnved} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Saqlash"><Icon icon="lucide:check" className="w-4 h-4" /></button>
-                            <button onClick={cancelEditTnved} className="p-1.5 text-gray-400 hover:bg-gray-50 rounded" title="Bekor qilish"><Icon icon="lucide:x" className="w-4 h-4" /></button>
+                            <button onClick={cancelEditTnved} className="p-1.5 text-gray-400 dark:text-slate-500 hover:bg-gray-50 dark:bg-slate-900/50 rounded" title="Bekor qilish"><Icon icon="lucide:x" className="w-4 h-4" /></button>
                           </>
                         ) : (
                           <>
-                            <button onClick={() => startEditTnved(product)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded text-sm" title="Tahrirlash"><Icon icon="lucide:edit-2" className="w-4 h-4" /></button>
-                            <button onClick={() => handleDeleteTnved(product.id, product.name)} className="p-1.5 text-red-600 hover:bg-red-50 rounded text-sm" title="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                            <button onClick={() => startEditTnved(product)} className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-500/10 rounded text-sm" title="Tahrirlash"><Icon icon="lucide:edit-2" className="w-4 h-4" /></button>
+                            <button onClick={() => handleDeleteTnved(product.id, product.name)} className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-500/10 rounded text-sm" title="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
                           </>
                         )}
                       </div>
@@ -298,12 +298,12 @@ export const SpecsTab = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-6 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
               <Icon icon="lucide:package-2" className="w-4 h-4 text-green-600" />
             </div>
-            <h2 className="text-base font-bold text-gray-800">Qadoq turlari</h2>
+            <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">Qadoq turlari</h2>
           </div>
 
           <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-100">
@@ -314,14 +314,14 @@ export const SpecsTab = () => {
                 value={packagingName}
                 onChange={(e) => setPackagingName(e.target.value)}
                 placeholder="Qadoq nomi (masalan: Quti)"
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
+                className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
               />
               <input
                 type="text"
                 value={packagingCode}
                 onChange={(e) => setPackagingCode(e.target.value)}
                 placeholder="Kod (ixitiyoriy)"
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
+                className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
               />
             </div>
             <button
@@ -333,11 +333,11 @@ export const SpecsTab = () => {
           </div>
 
           {loadingPackagingTypes ? (
-            <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
+            <div className="text-center py-4 text-gray-500 dark:text-slate-400">Yuklanmoqda...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {packagingTypes.map((type) => (
-                <div key={type.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:border-green-200 hover:bg-green-50/30 transition-all">
+                <div key={type.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-slate-700 rounded-xl hover:border-green-200 hover:bg-green-50/30 transition-all">
                   {editingPackagingId === type.id ? (
                     <div className="flex flex-col gap-2 w-full">
                       <input
@@ -349,18 +349,18 @@ export const SpecsTab = () => {
                       />
                       <div className="flex gap-2">
                         <button onClick={handleSavePackaging} className="flex-1 bg-green-600 text-white py-1 rounded text-xs">Saqlash</button>
-                        <button onClick={cancelEditPackaging} className="flex-1 bg-gray-200 text-gray-600 py-1 rounded text-xs">Bekor</button>
+                        <button onClick={cancelEditPackaging} className="flex-1 bg-gray-200 text-gray-600 dark:text-slate-300 py-1 rounded text-xs">Bekor</button>
                       </div>
                     </div>
                   ) : (
                     <>
                       <div>
-                        <div className="text-gray-800 font-medium">{type.name}</div>
-                        {type.code && <div className="text-xs text-gray-400">Kod: {type.code}</div>}
+                        <div className="text-gray-800 dark:text-slate-200 font-medium">{type.name}</div>
+                        {type.code && <div className="text-xs text-gray-400 dark:text-slate-500">Kod: {type.code}</div>}
                       </div>
                       <div className="flex gap-1">
-                        <button onClick={() => startEditPackaging(type)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Icon icon="lucide:edit-2" className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => handleDeletePackaging(type.id, type.name)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Icon icon="lucide:trash-2" className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => startEditPackaging(type)} className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-500/10 rounded"><Icon icon="lucide:edit-2" className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDeletePackaging(type.id, type.name)} className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-500/10 rounded"><Icon icon="lucide:trash-2" className="w-3.5 h-3.5" /></button>
                       </div>
                     </>
                   )}

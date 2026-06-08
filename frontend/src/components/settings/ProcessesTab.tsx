@@ -59,7 +59,7 @@ export const ProcessesTab = () => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex justify-between items-center border-b pb-2">
-        <h2 className="text-xl font-semibold text-gray-800">Jarayon Sozlamalari (Eslatmalar)</h2>
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-200">Jarayon Sozlamalari (Eslatmalar)</h2>
         <button
           onClick={handleSaveProcessSettings}
           disabled={savingProcessSettings}
@@ -80,24 +80,24 @@ export const ProcessesTab = () => {
       </div>
 
       {loadingProcessSettings ? (
-        <div className="text-center py-8 text-gray-500">Yuklanmoqda...</div>
+        <div className="text-center py-8 text-gray-500 dark:text-slate-400">Yuklanmoqda...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left py-4 px-6 font-semibold text-gray-700">Jarayon turi</th>
-                  <th className="text-center py-4 px-6 font-semibold text-gray-700">Taxminiy vaqt (kun)</th>
-                  <th className="text-center py-4 px-6 font-semibold text-gray-700">1-eslatma (kun)</th>
-                  <th className="text-center py-4 px-6 font-semibold text-gray-700">2-eslatma (kun)</th>
-                  <th className="text-center py-4 px-6 font-semibold text-gray-700">3-eslatma (kun)</th>
+                <tr className="bg-gray-50 dark:bg-slate-900/50 border-b border-gray-200 dark:border-slate-700">
+                  <th className="text-left py-4 px-6 font-semibold text-gray-700 dark:text-slate-300">Jarayon turi</th>
+                  <th className="text-center py-4 px-6 font-semibold text-gray-700 dark:text-slate-300">Taxminiy vaqt (kun)</th>
+                  <th className="text-center py-4 px-6 font-semibold text-gray-700 dark:text-slate-300">1-eslatma (kun)</th>
+                  <th className="text-center py-4 px-6 font-semibold text-gray-700 dark:text-slate-300">2-eslatma (kun)</th>
+                  <th className="text-center py-4 px-6 font-semibold text-gray-700 dark:text-slate-300">3-eslatma (kun)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {processSettings.map((setting) => (
-                  <tr key={setting.processType} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="py-4 px-6 font-medium text-gray-800">
+                  <tr key={setting.processType} className="hover:bg-gray-50 dark:bg-slate-900/50/50 transition-colors">
+                    <td className="py-4 px-6 font-medium text-gray-800 dark:text-slate-200">
                       {setting.processType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')}
                     </td>
                     <td className="py-4 px-6">
@@ -108,7 +108,7 @@ export const ProcessesTab = () => {
                           ...processSettingsEdits,
                           [setting.processType]: { ...processSettingsEdits[setting.processType], estimatedTime: e.target.value }
                         })}
-                        className="w-20 mx-auto px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
+                        className="w-20 mx-auto px-2 py-1.5 border border-gray-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
                       />
                     </td>
                     <td className="py-4 px-6">
@@ -119,7 +119,7 @@ export const ProcessesTab = () => {
                           ...processSettingsEdits,
                           [setting.processType]: { ...processSettingsEdits[setting.processType], reminder1: e.target.value }
                         })}
-                        className="w-20 mx-auto px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
+                        className="w-20 mx-auto px-2 py-1.5 border border-gray-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
                       />
                     </td>
                     <td className="py-4 px-6">
@@ -130,7 +130,7 @@ export const ProcessesTab = () => {
                           ...processSettingsEdits,
                           [setting.processType]: { ...processSettingsEdits[setting.processType], reminder2: e.target.value }
                         })}
-                        className="w-20 mx-auto px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
+                        className="w-20 mx-auto px-2 py-1.5 border border-gray-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
                       />
                     </td>
                     <td className="py-4 px-6">
@@ -141,7 +141,7 @@ export const ProcessesTab = () => {
                           ...processSettingsEdits,
                           [setting.processType]: { ...processSettingsEdits[setting.processType], reminder3: e.target.value }
                         })}
-                        className="w-20 mx-auto px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
+                        className="w-20 mx-auto px-2 py-1.5 border border-gray-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-blue-500 outline-none text-center"
                       />
                     </td>
                   </tr>

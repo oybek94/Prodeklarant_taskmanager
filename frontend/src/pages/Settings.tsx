@@ -22,31 +22,31 @@ const Settings = () => {
   ];
 
   return (
-    <div className="flex-1 bg-[#F8FAFC] min-h-screen">
+    <div className="flex-1 bg-[#F8FAFC] dark:bg-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-200">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-200 dark:shadow-none">
               <Icon icon="lucide:sliders" className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Sozlamalar</h1>
-              <p className="text-sm text-gray-500 font-medium">Tizim va moliyaviy parametrlarni boshqarish</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Sozlamalar</h1>
+              <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">Tizim va moliyaviy parametrlarni boshqarish</p>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-2 flex overflow-x-auto hide-scrollbar">
+          <div className="bg-white dark:bg-slate-800/50 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 p-2 flex overflow-x-auto hide-scrollbar">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'bg-blue-50 text-blue-700 shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800/50 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
-                <Icon icon={tab.icon} className={`w-4 h-4 ${activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'}`} />
+                <Icon icon={tab.icon} className={`w-4 h-4 ${activeTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500'}`} />
                 {tab.label}
               </button>
             ))}

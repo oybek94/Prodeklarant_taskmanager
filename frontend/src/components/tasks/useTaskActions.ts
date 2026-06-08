@@ -205,36 +205,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       return;
     }
 
-    if (multiplier > 1 && selectedTask) {
-      try {
-        const clientCurrency = getClientCurrency(selectedTask.client);
-        let additionalPayment: number;
-        let formattedAdditional: string;
 
-        if (clientCurrency === 'USD') {
-          additionalPayment = (multiplier - 1) * modals.currentBxmUsd;
-          formattedAdditional = new Intl.NumberFormat('en-US', {
-            style: 'currency', currency: 'USD', minimumFractionDigits: 2,
-          }).format(additionalPayment).replace(/,/g, ' ').replace(/\./g, ',');
-        } else {
-          additionalPayment = (multiplier - 1) * modals.currentBxmUzs;
-          formattedAdditional = new Intl.NumberFormat('en-US', {
-            style: 'currency', currency: 'UZS', minimumFractionDigits: 0, maximumFractionDigits: 0,
-          }).format(additionalPayment).replace(/,/g, ' ').replace(/\./g, ',');
-        }
-
-        const payerLabel = (selectedTask.afterHoursPayer || 'CLIENT') === 'CLIENT' ? 'mijoz' : 'kompaniya';
-        const confirmMessage = `Deklaratsiya to'lovi BXMning 1 barobaridan oshib ketdi.\n\n` +
-          `Qo'shimcha to'lov: ${formattedAdditional}\n\n` +
-          `Bu summa ${payerLabel} hisobiga yoziladi.\n\n` +
-          `Davom etasizmi?`;
-
-        if (!confirm(confirmMessage)) return;
-      } catch (err) {
-        console.warn('BXM warning error:', err);
-        if (!confirm(`BXM ${multiplier} barobari tanlandi. Davom etasizmi?`)) return;
-      }
-    }
 
     if (modals.selectedStageForReminder) {
       await updateStageToReady(modals.selectedStageForReminder, multiplier, false, modals.afterHoursDeclaration);

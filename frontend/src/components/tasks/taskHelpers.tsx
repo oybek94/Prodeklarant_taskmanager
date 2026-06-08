@@ -32,17 +32,17 @@ export const formatDuration = (minutes: number | null): string => {
 export const getStatusInfo = (status: string): { label: string; color: string } => {
   switch (status) {
     case 'BOSHLANMAGAN':
-      return { label: 'Boshlanmagan', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 dark:border dark:border-red-800/50' };
+      return { label: 'Boshlanmagan', color: 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-500/30' };
     case 'JARAYONDA':
-      return { label: 'Jarayonda', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border dark:border-yellow-800/50' };
+      return { label: 'Jarayonda', color: 'bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30' };
     case 'TAYYOR':
-      return { label: 'Xujjat tayyor', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 dark:border dark:border-blue-800/50' };
+      return { label: 'Xujjat tayyor', color: 'bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/30' };
     case 'TEKSHIRILGAN':
-      return { label: 'Xujjat tekshirilgan', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 dark:border dark:border-purple-800/50' };
+      return { label: 'Xujjat tekshirilgan', color: 'bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30' };
     case 'TOPSHIRILDI':
-      return { label: 'Xujjat topshirildi', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border dark:border-indigo-800/50' };
+      return { label: 'Xujjat topshirildi', color: 'bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30' };
     case 'YAKUNLANDI':
-      return { label: 'Yakunlandi', color: 'bg-green-100 text-green-800 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border dark:border-emerald-800/50' };
+      return { label: 'Yakunlandi', color: 'bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30' };
     default:
       return { label: "Noma'lum", color: 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-400 dark:border dark:border-slate-700' };
   }

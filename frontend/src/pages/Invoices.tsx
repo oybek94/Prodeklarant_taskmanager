@@ -553,16 +553,35 @@ const Invoices = () => {
     return formatDateOnly(dateString);
   };
 
-  const getStatusBadgeClass = (status: string | undefined): string => {
-    if (!status) return 'bg-gray-100 text-gray-500 dark:bg-slate-800/50 dark:text-slate-400';
-    const s = status.toUpperCase();
-    if (s === 'BOSHLANMAGAN') return 'bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-300 border border-transparent dark:border-slate-700';
-    if (s === 'JARAYONDA') return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-transparent dark:border-amber-800/50';
-    if (s === 'TAYYOR') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-transparent dark:border-emerald-800/50';
-    if (s === 'TEKSHIRILGAN') return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-transparent dark:border-blue-800/50';
-    if (s === 'TOPSHIRILDI') return 'bg-green-100 text-green-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-transparent dark:border-emerald-800/50';
-    if (s === 'YAKUNLANDI') return 'bg-green-100 text-green-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-transparent dark:border-emerald-800/50';
-    return 'bg-gray-100 text-gray-600 dark:bg-slate-800/50 dark:text-slate-400 border border-transparent dark:border-slate-700';
+  const StatusBadge = ({ status, onClick, isMobile }: { status: string | undefined, onClick: (e: React.MouseEvent) => void, isMobile?: boolean }) => {
+    const config = (() => {
+      if (!status) return { text: '—', bg: 'bg-gray-100/80 dark:bg-slate-800/50', textClass: 'text-gray-500 dark:text-slate-400', border: 'border-gray-200 dark:border-slate-700', dot: 'bg-gray-400' };
+      const s = status.toUpperCase();
+      switch (s) {
+        case 'BOSHLANMAGAN': return { text: 'Boshlanmagan', bg: 'bg-slate-50/80 dark:bg-slate-500/10', textClass: 'text-slate-600 dark:text-slate-300', border: 'border-slate-200 dark:border-slate-500/30', dot: 'bg-slate-400' };
+        case 'JARAYONDA': return { text: 'Jarayonda', bg: 'bg-amber-50/80 dark:bg-amber-500/10', textClass: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-500/30', dot: 'bg-amber-500 animate-pulse' };
+        case 'TAYYOR': return { text: 'Tayyor', bg: 'bg-sky-50/80 dark:bg-sky-500/10', textClass: 'text-sky-700 dark:text-sky-300', border: 'border-sky-200 dark:border-sky-500/30', dot: 'bg-sky-500' };
+        case 'TEKSHIRILGAN': return { text: 'Tekshirilgan', bg: 'bg-blue-50/80 dark:bg-blue-500/10', textClass: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-500/30', dot: 'bg-blue-500' };
+        case 'TOPSHIRILDI': return { text: 'Topshirildi', bg: 'bg-indigo-50/80 dark:bg-indigo-500/10', textClass: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-500/30', dot: 'bg-indigo-500' };
+        case 'YAKUNLANDI': return { text: 'Yakunlandi', bg: 'bg-emerald-50/80 dark:bg-emerald-500/10', textClass: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-500/30', dot: 'bg-emerald-500' };
+        default: return { text: status, bg: 'bg-gray-50/80 dark:bg-slate-800/50', textClass: 'text-gray-600 dark:text-slate-400', border: 'border-gray-200 dark:border-slate-700', dot: 'bg-gray-400' };
+      }
+    })();
+
+    const baseClasses = "inline-flex items-center gap-1.5 rounded-full border transition-all duration-200 hover:shadow-sm backdrop-blur-sm cursor-pointer hover:-translate-y-[1px]";
+    const sizeClasses = isMobile ? "px-2.5 py-0.5 text-[10px] font-bold tracking-wide" : "px-3 py-1 text-xs font-semibold shadow-sm";
+    
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title="Jarayonlar (task tafsilotlari)"
+        className={`${baseClasses} ${sizeClasses} ${config.bg} ${config.border} ${config.textClass}`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${config.dot}`}></span>
+        <span>{config.text}</span>
+      </button>
+    );
   };
 
   /** Filial ustunidagi rang — Tasks kartochkalaridagi kabi (faqat filial katagida) */
@@ -1060,13 +1079,14 @@ const Invoices = () => {
                   <span className="text-gray-900 dark:text-gray-100 font-bold text-base font-mono">
                     #{invoice.invoiceNumber}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowTaskModalId(invoice.taskId)}
-                    className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${getStatusBadgeClass(invoice.task?.status)}`}
-                  >
-                    {invoice.task?.status ?? '—'}
-                  </button>
+                  <StatusBadge 
+                    status={invoice.task?.status} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowTaskModalId(invoice.taskId);
+                    }}
+                    isMobile={true}
+                  />
                 </div>
 
                 <div className="text-xs space-y-2 pt-1">
@@ -1254,14 +1274,13 @@ const Invoices = () => {
                         {formatDate(invoice.date)}
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-center">
-                        <button
-                          type="button"
-                          onClick={() => setShowTaskModalId(invoice.taskId)}
-                          className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-300 transition-shadow ${getStatusBadgeClass(invoice.task?.status)}`}
-                          title="Jarayonlar (task tafsilotlari)"
-                        >
-                          {invoice.task?.status ?? '—'}
-                        </button>
+                        <StatusBadge 
+                          status={invoice.task?.status} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowTaskModalId(invoice.taskId);
+                          }}
+                        />
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-center">
                         <div className="flex items-center justify-center gap-1">

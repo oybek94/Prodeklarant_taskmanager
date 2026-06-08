@@ -444,23 +444,23 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4 sm:gap-0">
         <div className="flex flex-col gap-2 w-full sm:w-auto">
           {tareRules.map((rule, idx) => (
-            <div key={idx} className="flex items-center gap-2 bg-blue-50/80 px-2 py-1.5 rounded-lg border border-blue-200 shadow-sm text-sm w-max">
-              <span className="font-semibold text-blue-800">{rule.packageType}:</span>
-              <span className="text-gray-700 font-medium">{rule.tareWeight} kg</span>
+            <div key={idx} className="flex items-center gap-2 bg-blue-50/80 dark:bg-blue-900/30 px-2 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm text-sm w-max">
+              <span className="font-semibold text-blue-800 dark:text-blue-300">{rule.packageType}:</span>
+              <span className="text-gray-700 dark:text-gray-300 font-medium">{rule.tareWeight} kg</span>
               <button
                 type="button"
                 onClick={() => handleRemoveTareRule(idx)}
-                className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-0.5 rounded transition-colors ml-1"
+                className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 p-0.5 rounded transition-colors ml-1"
                 title="O'chirish"
               >
                 <Icon icon="lucide:x" className="w-4 h-4" />
               </button>
             </div>
           ))}
-          <div className="flex flex-wrap items-center gap-2 bg-blue-50/50 p-1.5 rounded-lg border border-blue-100 shadow-sm no-screenshot w-full sm:w-auto">
-            <span className="text-xs font-semibold text-blue-800 ml-1 whitespace-nowrap hidden md:inline">Ommaviy Tara:</span>
+          <div className="flex flex-wrap items-center gap-2 bg-blue-50/50 dark:bg-blue-900/20 p-1.5 rounded-lg border border-blue-100 dark:border-blue-800 shadow-sm no-screenshot w-full sm:w-auto">
+            <span className="text-xs font-semibold text-blue-800 dark:text-blue-300 ml-1 whitespace-nowrap hidden md:inline">Ommaviy Tara:</span>
             <select
-              className="px-2 py-1.5 border border-blue-200 rounded text-sm bg-white text-gray-700 min-w-[120px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="px-2 py-1.5 border border-blue-200 dark:border-blue-700 rounded text-sm bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 min-w-[120px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               value={massPackageType}
               onChange={(e) => setMassPackageType(e.target.value)}
             >
@@ -472,7 +472,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
             <div className="relative">
               <input
                 type="text"
-                className="px-2 py-1.5 border border-blue-200 rounded text-sm w-20 text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="px-2 py-1.5 border border-blue-200 dark:border-blue-700 rounded text-sm w-20 text-center bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="0.5"
                 value={massTareWeight}
                 onChange={(e) => setMassTareWeight(e.target.value)}
@@ -483,11 +483,11 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
                   }
                 }}
               />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">kg</span>
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 dark:text-gray-500 pointer-events-none">kg</span>
             </div>
             <button
               type="button"
-              className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm active:bg-blue-800"
+              className="px-3 py-1.5 bg-blue-600 dark:bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 dark:hover:bg-blue-500 transition-colors shadow-sm active:bg-blue-800 dark:active:bg-blue-700"
               onClick={handleApplyMassTare}
             >
               Qo'llash

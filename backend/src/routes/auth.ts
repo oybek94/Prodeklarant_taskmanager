@@ -148,8 +148,12 @@ router.post('/refresh', async (req, res) => {
       accessToken: signAccessToken(newPayload),
       refreshToken: signRefreshToken(newPayload),
     });
-  } catch {
-    return res.status(401).json({ error: 'Invalid refresh' });
+  } catch (error: any) {
+    console.error('Refresh token error:', error);
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Invalid refresh' });
+    }
+    return res.status(500).json({ error: 'Internal server error during refresh' });
   }
 });
 

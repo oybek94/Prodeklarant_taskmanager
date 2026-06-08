@@ -144,19 +144,19 @@ app.get('/api/secure-uploads/*path', requireAuth(), (req, res) => {
 
 
 // Rate limiting — brute force va DDoS dan himoya
-// Login uchun: 15 daqiqada max 10 urinish
+// Login uchun: 15 daqiqada max 10 urinish (production da)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 daqiqa
-  max: 10,
+  max: process.env.NODE_ENV === 'production' ? 10 : 1000,
   message: { error: 'Juda ko\'p urinish. 15 daqiqadan keyin qayta urinib ko\'ring.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Umumiy API: 1 daqiqada max 200 so\'rov
+// Umumiy API: 1 daqiqada max 200 so\'rov (production da)
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 daqiqa
-  max: 200,
+  max: process.env.NODE_ENV === 'production' ? 200 : 3000,
   message: { error: 'Juda ko\'p so\'rov. Bir daqiqadan keyin qayta urinib ko\'ring.' },
   standardHeaders: true,
   legacyHeaders: false,

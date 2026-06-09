@@ -1088,7 +1088,7 @@ const ClientDetail = () => {
       {/* Contract Form Modal */}
       {showContractForm && (
         <div
-          className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] backdrop-blur-sm ${isMobile ? 'p-0' : 'p-4 overflow-y-auto py-4'}`}
+          className={`fixed inset-0 bg-black/50 flex items-center justify-center z-[100] backdrop-blur-sm ${isMobile ? 'p-0' : 'p-4 overflow-y-auto py-4'}`}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
               setShowContractForm(false);

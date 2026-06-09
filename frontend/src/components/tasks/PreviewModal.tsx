@@ -11,7 +11,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ previewDocument, onClose })
     <AnimatePresence>
       {previewDocument && (
     <motion.div
-      className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[120] backdrop-blur-sm"
+      className="fixed inset-0 bg-black/75 flex items-center justify-center z-[120] backdrop-blur-sm"
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
       onClick={onClose}
     >

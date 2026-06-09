@@ -277,7 +277,7 @@ export default function TrainingManagement() {
 
       {/* Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Yangi O'qitish Kursi</h2>
             <form onSubmit={handleSubmit}>
@@ -372,7 +372,7 @@ export default function TrainingManagement() {
 
       {/* Edit Modal */}
       {showEditModal && selectedTraining && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">O'qitish Kursini Tahrirlash</h2>
             <form onSubmit={handleSubmit}>

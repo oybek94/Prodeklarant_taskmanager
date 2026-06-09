@@ -48,7 +48,7 @@ const WorkerFormModal = React.memo(({
         <div
             className={isMobile && (isNewWorkerRoute || editWorkerId)
                 ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
-                : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+                : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm'}
             style={isMobile && (isNewWorkerRoute || editWorkerId) ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
             onClick={(e) => {
                 if (e.target === e.currentTarget) {

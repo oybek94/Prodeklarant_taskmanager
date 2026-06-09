@@ -363,7 +363,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
           <div className="flex-1 min-w-[120px]">
             <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Status</div>
             <div className="mt-0.5">
-              <span className={`px-2 py-0.5 text-xs font-bold rounded-md border ${getStatusInfo(selectedTask.status).color.replace('bg-', 'bg-opacity-20 border-').replace('text-', 'text-')}`}>
+              <span className={`px-2 py-0.5 text-xs font-bold rounded-md border ${getStatusInfo(selectedTask.status).color.replace('bg-', 'border-').replace('text-', 'text-')}`}>
                 {getStatusInfo(selectedTask.status).label}
               </span>
             </div>

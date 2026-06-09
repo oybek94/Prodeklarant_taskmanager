@@ -43,7 +43,7 @@ const SendEmailModal: React.FC<SendEmailModalProps> = ({
     <AnimatePresence>
       {show && selectedTask && (
     <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[110] backdrop-blur-sm"
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
       onClick={(e) => {
         if (e.target === e.currentTarget && !sendingEmail) {

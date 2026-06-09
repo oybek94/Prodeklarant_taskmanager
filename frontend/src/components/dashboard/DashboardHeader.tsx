@@ -86,7 +86,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   </div>
                   <div>
                     <h3 className="text-sm sm:text-base font-bold text-orange-800 dark:text-orange-300">Baholanmagan xatolar mavjud!</h3>
-                    <p className="text-xs sm:text-sm text-orange-700 dark:text-orange-400 text-opacity-90 mt-0.5">
+                    <p className="text-xs sm:text-sm text-orange-700/90 dark:text-orange-400/90 mt-0.5">
                       Sizda barcha filiallar bo'yicha jami <strong>{unratedErrors.length}</strong> ta xato kutmoqda. Ularni hoziroq baholang.
                     </p>
                   </div>

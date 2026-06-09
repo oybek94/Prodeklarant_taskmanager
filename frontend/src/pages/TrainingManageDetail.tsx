@@ -779,7 +779,7 @@ export default function TrainingManageDetail() {
 
       {/* Stage Modal - Full Screen Editor */}
       {showStageModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg w-full max-w-7xl mx-4 my-8 min-h-[90vh] flex flex-col">
             {/* Header */}
             <div className="border-b p-6 flex items-center justify-between">
@@ -874,7 +874,7 @@ export default function TrainingManageDetail() {
 
       {/* Step Modal */}
       {showStepModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">
               {selectedStep?.step ? 'Qadamni Tahrirlash' : 'Yangi Qadam'}
@@ -951,7 +951,7 @@ export default function TrainingManageDetail() {
 
       {/* Material Modal */}
       {showMaterialModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">
               {selectedMaterial ? 'Materialni Tahrirlash' : 'Yangi Material'}
@@ -1150,7 +1150,7 @@ export default function TrainingManageDetail() {
 
       {/* Exam Modal */}
       {showExamModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">
               {selectedExam ? 'Imtihonni Tahrirlash' : 'Yangi Imtihon'}

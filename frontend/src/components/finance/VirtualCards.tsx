@@ -34,7 +34,7 @@ const VirtualCards = React.memo(({ cards, formatCurrency }: VirtualCardsProps) =
                     const styleClass = cardStyles[(card.id - 1) % cardStyles.length];
 
                     return (
-                        <div key={card.id} className={`relative overflow-hidden rounded-[1.25rem] bg-gradient-to-br ${styleClass} p-6 shadow-xl border border-opacity-50 text-white transform hover:-translate-y-1.5 transition-all duration-300 group`}>
+                        <div key={card.id} className={`relative overflow-hidden rounded-[1.25rem] bg-gradient-to-br ${styleClass} p-6 shadow-xl border border-white/50 text-white transform hover:-translate-y-1.5 transition-all duration-300 group`}>
                             {/* Decorative elements */}
                             <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white/5 rounded-full pointer-events-none group-hover:scale-110 transition-transform duration-500"></div>
                             <div className="absolute -top-12 -left-12 w-40 h-40 bg-white/5 rounded-full pointer-events-none group-hover:scale-110 transition-transform duration-500"></div>

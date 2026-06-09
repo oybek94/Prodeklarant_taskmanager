@@ -49,7 +49,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
     <div
       className={isFullScreen
         ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
-        : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+        : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm'}
       style={isFullScreen ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {

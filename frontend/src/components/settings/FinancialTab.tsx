@@ -792,7 +792,7 @@ export const FinancialTab = () => {
 
       {showCertifierFeeForm && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setShowCertifierFeeForm(false); }}
         >
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
@@ -836,7 +836,7 @@ export const FinancialTab = () => {
 
       {showStatePaymentForm && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setShowStatePaymentForm(false); }}
         >
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
@@ -874,7 +874,7 @@ export const FinancialTab = () => {
 
       {showKpiHistoryModal && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setShowKpiHistoryModal(false); }}
         >
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden">

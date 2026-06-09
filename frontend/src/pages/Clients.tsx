@@ -339,6 +339,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     initialDebtCurrency: 'USD' as 'USD' | 'UZS',
   });
   const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
+  const [savingClient, setSavingClient] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
     dealAmount: '',
@@ -1173,7 +1174,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (savingClient) return;
     try {
+      setSavingClient(true);
       const createData: any = {
         name: form.name,
         dealAmount: form.dealAmount ? parseFloat(form.dealAmount) : undefined,
@@ -1262,6 +1265,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     } catch (error: any) {
       console.error('Create error:', error);
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    } finally {
+      setSavingClient(false);
     }
   };
 
@@ -1645,7 +1650,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             <div
               className={isMobile && isNewClientRoute
                 ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
-                : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+                : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm'}
               style={isMobile && isNewClientRoute ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
               onMouseDown={(e) => {
                 if (e.target === e.currentTarget) {
@@ -1795,9 +1800,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   <div className="flex gap-2">
                     <button
                       type="submit"
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                      disabled={savingClient}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      Saqlash
+                      {savingClient ? 'Saqlanmoqda...' : 'Saqlash'}
                     </button>
                     <button
                       type="button"
@@ -1964,7 +1970,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       {/* Client Detail Modal - ADMIN va MANAGER; MANAGER uchun faqat shartnomalar bo'limi to'liq */}
       {showClientModal && selectedClient && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
           style={{
             animation: 'backdropFadeIn 0.3s ease-out'
           }}
@@ -2578,7 +2584,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       {/* Contract Create Modal */}
       {showContractModal && selectedClient && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
           style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
@@ -3580,7 +3586,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
           <div
             className={isMobile && editClientId
               ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
-              : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm'}
+              : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm'}
             style={isMobile && editClientId ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
             onMouseDown={(e) => {
               if (e.target === e.currentTarget) {
@@ -3904,7 +3910,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       {
         selectedMonthForTasks && selectedClient && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm p-4"
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm p-4"
             style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
             onMouseDown={(e) => {
               if (e.target === e.currentTarget) {

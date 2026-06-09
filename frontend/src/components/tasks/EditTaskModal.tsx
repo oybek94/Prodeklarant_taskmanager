@@ -54,7 +54,7 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
     <motion.div
       className={isMobile && editTaskId
         ? 'fixed inset-0 bg-white dark:bg-slate-900 flex items-start justify-center z-[110]'
-        : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm'}
+        : 'fixed inset-0 bg-black/50 flex items-center justify-center z-[110] backdrop-blur-sm'}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >

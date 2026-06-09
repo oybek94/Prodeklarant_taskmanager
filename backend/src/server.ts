@@ -315,11 +315,15 @@ function validateEnvironment() {
 // Validate environment before starting server
 validateEnvironment();
 
-// Initialize exchange rate scheduler
-initializeExchangeRateScheduler();
-initializeProcessScheduler();
-initCronJobs();
-initFinanceBot();
+// Initialize background workers (only on primary PM2 instance to avoid conflicts)
+if (!process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0') {
+  initializeExchangeRateScheduler();
+  initializeProcessScheduler();
+  initCronJobs();
+  initFinanceBot();
+} else {
+  console.log(`Worker instance ${process.env.NODE_APP_INSTANCE} started. Background jobs skipped.`);
+}
 
 // ===== Socket.io =====
 import { verifyAccessToken } from './utils/jwt';

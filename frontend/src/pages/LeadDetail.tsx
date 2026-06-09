@@ -520,11 +520,9 @@ export default function LeadDetail() {
                             <button onClick={() => setEditing(true)} className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Tahrirlash">
                                 <Icon icon="lucide:pencil" className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                             </button>
-                            {user?.role !== 'SELLER' && (
-                                <button onClick={handleDelete} className="p-2 rounded-xl border border-red-200 hover:bg-red-50 transition-colors" title="O'chirish">
-                                    <Icon icon="lucide:trash-2" className="w-4 h-4 text-red-500" />
-                                </button>
-                            )}
+                            <button onClick={handleDelete} className="p-2 rounded-xl border border-red-200 hover:bg-red-50 transition-colors" title="O'chirish">
+                                <Icon icon="lucide:trash-2" className="w-4 h-4 text-red-500" />
+                            </button>
                         </>
                     )}
                 </div>

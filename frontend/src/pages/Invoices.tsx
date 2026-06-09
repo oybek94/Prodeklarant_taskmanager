@@ -118,7 +118,7 @@ const Invoices = () => {
   const [showClientModalId, setShowClientModalId] = useState<number | null>(null);
   const [showContractModalId, setShowContractModalId] = useState<number | null>(null);
 
-  const filtersPanelRef = useRef<HTMLDivElement>(null);
+  const filtersPanelRef = useRef<HTMLDivElement>(null as any);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

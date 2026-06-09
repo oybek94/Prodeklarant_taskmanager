@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import svgr from 'vite-plugin-svgr'
+import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    tailwindcss(),
     react(),
     svgr({
       svgrOptions: {
@@ -15,13 +17,15 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-charts': ['apexcharts', 'react-apexcharts', 'chart.js', 'recharts', 'react-chartjs-2'],
-          'vendor-editor': ['@tiptap/react', '@tiptap/starter-kit'],
-          'vendor-xlsx': ['xlsx'],
-          'vendor-pdf': ['jspdf', 'html2canvas'],
-          'vendor-ui': ['framer-motion', 'lucide-react', '@iconify/react'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) return 'vendor-react';
+            if (id.includes('apexcharts') || id.includes('chart.js') || id.includes('recharts')) return 'vendor-charts';
+            if (id.includes('@tiptap')) return 'vendor-editor';
+            if (id.includes('xlsx')) return 'vendor-xlsx';
+            if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf';
+            if (id.includes('framer-motion') || id.includes('lucide-react') || id.includes('@iconify')) return 'vendor-ui';
+          }
         },
       },
     },

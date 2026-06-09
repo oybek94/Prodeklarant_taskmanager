@@ -1,6 +1,32 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-white: #FFFFFF;
+  --color-brand-light: #EBEBEB;
+  --color-brand-silver: #C0C0C0;
+  --color-brand-blue: #3A6EA5;
+  --color-brand-dark: #004E98;
+
+  --color-indigo-50: #f0f5fb;
+  --color-indigo-100: #e1eaf6;
+  --color-indigo-200: #c8dceb;
+  --color-indigo-300: #a1c2df;
+  --color-indigo-400: #6ea3cb;
+  --color-indigo-500: #3A6EA5;
+  --color-indigo-600: #004E98;
+  --color-indigo-700: #004485;
+  --color-indigo-800: #003970;
+  --color-indigo-900: #002f5e;
+  --color-indigo-950: #001e40;
+
+  --color-gray-50: #FDFDFD;
+  --color-gray-100: #EBEBEB;
+  --color-gray-200: #D6D6D6;
+  --color-gray-300: #C0C0C0;
+}
+
 
 .custom-scrollbar {
   scrollbar-width: thin;

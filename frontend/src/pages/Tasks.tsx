@@ -215,7 +215,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     await handleTelegramClickHelper(selectedTask, setSelectedTask, branches);
   };
   
-  taskActions.handleTelegramClick = handleTelegramClick;
+  (taskActions as any).handleTelegramClick = handleTelegramClick;
 
   const formatBxmAmountInSum = (multiplier: number) =>
     formatBxmAmountInSumHelper(multiplier, modals.currentBxmUzs);

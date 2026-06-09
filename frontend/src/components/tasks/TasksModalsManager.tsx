@@ -36,7 +36,7 @@ interface TasksModalsManagerProps {
   loadingDocuments: boolean;
   loadingTask: boolean;
   loadingAiChecks: boolean;
-  loadingExtractedTexts: boolean;
+  loadingExtractedTexts: any;
   user: any;
   isModalMode: boolean;
   onCloseModal?: () => void;

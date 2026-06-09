@@ -48,6 +48,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedTask) return;
     const amountValue = errorForm.amount.trim();
     if (!/^\d{1,9}$/.test(amountValue)) {
       toast.error("Summa faqat raqam bo'lishi va 9 xonagacha bo'lishi kerak");
@@ -85,6 +86,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
   };
 
   const handleRateError = async (errorId: number) => {
+    if (!selectedTask) return;
     if (ratingValue < 0 || ratingValue > 10) {
       toast.error("Baho 0 va 10 oralig'ida bo'lishi kerak");
       return;
@@ -180,6 +182,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
                       <button
                         type="button"
                         onClick={async () => {
+                          if (!selectedTask) return;
                           if (!confirm("Xatoni o'chirishni xohlaysizmi?")) return;
                           try {
                             await apiClient.delete(`/tasks/${selectedTask.id}/errors/${error.id}`);

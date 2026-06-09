@@ -440,7 +440,8 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       transitAccount: parsed.data.transitAccount || undefined,
       bankSwift: parsed.data.bankSwift || undefined,
       correspondentBank: parsed.data.correspondentBank || undefined,
-      correspondentBankSuite: parsed.data.correspondentBankSwift || undefined,
+      correspondentBankAccount: parsed.data.correspondentBankAccount || undefined,
+      correspondentBankSwift: parsed.data.correspondentBankSwift || undefined,
     };
 
     // Calculate initial debt info if provided
@@ -906,12 +907,6 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       details: error instanceof Error ? error.message : String(error)
     });
   }
-});
-
-router.delete('/:id', async (req, res) => {
-  const id = Number(req.params.id);
-  await prisma.client.delete({ where: { id } });
-  res.status(204).send();
 });
 
 // Client invoice stats endpoint (for client dashboard)

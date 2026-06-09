@@ -85,7 +85,7 @@ const AnalyticsBlocks = React.memo(({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center mt-6">
                     <div className="h-[220px]">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <PieChart>
                                 <Pie
                                     data={expensesByCategory}

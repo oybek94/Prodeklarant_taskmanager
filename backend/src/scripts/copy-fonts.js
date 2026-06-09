@@ -13,8 +13,14 @@ if (fs.existsSync(srcDir)) {
   for (const file of files) {
     const srcFile = path.join(srcDir, file);
     const destFile = path.join(destDir, file);
-    fs.copyFileSync(srcFile, destFile);
-    console.log(`Copied ${file} to dist/fonts/`);
+    try {
+      fs.copyFileSync(srcFile, destFile);
+      console.log(`Copied ${file} to dist/fonts/`);
+    } catch (err) {
+      console.error(`Error copying ${file}:`, err.message);
+      console.log(`Source exists: ${fs.existsSync(srcFile)}`);
+      console.log(`Dest dir exists: ${fs.existsSync(destDir)}`);
+    }
   }
 } else {
   console.log('No fonts directory found in src/, skipping copy.');

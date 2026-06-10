@@ -36,7 +36,7 @@
     "date-fns": "^4.3.0",
     "framer-motion": "^12.38.0",
     "highlight.js": "^11.11.1",
-    "html2canvas": "^1.4.1",
+    "html2canvas-pro": "^2.0.4",
     "jspdf": "^4.0.0",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.11.0",

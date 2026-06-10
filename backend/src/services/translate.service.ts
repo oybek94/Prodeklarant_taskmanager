@@ -47,7 +47,7 @@ export async function translateRequisites(
       messages: [
         {
           role: 'system',
-          content: `You are a professional translator for international trade documents. Translate the given JSON fields from Russian to English. Keep INN numbers, bank account numbers, SWIFT codes, phone numbers, email addresses, and other identifiers unchanged. For company names, transliterate them if they don't have a common English equivalent (e.g. "ООО" → "LLC", "ЗАО" → "CJSC"). For addresses, transliterate city/region names. Return a JSON object with the same keys but English values.`,
+          content: `You are a professional translator for international trade documents. Translate the given JSON fields from Russian to English. Keep INN numbers, bank account numbers, SWIFT codes, phone numbers, email addresses, and other identifiers unchanged. For company names, transliterate them if they don't have a common English equivalent (e.g. "ООО" → "LLC", "ЗАО" → "CJSC"). For addresses, transliterate city/region names. Do not add any trademark (™) symbols or other special characters that are not present in the original text. Return a JSON object with the same keys but English values.`,
         },
         {
           role: 'user',
@@ -59,7 +59,8 @@ export async function translateRequisites(
     const content = response.choices[0]?.message?.content;
     if (!content) return Object.fromEntries(entries);
 
-    const parsed = JSON.parse(content) as TranslatedRequisites;
+    const cleanedContent = content.replace(/™/g, '').replace(/ТМ/g, '');
+    const parsed = JSON.parse(cleanedContent) as TranslatedRequisites;
     return parsed;
   } catch (error) {
     console.error('Translation error:', error);

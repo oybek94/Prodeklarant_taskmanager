@@ -18,6 +18,8 @@ function ensureUTF8(text: any): string {
   // Convert to string first
   let result = String(text);
   
+  result = result.replace(/\r/g, '').replace(/\u200B/g, ''); // Remove carriage returns and zero-width spaces
+  
   // Normalize Unicode characters (NFD to NFC) to ensure proper encoding
   // This helps with Cyrillic characters that might be in decomposed form
   try {

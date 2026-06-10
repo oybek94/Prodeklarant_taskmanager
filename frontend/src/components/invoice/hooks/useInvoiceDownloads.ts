@@ -5,7 +5,6 @@ import {
   sanitizeFileName,
   getVehiclePlate,
   downloadDocumentResponse,
-  waitForPaint,
 } from '../invoiceUtils';
 
 interface UseInvoiceDownloadsParams {
@@ -19,7 +18,6 @@ interface UseInvoiceDownloadsParams {
   };
   setForm: (updater: (prev: any) => any) => void;
   invoice: InvoiceType | null;
-  invoiceRef: React.RefObject<HTMLDivElement | null>;
   task: Task | null;
   taskId: string | undefined;
   regionCodes: RegionCode[];
@@ -31,15 +29,12 @@ interface UseInvoiceDownloadsParams {
   fssAutoDownload: boolean;
   setFssAutoDownload: (v: boolean) => void;
   setShowFssRegionModal: (v: boolean) => void;
-  setIsPdfMode: (v: boolean) => void;
-  setPdfIncludeSeal: (v: boolean) => void;
 }
 
 export function useInvoiceDownloads({
   form,
   setForm,
   invoice,
-  invoiceRef,
   task,
   taskId,
   regionCodes,
@@ -51,8 +46,6 @@ export function useInvoiceDownloads({
   fssAutoDownload,
   setFssAutoDownload,
   setShowFssRegionModal,
-  setIsPdfMode,
-  setPdfIncludeSeal,
 }: UseInvoiceDownloadsParams) {
 
   // --- Utility builders ---
@@ -69,60 +62,6 @@ export function useInvoiceDownloads({
   }, [form.vehicleNumber, form.invoiceNumber, invoice?.invoiceNumber]);
 
   // --- PDF ---
-
-  const generatePdf = useCallback(async (includeSeal: boolean) => {
-    if (!invoiceRef.current) {
-      alert("Invoice ko'rinishi topilmadi");
-      return;
-    }
-
-    const wasDark = document.documentElement.classList.contains('dark');
-    if (wasDark) {
-      document.documentElement.classList.remove('dark');
-    }
-
-    // Avval pechat holatini o'rnatib, renderga vaqt beramiz
-    setPdfIncludeSeal(includeSeal);
-    await waitForPaint();
-    setIsPdfMode(true);
-    await waitForPaint();
-    // Qo'shimcha kutish — React batch update to'liq renderlanishi uchun
-    await new Promise(r => setTimeout(r, 100));
-
-    const { default: html2canvas } = await import('html2canvas');
-    const { jsPDF } = await import('jspdf');
-
-    const element = invoiceRef.current;
-    const canvas = await html2canvas(element, {
-      scale: 3,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-    });
-
-    const imgData = canvas.toDataURL('image/jpeg', 1);
-    const pdf = new jsPDF('p', 'pt', 'a4');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const marginVertical = 20;
-    const marginHorizontal = 10;
-    const maxWidth = pageWidth - marginHorizontal * 2;
-    // Har doim kenglik bo'yicha masshtabni olamiz, shunda chetlarda bo'sh joy qolmaydi
-    const scale = maxWidth / canvas.width;
-    const imgWidth = canvas.width * scale;
-    const imgHeight = canvas.height * scale;
-    const x = marginHorizontal;
-    const y = marginVertical;
-    pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
-
-    const fileBase = buildInvoiceDownloadBase();
-    pdf.save(`${fileBase}.pdf`);
-
-    setIsPdfMode(false);
-    setPdfIncludeSeal(true);
-    if (wasDark) {
-      document.documentElement.classList.add('dark');
-    }
-  }, [invoiceRef, buildInvoiceDownloadBase, setIsPdfMode, setPdfIncludeSeal]);
 
   const generatePdfEn = useCallback(async () => {
     if (!invoice?.id) {
@@ -341,7 +280,6 @@ export function useInvoiceDownloads({
   }, [task?.branch?.name, regionCodes, loadRegionCodes, setShowFssRegionModal, setFssAutoDownload]);
 
   return {
-    generatePdf,
     generateSmrExcel,
     generateCmrDoc,
     generateTirExcel,

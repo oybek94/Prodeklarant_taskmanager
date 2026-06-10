@@ -266,7 +266,6 @@ const Invoice = () => {
 
 
   const {
-    generatePdf: oldGeneratePdf,
     generateSmrExcel,
     generateCmrDoc,
     generateTirExcel,
@@ -284,7 +283,6 @@ const Invoice = () => {
     form,
     setForm,
     invoice,
-    invoiceRef,
     task,
     taskId,
     regionCodes,
@@ -296,8 +294,6 @@ const Invoice = () => {
     fssAutoDownload,
     setFssAutoDownload,
     setShowFssRegionModal,
-    setIsPdfMode,
-    setPdfIncludeSeal,
   });
 
   const {

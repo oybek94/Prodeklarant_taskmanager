@@ -14,6 +14,7 @@ interface InvoiceDataEn {
 function ensureUTF8(text: any): string {
   if (text === null || text === undefined) return '';
   let result = String(text);
+  result = result.replace(/\r/g, '').replace(/\u200B/g, ''); // Remove carriage returns and zero-width spaces
   try { result = result.normalize('NFC'); } catch { }
   try { result = Buffer.from(result, 'utf8').toString('utf8'); } catch { result = ''; }
   return result;
@@ -38,7 +39,9 @@ const resolveUploadImagePath = (url?: string | null): string | null => {
 };
 
 function tr(translated: Record<string, string>, key: string, fallback: string): string {
-  return translated[key] || fallback;
+  const result = translated[key] || fallback;
+  if (!result || typeof result !== 'string') return result;
+  return result.replace(/™/g, '').replace(/ТМ/g, '').replace(/™ ™\./g, '');
 }
 
 export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {

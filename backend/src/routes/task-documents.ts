@@ -22,6 +22,16 @@ const documentsDir = path.join(uploadsDir, 'documents');
   }
 });
 
+// Helper function to decode multer's latin1 strings to utf8
+const decodeText = (text: string) => {
+  if (!text) return text;
+  try {
+    return Buffer.from(text, 'latin1').toString('utf8');
+  } catch {
+    return text;
+  }
+};
+
 // Configure multer for file uploads - documents papkasiga saqlaymiz
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -29,8 +39,9 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    let name = path.basename(file.originalname, ext)
+    const originalNameDecoded = decodeText(file.originalname);
+    const ext = path.extname(originalNameDecoded);
+    let name = path.basename(originalNameDecoded, ext)
       .replace(/[^a-zA-Z0-9\u0400-\u04FF]/g, '_')
       .replace(/_+/g, '_')
       .replace(/^_+|_+$/g, '');
@@ -50,7 +61,8 @@ const upload = multer({
     // Allow PDF and JPG files
     const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/pjpeg'];
     const allowedExtensions = ['.pdf', '.jpg', '.jpeg'];
-    const fileExtension = path.extname(file.originalname).toLowerCase();
+    const originalNameDecoded = decodeText(file.originalname);
+    const fileExtension = path.extname(originalNameDecoded).toLowerCase();
     
     if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
       cb(null, true);
@@ -88,7 +100,11 @@ router.post(
       }
 
       // Validate request
-      const parsed = uploadDocumentSchema.safeParse(req.body);
+      const bodyToParse = { ...req.body };
+      if (bodyToParse.name) bodyToParse.name = decodeText(bodyToParse.name);
+      if (bodyToParse.description) bodyToParse.description = decodeText(bodyToParse.description);
+      
+      const parsed = uploadDocumentSchema.safeParse(bodyToParse);
       if (!parsed.success) {
         // Clean up uploaded file
         await fs.unlink(req.file.path).catch(() => {});
@@ -141,13 +157,14 @@ router.post(
         async (tx) => {
           // Create task document record
           // Fayl turini aniqlash
-          const fileExtension = path.extname(req.file!.originalname).toLowerCase();
+          const originalNameDecoded = decodeText(req.file!.originalname);
+          const fileExtension = path.extname(originalNameDecoded).toLowerCase();
           const fileType = fileExtension === '.pdf' ? 'pdf' : 
                           (fileExtension === '.jpg' || fileExtension === '.jpeg') ? 'jpg' : 
                           'other';
           
           // Pochtaga yuborishda yuklangan fayl nomi saqlansin: asl fayl nomi (originalname) ni saqlaymiz
-          const originalFileName = (req.file!.originalname || '').trim() || parsed.data.name || 'document';
+          const originalFileName = (originalNameDecoded || '').trim() || parsed.data.name || 'document';
           const documentData: any = {
             taskId,
             name: originalFileName,
@@ -192,7 +209,8 @@ router.post(
 
       // PDF va JPG processing'ni transaction'dan keyin bajaramiz
       // Bu timeout muammosini hal qiladi
-      const fileExtension = path.extname(req.file!.originalname).toLowerCase();
+      const originalNameDecoded = decodeText(req.file!.originalname);
+      const fileExtension = path.extname(originalNameDecoded).toLowerCase();
       const documentService = new DocumentService(prisma);
       
       if (fileExtension === '.pdf') {

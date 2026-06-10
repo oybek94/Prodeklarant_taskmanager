@@ -19,6 +19,16 @@ const archiveDir = path.join(uploadsDir, 'archive');
   }
 });
 
+// Helper function to decode multer's latin1 strings to utf8
+const decodeText = (text: string) => {
+  if (!text) return text;
+  try {
+    return Buffer.from(text, 'latin1').toString('utf8');
+  } catch {
+    return text;
+  }
+};
+
 // Multer konfiguratsiyasi
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -26,8 +36,9 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    let name = path.basename(file.originalname, ext)
+    const originalNameDecoded = decodeText(file.originalname);
+    const ext = path.extname(originalNameDecoded);
+    let name = path.basename(originalNameDecoded, ext)
       .replace(/[^a-zA-Z0-9\u0400-\u04FF]/g, '_') // Kirill va lotin harflarini saqlaydi
       .replace(/_+/g, '_') // Bir nechta underscore'ni bittaga qisqartiradi
       .replace(/^_+|_+$/g, ''); // Boshida va oxirida underscore'larni olib tashlaydi
@@ -101,8 +112,10 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
     }
 
     const files = req.files as Express.Multer.File[];
-    const names = req.body.names && req.body.names !== '[]' ? JSON.parse(req.body.names) : [];
-    const descriptions = req.body.descriptions && req.body.descriptions !== '[]' ? JSON.parse(req.body.descriptions) : [];
+    const decodedNamesStr = req.body.names ? decodeText(req.body.names) : '[]';
+    const decodedDescriptionsStr = req.body.descriptions ? decodeText(req.body.descriptions) : '[]';
+    const names = req.body.names && decodedNamesStr !== '[]' ? JSON.parse(decodedNamesStr) : [];
+    const descriptions = req.body.descriptions && decodedDescriptionsStr !== '[]' ? JSON.parse(decodedDescriptionsStr) : [];
 
     // Task mavjudligini tekshirish
     const task = await prisma.task.findUnique({
@@ -128,8 +141,9 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const fileUrl = `/uploads/documents/${file.filename}`;
-      const fileType = file.mimetype || path.extname(file.originalname).slice(1);
-      const name = names[i] || file.originalname;
+      const originalNameDecoded = decodeText(file.originalname);
+      const fileType = file.mimetype || path.extname(originalNameDecoded).slice(1);
+      const name = names[i] || originalNameDecoded;
       const description = descriptions[i] || null;
 
       // Hujjatlar doim TaskDocument'ga qo'shiladi, arxivga faqat /archive-task/:taskId endpoint orqali
@@ -184,8 +198,10 @@ router.post('/archive/task/:taskId', requireAuth('ADMIN'), upload.array('files',
     }
 
     const files = req.files as Express.Multer.File[];
-    const names = req.body.names && req.body.names !== '[]' ? JSON.parse(req.body.names) : [];
-    const descriptions = req.body.descriptions && req.body.descriptions !== '[]' ? JSON.parse(req.body.descriptions) : [];
+    const decodedNamesStr = req.body.names ? decodeText(req.body.names) : '[]';
+    const decodedDescriptionsStr = req.body.descriptions ? decodeText(req.body.descriptions) : '[]';
+    const names = req.body.names && decodedNamesStr !== '[]' ? JSON.parse(decodedNamesStr) : [];
+    const descriptions = req.body.descriptions && decodedDescriptionsStr !== '[]' ? JSON.parse(decodedDescriptionsStr) : [];
 
     // Task mavjudligini tekshirish
     const task = await prisma.task.findUnique({
@@ -231,8 +247,9 @@ router.post('/archive/task/:taskId', requireAuth('ADMIN'), upload.array('files',
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const fileUrl = `/uploads/documents/${file.filename}`;
-      const fileType = file.mimetype || path.extname(file.originalname).slice(1);
-      const name = names[i] || file.originalname;
+      const originalNameDecoded = decodeText(file.originalname);
+      const fileType = file.mimetype || path.extname(originalNameDecoded).slice(1);
+      const name = names[i] || originalNameDecoded;
       const description = descriptions[i] || null;
 
       const document = await prisma.archiveDocument.create({

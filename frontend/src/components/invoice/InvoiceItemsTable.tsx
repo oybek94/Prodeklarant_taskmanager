@@ -154,7 +154,8 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
     
     try {
       const toastId = toast.loading("Nusxa olinmoqda...");
-      const { default: html2canvas } = await import('html2canvas');
+      // html2canvas-pro: Tailwind v4 oklch()/color-mix() ranglarini qo'llab-quvvatlaydi
+      const { default: html2canvas } = await import('html2canvas-pro');
       
       const originalArea = document.getElementById('invoice-screenshot-area');
       const originalInputs = originalArea ? Array.from(originalArea.querySelectorAll('input, textarea, select')) : [];

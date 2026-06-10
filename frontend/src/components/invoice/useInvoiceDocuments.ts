@@ -169,7 +169,7 @@ export function useInvoiceDocuments({
 
     try {
       const element = invoiceRef.current;
-      const { default: html2canvas } = await import('html2canvas');
+      const { default: html2canvas } = await import('html2canvas-pro');
       const { default: jsPDF } = await import('jspdf');
 
       const canvas = await html2canvas(element, {

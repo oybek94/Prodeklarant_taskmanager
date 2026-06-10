@@ -173,6 +173,21 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
     const directors = await prisma.$queryRaw<Array<{ buyerDirector: string | null; consigneeDirector: string | null; supplierDirector: string | null; goodsReleasedBy: string | null; companyLogoUrl: string | null; requirements: string | null }>>`
       SELECT "buyerDirector", "consigneeDirector", "supplierDirector", "goodsReleasedBy", "companyLogoUrl", "requirements" FROM "Contract" WHERE "id" = ${id}
     `;
+
+    const frequentProductsRaw = await prisma.$queryRaw<Array<{ name: string, tnvedCode: string | null, count: bigint }>>`
+      SELECT ii.name, MAX(ii."tnvedCode") as "tnvedCode", COUNT(ii.id) as count
+      FROM "InvoiceItem" ii
+      JOIN "Invoice" i ON i.id = ii."invoiceId"
+      WHERE i."contractId" = ${id}
+      GROUP BY ii.name
+      ORDER BY count DESC
+    `;
+    const frequentProducts = frequentProductsRaw.map((p) => ({
+      name: p.name,
+      tnvedCode: p.tnvedCode,
+      count: Number(p.count)
+    }));
+
     const result = directors?.[0]
       ? { 
           ...contract, 
@@ -181,9 +196,10 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
           supplierDirector: (directors[0] as any).supplierDirector, 
           goodsReleasedBy: (directors[0] as any).goodsReleasedBy, 
           companyLogoUrl: (directors[0] as any).companyLogoUrl,
-          requirements: (directors[0] as any).requirements ?? contract?.requirements ?? null
+          requirements: (directors[0] as any).requirements ?? contract?.requirements ?? null,
+          frequentProducts
         }
-      : contract;
+      : { ...contract, frequentProducts };
     res.json(result);
   } catch (error: any) {
     console.error('Error fetching contract:', error);

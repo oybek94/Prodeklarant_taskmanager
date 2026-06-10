@@ -14,6 +14,7 @@ interface UseInvoiceLoaderParams {
   setSelectedContractId: (id: string) => void;
   setSelectedContractSpec: (spec: SpecRow[]) => void;
   setSelectedContractCurrency: (c: string) => void;
+  setSelectedContractFrequentProducts: (freqs: any[]) => void;
   setForm: (updater: (prev: any) => any) => void;
   setInvoice: (inv: any) => void;
   setTask: (t: any) => void;
@@ -44,6 +45,7 @@ export function createLoadData({
   setSelectedContractId,
   setSelectedContractSpec,
   setSelectedContractCurrency,
+  setSelectedContractFrequentProducts,
   setForm,
   setInvoice,
   setTask,
@@ -418,6 +420,7 @@ export function createLoadData({
                   }
                 }
                 setSelectedContractSpec(spec);
+                setSelectedContractFrequentProducts(contract.frequentProducts || []);
                 setForm((prev: any) => ({
                   ...prev,
                   contractNumber: contract.contractNumber,

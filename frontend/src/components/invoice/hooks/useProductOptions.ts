@@ -6,7 +6,7 @@ import type { SpecRow } from '../types';
 /**
  * TNVED mahsulotlar va qadoq turlarini yuklash va taklif qilish.
  */
-export function useProductOptions(selectedContractSpec: SpecRow[]) {
+export function useProductOptions(selectedContractSpec: SpecRow[], frequentProducts: Array<{name: string, count: number, tnvedCode?: string}> = []) {
   const [tnvedProducts, setTnvedProducts] = useState<Array<{ id: string; name: string; code: string }>>([]);
   const [packagingTypes, setPackagingTypes] = useState<Array<{ id: string; name: string; code?: string }>>([]);
 
@@ -45,23 +45,34 @@ export function useProductOptions(selectedContractSpec: SpecRow[]) {
   }, [loadPackagingTypes]);
 
   /**
-   * Har doim global TNVED ro'yxati birinchi, keyin shartnoma spetsifikatsiyasidan
-   * global da yo'q mahsulotlarni qo'shamiz.
+   * Har doim birinchi contractdagi eng ko'p yozilgan mahsulotlar chiqadi, keyin global TNVED ro'yxati,
+   * oxirida shartnoma spetsifikatsiyasidan global va freq da yo'q mahsulotlarni qo'shamiz.
    */
   const invoiceProductOptions = useMemo(() => {
+    const freqNames = new Set(frequentProducts.map((p) => (p.name || '').trim().toLowerCase()));
     const globalNames = new Set(tnvedProducts.map((p) => p.name.trim().toLowerCase()));
+
+    const freqs = frequentProducts.map((p, i) => ({
+      id: `freq-${i}`,
+      name: (p.name || '').trim(),
+      code: (p.tnvedCode || '').trim(),
+    }));
+
+    const tnvedRest = tnvedProducts.filter(p => !freqNames.has(p.name.trim().toLowerCase()));
+
     const specExtras = selectedContractSpec
       .filter((r) => {
         const name = (r.productName || '').trim();
-        return name !== '' && !globalNames.has(name.toLowerCase());
+        return name !== '' && !freqNames.has(name.toLowerCase()) && !globalNames.has(name.toLowerCase());
       })
       .map((r, i) => ({
         id: `spec-${i}`,
         name: (r.productName || '').trim(),
         code: (r.tnvedCode || '').trim(),
       }));
-    return [...tnvedProducts, ...specExtras];
-  }, [selectedContractSpec, tnvedProducts]);
+
+    return [...freqs, ...tnvedRest, ...specExtras];
+  }, [selectedContractSpec, tnvedProducts, frequentProducts]);
 
   return {
     tnvedProducts,

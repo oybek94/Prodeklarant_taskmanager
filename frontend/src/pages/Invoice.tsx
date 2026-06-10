@@ -134,6 +134,7 @@ const Invoice = () => {
 
   const [selectedContractCurrency, setSelectedContractCurrency] = useState<string>('USD');
   const [selectedContractSpec, setSelectedContractSpec] = useState<SpecRow[]>([]);
+  const [selectedContractFrequentProducts, setSelectedContractFrequentProducts] = useState<Array<{name: string, tnvedCode?: string, count: number}>>([]);
 
   // Delivery terms va Column labels hook
   const {
@@ -231,7 +232,7 @@ const Invoice = () => {
   } = useInvoiceModalsState();
 
   // Extracted hooks
-  const { packagingTypes, invoiceProductOptions } = useProductOptions(selectedContractSpec);
+  const { packagingTypes, invoiceProductOptions } = useProductOptions(selectedContractSpec, selectedContractFrequentProducts);
   const { invoiceNumberWarning, setInvoiceNumberWarning } = useInvoiceNumberCheck(form.invoiceNumber, selectedContractId, invoice?.id);
   const tareRules = Array.isArray(form.additionalInfo?.tareRules) ? form.additionalInfo.tareRules as Array<{packageType: string, tareWeight: number}> : [];
   const {
@@ -309,6 +310,7 @@ const Invoice = () => {
     setSelectedContractId,
     setSelectedContractSpec,
     setSelectedContractCurrency,
+    setSelectedContractFrequentProducts,
     setItems,
     setContractDeliveryTerms,
     setForm,
@@ -335,6 +337,7 @@ const Invoice = () => {
     setSelectedContractId,
     setSelectedContractSpec,
     setSelectedContractCurrency,
+    setSelectedContractFrequentProducts,
     setForm,
     setInvoice,
     setTask,

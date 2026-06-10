@@ -12,6 +12,7 @@ interface UseInvoiceContractParams {
   setSelectedContractId: (id: string) => void;
   setSelectedContractSpec: (spec: SpecRow[]) => void;
   setSelectedContractCurrency: (currency: string) => void;
+  setSelectedContractFrequentProducts: (freqs: any[]) => void;
   setItems: (updater: (prev: any[]) => any[]) => void;
   setContractDeliveryTerms: (terms: string[]) => void;
   setForm: (updater: (prev: any) => any) => void;
@@ -29,6 +30,7 @@ export function useInvoiceContract({
   setSelectedContractId,
   setSelectedContractSpec,
   setSelectedContractCurrency,
+  setSelectedContractFrequentProducts,
   setItems,
   setContractDeliveryTerms,
   setForm,
@@ -47,6 +49,7 @@ export function useInvoiceContract({
 
     if (!contractId) {
       setSelectedContractSpec([]);
+      setSelectedContractFrequentProducts([]);
       setSelectedContractCurrency('USD');
       return;
     }
@@ -69,6 +72,7 @@ export function useInvoiceContract({
         }
       }
       setSelectedContractSpec(spec);
+      setSelectedContractFrequentProducts(contract.frequentProducts || []);
       // Shartnoma spetsifikatsiyasi faqat fallback lookup uchun saqlanadi,
       // invoys qatorlarini avtomatik qayta yozmaydi.
 
@@ -109,7 +113,7 @@ export function useInvoiceContract({
       console.error('Error loading contract:', error);
       alert('Shartnoma ma\'lumotlarini yuklashda xatolik yuz berdi');
     }
-  }, [setSelectedContractId, setSelectedContractSpec, setSelectedContractCurrency, setItems, setContractDeliveryTerms, setForm, setDeliveryTermsOptions, getDeliveryTermsContractKey, mergeDeliveryTerms, loadDeliveryTerms, setContracts]);
+  }, [setSelectedContractId, setSelectedContractSpec, setSelectedContractCurrency, setSelectedContractFrequentProducts, setItems, setContractDeliveryTerms, setForm, setDeliveryTermsOptions, getDeliveryTermsContractKey, mergeDeliveryTerms, loadDeliveryTerms, setContracts]);
 
   const handleMarkInvoysReady = useCallback(async () => {
     const tid = taskId || invoice?.taskId;

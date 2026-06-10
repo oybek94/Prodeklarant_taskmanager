@@ -383,7 +383,7 @@ export const InvoicesModalsManager: React.FC<InvoicesModalsManagerProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Summa (USD) <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Summa (UZS) <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -391,7 +391,7 @@ export const InvoicesModalsManager: React.FC<InvoicesModalsManagerProps> = ({
                     value={errorForm.amount}
                     onChange={(e) => {
                       const v = e.target.value;
-                      if (v === '' || /^\d{0,4}$/.test(v)) setErrorForm({ ...errorForm, amount: v });
+                      if (v === '' || /^\d{0,15}$/.test(v)) setErrorForm({ ...errorForm, amount: v });
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="0"

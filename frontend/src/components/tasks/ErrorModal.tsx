@@ -50,8 +50,8 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
     e.preventDefault();
     if (!selectedTask) return;
     const amountValue = errorForm.amount.trim();
-    if (!/^\d{1,9}$/.test(amountValue)) {
-      toast.error("Summa faqat raqam bo'lishi va 9 xonagacha bo'lishi kerak");
+    if (!/^\d{1,15}$/.test(amountValue)) {
+      toast.error("Summa faqat raqam bo'lishi va 15 xonagacha bo'lishi kerak");
       return;
     }
     try {
@@ -232,9 +232,9 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Summa <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Summa (UZS) <span className="text-red-500">*</span></label>
             <input type="text" inputMode="numeric" required value={errorForm.amount}
-              onChange={(e) => { const v = e.target.value; if (v === '' || /^\d{0,9}$/.test(v)) setErrorForm({ ...errorForm, amount: v }); }}
+              onChange={(e) => { const v = e.target.value; if (v === '' || /^\d{0,15}$/.test(v)) setErrorForm({ ...errorForm, amount: v }); }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               placeholder="0" />
           </div>

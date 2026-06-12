@@ -112,10 +112,10 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
     }
 
     const files = req.files as Express.Multer.File[];
-    const decodedNamesStr = req.body.names ? decodeText(req.body.names) : '[]';
-    const decodedDescriptionsStr = req.body.descriptions ? decodeText(req.body.descriptions) : '[]';
-    const names = req.body.names && decodedNamesStr !== '[]' ? JSON.parse(decodedNamesStr) : [];
-    const descriptions = req.body.descriptions && decodedDescriptionsStr !== '[]' ? JSON.parse(decodedDescriptionsStr) : [];
+    const namesStr = req.body.names || '[]';
+    const descriptionsStr = req.body.descriptions || '[]';
+    const names = namesStr !== '[]' ? JSON.parse(namesStr) : [];
+    const descriptions = descriptionsStr !== '[]' ? JSON.parse(descriptionsStr) : [];
 
     // Task mavjudligini tekshirish
     const task = await prisma.task.findUnique({
@@ -198,10 +198,10 @@ router.post('/archive/task/:taskId', requireAuth('ADMIN'), upload.array('files',
     }
 
     const files = req.files as Express.Multer.File[];
-    const decodedNamesStr = req.body.names ? decodeText(req.body.names) : '[]';
-    const decodedDescriptionsStr = req.body.descriptions ? decodeText(req.body.descriptions) : '[]';
-    const names = req.body.names && decodedNamesStr !== '[]' ? JSON.parse(decodedNamesStr) : [];
-    const descriptions = req.body.descriptions && decodedDescriptionsStr !== '[]' ? JSON.parse(decodedDescriptionsStr) : [];
+    const namesStr = req.body.names || '[]';
+    const descriptionsStr = req.body.descriptions || '[]';
+    const names = namesStr !== '[]' ? JSON.parse(namesStr) : [];
+    const descriptions = descriptionsStr !== '[]' ? JSON.parse(descriptionsStr) : [];
 
     // Task mavjudligini tekshirish
     const task = await prisma.task.findUnique({

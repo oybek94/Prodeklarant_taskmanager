@@ -4,6 +4,7 @@ import apiClient from '../../../lib/api';
 import toast from 'react-hot-toast';
 import type { InvoiceItem, Task, ChangeLogEntry } from '../types';
 import { normalizeItem, buildTaskTitle } from '../invoiceUtils';
+import { normalizeText } from '../../../utils/textNormalize';
 
 /* ─── constants ──────────────────────────────────────────────────── */
 
@@ -362,7 +363,9 @@ export function useInvoiceSave({
             amountPaid: currentForm.amountPaid,
             paymentMethod: currentForm.additionalInfo?.paymentMethod,
             deliveryTerms: currentForm.deliveryTerms,
-            vehicleNumber: currentForm.vehicleNumber,
+            // Look-alike/fullwidth/ko'rinmas belgilarni tozalaymiz — aks holda
+            // PDF'da (Roboto) glifi yo'q belgi jimgina tushib qoladi.
+            vehicleNumber: normalizeText(currentForm.vehicleNumber),
             fssRegionInternalCode: currentForm.fssRegionInternalCode,
             fssRegionName: currentForm.fssRegionName,
             fssRegionExternalCode: currentForm.fssRegionExternalCode,
@@ -428,12 +431,14 @@ export function useInvoiceSave({
           invoiceNumber: savedInvoice.invoiceNumber,
         }));
       }
+      // Saqlangan (tozalangan) avtomobil raqamini ekranda ham aks ettiramiz.
+      setForm(prev => ({ ...prev, vehicleNumber: normalizeText(prev.vehicleNumber) }));
       if (savedInvoice?.contractId) {
         setSelectedContractId(savedInvoice.contractId.toString());
       }
       const nextTaskTitle = buildTaskTitle(
         savedInvoice?.invoiceNumber || currentForm.invoiceNumber,
-        currentForm.vehicleNumber
+        normalizeText(currentForm.vehicleNumber)
       );
       if (currentTaskId && nextTaskTitle && currentTask?.title !== nextTaskTitle) {
         try {

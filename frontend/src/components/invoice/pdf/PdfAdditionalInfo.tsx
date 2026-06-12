@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { styles } from './PdfStyles';
+import { normalizeText } from '../../../utils/textNormalize';
 
 interface PdfAdditionalInfoProps {
   form: any;
@@ -15,7 +16,7 @@ interface PdfAdditionalInfoProps {
 const Row: React.FC<{ label: string; value: string; sc: (v: number) => number }> = ({ label, value, sc }) => (
   <Text style={{ fontSize: sc(9), marginBottom: sc(3), lineHeight: 1.4, color: '#000000', paddingLeft: sc(8) }}>
     <Text style={{ fontWeight: 'bold' }}>{label}: </Text>
-    {value}
+    {normalizeText(value)}
   </Text>
 );
 

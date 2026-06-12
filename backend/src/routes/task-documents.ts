@@ -101,8 +101,9 @@ router.post(
 
       // Validate request
       const bodyToParse = { ...req.body };
-      if (bodyToParse.name) bodyToParse.name = decodeText(bodyToParse.name);
-      if (bodyToParse.description) bodyToParse.description = decodeText(bodyToParse.description);
+      // Field value'lari doim UTF-8 da keladi, shuning uchun decodeText kerak emas
+      // if (bodyToParse.name) bodyToParse.name = decodeText(bodyToParse.name);
+      // if (bodyToParse.description) bodyToParse.description = decodeText(bodyToParse.description);
       
       const parsed = uploadDocumentSchema.safeParse(bodyToParse);
       if (!parsed.success) {

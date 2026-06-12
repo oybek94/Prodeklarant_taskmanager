@@ -9,12 +9,21 @@ Font.register({
   ],
 });
 
+// Zaxira shrift: Roboto'da glifi bo'lmagan belgi @react-pdf tomonidan jimgina
+// tashlab yuborilmasligi uchun keng Unicode qamrovli NotoSans ishlatiladi.
+// `fontFamily: ['Roboto', 'NotoSans']` — har bir belgi uchun glifi bor birinchi
+// shrift tanlanadi (qarang: page.fontFamily).
+Font.register({
+  family: 'NotoSans',
+  fonts: [{ src: '/fonts/NotoSans-Regular.ttf', fontWeight: 400 }],
+});
+
 export const styles = StyleSheet.create({
   page: {
     paddingTop: 40,
     paddingBottom: 20,
     paddingHorizontal: 30,
-    fontFamily: 'Roboto',
+    fontFamily: ['Roboto', 'NotoSans'],
     fontSize: 9,
     color: '#111827',
     backgroundColor: '#ffffff',

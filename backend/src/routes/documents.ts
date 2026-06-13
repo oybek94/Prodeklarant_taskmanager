@@ -136,6 +136,23 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
       return res.status(404).json({ error: 'Task topilmadi' });
     }
 
+    // Avval documentType ustunining mavjudligini tekshiramiz
+    let hasDocumentTypeColumn = false;
+    try {
+      await prisma.taskDocument.findFirst({
+        select: { documentType: true },
+      });
+      hasDocumentTypeColumn = true;
+    } catch (checkError: any) {
+      hasDocumentTypeColumn = false;
+    }
+
+    // User ma'lumotlarini bir marta olib olamiz
+    const uploader = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { id: true, name: true, email: true },
+    });
+
     const documents: any[] = [];
 
     for (let i = 0; i < files.length; i++) {
@@ -146,8 +163,10 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
       const name = names[i] || originalNameDecoded;
       const description = descriptions[i] || null;
 
-      // Hujjatlar doim TaskDocument'ga qo'shiladi, arxivga faqat /archive-task/:taskId endpoint orqali
-      const document = await prisma.taskDocument.create({
+      let document: any;
+
+      if (hasDocumentTypeColumn) {
+        document = await prisma.taskDocument.create({
           data: {
             taskId,
             name,
@@ -167,6 +186,15 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
             },
           },
         });
+      } else {
+        const insertedRows = await prisma.$queryRaw<any[]>`
+          INSERT INTO "TaskDocument" ("taskId", "name", "fileUrl", "fileType", "fileSize", "description", "uploadedById", "createdAt")
+          VALUES (${taskId}, ${name}, ${fileUrl}, ${fileType}, ${file.size}, ${description}, ${req.user!.id}, NOW())
+          RETURNING id, "taskId", "name", "fileUrl", "fileType", "fileSize", "description", "uploadedById", "createdAt"
+        `;
+        document = insertedRows[0];
+        document.uploadedBy = uploader;
+      }
 
       documents.push(document);
     }

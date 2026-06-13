@@ -57,7 +57,7 @@ export const normalizeItem = (item: InvoiceItem): InvoiceItem => ({
   tnvedCode: item.tnvedCode ?? undefined,
   pluCode: item.pluCode ?? undefined,
   packageType: item.packageType ?? undefined,
-  quantity: item.quantity != null ? Number(item.quantity) : 0,
+  quantity: item.customFields?._quantityStr ?? (item.quantity === '-' || item.quantity === '' ? item.quantity : (item.quantity != null ? Number(item.quantity) : 0)),
   packagesCount:
     item.packagesCount != null && Number(item.packagesCount) !== 0 ? Number(item.packagesCount) : undefined,
   grossWeight: item.grossWeight != null ? Number(item.grossWeight) : undefined,

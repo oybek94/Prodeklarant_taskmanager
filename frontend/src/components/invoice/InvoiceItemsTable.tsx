@@ -396,7 +396,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
                 return (
                   <td key={key} className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
                     {(() => {
-                      const t = items.reduce((sum, i) => sum + i.quantity, 0);
+                      const t = items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
                       return t !== 0 ? formatNumber(t) : '';
                     })()}
                   </td>

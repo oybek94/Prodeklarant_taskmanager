@@ -72,7 +72,7 @@ export const InvoiceWeightSummary = React.memo(function InvoiceWeightSummary({ i
         })()}
         <ul className="space-y-1 list-none">
           {items.map((item, index) => {
-            const qty = (item.packagesCount ?? item.quantity) ?? 0;
+            const qty = (item.packagesCount ?? Number(item.quantity)) || 0;
             const gross = item.grossWeight ?? 0;
             const net = item.netWeight ?? 0;
             if (!qty) return null;

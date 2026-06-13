@@ -74,7 +74,7 @@ export const InvoiceItemRow: React.FC<InvoiceItemRowProps> = React.memo(({
             case 'package':
               return <td key={key} className="px-2 py-4">{item.packageType || ''}</td>;
             case 'quantity':
-              return <td key={key} className="px-2 py-4 text-right">{item.quantity != null && item.quantity !== 0 ? formatNumber(item.quantity) : ''}</td>;
+              return <td key={key} className="px-2 py-4 text-right">{item.quantity === '-' ? '-' : (item.quantity != null && item.quantity !== 0 && item.quantity !== '' ? formatNumber(Number(item.quantity)) : '')}</td>;
             case 'packagesCount':
               return <td key={key} className="px-2 py-4 text-right">{item.packagesCount != null && item.packagesCount !== 0 ? formatNumber(item.packagesCount) : ''}</td>;
             case 'gross':
@@ -144,7 +144,7 @@ export const InvoiceItemRow: React.FC<InvoiceItemRowProps> = React.memo(({
           case 'quantity':
             return (
               <td key={key} className="px-2 py-2">
-                <input type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()} value={('_quantityStr' in item && (item as any)._quantityStr !== undefined) ? (item as any)._quantityStr : (item.quantity === 0 || item.quantity == null ? '' : item.quantity)} onChange={(e) => { const v = e.target.value; handleItemChange(index, '_quantityStr' as any, v); handleItemChange(index, 'quantity', v === '' ? 0 : (parseFloat(v.replace(',','.')) || 0)); }} onBlur={() => handleItemChange(index, '_quantityStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" min="0" step="any" required placeholder="0" data-nav-row={index} data-nav-col={colIndexMap.quantity} onKeyDown={handleCellKeyDown} />
+                <input type="text" inputMode="decimal" value={('_quantityStr' in item && (item as any)._quantityStr !== undefined) ? (item as any)._quantityStr : (item.quantity === 0 || item.quantity == null ? '' : item.quantity)} onChange={(e) => { const v = e.target.value; handleItemChange(index, '_quantityStr' as any, v); if (v === '' || v === '-') { handleItemChange(index, 'quantity', v); } else { const parsed = parseFloat(v.replace(',','.')); handleItemChange(index, 'quantity', isNaN(parsed) ? v : parsed); } }} onBlur={() => handleItemChange(index, '_quantityStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="-" data-nav-row={index} data-nav-col={colIndexMap.quantity} onKeyDown={handleCellKeyDown} />
               </td>
             );
           case 'packagesCount':

@@ -21,7 +21,7 @@ const getCellText = (key: string, item: any): string => {
     case 'name': return item.name || '';
     case 'unit': return item.unit || '';
     case 'package': return item.packageType || '';
-    case 'quantity': return item.quantity != null && item.quantity !== 0 ? formatNumber(item.quantity) : '';
+    case 'quantity': return item.quantity === '-' ? '-' : (item.quantity != null && item.quantity !== 0 && item.quantity !== '' ? formatNumber(Number(item.quantity)) : '');
     case 'packagesCount': return item.packagesCount != null && item.packagesCount !== 0 ? formatNumber(item.packagesCount) : '';
     case 'gross': return formatNumber(item.grossWeight || 0);
     case 'net': return formatNumber(item.netWeight || 0);
@@ -212,7 +212,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
             let content = '';
             switch (key) {
               case 'quantity': {
-                const t = items.reduce((s, i) => s + (i.quantity || 0), 0);
+                const t = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
                 content = t !== 0 ? formatNumber(t) : '';
                 break;
               }

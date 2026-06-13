@@ -327,11 +327,20 @@ export function useInvoiceSave({
 
       const normalizedItems = items.map((item, index) => {
         const normalized = normalizeItem(item);
-        const qty = normalized.quantity != null ? Number(normalized.quantity) : 0;
+        const qty = normalized.quantity === '-' ? 0 : (normalized.quantity != null ? Number(normalized.quantity) : 0);
+        const quantityForBackend = isNaN(qty) ? 0 : qty;
         const pkgCount = normalized.packagesCount != null ? Number(normalized.packagesCount) : undefined;
-        const quantityForBackend = qty;
+        
+        const customFields = typeof normalized.customFields === 'object' && normalized.customFields !== null ? { ...normalized.customFields } : {};
+        if (normalized.quantity === '-' || normalized.quantity === '') {
+          (customFields as any)._quantityStr = normalized.quantity;
+        } else {
+          delete (customFields as any)._quantityStr;
+        }
+
         return {
           ...normalized,
+          customFields,
           quantity: quantityForBackend,
           packagesCount: pkgCount,
           unitPrice: Number(normalized.unitPrice) || 0,

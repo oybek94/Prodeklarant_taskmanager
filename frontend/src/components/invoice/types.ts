@@ -12,7 +12,7 @@ export interface InvoiceItem {
   nameEn?: string | null;
   packageType?: string;
   unit: string;
-  quantity: number;
+  quantity: number | string;
   packagesCount?: number;
   grossWeight?: number;
   netWeight?: number;
@@ -147,7 +147,7 @@ export interface Task {
 export type SpecRow = {
   productName?: string;
   tnvedCode?: string;
-  quantity?: number;
+  quantity?: number | string;
   unit?: string;
   unitPrice?: number;
   totalPrice?: number;

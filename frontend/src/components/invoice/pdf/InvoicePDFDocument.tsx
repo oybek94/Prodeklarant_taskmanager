@@ -65,8 +65,9 @@ const calcScale = (
   );
   
   const addInfoH = H.addInfoTitle + addFieldsCount * H.addInfoRow + H.addInfoBottom;
-  // Agar pechat rasmi yo'q bo'lsa, imzo qismi kamroq joy oladi
-  const sigH = viewTab === 'spec' ? (hasImages ? 178 : 100) : (hasImages ? 150 : 80);
+  // Agar pechat rasmi yo'q bo'lsa, imzo qismi kamroq joy oladi.
+  // Spec uchun rasmlar bo'lsa (imzo ustida pechat) balandligi 230 gacha yetadi.
+  const sigH = viewTab === 'spec' ? (hasImages ? 230 : 100) : (hasImages ? 150 : 80);
   
   // Notes qismi balandligini hisoblash (har 80 ta harf taxminan 1 qator)
   let notesHeight = 0;
@@ -95,7 +96,8 @@ const calcScale = (
   const computed = AVAILABLE_HEIGHT / total;
   
   // Kichraytirish darajasini hisoblash (shrift va oraliqlar proporsional kichrayadi)
-  const minScale = viewTab === 'spec' ? 0.90 : 0.40;
+  // Spec va Invoice ham kerak bo'lsa maksimal 0.40 gacha kichrayib 1-betga sig'diriladi
+  const minScale = 0.40;
   return Math.max(minScale, computed);
 };
 

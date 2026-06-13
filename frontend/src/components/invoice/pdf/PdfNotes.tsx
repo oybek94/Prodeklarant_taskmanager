@@ -11,7 +11,7 @@ export const PdfNotes: React.FC<PdfNotesProps> = ({ notes, scale = 1 }) => {
   const sc = (v: number) => Math.round(v * scale);
 
   return (
-    <View style={{ marginTop: sc(10), marginBottom: sc(6) }}>
+    <View style={{ marginTop: sc(10), marginBottom: sc(6) }} wrap={false}>
       <Text style={{ fontWeight: 'bold', fontSize: sc(8), marginBottom: sc(3) }}>Примечания:</Text>
       <View style={{ borderWidth: 1, borderColor: '#9ca3af', borderRadius: 4, padding: sc(6) }}>
         <Text style={{ fontSize: sc(7), paddingLeft: sc(8) }}>{notes}</Text>

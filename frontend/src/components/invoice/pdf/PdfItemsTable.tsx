@@ -59,11 +59,20 @@ const calcColumnFlex = (
     return effectiveLen(getCellText(key, item));
   };
 
-  return Math.max(
+  let flex = Math.max(
     effectiveLen(headerLabel),
     items.length > 0 ? Math.max(...items.map(getCellLen)) : 0,
     3
   );
+
+  // tnved va name ustunlari yopishib qolmasligi uchun tnved ustuniga qo'shimcha kenglik (flex) beramiz
+  if (key === 'tnved') {
+    flex += 6;
+  } else if (key === 'plu') {
+    flex += 2;
+  }
+
+  return flex;
 };
 
 // A4 sahifa kengligi (595pt) - gorizontal padding (30*2) = 535pt

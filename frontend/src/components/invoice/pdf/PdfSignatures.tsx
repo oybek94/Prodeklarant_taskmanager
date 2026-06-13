@@ -64,7 +64,7 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({ contract, viewTab,
     );
 
     return (
-      <View style={{ marginTop: sc(14) }}>
+      <View style={{ marginTop: sc(14) }} wrap={false}>
         <Text style={{ fontSize: sc(9), fontWeight: 'bold', marginBottom: sc(8) }}>Подписи сторон</Text>
         <View style={{ flexDirection: 'row' }}>
           {/* Col 1: Продавец ma'lumotlari */}
@@ -87,7 +87,7 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({ contract, viewTab,
   const hasImages = pdfIncludeSeal && (signatureUrl || sealUrl);
 
   return (
-    <View style={{ flexDirection: 'row', marginTop: sc(20), alignItems: 'flex-start' }}>
+    <View style={{ flexDirection: 'row', marginTop: sc(20), alignItems: 'flex-start' }} wrap={false}>
       {/* Chap ustun: barcha matnlar */}
       <View style={{ flexDirection: 'column', justifyContent: 'flex-start' }}>
         <View style={{ marginBottom: sc(8) }}>

@@ -117,8 +117,8 @@ export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
   if (!hasAnyField) return null;
 
   return (
-    <View style={{ marginTop: sc(12), paddingBottom: sc(10) }}>
-      <Text style={{ fontSize: sc(10), fontWeight: 'bold', marginBottom: sc(4), color: '#1f2937' }}>
+    <View style={{ marginTop: sc(6), paddingBottom: sc(4) }}>
+      <Text style={{ fontSize: sc(10), fontWeight: 'bold', marginBottom: sc(2), color: '#1f2937' }}>
         Дополнительная информация
       </Text>
 

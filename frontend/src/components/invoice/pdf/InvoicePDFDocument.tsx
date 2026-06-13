@@ -44,7 +44,7 @@ const H = {
   tableRow: 21,        // har bir mahsulot qatori (paddingVertical×2 + fontSize×lineHeight)
   sumWords: 15,
   notes: 60,           // Примечания bloki (agar bor bo'lsa)
-  signatures: 80,
+  signatures: 150,     // Pechat rasmi 120pt bo'lishi mumkin
   // spec: sarlavha(18) + imzo(40) + pechat(100) + marginlar(20) ≈ 178
   signaturesSpec: 178,
 };
@@ -59,9 +59,9 @@ const calcScale = (
   const sigH = viewTab === 'spec' ? H.signaturesSpec : H.signatures;
   const fixed = H.header + H.divider * 3 + H.parties + addInfoH +
                 H.tableOverhead + H.sumWords + sigH +
-                (hasNotes ? H.notes : 0);
-  // Spec uchun 12% ortiqcha (H taxminlari pastroq, xavfsizlik uchun)
-  const overhead = viewTab === 'spec' ? 1.12 : 1.0;
+                (hasNotes ? H.notes * 1.5 : 0); // Katta notes bo'lishi ehtimoli uchun
+  // Barcha hujjatlar uchun xavfsizlik (overhead) foizini beramiz
+  const overhead = viewTab === 'spec' ? 1.15 : 1.20;
   const total = (fixed + itemCount * H.tableRow) * overhead;
   if (total <= AVAILABLE_HEIGHT) return 1.0;
   const computed = AVAILABLE_HEIGHT / total;

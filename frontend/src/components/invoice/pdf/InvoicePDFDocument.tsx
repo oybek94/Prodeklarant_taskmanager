@@ -50,23 +50,51 @@ const H = {
 };
 
 const calcScale = (
-  itemCount: number,
-  hasNotes: boolean,
+  items: any[],
+  form: any,
   addFieldsCount: number,
   viewTab: string,
+  pdfIncludeSeal: boolean,
+  selectedContract: any
 ): number => {
+  // Imzo va pechat borligini tekshirish
+  const hasImages = pdfIncludeSeal && selectedContract && (
+    selectedContract.sellerSignatureUrl || selectedContract.signatureUrl || 
+    selectedContract.sellerSealUrl || selectedContract.sealUrl ||
+    selectedContract.buyerSignatureUrl || selectedContract.buyerSealUrl
+  );
+  
   const addInfoH = H.addInfoTitle + addFieldsCount * H.addInfoRow + H.addInfoBottom;
-  const sigH = viewTab === 'spec' ? H.signaturesSpec : H.signatures;
+  // Agar pechat rasmi yo'q bo'lsa, imzo qismi kamroq joy oladi
+  const sigH = viewTab === 'spec' ? (hasImages ? 178 : 100) : (hasImages ? 150 : 80);
+  
+  // Notes qismi balandligini hisoblash (har 80 ta harf taxminan 1 qator)
+  let notesHeight = 0;
+  if (form.notes) {
+    const notesStr = String(form.notes);
+    const lines = notesStr.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 80)), 0);
+    notesHeight = 20 + lines * 12; // 20 - padding/margin, 12 - qator balandligi
+  }
+
+  // Items balandligini hisoblash (uzun nomli tovarlar ko'p qatorga bo'linadi)
+  let itemsHeight = 0;
+  for (const item of items) {
+    const nameLen = item.name ? String(item.name).length : 0;
+    const lines = Math.max(1, Math.ceil(nameLen / 35)); // taxminan 35 ta harf 1 qatorga (shriftga qarab)
+    itemsHeight += H.tableRow + (lines - 1) * 12; // har bir qo'shimcha qator uchun +12pt
+  }
+
   const fixed = H.header + H.divider * 3 + H.parties + addInfoH +
-                H.tableOverhead + H.sumWords + sigH +
-                (hasNotes ? H.notes * 1.5 : 0); // Katta notes bo'lishi ehtimoli uchun
-  // Barcha hujjatlar uchun xavfsizlik (overhead) foizini beramiz
-  const overhead = viewTab === 'spec' ? 1.15 : 1.20;
-  const total = (fixed + itemCount * H.tableRow) * overhead;
+                H.tableOverhead + H.sumWords + sigH + notesHeight;
+                
+  // Qatorlarni aniq hisoblaganimiz uchun overhead'ni kichraytiramiz
+  const overhead = viewTab === 'spec' ? 1.05 : 1.08;
+  const total = (fixed + itemsHeight) * overhead;
+  
   if (total <= AVAILABLE_HEIGHT) return 1.0;
   const computed = AVAILABLE_HEIGHT / total;
-  // Spec: pechat belgilangan o'lchamidan max 10% kichrayishi mumkin (scale >= 0.90)
-  // Invoice: 0.40 gacha kichrayishi mumkin
+  
+  // Kichraytirish darajasini hisoblash (shrift va oraliqlar proporsional kichrayadi)
   const minScale = viewTab === 'spec' ? 0.90 : 0.40;
   return Math.max(minScale, computed);
 };
@@ -108,7 +136,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
     ...specCustomFields.map(f => isAdditionalInfoVisible(`spec_${f.id}`) && !!f.value),
   ].filter(Boolean).length;
 
-  const scale = calcScale(items.length, !!form.notes, visibleAddFields, viewTab);
+  const scale = calcScale(items, form, visibleAddFields, viewTab, pdfIncludeSeal, selectedContract);
   const sc = (v: number) => Math.round(v * scale);
 
   const pageStyle = {

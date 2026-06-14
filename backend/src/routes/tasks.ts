@@ -19,9 +19,13 @@ import { ensureTirForInvoice } from '../services/tir-service';
 import { socketEmitter } from '../services/socketEmitter';
 import { notify, getAllActiveUserIds } from '../services/notificationService';
 
+import { TaskRepository } from '../repositories/task.repository';
+import { TaskService } from '../services/task.service';
+
+const taskRepo = new TaskRepository();
+const taskService = new TaskService(taskRepo);
+
 const router = Router();
-
-
 
 const stageTemplates = [
   'Invoys',
@@ -185,115 +189,30 @@ router.get('/archive-report', requireAuth(), async (req: AuthRequest, res) => {
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const { branchId, status, clientId, page, limit } = req.query;
-    const where: any = {};
 
-    /** Query param'ni xavfsiz int'ga aylantirish — NaN bo'lsa undefined qaytaradi */
     const safeInt = (val: unknown): number | undefined => {
       const n = Number(val);
       return Number.isFinite(n) ? Math.floor(n) : undefined;
     };
-    
-    // Pagination parametrlari
-    const pageNum = safeInt(page);
-    const limitNum = safeInt(limit);
-    const skip = pageNum && limitNum ? (pageNum - 1) * limitNum : undefined;
-    const take = limitNum || 500; // Default limit — cheksiz so'rov oldini olish
-    
-    // Role'ga qarab filial filter qo'shish
-    const user = req.user;
-    if (user) {
-      if (user.role === 'DEKLARANT' && user.branchId) {
-        // Deklarant faqat o'z filialidagi ishlarni ko'radi
-        where.branchId = user.branchId;
-      } else if (user.role === 'MANAGER') {
-        // Manager barcha filiallardagi ishlarni ko'radi (branchId filter qo'llanmaydi)
-        // Agar query'da branchId bo'lsa, uni qo'llaymiz (filter uchun)
-        const bid = safeInt(branchId);
-        if (bid) where.branchId = bid;
-      } else if (user.role === 'ADMIN') {
-        // Admin ham barcha filiallarni ko'radi
-        const bid = safeInt(branchId);
-        if (bid) where.branchId = bid;
-      } else {
-        // Boshqa rollar uchun o'z filialidagi ishlar
-        if (user.branchId) where.branchId = user.branchId;
-      }
-    } else {
-      // Agar user bo'lmasa, query'dan branchId olinadi
-      const bid = safeInt(branchId);
-      if (bid) where.branchId = bid;
-    }
-    
-    const cid = safeInt(clientId);
-    if (cid) where.clientId = cid;
-    if (status) {
-      // Validate status against enum values
-      const validStatuses = ['BOSHLANMAGAN', 'JARAYONDA', 'TAYYOR', 'TEKSHIRILGAN', 'TOPSHIRILDI', 'YAKUNLANDI'];
-      if (validStatuses.includes(status as string)) {
-        where.status = status as any;
-      }
-    }
-    
-    // Pagination bilan tasklarni olish
-    const [tasks, total] = await Promise.all([
-      prisma.task.findMany({
-      where,
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        comments: true,
-        hasPsr: true,
-        afterHoursDeclaration: true,
-        afterHoursPayer: true,
-        driverPhone: true,
-        customsPaymentMultiplier: true,
-        createdAt: true,
-        client: { select: { id: true, name: true, phone: true, dealAmount: true, dealAmountCurrency: true } },
-        branch: true,
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        stages: {
-          select: {
-            name: true,
-            status: true,
-            durationMin: true,
-            completedAt: true,
-          },
-          orderBy: { stageOrder: 'asc' },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-        skip,
-        take,
-      }),
-      // Backward compatibility: agar pagination yo'q bo'lsa, count qilmaymiz
-      pageNum && limitNum ? prisma.task.count({ where }) : Promise.resolve(0),
-    ]);
-    
-    // Status DB'da saqlangan qiymatdan olinadi (recalculate qilinmaydi)
-    // Status faqat stage o'zgarganda updateTaskStatus() orqali yangilanadi
-    
-    // Backward compatibility: agar pagination parametrlari yo'q bo'lsa, eski format qaytariladi
-    if (pageNum && limitNum && total > 0) {
-      res.json({
-        tasks,
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          totalPages: Math.ceil(total / limitNum),
-        },
-      });
-    } else {
-      // Eski format - barcha tasklar
-    res.json(tasks);
-    }
+
+    const filters = {
+      branchId: safeInt(branchId),
+      clientId: safeInt(clientId),
+      status: status as TaskStatus,
+    };
+
+    const pagination = {
+      page: safeInt(page),
+      limit: safeInt(limit),
+    };
+
+    const userAuth = {
+      role: req.user?.role,
+      branchId: req.user?.branchId,
+    };
+
+    const result = await taskService.getTasks(filters, pagination, userAuth);
+    res.json(result);
   } catch (error) {
     console.error('Error fetching tasks:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -686,39 +605,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       taskData.snapshotCustomsPayment_amount_uzs = snapshotCustomsPaymentAmountUzs;
       taskData.snapshotCustomsPayment_exchange_source = 'MANUAL';
     }
-    
-    if (snapshotCertificatePayment != null) {
-      taskData.snapshotCertificatePayment_amount_original = snapshotCertificatePayment;
-      taskData.snapshotCertificatePayment_currency = 'UZS';
-      taskData.snapshotCertificatePayment_exchange_rate = 1;
-      taskData.snapshotCertificatePayment_amount_uzs = snapshotCertificatePayment;
-      taskData.snapshotCertificatePayment_exchange_source = 'CBU';
-    }
-    
-    if (snapshotPsrPrice != null) {
-      taskData.snapshotPsrPrice_amount_original = snapshotPsrPrice;
-      taskData.snapshotPsrPrice_currency = 'UZS';
-      taskData.snapshotPsrPrice_exchange_rate = 1;
-      taskData.snapshotPsrPrice_amount_uzs = snapshotPsrPrice;
-      taskData.snapshotPsrPrice_exchange_source = 'CBU';
-    }
-    
-    if (snapshotWorkerPrice != null) {
-      taskData.snapshotWorkerPrice_amount_original = snapshotWorkerPrice;
-      taskData.snapshotWorkerPrice_currency = 'UZS';
-      taskData.snapshotWorkerPrice_exchange_rate = 1;
-      taskData.snapshotWorkerPrice_amount_uzs = snapshotWorkerPrice;
-      taskData.snapshotWorkerPrice_exchange_source = 'CBU';
-    }
-    
-    if (snapshotCustomsPayment != null) {
-      taskData.snapshotCustomsPayment_amount_original = snapshotCustomsPayment;
-      taskData.snapshotCustomsPayment_currency = 'UZS';
-      taskData.snapshotCustomsPayment_exchange_rate = 1;
-      taskData.snapshotCustomsPayment_amount_uzs = snapshotCustomsPayment;
-      taskData.snapshotCustomsPayment_exchange_source = 'CBU';
-    }
-    
+
     if (parsed.data.customsPaymentMultiplier != null) {
       taskData.customsPaymentMultiplier = parsed.data.customsPaymentMultiplier;
     }

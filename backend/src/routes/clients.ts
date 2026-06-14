@@ -7,6 +7,11 @@ import { AuthRequest, requireAuth } from '../middleware/auth';
 import { hashPassword } from '../utils/hash';
 import { getLatestExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
+import { ClientService } from '../services/client.service';
+import { ClientRepository } from '../repositories/client.repository';
+
+const clientRepo = new ClientRepository();
+const clientService = new ClientService(clientRepo);
 
 const router = Router();
 
@@ -56,155 +61,26 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     const take = Number(limit);
     const skip = (pageNum - 1) * take;
 
-    const where: any = {};
-    if (search) {
-      where.OR = [
-        { name: { contains: String(search), mode: 'insensitive' } },
-        { phone: { contains: String(search), mode: 'insensitive' } },
-        { inn: { contains: String(search), mode: 'insensitive' } },
-      ];
-    }
-
-    if (dateFrom || dateTo) {
-      where.createdAt = {};
-      if (dateFrom) where.createdAt.gte = new Date(String(dateFrom));
-      if (dateTo) {
-        const toDate = new Date(String(dateTo));
-        toDate.setHours(23, 59, 59, 999);
-        where.createdAt.lte = toDate;
-      }
-    }
-
-    // Removed early return for isNonAdmin
-
-    // If we need to filter by debt, we must fetch all matching records, calculate debt, filter, then paginate.
-    const shouldFilterDebt = hasDebt === 'yes' || hasDebt === 'no';
-
-    const baseQuery = {
-      where,
-      include: {
-        tasks: {
-          select: {
-            id: true,
-            hasPsr: true,
-            snapshotDealAmount: true,
-            snapshotPsrPrice: true,
-          },
-        },
-        transactions: {
-          where: { type: 'INCOME' as const },
-          select: {
-            amount: true,
-            currency: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' as const },
+    const filters = {
+      search: search ? String(search) : undefined,
+      dateFrom: dateFrom ? String(dateFrom) : undefined,
+      dateTo: dateTo ? String(dateTo) : undefined,
     };
 
-    let clients: any[] = [];
-    let total = 0;
+    const isAdmin = req.user?.role === 'ADMIN';
 
-    if (shouldFilterDebt) {
-      // Fetch all to filter in-memory
-      clients = await prisma.client.findMany(baseQuery);
-    } else {
-      // Paginate at database level
-      const [dbClients, dbTotal] = await Promise.all([
-        prisma.client.findMany({ ...baseQuery, skip, take }),
-        prisma.client.count({ where }),
-      ]);
-      clients = dbClients;
-      total = dbTotal;
-    }
-
-    // Calculate balance for each client in deal currency
-    const clientsWithBalance = await Promise.all(clients.map(async (client: any) => {
-      try {
-        const dealCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
-        const dealAmount = Number(client.dealAmount || 0);
-
-        const totalTasks = client.tasks?.length || 0;
-        const tasksWithPsr = (client.tasks || []).filter((t: any) => t.hasPsr).length;
-
-        // Calculate total deal amount in deal currency using task snapshots
-        const totalDealAmount = (client.tasks || []).reduce((sum: number, task: any) => {
-          const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
-          const psrAmount = task.hasPsr ? (task.snapshotPsrPrice != null ? Number(task.snapshotPsrPrice) : 10) : 0;
-          return sum + baseAmount + psrAmount;
-        }, 0);
-
-        const totalIncome = (client.transactions || [])
-          .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
-
-        // Add initial debt to total deal amount depending on currency
-        let initialDebt = 0;
-        if (client.initialDebt) {
-          const clientInitialDebtCurrency = client.initialDebtCurrency || 'USD';
-          if (clientInitialDebtCurrency === dealCurrency) {
-            initialDebt = Number(client.initialDebt);
-          } else {
-            // Basic cross conversion if currencies mismatch, else wait for manual fix. Right now it just gets default
-            initialDebt = client.initialDebtInUzs && dealCurrency === 'UZS'
-              ? Number(client.initialDebtInUzs)
-              : Number(client.initialDebt);
-          }
-        }
-
-        const balance = totalDealAmount - totalIncome + initialDebt;
-
-        return {
-          ...client,
-          balance,
-          totalDealAmount, // Return in deal currency
-          initialDebt,
-          totalIncome,
-          balanceCurrency: dealCurrency,
-        };
-      } catch (clientError) {
-        console.error(`Error processing client ${client.id}:`, clientError);
-        // Return client with default values if processing fails
-        return {
-          ...client,
-          balance: 0,
-          totalDealAmount: 0,
-          totalIncome: 0,
-          balanceCurrency: client.dealAmount_currency || client.dealAmountCurrency || 'USD',
-        };
-      }
-    }));
-
-    let finalClients = clientsWithBalance;
-    
-    // Apply in-memory debt filter if requested
-    if (shouldFilterDebt) {
-      if (hasDebt === 'yes') {
-        finalClients = clientsWithBalance.filter(c => Number(c.balance.toFixed(2)) > 0);
-      } else if (hasDebt === 'no') {
-        finalClients = clientsWithBalance.filter(c => Number(c.balance.toFixed(2)) <= 0);
-      }
-      total = finalClients.length;
-      finalClients = finalClients.slice(skip, skip + take);
-    }
-
-    const isNonAdmin = req.user?.role !== 'ADMIN';
-    if (isNonAdmin) {
-      finalClients = finalClients.map((client: any) => ({
-        ...client,
-        dealAmount: 0,
-        totalDealAmount: 0,
-        totalIncome: 0,
-        balance: 0,
-        initialDebt: 0,
-        initialDebtInUzs: 0
-      }));
-    }
+    const result = await clientService.getClientsWithBalances(
+      filters,
+      { skip, take },
+      hasDebt as 'yes' | 'no' | undefined,
+      isAdmin
+    );
 
     res.json({
-      data: finalClients,
-      total,
+      data: result.data,
+      total: result.total,
       page: pageNum,
-      totalPages: Math.ceil(total / take)
+      totalPages: Math.ceil(result.total / take)
     });
   } catch (error: any) {
     console.error('Error fetching clients:', error);
@@ -322,7 +198,7 @@ router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/stats', async (_req, res) => {
+router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
   const now = new Date();
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
@@ -458,7 +334,10 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
           const rate = await getLatestExchangeRate(initialDebtCurrency, 'UZS', undefined, 'CBU');
           createData.initialDebtExchangeRate = rate;
           createData.initialDebtInUzs = calculateAmountUzs(initialDebtAmount, initialDebtCurrency, rate);
-        } catch (e) { /* ignore fetching rate temporarily if fails  */ }
+        } catch (e) { 
+          console.error('Failed to fetch exchange rate for initial debt:', e);
+          return res.status(400).json({ error: 'Valyuta kursini olishda xatolik yuz berdi. Iltimos, keyinroq urinib koring.' });
+        }
       } else {
         createData.initialDebtExchangeRate = new Decimal(1);
         createData.initialDebtInUzs = initialDebtAmount;
@@ -482,17 +361,8 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       createData.passwordHash = passwordHash;
     }
 
-    console.log('Creating client with data:', JSON.stringify(createData, null, 2));
-
     const client = await prisma.client.create({
       data: createData,
-    });
-
-    console.log('Created client:', {
-      id: client.id,
-      creditType: (client as any).creditType,
-      creditLimit: (client as any).creditLimit,
-      creditStartDate: (client as any).creditStartDate,
     });
 
     res.status(201).json(client);
@@ -508,89 +378,12 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
-    const isNonAdmin = req.user?.role !== 'ADMIN';
+    const isAdmin = req.user?.role === 'ADMIN';
 
-    const client = await prisma.client.findUnique({
-      where: { id },
-      include: {
-        tasks: {
-          include: { branch: true },
-          orderBy: { createdAt: 'desc' },
-        },
-        transactions: {
-          where: { type: 'INCOME' },
-          orderBy: { date: 'desc' },
-        },
-      },
-    });
-
+    const client = await clientService.getClientById(id, isAdmin);
     if (!client) return res.status(404).json({ error: 'Not found' });
 
-    // Calculate stats
-    const dealCurrency = (client as any).dealAmountCurrency || 'USD';
-    // Barcha transactionlarni hisoblash (hozirgi valyuta kiritilishi universal)
-    const totalIncome = client.transactions
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-    const totalTasks = client.tasks.length;
-    const dealAmount = Number(client.dealAmount || 0);
-
-    // PSR bor bo'lgan tasklar sonini hisoblash
-    const tasksWithPsr = client.tasks.filter(task => task.hasPsr).length;
-    const tasksWithoutPsr = totalTasks - tasksWithPsr;
-
-    // Har bir task bo'yicha kelishuv summasini yig'amiz
-    // snapshotDealAmount bo'lsa o'shani olamiz, bo'lmasa client.dealAmount
-    // PSR bo'lsa +10 qo'shamiz
-    const totalDealAmount = client.tasks.reduce((sum, task) => {
-      const baseAmount = task.snapshotDealAmount != null
-        ? Number(task.snapshotDealAmount)
-        : dealAmount;
-      const psrAmount = task.hasPsr ? 10 : 0;
-      return sum + baseAmount + psrAmount;
-    }, 0);
-
-    let initialDebt = 0;
-    if ((client as any).initialDebt) {
-      const clientInitialDebtCurrency = (client as any).initialDebtCurrency || 'USD';
-      if (clientInitialDebtCurrency === dealCurrency) {
-        initialDebt = Number((client as any).initialDebt);
-      } else {
-        initialDebt = (client as any).initialDebtInUzs && dealCurrency === 'UZS'
-          ? Number((client as any).initialDebtInUzs)
-          : Number((client as any).initialDebt);
-      }
-    }
-
-    // Qoldiq = Jami shartnoma summasi - Jami kirim + O'tgan yilgi qarz
-    const balance = totalDealAmount - totalIncome + initialDebt;
-
-    const tasksByBranch = client.tasks.reduce((acc: any, task) => {
-      const branchName = task.branch?.name || 'Unknown';
-      acc[branchName] = (acc[branchName] || 0) + 1;
-      return acc;
-    }, {});
-
-    if (isNonAdmin) {
-      (client as any).dealAmount = 0;
-      (client as any).initialDebt = 0;
-      (client as any).initialDebtInUzs = 0;
-      (client as any).creditLimit = 0;
-      (client as any).transactions = client.transactions.map(t => ({ ...t, amount: 0 }));
-      (client as any).tasks = client.tasks.map(t => ({ ...t, snapshotDealAmount: 0 }));
-    }
-
-    res.json({
-      ...client,
-      stats: {
-        dealAmount: isNonAdmin ? 0 : dealAmount,
-        totalDealAmount: isNonAdmin ? 0 : totalDealAmount,
-        totalIncome: isNonAdmin ? 0 : totalIncome,
-        balance: isNonAdmin ? 0 : balance,
-        tasksByBranch,
-        totalTasks,
-        tasksWithPsr,
-      },
-    });
+    res.json(client);
   } catch (error: any) {
     console.error('Error fetching client:', error);
     res.status(500).json({
@@ -600,8 +393,14 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/:id/monthly-tasks', async (req, res) => {
+router.get('/:id/monthly-tasks', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
+  const user = req.user as any;
+  
+  if (user?.role === 'CLIENT' && user?.id !== id) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
   const client = await prisma.client.findUnique({ where: { id } });
   if (!client) return res.status(404).json({ error: 'Not found' });
 
@@ -775,7 +574,10 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
             const rate = await getLatestExchangeRate(newInitialCurrency, 'UZS', undefined, 'CBU');
             updateData.initialDebtExchangeRate = rate;
             updateData.initialDebtInUzs = calculateAmountUzs(newInitialDebt, newInitialCurrency, rate);
-          } catch (error) { /* Ignore rate fetch error */ }
+          } catch (error) {
+            console.error('Failed to fetch exchange rate for updated initial debt:', error);
+            return res.status(400).json({ error: 'Valyuta kursini olishda xatolik yuz berdi. Iltimos, keyinroq urinib koring.' });
+          }
         } else {
           updateData.initialDebtExchangeRate = new Decimal(1);
           updateData.initialDebtInUzs = newInitialDebt;
@@ -864,19 +666,10 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       updateData.passwordHash = passwordHash;
     }
 
-    console.log('Update data before Prisma:', JSON.stringify(updateData, null, 2));
-
     // Update using Prisma with explicit data object
     const updatedClient = await prisma.client.update({
       where: { id },
       data: updateData,
-    });
-
-    console.log('Updated client from Prisma:', {
-      id: updatedClient.id,
-      creditType: (updatedClient as any).creditType,
-      creditLimit: (updatedClient as any).creditLimit,
-      creditStartDate: (updatedClient as any).creditStartDate,
     });
 
     // Return all fields explicitly
@@ -885,13 +678,12 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       name: updatedClient.name,
       dealAmount: updatedClient.dealAmount,
       phone: updatedClient.phone,
-      passwordHash: updatedClient.passwordHash,
-      creditType: (updatedClient as any).creditType,
-      creditLimit: (updatedClient as any).creditLimit,
-      creditStartDate: (updatedClient as any).creditStartDate,
-      initialDebt: (updatedClient as any).initialDebt,
-      initialDebtCurrency: (updatedClient as any).initialDebtCurrency,
-      defaultAfterHoursPayer: (updatedClient as any).defaultAfterHoursPayer,
+      creditType: updatedClient.creditType,
+      creditLimit: updatedClient.creditLimit,
+      creditStartDate: updatedClient.creditStartDate,
+      initialDebt: updatedClient.initialDebt,
+      initialDebtCurrency: updatedClient.initialDebtCurrency,
+      defaultAfterHoursPayer: updatedClient.defaultAfterHoursPayer,
       createdAt: updatedClient.createdAt,
       updatedAt: updatedClient.updatedAt,
     });

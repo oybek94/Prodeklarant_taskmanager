@@ -304,6 +304,7 @@ export function createLoadData({
               amountPaid: inv.additionalInfo?.amountPaid ?? prev.amountPaid,
               deliveryTerms: inv.additionalInfo?.deliveryTerms ?? prev.deliveryTerms,
               vehicleNumber: inv.additionalInfo?.vehicleNumber ?? prev.vehicleNumber,
+              vehicleWeight: inv.additionalInfo?.vehicleWeight ?? prev.vehicleWeight,
               fssRegionInternalCode: inv.additionalInfo?.fssRegionInternalCode ?? prev.fssRegionInternalCode,
               fssRegionName: inv.additionalInfo?.fssRegionName ?? prev.fssRegionName,
               fssRegionExternalCode: inv.additionalInfo?.fssRegionExternalCode ?? prev.fssRegionExternalCode,

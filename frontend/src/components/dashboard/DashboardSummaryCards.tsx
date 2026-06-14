@@ -84,7 +84,7 @@ export const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4">
       {cards.map((item) => {
         const data = completedSummary?.[item.key as keyof CompletedSummary];
         const delta = data?.deltaPercent ?? null;
@@ -99,27 +99,27 @@ export const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({
         return (
           <div
             key={item.key}
-            className={`group relative ${item.bg} rounded-[20px] shadow-sm border ${item.border} hover:shadow-md dark:hover:shadow-white/5 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden flex flex-col pt-3`}
+            className={`group relative ${item.bg} rounded-[20px] shadow-sm border ${item.border} hover:shadow-md dark:hover:shadow-white/5 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden flex flex-col pt-2`}
           >
             {/* Top highlight glare */}
             <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/60 dark:from-white/5 to-transparent pointer-events-none rounded-t-[20px]" />
 
             {/* Header -> Count -> Badge row */}
             <div className="relative z-10 px-4 pb-2">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 rounded-lg bg-white/70 dark:bg-gray-800/50 backdrop-blur-md flex items-center justify-center shadow-sm border border-white dark:border-gray-700/50 shrink-0">
-                  <Icon icon={item.icon} className={`w-3.5 h-3.5 ${item.text}`} />
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-6 h-6 rounded-lg bg-white/70 dark:bg-gray-800/50 backdrop-blur-md flex items-center justify-center shadow-sm border border-white dark:border-gray-700/50 shrink-0">
+                  <Icon icon={item.icon} className={`w-3 h-3 ${item.text}`} />
                 </div>
-                <div className="text-[10px] mt-0.5 font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase truncate">{item.title}</div>
+                <div className="text-[9px] sm:text-[10px] mt-0.5 font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase truncate">{item.title}</div>
               </div>
 
-              <div className="flex items-end justify-between gap-1 mb-1 relative z-20">
-                <div className={`text-3xl font-black tracking-tighter leading-none ${item.text} drop-shadow-sm truncate pr-1`}>
+              <div className="flex items-end justify-between gap-1 relative z-20">
+                <div className={`text-2xl sm:text-3xl font-black tracking-tighter leading-none ${item.text} drop-shadow-sm truncate pr-1`}>
                   {loadingCompletedSummary ? '...' : data?.count ?? 0}
                 </div>
-                <div className={`text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shrink-0 mb-0.5 ${delta === null ? 'bg-white/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400' : delta >= 0 ? 'bg-emerald-100/60 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-red-100/60 dark:bg-red-500/20 text-red-700 dark:text-red-400'} shadow-sm`}>
+                <div className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shrink-0 ${delta === null ? 'bg-white/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400' : delta >= 0 ? 'bg-emerald-100/60 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-red-100/60 dark:bg-red-500/20 text-red-700 dark:text-red-400'} shadow-sm`}>
                   {delta !== null && delta !== undefined && !loadingCompletedSummary && (
-                    <Icon icon={delta >= 0 ? 'lucide:trending-up' : 'lucide:trending-down'} className="w-3 h-3" />
+                    <Icon icon={delta >= 0 ? 'lucide:trending-up' : 'lucide:trending-down'} className="w-2.5 h-2.5" />
                   )}
                   <span>{deltaLabel}</span>
                 </div>
@@ -127,7 +127,7 @@ export const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({
             </div>
 
             {/* Bottom Chart Spread */}
-            <div className="absolute inset-x-0 bottom-0 h-[65px] opacity-80 pointer-events-none rounded-b-[20px]">
+            <div className="absolute inset-x-0 bottom-0 h-[45px] sm:h-[55px] opacity-80 pointer-events-none rounded-b-[20px]">
               {item.showChart && Array.isArray(sparkData) && sparkData.length > 0 ? (
                 <div className="w-full h-full pb-0.5">
                   <Line
@@ -136,7 +136,7 @@ export const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({
                   />
                 </div>
               ) : (
-                <div className="w-full h-full flex items-center justify-center opacity-0 mt-1">
+                <div className="w-full h-full flex items-center justify-center opacity-0">
                   <span className="text-[9px] font-bold text-gray-400/50 dark:text-gray-500/70 uppercase">0 Vazifa</span>
                 </div>
               )}

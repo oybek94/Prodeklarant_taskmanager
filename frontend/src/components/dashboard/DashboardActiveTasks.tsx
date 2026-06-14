@@ -8,23 +8,34 @@ interface DashboardActiveTasksProps {
 
 export const DashboardActiveTasks: React.FC<DashboardActiveTasksProps> = ({ premiumStats }) => {
   return (
-    <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-[20px] p-6 shadow-sm border border-white/50 dark:border-gray-700/50 relative overflow-hidden group flex flex-col h-full" style={{ height: '515px' }}>
-      <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-fuchsia-500/10 dark:bg-fuchsia-500/20 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-      <div className="flex items-center gap-3 mb-6 relative z-10">
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-fuchsia-50 to-pink-100 dark:from-fuchsia-900/30 dark:to-pink-900/30">
-          <Icon icon="lucide:activity" className="w-6 h-6 text-fuchsia-600 dark:text-fuchsia-400" />
+    <div className="relative bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-[1.5px] border-white/80 dark:border-white/10 p-5 sm:p-6 lg:p-8 flex flex-col h-[540px] overflow-hidden group">
+      {/* Premium Glow Effect */}
+      <div className="absolute -right-20 -bottom-20 w-[30rem] h-[30rem] bg-gradient-to-bl from-fuchsia-400/10 via-pink-400/5 to-transparent rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+
+      <div className="flex items-center gap-4 mb-4 relative z-10 shrink-0">
+        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-fuchsia-50 to-pink-100 dark:from-fuchsia-900/30 dark:to-pink-900/30 shrink-0">
+          <Icon icon="lucide:activity" className="w-5 h-5 sm:w-6 sm:h-6 text-fuchsia-600 dark:text-fuchsia-400" />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Kim qaysi ishni ko'proq bajaryapti</h2>
-          <p className="text-[11px] font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase mt-0.5">Xizmatlar kesimida</p>
+          <h2 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">Kim qaysi ishni ko'proq bajaryapti</h2>
+          <p className="text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold mt-1">Xizmatlar kesimida</p>
         </div>
       </div>
 
       {!premiumStats ? (
-        <div className="flex items-center justify-center py-12 h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-fuchsia-600"></div></div>
+        <div className="flex-1 flex items-center justify-center py-12 relative z-10">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-fuchsia-500"></div>
+        </div>
       ) : (() => {
         const activeTasks = premiumStats.activeTasks || [];
-        if (activeTasks.length === 0) return <div className="text-center py-12 text-gray-400">Jarayonda vazifalar yo'q</div>;
+        if (activeTasks.length === 0) {
+          return (
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-gray-400 dark:text-gray-500 relative z-10">
+              <Icon icon="lucide:activity" className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="font-bold text-sm">Jarayonda vazifalar yo'q</p>
+            </div>
+          );
+        }
 
         const isDark = document.documentElement.classList.contains('dark');
 
@@ -42,41 +53,84 @@ export const DashboardActiveTasks: React.FC<DashboardActiveTasksProps> = ({ prem
         const categories = activeTasks.map((w: any) => w.name);
 
         return (
-          <div className="relative z-10 flex flex-col flex-1 mt-2">
+          <div className="relative z-10 flex flex-col flex-1 mt-2 w-full">
             <Chart
               options={{
-                chart: { type: 'bar', stacked: true, toolbar: { show: false } },
+                chart: { 
+                  type: 'bar', 
+                  stacked: true, 
+                  toolbar: { show: false },
+                  animations: {
+                    enabled: true,
+                    easing: 'easeinout',
+                    speed: 800,
+                    animateGradually: {
+                        enabled: true,
+                        delay: 150
+                    },
+                    dynamicAnimation: {
+                        enabled: true,
+                        speed: 350
+                    }
+                  }
+                },
                 plotOptions: {
                   bar: {
                     horizontal: true,
-                    borderRadius: 2,
-                    dataLabels: { total: { enabled: true, style: { fontSize: '11px', fontWeight: 800, color: isDark ? '#fff' : '#000' } } }
+                    borderRadius: 4,
+                    columnWidth: '60%',
+                    barHeight: '70%',
+                    dataLabels: { 
+                      total: { 
+                        enabled: true, 
+                        style: { 
+                          fontSize: '12px', 
+                          fontWeight: 900, 
+                          fontFamily: 'inherit',
+                          color: isDark ? '#fff' : '#111827' 
+                        } 
+                      } 
+                    }
                   }
                 },
                 colors: [
                   '#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6',
                   '#06b6d4', '#f43f5e', '#84cc16', '#d946ef', '#14b8a6'
-                ], // Extended colors just in case
+                ],
                 dataLabels: {
                   enabled: true,
-                  style: { fontSize: '10px', colors: ['#fff'] },
+                  style: { 
+                    fontSize: '11px', 
+                    fontFamily: 'inherit',
+                    fontWeight: 800,
+                    colors: ['#fff'] 
+                  },
+                  dropShadow: { enabled: true, top: 1, left: 1, blur: 1, color: '#000', opacity: 0.3 },
                   formatter: function (val: number) {
                     return val > 0 ? val : '';
                   }
                 },
-                stroke: { width: 1, colors: [isDark ? '#1f2937' : '#fff'] },
+                stroke: { width: 1.5, colors: [isDark ? '#1f2937' : '#ffffff'] },
                 xaxis: {
                   categories: categories,
-                  labels: { style: { colors: isDark ? '#9ca3af' : '#4b5563', fontSize: '11px' } },
+                  labels: { 
+                    style: { 
+                      colors: isDark ? '#9ca3af' : '#4b5563', 
+                      fontSize: '11px',
+                      fontFamily: 'inherit',
+                      fontWeight: 600
+                    } 
+                  },
                   axisBorder: { show: false },
                   axisTicks: { show: false }
                 },
                 yaxis: {
                   labels: {
-                    maxWidth: 100,
+                    maxWidth: 120,
                     style: {
-                      fontSize: '11px',
-                      fontWeight: 600,
+                      fontSize: '12px',
+                      fontFamily: 'inherit',
+                      fontWeight: 700,
                       colors: isDark ? '#9ca3af' : '#4b5563'
                     }
                   }
@@ -85,20 +139,31 @@ export const DashboardActiveTasks: React.FC<DashboardActiveTasksProps> = ({ prem
                   borderColor: isDark ? '#374151' : '#f3f4f6',
                   strokeDashArray: 4,
                   xaxis: { lines: { show: true } },
-                  yaxis: { lines: { show: false } }
+                  yaxis: { lines: { show: false } },
+                  padding: { top: 0, right: 20, bottom: 0, left: 10 }
                 },
                 legend: {
                   position: 'bottom',
+                  horizontalAlign: 'center',
                   labels: { colors: isDark ? '#d1d5db' : '#374151' },
-                  markers: { strokeWidth: 0 }
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  fontFamily: 'inherit',
+                  markers: { strokeWidth: 0, offsetX: -2, offsetY: 1 },
+                  itemMargin: { horizontal: 8, vertical: 4 }
                 },
                 tooltip: {
-                  theme: 'dark'
+                  theme: isDark ? 'dark' : 'light',
+                  style: {
+                    fontSize: '12px',
+                    fontFamily: 'inherit'
+                  }
                 }
               }}
               series={series}
               type="bar"
-              height={350}
+              height={400}
+              width="100%"
             />
           </div>
         );

@@ -122,36 +122,40 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
   }, [chartData, period]);
 
   return (
-    <div className="bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl rounded-2xl p-6 shadow-sm border border-white/50 dark:border-gray-700/50 flex flex-col" style={{ height: '565px' }}>
-      <div className="flex justify-between items-center mb-6 shrink-0">
+    <div className="relative bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-[1.5px] border-white/80 dark:border-white/10 p-5 sm:p-6 lg:p-8 flex flex-col h-[420px] transition-all duration-300 overflow-hidden group">
+      
+      {/* Background Glow */}
+      <div className="absolute top-0 left-0 w-[40rem] h-[40rem] bg-gradient-to-br from-indigo-400/10 via-purple-400/5 to-transparent rounded-full blur-3xl pointer-events-none opacity-60 transition-opacity group-hover:opacity-100"></div>
+
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 shrink-0 relative z-10">
         <div className="flex flex-col">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Oylik monitoring</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Bajarilgan vazifalar dinamikasi</p>
+          <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">Oylik monitoring</h2>
+          <p className="text-[10px] font-black tracking-widest text-gray-400 dark:text-gray-500 uppercase mt-1">Bajarilgan vazifalar dinamikasi</p>
         </div>
-        <div className="flex gap-2 bg-gray-100/80 dark:bg-gray-700/80 p-1 rounded-xl">
+        <div className="flex gap-1.5 sm:gap-2 bg-gray-100/50 dark:bg-gray-800/50 p-1 rounded-xl backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50">
           <button
             onClick={() => setPeriod('weekly')}
-            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all duration-300 ${period === 'weekly'
-              ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            className={`px-4 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all duration-300 ${period === 'weekly'
+              ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-gray-700/50'
               }`}
           >
             Haftalik
           </button>
           <button
             onClick={() => setPeriod('monthly')}
-            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all duration-300 ${period === 'monthly'
-              ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            className={`px-4 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all duration-300 ${period === 'monthly'
+              ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-gray-700/50'
               }`}
           >
             Oylik
           </button>
           <button
             onClick={() => setPeriod('yearly')}
-            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all duration-300 ${period === 'yearly'
-              ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            className={`px-4 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all duration-300 ${period === 'yearly'
+              ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-gray-200/50 dark:ring-gray-600/50'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-gray-700/50'
               }`}
           >
             Yillik
@@ -161,7 +165,7 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
 
       {/* Charts.js Line Chart */}
       {chartDataWithLabels.labels.length > 0 ? (
-        <div className="flex-1 w-full min-h-0">
+        <div className="flex-1 w-full min-h-0 relative z-10">
           <Line
             data={{
               labels: chartDataWithLabels.labels,
@@ -170,8 +174,16 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
                   label: 'Joriy davr',
                   data: chartDataWithLabels.current,
                   borderColor: 'rgb(99, 102, 241)',
-                  backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                  borderWidth: 2,
+                  backgroundColor: (context: any) => {
+                    const chart = context.chart;
+                    const { ctx, chartArea } = chart;
+                    if (!chartArea) return 'rgba(99, 102, 241, 0.1)';
+                    const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
+                    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+                    return gradient;
+                  },
+                  borderWidth: 3,
                   fill: true,
                   tension: 0.4,
                   pointRadius: 4,
@@ -190,6 +202,7 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
                   borderColor: 'rgb(148, 163, 184)',
                   backgroundColor: 'rgba(148, 163, 184, 0.1)',
                   borderWidth: 2,
+                  borderDash: [5, 5],
                   fill: false,
                   tension: 0.35,
                   pointRadius: 3,
@@ -212,19 +225,30 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
                 legend: {
                   display: true,
                   position: 'top' as const,
+                  labels: {
+                    font: { family: 'inherit', size: 12, weight: 'bold' },
+                    usePointStyle: true,
+                    boxWidth: 8,
+                    padding: 20,
+                  }
                 },
                 tooltip: {
                   mode: 'index' as const,
                   intersect: false,
-                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                  backgroundColor: 'rgba(15, 23, 42, 0.9)',
                   padding: 12,
+                  cornerRadius: 12,
                   titleFont: {
                     size: 14,
+                    family: 'inherit',
                     weight: 'bold' as const,
                   },
                   bodyFont: {
                     size: 13,
+                    family: 'inherit',
                   },
+                  borderColor: 'rgba(255,255,255,0.1)',
+                  borderWidth: 1,
                 },
               },
               scales: {
@@ -233,13 +257,18 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
                   display: true,
                   position: 'left' as const,
                   beginAtZero: true,
+                  border: { display: false },
                   ticks: {
                     stepSize: 1,
                     precision: 0,
                     display: true,
+                    font: { family: 'inherit', size: 11, weight: 'bold' },
+                    color: '#9ca3af',
+                    padding: 10,
                   },
                   grid: {
-                    color: 'rgba(0, 0, 0, 0.05)',
+                    color: 'rgba(0, 0, 0, 0.04)',
+                    drawTicks: false,
                   },
                 },
                 y1: {
@@ -257,12 +286,17 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
                   },
                 },
                 x: {
+                  border: { display: false },
                   grid: {
                     display: false,
+                    drawTicks: false,
                   },
                   ticks: {
                     maxRotation: period === 'yearly' ? 0 : 45,
                     minRotation: period === 'yearly' ? 0 : 45,
+                    font: { family: 'inherit', size: 10, weight: 'bold' },
+                    color: '#9ca3af',
+                    padding: 10,
                   },
                 },
               },
@@ -270,7 +304,9 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
           />
         </div>
       ) : (
-        <div className="w-full text-center text-gray-400 py-12">Ma'lumotlar yo'q</div>
+        <div className="w-full flex-1 flex flex-col items-center justify-center text-gray-400">
+          <p className="font-bold text-sm">Ma'lumotlar yo'q</p>
+        </div>
       )}
     </div>
   );

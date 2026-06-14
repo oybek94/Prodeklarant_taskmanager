@@ -750,6 +750,21 @@ model DebtPerson {
   debts     Debt[]
 }
 
+// Vaqtinchalik qarz: seyf (virtual karta) puldan olib turilgan qarz.
+// "Qolgan" = amount - repaidAmount. To'liq qaytarilgan = repaidAmount >= amount.
+model CardLoan {
+  id            Int      @id @default(autoincrement())
+  virtualCardId Int
+  amount        Decimal  @db.Decimal(18, 2)
+  repaidAmount  Decimal  @default(0) @db.Decimal(18, 2)
+  comment       String?
+  date          DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([virtualCardId])
+}
+
 model PreviousYearWorkerDebt {
   id                          Int             @id @default(autoincrement())
   workerId                    Int

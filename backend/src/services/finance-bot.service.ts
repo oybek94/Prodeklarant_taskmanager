@@ -39,12 +39,38 @@ export const getVirtualCardsBalance = async () => {
     }
   }
 
+  // Ochiq (qaytarilmagan) qarzlar seyf balansini kamaytiradi.
+  // Vaqtinchalik qarz xarajat emas — shu sababli alohida hisoblanadi.
+  const openLoans = await prisma.cardLoan.findMany();
+  for (const loan of openLoans) {
+    const remaining = Number(loan.amount) - Number(loan.repaidAmount);
+    if (remaining > 0 && loan.virtualCardId >= 1 && loan.virtualCardId <= 4) {
+      cardBalances[loan.virtualCardId] -= remaining;
+    }
+  }
+
   return [
     { id: 1, name: 'Operatsion xarajatlar', perTask: 400000, total: cardBalances[1] },
     { id: 2, name: 'Qarzlar kartasi', perTask: 450000, total: cardBalances[2] },
     { id: 3, name: 'Korxona xarajatlari', perTask: 170000, total: cardBalances[3] },
     { id: 4, name: 'Maosh kartam', perTask: 100000, total: cardBalances[4] },
   ];
+};
+
+// Karta bo'yicha ochiq qarzlar qoldig'i (remaining > 0 bo'lganlar).
+const getOpenLoansByCard = async () => {
+  const loans = await prisma.cardLoan.findMany({ orderBy: { date: 'asc' } });
+  const byCard: Record<number, { remaining: number; loans: typeof loans }> = {};
+  for (const loan of loans) {
+    const remaining = Number(loan.amount) - Number(loan.repaidAmount);
+    if (remaining <= 0) continue;
+    if (!byCard[loan.virtualCardId]) {
+      byCard[loan.virtualCardId] = { remaining: 0, loans: [] };
+    }
+    byCard[loan.virtualCardId].remaining += remaining;
+    byCard[loan.virtualCardId].loans.push(loan);
+  }
+  return byCard;
 };
 
 export const initFinanceBot = () => {
@@ -59,7 +85,7 @@ export const initFinanceBot = () => {
 
   bot.onText(/\/(start|help)/, (msg) => {
     const chatId = msg.chat.id;
-    const text = `Assalomu alaykum!\n\nBuyruqlar:\n/balans - Seyflardagi hozirgi qoldiqni ko'rish\n/chiqim - Seyfdan pul yechish (sarflash)`;
+    const text = `Assalomu alaykum!\n\nBuyruqlar:\n/balans - Seyflardagi hozirgi qoldiqni ko'rish\n/chiqim - Seyfdan pul yechish (sarflash)\n/qarz - Seyfdan qarz olish\n/qarzlar - Qarzlar ro'yxatini ko'rish\n/qaytarish - Qarzni qaytarish`;
     bot!.sendMessage(chatId, text);
   });
 
@@ -90,6 +116,77 @@ export const initFinanceBot = () => {
       });
       
       userStates[chatId] = { step: 'WAITING_CARD', messageId: sentMsg.message_id };
+    } catch (e) {
+      bot!.sendMessage(chatId, 'Xatolik yuz berdi.');
+    }
+  });
+
+  // /qarz — seyfdan qarz olish
+  bot.onText(/\/qarz$/, async (msg) => {
+    const chatId = msg.chat.id;
+    try {
+      const cards = await getVirtualCardsBalance();
+      const keyboard = cards.map(c => ([{ text: `${c.name} (${formatMoney(c.total)} so'm)`, callback_data: `qarz_card:${c.id}` }]));
+      const sentMsg = await bot!.sendMessage(chatId, 'Qaysi seyfdan qarz olmoqchisiz? Tanlang:', {
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      userStates[chatId] = { step: 'QARZ_WAITING_CARD', messageId: sentMsg.message_id };
+    } catch (e) {
+      bot!.sendMessage(chatId, 'Xatolik yuz berdi.');
+    }
+  });
+
+  // /qarzlar — qarzlar ro'yxati
+  bot.onText(/\/qarzlar/, async (msg) => {
+    const chatId = msg.chat.id;
+    try {
+      const cards = await getVirtualCardsBalance();
+      const byCard = await getOpenLoansByCard();
+      const cardIds = Object.keys(byCard).map(Number);
+      if (cardIds.length === 0) {
+        bot!.sendMessage(chatId, '✅ Hozircha qarzingiz yo\'q.');
+        return;
+      }
+      let text = `📋 **Qarzlar ro'yxati:**\n`;
+      let grandTotal = 0;
+      for (const cardId of cardIds) {
+        const card = cards.find(c => c.id === cardId);
+        const info = byCard[cardId];
+        grandTotal += info.remaining;
+        text += `\n💳 **${card?.name || `Karta #${cardId}`}** — jami: ${formatMoney(info.remaining)} so'm\n`;
+        for (const loan of info.loans) {
+          const remaining = Number(loan.amount) - Number(loan.repaidAmount);
+          const dateStr = new Date(loan.date).toLocaleDateString('ru-RU');
+          const note = loan.comment ? ` — ${loan.comment}` : '';
+          text += `   • ${formatMoney(remaining)} so'm (${dateStr})${note}\n`;
+        }
+      }
+      text += `\n📊 **Umumiy qarz: ${formatMoney(grandTotal)} so'm**`;
+      bot!.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+    } catch (e) {
+      bot!.sendMessage(chatId, 'Xatolik yuz berdi.');
+    }
+  });
+
+  // /qaytarish — qarzni qaytarish
+  bot.onText(/\/qaytarish/, async (msg) => {
+    const chatId = msg.chat.id;
+    try {
+      const cards = await getVirtualCardsBalance();
+      const byCard = await getOpenLoansByCard();
+      const cardIds = Object.keys(byCard).map(Number);
+      if (cardIds.length === 0) {
+        bot!.sendMessage(chatId, '✅ Qaytariladigan qarzingiz yo\'q.');
+        return;
+      }
+      const keyboard = cardIds.map(cardId => {
+        const card = cards.find(c => c.id === cardId);
+        return [{ text: `${card?.name || `Karta #${cardId}`} (${formatMoney(byCard[cardId].remaining)} so'm)`, callback_data: `qaytarish_card:${cardId}` }];
+      });
+      const sentMsg = await bot!.sendMessage(chatId, 'Qaysi karta qarzini qaytarmoqchisiz? Tanlang:', {
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      userStates[chatId] = { step: 'QAYTARISH_WAITING_CARD', messageId: sentMsg.message_id };
     } catch (e) {
       bot!.sendMessage(chatId, 'Xatolik yuz berdi.');
     }
@@ -147,6 +244,63 @@ export const initFinanceBot = () => {
         }
       });
       state.step = 'WAITING_CONFIRMATION';
+    } else if (state.step === 'QARZ_WAITING_AMOUNT') {
+      const amount = Number(msg.text.replace(/[^0-9]/g, ''));
+      if (!amount || isNaN(amount)) {
+        bot!.sendMessage(chatId, 'Iltimos, to\'g\'ri summa kiriting (masalan: 200000):');
+        return;
+      }
+      state.amount = amount;
+      state.step = 'QARZ_WAITING_COMMENT';
+      bot!.sendMessage(chatId, `💸 Summa: **${formatMoney(amount)} so'm**\n\nQarz uchun izoh yozing (yoki "yo'q" deb yozing):`, { parse_mode: 'Markdown' });
+    } else if (state.step === 'QARZ_WAITING_COMMENT') {
+      const raw = msg.text.trim();
+      state.comment = /^yo'?q$/i.test(raw) ? null : raw;
+      const cards = await getVirtualCardsBalance();
+      const card = cards.find(c => c.id === state.cardId);
+      let confirmText = `❓ **Qarzni tasdiqlaysizmi?**\n\nSeyf: ${card?.name}\nSumma: ${formatMoney(state.amount)} so'm\nIzoh: ${state.comment || '-'}`;
+      if (card && state.amount > Number(card.total)) {
+        confirmText += `\n\n⚠️ Diqqat: summa seyf qoldig'idan (${formatMoney(card.total)} so'm) ko'p.`;
+      }
+      bot!.sendMessage(chatId, confirmText, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Tasdiqlash', callback_data: 'qarz_confirm' },
+              { text: '❌ Bekor qilish', callback_data: 'qarz_cancel' }
+            ]
+          ]
+        }
+      });
+      state.step = 'QARZ_WAITING_CONFIRMATION';
+    } else if (state.step === 'QAYTARISH_WAITING_AMOUNT') {
+      const amount = Number(msg.text.replace(/[^0-9]/g, ''));
+      if (!amount || isNaN(amount)) {
+        bot!.sendMessage(chatId, 'Iltimos, to\'g\'ri summa kiriting (masalan: 50000):');
+        return;
+      }
+      if (amount > state.remaining) {
+        bot!.sendMessage(chatId, `Summa qarz qoldig'idan (${formatMoney(state.remaining)} so'm) ko'p bo'lmasligi kerak. Qaytadan kiriting:`);
+        return;
+      }
+      state.amount = amount;
+      const cards = await getVirtualCardsBalance();
+      const card = cards.find(c => c.id === state.cardId);
+      const left = state.remaining - amount;
+      const confirmText = `❓ **Qaytarishni tasdiqlaysizmi?**\n\nSeyf: ${card?.name}\nQaytarish: ${formatMoney(amount)} so'm\nQolgan qarz: ${formatMoney(left)} so'm`;
+      bot!.sendMessage(chatId, confirmText, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Tasdiqlash', callback_data: 'qaytarish_confirm' },
+              { text: '❌ Bekor qilish', callback_data: 'qaytarish_cancel' }
+            ]
+          ]
+        }
+      });
+      state.step = 'QAYTARISH_WAITING_CONFIRMATION';
     } else if (state.step.startsWith('PARTIAL_')) {
       const amount = Number(msg.text.replace(/[^0-9]/g, ''));
       if (isNaN(amount)) {
@@ -460,6 +614,136 @@ export const initFinanceBot = () => {
       if (state) {
         delete userStates[chatId];
         await bot!.editMessageText('❌ Amaliyot bekor qilindi.', {
+          chat_id: chatId,
+          message_id: query.message.message_id
+        });
+      }
+      await bot!.answerCallbackQuery(query.id);
+    }
+    // ... qarz logic
+    else if (query.data.startsWith('qarz_card:')) {
+      const cardId = Number(query.data.split(':')[1]);
+      const state = userStates[chatId];
+      if (state && state.step === 'QARZ_WAITING_CARD') {
+        state.cardId = cardId;
+        state.step = 'QARZ_WAITING_AMOUNT';
+        await bot!.editMessageText('Qancha qarz olmoqchisiz? Raqamda yozing (masalan: 200000):', {
+          chat_id: chatId,
+          message_id: query.message.message_id
+        });
+      }
+      await bot!.answerCallbackQuery(query.id);
+    }
+    else if (query.data === 'qarz_confirm') {
+      const state = userStates[chatId];
+      if (state && state.step === 'QARZ_WAITING_CONFIRMATION') {
+        try {
+          await prisma.cardLoan.create({
+            data: {
+              virtualCardId: state.cardId,
+              amount: state.amount!,
+              comment: state.comment || null,
+              date: new Date()
+            }
+          });
+
+          const cards = await getVirtualCardsBalance();
+          const card = cards.find(c => c.id === state.cardId);
+          await bot!.editMessageText(`✅ **Qarz olindi!**\n\nSeyf: ${card?.name}\nSumma: ${formatMoney(state.amount)} so'm\nIzoh: ${state.comment || '-'}\n\n💼 ${card?.name} qoldig'i: ${formatMoney(card?.total)} so'm`, {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: 'Markdown'
+          });
+          delete userStates[chatId];
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      await bot!.answerCallbackQuery(query.id);
+    }
+    else if (query.data === 'qarz_cancel') {
+      const state = userStates[chatId];
+      if (state) {
+        delete userStates[chatId];
+        await bot!.editMessageText('❌ Qarz olish bekor qilindi.', {
+          chat_id: chatId,
+          message_id: query.message.message_id
+        });
+      }
+      await bot!.answerCallbackQuery(query.id);
+    }
+    // ... qaytarish logic
+    else if (query.data.startsWith('qaytarish_card:')) {
+      const cardId = Number(query.data.split(':')[1]);
+      const state = userStates[chatId];
+      if (state && state.step === 'QAYTARISH_WAITING_CARD') {
+        const byCard = await getOpenLoansByCard();
+        const info = byCard[cardId];
+        if (!info || info.remaining <= 0) {
+          delete userStates[chatId];
+          await bot!.editMessageText('Bu kartada qarz qolmagan.', {
+            chat_id: chatId,
+            message_id: query.message.message_id
+          });
+          await bot!.answerCallbackQuery(query.id);
+          return;
+        }
+        state.cardId = cardId;
+        state.remaining = info.remaining;
+        state.step = 'QAYTARISH_WAITING_AMOUNT';
+        await bot!.editMessageText(`Bu karta qarzi: ${formatMoney(info.remaining)} so'm.\nQancha qaytarmoqchisiz? Raqamda yozing (masalan: ${formatMoney(info.remaining)}):`, {
+          chat_id: chatId,
+          message_id: query.message.message_id
+        });
+      }
+      await bot!.answerCallbackQuery(query.id);
+    }
+    else if (query.data === 'qaytarish_confirm') {
+      const state = userStates[chatId];
+      if (state && state.step === 'QAYTARISH_WAITING_CONFIRMATION') {
+        try {
+          // Shu kartaning ochiq qarzlarini FIFO (eng eskidan) bo'yicha qaytarish.
+          const loans = await prisma.cardLoan.findMany({
+            where: { virtualCardId: state.cardId },
+            orderBy: { date: 'asc' }
+          });
+          let left = state.amount!;
+          for (const loan of loans) {
+            if (left <= 0) break;
+            const remaining = Number(loan.amount) - Number(loan.repaidAmount);
+            if (remaining <= 0) continue;
+            const pay = Math.min(left, remaining);
+            await prisma.cardLoan.update({
+              where: { id: loan.id },
+              data: { repaidAmount: Number(loan.repaidAmount) + pay }
+            });
+            left -= pay;
+          }
+
+          const byCard = await getOpenLoansByCard();
+          const cards = await getVirtualCardsBalance();
+          const card = cards.find(c => c.id === state.cardId);
+          const leftDebt = byCard[state.cardId]?.remaining || 0;
+          const debtLine = leftDebt > 0
+            ? `Qolgan qarz: ${formatMoney(leftDebt)} so'm`
+            : `✅ Bu karta qarzi to'liq yopildi.`;
+          await bot!.editMessageText(`✅ **Qarz qaytarildi!**\n\nSeyf: ${card?.name}\nQaytarildi: ${formatMoney(state.amount)} so'm\n${debtLine}\n\n💼 ${card?.name} qoldig'i: ${formatMoney(card?.total)} so'm`, {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: 'Markdown'
+          });
+          delete userStates[chatId];
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      await bot!.answerCallbackQuery(query.id);
+    }
+    else if (query.data === 'qaytarish_cancel') {
+      const state = userStates[chatId];
+      if (state) {
+        delete userStates[chatId];
+        await bot!.editMessageText('❌ Qaytarish bekor qilindi.', {
           chat_id: chatId,
           message_id: query.message.message_id
         });

@@ -1556,7 +1556,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   return (
     <div className={isModalMode ? "" : `max-w-7xl mx-auto space-y-6 ${isMobile ? 'pb-32' : ''}`}>
       {!isModalMode && (
-        <div className="contents">
+        <>
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <div>
@@ -1950,7 +1950,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Client Detail Modal - ADMIN va MANAGER; MANAGER uchun faqat shartnomalar bo'limi to'liq */}
@@ -3494,7 +3494,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         <div className="mt-4">
                           <h5 className="text-sm font-medium text-gray-700 mb-2">Yuklangan fayllar:</h5>
                           <ul className="space-y-2">
-                            {contractForm.files.map((file) => (
+                            {contractForm.files.map((file, index) => (
                               <li key={file.fileUrl || file.name} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                   <Icon icon="lucide:file" className="w-5 h-5 text-gray-500 shrink-0" />

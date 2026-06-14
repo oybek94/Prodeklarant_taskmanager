@@ -37,21 +37,25 @@ export const TaskStatsCards: React.FC<TaskStatsCardsProps> = ({
         return (
           <div
             key={label}
-            className="relative overflow-hidden bg-white dark:bg-slate-800/80 rounded-2xl p-4 sm:p-5 border border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-all duration-300"
+            className="relative overflow-hidden bg-white dark:bg-slate-800/80 rounded-xl p-3 sm:p-4 border border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-3 sm:gap-4"
           >
-            <div className="flex items-center justify-between mb-3">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${bgIcon}`}>
-                <Icon icon={icon} className={`w-4.5 h-4.5 ${textIcon}`} />
-              </div>
-              {data.previous > 0 && (
-                <span className={`text-xs font-bold px-2 py-1 rounded-lg ${isPositive ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                  {isPositive ? '↑' : '↓'} {Math.abs(change)}%
-                </span>
-              )}
+            <div className={`w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-xl flex items-center justify-center ${bgIcon}`}>
+              <Icon icon={icon} className={`w-5 h-5 sm:w-5 sm:h-5 ${textIcon}`} />
             </div>
-            <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{data.current}</div>
-            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{label} vazifalar</div>
-            <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Oldingi: {data.previous}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1 mb-0.5">
+                <div className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">{label} vazifalar</div>
+                {data.previous > 0 && (
+                  <span className={`text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-md ${isPositive ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                    {isPositive ? '↑' : '↓'} {Math.abs(change)}%
+                  </span>
+                )}
+              </div>
+              <div className="flex items-end justify-between mt-1">
+                <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-none">{data.current}</div>
+                <div className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 mb-0.5">Oldingi: {data.previous}</div>
+              </div>
+            </div>
           </div>
         );
       })}

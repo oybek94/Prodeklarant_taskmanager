@@ -233,30 +233,28 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
         </div>
       )}
       {!isModalMode && (
-        <div className="contents">
-          <TasksHeader
-            isMobile={isMobile}
-            navigate={navigate}
-            showArchive={showArchive}
-            setShowArchive={setShowArchive}
-            setPage={setPage}
-            exportToExcel={exportToExcel}
-            showArchiveFilters={showArchiveFilters}
-            setShowArchiveFilters={setShowArchiveFilters}
-            isArchiveFiltersRoute={isArchiveFiltersRoute}
-            archiveSearchQuery={archiveSearchQuery}
-            setArchiveSearchQuery={setArchiveSearchQuery}
-            archiveFilters={archiveFilters}
-            setArchiveFilters={setArchiveFilters}
-            branches={branches}
-            clients={clients}
-            filteredArchiveTasksLength={filteredArchiveTasks.length}
-            exportArchiveReport={exportArchiveReport}
-            reportLoading={reportLoading}
-            showArchiveFiltersPanel={showArchiveFiltersPanel}
-            setShowForm={modals.setShowForm}
-          />
-        </div>
+        <TasksHeader
+          isMobile={isMobile}
+          navigate={navigate}
+          showArchive={showArchive}
+          setShowArchive={setShowArchive}
+          setPage={setPage}
+          exportToExcel={exportToExcel}
+          showArchiveFilters={showArchiveFilters}
+          setShowArchiveFilters={setShowArchiveFilters}
+          isArchiveFiltersRoute={isArchiveFiltersRoute}
+          archiveSearchQuery={archiveSearchQuery}
+          setArchiveSearchQuery={setArchiveSearchQuery}
+          archiveFilters={archiveFilters}
+          setArchiveFilters={setArchiveFilters}
+          branches={branches}
+          clients={clients}
+          filteredArchiveTasksLength={filteredArchiveTasks.length}
+          exportArchiveReport={exportArchiveReport}
+          reportLoading={reportLoading}
+          showArchiveFiltersPanel={showArchiveFiltersPanel}
+          setShowForm={modals.setShowForm}
+        />
       )}
 
       <TaskStatsCards stats={stats} isModalMode={isModalMode} showArchive={showArchive} />

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '../lib/api';
 import { useSocket } from '../contexts/SocketContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const NOTIFICATION_TAG = 'prodeklarant-notification';
 
@@ -109,8 +110,13 @@ export function useNotifications() {
   const prevIdsRef = useRef<Set<number>>(new Set());
   const isFirstFetchRef = useRef(true);
 
+  const { isAuthenticated } = useAuth();
+  const isFetchingRef = useRef(false);
+
   const fetchNotifications = useCallback(async () => {
-    if (!localStorage.getItem('accessToken')) return;
+    if (!isAuthenticated) return;
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       const response = await apiClient.get('/notifications?unread=true');
       const data: AppNotification[] = Array.isArray(response.data) ? response.data : [];
@@ -130,16 +136,24 @@ export function useNotifications() {
       if (isFirstFetchRef.current) isFirstFetchRef.current = false;
     } catch (error) {
       console.error('Error fetching notifications:', error);
-      setNotifications([]);
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
+    let isMounted = true;
+    const fetch = async () => {
+      if (!isMounted) return;
+      await fetchNotifications();
+    };
+    fetch();
+    const interval = setInterval(fetch, 60000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [fetchNotifications]);
 
   // Socket.io: real-time push

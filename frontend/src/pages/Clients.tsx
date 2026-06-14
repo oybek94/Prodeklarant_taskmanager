@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -293,12 +293,25 @@ interface ClientsProps {
   onCloseModal?: () => void;
 }
 
+const CLIENTS_PAGE_SIZE = 16;
+
+type SpecRow = {
+  productName: string;
+  botanicalName?: string;
+  tnvedCode?: string;
+  quantity: number;
+  unit?: string;
+  unitPrice?: number;
+  totalPrice?: number;
+  specNumber?: string;
+  productNumber?: string;
+};
+
 const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, modalContractId, onCloseModal }) => {
   const { user } = useAuth();
   const isNonAdmin = user?.role !== 'ADMIN';
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
-  const CLIENTS_PAGE_SIZE = 16;
   const [clientsPage, setClientsPage] = useState(1);
   const [clientsTotalPages, setClientsTotalPages] = useState(1);
   const [clientsTotalCount, setClientsTotalCount] = useState(0);
@@ -387,17 +400,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const [savingTransaction, setSavingTransaction] = useState(false);
   const [selectedMonthForTasks, setSelectedMonthForTasks] = useState<{ label: string; year: number; monthIndex: number } | null>(null);
   const [showTaskModalId, setShowTaskModalId] = useState<number | null>(null);
-  type SpecRow = {
-    productName: string;
-    botanicalName?: string;
-    tnvedCode?: string;
-    quantity: number;
-    unit?: string;
-    unitPrice?: number;
-    totalPrice?: number;
-    specNumber?: string;
-    productNumber?: string;
-  };
+
   async function getDefaultSpecFromTnved(): Promise<SpecRow[]> {
     const products = await getDefaultTnvedProducts();
     return products.map((p) => ({
@@ -549,7 +552,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const showEditClientForm = showEditModal || (isMobile && !!editClientId);
 
   useEffect(() => {
-    loadClients();
+    const controller = new AbortController();
+    loadClients(controller.signal);
+    return () => controller.abort();
   }, [clientsPage, searchQuery, filterHasDebt]);
 
   useEffect(() => {
@@ -698,7 +703,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     setEditingContractId(null);
   };
 
-  const loadClients = async () => {
+  const loadClients = async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       const params = new URLSearchParams([
@@ -707,7 +712,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         ...(searchQuery.trim() ? [['search', searchQuery.trim()]] : []),
         ...(filterHasDebt ? [['hasDebt', filterHasDebt]] : []),
       ]);
-      const response = await apiClient.get(`/clients?${params}`);
+      const response = await apiClient.get(`/clients?${params}`, { signal });
       
       const data = response.data?.data || response.data;
       if (Array.isArray(data)) {
@@ -737,7 +742,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       } else {
         setClients([]);
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'CanceledError' || error?.name === 'AbortError') return;
       console.error('Error loading clients:', error);
       setClients([]);
     } finally {
@@ -947,15 +953,12 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
 
       payload.files = form.files || [];
 
-      console.log('Saving contract with payload:', payload);
       if (editingContractId) {
         // Tahrirlash
-        const response = await apiClient.put(`/contracts/${editingContractId}`, payload);
-        console.log('Contract updated:', response.data);
+        await apiClient.put(`/contracts/${editingContractId}`, payload);
       } else {
         // Yangi qo'shish
-        const response = await apiClient.post('/contracts', payload);
-        console.log('Contract created:', response.data);
+        await apiClient.post('/contracts', payload);
       }
       setShowContractModal(false);
       resetContractForm();
@@ -1270,7 +1273,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     }
   };
 
-  const handleEdit = (client: any) => {
+  const handleEdit = useCallback((client: any) => {
     setEditingClient(client);
     setEditForm({
       name: client.name,
@@ -1299,7 +1302,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       initialDebtCurrency: (client.initialDebtCurrency || 'USD') as 'USD' | 'UZS',
     });
     setShowEditModal(true);
-  };
+  }, []);
 
   useEffect(() => {
     if (!isMobile || !editClientId) return;
@@ -1307,8 +1310,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     if (client) {
       handleEdit(client);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile, editClientId, clients]);
+  }, [isMobile, editClientId, clients, handleEdit]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1380,23 +1382,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         updateData.creditStartDate = editForm.creditStartDate ? editForm.creditStartDate : null;
       }
 
-      console.log('=== Sending update data ===');
-      console.log('Update data:', JSON.stringify(updateData, null, 2));
-      console.log('Credit fields being sent:', {
-        creditType: updateData.creditType,
-        creditLimit: updateData.creditLimit,
-        creditStartDate: updateData.creditStartDate,
-      });
-
       const response = await apiClient.patch(`/clients/${editingClient.id}`, updateData);
-
-      console.log('=== Update response ===');
-      console.log('Full response:', JSON.stringify(response.data, null, 2));
-      console.log('Credit fields in response:', {
-        creditType: response.data.creditType,
-        creditLimit: response.data.creditLimit,
-        creditStartDate: response.data.creditStartDate,
-      });
 
       if (!response.data.creditType && updateData.creditType) {
         console.error('⚠️ WARNING: creditType was sent but not returned!');
@@ -1543,7 +1529,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     return colors[index];
   };
 
-  const sortedClients = Array.isArray(clients) ? clients.sort((a, b) => {
+  const sortedClients = Array.isArray(clients) ? [...clients].sort((a, b) => {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   }) : [];
 
@@ -2389,11 +2375,11 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       Oylik ishlar dinamikasi
                     </h3>
                     <div className="flex items-end justify-between gap-2 h-64">
-                      {monthlyTasks.map((item, index) => {
+                      {monthlyTasks.map((item) => {
                         const maxCount = Math.max(...monthlyTasks.map(m => m.count), 1);
                         const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
                         return (
-                          <div key={index} className="flex-1 flex flex-col items-center gap-3 min-w-0 group relative">
+                          <div key={`${item.year}-${item.monthIndex}`} className="flex-1 flex flex-col items-center gap-3 min-w-0 group relative">
                             <div className="w-full flex flex-col items-center justify-end relative h-[200px]">
                               <div
                                 onClick={() => {
@@ -3508,8 +3494,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         <div className="mt-4">
                           <h5 className="text-sm font-medium text-gray-700 mb-2">Yuklangan fayllar:</h5>
                           <ul className="space-y-2">
-                            {contractForm.files.map((file, index) => (
-                              <li key={index} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                            {contractForm.files.map((file) => (
+                              <li key={file.fileUrl || file.name} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                   <Icon icon="lucide:file" className="w-5 h-5 text-gray-500 shrink-0" />
                                   <span className="text-sm text-gray-800 truncate" title={file.name}>{file.name}</span>

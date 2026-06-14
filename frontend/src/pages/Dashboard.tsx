@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '../utils/useIsMobile';
@@ -37,6 +37,10 @@ const Dashboard = () => {
   const [showUnratedModal, setShowUnratedModal] = useState(false);
   const [showNominationsModal, setShowNominationsModal] = useState<false | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'>(false);
 
+  const handleCloseRanksModal = useCallback(() => setShowRanksModal(false), []);
+  const handleCloseUnratedModal = useCallback(() => setShowUnratedModal(false), []);
+
+
   const {
     stats,
     statsError,
@@ -51,6 +55,11 @@ const Dashboard = () => {
     unratedErrors,
     loadUnratedErrors
   } = useDashboardStats(period);
+
+  const handleRateSuccess = useCallback(() => { 
+    loadUnratedErrors(); 
+    setShowUnratedModal(false); 
+  }, [loadUnratedErrors]);
 
   const medalsByUserId = useMemo(() => {
     const map = new Map<number, UserMedal[]>();
@@ -73,7 +82,6 @@ const Dashboard = () => {
               unratedErrors={unratedErrors}
               setShowUnratedModal={setShowUnratedModal}
               myMedals={myMedals}
-              navigate={navigate}
               exchangeRate={exchangeRate}
               setShowRanksModal={setShowRanksModal}
             />
@@ -132,7 +140,7 @@ const Dashboard = () => {
         {/* Ranks Modal Overlay */}
         {showRanksModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setShowRanksModal(false)}></div>
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={handleCloseRanksModal}></div>
 
             <div className="relative z-10 w-full max-w-6xl h-[90vh] sm:h-[85vh] bg-slate-900 rounded-[28px] overflow-hidden shadow-2xl flex flex-col border border-white/10"
               style={{
@@ -152,7 +160,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => setShowRanksModal(false)}
+                  onClick={handleCloseRanksModal}
                   className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <Icon icon="lucide:x" className="w-6 h-6" />
@@ -162,7 +170,7 @@ const Dashboard = () => {
               <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                 <div className="grid grid-cols-1 gap-12">
                   {RANK_GROUPS.map((group, groupIdx) => (
-                    <div key={groupIdx} className="relative">
+                    <div key={group.name} className="relative">
                       {groupIdx !== 0 && (
                         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-y-6"></div>
                       )}
@@ -194,9 +202,9 @@ const Dashboard = () => {
 
         <UnratedErrorsModal
           show={showUnratedModal}
-          onClose={() => setShowUnratedModal(false)}
+          onClose={handleCloseUnratedModal}
           errors={unratedErrors}
-          onRateSuccess={() => { loadUnratedErrors(); setShowUnratedModal(false); }}
+          onRateSuccess={handleRateSuccess}
         />
 
         {showNominationsModal && (

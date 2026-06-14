@@ -86,6 +86,7 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
           return;
         }
       } catch (fetchError: any) {
+        console.warn('[ExchangeRate] initial fetch failed, falling back:', fetchError?.message);
       }
 
       const response = await apiClient.get(`/finance/exchange-rates/for-date?date=${todayStr}`).catch((error) => {
@@ -105,7 +106,8 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
               setExchangeRate(newRate);
               return;
             }
-          } catch (fetchError) {
+          } catch (fetchError: any) {
+            console.warn('[ExchangeRate] fallback fetch failed:', fetchError?.message);
           }
         }
 
@@ -120,13 +122,13 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
     }
   };
 
-  const loadStats = async () => {
+  const loadStats = async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       setStatsError(null);
       const [response, premiumResponse] = await Promise.all([
-        apiClient.get('/dashboard/stats'),
-        apiClient.get('/dashboard/premium-stats').catch(() => null)
+        apiClient.get('/dashboard/stats', { signal }),
+        apiClient.get('/dashboard/premium-stats', { signal }).catch(() => null)
       ]);
 
       if (premiumResponse && premiumResponse.data) {
@@ -158,6 +160,7 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
 
       setStats(statsData);
     } catch (error: any) {
+      if (error?.name === 'CanceledError' || error?.name === 'AbortError') return;
       console.error('Error loading stats:', error);
       const errorMessage =
         error?.response?.data?.details ||
@@ -181,30 +184,34 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
     }
   };
 
-  const loadChartData = async () => {
+  const loadChartData = async (signal?: AbortSignal) => {
     try {
       const params: any = { period };
-      const response = await apiClient.get('/dashboard/charts', { params });
+      const response = await apiClient.get('/dashboard/charts', { params, signal });
       setChartData(response.data);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'CanceledError' || error?.name === 'AbortError') return;
       console.error('Error loading chart data:', error);
     }
   };
 
-  const loadRecentTasks = async () => {
+  const loadRecentTasks = async (signal?: AbortSignal) => {
     try {
-      const response = await apiClient.get('/tasks?status=JARAYONDA');
+      const response = await apiClient.get('/tasks?status=JARAYONDA', { signal });
       setTasks(response.data.slice(0, 5));
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'CanceledError' || error?.name === 'AbortError') return;
       console.error('Error loading tasks:', error);
     }
   };
 
   useEffect(() => {
-    loadStats();
-    loadChartData();
-    loadRecentTasks();
+    const controller = new AbortController();
+    loadStats(controller.signal);
+    loadChartData(controller.signal);
+    loadRecentTasks(controller.signal);
     loadExchangeRate();
+    return () => controller.abort();
   }, [period]);
 
   useEffect(() => {
@@ -241,7 +248,7 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
       socket.off('invoice:saved', triggerUpdate);
       socket.off('invoice:deleted', triggerUpdate);
     };
-  }, [socket, period]);
+  }, [socket, period, user]); // added user because triggerUpdate might use it
 
   useEffect(() => {
     if (!socket) return;
@@ -268,6 +275,7 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
       socket.off('user:quality_award', handleQuality);
       socket.off('admin_new_error_report', handleAdminError);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, user]);
 
   return {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSocket } from '../contexts/SocketContext';
 import { useTaskData } from '../components/tasks/useTaskData';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -53,7 +53,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   const [editForm, setEditForm] = useState({
     title: '', clientId: '', branchId: '', comments: '', hasPsr: false, afterHoursPayer: 'CLIENT' as 'CLIENT' | 'COMPANY', driverPhone: '',
   });
-  const [filters] = useState({ status: '', clientId: '', branchId: '' });
+  const filters = useMemo(() => ({ status: '', clientId: '', branchId: '' }), []);
   const [showArchive, setShowArchive] = useState(false);
   const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
   const [archiveFilters, setArchiveFilters] = useState<ArchiveFiltersState>({
@@ -142,13 +142,11 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
 
   useEffect(() => {
     if (page !== 1) setPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.status, filters.clientId, showArchive]);
+  }, [filters.status, filters.clientId, showArchive, page, setPage]);
 
   useEffect(() => {
     if (showArchive && page !== 1) setPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showArchive, archiveSearchQuery, archiveFilters.branchId, archiveFilters.clientId, archiveFilters.startDate, archiveFilters.endDate, archiveFilters.hasPsr]);
+  }, [showArchive, archiveSearchQuery, archiveFilters.branchId, archiveFilters.clientId, archiveFilters.startDate, archiveFilters.endDate, archiveFilters.hasPsr, page, setPage]);
 
   useEffect(() => {
     if (isModalMode) {
@@ -157,8 +155,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     }
     loadTasks(showArchive, filters as any);
     loadClients(); loadBranches(); loadWorkers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showArchive, page, filters.status, filters.clientId, filters.branchId, isModalMode]);
+  }, [showArchive, page, filters.status, filters.clientId, filters.branchId, isModalMode, loadTasks, loadClients, loadBranches, loadWorkers, filters]);
 
   useEffect(() => {
     if (!showArchive) {
@@ -215,7 +212,10 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     await handleTelegramClickHelper(selectedTask, setSelectedTask, branches);
   };
   
-  (taskActions as any).handleTelegramClick = handleTelegramClick;
+  const mergedTaskActions = {
+    ...taskActions,
+    handleTelegramClick
+  };
 
   const formatBxmAmountInSum = (multiplier: number) =>
     formatBxmAmountInSumHelper(multiplier, modals.currentBxmUzs);
@@ -264,7 +264,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
       <div className="flex flex-col">
         <TasksModalsManager
           modals={modals}
-          taskActions={taskActions}
+          taskActions={mergedTaskActions}
           form={form}
           setForm={setForm}
           editForm={editForm}

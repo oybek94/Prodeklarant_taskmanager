@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -240,9 +240,9 @@ const Layout = () => {
   const [pendingDeclarationNotif, setPendingDeclarationNotif] = useState<AppNotification | null>(null);
   const [pendingConfirmFn, setPendingConfirmFn] = useState<{ fn: (processId: number, data?: any) => Promise<void> } | null>(null);
 
-  const formatBxmAmountInSum = (multiplier: number) => {
+  const formatBxmAmountInSum = useCallback((multiplier: number) => {
     return new Intl.NumberFormat('en-US').format(Math.round(multiplier * currentBxmUzs)).replace(/,/g, ' ').replace(/\./g, ',') + ' UZS';
-  };
+  }, [currentBxmUzs]);
 
   const handleBXMConfirm = async () => {
     if (!pendingDeclarationNotif || !pendingConfirmFn) return;
@@ -322,19 +322,24 @@ const Layout = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     logout();
     navigate('/login');
-  };
+  }, [logout, navigate]);
 
-  const isActive = (path: string) => {
+  const isActive = useCallback((path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
-  };
+  }, [location.pathname]);
+
+  const handleNavItemClick = useCallback((path: string) => {
+    navigate(path);
+    if (!isDesktop) setSidebarOpen(false);
+  }, [navigate, isDesktop]);
 
   const isInvoicesPage = location.pathname === '/invoices';
   const isExamPage = location.pathname.startsWith('/exam');
 
-  const rawNavItems = [
+  const rawNavItems = useMemo(() => [
     // Asosiy
     ...(user?.role !== 'SELLER' ? [{ path: '/dashboard', label: 'Asosiy panel', icon: 'lucide:layout-dashboard', group: 'Asosiy' }] : []),
     
@@ -362,14 +367,14 @@ const Layout = () => {
     ...(user?.role !== 'SELLER' ? [{ path: '/settings', label: 'Sozlamalar', icon: 'lucide:settings', group: 'Tizim' }] : []),
     ...(user?.role !== 'SELLER' ? [{ path: '/faq', label: 'FAQ (Yordam)', icon: 'lucide:help-circle', group: 'Tizim' }] : []),
     { path: '/profile', label: 'Profil', icon: 'lucide:user', group: 'Tizim' },
-  ];
+  ], [user?.role]);
 
   // Guruhlash
-  const groupedNavItems = rawNavItems.reduce((acc, item) => {
+  const groupedNavItems = useMemo(() => rawNavItems.reduce((acc, item) => {
     if (!acc[item.group]) acc[item.group] = [];
     acc[item.group].push(item);
     return acc;
-  }, {} as Record<string, typeof rawNavItems>);
+  }, {} as Record<string, typeof rawNavItems>), [rawNavItems]);
 
 
 
@@ -439,10 +444,7 @@ const Layout = () => {
                     {items.map((item) => (
                       <li key={item.path}>
                         <button
-                          onClick={() => {
-                            navigate(item.path);
-                            if (!isDesktop) setSidebarOpen(false);
-                          }}
+                          onClick={() => handleNavItemClick(item.path)}
                           className={`w-full flex items-center ${sidebarOpen ? 'gap-3 px-4' : 'justify-center px-0'} py-2.5 rounded-xl transition-colors ${isActive(item.path)
                             ? 'bg-white/15 dark:bg-indigo-500/10 text-white dark:text-indigo-400 font-medium shadow-sm dark:shadow-none border border-white/5 dark:border-transparent'
                             : 'text-indigo-100 dark:text-gray-400 hover:bg-white/10 dark:hover:bg-white/5 hover:text-white dark:hover:text-gray-200'

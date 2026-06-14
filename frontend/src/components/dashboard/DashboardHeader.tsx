@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { getCsgoRank } from '../../utils/csgoRanks';
 import { MEDAL_DETAILS, TIER_LABELS, formatPeriod, type UserMedal } from '../../types/medals';
@@ -10,7 +11,6 @@ interface DashboardHeaderProps {
   unratedErrors: any[];
   setShowUnratedModal: (show: boolean) => void;
   myMedals: UserMedal[];
-  navigate: (path: string) => void;
   exchangeRate: number | null;
   setShowRanksModal: (show: boolean) => void;
 }
@@ -23,10 +23,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   unratedErrors,
   setShowUnratedModal,
   myMedals,
-  navigate,
   exchangeRate,
   setShowRanksModal
 }) => {
+  const navigate = useNavigate();
   const hour = new Date().getHours();
   let greeting = 'Xayrli kun';
   if (hour < 10) greeting = 'Xayrli tong';

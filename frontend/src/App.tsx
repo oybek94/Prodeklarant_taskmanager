@@ -1,8 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider, useSocket } from './contexts/SocketContext';
 import { Toaster, toast } from 'react-hot-toast';
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, lazy, Suspense, useCallback } from 'react';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import LeadWonAnimation from './components/LeadWonAnimation';
@@ -59,13 +59,20 @@ const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const socket = useSocket();
 
+  const navigate = useNavigate();
+
+  const handleAdminErrorClick = useCallback((t: any, taskId: number) => {
+    toast.dismiss(t.id);
+    navigate(`/tasks/${taskId}`);
+  }, [navigate]);
+
   useEffect(() => {
     if (!socket || !user) return;
     
     if (user.role === 'ADMIN') {
       const handleAdminError = (data: any) => {
         toast((t) => (
-          <div className="flex flex-col gap-1 cursor-pointer" onClick={() => {toast.dismiss(t.id); window.location.href=`/tasks/${data.error.taskId}`}}>
+          <div className="flex flex-col gap-1 cursor-pointer" onClick={() => handleAdminErrorClick(t, data.error.taskId)}>
             <span className="font-bold text-red-600">⚠️ {data.event}</span>
             <span className="text-sm">Yangi xato hisoboti qo'shildi. Baholash uchun ustiga bosing !</span>
           </div>
@@ -74,7 +81,7 @@ const AppRoutes = () => {
       socket.on('admin_new_error_report', handleAdminError);
       return () => { socket.off('admin_new_error_report', handleAdminError); };
     }
-  }, [socket, user]);
+  }, [socket, user, handleAdminErrorClick]);
 
   useEffect(() => {
     if (!socket || !user) return;

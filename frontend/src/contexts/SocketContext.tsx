@@ -34,13 +34,15 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       reconnectionDelay: 2000,
     });
 
-    s.on('connect', () => {
-      console.log('🔌 Socket connected');
-    });
+    if (import.meta.env.DEV) {
+      s.on('connect', () => {
+        console.log('🔌 Socket connected');
+      });
 
-    s.on('disconnect', (reason) => {
-      console.log('🔌 Socket disconnected:', reason);
-    });
+      s.on('disconnect', (reason) => {
+        console.log('🔌 Socket disconnected:', reason);
+      });
+    }
 
     s.on('connect_error', (err) => {
       console.warn('🔌 Socket connection error:', err.message);
@@ -63,7 +65,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'accessToken') {
-        // Token o'zgargan — sahifani yangilash orqali socket qayta ulanadi
         if (socketRef.current) {
           socketRef.current.disconnect();
           socketRef.current = null;
@@ -75,14 +76,31 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             transports: ['websocket', 'polling'],
             reconnection: true,
           });
-          s.on('connect', () => console.log('🔌 Socket reconnected after token change'));
+          
+          if (import.meta.env.DEV) {
+            s.on('connect', () => console.log('🔌 Socket reconnected after token change'));
+            s.on('disconnect', (reason) => console.log('🔌 Socket disconnected:', reason));
+          }
+          
+          s.on('connect_error', (err) => {
+            console.warn('🔌 Socket connection error:', err.message);
+            if (err.message.includes('expired') || err.message.includes('Invalid')) {
+              s.disconnect();
+            }
+          });
+          
           socketRef.current = s;
           setSocket(s);
         }
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
   }, []);
 
   return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>;

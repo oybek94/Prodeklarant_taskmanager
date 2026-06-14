@@ -40,74 +40,75 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const accessToken = localStorage.getItem('accessToken');
       const refreshToken = localStorage.getItem('refreshToken');
 
-      if (accessToken || refreshToken) {
-        try {
-          // Determine which endpoint to use based on token role
-          const role = accessToken ? getRoleFromToken(accessToken) : null;
-          const endpoint = role === 'CLIENT' ? '/auth/client/me' : '/auth/me';
+      try {
+        if (accessToken || refreshToken) {
+          try {
+            // Determine which endpoint to use based on token role
+            const role = accessToken ? getRoleFromToken(accessToken) : null;
+            const endpoint = role === 'CLIENT' ? '/auth/client/me' : '/auth/me';
 
-          // Avval access token bilan urinib ko'ramiz
-          const response = await apiClient.get(endpoint);
-          if (response.status >= 400 || response.data?.error) {
-            // 401 interceptor orqali refresh qilinadi; boshqa xatolarda tokenni saqlaymiz, faqat user null
-            setUser(null);
-            setIsLoading(false);
-            return;
-          }
-          const userData = response.data;
+            // Avval access token bilan urinib ko'ramiz
+            const response = await apiClient.get(endpoint);
+            if (response.status >= 400 || response.data?.error) {
+              // 401 interceptor orqali refresh qilinadi; boshqa xatolarda tokenni saqlaymiz, faqat user null
+              setUser(null);
+              return;
+            }
+            const userData = response.data;
 
-          // For CLIENT, add role from token since backend doesn't return it
-          if (role === 'CLIENT') {
-            userData.role = 'CLIENT';
-          }
+            // For CLIENT, add role from token since backend doesn't return it
+            if (role === 'CLIENT') {
+              userData.role = 'CLIENT';
+            }
 
-          setUser(userData);
-        } catch (error: any) {
-          // Timeout yoki tarmoq xatosi — tokenni tozalamaymiz; sahifa yangilanganda yoki qayta urinilganda ishlashi mumkin
-          if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
-            console.error('Timeout/Network error in checkAuth:', error.message);
-            setUser(null);
-            setIsLoading(false);
-            return;
-          }
-          // Faqat 401 (kirish rad etilgan) bo'lsa refresh urinib ko'ramiz
-          if (error.response?.status === 401 && refreshToken) {
-            try {
-              const refreshResponse = await axios.post(
-                `${import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')}/auth/refresh`,
-                { refreshToken }
-              );
-              const { accessToken: newAccessToken, refreshToken: newRefreshToken } = refreshResponse.data;
-              localStorage.setItem('accessToken', newAccessToken);
-              if (newRefreshToken) {
-                localStorage.setItem('refreshToken', newRefreshToken);
+            setUser(userData);
+          } catch (error: any) {
+            // Timeout yoki tarmoq xatosi — tokenni tozalamaymiz; sahifa yangilanganda yoki qayta urinilganda ishlashi mumkin
+            if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+              console.error('Timeout/Network error in checkAuth:', error.message);
+              setUser(null);
+              return;
+            }
+            // Faqat 401 (kirish rad etilgan) bo'lsa refresh urinib ko'ramiz
+            if (error.response?.status === 401 && refreshToken) {
+              try {
+                const refreshResponse = await axios.post(
+                  `${import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')}/auth/refresh`,
+                  { refreshToken }
+                );
+                const { accessToken: newAccessToken, refreshToken: newRefreshToken } = refreshResponse.data;
+                localStorage.setItem('accessToken', newAccessToken);
+                if (newRefreshToken) {
+                  localStorage.setItem('refreshToken', newRefreshToken);
+                }
+                const newRole = newAccessToken ? getRoleFromToken(newAccessToken) : null;
+                const endpoint = newRole === 'CLIENT' ? '/auth/client/me' : '/auth/me';
+                const userResponse = await apiClient.get(endpoint);
+                const userData = userResponse.data;
+
+                if (newRole === 'CLIENT') {
+                  userData.role = 'CLIENT';
+                }
+
+                setUser(userData);
+              } catch (refreshError) {
+                // Refresh muvaffaqiyatsiz — token haqiqatan ham eskirgan, tozalaymiz
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
+                setUser(null);
               }
-              const newRole = newAccessToken ? getRoleFromToken(newAccessToken) : null;
-              const endpoint = newRole === 'CLIENT' ? '/auth/client/me' : '/auth/me';
-              const userResponse = await apiClient.get(endpoint);
-              const userData = userResponse.data;
-
-              if (newRole === 'CLIENT') {
-                userData.role = 'CLIENT';
-              }
-
-              setUser(userData);
-            } catch (refreshError) {
-              // Refresh muvaffaqiyatsiz — token haqiqatan ham eskirgan, tozalaymiz
-              localStorage.removeItem('accessToken');
-              localStorage.removeItem('refreshToken');
+            } else {
+              // Boshqa xatolik (500, 403 va h.k.) — tokenlarni saqlaymiz, faqat user null (sahifa yangilanganda qayta uriniladi)
               setUser(null);
             }
-          } else {
-            // Boshqa xatolik (500, 403 va h.k.) — tokenlarni saqlaymiz, faqat user null (sahifa yangilanganda qayta uriniladi)
-            setUser(null);
           }
+        } else {
+          // Token yo'q bo'lsa, user null qilamiz
+          setUser(null);
         }
-      } else {
-        // Token yo'q bo'lsa, user null qilamiz
-        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     checkAuth();
   }, []);
@@ -129,7 +130,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(userData);
       return userData;
     } catch (error: any) {
-      console.error('Login API error:', error);
+      console.error('Login API error:', error?.message || error?.code);
       // Timeout yoki network xatolik bo'lsa, maxsus xabar qaytaramiz
       if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
         throw new Error('Backend serverga ulanib bo\'lmayapti. Iltimos, server ishlayotganini tekshiring.');

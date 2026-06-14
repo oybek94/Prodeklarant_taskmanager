@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 
 interface UseTaskSocketProps {
@@ -20,19 +20,20 @@ export const useTaskSocket = ({
   selectedTaskIdRef,
   loadTaskDetail
 }: UseTaskSocketProps) => {
-  useEffect(() => {
-    if (!socket || isModalMode) return;
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-    const refresh = (taskId?: number) => {
-      // Debounce: 1.5 sekundda faqat bitta so'rov yuboriladi
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => {
-        loadTasks(showArchive, filters as any);
-        if (selectedTaskIdRef.current && (taskId === undefined || taskId === selectedTaskIdRef.current)) {
-          loadTaskDetail(selectedTaskIdRef.current);
-        }
-      }, 1500);
-    };
+    const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+      if (!socket || isModalMode) return;
+      const refresh = (taskId?: number) => {
+        // Debounce: 1.5 sekundda faqat bitta so'rov yuboriladi
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = setTimeout(() => {
+          loadTasks(showArchive, filters as any);
+          if (selectedTaskIdRef.current && (taskId === undefined || taskId === selectedTaskIdRef.current)) {
+            loadTaskDetail(selectedTaskIdRef.current);
+          }
+        }, 1500);
+      };
     const onTaskCreated = (data: { createdBy: string }) => {
       toast(`${data.createdBy} yangi task yaratdi`, { icon: '📋' });
       refresh();
@@ -63,7 +64,7 @@ export const useTaskSocket = ({
     socket.on('taskDocument:deleted', onDocumentDeleted);
     socket.on('task:errorUpdated', onDocumentCreated); // same handler as it just refreshes
     return () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
       socket.off('task:created', onTaskCreated);
       socket.off('task:updated', onTaskUpdated);
       socket.off('task:deleted', onTaskDeleted);
@@ -72,5 +73,5 @@ export const useTaskSocket = ({
       socket.off('taskDocument:deleted', onDocumentDeleted);
       socket.off('task:errorUpdated', onDocumentCreated);
     };
-  }, [socket, showArchive, filters, isModalMode, loadTasks, loadTaskDetail, selectedTaskIdRef]);
+  }, [socket, showArchive, JSON.stringify(filters), isModalMode, loadTasks, loadTaskDetail, selectedTaskIdRef]);
 };

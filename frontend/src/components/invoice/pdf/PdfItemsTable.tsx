@@ -194,17 +194,12 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
         <View style={styles.tableFooterRow}>
           {orderedVisibleColumns.map((key, idx) => {
             if (firstSumColIdx !== -1 && idx < firstSumColIdx) {
-              if (idx === 0) {
-                const vsegoFlex = orderedVisibleColumns
-                  .slice(0, firstSumColIdx)
-                  .reduce((sum, k) => sum + flexMap[k], 0);
-                return (
-                  <View key="vsego" style={fCell(vsegoFlex, 'flex-end')}>
-                    <Text>Всего:</Text>
-                  </View>
-                );
-              }
-              return null;
+              const isLastBeforeSum = idx === firstSumColIdx - 1;
+              return (
+                <View key={key} style={fCell(flexMap[key], isLastBeforeSum ? 'flex-end' : 'center')}>
+                  <Text>{isLastBeforeSum ? 'Всего:' : ''}</Text>
+                </View>
+              );
             }
 
             if (firstSumColIdx === -1) {

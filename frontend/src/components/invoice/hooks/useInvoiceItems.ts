@@ -112,11 +112,16 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
          newItems[index] = applyRulesToItem(newItems[index], tareRules);
       }
 
-      // Total price ni hisoblash: Нетто * Цена за ед.изм.
-      if (field === 'netWeight' || field === 'unitPrice' || field === 'grossWeight' || field === 'packagesCount' || field === 'packageType') {
-        const netWeight = newItems[index].netWeight ?? 0;
+      // Total price ni hisoblash: Нетто * Цена за ед.изм. yoki sht * Цена
+      if (field === 'netWeight' || field === 'unitPrice' || field === 'grossWeight' || field === 'packagesCount' || field === 'packageType' || field === 'unit') {
         const unitPrice = newItems[index].unitPrice ?? 0;
-        newItems[index].totalPrice = netWeight * unitPrice;
+        if (newItems[index].unit === 'шт' || newItems[index].unit === 'шт.') {
+          const sht = Number(newItems[index].customFields?.shtCount) || 0;
+          newItems[index].totalPrice = sht * unitPrice;
+        } else {
+          const netWeight = newItems[index].netWeight ?? 0;
+          newItems[index].totalPrice = netWeight * unitPrice;
+        }
       }
 
       // Brutto o'zgarganda: '=N' formulali boshqa qatorlarni qayta hisoblash
@@ -375,6 +380,13 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
       const newItems = [...prev];
       const customFields = { ...newItems[index].customFields, [key]: value };
       newItems[index] = { ...newItems[index], customFields };
+      
+      if (key === 'shtCount' && (newItems[index].unit === 'шт' || newItems[index].unit === 'шт.')) {
+         const sht = Number(value) || 0;
+         const unitPrice = newItems[index].unitPrice ?? 0;
+         newItems[index].totalPrice = sht * unitPrice;
+      }
+
       return newItems;
     });
   }, []);

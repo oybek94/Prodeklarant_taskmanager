@@ -75,6 +75,8 @@ export const InvoiceItemRow: React.FC<InvoiceItemRowProps> = React.memo(({
               return <td key={key} className="px-2 py-4">{item.packageType || ''}</td>;
             case 'quantity':
               return <td key={key} className="px-2 py-4 text-right">{item.quantity === '-' ? '-' : (item.quantity != null && item.quantity !== 0 && item.quantity !== '' ? formatNumber(Number(item.quantity)) : '')}</td>;
+            case 'shtCount':
+              return <td key={key} className="px-2 py-4 text-right">{item.customFields?.shtCount ? formatNumber(Number(item.customFields.shtCount)) : ''}</td>;
             case 'packagesCount':
               return <td key={key} className="px-2 py-4 text-right">{item.packagesCount != null && item.packagesCount !== 0 ? formatNumber(item.packagesCount) : ''}</td>;
             case 'gross':
@@ -145,6 +147,28 @@ export const InvoiceItemRow: React.FC<InvoiceItemRowProps> = React.memo(({
             return (
               <td key={key} className="px-2 py-2">
                 <input type="text" inputMode="decimal" value={('_quantityStr' in item && (item as any)._quantityStr !== undefined) ? (item as any)._quantityStr : (item.quantity === 0 || item.quantity == null ? '' : item.quantity)} onChange={(e) => { const v = e.target.value; handleItemChange(index, '_quantityStr' as any, v); if (v === '' || v === '-') { handleItemChange(index, 'quantity', v); } else { const parsed = parseFloat(v.replace(',','.')); handleItemChange(index, 'quantity', isNaN(parsed) ? v : parsed); } }} onBlur={() => handleItemChange(index, '_quantityStr' as any, undefined)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="-" data-nav-row={index} data-nav-col={colIndexMap.quantity} onKeyDown={handleCellKeyDown} />
+              </td>
+            );
+          case 'shtCount':
+            return (
+              <td key={key} className="px-2 py-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={item.customFields?.shtCount ?? ''}
+                  onChange={(e) => {
+                     const v = e.target.value.replace(',', '.');
+                     if (v === '' || /^\d*\.?\d*$/.test(v)) {
+                       handleCustomFieldChange(index, 'shtCount', v);
+                     }
+                  }}
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right bg-blue-50 focus:bg-white"
+                  placeholder="0"
+                  disabled={item.unit !== 'шт' && item.unit !== 'шт.'}
+                  data-nav-row={index}
+                  data-nav-col={colIndexMap.shtCount}
+                  onKeyDown={handleCellKeyDown}
+                />
               </td>
             );
           case 'packagesCount':

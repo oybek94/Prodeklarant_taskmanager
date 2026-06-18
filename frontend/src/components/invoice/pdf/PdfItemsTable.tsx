@@ -22,6 +22,7 @@ const getCellText = (key: string, item: any): string => {
     case 'unit': return item.unit || '';
     case 'package': return item.packageType || '';
     case 'quantity': return item.quantity === '-' ? '-' : (item.quantity != null && item.quantity !== 0 && item.quantity !== '' ? formatNumber(Number(item.quantity)) : '');
+    case 'shtCount': return item.customFields?.shtCount != null ? formatNumber(Number(item.customFields.shtCount)) : '';
     case 'packagesCount': return item.packagesCount != null && item.packagesCount !== 0 ? formatNumber(item.packagesCount) : '';
     case 'gross': return formatNumber(item.grossWeight || 0);
     case 'net': return formatNumber(item.netWeight || 0);
@@ -49,13 +50,13 @@ const calcColumnFlex = (
   columnLabels: Record<string, string>,
   totalColumnLabel: string
 ): number => {
-  const headerLabel = key === 'total' ? totalColumnLabel : (columnLabels[key] || key);
+  const headerLabel = key === 'total' ? totalColumnLabel : (key === 'shtCount' ? 'шт' : (columnLabels[key] || key));
 
   const getCellLen = (item: any): number => {
     if (key === 'index') return String(items.length).length + 1;
     if (key === 'name') return effectiveLen(item.name || '');
     if (key === 'package') return Math.min(effectiveLen(item.packageType || ''), 14);
-    if (key.startsWith('custom_')) return Math.min(effectiveLen(item.customFields?.[key] || ''), 16);
+    if (key.startsWith('custom_') || key === 'shtCount') return Math.min(effectiveLen(getCellText(key, item) || ''), 16);
     return effectiveLen(getCellText(key, item));
   };
 
@@ -93,7 +94,7 @@ const calcTableFontSize = (flexValues: number[], numColumns: number): 9 | 8 | 7 
   return 7;
 };
 
-const RIGHT_COLS = new Set(['quantity', 'packagesCount', 'gross', 'net', 'unitPrice', 'total']);
+const RIGHT_COLS = new Set(['quantity', 'shtCount', 'packagesCount', 'gross', 'net', 'unitPrice', 'total']);
 const CENTER_COLS = new Set(['index', 'unit']);
 
 // View uchun layout stili (Yoga: flexDirection=column, alignItems=cross-axis)
@@ -120,7 +121,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
   scale = 1,
 }) => {
   const sc = (v: number) => Math.round(v * scale);
-  const SUM_COLUMNS = ['quantity', 'packagesCount', 'gross', 'net', 'total'];
+  const SUM_COLUMNS = ['quantity', 'shtCount', 'packagesCount', 'gross', 'net', 'total'];
   const firstSumColIdx = orderedVisibleColumns.findIndex(key => SUM_COLUMNS.includes(key));
 
   const flexMap: Record<string, number> = {};
@@ -174,7 +175,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
         <View style={styles.tableHeaderRow}>
           {orderedVisibleColumns.map((key) => (
             <View key={key} style={hCell(key)}>
-              <Text>{key === 'total' ? totalColumnLabel : columnLabels[key]}</Text>
+              <Text>{key === 'total' ? totalColumnLabel : (key === 'shtCount' ? 'шт' : columnLabels[key])}</Text>
             </View>
           ))}
         </View>
@@ -218,6 +219,11 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
               case 'quantity': {
                 const t = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
                 content = t !== 0 ? formatNumber(t) : '';
+                break;
+              }
+              case 'shtCount': {
+                const sum = items.reduce((s, i) => s + (Number(i.customFields?.shtCount) || 0), 0);
+                content = sum !== 0 ? formatNumber(sum) : '';
                 break;
               }
               case 'packagesCount':

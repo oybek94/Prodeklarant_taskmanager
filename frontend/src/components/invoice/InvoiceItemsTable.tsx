@@ -254,26 +254,34 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
 
 
   const orderedVisibleColumns = useMemo(() => {
-    return columnOrder.filter((key) => {
+    const cols = columnOrder.filter((key) => {
       if (key === 'actions' && isReadonly) return false;
       return effectiveColumns[key as keyof VisibleColumns];
     });
-  }, [columnOrder, effectiveColumns, isReadonly]);
+    const hasSht = items.some(i => i.unit === 'шт' || i.unit === 'шт.');
+    if (hasSht && !cols.includes('shtCount')) {
+      const qIdx = cols.indexOf('quantity');
+      if (qIdx !== -1) {
+        cols.splice(qIdx + 1, 0, 'shtCount');
+      } else {
+        cols.push('shtCount');
+      }
+    }
+    return cols;
+  }, [columnOrder, effectiveColumns, isReadonly, items]);
 
   // Build a column-index map based on which columns are currently visible
   // so arrow-left / arrow-right skip hidden columns.
   const colIndexMap = useMemo(() => {
-    const map: Partial<Record<keyof VisibleColumns, number>> = {};
+    const map: Partial<Record<keyof VisibleColumns | 'shtCount', number>> = {};
     let idx = 0;
-    for (const key of columnOrder) {
+    for (const key of orderedVisibleColumns) {
       if (key === 'actions' || key === 'index' || key === 'total') continue;
-      if (effectiveColumns[key as keyof VisibleColumns]) {
-        map[key as keyof VisibleColumns] = idx++;
-      }
+      map[key as keyof VisibleColumns | 'shtCount'] = idx++;
     }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveColumns, columnOrder]);
+  }, [orderedVisibleColumns]);
 
   const renderTableHeader = (py: string) => (
     <thead className="text-left">
@@ -320,6 +328,12 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
               return (
                 <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
                   {columnLabels.quantity}
+                </th>
+              );
+            case 'shtCount':
+              return (
+                <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
+                  шт
                 </th>
               );
             case 'packagesCount':
@@ -397,6 +411,15 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
                   <td key={key} className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
                     {(() => {
                       const t = items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+                      return t !== 0 ? formatNumber(t) : '';
+                    })()}
+                  </td>
+                );
+              case 'shtCount':
+                return (
+                  <td key={key} className="px-2 py-1 text-right" style={{ verticalAlign: 'top' }}>
+                    {(() => {
+                      const t = items.reduce((sum, i) => sum + (Number(i.customFields?.shtCount) || 0), 0);
                       return t !== 0 ? formatNumber(t) : '';
                     })()}
                   </td>

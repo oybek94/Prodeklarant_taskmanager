@@ -623,8 +623,12 @@ export function generateInvoicePDF(data: InvoiceData): any {
   const hasPackagesCount = data.invoice.items?.some(item => item.packagesCount != null);
   const hasGrossWeight = data.invoice.items?.some(item => item.grossWeight && Number(item.grossWeight) > 0);
   const hasNetWeight = data.invoice.items?.some(item => item.netWeight && Number(item.netWeight) > 0);
+  const hasShtCount = data.invoice.items?.some(item => {
+    const cf = item.customFields as any;
+    return cf && cf.shtCount != null && (item.unit === 'шт' || item.unit === 'шт.');
+  });
 
-  const fixedColsWidth = 15 + (hasTnvedCode ? 55 : 0) + (hasPluCode ? 45 : 0) + 25 + (hasPackageType ? 45 : 0) + 35 + (hasPackagesCount ? 40 : 0) + (hasGrossWeight ? 45 : 0) + (hasNetWeight ? 45 : 0) + 40 + 50;
+  const fixedColsWidth = 15 + (hasTnvedCode ? 55 : 0) + (hasPluCode ? 45 : 0) + 25 + (hasPackageType ? 45 : 0) + 35 + (hasShtCount ? 35 : 0) + (hasPackagesCount ? 40 : 0) + (hasGrossWeight ? 45 : 0) + (hasNetWeight ? 45 : 0) + 40 + 50;
   const nameColWidth = Math.max(90, (pageWidth - 2 * margin) - fixedColsWidth);
 
   // Ustunlar pozitsiyasini hisoblash
@@ -637,6 +641,7 @@ export function generateInvoicePDF(data: InvoiceData): any {
     unit: 25,
     packageType: hasPackageType ? 45 : 0,
     quantity: 35,
+    shtCount: hasShtCount ? 35 : 0,
     packagesCount: hasPackagesCount ? 40 : 0,
     grossWeight: hasGrossWeight ? 45 : 0,
     netWeight: hasNetWeight ? 45 : 0,
@@ -671,6 +676,11 @@ export function generateInvoicePDF(data: InvoiceData): any {
 
   colPositions.quantity = currentX;
   currentX += colWidths.quantity;
+
+  if (hasShtCount) {
+    colPositions.shtCount = currentX;
+    currentX += colWidths.shtCount;
+  }
 
   if (hasPackagesCount) {
     colPositions.packagesCount = currentX;
@@ -708,6 +718,9 @@ export function generateInvoicePDF(data: InvoiceData): any {
     doc.text(ensureUTF8('Вид упаковки'), colPositions.packageType!, tableTop, { width: colWidths.packageType });
   }
   doc.text(ensureUTF8('Мест'), colPositions.quantity, tableTop, { width: colWidths.quantity });
+  if (hasShtCount) {
+    doc.text(ensureUTF8('шт'), colPositions.shtCount!, tableTop, { width: colWidths.shtCount });
+  }
   if (hasPackagesCount) {
     doc.text(ensureUTF8('Кол-во'), colPositions.packagesCount!, tableTop, { width: colWidths.packagesCount });
   }
@@ -752,6 +765,10 @@ export function generateInvoicePDF(data: InvoiceData): any {
       doc.text(ensureUTF8((item.packageType || '').toString()), colPositions.packageType!, y, { width: colWidths.packageType });
     }
     doc.text((item.quantity || 0).toString(), colPositions.quantity, y, { width: colWidths.quantity });
+    if (hasShtCount) {
+      const sht = (item.customFields as any)?.shtCount;
+      doc.text(sht != null ? sht.toString() : '', colPositions.shtCount!, y, { width: colWidths.shtCount });
+    }
     if (hasPackagesCount) {
       doc.text(((item as any).packagesCount || '').toString(), colPositions.packagesCount!, y, { width: colWidths.packagesCount });
     }
@@ -777,11 +794,15 @@ export function generateInvoicePDF(data: InvoiceData): any {
   doc.text(ensureUTF8('Всего:'), colPositions.name, totalY, { width: colWidths.name });
   
   const totalQuantity = data.invoice.items.reduce((sum, item) => sum + Number(item.quantity), 0);
+  const totalShtCount = data.invoice.items.reduce((sum, item) => sum + Number((item.customFields as any)?.shtCount || 0), 0);
   const totalPackagesCount = data.invoice.items.reduce((sum, item) => sum + Number((item as any).packagesCount || 0), 0);
   const totalGrossWeight = data.invoice.items.reduce((sum, item) => sum + Number(item.grossWeight || 0), 0);
   const totalNetWeight = data.invoice.items.reduce((sum, item) => sum + Number(item.netWeight || 0), 0);
   
   doc.text(totalQuantity.toString(), colPositions.quantity, totalY, { width: colWidths.quantity });
+  if (hasShtCount) {
+    doc.text(totalShtCount > 0 ? totalShtCount.toString() : '', colPositions.shtCount!, totalY, { width: colWidths.shtCount });
+  }
   if (hasPackagesCount) {
     doc.text(totalPackagesCount.toString(), colPositions.packagesCount!, totalY, { width: colWidths.packagesCount });
   }

@@ -440,21 +440,12 @@ const Invoice = () => {
 
 
   const orderedVisibleColumns = useMemo(() => {
-    const cols = columnOrder.filter((key) => {
+    const hasSht = items.some(i => i.unit === 'шт' || i.unit === 'шт.');
+    return columnOrder.filter((key) => {
       if (key === 'actions') return false; // PDF da actions umuman chiqmaydi
+      if (key === 'shtCount') return hasSht && effectiveColumns['shtCount'];
       return effectiveColumns[key as keyof VisibleColumns];
     });
-
-    const hasSht = items.some(i => i.unit === 'шт' || i.unit === 'шт.');
-    if (hasSht && !cols.includes('shtCount')) {
-      const qIdx = cols.indexOf('quantity');
-      if (qIdx !== -1) {
-        cols.splice(qIdx + 1, 0, 'shtCount');
-      } else {
-        cols.push('shtCount');
-      }
-    }
-    return cols;
   }, [columnOrder, effectiveColumns, items]);
 
   const generatePdf = useCallback(async (includeSeal: boolean) => {

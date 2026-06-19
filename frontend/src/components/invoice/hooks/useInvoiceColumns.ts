@@ -32,7 +32,16 @@ export function useInvoiceColumns({ invoiceId, invoiceAdditionalInfo, duplicateI
         setVisibleColumns(fromServer);
       }
       if (Array.isArray(invoiceAdditionalInfo.columnOrder)) {
-        setColumnOrder(invoiceAdditionalInfo.columnOrder as string[]);
+        const savedOrder = [...(invoiceAdditionalInfo.columnOrder as string[])];
+        const missing = DEFAULT_COLUMN_ORDER.filter((c) => !savedOrder.includes(c));
+        if (missing.includes('shtCount')) {
+          const qIdx = savedOrder.indexOf('quantity');
+          if (qIdx !== -1) {
+            savedOrder.splice(qIdx + 1, 0, 'shtCount');
+            missing.splice(missing.indexOf('shtCount'), 1);
+          }
+        }
+        setColumnOrder([...savedOrder, ...missing]);
       } else {
         setColumnOrder(DEFAULT_COLUMN_ORDER);
       }

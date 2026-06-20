@@ -219,6 +219,7 @@ export default function Leads() {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [leads, setLeads] = useState<Lead[]>([]);
+    const [selectedLeads, setSelectedLeads] = useState<number[]>([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState<number>(() => Number(sessionStorage.getItem('leads_page')) || 1);
     const [limit, setLimit] = useState<number>(() => Number(sessionStorage.getItem('leads_limit')) || 25);
@@ -243,6 +244,7 @@ export default function Leads() {
 
     const fetchLeads = async () => {
         setLoading(true);
+        setSelectedLeads([]);
         try {
             const params: any = {};
             if (activeStage !== 'ALL') params.stage = activeStage;
@@ -310,6 +312,34 @@ export default function Leads() {
     useEffect(() => {
         fetchLeads();
     }, [activeStage, debouncedSearch, filterSeller, filterRegion, filterType, filterVolume, filterCountry, filterPartners, page, limit, sortField, sortOrder]);
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            setSelectedLeads(leads.map(l => l.id));
+        } else {
+            setSelectedLeads([]);
+        }
+    };
+
+    const handleSelectLead = (id: number, checked: boolean) => {
+        if (checked) {
+            setSelectedLeads(prev => [...prev, id]);
+        } else {
+            setSelectedLeads(prev => prev.filter(leadId => leadId !== id));
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (!confirm(`Haqiqatan ham ${selectedLeads.length} ta lidni o'chirmoqchimisiz?`)) return;
+        try {
+            await apiClient.post('/leads/bulk-delete', { ids: selectedLeads });
+            toast.success("Tanlangan lidlar o'chirildi");
+            setSelectedLeads([]);
+            fetchLeads();
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || "Xatolik yuz berdi");
+        }
+    };
 
     const handleSort = (field: string) => {
         if (sortField === field) {
@@ -406,6 +436,15 @@ export default function Leads() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+                    {selectedLeads.length > 0 && (
+                        <button
+                            onClick={handleBulkDelete}
+                            className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-all shadow-sm active:scale-95"
+                        >
+                            <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+                            {selectedLeads.length} tani o'chirish
+                        </button>
+                    )}
                     <button
                         onClick={() => importRef.current?.click()}
                         disabled={importing}
@@ -530,11 +569,20 @@ export default function Leads() {
                                     key={lead.id}
                                     onClick={(e) => {
                                         if ((e.target as HTMLElement).closest('a')) return;
+                                        if ((e.target as HTMLElement).closest('input[type="checkbox"]')) return;
                                         navigate(`/leads/${lead.id}`);
                                     }}
-                                    className="group bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200/80 dark:border-gray-700/80 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all active:scale-[0.98] cursor-pointer"
+                                    className="group relative bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200/80 dark:border-gray-700/80 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all active:scale-[0.98] cursor-pointer"
                                 >
-                                    <div className="flex justify-between items-start mb-3">
+                                    <div className="absolute top-4 left-3 z-10" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 cursor-pointer shadow-sm"
+                                            checked={selectedLeads.includes(lead.id)}
+                                            onChange={(e) => handleSelectLead(lead.id, e.target.checked)}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-start mb-3 pl-6">
                                         <div className="flex-1 min-w-0 pr-2">
                                             <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-tight mb-1">
                                                 {lead.companyName}
@@ -613,6 +661,14 @@ export default function Leads() {
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-gray-100 dark:border-gray-800">
+                                    <th className="px-4 py-4 w-10 text-center">
+                                        <input
+                                            type="checkbox"
+                                            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 cursor-pointer"
+                                            checked={leads.length > 0 && selectedLeads.length === leads.length}
+                                            onChange={handleSelectAll}
+                                        />
+                                    </th>
                                     <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group select-none" onClick={() => handleSort('companyName')}>
                                         Firma {renderSortIcon('companyName')}
                                     </th>
@@ -648,9 +704,20 @@ export default function Leads() {
                                     return (
                                         <tr
                                             key={lead.id}
-                                            onClick={() => navigate(`/leads/${lead.id}`)}
+                                            onClick={(e) => {
+                                                if ((e.target as HTMLElement).closest('input[type="checkbox"]')) return;
+                                                navigate(`/leads/${lead.id}`);
+                                            }}
                                             className="hover:bg-blue-50/30 dark:hover:bg-blue-900/5 cursor-pointer transition-colors group"
                                         >
+                                            <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 cursor-pointer"
+                                                    checked={selectedLeads.includes(lead.id)}
+                                                    onChange={(e) => handleSelectLead(lead.id, e.target.checked)}
+                                                />
+                                            </td>
                                             <td className="px-4 py-3.5">
                                                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                                                     {lead.companyName}

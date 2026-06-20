@@ -617,121 +617,77 @@ export function generateInvoicePDF(data: InvoiceData): any {
   const startX = 30; // Reduced from 50 to match new margin
   
   // Ustunlarni shartli ko'rsatish uchun tekshirish
-  const hasTnvedCode = data.invoice.items?.some(item => item.tnvedCode && item.tnvedCode.trim() !== '');
-  const hasPluCode = data.invoice.items?.some(item => item.pluCode && item.pluCode.trim() !== '');
-  const hasPackageType = data.invoice.items?.some(item => item.packageType && item.packageType.trim() !== '');
-  const hasPackagesCount = data.invoice.items?.some(item => item.packagesCount != null);
-  const hasGrossWeight = data.invoice.items?.some(item => item.grossWeight && Number(item.grossWeight) > 0);
-  const hasNetWeight = data.invoice.items?.some(item => item.netWeight && Number(item.netWeight) > 0);
-  const hasShtCount = data.invoice.items?.some(item => {
-    const cf = item.customFields as any;
-    return cf && cf.shtCount != null && (item.unit === 'шт' || item.unit === 'шт.');
+  const hasData: Record<string, boolean> = {
+    index: true, name: true, unit: true, quantity: true, unitPrice: true, total: true,
+    tnved: data.invoice.items?.some(item => item.tnvedCode && item.tnvedCode.trim() !== '') || false,
+    plu: data.invoice.items?.some(item => item.pluCode && item.pluCode.trim() !== '') || false,
+    package: data.invoice.items?.some(item => item.packageType && item.packageType.trim() !== '') || false,
+    packagesCount: data.invoice.items?.some(item => item.packagesCount != null) || false,
+    gross: data.invoice.items?.some(item => item.grossWeight && Number(item.grossWeight) > 0) || false,
+    net: data.invoice.items?.some(item => item.netWeight && Number(item.netWeight) > 0) || false,
+    shtCount: data.invoice.items?.some(item => {
+      const cf = item.customFields as any;
+      return cf && cf.shtCount != null && (item.unit === 'шт' || item.unit === 'шт.');
+    }) || false
+  };
+
+  const addInfo = data.invoice.additionalInfo as any || {};
+  let columnOrder: string[] = Array.isArray(addInfo.columnOrder) && addInfo.columnOrder.length > 0
+    ? addInfo.columnOrder
+    : ['index','tnved','plu','name','unit','package','quantity','shtCount','packagesCount','gross','net','unitPrice','total'];
+
+  const visibleColumns: Record<string, boolean> = (addInfo.visibleColumns && typeof addInfo.visibleColumns === 'object')
+    ? addInfo.visibleColumns
+    : {};
+
+  const isColVisible = (feKey: string) => {
+    if (visibleColumns[feKey] === false) return false;
+    if (feKey === 'actions') return false;
+    return hasData[feKey] !== false;
+  };
+
+  let activeFeKeys = columnOrder.filter(isColVisible);
+  const allExpectedKeys = ['index','tnved','plu','name','unit','package','quantity','shtCount','packagesCount','gross','net','unitPrice','total'];
+  allExpectedKeys.forEach(k => {
+    if (!activeFeKeys.includes(k) && isColVisible(k)) {
+      activeFeKeys.push(k);
+    }
   });
 
-  const fixedColsWidth = 15 + (hasTnvedCode ? 55 : 0) + (hasPluCode ? 45 : 0) + 25 + (hasPackageType ? 45 : 0) + 35 + (hasShtCount ? 35 : 0) + (hasPackagesCount ? 40 : 0) + (hasGrossWeight ? 45 : 0) + (hasNetWeight ? 45 : 0) + 40 + 50;
-  const nameColWidth = Math.max(90, (pageWidth - 2 * margin) - fixedColsWidth);
-
-  // Ustunlar pozitsiyasini hisoblash
-  let currentX = startX;
-  const colWidths: { [key: string]: number } = {
-    number: 15,
-    tnvedCode: hasTnvedCode ? 55 : 0,
-    pluCode: hasPluCode ? 45 : 0,
-    name: nameColWidth,
-    unit: 25,
-    packageType: hasPackageType ? 45 : 0,
-    quantity: 35,
-    shtCount: hasShtCount ? 35 : 0,
-    packagesCount: hasPackagesCount ? 40 : 0,
-    grossWeight: hasGrossWeight ? 45 : 0,
-    netWeight: hasNetWeight ? 45 : 0,
-    unitPrice: 40,
-    totalPrice: 50,
+  const baseWidths: Record<string, number> = {
+    index: 15, tnved: 50, plu: 40, unit: 25, package: 40, quantity: 30,
+    shtCount: 30, packagesCount: 35, gross: 40, net: 40, unitPrice: 35, total: 45
   };
-  
-  const colPositions: { [key: string]: number } = {};
-  colPositions.number = currentX;
-  currentX += colWidths.number;
 
-  if (hasTnvedCode) {
-    colPositions.tnvedCode = currentX;
-    currentX += colWidths.tnvedCode;
-  }
+  let fixedWidthSum = 0;
+  activeFeKeys.forEach(k => {
+    if (k !== 'name') fixedWidthSum += baseWidths[k] || 0;
+  });
 
-  if (hasPluCode) {
-    colPositions.pluCode = currentX;
-    currentX += colWidths.pluCode;
-  }
+  const nameColWidth = Math.max(80, (pageWidth - 2 * margin) - fixedWidthSum);
+  const colWidths: Record<string, number> = {};
+  activeFeKeys.forEach(k => {
+    colWidths[k] = k === 'name' ? nameColWidth : (baseWidths[k] || 0);
+  });
 
-  colPositions.name = currentX;
-  currentX += colWidths.name;
+  let currentX = startX;
+  const colPositions: Record<string, number> = {};
+  activeFeKeys.forEach(k => {
+    colPositions[k] = currentX;
+    currentX += colWidths[k];
+  });
 
-  colPositions.unit = currentX;
-  currentX += colWidths.unit;
+  const russianHeaders: Record<string, string> = {
+    index: '№', tnved: 'Код ТН ВЭД', plu: 'Код PLU', name: 'Наименование',
+    unit: 'Ед. изм.', package: 'Вид упаковки', quantity: 'Мест', shtCount: 'шт',
+    packagesCount: 'Кол-во', gross: 'Брутто', net: 'Нетто', unitPrice: 'Цена', total: 'Сумма'
+  };
 
-  if (hasPackageType) {
-    colPositions.packageType = currentX;
-    currentX += colWidths.packageType;
-  }
-
-  colPositions.quantity = currentX;
-  currentX += colWidths.quantity;
-
-  if (hasShtCount) {
-    colPositions.shtCount = currentX;
-    currentX += colWidths.shtCount;
-  }
-
-  if (hasPackagesCount) {
-    colPositions.packagesCount = currentX;
-    currentX += colWidths.packagesCount;
-  }
-
-  if (hasGrossWeight) {
-    colPositions.grossWeight = currentX;
-    currentX += colWidths.grossWeight;
-  }
-
-  if (hasNetWeight) {
-    colPositions.netWeight = currentX;
-    currentX += colWidths.netWeight;
-  }
-
-  colPositions.unitPrice = currentX;
-  currentX += colWidths.unitPrice;
-
-  colPositions.totalPrice = currentX;
-  currentX += colWidths.totalPrice;
-  
   // Jadval header - smaller font
   doc.fontSize(7);
-  doc.text('№', colPositions.number, tableTop, { width: colWidths.number });
-  if (hasTnvedCode) {
-    doc.text(ensureUTF8('Код ТН ВЭД'), colPositions.tnvedCode!, tableTop, { width: colWidths.tnvedCode });
-  }
-  if (hasPluCode) {
-    doc.text(ensureUTF8('Код PLU'), colPositions.pluCode!, tableTop, { width: colWidths.pluCode });
-  }
-  doc.text(ensureUTF8('Наименование'), colPositions.name, tableTop, { width: colWidths.name });
-  doc.text(ensureUTF8('Ед. изм.'), colPositions.unit, tableTop, { width: colWidths.unit });
-  if (hasPackageType) {
-    doc.text(ensureUTF8('Вид упаковки'), colPositions.packageType!, tableTop, { width: colWidths.packageType });
-  }
-  doc.text(ensureUTF8('Мест'), colPositions.quantity, tableTop, { width: colWidths.quantity });
-  if (hasShtCount) {
-    doc.text(ensureUTF8('шт'), colPositions.shtCount!, tableTop, { width: colWidths.shtCount });
-  }
-  if (hasPackagesCount) {
-    doc.text(ensureUTF8('Кол-во'), colPositions.packagesCount!, tableTop, { width: colWidths.packagesCount });
-  }
-  if (hasGrossWeight) {
-    doc.text(ensureUTF8('Брутто'), colPositions.grossWeight!, tableTop, { width: colWidths.grossWeight });
-  }
-  if (hasNetWeight) {
-    doc.text(ensureUTF8('Нетто'), colPositions.netWeight!, tableTop, { width: colWidths.netWeight });
-  }
-  doc.text(ensureUTF8('Цена'), colPositions.unitPrice, tableTop, { width: colWidths.unitPrice });
-  doc.text(ensureUTF8('Сумма'), colPositions.totalPrice, tableTop, { width: colWidths.totalPrice });
+  activeFeKeys.forEach(k => {
+    doc.text(ensureUTF8(russianHeaders[k]), colPositions[k], tableTop, { width: colWidths[k] });
+  });
   
   // Header chiziq
   doc.lineWidth(1.2).moveTo(startX, tableTop + 15).lineTo(currentX, tableTop + 15).stroke();
@@ -744,43 +700,35 @@ export function generateInvoicePDF(data: InvoiceData): any {
     y += itemHeight;
   } else {
     data.invoice.items.forEach((item, index) => {
-    // Check if we need new page - but try to fit everything on one page
-    if (y > 750) {
-      // Yangi sahifa
-      doc.addPage();
-      y = 30;
-    }
-    
-    doc.fontSize(7); // Smaller font for items
-    doc.text((index + 1).toString(), colPositions.number, y, { width: colWidths.number });
-    if (hasTnvedCode) {
-      doc.text(ensureUTF8((item.tnvedCode || '').toString()), colPositions.tnvedCode!, y, { width: colWidths.tnvedCode });
-    }
-    if (hasPluCode) {
-      doc.text(ensureUTF8((item.pluCode || '').toString()), colPositions.pluCode!, y, { width: colWidths.pluCode });
-    }
-    doc.text(ensureUTF8((item.name || '').toString()), colPositions.name, y, { width: colWidths.name });
-    doc.text(ensureUTF8((item.unit || '').toString()), colPositions.unit, y, { width: colWidths.unit });
-    if (hasPackageType) {
-      doc.text(ensureUTF8((item.packageType || '').toString()), colPositions.packageType!, y, { width: colWidths.packageType });
-    }
-    doc.text((item.quantity || 0).toString(), colPositions.quantity, y, { width: colWidths.quantity });
-    if (hasShtCount) {
-      const sht = (item.customFields as any)?.shtCount;
-      doc.text(sht != null ? sht.toString() : '', colPositions.shtCount!, y, { width: colWidths.shtCount });
-    }
-    if (hasPackagesCount) {
-      doc.text(((item as any).packagesCount || '').toString(), colPositions.packagesCount!, y, { width: colWidths.packagesCount });
-    }
-    if (hasGrossWeight) {
-      doc.text((item.grossWeight ? item.grossWeight.toString() : ''), colPositions.grossWeight!, y, { width: colWidths.grossWeight });
-    }
-    if (hasNetWeight) {
-      doc.text((item.netWeight ? item.netWeight.toString() : ''), colPositions.netWeight!, y, { width: colWidths.netWeight });
-    }
-    doc.text((item.unitPrice || 0).toString(), colPositions.unitPrice, y, { width: colWidths.unitPrice });
-    doc.text(Number(item.totalPrice || 0).toFixed(2), colPositions.totalPrice, y, { width: colWidths.totalPrice });
-    y += itemHeight;
+      // Check if we need new page - but try to fit everything on one page
+      if (y > 750) {
+        doc.addPage();
+        y = 30;
+      }
+      
+      doc.fontSize(7); // Smaller font for items
+      activeFeKeys.forEach(k => {
+        const x = colPositions[k];
+        const w = colWidths[k];
+        if (k === 'index') doc.text((index + 1).toString(), x, y, { width: w });
+        else if (k === 'tnved') doc.text(ensureUTF8((item.tnvedCode || '').toString()), x, y, { width: w });
+        else if (k === 'plu') doc.text(ensureUTF8((item.pluCode || '').toString()), x, y, { width: w });
+        else if (k === 'name') doc.text(ensureUTF8((item.name || '').toString()), x, y, { width: w });
+        else if (k === 'unit') doc.text(ensureUTF8((item.unit || '').toString()), x, y, { width: w });
+        else if (k === 'package') doc.text(ensureUTF8((item.packageType || '').toString()), x, y, { width: w });
+        else if (k === 'quantity') doc.text((item.quantity || 0).toString(), x, y, { width: w });
+        else if (k === 'shtCount') {
+          const sht = (item.customFields as any)?.shtCount;
+          doc.text(sht != null ? sht.toString() : '', x, y, { width: w });
+        }
+        else if (k === 'packagesCount') doc.text(((item as any).packagesCount || '').toString(), x, y, { width: w });
+        else if (k === 'gross') doc.text((item.grossWeight ? item.grossWeight.toString() : ''), x, y, { width: w });
+        else if (k === 'net') doc.text((item.netWeight ? item.netWeight.toString() : ''), x, y, { width: w });
+        else if (k === 'unitPrice') doc.text((item.unitPrice || 0).toString(), x, y, { width: w });
+        else if (k === 'total') doc.text(Number(item.totalPrice || 0).toFixed(2), x, y, { width: w });
+      });
+
+      y += itemHeight;
     });
   }
   
@@ -791,29 +739,26 @@ export function generateInvoicePDF(data: InvoiceData): any {
   const totalY = y + 5;
   doc.fontSize(8);
   setFont('Helvetica-Bold');
-  doc.text(ensureUTF8('Всего:'), colPositions.name, totalY, { width: colWidths.name });
   
   const totalQuantity = data.invoice.items.reduce((sum, item) => sum + Number(item.quantity), 0);
   const totalShtCount = data.invoice.items.reduce((sum, item) => sum + Number((item.customFields as any)?.shtCount || 0), 0);
   const totalPackagesCount = data.invoice.items.reduce((sum, item) => sum + Number((item as any).packagesCount || 0), 0);
   const totalGrossWeight = data.invoice.items.reduce((sum, item) => sum + Number(item.grossWeight || 0), 0);
   const totalNetWeight = data.invoice.items.reduce((sum, item) => sum + Number(item.netWeight || 0), 0);
-  
-  doc.text(totalQuantity.toString(), colPositions.quantity, totalY, { width: colWidths.quantity });
-  if (hasShtCount) {
-    doc.text(totalShtCount > 0 ? totalShtCount.toString() : '', colPositions.shtCount!, totalY, { width: colWidths.shtCount });
-  }
-  if (hasPackagesCount) {
-    doc.text(totalPackagesCount.toString(), colPositions.packagesCount!, totalY, { width: colWidths.packagesCount });
-  }
-  if (hasGrossWeight) {
-    doc.text(totalGrossWeight > 0 ? totalGrossWeight.toString() : '', colPositions.grossWeight!, totalY, { width: colWidths.grossWeight });
-  }
-  if (hasNetWeight) {
-    doc.text(totalNetWeight > 0 ? totalNetWeight.toString() : '', colPositions.netWeight!, totalY, { width: colWidths.netWeight });
-  }
   const totalAmount = Number(data.invoice.totalAmount) || 0;
-  doc.text(`${getCurrencySymbol(data.invoice.currency)} ${totalAmount.toFixed(2)}`, colPositions.totalPrice, totalY, { width: colWidths.totalPrice });
+
+  activeFeKeys.forEach(k => {
+    const x = colPositions[k];
+    const w = colWidths[k];
+    if (k === 'name') doc.text(ensureUTF8('Всего:'), x, totalY, { width: w });
+    else if (k === 'quantity') doc.text(totalQuantity.toString(), x, totalY, { width: w });
+    else if (k === 'shtCount') doc.text(totalShtCount > 0 ? totalShtCount.toString() : '', x, totalY, { width: w });
+    else if (k === 'packagesCount') doc.text(totalPackagesCount.toString(), x, totalY, { width: w });
+    else if (k === 'gross') doc.text(totalGrossWeight > 0 ? totalGrossWeight.toString() : '', x, totalY, { width: w });
+    else if (k === 'net') doc.text(totalNetWeight > 0 ? totalNetWeight.toString() : '', x, totalY, { width: w });
+    else if (k === 'total') doc.text(`${getCurrencySymbol(data.invoice.currency)} ${totalAmount.toFixed(2)}`, x, totalY, { width: w });
+  });
+
   setFont('Helvetica');
   
   // Calculate the next Y position after the table

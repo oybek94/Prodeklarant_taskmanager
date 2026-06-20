@@ -751,78 +751,83 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   const itemHeight = 25;
   const startX = 30;
 
-  const hasTnvedCode = data.invoice.items?.some(item => item.tnvedCode && item.tnvedCode.trim() !== '');
-  const hasPluCode = data.invoice.items?.some(item => item.pluCode && item.pluCode.trim() !== '');
-  const hasPackageType = data.invoice.items?.some(item => item.packageType && item.packageType.trim() !== '');
-  const hasPackagesCount = data.invoice.items?.some(item => item.packagesCount != null);
-  const hasGrossWeight = data.invoice.items?.some(item => item.grossWeight && Number(item.grossWeight) > 0);
-  const hasNetWeight = data.invoice.items?.some(item => item.netWeight && Number(item.netWeight) > 0);
-  const hasShtCount = data.invoice.items?.some(item => {
-    const cf = item.customFields as any;
-    return cf && cf.shtCount != null && (item.unit === 'шт' || item.unit === 'шт.');
-  });
-
-  const fixedColsWidth = 15 + (hasTnvedCode ? 55 : 0) + (hasPluCode ? 45 : 0) + 25 + (hasPackageType ? 45 : 0) + 35 + (hasShtCount ? 35 : 0) + (hasPackagesCount ? 40 : 0) + (hasGrossWeight ? 45 : 0) + (hasNetWeight ? 45 : 0) + 40 + 50;
-  const nameColWidth = Math.max(90, (pageWidth - 2 * margin) - fixedColsWidth);
-
-  let currentX = startX;
-  const colWidths: Record<string, number> = {
-    number: 15,
-    tnvedCode: hasTnvedCode ? 55 : 0,
-    pluCode: hasPluCode ? 45 : 0,
-    name: nameColWidth,
-    unit: 25,
-    packageType: hasPackageType ? 45 : 0,
-    quantity: 35,
-    shtCount: hasShtCount ? 35 : 0,
-    packagesCount: hasPackagesCount ? 40 : 0,
-    grossWeight: hasGrossWeight ? 45 : 0,
-    netWeight: hasNetWeight ? 45 : 0,
-    unitPrice: 40,
-    totalPrice: 50,
+  const hasData: Record<string, boolean> = {
+    index: true, name: true, unit: true, quantity: true, unitPrice: true, total: true,
+    tnved: data.invoice.items?.some(i => i.tnvedCode && i.tnvedCode.trim() !== '') || false,
+    plu: data.invoice.items?.some(i => i.pluCode && i.pluCode.trim() !== '') || false,
+    package: data.invoice.items?.some(i => i.packageType && i.packageType.trim() !== '') || false,
+    packagesCount: data.invoice.items?.some(i => i.packagesCount != null) || false,
+    gross: data.invoice.items?.some(i => i.grossWeight && Number(i.grossWeight) > 0) || false,
+    net: data.invoice.items?.some(i => i.netWeight && Number(i.netWeight) > 0) || false,
+    shtCount: data.invoice.items?.some(i => {
+      const cf = i.customFields as any;
+      return cf && cf.shtCount != null && (i.unit === 'шт' || i.unit === 'шт.');
+    }) || false
   };
 
-  const colPositions: Record<string, number> = {};
-  colPositions.number = currentX; currentX += colWidths.number;
-  if (hasTnvedCode) { colPositions.tnvedCode = currentX; currentX += colWidths.tnvedCode; }
-  if (hasPluCode) { colPositions.pluCode = currentX; currentX += colWidths.pluCode; }
-  colPositions.name = currentX; currentX += colWidths.name;
-  colPositions.unit = currentX; currentX += colWidths.unit;
-  if (hasPackageType) { colPositions.packageType = currentX; currentX += colWidths.packageType; }
-  colPositions.quantity = currentX; currentX += colWidths.quantity;
-  if (hasShtCount) { colPositions.shtCount = currentX; currentX += colWidths.shtCount; }
-  if (hasPackagesCount) { colPositions.packagesCount = currentX; currentX += colWidths.packagesCount; }
-  if (hasGrossWeight) { colPositions.grossWeight = currentX; currentX += colWidths.grossWeight; }
-  if (hasNetWeight) { colPositions.netWeight = currentX; currentX += colWidths.netWeight; }
-  colPositions.unitPrice = currentX; currentX += colWidths.unitPrice;
-  colPositions.totalPrice = currentX; currentX += colWidths.totalPrice;
+  const addInfo = data.invoice.additionalInfo as any || {};
+  let columnOrder: string[] = Array.isArray(addInfo.columnOrder) && addInfo.columnOrder.length > 0
+    ? addInfo.columnOrder
+    : ['index','tnved','plu','name','unit','package','quantity','shtCount','packagesCount','gross','net','unitPrice','total'];
+    
+  const visibleColumns: Record<string, boolean> = (addInfo.visibleColumns && typeof addInfo.visibleColumns === 'object')
+    ? addInfo.visibleColumns
+    : {};
 
-  // Draw full table boundary and header background
-  const finalYEstimate = 480; // We'll trace the rows and draw horizontal lines, we don't draw a single giant rect yet.
-  
-  
-  
+  const isColVisible = (feKey: string) => {
+    if (visibleColumns[feKey] === false) return false;
+    if (feKey === 'actions') return false;
+    return hasData[feKey] !== false;
+  };
+
+  let activeFeKeys = columnOrder.filter(isColVisible);
+  const allExpectedKeys = ['index','tnved','plu','name','unit','package','quantity','shtCount','packagesCount','gross','net','unitPrice','total'];
+  allExpectedKeys.forEach(k => {
+    if (!activeFeKeys.includes(k) && isColVisible(k)) {
+      activeFeKeys.push(k);
+    }
+  });
+
+  const baseWidths: Record<string, number> = {
+    index: 15, tnved: 50, plu: 40, unit: 25, package: 40, quantity: 30,
+    shtCount: 30, packagesCount: 35, gross: 40, net: 40, unitPrice: 35, total: 45
+  };
+
+  let fixedWidthSum = 0;
+  activeFeKeys.forEach(k => {
+    if (k !== 'name') fixedWidthSum += baseWidths[k] || 0;
+  });
+
+  const nameColWidth = Math.max(80, (pageWidth - 2 * margin) - fixedWidthSum);
+  const colWidths: Record<string, number> = {};
+  activeFeKeys.forEach(k => {
+    colWidths[k] = k === 'name' ? nameColWidth : (baseWidths[k] || 0);
+  });
+
+  let currentX = startX;
+  const colPositions: Record<string, number> = {};
+  activeFeKeys.forEach(k => {
+    colPositions[k] = currentX;
+    currentX += colWidths[k];
+  });
+
+  const englishHeaders: Record<string, string> = {
+    index: 'No.', tnved: 'HS Code', plu: 'PLU Code', name: 'Description',
+    unit: 'Unit', package: 'Pkg Type', quantity: 'Places', shtCount: 'pcs',
+    packagesCount: 'Qty', gross: 'Gross', net: 'Net', unitPrice: 'Price', total: 'Amount'
+  };
+
   doc.fillColor('black');
   
   // Table header
   doc.fontSize(7);
-  doc.text('No.', colPositions.number, tableTop, { width: colWidths.number });
-  if (hasTnvedCode) doc.text('HS Code', colPositions.tnvedCode!, tableTop, { width: colWidths.tnvedCode });
-  if (hasPluCode) doc.text('PLU Code', colPositions.pluCode!, tableTop, { width: colWidths.pluCode });
-  doc.text('Description', colPositions.name, tableTop, { width: colWidths.name });
-  doc.text('Unit', colPositions.unit, tableTop, { width: colWidths.unit });
-  if (hasPackageType) doc.text('Pkg Type', colPositions.packageType!, tableTop, { width: colWidths.packageType });
-  doc.text('Places', colPositions.quantity, tableTop, { width: colWidths.quantity });
-  if (hasShtCount) doc.text('pcs', colPositions.shtCount!, tableTop, { width: colWidths.shtCount });
-  if (hasPackagesCount) doc.text('Qty', colPositions.packagesCount!, tableTop, { width: colWidths.packagesCount });
-  if (hasGrossWeight) doc.text('Gross', colPositions.grossWeight!, tableTop, { width: colWidths.grossWeight });
-  if (hasNetWeight) doc.text('Net', colPositions.netWeight!, tableTop, { width: colWidths.netWeight });
-  doc.text('Price', colPositions.unitPrice, tableTop, { width: colWidths.unitPrice });
-  doc.text('Amount', colPositions.totalPrice, tableTop, { width: colWidths.totalPrice });
+  activeFeKeys.forEach(k => {
+    doc.text(englishHeaders[k], colPositions[k], tableTop, { width: colWidths[k] });
+  });
 
   doc.lineWidth(0.5).strokeColor('#4b5563').moveTo(startX, tableTop + 15).lineTo(currentX, tableTop + 15).stroke();
 
-  let y = tableTop + 20; // Adjusted spacing
+  let y = tableTop + 20;
   if (!data.invoice.items || data.invoice.items.length === 0) {
     doc.fontSize(7);
     doc.text('No items', startX, y, { width: currentX - startX });
@@ -831,29 +836,39 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
     data.invoice.items.forEach((item, index) => {
       if (y > 750) { doc.addPage(); y = 30; }
       doc.fontSize(7);
-      doc.text((index + 1).toString(), colPositions.number, y, { width: colWidths.number });
-      if (hasTnvedCode) doc.text(ensureUTF8(item.tnvedCode || ''), colPositions.tnvedCode!, y, { width: colWidths.tnvedCode });
-      if (hasPluCode) doc.text(ensureUTF8(item.pluCode || ''), colPositions.pluCode!, y, { width: colWidths.pluCode });
-      const keySuffix = item.id || index;
-      const itemName = tr(t, `item_name_${keySuffix}`, item.name || '');
-      doc.text(ensureUTF8(itemName), colPositions.name, y, { width: colWidths.name });
       
-      const itemUnit = tr(t, `item_unit_${keySuffix}`, item.unit || '');
-      doc.text(ensureUTF8(itemUnit), colPositions.unit, y, { width: colWidths.unit });
-      if (hasPackageType) {
-        const pkgType = item.packageType ? tr(t, `pkg_${item.packageType}`, item.packageType) : '';
-        doc.text(ensureUTF8(pkgType), colPositions.packageType!, y, { width: colWidths.packageType });
-      }
-      doc.text((item.quantity || 0).toString(), colPositions.quantity, y, { width: colWidths.quantity });
-      if (hasShtCount) {
-        const sht = (item.customFields as any)?.shtCount;
-        doc.text(sht != null ? sht.toString() : '', colPositions.shtCount!, y, { width: colWidths.shtCount });
-      }
-      if (hasPackagesCount) doc.text(((item as any).packagesCount || '').toString(), colPositions.packagesCount!, y, { width: colWidths.packagesCount });
-      if (hasGrossWeight) doc.text(item.grossWeight ? item.grossWeight.toString() : '', colPositions.grossWeight!, y, { width: colWidths.grossWeight });
-      if (hasNetWeight) doc.text(item.netWeight ? item.netWeight.toString() : '', colPositions.netWeight!, y, { width: colWidths.netWeight });
-      doc.text((item.unitPrice || 0).toString(), colPositions.unitPrice, y, { width: colWidths.unitPrice });
-      doc.text(Number(item.totalPrice || 0).toFixed(2), colPositions.totalPrice, y, { width: colWidths.totalPrice });
+      activeFeKeys.forEach(k => {
+        const x = colPositions[k];
+        const w = colWidths[k];
+        if (k === 'index') doc.text((index + 1).toString(), x, y, { width: w });
+        else if (k === 'tnved') doc.text(ensureUTF8(item.tnvedCode || ''), x, y, { width: w });
+        else if (k === 'plu') doc.text(ensureUTF8(item.pluCode || ''), x, y, { width: w });
+        else if (k === 'name') {
+          const keySuffix = item.id || index;
+          const itemName = tr(t, `item_name_${keySuffix}`, item.name || '');
+          doc.text(ensureUTF8(itemName), x, y, { width: w });
+        }
+        else if (k === 'unit') {
+          const keySuffix = item.id || index;
+          const itemUnit = tr(t, `item_unit_${keySuffix}`, item.unit || '');
+          doc.text(ensureUTF8(itemUnit), x, y, { width: w });
+        }
+        else if (k === 'package') {
+          const pkgType = item.packageType ? tr(t, `pkg_${item.packageType}`, item.packageType) : '';
+          doc.text(ensureUTF8(pkgType), x, y, { width: w });
+        }
+        else if (k === 'quantity') doc.text((item.quantity || 0).toString(), x, y, { width: w });
+        else if (k === 'shtCount') {
+          const sht = (item.customFields as any)?.shtCount;
+          doc.text(sht != null ? sht.toString() : '', x, y, { width: w });
+        }
+        else if (k === 'packagesCount') doc.text(((item as any).packagesCount || '').toString(), x, y, { width: w });
+        else if (k === 'gross') doc.text(item.grossWeight ? item.grossWeight.toString() : '', x, y, { width: w });
+        else if (k === 'net') doc.text(item.netWeight ? item.netWeight.toString() : '', x, y, { width: w });
+        else if (k === 'unitPrice') doc.text((item.unitPrice || 0).toString(), x, y, { width: w });
+        else if (k === 'total') doc.text(Number(item.totalPrice || 0).toFixed(2), x, y, { width: w });
+      });
+
       y += itemHeight;
       doc.lineWidth(0.5).strokeColor('#e5e7eb').moveTo(startX, y - 5).lineTo(currentX, y - 5).stroke();
     });
@@ -865,20 +880,24 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   const totalY = y - 2;
   doc.fontSize(8);
   setFont('Helvetica-Bold');
-  doc.text('Total:', colPositions.name, totalY, { width: colWidths.name });
-
+  
   const totalQuantity = data.invoice.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const totalShtCount = data.invoice.items.reduce((sum, item) => sum + Number((item.customFields as any)?.shtCount || 0), 0);
   const totalPackagesCount = data.invoice.items.reduce((sum, item) => sum + Number((item as any).packagesCount || 0), 0);
   const totalGrossWeight = data.invoice.items.reduce((sum, item) => sum + Number(item.grossWeight || 0), 0);
   const totalNetWeight = data.invoice.items.reduce((sum, item) => sum + Number(item.netWeight || 0), 0);
 
-  doc.text(totalQuantity.toString(), colPositions.quantity, totalY, { width: colWidths.quantity });
-  if (hasShtCount) doc.text(totalShtCount > 0 ? totalShtCount.toString() : '', colPositions.shtCount!, totalY, { width: colWidths.shtCount });
-  if (hasPackagesCount) doc.text(totalPackagesCount.toString(), colPositions.packagesCount!, totalY, { width: colWidths.packagesCount });
-  if (hasGrossWeight) doc.text(totalGrossWeight > 0 ? totalGrossWeight.toString() : '', colPositions.grossWeight!, totalY, { width: colWidths.grossWeight });
-  if (hasNetWeight) doc.text(totalNetWeight > 0 ? totalNetWeight.toString() : '', colPositions.netWeight!, totalY, { width: colWidths.netWeight });
-  doc.text(`${getCurrencySymbol(data.invoice.currency)} ${Number(data.invoice.totalAmount || 0).toFixed(2)}`, colPositions.totalPrice, totalY, { width: colWidths.totalPrice });
+  activeFeKeys.forEach(k => {
+    const x = colPositions[k];
+    const w = colWidths[k];
+    if (k === 'name') doc.text('Total:', x, totalY, { width: w });
+    else if (k === 'quantity') doc.text(totalQuantity.toString(), x, totalY, { width: w });
+    else if (k === 'shtCount') doc.text(totalShtCount > 0 ? totalShtCount.toString() : '', x, totalY, { width: w });
+    else if (k === 'packagesCount') doc.text(totalPackagesCount.toString(), x, totalY, { width: w });
+    else if (k === 'gross') doc.text(totalGrossWeight > 0 ? totalGrossWeight.toString() : '', x, totalY, { width: w });
+    else if (k === 'net') doc.text(totalNetWeight > 0 ? totalNetWeight.toString() : '', x, totalY, { width: w });
+    else if (k === 'total') doc.text(`${getCurrencySymbol(data.invoice.currency)} ${Number(data.invoice.totalAmount || 0).toFixed(2)}`, x, totalY, { width: w });
+  });
   setFont('Helvetica');
 
   // Amount in words (English)

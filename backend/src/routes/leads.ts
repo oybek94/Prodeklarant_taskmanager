@@ -591,6 +591,22 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     }
 });
 
+// POST /api/leads/bulk-delete
+router.post('/bulk-delete', async (req: AuthRequest, res: Response) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) {
+            return res.status(400).json({ error: 'ids massivi majburiy' });
+        }
+        await prisma.lead.deleteMany({
+            where: { id: { in: ids } }
+        });
+        res.json({ success: true });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // DELETE /api/leads/:id
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
     try {

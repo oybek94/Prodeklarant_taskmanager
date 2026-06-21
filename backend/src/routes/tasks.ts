@@ -1605,6 +1605,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
 const errorSchema = z.object({
   stageName: z.string(),
   workerId: z.number().nullable(),
+  isClientError: z.boolean().optional(),
   amount: z.number(),
   comment: z.string().optional(),
   date: z.coerce.date(),
@@ -1659,6 +1660,28 @@ router.post('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
         worker: { select: { id: true, name: true } },
       },
     });
+
+    if (parsed.data.isClientError) {
+      const task = await (tx as any).task.findUnique({
+        where: { id: taskId },
+        include: { client: true }
+      });
+      if (task && task.client) {
+        let person = await (tx as any).debtPerson.findUnique({ where: { name: task.client.name.trim() } });
+        if (!person) {
+          person = await (tx as any).debtPerson.create({ data: { name: task.client.name.trim() } });
+        }
+        await (tx as any).debt.create({
+          data: {
+            debtPersonId: person.id,
+            amount: parsed.data.amount,
+            currency: 'UZS',
+            comment: `Xatolik: Task #${taskId} uchun mijoz xatosi. ${parsed.data.comment || ''}`.trim(),
+            date: parsed.data.date,
+          }
+        });
+      }
+    }
 
     return error;
   });

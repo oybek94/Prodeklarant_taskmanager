@@ -357,6 +357,7 @@ export const InvoicesModalsManager: React.FC<InvoicesModalsManagerProps> = ({
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Ishchini tanlang</option>
+                    <option value="CUSTOMER">Mijoz</option>
                     {workers.map((w) => (
                       <option key={w.id} value={w.id.toString()}>{w.name}</option>
                     ))}

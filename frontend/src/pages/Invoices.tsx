@@ -213,14 +213,15 @@ const Invoices = () => {
     if (!invoiceForErrorModal) return;
     try {
       const amountValue = errorForm.amount.trim();
-      if (!/^\d{1,4}$/.test(amountValue)) {
-        alert('Summa faqat USD bo\'lishi va 4 xonagacha bo\'lishi kerak');
+      if (!/^\d{1,15}$/.test(amountValue)) {
+        alert('Summa faqat raqamlardan iborat va 15 xonagacha bo\'lishi kerak');
         return;
       }
       const taskId = invoiceForErrorModal.taskId;
       await apiClient.post(`/tasks/${taskId}/errors`, {
         taskTitle: invoiceForErrorModal.task?.title ?? `#${invoiceForErrorModal.invoiceNumber}`,
-        workerId: parseInt(errorForm.workerId),
+        workerId: errorForm.workerId === 'CUSTOMER' ? null : parseInt(errorForm.workerId),
+        isClientError: errorForm.workerId === 'CUSTOMER',
         stageName: errorForm.stageName,
         amount: parseFloat(amountValue),
         comment: errorForm.comment || undefined,

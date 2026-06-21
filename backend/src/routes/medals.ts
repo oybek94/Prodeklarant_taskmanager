@@ -210,6 +210,48 @@ router.get('/my-bonus', requireAuth(), async (req, res) => {
   }
 });
 
+router.get('/user/:userId/medals', requireAuth(), async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const medals = await prisma.userMedal.findMany({
+      where: { userId },
+      orderBy: { awardedAt: 'desc' }
+    });
+    res.json(medals);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/user/:userId/bonus', requireAuth(), async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const start = startOfMonth(new Date());
+    const medals = await prisma.userMedal.findMany({
+      where: { 
+        userId,
+        awardedAt: { gte: start }
+      }
+    });
+    const totalMedalBonus = medals.reduce((acc: number, m: any) => acc + Number(m.cashBonus), 0);
+
+    const notes = await (prisma as any).dashboardNote.findMany({
+      where: {
+        completedById: userId,
+        isCompleted: true,
+        completedAt: { gte: start },
+        bountyReward: { not: null }
+      }
+    });
+    const notesBonus = notes.reduce((acc: number, n: any) => acc + Number(n.bountyReward), 0);
+
+    const totalBonus = totalMedalBonus + notesBonus;
+    res.json({ totalBonus });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Fetch all medals for leaderboard integration
 router.get('/all', requireAuth(), async (req, res) => {
   try {

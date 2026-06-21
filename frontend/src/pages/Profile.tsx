@@ -180,7 +180,7 @@ export default function Profile() {
         <PaymentProgressRing stats={stats} loading={loading} />
         
         <div className="lg:col-span-2">
-          <TrophyRoom />
+          <TrophyRoom userId={workerId} />
         </div>
       </div>
 

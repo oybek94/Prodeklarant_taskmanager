@@ -3,7 +3,11 @@ import { motion } from 'framer-motion';
 import { MEDAL_DETAILS, TIER_LABELS, type MedalType, type UserMedal } from '../../types/medals';
 import apiClient from '../../lib/api';
 
-const TrophyRoom: React.FC = () => {
+interface TrophyRoomProps {
+  userId?: number;
+}
+
+const TrophyRoom: React.FC<TrophyRoomProps> = ({ userId }) => {
   const [medals, setMedals] = useState<UserMedal[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentBonus, setCurrentBonus] = useState(0);
@@ -11,9 +15,11 @@ const TrophyRoom: React.FC = () => {
   useEffect(() => {
     const fetchMedals = async () => {
       try {
+        const medalsEndpoint = userId ? `/medals/user/${userId}/medals` : '/medals/my-medals';
+        const bonusEndpoint = userId ? `/medals/user/${userId}/bonus` : '/medals/my-bonus';
         const [medalsRes, bonusRes] = await Promise.all([
-          apiClient.get('/medals/my-medals'),
-          apiClient.get('/medals/my-bonus')
+          apiClient.get(medalsEndpoint),
+          apiClient.get(bonusEndpoint)
         ]);
         setMedals(medalsRes.data);
         setCurrentBonus(bonusRes.data.totalBonus || 0);
@@ -24,7 +30,7 @@ const TrophyRoom: React.FC = () => {
       }
     };
     fetchMedals();
-  }, []);
+  }, [userId]);
 
   if (loading) return <div className="animate-pulse h-40 bg-gray-100 dark:bg-gray-800 rounded-xl" />;
 

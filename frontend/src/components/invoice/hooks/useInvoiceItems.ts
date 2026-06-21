@@ -2,6 +2,17 @@ import { useState, useCallback } from 'react';
 import type { InvoiceItem, SpecRow } from '../types';
 import { createDefaultItem } from '../types';
 
+export function calculateTotalPrice(item: InvoiceItem): number {
+  const unitPrice = item.unitPrice ?? 0;
+  if (item.unit === 'шт' || item.unit === 'шт.') {
+    return (Number(item.customFields?.shtCount) || 0) * unitPrice;
+  } else if (item.unit === 'кор' || item.unit === 'кор.' || item.unit === 'упак' || item.unit === 'упак.') {
+    return (item.packagesCount ?? 0) * unitPrice;
+  } else {
+    return (item.netWeight ?? 0) * unitPrice;
+  }
+}
+
 // "=N" formulali qatorlar uchun: changedIndex qatori o'zgarganda boshqa qatorlarni qayta hisoblash
 function recalcEqualFormulaRows(items: InvoiceItem[], changedIndex: number): void {
   for (let i = 0; i < items.length; i++) {
@@ -23,7 +34,7 @@ function recalcEqualFormulaRows(items: InvoiceItem[], changedIndex: number): voi
       const m = parseFloat(netF.slice(1).replace(',', '.'));
       if (!Number.isNaN(m)) items[i].netWeight = Math.round(gross - m * (items[i].packagesCount ?? 0));
     }
-    items[i].totalPrice = (items[i].netWeight ?? 0) * (items[i].unitPrice ?? 0);
+    items[i].totalPrice = calculateTotalPrice(items[i]);
   }
 }
 
@@ -44,7 +55,7 @@ function applyRulesToItem(item: InvoiceItem, tareRules?: Array<{packageType: str
       const gross = newItem.grossWeight ?? 0;
       const pkgCount = newItem.packagesCount ?? 0;
       newItem.netWeight = Math.round(Number(gross) - rule.tareWeight * Number(pkgCount));
-      newItem.totalPrice = newItem.netWeight * (newItem.unitPrice ?? 0);
+      newItem.totalPrice = calculateTotalPrice(newItem);
       return newItem;
     }
   }
@@ -112,16 +123,9 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
          newItems[index] = applyRulesToItem(newItems[index], tareRules);
       }
 
-      // Total price ni hisoblash: Нетто * Цена за ед.изм. yoki sht * Цена
+      // Total price ni hisoblash: Нетто * Цена за ед.изм. yoki sht * Цена yoki кор * Цена
       if (field === 'netWeight' || field === 'unitPrice' || field === 'grossWeight' || field === 'packagesCount' || field === 'packageType' || field === 'unit') {
-        const unitPrice = newItems[index].unitPrice ?? 0;
-        if (newItems[index].unit === 'шт' || newItems[index].unit === 'шт.') {
-          const sht = Number(newItems[index].customFields?.shtCount) || 0;
-          newItems[index].totalPrice = sht * unitPrice;
-        } else {
-          const netWeight = newItems[index].netWeight ?? 0;
-          newItems[index].totalPrice = netWeight * unitPrice;
-        }
+        newItems[index].totalPrice = calculateTotalPrice(newItems[index]);
       }
 
       // Brutto o'zgarganda: '=N' formulali boshqa qatorlarni qayta hisoblash
@@ -163,7 +167,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
           if (specRow.unitPrice != null) {
             const up = Number(specRow.unitPrice);
             newItems[index].unitPrice = up;
-            newItems[index].totalPrice = up * (newItems[index].netWeight ?? 0);
+            newItems[index].totalPrice = calculateTotalPrice(newItems[index]);
           }
         }
       }
@@ -201,9 +205,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
         const next = [...prev];
         next[index] = { ...next[index], grossWeight: result, grossWeightFormula: undefined };
         next[index] = applyRulesToItem(next[index], tareRules);
-        const netWeight = next[index].netWeight ?? 0;
-        const unitPrice = next[index].unitPrice ?? 0;
-        next[index].totalPrice = netWeight * unitPrice;
+        next[index].totalPrice = calculateTotalPrice(next[index]);
         recalcEqualFormulaRows(next, index);
         return next;
       });
@@ -234,7 +236,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
           if (!Number.isNaN(m)) next[index].netWeight = Math.round(gross - m * (next[index].packagesCount ?? 0));
         }
         next[index] = applyRulesToItem(next[index], tareRules);
-        next[index].totalPrice = (next[index].netWeight ?? 0) * (next[index].unitPrice ?? 0);
+        next[index].totalPrice = calculateTotalPrice(next[index]);
         return next;
       });
       setEditingGrossWeight(null);
@@ -279,8 +281,8 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
           ...next[index],
           netWeight: result,
           netWeightFormula: v,
-          totalPrice: result * (next[index].unitPrice ?? 0),
         };
+        next[index].totalPrice = calculateTotalPrice(next[index]);
         return next;
       });
       setEditingNetWeight(null);
@@ -304,12 +306,13 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
           const grossWeight = item.grossWeight ?? 0;
           const pkgCount = item.packagesCount ?? 0;
           const result = Math.round(grossWeight - tareWeight * pkgCount);
-          return {
+          const newItem = {
             ...item,
             netWeight: result,
             netWeightFormula: `*${tareWeight}`,
-            totalPrice: result * (item.unitPrice ?? 0),
           };
+          newItem.totalPrice = calculateTotalPrice(newItem);
+          return newItem;
         }
         return item;
       });
@@ -348,7 +351,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
           }
         }
         next[index] = applyRulesToItem(next[index], tareRules);
-        next[index].totalPrice = (next[index].netWeight ?? 0) * (next[index].unitPrice ?? 0);
+        next[index].totalPrice = calculateTotalPrice(next[index]);
         return next;
       });
       setEditingPackagesCount(null);
@@ -382,9 +385,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
       newItems[index] = { ...newItems[index], customFields };
       
       if (key === 'shtCount' && (newItems[index].unit === 'шт' || newItems[index].unit === 'шт.')) {
-         const sht = Number(value) || 0;
-         const unitPrice = newItems[index].unitPrice ?? 0;
-         newItems[index].totalPrice = sht * unitPrice;
+         newItems[index].totalPrice = calculateTotalPrice(newItems[index]);
       }
 
       return newItems;

@@ -124,9 +124,20 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
   const SUM_COLUMNS = ['quantity', 'shtCount', 'packagesCount', 'gross', 'net', 'total'];
   const firstSumColIdx = orderedVisibleColumns.findIndex(key => SUM_COLUMNS.includes(key));
 
+  const uniqueUnits = Array.from(new Set(items.map(i => i.unit).filter(Boolean)));
+  let unitPriceLabel = columnLabels.unitPrice || 'Цена за ед.изм.';
+  if (uniqueUnits.length === 1) {
+    const u = uniqueUnits[0];
+    if (u === 'кор.' || u === 'кор') unitPriceLabel = 'Цена за коробку';
+    else if (u === 'упак.' || u === 'упак') unitPriceLabel = 'Цена за упаковку';
+    else if (u === 'шт.' || u === 'шт') unitPriceLabel = 'Цена за шт.';
+    else unitPriceLabel = `Цена за ${u}`;
+  }
+  const effectiveColumnLabels = { ...columnLabels, unitPrice: unitPriceLabel };
+
   const flexMap: Record<string, number> = {};
   orderedVisibleColumns.forEach(key => {
-    flexMap[key] = calcColumnFlex(key, items, columnLabels, totalColumnLabel);
+    flexMap[key] = calcColumnFlex(key, items, effectiveColumnLabels, totalColumnLabel);
   });
 
   const baseFontSize = calcTableFontSize(
@@ -175,7 +186,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
         <View style={styles.tableHeaderRow}>
           {orderedVisibleColumns.map((key) => (
             <View key={key} style={hCell(key)}>
-              <Text>{key === 'total' ? totalColumnLabel : (key === 'shtCount' ? 'шт' : columnLabels[key])}</Text>
+              <Text>{key === 'total' ? totalColumnLabel : (key === 'shtCount' ? 'шт' : effectiveColumnLabels[key])}</Text>
             </View>
           ))}
         </View>

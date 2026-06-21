@@ -275,7 +275,18 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderedVisibleColumns]);
 
-  const renderTableHeader = (py: string) => (
+  const renderTableHeader = (py: string) => {
+    const uniqueUnits = Array.from(new Set(items.map(i => i.unit).filter(Boolean)));
+    let unitPriceLabel = columnLabels.unitPrice || 'Цена за ед.изм.';
+    if (uniqueUnits.length === 1) {
+      const u = uniqueUnits[0];
+      if (u === 'кор.' || u === 'кор') unitPriceLabel = 'Цена за коробку';
+      else if (u === 'упак.' || u === 'упак') unitPriceLabel = 'Цена за упаковку';
+      else if (u === 'шт.' || u === 'шт') unitPriceLabel = 'Цена за шт.';
+      else unitPriceLabel = `Цена за ${u}`;
+    }
+
+    return (
     <thead className="text-left">
       <tr className="bg-white text-gray-900 font-semibold border-b-2 border-gray-800">
         {orderedVisibleColumns.map((key) => {
@@ -349,7 +360,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
             case 'unitPrice':
               return (
                 <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {columnLabels.unitPrice}
+                  {unitPriceLabel}
                 </th>
               );
             case 'total':
@@ -378,6 +389,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
       </tr>
     </thead>
   );
+};
 
   const renderTableFooter = () => {
     const SUM_COLUMNS = ['quantity', 'packagesCount', 'gross', 'net', 'total'];

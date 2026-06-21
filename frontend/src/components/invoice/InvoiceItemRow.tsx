@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatNumber, formatNumberFixed, formatUnitPrice } from './invoiceUtils';
 
-const UNIT_OPTIONS = ['кг', 'шт.', 'л', 'пог.м', 'м2', 'м3', 'компл', 'пар'];
+const UNIT_OPTIONS = ['кг', 'шт.', 'л', 'пог.м', 'м2', 'м3', 'компл', 'пар', 'кор.', 'упак.'];
 
 interface InvoiceItemRowProps {
   item: any;

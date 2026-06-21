@@ -399,7 +399,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         const {
             companyName, inn, productType, phone, contactPerson, stage,
             assignedToId, lostReason, nextCallAt, estimatedExportVolume,
-            region, district, exportedCountries, partners, clientId
+            region, district, exportedCountries, partners, clientId, hasDiscount
         } = req.body;
 
         const existing = await prisma.lead.findUnique({ where: { id } });
@@ -416,6 +416,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         if (assignedToId !== undefined) data.assignedToId = assignedToId ? Number(assignedToId) : null;
         if (lostReason !== undefined) data.lostReason = lostReason;
         if (nextCallAt !== undefined) data.nextCallAt = nextCallAt ? new Date(nextCallAt) : null;
+        if (hasDiscount !== undefined) data.hasDiscount = hasDiscount;
 
         if (estimatedExportVolume !== undefined) {
             if (estimatedExportVolume && !isNaN(Number(estimatedExportVolume))) {

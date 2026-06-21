@@ -70,6 +70,7 @@ interface LeadFull {
     stage: LeadStage;
     lostReason: string | null;
     nextCallAt: string | null;
+    hasDiscount: boolean;
     createdAt: string;
     updatedAt: string;
     assignedTo: { id: number; name: string } | null;
@@ -194,6 +195,7 @@ export default function LeadDetail() {
                 exportedCountries: data.exportedCountries,
                 partners: data.partners,
                 assignedToId: data.assignedTo?.id ?? null,
+                hasDiscount: data.hasDiscount ?? false,
             } as any);
         } catch {
             toast.error('Lid topilmadi');
@@ -604,6 +606,50 @@ export default function LeadDetail() {
                                     ) : (
                                         <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{lead.assignedTo?.name || '—'}</p>
                                     )}
+                                </div>
+                            </div>
+                            
+                            {/* Skidka berildimi section */}
+                            <div className="flex items-start gap-3">
+                                <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Icon icon="lucide:percent" className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">Skidka berildimi?</p>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    await apiClient.put(`/leads/${id}`, { hasDiscount: true });
+                                                    setLead((prev) => prev ? { ...prev, hasDiscount: true } : prev);
+                                                    toast.success("Saqlandi");
+                                                } catch { toast.error("Xatolik"); }
+                                            }}
+                                            className={`px-4 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                                                lead.hasDiscount 
+                                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' 
+                                                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                            }`}
+                                        >
+                                            Ha
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    await apiClient.put(`/leads/${id}`, { hasDiscount: false });
+                                                    setLead((prev) => prev ? { ...prev, hasDiscount: false } : prev);
+                                                    toast.success("Saqlandi");
+                                                } catch { toast.error("Xatolik"); }
+                                            }}
+                                            className={`px-4 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                                                !lead.hasDiscount 
+                                                ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800' 
+                                                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                            }`}
+                                        >
+                                            Yo'q
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

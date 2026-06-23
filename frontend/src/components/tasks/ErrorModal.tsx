@@ -143,7 +143,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
                       <div className="mt-2 text-[11px] font-bold text-yellow-600 flex items-center gap-1.5 bg-yellow-50 w-fit px-2 py-0.5 rounded border border-yellow-100">
                         <i className="fas fa-star text-yellow-500"></i> {error.adminRating} Yulduz. • Mukofot: {Number(error.bountyRewardUzs).toLocaleString('uz-UZ')} UZS va {error.bountyXp} XP 
                       </div>
-                    ) : user?.role === 'ADMIN' ? (
+                    ) : user?.role === 'ADMIN' && error.workerId !== null ? (
                       <div className="mt-2 pt-2 border-t border-gray-200">
                         {ratingErrorId === error.id ? (
                           <div className="flex items-center gap-2 mt-1">

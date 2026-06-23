@@ -53,7 +53,7 @@ const createTaskSchema = z.object({
 router.get('/errors/unrated', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const unratedErrors = await prisma.taskError.findMany({
-      where: { adminRating: null },
+      where: { adminRating: null, workerId: { not: null } },
       include: {
         worker: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
@@ -1743,6 +1743,10 @@ router.put('/:taskId/errors/:errorId/rate', requireAuth(), async (req: AuthReque
 
   if (error.adminRating !== null) {
     return res.status(400).json({ error: 'Bu xato allaqachon baholangan' });
+  }
+
+  if (error.workerId === null) {
+    return res.status(400).json({ error: 'Mijoz tomonidan qilingan xato baholanmaydi' });
   }
 
   const rating = parsed.data.rating;

@@ -47,7 +47,7 @@ export async function translateRequisites(
       messages: [
         {
           role: 'system',
-          content: `You are a professional translator for international trade documents. Translate the given JSON fields from Russian to English. Keep INN numbers, bank account numbers, SWIFT codes, phone numbers, email addresses, and other identifiers unchanged. For company names, transliterate them if they don't have a common English equivalent (e.g. "ООО" → "LLC", "ЗАО" → "CJSC"). For addresses, transliterate city/region names. Do not add any trademark (™) symbols or other special characters that are not present in the original text. Return a JSON object with the same keys but English values.`,
+          content: `You are a professional translator for international trade documents. Translate the given JSON fields from Russian to English. Keep INN numbers, bank account numbers, SWIFT codes, phone numbers, email addresses, and other identifiers unchanged. For company names, transliterate them if they don't have a common English equivalent (e.g. "ООО" → "LLC", "ЗАО" → "CJSC"). For addresses, transliterate city/region names. Do not add any trademark symbols (like ™, ®, TM) or other special characters that are not present in the original text. Return a JSON object with the same keys but English values.`,
         },
         {
           role: 'user',
@@ -59,8 +59,22 @@ export async function translateRequisites(
     const content = response.choices[0]?.message?.content;
     if (!content) return Object.fromEntries(entries);
 
-    const cleanedContent = content.replace(/™/g, '').replace(/ТМ/g, '');
-    const parsed = JSON.parse(cleanedContent) as TranslatedRequisites;
+    const parsed = JSON.parse(content) as TranslatedRequisites;
+    
+    // Clean up hallucinated TM symbols from values
+    for (const key in parsed) {
+      if (typeof parsed[key] === 'string') {
+        parsed[key] = parsed[key]
+          .replace(/™/g, '')
+          .replace(/ТМ/g, '') // Cyrillic TM
+          .replace(/®/g, '')
+          .replace(/\bTM\b/g, '') // Latin TM whole word
+          .replace(/\s+/g, ' ') // Collapse multiple spaces
+          .replace(/\s+\./g, '.') // Fix spaces before dots left by TM removal
+          .trim();
+      }
+    }
+
     return parsed;
   } catch (error) {
     console.error('Translation error:', error);

@@ -42,12 +42,23 @@ form.invoice-form,
   vertical-align: middle !important;
 }
 
+.pdf-mode table.pricelist-table,
+.pdf-mode table.pricelist-table th,
+.pdf-mode table.pricelist-table td {
+  border: 1px solid #000 !important;
+}
+
 .pdf-mode .items-table-compact thead th {
   background: #fff !important;
   color: #111 !important;
   vertical-align: top !important;
   position: relative;
   top: -6px;
+}
+
+.pdf-mode table.pricelist-table thead th {
+  position: static !important;
+  top: auto !important;
 }
 
 .pdf-mode .items-table-compact tfoot td {
@@ -75,6 +86,11 @@ form.invoice-form,
   vertical-align: middle !important;
   padding-top: 0px;
   padding-bottom: 12px;
+}
+
+.pdf-mode table.pricelist-table tbody td {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
 }
 
 .pdf-mode .invoice-header {

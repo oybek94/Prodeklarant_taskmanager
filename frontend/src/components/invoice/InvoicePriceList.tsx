@@ -27,7 +27,7 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
   const displayCurrency = contract?.contractCurrency || form.currency || 'USD';
 
   return (
-    <div className="w-full px-10 pt-10">
+    <div className={`w-full px-10 ${isPdfMode ? 'pt-24' : 'pt-10'}`}>
 
       {/* ===== HEADER (InvoiceHeader uslubida) ===== */}
       <div className="flex justify-between items-start w-full mb-0 invoice-header">
@@ -68,7 +68,10 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
 
         {/* Right: Title */}
         <div className="flex-1 min-w-0 pl-4 text-right">
-          <h1 className="text-6xl font-bold text-gray-800 dark:text-gray-100 mb-6">
+          <h1 
+            className="font-bold text-gray-800 dark:text-gray-100 mb-6"
+            style={{ fontSize: isPdfMode ? '64px' : '3.75rem', lineHeight: 1 }}
+          >
             ПРАЙС-ЛИСТ
           </h1>
         </div>
@@ -112,20 +115,20 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
       {/* ===== TABLE (InvoiceItemsTable readonly uslubida) ===== */}
       {/* Jadval kichikroq, markazda, tepadan va pastdan erkin joy bilan */}
       <div className="mt-44 mb-16 mx-auto" style={{ maxWidth: '85%' }}>
-        <div className="overflow-x-auto border border-black rounded-lg invoice-table-wrap">
-          <table className="w-full text-lg items-table-compact border-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-lg items-table-compact pricelist-table border-collapse border border-black">
             <thead className="text-left">
-              <tr className="bg-white text-gray-900 font-semibold border-b-2 border-gray-800">
-                <th className="px-3 py-3 text-center text-base font-semibold w-14" style={{ verticalAlign: 'top' }}>
+              <tr className="bg-white text-gray-900 font-semibold border-b border-black">
+                <th className="px-3 py-3 text-center text-base font-semibold border-r border-black w-14" style={{ verticalAlign: 'top' }}>
                   №
                 </th>
-                <th className="px-3 py-3 text-left text-base font-semibold" style={{ verticalAlign: 'top' }}>
+                <th className="px-3 py-3 text-left text-base font-semibold border-r border-black" style={{ verticalAlign: 'top' }}>
                   Наименование товара
                 </th>
-                <th className="px-3 py-3 text-center text-base font-semibold" style={{ verticalAlign: 'top' }}>
+                <th className="px-3 py-3 text-center text-base font-semibold border-r border-black" style={{ verticalAlign: 'top' }}>
                   Ед. изм.
                 </th>
-                <th className="px-3 py-3 text-right text-base font-semibold" style={{ verticalAlign: 'top' }}>
+                <th className="px-3 py-3 text-right text-base font-semibold border-r border-black" style={{ verticalAlign: 'top' }}>
                   Цена ({displayCurrency})
                 </th>
                 <th className="px-3 py-3 text-center text-base font-semibold" style={{ verticalAlign: 'top' }}>
@@ -136,11 +139,11 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
             <tbody>
               {items && items.length > 0 ? (
                 items.map((item, idx) => (
-                  <tr key={item.id || idx} className="border-b border-gray-200">
-                    <td className="px-3 py-4 text-center">{idx + 1}</td>
-                    <td className="px-3 py-4">{item.name}</td>
-                    <td className="px-3 py-4 text-center">{item.unit || '---'}</td>
-                    <td className="px-3 py-4 text-right font-semibold">{formatUnitPrice(item.unitPrice)}</td>
+                  <tr key={item.id || idx} className="border-b border-black">
+                    <td className="px-3 py-4 text-center border-r border-black">{idx + 1}</td>
+                    <td className="px-3 py-4 border-r border-black">{item.name}</td>
+                    <td className="px-3 py-4 text-center border-r border-black">{item.unit || '---'}</td>
+                    <td className="px-3 py-4 text-right font-semibold border-r border-black">{formatUnitPrice(item.unitPrice)}</td>
                     <td className="px-3 py-4 text-center">{deliveryTerms || '---'}</td>
                   </tr>
                 ))

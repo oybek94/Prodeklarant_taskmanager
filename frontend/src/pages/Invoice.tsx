@@ -41,6 +41,8 @@ import { ContractRequirementsNote } from '../components/invoice/ContractRequirem
 import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
 
 import { pdf } from '@react-pdf/renderer';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas-pro';
 import { InvoicePDFDocument } from '../components/invoice/pdf/InvoicePDFDocument';
 import Tasks from './Tasks';
 
@@ -451,6 +453,51 @@ const Invoice = () => {
   const generatePdf = useCallback(async (includeSeal: boolean) => {
     try {
       const toastId = toast.loading("PDF tayyorlanmoqda...");
+
+      if (viewTab === 'pricelist') {
+        setIsPdfMode(true);
+        setPdfIncludeSeal(includeSeal);
+
+        setTimeout(async () => {
+          try {
+            if (!invoiceRef.current) throw new Error("Invoice elementi topilmadi");
+            const element = invoiceRef.current;
+            
+            const canvas = await html2canvas(element, {
+              scale: 3,
+              useCORS: true,
+              logging: false,
+              backgroundColor: '#ffffff'
+            });
+
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            const pdfDoc = new jsPDF({
+              orientation: 'portrait',
+              unit: 'mm',
+              format: 'a4'
+            });
+
+            const pdfWidth = pdfDoc.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            
+            pdfDoc.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+
+            const inv = invoice?.invoiceNumber || form.invoiceNumber || 'Invoice';
+            const plateStr = getVehiclePlate(form.vehicleNumber);
+            const plate = plateStr ? ` АВТО ${plateStr}` : '';
+            pdfDoc.save(`${inv}${plate}.pdf`);
+
+            setIsPdfMode(false);
+            toast.success("PDF muvaffaqiyatli yuklab olindi", { id: toastId });
+          } catch (err) {
+            console.error(err);
+            setIsPdfMode(false);
+            toast.error("PDF yaratishda xatolik yuz berdi", { id: toastId });
+          }
+        }, 500);
+        return;
+      }
+
       const doc = (
         <InvoicePDFDocument
           viewTab={viewTab}

@@ -7,6 +7,7 @@ import { PdfAdditionalInfo } from './PdfAdditionalInfo';
 import { PdfItemsTable } from './PdfItemsTable';
 import { PdfNotes } from './PdfNotes';
 import { PdfSignatures } from './PdfSignatures';
+import { PdfPriceList } from './PdfPriceList';
 
 interface InvoicePDFDocumentProps {
   viewTab: 'invoice' | 'spec' | 'packing' | 'pricelist';
@@ -156,52 +157,64 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
   return (
     <Document>
       <Page size="A4" style={pageStyle}>
-        <PdfHeader
-          viewTab={viewTab}
-          form={form}
-          invoice={invoice}
-          selectedContract={selectedContract}
-          scale={scale}
-        />
+        {viewTab === 'pricelist' ? (
+          <PdfPriceList
+            form={form}
+            items={items}
+            selectedContract={selectedContract}
+            pdfIncludeSeal={pdfIncludeSeal}
+            scale={scale}
+          />
+        ) : (
+          <>
+            <PdfHeader
+              viewTab={viewTab}
+              form={form}
+              invoice={invoice}
+              selectedContract={selectedContract}
+              scale={scale}
+            />
 
-        <PdfParties
-          selectedContract={selectedContract}
-          task={task}
-          isSellerShipper={isSellerShipper}
-          isBuyerConsignee={isBuyerConsignee}
-          scale={scale}
-        />
+            <PdfParties
+              selectedContract={selectedContract}
+              task={task}
+              isSellerShipper={isSellerShipper}
+              isBuyerConsignee={isBuyerConsignee}
+              scale={scale}
+            />
 
-        <PdfAdditionalInfo
-          form={form}
-          viewTab={viewTab}
-          isAdditionalInfoVisible={isAdditionalInfoVisible}
-          customFields={customFields}
-          specCustomFields={specCustomFields}
-          additionalFieldsOrder={additionalFieldsOrder}
-          scale={scale}
-        />
+            <PdfAdditionalInfo
+              form={form}
+              viewTab={viewTab}
+              isAdditionalInfoVisible={isAdditionalInfoVisible}
+              customFields={customFields}
+              specCustomFields={specCustomFields}
+              additionalFieldsOrder={additionalFieldsOrder}
+              scale={scale}
+            />
 
-        <View style={[dividerStyle, { borderTopWidth: 1.5, marginVertical: sc(8) }]} />
+            <View style={[dividerStyle, { borderTopWidth: 1.5, marginVertical: sc(8) }]} />
 
-        <PdfItemsTable
-          items={items}
-          orderedVisibleColumns={orderedVisibleColumns}
-          columnLabels={columnLabels}
-          totalColumnLabel={totalColumnLabel}
-          invoiceCurrency={invoiceCurrency}
-          showSumWords={viewTab !== 'packing' && orderedVisibleColumns.includes('total')}
-          scale={scale}
-        />
+            <PdfItemsTable
+              items={items}
+              orderedVisibleColumns={orderedVisibleColumns}
+              columnLabels={columnLabels}
+              totalColumnLabel={totalColumnLabel}
+              invoiceCurrency={invoiceCurrency}
+              showSumWords={viewTab !== 'packing' && orderedVisibleColumns.includes('total')}
+              scale={scale}
+            />
 
-        <PdfNotes notes={form.notes} scale={scale} />
+            <PdfNotes notes={form.notes} scale={scale} />
 
-        <PdfSignatures
-          contract={selectedContract || {}}
-          viewTab={viewTab}
-          pdfIncludeSeal={pdfIncludeSeal}
-          scale={scale}
-        />
+            <PdfSignatures
+              contract={selectedContract || {}}
+              viewTab={viewTab}
+              pdfIncludeSeal={pdfIncludeSeal}
+              scale={scale}
+            />
+          </>
+        )}
       </Page>
     </Document>
   );

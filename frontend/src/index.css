@@ -76,75 +76,108 @@ body {
   @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100;
 }
 
-/* Global Dark Mode Overrides for instant application across the dashboard */
+/* Global Dark Mode Overrides — charcoal palette (#121212) */
 .dark {
   color-scheme: dark;
+
+  /* Palette tokens */
+  --pd-bg: #121212;             /* base / page background */
+  --pd-surface: #1e1e1e;        /* cards, panels */
+  --pd-elevated: #2a2a2a;       /* hovers, inputs, raised surfaces */
+  --pd-raised: #333333;         /* highest elevation */
+  --pd-border: #444444;         /* borders / dividers */
+  --pd-text: #e0e0e0;           /* primary text */
+  --pd-text-secondary: #b0b0b0; /* secondary text */
+  --pd-accent: #888888;         /* muted text, icons, accents */
+
+  /* Re-map the Tailwind gray ramp (dark only) so every dark-mode background
+     utility — solid, opacity-modified (e.g. bg-gray-900/60) and gradients —
+     follows the charcoal scale. Tailwind v4 colors resolve via these vars. */
+  --color-gray-950: #0d0d0d;
+  --color-gray-900: var(--pd-bg);
+  --color-gray-800: var(--pd-surface);
 }
 
-/* Core backgrounds */
+/* Page background + base text */
+.dark body {
+  background-color: var(--pd-bg) !important;
+  color: var(--pd-text) !important;
+}
+
+/* ---- Surfaces ---- */
+/* Cards / panels */
 .dark [class~="bg-white"] {
-  background-color: #1f2937 !important;
+  background-color: var(--pd-surface) !important;
 }
 
-.dark [class~="bg-white/90"] {
-  background-color: rgba(31, 41, 55, 0.9) !important;
-}
+.dark [class~="bg-white/90"] { background-color: rgba(30, 30, 30, 0.9) !important; }
+.dark [class~="bg-white/80"] { background-color: rgba(30, 30, 30, 0.8) !important; }
+.dark [class~="bg-white/70"] { background-color: rgba(30, 30, 30, 0.7) !important; }
+.dark [class~="bg-white/60"] { background-color: rgba(30, 30, 30, 0.6) !important; }
+.dark [class~="bg-white/50"] { background-color: rgba(30, 30, 30, 0.5) !important; }
 
-.dark [class~="bg-white/80"] {
-  background-color: rgba(31, 41, 55, 0.8) !important;
-}
-
-.dark [class~="bg-white/70"] {
-  background-color: rgba(31, 41, 55, 0.7) !important;
-}
-
-.dark [class~="bg-white/60"] {
-  background-color: rgba(31, 41, 55, 0.6) !important;
-}
-
-.dark [class~="bg-white/50"] {
-  background-color: rgba(31, 41, 55, 0.5) !important;
-}
-
+/* Page-level / deepest backgrounds */
 .dark [class~="bg-gray-50"],
 .dark [class~="bg-gray-50/50"] {
-  background-color: #111827 !important;
+  background-color: var(--pd-bg) !important;
 }
 
-.dark [class~="bg-gray-100"] {
-  background-color: #374151 !important;
+/* Elevated surfaces */
+.dark [class~="bg-gray-100"],
+.dark [class~="dark:bg-gray-700"] {
+  background-color: var(--pd-elevated) !important;
 }
 
-.dark [class~="bg-gray-200"] {
-  background-color: #4b5563 !important;
+.dark [class*="dark:bg-gray-700/"] {
+  background-color: rgba(42, 42, 42, 0.6) !important;
 }
 
-/* Handle hovers */
+.dark [class~="bg-gray-200"],
+.dark [class~="dark:bg-gray-600"] {
+  background-color: var(--pd-raised) !important;
+}
+
+/* ---- Hovers ---- */
 .dark [class~="hover:bg-gray-50"]:hover,
 .dark [class~="hover:bg-gray-100"]:hover,
+.dark [class~="dark:hover:bg-gray-700"]:hover,
 .dark table tbody tr:hover td {
-  background-color: #374151 !important;
+  background-color: var(--pd-elevated) !important;
 }
 
-.dark [class~="hover:bg-gray-200"]:hover {
-  background-color: #4b5563 !important;
+.dark [class~="hover:bg-gray-200"]:hover,
+.dark [class~="dark:hover:bg-gray-600"]:hover {
+  background-color: var(--pd-raised) !important;
 }
 
 .dark [class~="hover:bg-white"]:hover {
-  background-color: #1f2937 !important;
+  background-color: var(--pd-surface) !important;
 }
 
-/* Text colors globally */
+/* ---- Text ---- */
+/* Primary text */
 .dark [class~="text-black"],
 .dark [class~="text-gray-900"],
 .dark [class~="text-gray-800"],
-.dark [class~="text-gray-700"] {
-  color: #f3f4f6 !important;
+.dark [class~="text-gray-700"],
+.dark [class~="dark:text-white"],
+.dark [class~="dark:text-gray-100"],
+.dark [class~="dark:text-gray-200"] {
+  color: var(--pd-text) !important;
 }
 
+/* Secondary text */
 .dark [class~="text-gray-600"],
-.dark [class~="text-gray-500"] {
-  color: #d1d5db !important;
+.dark [class~="text-gray-500"],
+.dark [class~="dark:text-gray-300"] {
+  color: var(--pd-text-secondary) !important;
+}
+
+/* Muted / accent text */
+.dark [class~="text-gray-400"],
+.dark [class~="dark:text-gray-400"],
+.dark [class~="dark:text-gray-500"] {
+  color: var(--pd-accent) !important;
 }
 
 /* Text color hovers */
@@ -154,44 +187,45 @@ body {
   color: #ffffff !important;
 }
 
-/* Borders globally */
+/* ---- Borders ---- */
 .dark [class~="border-black"],
 .dark [class~="border-gray-800"],
 .dark [class~="border-gray-100"],
 .dark [class~="border-gray-100/80"],
 .dark [class~="border-gray-200"],
-.dark [class~="border-gray-200/50"] {
-  border-color: #374151 !important;
-}
-
-.dark [class~="border-gray-300"] {
-  border-color: #4b5563 !important;
+.dark [class~="border-gray-200/50"],
+.dark [class~="border-gray-300"],
+.dark [class~="dark:border-gray-600"],
+.dark [class~="dark:border-gray-700"],
+.dark [class~="dark:border-gray-800"] {
+  border-color: var(--pd-border) !important;
 }
 
 .dark [class~="border-white"],
 .dark [class~="border-white/80"],
 .dark [class~="border-white/60"] {
-  border-color: rgba(55, 65, 81, 0.8) !important;
+  border-color: rgba(68, 68, 68, 0.8) !important;
 }
 
+/* ---- Form fields ---- */
 .dark input,
 .dark textarea,
 .dark select {
-  background-color: #374151 !important;
-  /* bg-gray-700 */
-  color: #f3f4f6 !important;
-  /* text-gray-100 */
-  border-color: #4b5563 !important;
-  /* border-gray-600 */
+  background-color: var(--pd-elevated) !important;
+  color: var(--pd-text) !important;
+  border-color: var(--pd-border) !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--pd-accent) !important;
 }
 
 .dark input:disabled,
 .dark textarea:disabled,
 .dark select:disabled {
-  background-color: #1f2937 !important;
-  /* bg-gray-800 */
-  color: #9ca3af !important;
-  /* text-gray-400 */
+  background-color: var(--pd-bg) !important;
+  color: var(--pd-accent) !important;
 }
 
 /* Fix specific backgrounds that shouldn't be overridden */
@@ -230,6 +264,79 @@ body {
 .dark [class~="text-amber-800"] {
   color: #fcd34d !important;
   /* text-amber-300 */
+}
+
+/* Red — validation / error states (invoice item cells, forms) */
+.dark [class~="bg-red-50"] {
+  background-color: rgba(127, 29, 29, 0.30) !important;
+  /* bg-red-900/30 */
+}
+
+.dark [class~="border-red-200"],
+.dark [class~="border-red-300"],
+.dark [class~="border-red-500"] {
+  border-color: rgba(248, 113, 113, 0.6) !important;
+  /* keep the error outline visible (overrides the generic .dark input border) */
+}
+
+.dark [class~="text-red-500"],
+.dark [class~="text-red-600"],
+.dark [class~="text-red-700"],
+.dark [class~="text-red-800"] {
+  color: #f87171 !important;
+  /* text-red-400 */
+}
+
+/* Green / emerald — success states (export price calculator, info display) */
+.dark [class~="bg-green-50"],
+.dark [class~="bg-emerald-50"] {
+  background-color: rgba(6, 78, 59, 0.30) !important;
+  /* bg-emerald-900/30 */
+}
+
+.dark [class~="border-green-200"],
+.dark [class~="border-green-300"],
+.dark [class~="border-emerald-200"] {
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+.dark [class~="text-green-700"],
+.dark [class~="text-green-800"],
+.dark [class~="text-emerald-700"],
+.dark [class~="text-emerald-800"] {
+  color: #34d399 !important;
+  /* text-emerald-400 */
+}
+
+/* Deeper blue highlights (invoice items table) */
+.dark [class~="bg-blue-100"] {
+  background-color: rgba(30, 58, 138, 0.40) !important;
+}
+
+.dark [class~="bg-blue-200"] {
+  background-color: rgba(30, 64, 175, 0.50) !important;
+}
+
+.dark [class~="border-blue-100"],
+.dark [class~="border-blue-200"] {
+  border-color: rgba(59, 130, 246, 0.40) !important;
+}
+
+/* Emerald accent button surface (invoice toolbar) */
+.dark [class~="hover:bg-emerald-50"]:hover {
+  background-color: rgba(6, 78, 59, 0.45) !important;
+}
+
+/* Invoice read-only fields: use the deep page background like disabled inputs,
+   instead of the hardcoded light #f3f4f6 from the light-mode rules. */
+.dark .invoice-form-readonly input:not([type="button"]):not([type="submit"]):not(.allow-edit),
+.dark .invoice-form-readonly select:not(.allow-edit),
+.dark .invoice-form-readonly textarea:not(.allow-edit),
+.dark .invoice-additional-info-modal-readonly input,
+.dark .invoice-additional-info-modal-readonly select,
+.dark .invoice-additional-info-modal-readonly textarea {
+  background-color: var(--pd-bg) !important;
+  color: var(--pd-text-secondary) !important;
 }
 
 @keyframes checkmarkDraw {

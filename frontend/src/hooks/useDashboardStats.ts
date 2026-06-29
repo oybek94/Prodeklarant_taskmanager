@@ -25,6 +25,7 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
   const [allMedals, setAllMedals] = useState<UserMedal[]>([]);
   const [myMedals, setMyMedals] = useState<UserMedal[]>([]);
   const [unratedErrors, setUnratedErrors] = useState<any[]>([]);
+  const [pendingDeleteErrors, setPendingDeleteErrors] = useState<any[]>([]);
 
   const loadUnratedErrors = async () => {
     if (user?.role !== 'ADMIN') return;
@@ -33,6 +34,16 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
       setUnratedErrors(response.data);
     } catch (error) {
       console.error('Error loading unrated errors:', error);
+    }
+  };
+
+  const loadPendingDeleteErrors = async () => {
+    if (user?.role !== 'ADMIN') return;
+    try {
+      const response = await apiClient.get('/tasks/errors/pending-delete');
+      setPendingDeleteErrors(response.data);
+    } catch (error) {
+      console.error('Error loading pending delete errors:', error);
     }
   };
 
@@ -220,6 +231,7 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
     loadMedals();
     if (user?.role === 'ADMIN') {
       loadUnratedErrors();
+      loadPendingDeleteErrors();
     }
   }, [user]);
 
@@ -293,6 +305,8 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
     allMedals,
     myMedals,
     unratedErrors,
-    loadUnratedErrors
+    loadUnratedErrors,
+    pendingDeleteErrors,
+    loadPendingDeleteErrors
   };
 };

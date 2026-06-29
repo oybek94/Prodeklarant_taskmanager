@@ -22,9 +22,10 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const user = req.user;
 
-    // If user is not ADMIN, show only their own data
+    // If user is not ADMIN and it's not a dropdown request, show only their own data
+    const isDropdown = req.query.forDropdown === 'true';
     const where: any = {};
-    if (user && user.role !== 'ADMIN') {
+    if (user && user.role !== 'ADMIN' && !isDropdown) {
       where.id = user.id;
     }
 
@@ -55,6 +56,10 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
         name: 'asc',
       },
     });
+
+    if (isDropdown) {
+      return res.json(workers);
+    }
 
     const workersWithBalance = await Promise.all(
       workers.map(async (worker) => {

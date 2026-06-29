@@ -13,6 +13,8 @@ interface DashboardHeaderProps {
   myMedals: UserMedal[];
   exchangeRate: number | null;
   setShowRanksModal: (show: boolean) => void;
+  pendingDeleteErrors?: any[];
+  loadPendingDeleteErrors?: () => void;
 }
 
 const formatUzs = (value: number) => value.toLocaleString('uz-UZ');
@@ -24,7 +26,9 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   setShowUnratedModal,
   myMedals,
   exchangeRate,
-  setShowRanksModal
+  setShowRanksModal,
+  pendingDeleteErrors,
+  loadPendingDeleteErrors = () => {}
 }) => {
   const navigate = useNavigate();
   const hour = new Date().getHours();
@@ -89,6 +93,45 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               <button onClick={() => setShowUnratedModal(true)} className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-md transition-all text-xs flex items-center justify-center gap-1.5 whitespace-nowrap">
                 <Icon icon="lucide:star" className="w-3.5 h-3.5" /> Baholash
               </button>
+            </div>
+          )}
+
+          {/* Pending Delete Errors Alert for Admin */}
+          {user?.role === 'ADMIN' && pendingDeleteErrors && pendingDeleteErrors.length > 0 && (
+            <div className="w-full max-w-md flex flex-col gap-2 bg-red-50/80 dark:bg-red-900/20 border border-red-200/60 dark:border-red-800/40 rounded-2xl p-4 shadow-sm backdrop-blur-md max-h-48 overflow-y-auto">
+              <div className="flex items-center gap-2 mb-2">
+                <Icon icon="lucide:trash-2" className="w-5 h-5 text-red-600 dark:text-red-400" />
+                <h3 className="text-sm font-bold text-red-800 dark:text-red-300">O'chirish so'ralgan xatolar</h3>
+              </div>
+              {pendingDeleteErrors.map(err => (
+                <div key={err.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/60 dark:bg-black/20 p-2 rounded-lg border border-red-100 dark:border-red-800/30">
+                  <div className="text-xs text-red-900 dark:text-red-200 mb-2 sm:mb-0">
+                    <span className="font-bold">{err.task?.title}</span> bosqichida <span className="font-bold">{err.worker?.name || 'Mijoz'}</span>ning xatosi
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={async () => {
+                        try {
+                          await import('../../lib/api').then(m => m.default.post(`/tasks/${err.taskId}/errors/${err.id}/approve-delete`));
+                          loadPendingDeleteErrors();
+                        } catch (e) { console.error(e); }
+                      }} 
+                      className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white font-bold rounded shadow transition-all text-xs">
+                      Tasdiqlash
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        try {
+                          await import('../../lib/api').then(m => m.default.post(`/tasks/${err.taskId}/errors/${err.id}/reject-delete`));
+                          loadPendingDeleteErrors();
+                        } catch (e) { console.error(e); }
+                      }}
+                      className="px-2 py-1 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded shadow transition-all text-xs">
+                      Bekor qilish
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

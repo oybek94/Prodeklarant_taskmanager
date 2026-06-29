@@ -64,6 +64,24 @@ router.get('/errors/unrated', requireAuth('ADMIN'), async (req: AuthRequest, res
     });
     res.json(unratedErrors);
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/errors/pending-delete', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const pendingErrors = await prisma.taskError.findMany({
+      where: { deleteRequested: true },
+      include: {
+        worker: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true } },
+        task: { select: { id: true, title: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+    res.json(pendingErrors);
+  } catch (error: any) {
     res.status(500).json({ error: 'Xatolik yuz berdi' });
   }
 });
@@ -1712,12 +1730,81 @@ router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest
     return res.status(403).json({ error: 'Xatoni faqat 2 kun ichida qo‘shgan odam o‘chira oladi' });
   }
 
+  if (!isAdmin) {
+    // Non-adminlar o'chirishni so'raydi
+    await prisma.taskError.update({
+      where: { id: errorId },
+      data: { deleteRequested: true }
+    });
+    return res.status(200).json({ message: 'O\'chirish so\'rovi adminga yuborildi' });
+  }
+
   await prisma.$transaction(async (tx) => {
+    // Agar xato baholangan bo'lsa, XPlarni qaytarish
+    if (error.adminRating !== null && error.bountyXp && error.workerId) {
+      if (error.workerId !== error.createdById) {
+        await (tx as any).user.update({
+          where: { id: error.workerId },
+          data: { xp: { increment: error.bountyXp } },
+        });
+        await (tx as any).user.update({
+          where: { id: error.createdById },
+          data: { xp: { decrement: error.bountyXp } },
+        });
+      } else {
+        await (tx as any).user.update({
+          where: { id: error.workerId },
+          data: { xp: { increment: error.bountyXp } },
+        });
+      }
+    }
     await (tx as any).taskError.delete({ where: { id: errorId } });
   });
 
   res.status(204).send();
   socketEmitter.broadcast('task:errorUpdated', { taskId: error.taskId });
+});
+
+router.post('/:taskId/errors/:errorId/approve-delete', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  const errorId = Number(req.params.errorId);
+  const error = await prisma.taskError.findUnique({
+    where: { id: errorId },
+  });
+  if (!error) return res.status(404).json({ error: 'Xato topilmadi' });
+
+  await prisma.$transaction(async (tx) => {
+    // Agar xato baholangan bo'lsa, XPlarni qaytarish
+    if (error.adminRating !== null && error.bountyXp && error.workerId) {
+      if (error.workerId !== error.createdById) {
+        await (tx as any).user.update({
+          where: { id: error.workerId },
+          data: { xp: { increment: error.bountyXp } },
+        });
+        await (tx as any).user.update({
+          where: { id: error.createdById },
+          data: { xp: { decrement: error.bountyXp } },
+        });
+      } else {
+        await (tx as any).user.update({
+          where: { id: error.workerId },
+          data: { xp: { increment: error.bountyXp } },
+        });
+      }
+    }
+    await (tx as any).taskError.delete({ where: { id: errorId } });
+  });
+
+  res.status(204).send();
+  socketEmitter.broadcast('task:errorUpdated', { taskId: error.taskId });
+});
+
+router.post('/:taskId/errors/:errorId/reject-delete', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  const errorId = Number(req.params.errorId);
+  await prisma.taskError.update({
+    where: { id: errorId },
+    data: { deleteRequested: false }
+  });
+  res.status(204).send();
 });
 
 const rateErrorSchema = z.object({
@@ -1813,6 +1900,29 @@ router.put('/:taskId/errors/:errorId/rate', requireAuth(), async (req: AuthReque
           metadata: { 
             isXpAnimation: true, 
             type: 'XP_GAIN', 
+            xpAmount: bountyXp, 
+            stageName: errorUpdated.stageName,
+            taskTitle: errorUpdated.task?.title || '',
+            comment: errorUpdated.comment || ''
+          },
+        }
+      });
+    } else if (errorUpdated.workerId === errorUpdated.createdById) {
+      // O'z xatosini topsa faqat XP jarima
+      await (tx as any).user.update({
+        where: { id: errorUpdated.workerId },
+        data: { xp: { decrement: bountyXp } },
+      });
+
+      wNotif = await (tx as any).notification.create({
+        data: {
+          userId: errorUpdated.workerId,
+          type: 'SYSTEM',
+          title: 'XP Ayrildi',
+          message: `O'z xatoyingizni tasdiqlaganingiz uchun ${bountyXp} XP jarima.`,
+          metadata: { 
+            isXpAnimation: true, 
+            type: 'XP_LOSS', 
             xpAmount: bountyXp, 
             stageName: errorUpdated.stageName,
             taskTitle: errorUpdated.task?.title || '',

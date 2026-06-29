@@ -228,6 +228,7 @@ model TaskError {
   adminRatedAt       DateTime?
   bountyRewardUzs    Decimal?        @db.Decimal(18, 2)
   bountyXp           Int?
+  deleteRequested    Boolean         @default(false)
   createdById        Int
   createdBy          User            @relation("TaskErrorCreatedBy", fields: [createdById], references: [id])
   task               Task            @relation(fields: [taskId], references: [id])

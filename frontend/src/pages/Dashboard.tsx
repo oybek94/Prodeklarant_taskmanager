@@ -53,7 +53,9 @@ const Dashboard = () => {
     allMedals,
     myMedals,
     unratedErrors,
-    loadUnratedErrors
+    loadUnratedErrors,
+    pendingDeleteErrors,
+    loadPendingDeleteErrors
   } = useDashboardStats(period);
 
   const handleRateSuccess = useCallback(() => { 
@@ -80,6 +82,8 @@ const Dashboard = () => {
               user={user}
               stats={stats}
               unratedErrors={unratedErrors}
+              pendingDeleteErrors={pendingDeleteErrors}
+              loadPendingDeleteErrors={loadPendingDeleteErrors}
               setShowUnratedModal={setShowUnratedModal}
               myMedals={myMedals}
               exchangeRate={exchangeRate}

@@ -92,7 +92,7 @@ export function useTaskData(userRole?: string) {
         const response = await apiClient.get('/users');
         setWorkers(Array.isArray(response.data) ? response.data : []);
       } else {
-        const response = await apiClient.get('/workers');
+        const response = await apiClient.get('/workers?forDropdown=true');
         setWorkers(Array.isArray(response.data) ? response.data : []);
       }
     } catch (error) {

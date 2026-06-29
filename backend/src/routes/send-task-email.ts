@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { ValidationService } from '../services/validation.service';
-import { sendMail, requireMailRuConfig } from '../services/mail.service';
+import { sendMail, requireSmtpConfig } from '../services/mail.service';
 
 const router = Router();
 
@@ -72,7 +72,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
     const { task_id, subject, body, recipients, cc, bcc } = parsed.data;
 
     try {
-      requireMailRuConfig();
+      requireSmtpConfig();
     } catch (e: any) {
       return res.status(503).json({
         success: false,

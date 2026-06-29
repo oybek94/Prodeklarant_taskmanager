@@ -75,7 +75,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {isLoading && (
-          <Icon icon="lucide:loader-2" className="w-4 h-4 mr-2 animate-spin" />
+          <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 mr-2 animate-spin" />
         )}
         {!isLoading && icon && (
           <Icon icon={icon} className={twMerge('w-4 h-4', children ? 'mr-2' : '')} />

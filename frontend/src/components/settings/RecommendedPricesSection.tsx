@@ -116,7 +116,7 @@ export function RecommendedPricesSection() {
       <div className="flex justify-between items-center mb-5">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
-            <Icon icon="lucide:dollar-sign" className="w-4 h-4 text-green-600" />
+            <Icon icon="solar:dollar-bold-duotone" className="w-4 h-4 text-green-600" />
           </div>
           <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">Tavsiyaviy eksport narxlari</h2>
         </div>
@@ -126,7 +126,7 @@ export function RecommendedPricesSection() {
             onClick={() => setShowAddForm(!showAddForm)}
             className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium"
           >
-            <Icon icon={showAddForm ? "lucide:minus" : "lucide:plus"} className="w-4 h-4" />
+            <Icon icon={showAddForm ? "solar:minus-circle-bold-duotone" : "solar:add-circle-bold-duotone"} className="w-4 h-4" />
             {showAddForm ? "Yopish" : "Qo'shish"}
           </button>
         </div>
@@ -175,7 +175,7 @@ export function RecommendedPricesSection() {
         <div className="py-8 text-center text-gray-500 dark:text-slate-400">Yuklanmoqda...</div>
       ) : prices.length === 0 ? (
         <div className="py-8 text-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-gray-200 dark:border-slate-700">
-          <Icon icon="lucide:box" className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <Icon icon="solar:box-bold-duotone" className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">Hali mahsulotlar kiritilmagan.</p>
         </div>
       ) : (
@@ -223,10 +223,10 @@ export function RecommendedPricesSection() {
                       </td>
                       <td className="px-4 py-2 text-right space-x-2">
                         <button onClick={handleSaveEdit} className="text-green-600 hover:text-green-700 p-1" title="Saqlash">
-                          <Icon icon="lucide:check" className="w-4 h-4" />
+                          <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4" />
                         </button>
                         <button onClick={cancelEdit} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:text-slate-300 p-1" title="Bekor qilish">
-                          <Icon icon="lucide:x" className="w-4 h-4" />
+                          <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />
                         </button>
                       </td>
                     </>
@@ -239,10 +239,10 @@ export function RecommendedPricesSection() {
                       </td>
                       <td className="px-4 py-3 text-right space-x-2">
                         <button onClick={() => startEdit(item)} className="text-gray-400 dark:text-slate-500 hover:text-blue-600 dark:text-blue-400 transition-colors p-1" title="Tahrirlash">
-                          <Icon icon="lucide:edit-2" className="w-4 h-4" />
+                          <Icon icon="solar:pen-2-bold-duotone" className="w-4 h-4" />
                         </button>
                         <button onClick={() => handleDelete(item.id, item.productName)} className="text-gray-400 dark:text-slate-500 hover:text-red-600 dark:text-red-400 transition-colors p-1" title="O'chirish">
-                          <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                          <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                         </button>
                       </td>
                     </>

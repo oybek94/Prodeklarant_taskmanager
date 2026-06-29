@@ -157,7 +157,7 @@ export default function XpAnimation() {
                     <div className={`w-16 h-16 rounded-full flex items-center justify-center relative z-10 shadow-lg ${
                         isGain ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
                     }`}>
-                        <Icon icon={isGain ? "lucide:trending-up" : "lucide:trending-down"} className="w-8 h-8" />
+                        <Icon icon={isGain ? "solar:graph-up-bold-duotone" : "solar:graph-down-bold-duotone"} className="w-8 h-8" />
                     </div>
                 </div>
 

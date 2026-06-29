@@ -78,13 +78,13 @@ const DebtHistoryModal = React.memo(({ isOpen, onClose, debt, onSuccess }: any) 
                 <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 shrink-0">
                     <div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                            <Icon icon="lucide:history" className="text-gray-500 w-5 h-5"/>
+                            <Icon icon="solar:history-bold-duotone" className="text-gray-500 w-5 h-5"/>
                             To'lovlar tarixi
                         </h3>
                         <p className="text-sm text-gray-500 mt-1 font-medium">{debt.name}</p>
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors self-start">
-                        <Icon icon="lucide:x" className="w-5 h-5" />
+                        <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
                     </button>
                 </div>
                 
@@ -92,7 +92,7 @@ const DebtHistoryModal = React.memo(({ isOpen, onClose, debt, onSuccess }: any) 
                     {sortedPayments.length === 0 ? (
                         <div className="text-center py-10">
                             <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100 dark:border-gray-700">
-                                <Icon icon="lucide:receipt" className="w-8 h-8 text-gray-400" />
+                                <Icon icon="solar:bill-list-bold-duotone" className="w-8 h-8 text-gray-400" />
                             </div>
                             <p className="text-gray-500 font-medium text-sm">Ushbu qarzdorlik bo'yicha to'lovlar tarixi yo'q</p>
                         </div>
@@ -149,7 +149,7 @@ const DebtHistoryModal = React.memo(({ isOpen, onClose, debt, onSuccess }: any) 
                                                         {formatCurrency(payment.amount, payment.currency)}
                                                     </div>
                                                     <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
-                                                        <Icon icon="lucide:calendar" className="w-3 h-3" />
+                                                        <Icon icon="solar:calendar-bold-duotone" className="w-3 h-3" />
                                                         {formatDate(payment.date)}
                                                     </div>
                                                 </div>
@@ -159,10 +159,10 @@ const DebtHistoryModal = React.memo(({ isOpen, onClose, debt, onSuccess }: any) 
                                                     </span>
                                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 -mr-1">
                                                         <button onClick={() => handleEditClick(payment)} className="p-1 text-gray-400 hover:text-blue-500 rounded transition-colors" title="Tahrirlash">
-                                                            <Icon icon="lucide:edit-2" className="w-4 h-4" />
+                                                            <Icon icon="solar:pen-2-bold-duotone" className="w-4 h-4" />
                                                         </button>
                                                         <button onClick={() => handleDeleteClick(payment.id)} className="p-1 text-gray-400 hover:text-rose-500 rounded transition-colors" title="O'chirish">
-                                                            <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                 </div>

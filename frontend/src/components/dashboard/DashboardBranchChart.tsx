@@ -18,7 +18,7 @@ export const DashboardBranchChart: React.FC<DashboardBranchChartProps> = ({ stat
 
       <div className="flex items-center gap-4 mb-4 relative z-10">
         <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 flex items-center justify-center shadow-inner shrink-0">
-          <Icon icon="lucide:pie-chart" className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 dark:text-indigo-400" />
+          <Icon icon="solar:pie-chart-2-bold-duotone" className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 dark:text-indigo-400" />
         </div>
         <div>
           <h2 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">Filiallar ulushi</h2>
@@ -41,7 +41,7 @@ export const DashboardBranchChart: React.FC<DashboardBranchChartProps> = ({ stat
         if (statsError) {
           return (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-gray-400 relative z-10">
-              <Icon icon="lucide:building" className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <Icon icon="solar:buildings-2-bold-duotone" className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="font-bold text-sm">{statsError}</p>
             </div>
           );
@@ -50,7 +50,7 @@ export const DashboardBranchChart: React.FC<DashboardBranchChartProps> = ({ stat
         if (!hasValidData) {
           return (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-gray-400 relative z-10">
-              <Icon icon="lucide:building" className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <Icon icon="solar:buildings-2-bold-duotone" className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="font-bold text-sm">Filiallar bo'yicha ma'lumotlar topilmadi</p>
             </div>
           );
@@ -63,7 +63,7 @@ export const DashboardBranchChart: React.FC<DashboardBranchChartProps> = ({ stat
         if (labels.length === 0 || series.length === 0 || series.every((s: number) => s === 0)) {
           return (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-gray-400 relative z-10">
-              <Icon icon="lucide:building" className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <Icon icon="solar:buildings-2-bold-duotone" className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="font-bold text-sm">Filiallar bo'yicha ma'lumotlar topilmadi</p>
             </div>
           );

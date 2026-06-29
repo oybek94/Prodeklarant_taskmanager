@@ -54,7 +54,7 @@ export const TasksHeader: React.FC<TasksHeaderProps> = ({
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm">
-            <Icon icon="lucide:layout-list" className="w-5 h-5" />
+            <Icon icon="solar:list-bold-duotone" className="w-5 h-5" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Vazifalar</h1>
         </div>
@@ -74,7 +74,7 @@ export const TasksHeader: React.FC<TasksHeaderProps> = ({
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
               }`}
           >
-            <Icon icon="lucide:list-todo" className={`w-4.5 h-4.5 transition-colors ${!showArchive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'}`} />
+            <Icon icon="solar:checklist-minimalistic-bold-duotone" className={`w-4.5 h-4.5 transition-colors ${!showArchive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'}`} />
             Barcha ishlar
           </button>
           <button
@@ -92,7 +92,7 @@ export const TasksHeader: React.FC<TasksHeaderProps> = ({
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
               }`}
           >
-            <Icon icon="lucide:archive" className={`w-4.5 h-4.5 transition-colors ${showArchive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'}`} />
+            <Icon icon="solar:archive-bold-duotone" className={`w-4.5 h-4.5 transition-colors ${showArchive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'}`} />
             Arxiv
           </button>
         </div>
@@ -106,7 +106,7 @@ export const TasksHeader: React.FC<TasksHeaderProps> = ({
               className="relative p-2 bg-emerald-500 dark:bg-emerald-600/80 text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-all shadow-sm hover:shadow z-10"
               title="Excel formatida yuklab olish"
             >
-              <Icon icon="lucide:download" className="w-4 h-4" />
+              <Icon icon="solar:download-bold-duotone" className="w-4 h-4" />
             </button>
             {/* Search Icon - Minimalistic */}
             <button
@@ -121,7 +121,7 @@ export const TasksHeader: React.FC<TasksHeaderProps> = ({
                 }`}
               title="Qidirish va filtrlash"
             >
-              <Icon icon="lucide:search" className="w-4 h-4" />
+              <Icon icon="solar:magnifer-bold-duotone" className="w-4 h-4" />
               {(archiveSearchQuery || archiveFilters.branchId || archiveFilters.clientId || archiveFilters.startDate || archiveFilters.endDate || archiveFilters.hasPsr) && (
                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
               )}
@@ -163,7 +163,7 @@ export const TasksHeader: React.FC<TasksHeaderProps> = ({
             }}
             className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 flex items-center gap-2 font-bold text-sm transition-all shadow-sm hover:shadow-md active:scale-[0.98]"
           >
-            <Icon icon="lucide:plus-circle" className="w-5 h-5 flex-shrink-0" />
+            <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5 flex-shrink-0" />
             Yangi vazifa
           </button>
         )}

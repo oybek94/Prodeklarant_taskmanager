@@ -139,14 +139,14 @@ const DashboardNotes: React.FC = () => {
       
       <div className="flex items-center justify-between mb-4 relative z-10">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-          <Icon icon="lucide:check-square" className="w-5 h-5 text-blue-500" />
+          <Icon icon="solar:check-square-bold-duotone" className="w-5 h-5 text-blue-500" />
           Qilinishi kerak bo'lgan ishlar
         </h2>
         <button 
           onClick={() => setShowArchive(!showArchive)}
           className="text-[11px] font-bold tracking-widest text-gray-500 hover:text-blue-600 uppercase flex items-center gap-1 transition-colors"
         >
-          <Icon icon={showArchive ? 'lucide:inbox' : 'lucide:archive'} className="w-3.5 h-3.5" />
+          <Icon icon={showArchive ? 'solar:inbox-bold-duotone' : 'solar:archive-bold-duotone'} className="w-3.5 h-3.5" />
           {showArchive ? 'Faollar' : 'Arxiv'}
         </button>
       </div>
@@ -167,7 +167,7 @@ const DashboardNotes: React.FC = () => {
                 onClick={() => toggleStatus(note.id, note.isCompleted)}
                 className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${note.isCompleted ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300 dark:border-gray-500 text-transparent hover:border-blue-400'}`}
               >
-                <Icon icon="lucide:check" className="w-3.5 h-3.5" />
+                <Icon icon="solar:check-circle-bold-duotone" className="w-3.5 h-3.5" />
               </button>
               
               <div className="flex-1 min-w-0">
@@ -182,10 +182,10 @@ const DashboardNotes: React.FC = () => {
                       className="w-full text-sm bg-white dark:bg-gray-900 border border-blue-300 dark:border-blue-700 rounded px-2 py-1 outline-none text-gray-800 dark:text-gray-100"
                     />
                     <button onClick={() => handleSaveEdit(note.id)} className="text-blue-600 hover:text-blue-700">
-                      <Icon icon="lucide:check" className="w-5 h-5" />
+                      <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5" />
                     </button>
                     <button onClick={() => setEditingNoteId(null)} className="text-gray-400 hover:text-gray-600">
-                      <Icon icon="lucide:x" className="w-5 h-5" />
+                      <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
                     </button>
                   </div>
                 ) : (
@@ -195,10 +195,10 @@ const DashboardNotes: React.FC = () => {
                     </p>
                     <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm pl-2">
                       <button onClick={() => { setEditingNoteId(note.id); setEditingContent(note.content); }} className="text-gray-400 hover:text-blue-500 transition-colors" title="O'zgartirish">
-                        <Icon icon="lucide:pencil" className="w-3.5 h-3.5" />
+                        <Icon icon="solar:pen-bold-duotone" className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={() => handleDeleteNote(note.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="O'chirish">
-                        <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+                        <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -206,34 +206,34 @@ const DashboardNotes: React.FC = () => {
                 
                 <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px] text-gray-400 dark:text-gray-500 font-medium">
                   <span className="flex items-center gap-0.5">
-                    <Icon icon="lucide:user" className="w-3 h-3" /> 
+                    <Icon icon="solar:user-bold-duotone" className="w-3 h-3" /> 
                     {note.createdBy.name.split(' ')[0]}
                   </span>
                   
                   {note.assignedTo && (
                     <span className="flex items-center gap-0.5 text-orange-500/80 bg-orange-50/50 dark:bg-orange-900/20 px-1 rounded">
-                      <Icon icon="lucide:arrow-right" className="w-3 h-3" />
+                      <Icon icon="solar:arrow-right-bold-duotone" className="w-3 h-3" />
                       {note.assignedTo.name.split(' ')[0]}
                     </span>
                   )}
                   
                   {note.xpReward && (
                     <span className="flex items-center gap-0.5 text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded font-bold border border-amber-200/50 dark:border-amber-700/50">
-                      <Icon icon="lucide:star" className="w-3 h-3" />
+                      <Icon icon="solar:star-bold-duotone" className="w-3 h-3" />
                       {note.xpReward} XP
                     </span>
                   )}
 
                   {note.bountyReward && (
                     <span className="flex items-center gap-0.5 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded font-bold border border-emerald-200/50 dark:border-emerald-900/30">
-                      <Icon icon="lucide:banknote" className="w-3.5 h-3.5 text-emerald-600" />
+                      <Icon icon="solar:banknote-2-bold-duotone" className="w-3.5 h-3.5 text-emerald-600" />
                       {note.bountyReward.toLocaleString()} UZS
                     </span>
                   )}
 
                   {note.isCompleted && note.completedBy && (
                     <span className="flex items-center gap-0.5 text-emerald-500/80 bg-emerald-50/50 dark:bg-emerald-900/20 px-1 rounded ml-auto">
-                      <Icon icon="lucide:check-circle-2" className="w-3 h-3" />
+                      <Icon icon="solar:check-circle-bold-duotone" className="w-3 h-3" />
                       {note.completedBy.name.split(' ')[0]}
                     </span>
                   )}
@@ -291,7 +291,7 @@ const DashboardNotes: React.FC = () => {
             disabled={submitting || !content.trim()}
             className="h-[68px] px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg flex items-center justify-center transition-colors shrink-0 shadow-sm"
           >
-            {submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Icon icon="lucide:plus" className="w-5 h-5" />}
+            {submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />}
           </button>
         </form>
       )}

@@ -69,7 +69,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       {invoices.length === 0 && !hasActiveFilters ? (
         <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 p-16 text-center lg:py-24 ring-1 ring-black/5">
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-            <Icon icon="lucide:file-text" className="w-10 h-10 text-blue-500" />
+            <Icon icon="solar:document-text-bold-duotone" className="w-10 h-10 text-blue-500" />
           </div>
           <h3 className="text-xl font-bold text-gray-800 mb-2">Invoice'lar hozircha yo&apos;q</h3>
           <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Yangi invoice yaratish uchun yuqoridagi &quot;Yangi Invoice&quot; tugmasini bosing va jarayonni boshlang.</p>
@@ -77,7 +77,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       ) : totalCount === 0 && hasActiveFilters ? (
         <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 p-16 text-center ring-1 ring-black/5">
           <div className="bg-gradient-to-br from-gray-50 to-slate-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-gray-200/50">
-            <Icon icon="lucide:search" className="w-10 h-10 text-gray-400" />
+            <Icon icon="solar:magnifer-bold-duotone" className="w-10 h-10 text-gray-400" />
           </div>
           <h3 className="text-xl font-bold text-gray-800 mb-2">Natija topilmadi</h3>
           <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Siz qidirayotgan qidiruv so&apos;rovi yoki filtrlarga mos keluvchi invoice topilmadi.</p>
@@ -154,7 +154,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           onClick={() => handleDuplicateInvoice(invoice)}
                           className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 border border-emerald-100/50 dark:border-emerald-800 active:scale-95 transition-transform"
                         >
-                          <Icon icon="lucide:copy" className="w-4 h-4" />
+                          <Icon icon="solar:copy-bold-duotone" className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -172,55 +172,55 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                 <tr className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-100/80 dark:border-gray-700/80">
                   <th className="w-28 px-4 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                      <Icon icon="lucide:hash" className="w-4 h-4 text-blue-500" />
+                      <Icon icon="solar:hashtag-bold-duotone" className="w-4 h-4 text-blue-500" />
                       №
                     </span>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center gap-1.5">
-                      <Icon icon="lucide:user" className="w-4 h-4 text-emerald-500" />
+                      <Icon icon="solar:user-bold-duotone" className="w-4 h-4 text-emerald-500" />
                       Mijoz
                     </span>
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                      <Icon icon="lucide:map-pin" className="w-4 h-4 text-indigo-500" />
+                      <Icon icon="solar:map-point-bold-duotone" className="w-4 h-4 text-indigo-500" />
                       Filial
                     </span>
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                      <Icon icon="lucide:car" className="w-4 h-4 text-amber-500" />
+                      <Icon icon="solar:bus-bold-duotone" className="w-4 h-4 text-amber-500" />
                       Avtomobil
                     </span>
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center gap-1.5 justify-end w-full">
-                      <Icon icon="lucide:coins" className="w-4 h-4 text-emerald-500" />
+                      <Icon icon="solar:dollar-minimalistic-bold-duotone" className="w-4 h-4 text-emerald-500" />
                       Summa
                     </span>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center gap-1.5">
-                      <Icon icon="lucide:building-2" className="w-4 h-4 text-purple-500" />
+                      <Icon icon="solar:buildings-3-bold-duotone" className="w-4 h-4 text-purple-500" />
                       Sotuvchi / Qabul qiluvchi
                     </span>
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                      <Icon icon="lucide:calendar" className="w-4 h-4 text-cyan-500" />
+                      <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4 text-cyan-500" />
                       Sana
                     </span>
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                      <Icon icon="lucide:circle-dot" className="w-4 h-4 text-rose-500" />
+                      <Icon icon="solar:record-circle-bold-duotone" className="w-4 h-4 text-rose-500" />
                       Status
                     </span>
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <span className="inline-flex items-center gap-1.5 justify-center w-full">
-                      <Icon icon="lucide:sliders-horizontal" className="w-4 h-4 text-slate-500" />
+                      <Icon icon="solar:tuning-2-bold-duotone" className="w-4 h-4 text-slate-500" />
                       Amallar
                     </span>
                   </th>
@@ -317,7 +317,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                 className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-emerald-500 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-slate-700 shadow-sm ring-1 ring-emerald-200/60 dark:ring-slate-700 transition-all disabled:opacity-50 hover:shadow"
                                 title="Dublikat"
                               >
-                                <Icon icon="lucide:copy" className="w-4 h-4" />
+                                <Icon icon="solar:copy-bold-duotone" className="w-4 h-4" />
                               </button>
                               {(() => {
                                 const taskStatus = invoice.task?.status;
@@ -337,7 +337,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                     className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-slate-700 shadow-sm ring-1 ring-rose-200/60 dark:ring-slate-700 transition-all hover:shadow"
                                     title="O'chirish"
                                   >
-                                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                                   </button>
                                 );
                               })()}
@@ -368,7 +368,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               title="Oldingi sahifa"
             >
-              <Icon icon="lucide:chevron-left" className="w-5 h-5" />
+              <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-5 h-5" />
             </button>
             <div className="px-3 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-200 shadow-sm">
               {currentPage} / {totalPagesServer}
@@ -380,7 +380,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               title="Keyingi sahifa"
             >
-              <Icon icon="lucide:chevron-right" className="w-5 h-5" />
+              <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-5 h-5" />
             </button>
           </div>
         </div>

@@ -205,7 +205,7 @@ export const RankUpCeremony = ({ rankUpData, onClose }: Props) => {
             animation: 'neo-shimmer 2s linear infinite'
           }} />
           <span className="relative z-10 flex items-center gap-3 drop-shadow-md text-sm">
-            Tasdiqlash <Icon icon="lucide:crosshair" className="w-5 h-5 group-hover:rotate-90 transition-transform duration-500" />
+            Tasdiqlash <Icon icon="solar:target-bold-duotone" className="w-5 h-5 group-hover:rotate-90 transition-transform duration-500" />
           </span>
         </button>
       </div>

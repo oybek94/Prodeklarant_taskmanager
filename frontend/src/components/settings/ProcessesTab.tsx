@@ -67,12 +67,12 @@ export const ProcessesTab = () => {
         >
           {savingProcessSettings ? (
             <>
-              <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
+              <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
               Saqlanmoqda...
             </>
           ) : (
             <>
-              <Icon icon="lucide:save" className="w-4 h-4" />
+              <Icon icon="solar:diskette-bold-duotone" className="w-4 h-4" />
               Barchasini saqlash
             </>
           )}

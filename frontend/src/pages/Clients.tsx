@@ -1574,7 +1574,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 }}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
               >
-                <Icon icon="lucide:plus" className="w-5 h-5" />
+                <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
                 Add New
               </button>
             )}
@@ -1587,7 +1587,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">Qidiruv</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Icon icon="lucide:search" className="h-4 w-4 text-gray-400" />
+                    <Icon icon="solar:magnifer-bold-duotone" className="h-4 w-4 text-gray-400" />
                   </div>
                   <input
                     type="text"
@@ -1624,7 +1624,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   }}
                   className="w-full lg:w-auto px-4 py-2 border border-blue-200 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex justify-center items-center gap-2 text-sm font-medium"
                 >
-                  <Icon icon="lucide:x" className="w-4 h-4" />
+                  <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />
                   Tozalash
                 </button>
               </div>
@@ -1815,7 +1815,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {sortedClients.length === 0 ? (
                 <div className="col-span-full py-16 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-dashed border-gray-300 dark:border-slate-700">
-                  <Icon icon="lucide:users" className="w-16 h-16 mb-4 opacity-30" />
+                  <Icon icon="solar:users-group-rounded-bold-duotone" className="w-16 h-16 mb-4 opacity-30" />
                   <p className="text-lg font-medium">Mijozlar topilmadi</p>
                 </div>
               ) : (
@@ -1837,7 +1837,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
   
                       <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Icon icon="lucide:arrow-up-right" className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                        <Icon icon="solar:arrow-right-up-bold-duotone" className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                       </div>
 
                       <div className="mb-4 pt-1">
@@ -1847,7 +1847,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           </h3>
                         </div>
                           <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-                            <Icon icon="lucide:phone" className="w-3.5 h-3.5" />
+                            <Icon icon="solar:phone-bold-duotone" className="w-3.5 h-3.5" />
                             <span className="truncate"><EmptyValue value={client.phone} /></span>
                           </div>
                       </div>
@@ -1868,7 +1868,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700/50 group-hover:bg-emerald-50/50 dark:group-hover:bg-emerald-900/10 transition-colors">
                               <div className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider mb-1">Projects</div>
                               <div className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1.5 group-hover:text-emerald-600 transition-colors">
-                                <Icon icon="lucide:folder-check" className="w-4 h-4" />
+                                <Icon icon="solar:folder-check-bold-duotone" className="w-4 h-4" />
                                 {client.tasks?.length || 0}
                               </div>
                             </div>
@@ -1903,14 +1903,14 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 text-gray-400 dark:text-gray-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 transition-all border border-gray-200 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-800"
                                 title="O'zgartirish"
                               >
-                                <Icon icon="lucide:pencil" className="w-4 h-4" />
+                                <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleDelete(client.id)}
                                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 text-gray-400 dark:text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-all border border-gray-200 dark:border-slate-600 hover:border-rose-200 dark:hover:border-rose-800"
                                 title="O'chirish"
                               >
-                                <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                               </button>
                             </div>
                             )}
@@ -1935,7 +1935,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   disabled={clientsPage === 1}
                   className="px-3 py-1.5 border border-indigo-100 dark:border-indigo-900 rounded-lg text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
                 >
-                  <Icon icon="lucide:chevron-left" className="w-4 h-4" />
+                  <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-4 h-4" />
                 </button>
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {clientsPage} / {clientsTotalPages}
@@ -1945,7 +1945,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   disabled={clientsPage === clientsTotalPages}
                   className="px-3 py-1.5 border border-indigo-100 dark:border-indigo-900 rounded-lg text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
                 >
-                  <Icon icon="lucide:chevron-right" className="w-4 h-4" />
+                  <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -2011,7 +2011,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center shrink-0"
                     title="Tahrirlash"
                   >
-                    <Icon icon="lucide:pencil" className="w-5 h-5" />
+                    <Icon icon="solar:pen-bold-duotone" className="w-5 h-5" />
                   </button>
                 )}
                 <button
@@ -2026,7 +2026,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   className={`bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center shrink-0 ${isMobile ? 'p-2.5' : 'px-4 py-2 text-sm font-medium gap-2'}`}
                   title="Yangi shartnoma qo'shish"
                 >
-                  <Icon icon="lucide:plus" className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                  <Icon icon="solar:add-circle-bold-duotone" className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
                   {!isMobile && <span>Shartnoma qo'shish</span>}
                 </button>
                 <button
@@ -2040,7 +2040,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   }}
                   className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors shrink-0"
                 >
-                  <Icon icon="lucide:x" className="w-6 h-6" />
+                  <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
                 </button>
               </div>
             </div>
@@ -2086,7 +2086,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800 border border-blue-200 dark:border-blue-900/50 p-5 rounded-2xl shadow-sm">
                         <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                          <Icon icon="lucide:calculator" className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                          <Icon icon="solar:calculator-bold-duotone" className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                           Barcha loyihalar summasi
                         </div>
                         <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
@@ -2104,7 +2104,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       </div>
                       <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800 border border-green-200 dark:border-emerald-900/50 p-5 rounded-2xl shadow-sm">
                         <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                          <Icon icon="lucide:dollar-sign" className="w-4 h-4 text-green-500 dark:text-emerald-400" />
+                          <Icon icon="solar:dollar-bold-duotone" className="w-4 h-4 text-green-500 dark:text-emerald-400" />
                           Jami to'lovlar
                         </div>
                         <div className="text-3xl font-bold text-green-600 dark:text-emerald-400">
@@ -2118,7 +2118,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           : 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800 border-green-200 dark:border-emerald-900/50'
                         }`}>
                         <div className={`text-sm font-medium mb-2 flex items-center gap-2 ${selectedClient.stats.balance > 0 ? 'text-red-700 dark:text-rose-400' : selectedClient.stats.balance === 0 ? 'text-yellow-700 dark:text-amber-400' : 'text-green-700 dark:text-emerald-400'}`}>
-                          <Icon icon="lucide:scale" className="w-4 h-4" />
+                          <Icon icon="solar:scale-bold-duotone" className="w-4 h-4" />
                           Qarzdorligi
                         </div>
                         <div className={`text-3xl font-bold ${selectedClient.stats.balance > 0
@@ -2133,7 +2133,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     </div>
                     <div className="p-4 bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl flex items-center justify-between">
                       <div className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                        <Icon icon="lucide:info" className="w-4 h-4 text-gray-400" />
+                        <Icon icon="solar:info-circle-bold-duotone" className="w-4 h-4 text-gray-400" />
                         Qo'shimcha to'lovni (After Hours) kim to'laydi:
                       </div>
                       <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-slate-700 shadow-sm">
@@ -2148,14 +2148,14 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
                       <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Telefon</div>
                       <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
-                        <Icon icon="lucide:phone" className="w-4 h-4 text-gray-400" />
+                        <Icon icon="solar:phone-bold-duotone" className="w-4 h-4 text-gray-400" />
                         <EmptyValue value={selectedClient.phone} />
                       </div>
                     </div>
                     <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
                       <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Asosiy shartnoma summasi (1 ta task)</div>
                       <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
-                        <Icon icon="lucide:file-text" className="w-4 h-4 text-gray-400" />
+                        <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4 text-gray-400" />
                         {isNonAdmin ? <span className="font-mono text-gray-400">***</span> : selectedClient.dealAmount ? (
                           <CurrencyDisplay amount={Number(selectedClient.dealAmount)} originalCurrency="USD" />
                         ) : '-'}
@@ -2168,7 +2168,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   <div className="bg-white dark:bg-slate-800 border border-blue-100 dark:border-blue-900/40 rounded-2xl p-6 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 dark:bg-blue-900/20 rounded-full -mr-16 -mt-16 opacity-50"></div>
                     <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2 relative z-10">
-                      <Icon icon="lucide:shield-check" className="w-5 h-5 text-blue-500" />
+                      <Icon icon="solar:shield-check-bold-duotone" className="w-5 h-5 text-blue-500" />
                       Nasiya shartlari
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
@@ -2198,7 +2198,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         <div className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700/50">
                           <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Boshlangan sana</div>
                           <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                            <Icon icon="lucide:calendar" className="w-4 h-4 text-gray-400" />
+                            <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4 text-gray-400" />
                             {new Date(selectedClient.creditStartDate).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' })}
                           </div>
                         </div>
@@ -2206,7 +2206,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     </div>
                     {selectedClient.creditType && selectedClient.creditLimit && (
                       <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-100 dark:border-blue-800/50 relative z-10 flex items-start gap-3">
-                        <Icon icon="lucide:info" className="w-5 h-5 text-blue-500 mt-0.5" />
+                        <Icon icon="solar:info-circle-bold-duotone" className="w-5 h-5 text-blue-500 mt-0.5" />
                         <div className="text-sm text-blue-900 dark:text-blue-200">
                           <span className="font-semibold block mb-0.5">Shart tafsiloti:</span>
                           {selectedClient.creditType === 'TASK_COUNT'
@@ -2222,7 +2222,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 {selectedClient.stats && (
                   <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
                     <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
-                      <Icon icon="lucide:bar-chart-2" className="w-5 h-5 text-indigo-500" />
+                      <Icon icon="solar:chart-bold-duotone" className="w-5 h-5 text-indigo-500" />
                       Mijoz statistikasi
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -2247,7 +2247,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
               <div className="space-y-4">
                 <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700/50">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                    <Icon icon="lucide:file-signature" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                    <Icon icon="solar:file-text-bold-duotone" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                     Shartnomalar ro'yxati
                   </h3>
                   <button
@@ -2261,17 +2261,17 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     className="p-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center shrink-0"
                     title="Yangi shartnoma qo'shish"
                   >
-                    <Icon icon="lucide:plus" className="w-5 h-5" />
+                    <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
                   </button>
                 </div>
                 {loadingContracts ? (
                   <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500">
-                    <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin mb-2 text-blue-500 dark:text-blue-400" />
+                    <Icon icon="solar:refresh-bold-duotone" className="w-8 h-8 animate-spin mb-2 text-blue-500 dark:text-blue-400" />
                     <span>Yuklanmoqda...</span>
                   </div>
                 ) : contracts.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-slate-800/30 rounded-xl border border-gray-100 dark:border-slate-700/50 border-dashed">
-                    <Icon icon="lucide:file-x-2" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
+                    <Icon icon="solar:file-corrupted-bold-duotone" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
                     <span className="text-sm font-medium">Ushbu mijozga tegishli shartnomalar yo'q</span>
                   </div>
                 ) : isMobile ? (
@@ -2296,13 +2296,13 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             onClick={() => handleEditContract(contract)}
                             className="p-2 text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg"
                           >
-                            <Icon icon="lucide:pencil" className="w-4 h-4" />
+                            <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteContract(contract.id)}
                             className="p-2 text-rose-600 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400 rounded-lg"
                           >
-                            <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -2342,7 +2342,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                     className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors ring-1 ring-transparent hover:ring-blue-200 dark:hover:ring-blue-800"
                                     title="Tahrirlash"
                                   >
-                                    <Icon icon="lucide:pencil" className="w-4 h-4" />
+                                    <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
                                   </button>
                                   <button
                                     type="button"
@@ -2350,7 +2350,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                     className="p-1.5 text-red-600 dark:text-rose-400 hover:bg-red-100 dark:hover:bg-rose-900/30 rounded-lg transition-colors ring-1 ring-transparent hover:ring-red-200 dark:hover:ring-rose-800"
                                     title="O'chirish"
                                   >
-                                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                                   </button>
                                 </div>
                               </td>
@@ -2371,7 +2371,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 {monthlyTasks.length > 0 && (
                   <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
                     <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-                      <Icon icon="lucide:activity" className="w-5 h-5 text-indigo-500" />
+                      <Icon icon="solar:pulse-bold-duotone" className="w-5 h-5 text-indigo-500" />
                       Oylik ishlar dinamikasi
                     </h3>
                     <div className="flex items-end justify-between gap-2 h-64">
@@ -2414,13 +2414,13 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-sm overflow-hidden">
                   <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-slate-700">
                     <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                      <Icon icon="lucide:check-circle" className="w-5 h-5 text-gray-400" />
+                      <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5 text-gray-400" />
                       Oxirgi ishlar
                     </h3>
                   </div>
                   {!selectedClient.tasks || selectedClient.tasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-slate-800/50 rounded-b-xl border border-gray-100 dark:border-slate-700/50 border-dashed m-4">
-                      <Icon icon="lucide:inbox" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
+                      <Icon icon="solar:inbox-bold-duotone" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
                       <span className="text-sm font-medium">Bajarilgan ishlar mavjud emas</span>
                     </div>
                   ) : isMobile ? (
@@ -2439,7 +2439,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight"><EmptyValue value={task.title} /></h4>
                           <div className="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400">
                             <span className="flex items-center gap-1">
-                              <Icon icon="lucide:building" className="w-3.5 h-3.5" />
+                              <Icon icon="solar:buildings-2-bold-duotone" className="w-3.5 h-3.5" />
                               <EmptyValue value={task.branch?.name} />
                             </span>
                             <span>{new Date(task.createdAt).toLocaleDateString('uz-UZ')}</span>
@@ -2491,7 +2491,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
               <div className="space-y-4">
                 <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700/50">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                    <Icon icon="lucide:receipt" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                    <Icon icon="solar:bill-list-bold-duotone" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                     Tranzaksiyalar tarixi
                   </h3>
                   {!isNonAdmin && (
@@ -2499,14 +2499,14 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       onClick={() => setShowTransactionModal(true)}
                       className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm flex items-center gap-2"
                     >
-                      <Icon icon="lucide:plus" className="w-4 h-4" />
+                      <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />
                       Joriy to'lov qabul qilish
                     </button>
                   )}
                 </div>
                 {selectedClient.transactions.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-slate-800/30 rounded-xl border border-gray-100 dark:border-slate-700/50 border-dashed">
-                    <Icon icon="lucide:circle-dollar-sign" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
+                    <Icon icon="solar:dollar-bold-duotone" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
                     <span className="text-sm font-medium">To'lovlar tarixi yo'q</span>
                   </div>
                 ) : isMobile ? (
@@ -2591,7 +2591,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 onClick={() => setShowContractModal(false)}
                 className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-xl transition-colors"
               >
-                <Icon icon="lucide:x" className="w-6 h-6" />
+                <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
               </button>
             </div>
 
@@ -2785,8 +2785,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           {contractForm.sellerSignatureUrl && (
                             <div className="mt-2 flex items-center gap-2">
                               <img src={resolveUploadUrl(contractForm.sellerSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
-                              <a href={resolveUploadUrl(contractForm.sellerSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
-                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                              <a href={resolveUploadUrl(contractForm.sellerSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                             </div>
                           )}
                         </div>
@@ -2812,8 +2812,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           {contractForm.sellerSealUrl && (
                             <div className="mt-2 flex items-center gap-2">
                               <img src={resolveUploadUrl(contractForm.sellerSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
-                              <a href={resolveUploadUrl(contractForm.sellerSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
-                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                              <a href={resolveUploadUrl(contractForm.sellerSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                             </div>
                           )}
                         </div>
@@ -2905,8 +2905,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           {contractForm.buyerSignatureUrl && (
                             <div className="mt-2 flex items-center gap-2">
                               <img src={resolveUploadUrl(contractForm.buyerSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
-                              <a href={resolveUploadUrl(contractForm.buyerSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
-                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                              <a href={resolveUploadUrl(contractForm.buyerSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                             </div>
                           )}
                         </div>
@@ -2932,8 +2932,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           {contractForm.buyerSealUrl && (
                             <div className="mt-2 flex items-center gap-2">
                               <img src={resolveUploadUrl(contractForm.buyerSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
-                              <a href={resolveUploadUrl(contractForm.buyerSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
-                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                              <a href={resolveUploadUrl(contractForm.buyerSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                             </div>
                           )}
                         </div>
@@ -3076,8 +3076,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             {contractForm.consigneeSignatureUrl && (
                               <div className="mt-2 flex items-center gap-2">
                                 <img src={resolveUploadUrl(contractForm.consigneeSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
-                                <a href={resolveUploadUrl(contractForm.consigneeSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
-                                <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                                <a href={resolveUploadUrl(contractForm.consigneeSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                                <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                               </div>
                             )}
                           </div>
@@ -3103,8 +3103,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             {contractForm.consigneeSealUrl && (
                               <div className="mt-2 flex items-center gap-2">
                                 <img src={resolveUploadUrl(contractForm.consigneeSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
-                                <a href={resolveUploadUrl(contractForm.consigneeSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
-                                <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                                <a href={resolveUploadUrl(contractForm.consigneeSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                                <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                               </div>
                             )}
                           </div>
@@ -3165,8 +3165,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       {contractForm.companyLogoUrl && (
                         <div className="mt-2 flex items-center gap-2">
                           <img src={resolveUploadUrl(contractForm.companyLogoUrl)} alt="Logotip" className="h-20 w-auto object-contain border border-gray-200 rounded" />
-                          <a href={resolveUploadUrl(contractForm.companyLogoUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="lucide:download" className="w-4 h-4" /></a>
-                          <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, companyLogoUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                          <a href={resolveUploadUrl(contractForm.companyLogoUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                          <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, companyLogoUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                         </div>
                       )}
                     </div>
@@ -3497,7 +3497,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             {contractForm.files.map((file, index) => (
                               <li key={file.fileUrl || file.name} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
                                 <div className="flex items-center gap-3 overflow-hidden">
-                                  <Icon icon="lucide:file" className="w-5 h-5 text-gray-500 shrink-0" />
+                                  <Icon icon="solar:file-bold-duotone" className="w-5 h-5 text-gray-500 shrink-0" />
                                   <span className="text-sm text-gray-800 truncate" title={file.name}>{file.name}</span>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
@@ -3508,7 +3508,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                     className="text-blue-600 hover:text-blue-800"
                                     title="Ko'rish"
                                   >
-                                    <Icon icon="lucide:eye" className="w-4 h-4" />
+                                    <Icon icon="solar:eye-bold-duotone" className="w-4 h-4" />
                                   </a>
                                   <a
                                     href={resolveUploadUrl(file.fileUrl)}
@@ -3516,7 +3516,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                     className="text-green-600 hover:text-green-800"
                                     title="Ko'chirib olish"
                                   >
-                                    <Icon icon="lucide:download" className="w-4 h-4" />
+                                    <Icon icon="solar:download-bold-duotone" className="w-4 h-4" />
                                   </a>
                                   <button
                                     type="button"
@@ -3528,7 +3528,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                     className="text-red-600 hover:text-red-800"
                                     title="O'chirish"
                                   >
-                                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                                   </button>
                                 </div>
                               </li>
@@ -3918,7 +3918,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   className="text-gray-400 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl transition-colors"
                   title="Yopish"
                 >
-                  <Icon icon="lucide:x" className="w-5 h-5" />
+                  <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
                 </button>
               </div>
 
@@ -3932,7 +3932,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   if (monthTasks.length === 0) {
                     return (
                       <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                        <Icon icon="lucide:clipboard-x" className="w-16 h-16 mb-4 opacity-50" />
+                        <Icon icon="solar:clipboard-remove-bold-duotone" className="w-16 h-16 mb-4 opacity-50" />
                         <p className="text-lg font-medium text-gray-500">Bu oyda ishlar topilmadi</p>
                       </div>
                     );
@@ -3953,12 +3953,12 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
 
                             <div className="flex items-center gap-3 text-xs text-gray-500 font-medium whitespace-nowrap">
                               <span className="flex items-center gap-1">
-                                <Icon icon="lucide:map-pin" className="w-3 h-3 text-gray-400" />
+                                <Icon icon="solar:map-point-bold-duotone" className="w-3 h-3 text-gray-400" />
                                 <span className="truncate max-w-[120px]">{task.branch?.name || 'Noma\'lum'}</span>
                               </span>
                               <span className="flex items-center gap-1.5 text-gray-400">|</span>
                               <span className="flex items-center gap-1.5">
-                                <Icon icon="lucide:calendar" className="w-3 h-3 text-gray-400" />
+                                <Icon icon="solar:calendar-bold-duotone" className="w-3 h-3 text-gray-400" />
                                 {new Date(task.createdAt).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                               </span>
                             </div>

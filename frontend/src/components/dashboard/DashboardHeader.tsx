@@ -60,7 +60,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         {/* Left Content */}
         <div className="col-span-1 lg:col-span-7 flex flex-col items-start gap-5">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/50 dark:bg-gray-800/50 border border-white/60 dark:border-white/10 shadow-sm text-xs font-bold text-gray-600 dark:text-gray-300 backdrop-blur-md tracking-wide">
-            <Icon icon="lucide:calendar-days" className="w-4 h-4 text-indigo-500" />
+            <Icon icon="solar:calendar-date-bold-duotone" className="w-4 h-4 text-indigo-500" />
             {dateString}
           </div>
 
@@ -81,7 +81,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             <div className="w-full max-w-md flex flex-col sm:flex-row sm:items-center justify-between bg-orange-50/80 dark:bg-orange-900/20 border border-orange-200/60 dark:border-orange-800/40 rounded-2xl p-4 shadow-sm backdrop-blur-md">
               <div className="flex items-center gap-3 mb-3 sm:mb-0">
                 <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-800/50 flex flex-shrink-0 items-center justify-center text-orange-600 dark:text-orange-400 shadow-inner">
-                  <Icon icon="lucide:alert-triangle" className="w-5 h-5" />
+                  <Icon icon="solar:danger-triangle-bold-duotone" className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-orange-800 dark:text-orange-300">Baholanmagan xatolar!</h3>
@@ -91,7 +91,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 </div>
               </div>
               <button onClick={() => setShowUnratedModal(true)} className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-md transition-all text-xs flex items-center justify-center gap-1.5 whitespace-nowrap">
-                <Icon icon="lucide:star" className="w-3.5 h-3.5" /> Baholash
+                <Icon icon="solar:star-bold-duotone" className="w-3.5 h-3.5" /> Baholash
               </button>
             </div>
           )}
@@ -100,7 +100,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           {user?.role === 'ADMIN' && pendingDeleteErrors && pendingDeleteErrors.length > 0 && (
             <div className="w-full max-w-md flex flex-col gap-2 bg-red-50/80 dark:bg-red-900/20 border border-red-200/60 dark:border-red-800/40 rounded-2xl p-4 shadow-sm backdrop-blur-md max-h-48 overflow-y-auto">
               <div className="flex items-center gap-2 mb-2">
-                <Icon icon="lucide:trash-2" className="w-5 h-5 text-red-600 dark:text-red-400" />
+                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-5 h-5 text-red-600 dark:text-red-400" />
                 <h3 className="text-sm font-bold text-red-800 dark:text-red-300">O'chirish so'ralgan xatolar</h3>
               </div>
               {pendingDeleteErrors.map(err => (
@@ -166,7 +166,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               <div className="flex flex-col justify-center p-5 bg-white/70 dark:bg-gray-800/60 rounded-[24px] border border-white/80 dark:border-white/10 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] backdrop-blur-xl hover:shadow-md transition-all">
                 <div className="flex flex-col items-center text-center gap-3">
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-inner">
-                    <Icon icon="lucide:arrow-right-left" className="w-6 h-6" />
+                    <Icon icon="solar:transfer-horizontal-bold-duotone" className="w-6 h-6" />
                   </div>
                   <div>
                     <p className="text-[10px] font-black tracking-widest text-gray-400 dark:text-gray-500 uppercase mb-1">Valyuta Kursi</p>
@@ -185,7 +185,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <div className="p-4 bg-white/50 dark:bg-gray-800/40 rounded-[24px] border border-white/60 dark:border-white/5 backdrop-blur-md">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Icon icon="lucide:medal" className="w-4 h-4 text-yellow-500" />
+                <Icon icon="solar:medal-ribbons-star-bold-duotone" className="w-4 h-4 text-yellow-500" />
                 Mening Medallarim
               </span>
               <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 bg-white/60 dark:bg-gray-800/50 px-2 py-0.5 rounded-lg border border-gray-200/50 dark:border-gray-700/50">{myMedals.length} ta</span>
@@ -214,7 +214,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               }) : (
                 <div className="relative group cursor-pointer" onClick={() => navigate('/profile')}>
                   <div className="w-10 h-10 rounded-full bg-gray-200/50 dark:bg-gray-700/50 border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center opacity-70 transition-opacity hover:opacity-100">
-                    <Icon icon="lucide:lock" className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    <Icon icon="solar:lock-keyhole-bold-duotone" className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                   </div>
                   <div className="absolute top-14 left-1/2 -translate-x-1/2 w-52 p-3 bg-gray-900/95 backdrop-blur-md text-white text-xs rounded-2xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center border border-gray-700">
                     <div className="font-bold text-gray-300 mb-1">Medallar qulflangan</div>

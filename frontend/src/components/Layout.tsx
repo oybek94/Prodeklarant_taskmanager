@@ -104,7 +104,7 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
         onClick={() => setNotificationPanelOpen(!notificationPanelOpen)}
         className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
       >
-        <Icon icon="lucide:bell" className="w-5 h-5" />
+        <Icon icon="solar:bell-bold-duotone" className="w-5 h-5" />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-xs font-medium text-white bg-red-500 rounded-full">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -118,7 +118,7 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-gray-950 rounded-t-xl">
             <div className="flex items-center gap-2">
-              <Icon icon="lucide:bell-ring" className="w-5 h-5 text-indigo-600" />
+              <Icon icon="solar:bell-bing-bold-duotone" className="w-5 h-5 text-indigo-600" />
               <span className="font-semibold text-gray-800 dark:text-gray-200">Bildirishnomalar</span>
               {unreadCount > 0 && (
                 <span className="text-xs bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full">{unreadCount}</span>
@@ -138,7 +138,7 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
           <div className="overflow-y-auto flex-1">
             {notifications.length === 0 ? (
               <div className="p-10 text-center text-gray-400">
-                <Icon icon="lucide:bell-off" className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <Icon icon="solar:bell-off-bold-duotone" className="w-10 h-10 mx-auto mb-3 opacity-50" />
                 <p className="text-sm font-medium">Bildirishnomalar yo'q</p>
                 <p className="text-xs mt-1 text-gray-400">Yangi xabarlar shu yerda ko'rinadi</p>
               </div>
@@ -169,7 +169,7 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
                               className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
                               title="Yopish"
                             >
-                              <Icon icon="lucide:x" className="w-3.5 h-3.5" />
+                              <Icon icon="solar:close-circle-bold-duotone" className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
@@ -184,8 +184,8 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
                               className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                               {actionLoadingId === n.id
-                                ? <Icon icon="lucide:loader-2" className="w-3 h-3 animate-spin" />
-                                : <Icon icon="lucide:check" className="w-3 h-3" />}
+                                ? <Icon icon="solar:refresh-bold-duotone" className="w-3 h-3 animate-spin" />
+                                : <Icon icon="solar:check-circle-bold-duotone" className="w-3 h-3" />}
                               Tayyor
                             </button>
                             <button
@@ -193,7 +193,7 @@ const NotificationBell = memo(({ onProcessConfirmWithBXM }: {
                               disabled={actionLoadingId === n.id}
                               className="px-3 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                              <Icon icon="lucide:clock" className="w-3 h-3" />
+                              <Icon icon="solar:clock-circle-bold-duotone" className="w-3 h-3" />
                               Hali yo'q
                             </button>
                           </div>
@@ -341,32 +341,32 @@ const Layout = () => {
 
   const rawNavItems = useMemo(() => [
     // Asosiy
-    ...(user?.role !== 'SELLER' ? [{ path: '/dashboard', label: 'Asosiy panel', icon: 'lucide:layout-dashboard', group: 'Asosiy' }] : []),
+    ...(user?.role !== 'SELLER' ? [{ path: '/dashboard', label: 'Asosiy panel', icon: 'solar:widget-2-bold-duotone', group: 'Asosiy' }] : []),
     
     // Ish jarayoni
-    ...((user?.role !== 'SELLER') ? [{ path: '/tasks', label: 'Vazifalar', icon: 'lucide:clipboard-list', group: 'Ish jarayoni' }] : []),
-    ...((user?.role !== 'SELLER') ? [{ path: '/invoices', label: 'Invoyslar', icon: 'lucide:file-text', group: 'Ish jarayoni' }] : []),
+    ...((user?.role !== 'SELLER') ? [{ path: '/tasks', label: 'Vazifalar', icon: 'solar:clipboard-list-bold-duotone', group: 'Ish jarayoni' }] : []),
+    ...((user?.role !== 'SELLER') ? [{ path: '/invoices', label: 'Invoyslar', icon: 'solar:document-text-bold-duotone', group: 'Ish jarayoni' }] : []),
 
     // Savdo va CRM
-    ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/crm', label: 'CRM', icon: 'lucide:bar-chart-2', group: 'Savdo va CRM' }] : []),
-    ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/leads', label: 'Lidlar', icon: 'lucide:target', group: 'Savdo va CRM' }] : []),
-    ...(user?.role !== 'SELLER' ? [{ path: '/clients', label: 'Mijozlar', icon: 'lucide:users', group: 'Savdo va CRM' }] : []),
+    ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/crm', label: 'CRM', icon: 'solar:chart-bold-duotone', group: 'Savdo va CRM' }] : []),
+    ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/leads', label: 'Lidlar', icon: 'solar:target-bold-duotone', group: 'Savdo va CRM' }] : []),
+    ...(user?.role !== 'SELLER' ? [{ path: '/clients', label: 'Mijozlar', icon: 'solar:users-group-rounded-bold-duotone', group: 'Savdo va CRM' }] : []),
     
     // Moliya
-    ...((user?.role !== 'SELLER') ? [{ path: '/transactions', label: 'Tranzaksiyalar', icon: 'lucide:receipt', group: 'Moliya' }] : []),
-    ...(user?.role === 'ADMIN' ? [{ path: '/debts', label: 'Qarzlar', icon: 'lucide:wallet', group: 'Moliya' }] : []),
-    ...(user?.role === 'ADMIN' ? [{ path: '/finance', label: 'Moliya', icon: 'lucide:banknote', group: 'Moliya' }] : []),
+    ...((user?.role !== 'SELLER') ? [{ path: '/transactions', label: 'Tranzaksiyalar', icon: 'solar:bill-list-bold-duotone', group: 'Moliya' }] : []),
+    ...(user?.role === 'ADMIN' ? [{ path: '/debts', label: 'Qarzlar', icon: 'solar:wallet-bold-duotone', group: 'Moliya' }] : []),
+    ...(user?.role === 'ADMIN' ? [{ path: '/finance', label: 'Moliya', icon: 'solar:banknote-2-bold-duotone', group: 'Moliya' }] : []),
 
     // Jamoa va O'quv
-    ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'lucide:user-cog', group: 'Jamoa va O\'quv' }] : []),
-    { path: '/training', label: 'O\'qitish', icon: 'lucide:graduation-cap', group: 'Jamoa va O\'quv' },
-    ...(user?.role === 'ADMIN' ? [{ path: '/training/manage', label: 'O\'qitish Boshqaruvi', icon: 'lucide:book-open-check', group: 'Jamoa va O\'quv' }] : []),
+    ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'solar:user-id-bold-duotone', group: 'Jamoa va O\'quv' }] : []),
+    { path: '/training', label: 'O\'qitish', icon: 'solar:square-academic-cap-2-bold-duotone', group: 'Jamoa va O\'quv' },
+    ...(user?.role === 'ADMIN' ? [{ path: '/training/manage', label: 'O\'qitish Boshqaruvi', icon: 'solar:book-bookmark-bold-duotone', group: 'Jamoa va O\'quv' }] : []),
 
     // Tizim
-    ...(user?.role === 'ADMIN' || user?.role === 'OWNER' ? [{ path: '/data-assistant', label: 'AI Tahlilchi', icon: 'lucide:bot', group: 'Tizim' }] : []),
-    ...(user?.role !== 'SELLER' ? [{ path: '/settings', label: 'Sozlamalar', icon: 'lucide:settings', group: 'Tizim' }] : []),
-    ...(user?.role !== 'SELLER' ? [{ path: '/faq', label: 'FAQ (Yordam)', icon: 'lucide:help-circle', group: 'Tizim' }] : []),
-    { path: '/profile', label: 'Profil', icon: 'lucide:user', group: 'Tizim' },
+    ...(user?.role === 'ADMIN' || user?.role === 'OWNER' ? [{ path: '/data-assistant', label: 'AI Tahlilchi', icon: 'solar:chat-round-dots-bold-duotone', group: 'Tizim' }] : []),
+    ...(user?.role !== 'SELLER' ? [{ path: '/settings', label: 'Sozlamalar', icon: 'solar:settings-bold-duotone', group: 'Tizim' }] : []),
+    ...(user?.role !== 'SELLER' ? [{ path: '/faq', label: 'FAQ (Yordam)', icon: 'solar:question-circle-bold-duotone', group: 'Tizim' }] : []),
+    { path: '/profile', label: 'Profil', icon: 'solar:user-bold-duotone', group: 'Tizim' },
   ], [user?.role]);
 
   // Guruhlash
@@ -413,7 +413,7 @@ const Layout = () => {
                   className="p-2.5 bg-white/10 hover:bg-white/20 dark:bg-white/5 dark:hover:bg-white/10 rounded-xl transition-colors flex-shrink-0 relative z-10"
                   title="Menuni ochish"
                 >
-                  <Icon icon="lucide:menu" className="w-5 h-5 text-white dark:text-gray-300" />
+                  <Icon icon="solar:hamburger-menu-bold-duotone" className="w-5 h-5 text-white dark:text-gray-300" />
                 </button>
               </div>
             )}
@@ -423,7 +423,7 @@ const Layout = () => {
                 className="p-2 bg-white/10 hover:bg-white/20 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg transition-colors flex-shrink-0 relative z-10"
                 title="Menuni yopish"
               >
-                <Icon icon={isDesktop ? "lucide:chevron-left" : "lucide:x"} className="w-5 h-5 text-white dark:text-gray-300" />
+                <Icon icon={isDesktop ? "solar:alt-arrow-left-bold-duotone" : "solar:close-circle-bold-duotone"} className="w-5 h-5 text-white dark:text-gray-300" />
               </button>
             )}
           </div>
@@ -494,7 +494,7 @@ const Layout = () => {
               className={`w-full flex items-center ${sidebarOpen ? 'gap-3 px-4' : 'justify-center px-0'} py-3 rounded-xl text-indigo-100 dark:text-gray-400 hover:bg-white/10 dark:hover:bg-white/5 hover:text-white dark:hover:text-gray-200 transition-colors`}
               title={!sidebarOpen ? 'Chiqish' : ''}
             >
-              <Icon icon="lucide:log-out" className="w-5 h-5 flex-shrink-0" />
+              <Icon icon="solar:logout-2-bold-duotone" className="w-5 h-5 flex-shrink-0" />
               {sidebarOpen && <span>Chiqish</span>}
             </button>
           </div>
@@ -513,7 +513,7 @@ const Layout = () => {
                   onClick={() => setSidebarOpen(true)}
                   className="p-2 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 rounded-lg transition-colors"
                 >
-                  <Icon icon="lucide:menu" className="w-5 h-5" />
+                  <Icon icon="solar:hamburger-menu-bold-duotone" className="w-5 h-5" />
                 </button>
               )}
               <div className="flex-1" />
@@ -523,7 +523,7 @@ const Layout = () => {
                   className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
                   title={theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}
                 >
-                  <Icon icon={theme === 'dark' ? "lucide:sun" : "lucide:moon"} className="w-5 h-5" />
+                  <Icon icon={theme === 'dark' ? "solar:sun-bold-duotone" : "solar:moon-bold-duotone"} className="w-5 h-5" />
                 </button>
 
                 {/* 🔔 Bildirishnoma Bell */}

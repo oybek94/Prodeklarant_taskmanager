@@ -64,7 +64,7 @@ const getUrgencyConfig = (daysRemaining: number | null, isPaid: boolean) => {
 const EmptyState = React.memo(() => (
     <div className="py-16 text-center">
         <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Icon icon="lucide:inbox" className="w-6 h-6 text-gray-400" />
+            <Icon icon="solar:inbox-bold-duotone" className="w-6 h-6 text-gray-400" />
         </div>
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Qarzlar topilmadi</p>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Bu filtr bo'yicha natija yo'q</p>
@@ -73,15 +73,15 @@ const EmptyState = React.memo(() => (
 
 const LoadingState = React.memo(() => (
     <div className="py-12 text-center">
-        <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+        <Icon icon="solar:refresh-bold-duotone" className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
         <p className="text-sm text-gray-400">Yuklanmoqda...</p>
     </div>
 ));
 
 const filterTabs = [
-    { value: '', label: 'Barchasi', icon: 'lucide:list' },
-    { value: 'active', label: 'Aktiv', icon: 'lucide:clock' },
-    { value: 'paid', label: "To'langan", icon: 'lucide:check-circle-2' },
+    { value: '', label: 'Barchasi', icon: 'solar:list-bold-duotone' },
+    { value: 'active', label: 'Aktiv', icon: 'solar:clock-circle-bold-duotone' },
+    { value: 'paid', label: "To'langan", icon: 'solar:check-circle-bold-duotone' },
 ];
 
 const DebtTable = React.memo(({
@@ -241,7 +241,7 @@ const DebtTable = React.memo(({
                                                 onClick={(e) => handleOpenPayment(e, debt)}
                                                 className="flex-1 flex justify-center items-center gap-1.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
                                             >
-                                                <Icon icon="lucide:check-circle-2" className="w-3.5 h-3.5" />
+                                                <Icon icon="solar:check-circle-bold-duotone" className="w-3.5 h-3.5" />
                                                 To'lov qilish
                                             </button>
                                         )}
@@ -249,7 +249,7 @@ const DebtTable = React.memo(({
                                             onClick={(e) => handleDeleteClick(e, debt.id)}
                                             className={`flex items-center justify-center gap-1.5 py-2 px-3 border border-rose-200 dark:border-rose-800/50 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg text-xs font-medium transition-colors ${isPaid ? 'flex-1' : ''}`}
                                         >
-                                            <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+                                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-3.5 h-3.5" />
                                             {isPaid && <span>O'chirish</span>}
                                         </button>
                                     </div>
@@ -366,7 +366,7 @@ const DebtTable = React.memo(({
                                                             onClick={(e) => handleOpenPayment(e, debt)}
                                                             className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-lg text-xs font-medium transition-colors"
                                                         >
-                                                            <Icon icon="lucide:check-circle-2" className="w-3.5 h-3.5" />
+                                                            <Icon icon="solar:check-circle-bold-duotone" className="w-3.5 h-3.5" />
                                                             To'lov
                                                         </button>
                                                     )}
@@ -375,7 +375,7 @@ const DebtTable = React.memo(({
                                                         className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
                                                         title="O'chirish"
                                                     >
-                                                        <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                                        <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             </td>
@@ -400,7 +400,7 @@ const DebtTable = React.memo(({
                             onClick={() => setPage((p: number) => p - 1)}
                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-700 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
                         >
-                            <Icon icon="lucide:chevron-left" className="w-3.5 h-3.5" />
+                            <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-3.5 h-3.5" />
                             Oldingi
                         </button>
                         <button
@@ -409,7 +409,7 @@ const DebtTable = React.memo(({
                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-700 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
                         >
                             Keyingi
-                            <Icon icon="lucide:chevron-right" className="w-3.5 h-3.5" />
+                            <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-3.5 h-3.5" />
                         </button>
                     </div>
                 </div>

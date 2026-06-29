@@ -88,7 +88,7 @@ const Finance = () => {
                 {/* Header qismi */}
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3 tracking-tight">
-                        <Icon icon="lucide:pie-chart" className="w-8 h-8 text-blue-600 dark:text-blue-500" />
+                        <Icon icon="solar:pie-chart-2-bold-duotone" className="w-8 h-8 text-blue-600 dark:text-blue-500" />
                         Moliya Dashboard
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-2 font-medium">Asosiy ko'rsatkichlar va moliyaviy oqimlar nazorati.</p>

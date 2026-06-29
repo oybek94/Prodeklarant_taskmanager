@@ -359,7 +359,7 @@ export const FinancialTab = () => {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex items-center gap-3 border-b border-gray-200 dark:border-slate-700 pb-3">
         <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-          <Icon icon="lucide:dollar-sign" className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+          <Icon icon="solar:dollar-bold-duotone" className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
         </div>
         <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">Moliyaviy Sozlamalar</h2>
       </div>
@@ -368,7 +368,7 @@ export const FinancialTab = () => {
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <Icon icon="lucide:coins" className="w-5 h-5 text-indigo-200" />
+              <Icon icon="solar:dollar-minimalistic-bold-duotone" className="w-5 h-5 text-indigo-200" />
               <span className="text-indigo-200 text-sm font-medium">Joriy BXM</span>
             </div>
             {loading ? (
@@ -378,7 +378,7 @@ export const FinancialTab = () => {
                 <div className="text-4xl font-bold">{formatCurrency(Number(currentBXM.amountUsd), 'USD')}</div>
                 <div className="text-indigo-200 text-lg mt-0.5">{formatCurrency(Number(currentBXM.amountUzs), 'UZS')}</div>
                 <div className="text-indigo-300 text-xs mt-2 flex items-center gap-1.5">
-                  <Icon icon="lucide:calendar-check" className="w-3.5 h-3.5" />
+                  <Icon icon="solar:calendar-mark-bold-duotone" className="w-3.5 h-3.5" />
                   {formatDate(currentBXM.effectiveFrom)} dan boshlab kuchda
                 </div>
                 {currentBXM.note && (
@@ -392,7 +392,7 @@ export const FinancialTab = () => {
               <button onClick={cancelEditBxm} className="px-4 py-2 bg-white dark:bg-slate-800/20 hover:bg-white dark:bg-slate-800/30 rounded-xl text-sm font-medium transition-colors">Bekor</button>
             ) : (
               <button onClick={() => currentBXM && handleEditBxm(currentBXM)} className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 text-indigo-700 hover:bg-indigo-50 rounded-xl text-sm font-semibold transition-colors shadow">
-                <Icon icon="lucide:pencil" className="w-4 h-4" />
+                <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
                 O'zgartirish
               </button>
             )}
@@ -413,7 +413,7 @@ export const FinancialTab = () => {
             </div>
             <div className="flex gap-3 mt-3">
               <button onClick={() => currentBXM && handleSaveBxm(currentBXM.id)} className="flex-1 py-2.5 bg-white dark:bg-slate-800 text-indigo-700 rounded-xl font-semibold hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2">
-                <Icon icon="lucide:check" className="w-4 h-4" />Saqlash
+                <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4" />Saqlash
               </button>
               <button onClick={cancelEditBxm} className="px-5 py-2.5 bg-white dark:bg-slate-800/10 text-white rounded-xl hover:bg-white dark:bg-slate-800/20 transition-colors">Bekor</button>
             </div>
@@ -426,7 +426,7 @@ export const FinancialTab = () => {
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
-                <Icon icon="lucide:history" className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <Icon icon="solar:history-bold-duotone" className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               </div>
               <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">BXM tarixi</h2>
             </div>
@@ -434,7 +434,7 @@ export const FinancialTab = () => {
               onClick={() => { setShowAddBXMForm(true); setNewBxmEffective(new Date().toISOString().slice(0, 16)); }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-medium"
             >
-              <Icon icon="lucide:plus" className="w-3.5 h-3.5" />Yangi
+              <Icon icon="solar:add-circle-bold-duotone" className="w-3.5 h-3.5" />Yangi
             </button>
           </div>
 
@@ -490,17 +490,17 @@ export const FinancialTab = () => {
                       </div>
                       <div className="text-xs text-gray-400 dark:text-slate-500">{formatCurrency(Number(config.amountUzs), 'UZS')}</div>
                       <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
-                        <Icon icon="lucide:calendar" className="w-3 h-3" />
+                        <Icon icon="solar:calendar-bold-duotone" className="w-3 h-3" />
                         {formatDate(config.effectiveFrom)}
                         {config.note && <span className="ml-1 italic">— {config.note}</span>}
                       </div>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => handleEditBxm(config)} className="p-2 text-gray-400 dark:text-slate-500 hover:text-blue-500 hover:bg-blue-50 dark:bg-blue-500/10 rounded-lg transition-colors">
-                        <Icon icon="lucide:pencil" className="w-4 h-4" />
+                        <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDeleteBxm(config.id)} className="p-2 text-gray-400 dark:text-slate-500 hover:text-red-500 hover:bg-red-50 dark:bg-red-500/10 rounded-lg transition-colors">
-                        <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                        <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -514,7 +514,7 @@ export const FinancialTab = () => {
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center">
-                <Icon icon="lucide:percent" className="w-4 h-4 text-orange-600" />
+                <Icon icon="solar:sale-bold-duotone" className="w-4 h-4 text-orange-600" />
               </div>
               <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">Sertifikatchi tariflari</h2>
             </div>
@@ -568,7 +568,7 @@ export const FinancialTab = () => {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-400 dark:text-slate-500">
-              <Icon icon="lucide:alert-circle" className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+              <Icon icon="solar:danger-circle-bold-duotone" className="w-8 h-8 mx-auto mb-2 text-gray-300" />
               <div className="text-sm">Sertifikatchi tariflari sozlanmagan<br/>(Filial qo'shing)</div>
             </div>
           )}
@@ -579,7 +579,7 @@ export const FinancialTab = () => {
         <div className="flex justify-between items-center mb-5">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Icon icon="lucide:credit-card" className="w-4 h-4 text-purple-600" />
+              <Icon icon="solar:card-bold-duotone" className="w-4 h-4 text-purple-600" />
             </div>
             <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">Davlat to'lovlari</h2>
           </div>
@@ -639,7 +639,7 @@ export const FinancialTab = () => {
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <Icon icon="lucide:wallet" className="w-5 h-5 text-violet-200" />
+                <Icon icon="solar:wallet-bold-duotone" className="w-5 h-5 text-violet-200" />
                 <h3 className="text-lg font-bold">Ishchilarga to'lovlar (KPI)</h3>
               </div>
               <p className="text-violet-200 text-sm">Har bir bosqich uchun to'lanadigan summa (UZS).</p>
@@ -649,7 +649,7 @@ export const FinancialTab = () => {
                 onClick={() => { setShowKpiHistoryModal(true); loadKpiHistory(); }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800/20 hover:bg-white dark:bg-slate-800/30 rounded-lg text-sm font-medium transition-colors"
               >
-                <Icon icon="lucide:history" className="w-3.5 h-3.5" />Tarix
+                <Icon icon="solar:history-bold-duotone" className="w-3.5 h-3.5" />Tarix
               </button>
               <button
                 onClick={() => {
@@ -661,13 +661,13 @@ export const FinancialTab = () => {
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800/20 hover:bg-white dark:bg-slate-800/30 rounded-lg text-sm font-medium transition-colors"
               >
-                <Icon icon="lucide:calendar-plus" className="w-3.5 h-3.5" />Yangi tarif
+                <Icon icon="solar:calendar-add-bold-duotone" className="w-3.5 h-3.5" />Yangi tarif
               </button>
               <button
                 onClick={() => setShowAddStageForm(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 text-indigo-700 hover:bg-indigo-50 rounded-lg text-sm font-semibold transition-colors shadow"
               >
-                <Icon icon="lucide:plus" className="w-3.5 h-3.5" />Jarayon
+                <Icon icon="solar:add-circle-bold-duotone" className="w-3.5 h-3.5" />Jarayon
               </button>
             </div>
           </div>
@@ -676,7 +676,7 @@ export const FinancialTab = () => {
         {showAddStageForm && (
           <div className="mx-6 mt-4 mb-2 p-5 border-2 border-emerald-200 rounded-xl bg-emerald-50 dark:bg-emerald-500/10">
             <div className="text-sm font-bold text-emerald-700 mb-3 flex items-center gap-2">
-              <Icon icon="lucide:layers" className="w-4 h-4" />
+              <Icon icon="solar:layers-bold-duotone" className="w-4 h-4" />
               Yangi jarayon (bosqich) qo'shish
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -691,7 +691,7 @@ export const FinancialTab = () => {
             </div>
             <div className="flex gap-2 mt-3">
               <button onClick={handleAddStage} className="flex-1 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center justify-center gap-2">
-                <Icon icon="lucide:check" className="w-4 h-4" />Qo'shish
+                <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4" />Qo'shish
               </button>
               <button onClick={() => { setShowAddStageForm(false); setNewStageName(''); setNewStagePrice('0'); }} className="px-4 py-2 bg-gray-200 text-gray-700 dark:text-slate-300 rounded-lg text-sm hover:bg-gray-300">Bekor</button>
             </div>
@@ -701,7 +701,7 @@ export const FinancialTab = () => {
         {showAddKpiForm && (
           <div className="mx-6 mt-4 mb-2 p-5 border-2 border-violet-200 rounded-xl bg-violet-50">
             <div className="text-sm font-bold text-violet-700 mb-4 flex items-center gap-2">
-              <Icon icon="lucide:calendar-plus" className="w-4 h-4" />
+              <Icon icon="solar:calendar-add-bold-duotone" className="w-4 h-4" />
               Yangi narx to'plami
             </div>
             <div className="grid grid-cols-2 gap-3 mb-3">
@@ -752,7 +752,7 @@ export const FinancialTab = () => {
                   disabled={savingKpiConfigs}
                   className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium disabled:opacity-50"
                 >
-                  <Icon icon="lucide:save" className="w-4 h-4" />
+                  <Icon icon="solar:diskette-bold-duotone" className="w-4 h-4" />
                   Saqlash
                 </button>
               </div>
@@ -763,7 +763,7 @@ export const FinancialTab = () => {
                       onClick={() => handleDeleteStage(stage.stageName)}
                       className="absolute top-2 right-2 p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:bg-red-500/10 rounded-md opacity-0 group-hover:opacity-100 transition-all"
                     >
-                      <Icon icon="lucide:x" className="w-3.5 h-3.5" />
+                      <Icon icon="solar:close-circle-bold-duotone" className="w-3.5 h-3.5" />
                     </button>
                     <div className="text-xs font-semibold text-gray-500 dark:text-slate-400 mb-2 truncate group-hover:text-indigo-600 transition-colors pr-5">
                       {stage.stageName}
@@ -880,11 +880,11 @@ export const FinancialTab = () => {
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden">
             <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Icon icon="lucide:history" className="w-5 h-5" />
+                <Icon icon="solar:history-bold-duotone" className="w-5 h-5" />
                 <h3 className="text-lg font-bold">KPI narxlar tarixi</h3>
               </div>
               <button onClick={() => setShowKpiHistoryModal(false)} className="p-1.5 hover:bg-white dark:bg-slate-800/20 rounded-lg transition-colors">
-                <Icon icon="lucide:x" className="w-5 h-5" />
+                <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6 overflow-y-auto max-h-[calc(80vh-80px)]">
@@ -902,7 +902,7 @@ export const FinancialTab = () => {
                     return Array.from(groups.entries()).map(([dateStr, configs]) => (
                       <div key={dateStr} className="border border-gray-100 dark:border-slate-700 rounded-xl overflow-hidden">
                         <div className="bg-gray-50 dark:bg-slate-900/50 px-4 py-2.5 flex items-center gap-2 border-b border-gray-100 dark:border-slate-700">
-                          <Icon icon="lucide:calendar" className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
+                          <Icon icon="solar:calendar-bold-duotone" className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
                           <span className="text-sm font-semibold text-gray-600 dark:text-slate-300">{formatDate(dateStr)}</span>
                           {configs[0]?.note && <span className="text-xs text-gray-400 dark:text-slate-500 italic ml-2">— {configs[0].note}</span>}
                         </div>

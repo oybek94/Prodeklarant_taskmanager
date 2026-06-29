@@ -56,7 +56,7 @@ export const SystemTab = () => {
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-6 sm:p-8">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-12 h-12 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl flex items-center justify-center">
-            <Icon icon="lucide:database-backup" className="w-6 h-6" />
+            <Icon icon="solar:database-bold-duotone" className="w-6 h-6" />
           </div>
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Ma'lumotlar zaxirasi</h2>
@@ -66,7 +66,7 @@ export const SystemTab = () => {
 
         <div className="bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 rounded-xl p-4 mb-6">
           <div className="flex gap-3">
-            <Icon icon="lucide:alert-triangle" className="w-5 h-5 text-orange-500 dark:text-orange-400 flex-shrink-0" />
+            <Icon icon="solar:danger-triangle-bold-duotone" className="w-5 h-5 text-orange-500 dark:text-orange-400 flex-shrink-0" />
             <p className="text-sm text-orange-800 dark:text-orange-200">
               Zaxira nusxasi (Backup) barcha jadvallardagi ma'lumotlarni o'z ichiga oladi. Dasturda kutilmaganda
               turli jiddiy muammolar bo'lib, ma'lumotlar o'chib ketsa, shu orqali uni qayta tiklasangiz bo'ladi.
@@ -82,12 +82,12 @@ export const SystemTab = () => {
           >
             {isBackingUp ? (
               <>
-                <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" />
+                <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 animate-spin" />
                 Yuklanmoqda...
               </>
             ) : (
               <>
-                <Icon icon="lucide:download" className="w-5 h-5" />
+                <Icon icon="solar:download-bold-duotone" className="w-5 h-5" />
                 Zaxira faylini yuklab olish
               </>
             )}
@@ -107,12 +107,12 @@ export const SystemTab = () => {
             >
               {isRestoring ? (
                 <>
-                  <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" />
+                  <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 animate-spin" />
                   Tiklanmoqda...
                 </>
               ) : (
                 <>
-                  <Icon icon="lucide:upload" className="w-5 h-5" />
+                  <Icon icon="solar:upload-bold-duotone" className="w-5 h-5" />
                   Zaxiradan tiklash (Restore)
                 </>
               )}

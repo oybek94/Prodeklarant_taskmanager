@@ -13,7 +13,7 @@ export const DashboardProcessTimes: React.FC<DashboardProcessTimesProps> = ({ pr
 
       <div className="flex items-center gap-4 mb-4 relative z-10 shrink-0">
         <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-teal-50 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 shrink-0">
-          <Icon icon="lucide:clock" className="w-5 h-5 sm:w-6 sm:h-6 text-teal-600 dark:text-teal-400" />
+          <Icon icon="solar:clock-circle-bold-duotone" className="w-5 h-5 sm:w-6 sm:h-6 text-teal-600 dark:text-teal-400" />
         </div>
         <div>
           <h2 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">Jarayonga sarflangan vaqt</h2>
@@ -32,7 +32,7 @@ export const DashboardProcessTimes: React.FC<DashboardProcessTimesProps> = ({ pr
         if (!Array.isArray(processTimes) || processTimes.length === 0) {
           return (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-gray-400 dark:text-gray-500 relative z-10">
-              <Icon icon="lucide:clock" className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <Icon icon="solar:clock-circle-bold-duotone" className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="font-bold text-sm">Vaqt ko'rsatkichlari yo'q</p>
             </div>
           );

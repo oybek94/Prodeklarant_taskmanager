@@ -21,7 +21,7 @@ export const DashboardYearlyGoal: React.FC<DashboardYearlyGoalProps> = ({
 
       <div className="flex items-center gap-4 mb-4 relative z-10 shrink-0">
         <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shadow-inner border border-white dark:border-gray-700/50 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 shrink-0">
-          <Icon icon="lucide:target" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
+          <Icon icon="solar:target-bold-duotone" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
         </div>
         <div>
           <h2 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">Yillik maqsad</h2>
@@ -141,7 +141,7 @@ export const DashboardYearlyGoal: React.FC<DashboardYearlyGoalProps> = ({
                 </div>
                 <div className="text-center mt-3">
                   <span className="text-[11px] uppercase tracking-widest font-black text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2">
-                    <Icon icon="lucide:check-circle-2" className="w-4 h-4 text-emerald-500" />
+                    <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4 text-emerald-500" />
                     {percentage.toFixed(1)}% bajarildi
                   </span>
                 </div>

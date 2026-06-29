@@ -25,10 +25,10 @@ export const TaskStatsCards: React.FC<TaskStatsCardsProps> = ({
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {([
-        { label: 'Yillik', icon: 'lucide:calendar', data: stats.yearly, bgIcon: 'bg-indigo-100 dark:bg-indigo-900/30', textIcon: 'text-indigo-600 dark:text-indigo-400' },
-        { label: 'Oylik', icon: 'lucide:calendar-days', data: stats.monthly, bgIcon: 'bg-emerald-100 dark:bg-emerald-900/30', textIcon: 'text-emerald-600 dark:text-emerald-400' },
-        { label: 'Haftalik', icon: 'lucide:calendar-range', data: stats.weekly, bgIcon: 'bg-amber-100 dark:bg-amber-900/30', textIcon: 'text-amber-600 dark:text-amber-400' },
-        { label: 'Bugungi', icon: 'lucide:calendar-clock', data: stats.daily, bgIcon: 'bg-rose-100 dark:bg-rose-900/30', textIcon: 'text-rose-600 dark:text-rose-400' },
+        { label: 'Yillik', icon: 'solar:calendar-bold-duotone', data: stats.yearly, bgIcon: 'bg-indigo-100 dark:bg-indigo-900/30', textIcon: 'text-indigo-600 dark:text-indigo-400' },
+        { label: 'Oylik', icon: 'solar:calendar-date-bold-duotone', data: stats.monthly, bgIcon: 'bg-emerald-100 dark:bg-emerald-900/30', textIcon: 'text-emerald-600 dark:text-emerald-400' },
+        { label: 'Haftalik', icon: 'solar:calendar-minimalistic-bold-duotone', data: stats.weekly, bgIcon: 'bg-amber-100 dark:bg-amber-900/30', textIcon: 'text-amber-600 dark:text-amber-400' },
+        { label: 'Bugungi', icon: 'solar:calendar-date-bold-duotone', data: stats.daily, bgIcon: 'bg-rose-100 dark:bg-rose-900/30', textIcon: 'text-rose-600 dark:text-rose-400' },
       ] as const).map(({ label, icon, data, bgIcon, textIcon }) => {
         const change = data.previous > 0
           ? Math.round(((data.current - data.previous) / data.previous) * 100)

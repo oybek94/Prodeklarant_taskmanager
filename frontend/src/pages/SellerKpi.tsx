@@ -5,11 +5,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useIsMobile } from '../utils/useIsMobile';
 
 const BONUS_LABELS: Record<string, { label: string; icon: string; color: string }> = {
-    PHONE_MEETING: { label: 'Telda uchrashuv', icon: 'lucide:phone-call', color: 'text-blue-500' },
-    IN_PERSON_MEETING: { label: 'Yuzma-yuz uchrashuv', icon: 'lucide:users', color: 'text-violet-500' },
-    CONTRACT_SMALL: { label: 'Shartnoma (< 20)', icon: 'lucide:file-check', color: 'text-emerald-500' },
-    CONTRACT_MEDIUM: { label: 'Shartnoma (20-50)', icon: 'lucide:file-check-2', color: 'text-amber-500' },
-    CONTRACT_LARGE: { label: 'Shartnoma (> 50)', icon: 'lucide:trophy', color: 'text-rose-500' },
+    PHONE_MEETING: { label: 'Telda uchrashuv', icon: 'solar:phone-calling-bold-duotone', color: 'text-blue-500' },
+    IN_PERSON_MEETING: { label: 'Yuzma-yuz uchrashuv', icon: 'solar:users-group-rounded-bold-duotone', color: 'text-violet-500' },
+    CONTRACT_SMALL: { label: 'Shartnoma (< 20)', icon: 'solar:file-check-bold-duotone', color: 'text-emerald-500' },
+    CONTRACT_MEDIUM: { label: 'Shartnoma (20-50)', icon: 'solar:file-check-bold-duotone', color: 'text-amber-500' },
+    CONTRACT_LARGE: { label: 'Shartnoma (> 50)', icon: 'solar:cup-star-bold-duotone', color: 'text-rose-500' },
 };
 
 function CircularProgress({ value, max, label, icon, color, size = 120 }: { value: number; max: number; label: string; icon: string; color: string; size?: number }) {
@@ -28,7 +28,7 @@ function CircularProgress({ value, max, label, icon, color, size = 120 }: { valu
                         className={`transition-all duration-1000 ease-out ${done ? 'text-emerald-500' : color}`} />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <Icon icon={done ? 'lucide:check-circle-2' : icon} className={`w-5 h-5 mb-0.5 ${done ? 'text-emerald-500' : 'text-gray-400 dark:text-gray-500'}`} />
+                    <Icon icon={done ? 'solar:check-circle-bold-duotone' : icon} className={`w-5 h-5 mb-0.5 ${done ? 'text-emerald-500' : 'text-gray-400 dark:text-gray-500'}`} />
                     <span className={`text-xl font-black ${done ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-900 dark:text-white'}`}>{value}</span>
                     <span className="text-[10px] text-gray-400">/ {max}</span>
                 </div>
@@ -86,7 +86,7 @@ export default function SellerKpi() {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-indigo-500" />
+                <Icon icon="solar:refresh-bold-duotone" className="w-8 h-8 animate-spin text-indigo-500" />
             </div>
         );
     }
@@ -97,7 +97,7 @@ export default function SellerKpi() {
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <Icon icon="lucide:target" className="w-6 h-6 text-indigo-500" />
+                        <Icon icon="solar:target-bold-duotone" className="w-6 h-6 text-indigo-500" />
                         Sotuvchi KPI
                     </h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Kunlik vazifalar va bonus nazorati</p>
@@ -119,12 +119,12 @@ export default function SellerKpi() {
                     {/* Bugungi progress */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
                         <h2 className="text-base font-bold text-gray-800 dark:text-gray-200 mb-6 flex items-center gap-2">
-                            <Icon icon="lucide:clock" className="w-5 h-5 text-indigo-500" />
+                            <Icon icon="solar:clock-circle-bold-duotone" className="w-5 h-5 text-indigo-500" />
                             Bugungi holat
                         </h2>
                         <div className="flex flex-wrap justify-center gap-8 sm:gap-12">
-                            <CircularProgress value={myStats.today?.callsMade || 0} max={40} label="Qo'ng'iroqlar" icon="lucide:phone" color="text-blue-500" />
-                            <CircularProgress value={myStats.today?.subscribersAdded || 0} max={20} label="Obunachi" icon="lucide:user-plus" color="text-violet-500" />
+                            <CircularProgress value={myStats.today?.callsMade || 0} max={40} label="Qo'ng'iroqlar" icon="solar:phone-bold-duotone" color="text-blue-500" />
+                            <CircularProgress value={myStats.today?.subscribersAdded || 0} max={20} label="Obunachi" icon="solar:user-plus-rounded-bold-duotone" color="text-violet-500" />
                         </div>
                         {/* Obunachi kiritish */}
                         <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
@@ -134,7 +134,7 @@ export default function SellerKpi() {
                                     className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                                 <button onClick={handleSaveSubscribers} disabled={saving || !subsInput}
                                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
-                                    {saving ? <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" /> : 'Saqlash'}
+                                    {saving ? <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" /> : 'Saqlash'}
                                 </button>
                             </div>
                         </div>
@@ -143,15 +143,15 @@ export default function SellerKpi() {
                     {/* Oylik bonus summasi */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 text-white shadow-lg">
-                            <div className="flex items-center gap-2 mb-2 opacity-80"><Icon icon="lucide:banknote" className="w-5 h-5" /><span className="text-sm">Oylik bonus</span></div>
+                            <div className="flex items-center gap-2 mb-2 opacity-80"><Icon icon="solar:banknote-2-bold-duotone" className="w-5 h-5" /><span className="text-sm">Oylik bonus</span></div>
                             <p className="text-3xl font-black">{formatAmount(myStats.totalMonthlyBonus || 0)} <span className="text-lg font-medium opacity-80">so'm</span></p>
                         </div>
                         <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
-                            <div className="flex items-center gap-2 mb-2 opacity-80"><Icon icon="lucide:calendar-check" className="w-5 h-5" /><span className="text-sm">Uchrashuvlar</span></div>
+                            <div className="flex items-center gap-2 mb-2 opacity-80"><Icon icon="solar:calendar-mark-bold-duotone" className="w-5 h-5" /><span className="text-sm">Uchrashuvlar</span></div>
                             <p className="text-3xl font-black">{(myStats.bonusBreakdown?.phoneMeetings?.length || 0) + (myStats.bonusBreakdown?.inPersonMeetings?.length || 0)}</p>
                         </div>
                         <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl p-5 text-white shadow-lg">
-                            <div className="flex items-center gap-2 mb-2 opacity-80"><Icon icon="lucide:file-check" className="w-5 h-5" /><span className="text-sm">Shartnomalar</span></div>
+                            <div className="flex items-center gap-2 mb-2 opacity-80"><Icon icon="solar:file-check-bold-duotone" className="w-5 h-5" /><span className="text-sm">Shartnomalar</span></div>
                             <p className="text-3xl font-black">{(myStats.bonusBreakdown?.contractsSmall?.length || 0) + (myStats.bonusBreakdown?.contractsMedium?.length || 0) + (myStats.bonusBreakdown?.contractsLarge?.length || 0)}</p>
                         </div>
                     </div>
@@ -159,13 +159,13 @@ export default function SellerKpi() {
                     {/* Bonus tarixi */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
                         <h2 className="text-base font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                            <Icon icon="lucide:gift" className="w-5 h-5 text-amber-500" />
+                            <Icon icon="solar:gift-bold-duotone" className="w-5 h-5 text-amber-500" />
                             Bonus tarixi (shu oy)
                         </h2>
                         {myStats.monthlyBonuses?.length > 0 ? (
                             <div className="space-y-2">
                                 {myStats.monthlyBonuses.map((b: any) => {
-                                    const cfg = BONUS_LABELS[b.type] || { label: b.type, icon: 'lucide:star', color: 'text-gray-500' };
+                                    const cfg = BONUS_LABELS[b.type] || { label: b.type, icon: 'solar:star-bold-duotone', color: 'text-gray-500' };
                                     return (
                                         <div key={b.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                             <div className={`w-9 h-9 rounded-lg flex items-center justify-center bg-gray-100 dark:bg-gray-700 ${cfg.color}`}>
@@ -185,7 +185,7 @@ export default function SellerKpi() {
                             </div>
                         ) : (
                             <div className="text-center py-8 text-gray-300 dark:text-gray-600">
-                                <Icon icon="lucide:inbox" className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                                <Icon icon="solar:inbox-bold-duotone" className="w-10 h-10 mx-auto mb-2 opacity-50" />
                                 <p className="text-sm">Hali bonus yo'q</p>
                             </div>
                         )}
@@ -194,24 +194,24 @@ export default function SellerKpi() {
                     {/* Qoidalar */}
                     <div className="bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-900/20 dark:to-violet-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 p-6">
                         <h3 className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mb-4 flex items-center gap-2">
-                            <Icon icon="lucide:scroll-text" className="w-4 h-4" /> Kelishuv shartlari
+                            <Icon icon="solar:document-bold-duotone" className="w-4 h-4" /> Kelishuv shartlari
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                             <div>
-                                <p className="font-bold text-red-600 dark:text-red-400 mb-2 flex items-center gap-1"><Icon icon="lucide:alert-triangle" className="w-4 h-4" /> Majburiy (kunlik)</p>
+                                <p className="font-bold text-red-600 dark:text-red-400 mb-2 flex items-center gap-1"><Icon icon="solar:danger-triangle-bold-duotone" className="w-4 h-4" /> Majburiy (kunlik)</p>
                                 <ul className="space-y-1 text-gray-700 dark:text-gray-300">
-                                    <li className="flex items-center gap-2"><Icon icon="lucide:phone" className="w-3.5 h-3.5 text-blue-500" /> 40 ta lid bilan gaplashish</li>
-                                    <li className="flex items-center gap-2"><Icon icon="lucide:user-plus" className="w-3.5 h-3.5 text-violet-500" /> 20 ta obunachi qo'shish</li>
+                                    <li className="flex items-center gap-2"><Icon icon="solar:phone-bold-duotone" className="w-3.5 h-3.5 text-blue-500" /> 40 ta lid bilan gaplashish</li>
+                                    <li className="flex items-center gap-2"><Icon icon="solar:user-plus-rounded-bold-duotone" className="w-3.5 h-3.5 text-violet-500" /> 20 ta obunachi qo'shish</li>
                                 </ul>
                             </div>
                             <div>
-                                <p className="font-bold text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1"><Icon icon="lucide:gift" className="w-4 h-4" /> Bonus</p>
+                                <p className="font-bold text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1"><Icon icon="solar:gift-bold-duotone" className="w-4 h-4" /> Bonus</p>
                                 <ul className="space-y-1 text-gray-700 dark:text-gray-300">
-                                    <li className="flex items-center gap-2"><Icon icon="lucide:phone-call" className="w-3.5 h-3.5 text-blue-500" /> Telda uchrashuv — <b>10,000</b> so'm</li>
-                                    <li className="flex items-center gap-2"><Icon icon="lucide:users" className="w-3.5 h-3.5 text-violet-500" /> Yuzma-yuz uchrashuv — <b>30,000</b> so'm</li>
-                                    <li className="flex items-center gap-2"><Icon icon="lucide:file-check" className="w-3.5 h-3.5 text-emerald-500" /> Shartnoma {'<'} 20 — <b>300,000</b> so'm</li>
-                                    <li className="flex items-center gap-2"><Icon icon="lucide:file-check-2" className="w-3.5 h-3.5 text-amber-500" /> Shartnoma 20-50 — <b>600,000</b> so'm</li>
-                                    <li className="flex items-center gap-2"><Icon icon="lucide:trophy" className="w-3.5 h-3.5 text-rose-500" /> Shartnoma {'>'} 50 — <b>1,200,000</b> so'm</li>
+                                    <li className="flex items-center gap-2"><Icon icon="solar:phone-calling-bold-duotone" className="w-3.5 h-3.5 text-blue-500" /> Telda uchrashuv — <b>10,000</b> so'm</li>
+                                    <li className="flex items-center gap-2"><Icon icon="solar:users-group-rounded-bold-duotone" className="w-3.5 h-3.5 text-violet-500" /> Yuzma-yuz uchrashuv — <b>30,000</b> so'm</li>
+                                    <li className="flex items-center gap-2"><Icon icon="solar:file-check-bold-duotone" className="w-3.5 h-3.5 text-emerald-500" /> Shartnoma {'<'} 20 — <b>300,000</b> so'm</li>
+                                    <li className="flex items-center gap-2"><Icon icon="solar:file-check-bold-duotone" className="w-3.5 h-3.5 text-amber-500" /> Shartnoma 20-50 — <b>600,000</b> so'm</li>
+                                    <li className="flex items-center gap-2"><Icon icon="solar:cup-star-bold-duotone" className="w-3.5 h-3.5 text-rose-500" /> Shartnoma {'>'} 50 — <b>1,200,000</b> so'm</li>
                                 </ul>
                             </div>
                         </div>
@@ -305,7 +305,7 @@ export default function SellerKpi() {
                         ))}
                         {dashboard.sellers.length === 0 && (
                             <div className="text-center py-12 text-gray-300 dark:text-gray-600">
-                                <Icon icon="lucide:users" className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                                <Icon icon="solar:users-group-rounded-bold-duotone" className="w-12 h-12 mx-auto mb-3 opacity-40" />
                                 <p>SELLER rolidagi foydalanuvchi topilmadi</p>
                             </div>
                         )}

@@ -23,7 +23,7 @@ export default function TableModal({ title, subtitle, onClose, loading, empty, e
             <p className="text-sm text-gray-400 mt-0.5">{subtitle}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
-            <Icon icon="lucide:x" className="w-5 h-5 text-gray-400" />
+            <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
@@ -34,7 +34,7 @@ export default function TableModal({ title, subtitle, onClose, loading, empty, e
             </div>
           ) : empty ? (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
-              <Icon icon="lucide:inbox" className="w-12 h-12 mb-3 opacity-20" />
+              <Icon icon="solar:inbox-bold-duotone" className="w-12 h-12 mb-3 opacity-20" />
               <p className="text-sm">{emptyText}</p>
             </div>
           ) : children}

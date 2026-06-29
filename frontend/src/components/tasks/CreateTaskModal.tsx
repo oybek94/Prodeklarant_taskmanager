@@ -73,7 +73,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             {/* 1. Task name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
-                <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
+                <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4 text-blue-600" />
                 Vazifa nomi <span className="text-red-500">*</span>
               </label>
               <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -83,7 +83,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             {/* 2. Mijoz */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
-                <Icon icon="lucide:user" className="w-4 h-4 text-blue-600" />
+                <Icon icon="solar:user-bold-duotone" className="w-4 h-4 text-blue-600" />
                 Mijoz <span className="text-red-500">*</span>
               </label>
               <select value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}
@@ -96,7 +96,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             {/* 3. Filial */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
-                <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
+                <Icon icon="solar:buildings-2-bold-duotone" className="w-4 h-4 text-blue-600" />
                 Filial <span className="text-red-500">*</span>
               </label>
               <div className="flex flex-wrap gap-2">
@@ -113,7 +113,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             {/* 4. PSR */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
-                <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
+                <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4 text-blue-600" />
                 PSR <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-2">
@@ -131,7 +131,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             {/* 5. After Hours Payer */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
-                <Icon icon="lucide:handshake" className="w-4 h-4 text-blue-600" />
+                <Icon icon="solar:hand-shake-bold-duotone" className="w-4 h-4 text-blue-600" />
                 Qo'shimcha to'lov kelishuvi
               </label>
               <div className="flex gap-2">
@@ -149,7 +149,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             {/* 6. Driver Phone */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
-                <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
+                <Icon icon="solar:phone-bold-duotone" className="w-4 h-4 text-blue-600" />
                 Haydovchi tel raqami
               </label>
               <input type="tel" value={form.driverPhone} onChange={(e) => setForm({ ...form, driverPhone: e.target.value })}
@@ -159,7 +159,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             {/* 7. Comments */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
-                <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
+                <Icon icon="solar:chat-square-bold-duotone" className="w-4 h-4 text-blue-600" />
                 Izohlar
               </label>
               <textarea value={form.comments} onChange={(e) => setForm({ ...form, comments: e.target.value })}

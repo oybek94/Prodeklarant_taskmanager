@@ -158,7 +158,7 @@ const Notifications = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Icon icon="lucide:bell" className="w-7 h-7 text-indigo-600" />
+          <Icon icon="solar:bell-bold-duotone" className="w-7 h-7 text-indigo-600" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Bildirishnomalar</h1>
           {unreadCount > 0 && (
             <span className="px-2 py-0.5 text-sm font-medium bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded-full">
@@ -205,12 +205,12 @@ const Notifications = () => {
       {/* List */}
       {loading ? (
         <div className="text-center py-12 text-gray-400">
-          <Icon icon="lucide:loader-2" className="w-8 h-8 mx-auto animate-spin mb-2" />
+          <Icon icon="solar:refresh-bold-duotone" className="w-8 h-8 mx-auto animate-spin mb-2" />
           Yuklanmoqda...
         </div>
       ) : notifications.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <Icon icon="lucide:bell-off" className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <Icon icon="solar:bell-off-bold-duotone" className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p className="text-lg font-medium">Bildirishnomalar yo'q</p>
           <p className="text-sm mt-1">
             {filter === 'unread' ? 'Barcha bildirishnomalar o\'qilgan' : 'Hali hech qanday bildirishnoma kelmagan'}
@@ -261,14 +261,14 @@ const Notifications = () => {
                           onClick={() => handleProcessConfirm(n)}
                           className="px-4 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1.5"
                         >
-                          <Icon icon="lucide:check" className="w-3.5 h-3.5" />
+                          <Icon icon="solar:check-circle-bold-duotone" className="w-3.5 h-3.5" />
                           Tayyor
                         </button>
                         <button
                           onClick={() => handleProcessReject(n)}
                           className="px-4 py-1.5 text-xs font-medium bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-1.5"
                         >
-                          <Icon icon="lucide:clock" className="w-3.5 h-3.5" />
+                          <Icon icon="solar:clock-circle-bold-duotone" className="w-3.5 h-3.5" />
                           Hali yo'q
                         </button>
                       </div>
@@ -281,7 +281,7 @@ const Notifications = () => {
                         className="p-1.5 text-gray-400 hover:text-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                         title="O'qilgan deb belgilash"
                       >
-                        <Icon icon="lucide:check" className="w-4 h-4" />
+                        <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4" />
                       </button>
                     )}
                     <button
@@ -289,7 +289,7 @@ const Notifications = () => {
                       className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       title="O'chirish"
                     >
-                      <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                      <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

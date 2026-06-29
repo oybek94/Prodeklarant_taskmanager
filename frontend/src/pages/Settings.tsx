@@ -13,12 +13,12 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState<TabType>('general');
 
   const tabs = [
-    { id: 'general', label: 'Umumiy', icon: 'lucide:settings' },
-    { id: 'financial', label: 'Moliya', icon: 'lucide:dollar-sign' },
-    { id: 'structure', label: 'Tuzilma', icon: 'lucide:building-2' },
-    { id: 'specs', label: 'Spetsifikatsiyalar', icon: 'lucide:file-text' },
-    { id: 'processes', label: 'Jarayonlar', icon: 'lucide:git-commit' },
-    { id: 'system', label: 'Tizim', icon: 'lucide:monitor' },
+    { id: 'general', label: 'Umumiy', icon: 'solar:settings-bold-duotone' },
+    { id: 'financial', label: 'Moliya', icon: 'solar:dollar-bold-duotone' },
+    { id: 'structure', label: 'Tuzilma', icon: 'solar:buildings-3-bold-duotone' },
+    { id: 'specs', label: 'Spetsifikatsiyalar', icon: 'solar:document-text-bold-duotone' },
+    { id: 'processes', label: 'Jarayonlar', icon: 'solar:record-circle-bold-duotone' },
+    { id: 'system', label: 'Tizim', icon: 'solar:monitor-bold-duotone' },
   ];
 
   return (
@@ -27,7 +27,7 @@ const Settings = () => {
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-200 dark:shadow-none">
-              <Icon icon="lucide:sliders" className="w-5 h-5 text-white" />
+              <Icon icon="solar:tuning-bold-duotone" className="w-5 h-5 text-white" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Sozlamalar</h1>

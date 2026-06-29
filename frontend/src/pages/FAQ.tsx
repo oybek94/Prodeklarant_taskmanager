@@ -137,7 +137,7 @@ const FAQ = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Icon icon="lucide:help-circle" className="w-7 h-7 text-indigo-600" />
+            <Icon icon="solar:question-circle-bold-duotone" className="w-7 h-7 text-indigo-600" />
             Bojxona Rasmiylashtiruvi FAQ
           </h1>
           <p className="text-gray-500 text-sm mt-1">Deklarantlar uchun yordam bazasi</p>
@@ -149,7 +149,7 @@ const FAQ = () => {
               onClick={() => openModal()}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition"
             >
-              <Icon icon="lucide:plus" className="w-5 h-5" />
+              <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
               FAQ Qo'shish
             </button>
           )}
@@ -157,7 +157,7 @@ const FAQ = () => {
             onClick={handleReportError}
             className="px-4 py-2 border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg flex items-center gap-2 transition dark:bg-red-900/20 dark:border-red-800"
           >
-            <Icon icon="lucide:alert-triangle" className="w-5 h-5" />
+            <Icon icon="solar:danger-triangle-bold-duotone" className="w-5 h-5" />
             Xatolik xabarini yuborish
           </button>
         </div>
@@ -165,7 +165,7 @@ const FAQ = () => {
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
         <div className="relative">
-          <Icon icon="lucide:search" className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Icon icon="solar:magnifer-bold-duotone" className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder="Savol yoki kalit so'z bo'yicha qidiruv (masalan: CMR, Tranzit)..."
@@ -178,12 +178,12 @@ const FAQ = () => {
 
       {loading ? (
         <div className="text-center py-10 text-gray-500 flex flex-col items-center gap-2">
-          <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-indigo-500" />
+          <Icon icon="solar:refresh-bold-duotone" className="w-8 h-8 animate-spin text-indigo-500" />
           Yuklanmoqda...
         </div>
       ) : filteredFaqs.length === 0 ? (
         <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500">
-          <Icon icon="lucide:search-x" className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+          <Icon icon="solar:magnifer-bold-duotone" className="w-12 h-12 mx-auto mb-3 text-gray-400" />
           Hech narsa topilmadi
         </div>
       ) : (
@@ -205,15 +205,15 @@ const FAQ = () => {
                   {isAdmin && (
                     <div className="flex items-center gap-1 mr-2" onClick={e => e.stopPropagation()}>
                       <button onClick={() => openModal(faq)} className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition dark:hover:bg-gray-700">
-                        <Icon icon="lucide:edit" className="w-4 h-4" />
+                        <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(faq.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition dark:hover:bg-gray-700">
-                        <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                        <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                       </button>
                     </div>
                   )}
                   <Icon 
-                    icon={isExpanded ? "lucide:chevron-up" : "lucide:chevron-down"} 
+                    icon={isExpanded ? "solar:alt-arrow-up-bold-duotone" : "solar:alt-arrow-down-bold-duotone"} 
                     className={`w-6 h-6 text-gray-400 transition-transform ${isExpanded ? 'text-indigo-500' : ''}`} 
                   />
                 </div>
@@ -243,7 +243,7 @@ const FAQ = () => {
                         <div className="cursor-pointer hover:opacity-90 transition group relative" onClick={() => setLightboxImage(faq.imageUrl!)}>
                           <img src={faq.imageUrl} alt={faq.imageDescription || 'FAQ rasm'} className="w-full max-h-64 object-cover" />
                           <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Icon icon="lucide:zoom-in" className="w-8 h-8 text-white drop-shadow" />
+                            <Icon icon="solar:magnifer-zoom-in-bold-duotone" className="w-8 h-8 text-white drop-shadow" />
                           </div>
                         </div>
                       )}
@@ -269,7 +269,7 @@ const FAQ = () => {
             <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800 z-10">
               <h2 className="text-lg font-bold">{editingId ? 'FAQ Tahrirlash' : "Yangi FAQ Qo'shish"}</h2>
               <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg dark:hover:bg-gray-700 transition">
-                <Icon icon="lucide:x" className="w-5 h-5" />
+                <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleSave} className="p-5 space-y-4">
@@ -308,7 +308,7 @@ const FAQ = () => {
                 <label className="block text-sm font-medium mb-1">Media fayli (Rasm yoki Video)</label>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <label className={`cursor-pointer px-4 py-2 border border-gray-300 rounded-lg flex items-center justify-center gap-2 transition ${uploadingMedia ? 'bg-gray-100 dark:bg-gray-800 text-gray-400' : 'hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600 dark:bg-gray-900'}`}>
-                    {uploadingMedia ? <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" /> : <Icon icon="lucide:upload-cloud" className="w-5 h-5" />}
+                    {uploadingMedia ? <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 animate-spin" /> : <Icon icon="solar:cloud-upload-bold-duotone" className="w-5 h-5" />}
                     <span className="whitespace-nowrap">{uploadingMedia ? 'Yuklanmoqda...' : 'Fayl tanlash'}</span>
                     <input type="file" accept="image/*,video/mp4,video/webm,video/ogg" className="hidden" onChange={handleFileUpload} disabled={uploadingMedia} />
                   </label>
@@ -355,7 +355,7 @@ const FAQ = () => {
             className="absolute top-4 right-4 text-white p-3 hover:bg-white/20 rounded-full transition"
             onClick={(e) => { e.stopPropagation(); setLightboxImage(null); }}
           >
-            <Icon icon="lucide:x" className="w-8 h-8" />
+            <Icon icon="solar:close-circle-bold-duotone" className="w-8 h-8" />
           </button>
         </div>
       )}

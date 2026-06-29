@@ -113,7 +113,7 @@ const DateInput = ({ value, onChange, required, className, placeholder, disabled
         className="absolute right-0 inset-y-0 flex items-center justify-center pr-3 cursor-pointer"
         onClick={handleIconClick}
       >
-        <Icon icon="lucide:calendar" className="w-4 h-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+        <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4 text-gray-400 hover:text-indigo-500 transition-colors" />
       </div>
       <input
         type="date"

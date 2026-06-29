@@ -79,7 +79,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
           className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
           title="Task jarayonlarini ko'rish va o'zgartirish"
         >
-          <Icon icon="lucide:layers" className="w-4 h-4" />
+          <Icon icon="solar:layers-bold-duotone" className="w-4 h-4" />
           Jarayonlar
         </button>
         {!invoysStageReady && (
@@ -334,7 +334,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                   disabled={templatesDisabled}
                   className="w-full px-3 py-2 text-left text-sm font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Icon icon="heroicons:language" className="w-4 h-4" />
+                  <Icon icon="solar:translation-bold-duotone" className="w-4 h-4" />
                   English Invoice (AI)
                 </button>
               </div>

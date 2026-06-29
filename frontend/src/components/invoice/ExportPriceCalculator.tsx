@@ -134,7 +134,7 @@ export function ExportPriceCalculator({ form, setForm, items }: ExportPriceCalcu
         onClick={() => setCalcVisible(!calcVisible)}
       >
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-          <Icon icon="lucide:calculator" className="w-5 h-5 text-blue-600" />
+          <Icon icon="solar:calculator-bold-duotone" className="w-5 h-5 text-blue-600" />
           Eksport narx kalkulyatori (Tavsiyaviy)
         </h3>
         <button
@@ -142,7 +142,7 @@ export function ExportPriceCalculator({ form, setForm, items }: ExportPriceCalcu
           className="text-gray-500 hover:text-gray-700 p-1"
           title={calcVisible ? "Yashirish" : "Ko'rsatish"}
         >
-          <Icon icon={calcVisible ? "lucide:chevron-up" : "lucide:chevron-down"} className="w-5 h-5" />
+          <Icon icon={calcVisible ? "solar:alt-arrow-up-bold-duotone" : "solar:alt-arrow-down-bold-duotone"} className="w-5 h-5" />
         </button>
       </div>
 
@@ -179,7 +179,7 @@ export function ExportPriceCalculator({ form, setForm, items }: ExportPriceCalcu
                   title="Markaziy Bankdan (Rossiya) avtomatik olish"
                   className="p-1 text-blue-600 hover:bg-blue-50 rounded"
                 >
-                  <Icon icon={loadingUsdRate ? 'lucide:loader-2' : 'lucide:refresh-cw'} className={`w-4 h-4 ${loadingUsdRate ? 'animate-spin' : ''}`} />
+                  <Icon icon={loadingUsdRate ? 'solar:refresh-bold-duotone' : 'solar:refresh-bold-duotone'} className={`w-4 h-4 ${loadingUsdRate ? 'animate-spin' : ''}`} />
                 </button>
               </div>
             </div>
@@ -244,7 +244,7 @@ export function ExportPriceCalculator({ form, setForm, items }: ExportPriceCalcu
               <span className="text-sm">Jami USD:</span>
               <span className="ml-2 font-bold text-lg">${finalUsd.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
-            <Icon icon="lucide:arrow-right" className="w-5 h-5 text-gray-400 hidden md:block" />
+            <Icon icon="solar:arrow-right-bold-duotone" className="w-5 h-5 text-gray-400 hidden md:block" />
             <div className="text-green-700">
               <span className="text-sm">RUB:</span>
               <span className="ml-2 font-bold text-xl">{finalRub.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽</span>

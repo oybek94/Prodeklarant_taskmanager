@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../lib/api';
-import { Bot, User, Send, Loader2, ShieldAlert } from 'lucide-react';
+import { Icon } from '@iconify/react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -36,7 +36,7 @@ export const DataAssistant: React.FC = () => {
   if (user?.role !== 'ADMIN' && user?.role !== 'OWNER') {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh] text-center">
-        <ShieldAlert className="w-16 h-16 text-red-500 mb-4" />
+        <Icon icon="solar:shield-warning-bold-duotone" className="w-16 h-16 text-red-500 mb-4" />
         <h2 className="text-2xl font-bold text-gray-800">Kirish taqiqlangan</h2>
         <p className="text-gray-500 mt-2">Bu sahifa faqatgina tizim egasi uchun mo'ljallangan.</p>
       </div>
@@ -87,7 +87,7 @@ export const DataAssistant: React.FC = () => {
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-4 text-white flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <Bot className="w-8 h-8" />
+          <Icon icon="solar:chat-round-dots-bold-duotone" className="w-8 h-8" />
           <div>
             <h1 className="text-xl font-bold">AI Biznes Tahlilchisi</h1>
             <p className="text-sm text-blue-100">Faqat tizim rahbari uchun maxsus</p>
@@ -120,9 +120,9 @@ export const DataAssistant: React.FC = () => {
                 }`}
               >
                 {msg.role === 'user' ? (
-                  <User className="w-6 h-6 text-blue-600" />
+                  <Icon icon="solar:user-bold-duotone" className="w-6 h-6 text-blue-600" />
                 ) : (
-                  <Bot className="w-6 h-6 text-indigo-600" />
+                  <Icon icon="solar:chat-round-dots-bold-duotone" className="w-6 h-6 text-indigo-600" />
                 )}
               </div>
               <div
@@ -141,10 +141,10 @@ export const DataAssistant: React.FC = () => {
           <div className="flex justify-start">
             <div className="flex max-w-[80%] flex-row">
               <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center bg-indigo-100 mr-3">
-                <Bot className="w-6 h-6 text-indigo-600" />
+                <Icon icon="solar:chat-round-dots-bold-duotone" className="w-6 h-6 text-indigo-600" />
               </div>
               <div className="p-4 rounded-2xl bg-white border border-gray-200 rounded-tl-none flex items-center space-x-2 shadow-sm">
-                <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
+                <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 text-indigo-600 animate-spin" />
                 <span className="text-gray-500">Tahlil qilinmoqda...</span>
               </div>
             </div>
@@ -169,7 +169,7 @@ export const DataAssistant: React.FC = () => {
             disabled={isLoading || !input.trim()}
             className="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center w-12 h-12"
           >
-            <Send className="w-5 h-5" />
+            <Icon icon="solar:plain-2-bold-duotone" className="w-5 h-5" />
           </button>
         </form>
       </div>

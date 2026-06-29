@@ -68,7 +68,7 @@ const CertifierPayModal = React.memo(({
                         {type} To'lov Qilish
                     </h2>
                     <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                        <Icon icon="lucide:x" className="w-5 h-5" />
+                        <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
                     </button>
                 </div>
                 
@@ -115,7 +115,7 @@ const CertifierPayModal = React.memo(({
                             disabled={loading}
                             className="flex-1 px-4 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
                         >
-                            {loading && <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />}
+                            {loading && <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />}
                             To'lash
                         </button>
                     </div>

@@ -203,7 +203,7 @@ export function AdditionalInfoModal({
             actions={
               <>
                 <button type="button" onClick={() => toggleAdditionalInfoVisible('harvestYear')} className={`${isAdditionalInfoVisible('harvestYear') ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'} p-0.5 rounded hover:bg-gray-100`} title={isAdditionalInfoVisible('harvestYear') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                  <Icon icon={isAdditionalInfoVisible('harvestYear') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                  <Icon icon={isAdditionalInfoVisible('harvestYear') ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
                 </button>
                 <button type="button" onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })} className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 text-sm font-bold" title="O'chirish">✕</button>
               </>
@@ -223,7 +223,7 @@ export function AdditionalInfoModal({
               actions={
                 <>
                   <button type="button" onClick={() => toggleAdditionalInfoVisible(`custom_${field.id}`)} className={`${isAdditionalInfoVisible(`custom_${field.id}`) ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'} p-0.5 rounded hover:bg-gray-100`} title={isAdditionalInfoVisible(`custom_${field.id}`) ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                    <Icon icon={isAdditionalInfoVisible(`custom_${field.id}`) ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                    <Icon icon={isAdditionalInfoVisible(`custom_${field.id}`) ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
                   </button>
                   <button type="button" onClick={() => setCustomFields(customFields.filter(f => f.id !== field.id))} className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 text-sm font-bold" title="O'chirish">✕</button>
                 </>
@@ -260,7 +260,7 @@ export function AdditionalInfoModal({
                 Условия поставки:<span className="text-red-500 ml-1">*</span>
               </label>
               <button type="button" onClick={() => toggleAdditionalInfoVisible('deliveryTerms')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('deliveryTerms') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                <Icon icon={isAdditionalInfoVisible('deliveryTerms') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                <Icon icon={isAdditionalInfoVisible('deliveryTerms') ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
               </button>
             </div>
             <div className="space-y-2">
@@ -395,7 +395,7 @@ export function AdditionalInfoModal({
                     <div className="flex items-center gap-2 mb-1">
                       <label className="block text-sm font-medium text-gray-700">Место там. очистки:</label>
                       <button type="button" onClick={() => toggleAdditionalInfoVisible('customsAddress')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('customsAddress') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                        <Icon icon={isAdditionalInfoVisible('customsAddress') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                        <Icon icon={isAdditionalInfoVisible('customsAddress') ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
                       </button>
                     </div>
                     {options.length > 0 ? (
@@ -418,7 +418,7 @@ export function AdditionalInfoModal({
                       Номер автотранспорта:<span className="text-red-500 ml-1">*</span>
                     </label>
                     <button type="button" onClick={() => toggleAdditionalInfoVisible('vehicleNumber')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('vehicleNumber') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                      <Icon icon={isAdditionalInfoVisible('vehicleNumber') ? 'lucide:eye' : 'lucide:eye-off'} className="w-4 h-4" />
+                      <Icon icon={isAdditionalInfoVisible('vehicleNumber') ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
                     </button>
                   </div>
                   <input
@@ -543,7 +543,7 @@ export function AdditionalInfoModal({
                           className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 shrink-0"
                           title="Sudrab joyini o'zgartirish"
                         >
-                          <Icon icon="lucide:grip-vertical" className="w-4 h-4" />
+                          <Icon icon="solar:menu-dots-bold-duotone" className="w-4 h-4" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">

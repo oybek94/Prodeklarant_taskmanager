@@ -86,12 +86,12 @@ const WorkerCard = React.memo(({
                 <div className="flex items-center gap-1.5 relative">
                     {worker.email && (
                         <div className="w-8 h-8 rounded-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors" title={worker.email}>
-                            <Icon icon="lucide:mail" className="w-3.5 h-3.5" />
+                            <Icon icon="solar:letter-bold-duotone" className="w-3.5 h-3.5" />
                         </div>
                     )}
                     {worker.phone && (
                         <div className="w-8 h-8 rounded-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors" title={worker.phone}>
-                            <Icon icon="lucide:phone" className="w-3.5 h-3.5" />
+                            <Icon icon="solar:phone-bold-duotone" className="w-3.5 h-3.5" />
                         </div>
                     )}
 
@@ -102,7 +102,7 @@ const WorkerCard = React.memo(({
                         }}
                         className="w-8 h-8 rounded-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                     >
-                        <Icon icon="lucide:more-horizontal" className="w-3.5 h-3.5" />
+                        <Icon icon="solar:menu-dots-bold-duotone" className="w-3.5 h-3.5" />
                     </button>
 
                     {openMenuId === worker.id && (
@@ -120,14 +120,14 @@ const WorkerCard = React.memo(({
                                 }}
                                 className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 flex items-center gap-2 cursor-pointer transition-colors"
                             >
-                                <Icon icon="lucide:pencil" className="w-3.5 h-3.5" />
+                                <Icon icon="solar:pen-bold-duotone" className="w-3.5 h-3.5" />
                                 O'zgartirish
                             </button>
                             <button
                                 onClick={() => handleDelete(worker.id)}
                                 className="w-full text-left px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 cursor-pointer transition-colors"
                             >
-                                <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+                                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-3.5 h-3.5" />
                                 O'chirish
                             </button>
                         </div>
@@ -168,7 +168,7 @@ const WorkerCard = React.memo(({
                     className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors border border-gray-200 dark:border-slate-700/50"
                     title="Hisobot"
                 >
-                    <Icon icon="lucide:bar-chart-2" className="w-4 h-4" />
+                    <Icon icon="solar:chart-bold-duotone" className="w-4 h-4" />
                 </button>
                 <button
                     onClick={() => navigate(`/workers/${worker.id}`)}

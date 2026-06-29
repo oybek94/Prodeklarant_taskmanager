@@ -121,7 +121,7 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <Icon icon="lucide:filter" className="w-4 h-4 text-white" />
+            <Icon icon="solar:filter-bold-duotone" className="w-4 h-4 text-white" />
           </div>
           <h3 className="text-sm font-semibold text-gray-800">Qidiruv va filtrlash</h3>
         </div>
@@ -137,12 +137,12 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
         {/* Search */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-            <Icon icon="lucide:search" className="w-3.5 h-3.5 text-blue-600" />
+            <Icon icon="solar:magnifer-bold-duotone" className="w-3.5 h-3.5 text-blue-600" />
             Qidirish
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Icon icon="lucide:search" className="w-4 h-4 text-gray-400" />
+              <Icon icon="solar:magnifer-bold-duotone" className="w-4 h-4 text-gray-400" />
             </div>
             <input
               type="text"
@@ -157,7 +157,7 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
                 onClick={() => setArchiveSearchQuery('')}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center"
               >
-                <Icon icon="lucide:x" className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 transition-colors" />
+                <Icon icon="solar:close-circle-bold-duotone" className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 transition-colors" />
               </button>
             )}
           </div>
@@ -166,12 +166,12 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
         {/* Branch Filter */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-            <Icon icon="lucide:building" className="w-3.5 h-3.5 text-blue-600" />
+            <Icon icon="solar:buildings-2-bold-duotone" className="w-3.5 h-3.5 text-blue-600" />
             Filial
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Icon icon="lucide:building" className="w-4 h-4 text-gray-400" />
+              <Icon icon="solar:buildings-2-bold-duotone" className="w-4 h-4 text-gray-400" />
             </div>
             <select
               value={archiveFilters.branchId}
@@ -191,12 +191,12 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
         {/* Client Filter */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-            <Icon icon="lucide:users" className="w-3.5 h-3.5 text-blue-600" />
+            <Icon icon="solar:users-group-rounded-bold-duotone" className="w-3.5 h-3.5 text-blue-600" />
             Mijoz
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Icon icon="lucide:users" className="w-4 h-4 text-gray-400" />
+              <Icon icon="solar:users-group-rounded-bold-duotone" className="w-4 h-4 text-gray-400" />
             </div>
             <select
               value={archiveFilters.clientId}
@@ -216,13 +216,13 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
         {/* Date Range */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-            <Icon icon="lucide:calendar-range" className="w-3.5 h-3.5 text-blue-600" />
+            <Icon icon="solar:calendar-minimalistic-bold-duotone" className="w-3.5 h-3.5 text-blue-600" />
             Sana oralig'i
           </label>
           <div className="grid grid-cols-2 gap-2">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                <Icon icon="lucide:calendar" className="w-3.5 h-3.5 text-gray-400" />
+                <Icon icon="solar:calendar-bold-duotone" className="w-3.5 h-3.5 text-gray-400" />
               </div>
               <DateInput
                 value={archiveFilters.startDate}
@@ -233,7 +233,7 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
             </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                <Icon icon="lucide:calendar" className="w-3.5 h-3.5 text-gray-400" />
+                <Icon icon="solar:calendar-bold-duotone" className="w-3.5 h-3.5 text-gray-400" />
               </div>
               <DateInput
                 value={archiveFilters.endDate}
@@ -248,12 +248,12 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
         {/* PSR Filter */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-            <Icon icon="lucide:file-text" className="w-3.5 h-3.5 text-blue-600" />
+            <Icon icon="solar:document-text-bold-duotone" className="w-3.5 h-3.5 text-blue-600" />
             PSR
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Icon icon="lucide:file-text" className="w-4 h-4 text-gray-400" />
+              <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4 text-gray-400" />
             </div>
             <select
               value={archiveFilters.hasPsr}
@@ -270,7 +270,7 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
         {/* Results Count */}
         <div className="pt-3 border-t border-gray-200">
           <div className="flex items-center gap-2 text-xs text-gray-600">
-            <Icon icon="lucide:files" className="w-3.5 h-3.5 text-blue-600" />
+            <Icon icon="solar:documents-bold-duotone" className="w-3.5 h-3.5 text-blue-600" />
             <span className="font-medium text-gray-700">
               {filteredArchiveTasksLength} ta natija
             </span>
@@ -286,7 +286,7 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
         <div className="pt-3 border-t border-gray-200">
           <div className="flex items-center justify-between mb-2.5">
             <label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
-              <Icon icon="lucide:table-2" className="w-3.5 h-3.5 text-emerald-600" />
+              <Icon icon="solar:tablet-bold-duotone" className="w-3.5 h-3.5 text-emerald-600" />
               Hisobot ustunlari
             </label>
             <button
@@ -335,12 +335,12 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
           >
             {reportLoading ? (
               <>
-                <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
+                <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
                 Hisobot tayyorlanmoqda...
               </>
             ) : (
               <>
-                <Icon icon="lucide:file-spreadsheet" className="w-4 h-4" />
+                <Icon icon="solar:file-smile-bold-duotone" className="w-4 h-4" />
                 Hisobot olish ({selectedCount} ustun)
               </>
             )}
@@ -356,7 +356,7 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
             }}
             className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md border border-gray-300"
           >
-            <Icon icon="lucide:x-circle" className="w-3.5 h-3.5" />
+            <Icon icon="solar:close-circle-bold-duotone" className="w-3.5 h-3.5" />
             Filtrlarni tozalash
           </button>
         )}

@@ -21,7 +21,7 @@ const MainMetrics = React.memo(({
     return (
         <div>
             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                <Icon icon="lucide:layout-template" className="w-5 h-5 text-gray-400" />
+                <Icon icon="solar:widget-2-bold-duotone" className="w-5 h-5 text-gray-400" />
                 Asosiy Blok
             </h2>
 
@@ -34,7 +34,7 @@ const MainMetrics = React.memo(({
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Jami tushum</p>
                             <div className="w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center ring-4 ring-green-50 dark:ring-green-900/10">
-                                <Icon icon="lucide:trending-up" className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                <Icon icon="solar:graph-up-bold-duotone" className="w-5 h-5 text-green-600 dark:text-green-400" />
                             </div>
                         </div>
                         <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -51,7 +51,7 @@ const MainMetrics = React.memo(({
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Jami xarajat</p>
                             <div className="w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-xl flex items-center justify-center ring-4 ring-red-50 dark:ring-red-900/10">
-                                <Icon icon="lucide:trending-down" className="w-5 h-5 text-red-600 dark:text-red-400" />
+                                <Icon icon="solar:graph-down-bold-duotone" className="w-5 h-5 text-red-600 dark:text-red-400" />
                             </div>
                         </div>
                         <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -69,7 +69,7 @@ const MainMetrics = React.memo(({
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-sm font-semibold text-blue-100">Sof foyda</p>
                             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shadow-inner">
-                                <Icon icon="lucide:briefcase" className="w-5 h-5 text-white" />
+                                <Icon icon="solar:case-bold-duotone" className="w-5 h-5 text-white" />
                             </div>
                         </div>
                         <h3 className="text-3xl font-bold text-white tracking-tight">
@@ -89,7 +89,7 @@ const MainMetrics = React.memo(({
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Cash / Hisobda</p>
                             <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl flex items-center justify-center ring-4 ring-emerald-50 dark:ring-emerald-900/10">
-                                <Icon icon="lucide:wallet" className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                <Icon icon="solar:wallet-bold-duotone" className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                             </div>
                         </div>
                         <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -106,7 +106,7 @@ const MainMetrics = React.memo(({
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Debitor qarzdorlik</p>
                             <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/40 rounded-xl flex items-center justify-center ring-4 ring-purple-50 dark:ring-purple-900/10">
-                                <Icon icon="lucide:users" className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                <Icon icon="solar:users-group-rounded-bold-duotone" className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                             </div>
                         </div>
                         <h3 className="text-2xl font-bold text-gray-900 dark:text-white">

@@ -149,7 +149,7 @@ export default function Exam() {
     return (
       <div className="p-6 min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="text-center">
-          <Icon icon="lucide:alert-circle" className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <Icon icon="solar:danger-circle-bold-duotone" className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <p className="text-xl font-bold text-slate-900 dark:text-white">Imtihon topilmadi</p>
           <button onClick={() => navigate('/training')} className="mt-4 text-indigo-600 font-bold">Kursga qaytish</button>
         </div>
@@ -209,7 +209,7 @@ export default function Exam() {
             disabled={submitting}
             className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-slate-800 dark:hover:bg-slate-100"
           >
-            {submitting ? <Icon icon="lucide:loader-2" className="animate-spin" /> : <Icon icon="lucide:check-circle" className="w-5 h-5" />}
+            {submitting ? <Icon icon="solar:refresh-bold-duotone" className="animate-spin" /> : <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5" />}
             Imtihonni Yakunlash
           </button>
         </div>
@@ -221,7 +221,7 @@ export default function Exam() {
         <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-10">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/30">
-              <Icon icon="lucide:file-question" className="w-6 h-6 text-white" />
+              <Icon icon="solar:file-text-bold-duotone" className="w-6 h-6 text-white" />
             </div>
             <div>
               <h1 className="text-xl font-black text-slate-900 dark:text-white leading-tight">{exam.title}</h1>
@@ -232,7 +232,7 @@ export default function Exam() {
           {timeLeft !== null && (
             <div className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-2xl tabular-nums transition-colors duration-300 ${timeLeft < 60 ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white'
               }`}>
-              <Icon icon="lucide:timer" className="w-6 h-6" />
+              <Icon icon="solar:stopwatch-bold-duotone" className="w-6 h-6" />
               {formatTime(timeLeft)}
             </div>
           )}
@@ -290,7 +290,7 @@ export default function Exam() {
                     >
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${isSelected ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-700'
                         }`}>
-                        <Icon icon={isSelected ? "lucide:check-square" : "lucide:square"} className="w-5 h-5" />
+                        <Icon icon={isSelected ? "solar:check-square-bold-duotone" : "solar:stop-bold-duotone"} className="w-5 h-5" />
                       </div>
                       <span className="text-lg font-bold">{option}</span>
                     </button>
@@ -314,7 +314,7 @@ export default function Exam() {
                 disabled={currentQuestionIndex === 0}
                 className="flex items-center gap-2 px-6 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex-1 justify-center"
               >
-                <Icon icon="lucide:chevron-left" className="w-5 h-5" />
+                <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-5 h-5" />
                 Oldingi
               </button>
 
@@ -326,9 +326,9 @@ export default function Exam() {
                   }`}
               >
                 {currentQuestionIndex === questions.length - 1 ? (
-                  <>Topshirish <Icon icon="lucide:send" className="w-5 h-5" /></>
+                  <>Topshirish <Icon icon="solar:plain-2-bold-duotone" className="w-5 h-5" /></>
                 ) : (
-                  <>Keyingi <Icon icon="lucide:chevron-right" className="w-5 h-5" /></>
+                  <>Keyingi <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-5 h-5" /></>
                 )}
               </button>
             </div>
@@ -340,7 +340,7 @@ export default function Exam() {
       {submitting && (
         <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-white dark:bg-slate-800 p-8 rounded-[32px] shadow-2xl max-w-sm w-full mx-4 text-center flex flex-col items-center">
-            <Icon icon="lucide:loader-2" className="w-16 h-16 text-indigo-500 animate-spin mb-6" />
+            <Icon icon="solar:refresh-bold-duotone" className="w-16 h-16 text-indigo-500 animate-spin mb-6" />
             <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">Javoblar tekshirilmoqda...</h3>
             <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Iltimos kuting, AI natijalaringizni hisoblamoqda.</p>
           </div>

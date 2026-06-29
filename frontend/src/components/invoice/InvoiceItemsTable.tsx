@@ -481,7 +481,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
                 className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 p-0.5 rounded transition-colors ml-1"
                 title="O'chirish"
               >
-                <Icon icon="lucide:x" className="w-4 h-4" />
+                <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />
               </button>
             </div>
           ))}
@@ -530,7 +530,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
               className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm flex items-center gap-1 font-medium no-screenshot"
               title="Invoys ma'lumotlarini rasmga olib nusxalash"
             >
-              <Icon icon="lucide:camera" className="w-4 h-4" />
+              <Icon icon="solar:camera-bold-duotone" className="w-4 h-4" />
               Nusxa olish
             </button>
             {canEditEffective && (
@@ -580,7 +580,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
                             className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 shrink-0"
                             title="Ustun tartibini o'zgartirish uchun sudrang"
                           >
-                            <Icon icon="lucide:grip-vertical" className="w-4 h-4" />
+                            <Icon icon="solar:menu-dots-bold-duotone" className="w-4 h-4" />
                           </div>
 
                           <input 
@@ -605,7 +605,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
                               className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors shrink-0"
                               title="Ustunni o'chirish"
                             >
-                              <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+                              <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
@@ -645,7 +645,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
                           }}
                           className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700 transition-colors shrink-0 flex items-center gap-1"
                         >
-                          <Icon icon="lucide:plus" className="w-3.5 h-3.5" />
+                          <Icon icon="solar:add-circle-bold-duotone" className="w-3.5 h-3.5" />
                           Qo'shish
                         </button>
                       </div>

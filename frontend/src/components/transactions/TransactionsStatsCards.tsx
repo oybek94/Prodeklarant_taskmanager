@@ -46,14 +46,14 @@ export const TransactionsStatsCards: React.FC<TransactionsStatsCardsProps> = Rea
             : 'bg-rose-100 text-rose-700 ring-1 ring-rose-200'
             }`}>
             <span className="inline-flex items-center gap-1">
-              <Icon icon={monthlyStats.income?.change >= 0 ? "lucide:trending-up" : "lucide:trending-down"} className="w-3.5 h-3.5" />
+              <Icon icon={monthlyStats.income?.change >= 0 ? "solar:graph-up-bold-duotone" : "solar:graph-down-bold-duotone"} className="w-3.5 h-3.5" />
               {formatChange(monthlyStats.income?.change || 0)}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform duration-300">
-            <Icon icon="lucide:arrow-down-left" className="w-5 h-5 text-emerald-600" />
+            <Icon icon="solar:arrow-left-down-bold-duotone" className="w-5 h-5 text-emerald-600" />
           </div>
           <div className="text-sm text-gray-500 font-semibold tracking-wide">OYLIK KIRIM</div>
         </div>
@@ -70,14 +70,14 @@ export const TransactionsStatsCards: React.FC<TransactionsStatsCardsProps> = Rea
             : 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
             }`}>
             <span className="inline-flex items-center gap-1">
-              <Icon icon={monthlyStats.expense?.change >= 0 ? "lucide:trending-up" : "lucide:trending-down"} className="w-3.5 h-3.5" />
+              <Icon icon={monthlyStats.expense?.change >= 0 ? "solar:graph-up-bold-duotone" : "solar:graph-down-bold-duotone"} className="w-3.5 h-3.5" />
               {formatChange(monthlyStats.expense?.change || 0)}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center border border-rose-500/20 group-hover:scale-110 transition-transform duration-300">
-            <Icon icon="lucide:arrow-up-right" className="w-5 h-5 text-rose-600" />
+            <Icon icon="solar:arrow-right-up-bold-duotone" className="w-5 h-5 text-rose-600" />
           </div>
           <div className="text-sm text-gray-500 font-semibold tracking-wide">OYLIK CHIQIM</div>
         </div>
@@ -94,14 +94,14 @@ export const TransactionsStatsCards: React.FC<TransactionsStatsCardsProps> = Rea
             : 'bg-rose-100 text-rose-700 ring-1 ring-rose-200'
             }`}>
             <span className="inline-flex items-center gap-1">
-              <Icon icon={monthlyStats.net?.change >= 0 ? "lucide:trending-up" : "lucide:trending-down"} className="w-3.5 h-3.5" />
+              <Icon icon={monthlyStats.net?.change >= 0 ? "solar:graph-up-bold-duotone" : "solar:graph-down-bold-duotone"} className="w-3.5 h-3.5" />
               {formatChange(monthlyStats.net?.change || 0)}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform duration-300">
-            <Icon icon="lucide:briefcase" className="w-5 h-5 text-blue-600" />
+            <Icon icon="solar:case-bold-duotone" className="w-5 h-5 text-blue-600" />
           </div>
           <div className="text-sm text-gray-500 font-semibold tracking-wide">SOF FOYDA</div>
         </div>

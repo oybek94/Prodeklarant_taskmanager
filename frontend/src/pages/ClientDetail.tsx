@@ -795,7 +795,7 @@ const ClientDetail = () => {
             className="p-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center shrink-0"
             title="Yangi shartnoma"
           >
-            <Icon icon="lucide:plus" className="w-5 h-5" />
+            <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
           </button>
         </div>
         {loadingContracts ? (
@@ -824,13 +824,13 @@ const ClientDetail = () => {
                     onClick={() => handleEditContract(contract)}
                     className="p-2 text-blue-600 bg-blue-50 rounded-lg"
                   >
-                    <Icon icon="lucide:pencil" className="w-5 h-5" />
+                    <Icon icon="solar:pen-bold-duotone" className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => handleDeleteContract(contract.id)}
                     className="p-2 text-red-600 bg-red-50 rounded-lg"
                   >
-                    <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -863,7 +863,7 @@ const ClientDetail = () => {
                           className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-600 hover:bg-blue-100 transition-colors"
                           title="Tahrirlash"
                         >
-                          <Icon icon="lucide:pencil" className="w-4 h-4" />
+                          <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
@@ -871,7 +871,7 @@ const ClientDetail = () => {
                           className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
                           title="O'chirish"
                         >
-                          <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                          <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -923,7 +923,7 @@ const ClientDetail = () => {
                   </div>
                   <div className="flex justify-between items-center text-xs text-gray-500">
                     <span className="flex items-center gap-1">
-                      <Icon icon="lucide:building" className="w-3.5 h-3.5" />
+                      <Icon icon="solar:buildings-2-bold-duotone" className="w-3.5 h-3.5" />
                       {task.branch.name}
                     </span>
                     <span>{formatDate(task.createdAt)}</span>
@@ -933,14 +933,14 @@ const ClientDetail = () => {
                       onClick={() => navigate(`/tasks/${task.id}`)}
                       className="flex-1 flex justify-center items-center gap-2 py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold"
                     >
-                      <Icon icon="lucide:eye" className="w-4 h-4" />
+                      <Icon icon="solar:eye-bold-duotone" className="w-4 h-4" />
                       Ko'rish
                     </button>
                     <button
                       onClick={() => navigate(`/invoices/task/${task.id}`)}
                       className="flex-1 flex justify-center items-center gap-2 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold"
                     >
-                      <Icon icon="lucide:file-text" className="w-4 h-4" />
+                      <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4" />
                       Invoice
                     </button>
                   </div>
@@ -1004,14 +1004,14 @@ const ClientDetail = () => {
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center"
                             title="Ko'rish"
                           >
-                            <Icon icon="lucide:eye" className="w-5 h-5" />
+                            <Icon icon="solar:eye-bold-duotone" className="w-5 h-5" />
                           </button>
                           <button
                             onClick={() => navigate(`/invoices/task/${task.id}`)}
                             className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center justify-center"
                             title="Invoice"
                           >
-                            <Icon icon="lucide:file-text" className="w-5 h-5" />
+                            <Icon icon="solar:document-text-bold-duotone" className="w-5 h-5" />
                           </button>
                         </div>
                       </td>
@@ -1105,7 +1105,7 @@ const ClientDetail = () => {
                 }}
                 className="fixed top-4 right-4 z-[110] p-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-gray-200 text-gray-500 hover:text-gray-900 transition-all"
               >
-                <Icon icon="lucide:x" className="w-6 h-6" />
+                <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
               </button>
             )}
             <div className="flex justify-between items-center mb-4">
@@ -1592,7 +1592,7 @@ const ClientDetail = () => {
                         {contractForm.files.map((file, index) => (
                           <li key={index} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
                             <div className="flex items-center gap-3 overflow-hidden">
-                              <Icon icon="lucide:file" className="w-5 h-5 text-gray-500 shrink-0" />
+                              <Icon icon="solar:file-bold-duotone" className="w-5 h-5 text-gray-500 shrink-0" />
                               <span className="text-sm text-gray-800 truncate" title={file.name}>{file.name}</span>
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
@@ -1603,7 +1603,7 @@ const ClientDetail = () => {
                                 className="text-blue-600 hover:text-blue-800"
                                 title="Ko'rish"
                               >
-                                <Icon icon="lucide:eye" className="w-4 h-4" />
+                                <Icon icon="solar:eye-bold-duotone" className="w-4 h-4" />
                               </a>
                               <a
                                 href={resolveUploadUrl(file.fileUrl)}
@@ -1611,7 +1611,7 @@ const ClientDetail = () => {
                                 className="text-green-600 hover:text-green-800"
                                 title="Ko'chirib olish"
                               >
-                                <Icon icon="lucide:download" className="w-4 h-4" />
+                                <Icon icon="solar:download-bold-duotone" className="w-4 h-4" />
                               </a>
                               <button
                                 type="button"
@@ -1623,7 +1623,7 @@ const ClientDetail = () => {
                                 className="text-red-600 hover:text-red-800"
                                 title="O'chirish"
                               >
-                                <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                               </button>
                             </div>
                           </li>

@@ -35,10 +35,10 @@ export const CopyIconButton: React.FC<CopyIconButtonProps> = ({
       title="Nusxa olish"
     >
       <div className={`transition-all duration-300 transform flex items-center justify-center absolute inset-0 ${copied ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}>
-        <Icon icon="lucide:check" className="w-4 h-4" />
+        <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4" />
       </div>
       <div className={`transition-all duration-300 transform flex items-center justify-center ${copied ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'}`}>
-        <Icon icon="lucide:copy" className="w-4 h-4" />
+        <Icon icon="solar:copy-bold-duotone" className="w-4 h-4" />
       </div>
     </button>
   );

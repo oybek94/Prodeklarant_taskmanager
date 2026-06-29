@@ -20,7 +20,7 @@ const VirtualCards = React.memo(({ cards, formatCurrency }: VirtualCardsProps) =
     return (
         <div>
             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                <Icon icon="lucide:credit-card" className="w-5 h-5 text-indigo-500" />
+                <Icon icon="solar:card-bold-duotone" className="w-5 h-5 text-indigo-500" />
                 Virtual jamg'arma kartalari
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -43,8 +43,8 @@ const VirtualCards = React.memo(({ cards, formatCurrency }: VirtualCardsProps) =
                             <div className="relative z-10">
                                 {/* Card chip & Wi-Fi icon */}
                                 <div className="flex justify-between items-center mb-6">
-                                    <Icon icon="lucide:nfc" className="w-6 h-6 text-white/80 drop-shadow-md" />
-                                    <Icon icon="lucide:gem" className="w-6 h-6 text-white/50" />
+                                    <Icon icon="solar:card-transfer-bold-duotone" className="w-6 h-6 text-white/80 drop-shadow-md" />
+                                    <Icon icon="solar:diploma-verified-bold-duotone" className="w-6 h-6 text-white/50" />
                                 </div>
 
                                 <div className="space-y-1.5 mb-8">

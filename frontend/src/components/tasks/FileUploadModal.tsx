@@ -85,10 +85,10 @@ export default function FileUploadModal({
   }, [fileName]);
 
   const getFileIcon = () => {
-    if (!file) return 'lucide:file-up';
+    if (!file) return 'solar:file-send-bold-duotone';
     const name = file.name.toLowerCase();
-    if (name.endsWith('.pdf')) return 'lucide:file-text';
-    return 'lucide:image';
+    if (name.endsWith('.pdf')) return 'solar:document-text-bold-duotone';
+    return 'solar:gallery-bold-duotone';
   };
 
   const formatFileSize = (bytes: number) => {
@@ -125,7 +125,7 @@ export default function FileUploadModal({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                <Icon icon="lucide:upload-cloud" className="w-5 h-5" />
+                <Icon icon="solar:cloud-upload-bold-duotone" className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-lg font-bold">{displayTitle} yuklash</h3>
@@ -135,7 +135,7 @@ export default function FileUploadModal({
               </div>
             </div>
             <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              <Icon icon="lucide:x" className="w-5 h-5" />
+              <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -160,7 +160,7 @@ export default function FileUploadModal({
                   >
                     <div className="flex items-center justify-center gap-2">
                       <Icon
-                        icon={type === 'ST' ? 'lucide:shield-check' : 'lucide:leaf'}
+                        icon={type === 'ST' ? 'solar:shield-check-bold-duotone' : 'solar:leaf-bold-duotone'}
                         className="w-4 h-4"
                       />
                       {type === 'ST' ? 'ST sertifikati' : 'Fito sertifikati'}
@@ -226,13 +226,13 @@ export default function FileUploadModal({
                     }}
                     className="p-1.5 hover:bg-red-100 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
                   >
-                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 <div>
                   <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                    <Icon icon="lucide:upload-cloud" className="w-7 h-7 text-gray-400" />
+                    <Icon icon="solar:cloud-upload-bold-duotone" className="w-7 h-7 text-gray-400" />
                   </div>
                   <p className="text-sm font-medium text-gray-600">
                     Faylni bu yerga tashlang yoki{' '}
@@ -254,12 +254,12 @@ export default function FileUploadModal({
               >
                 {uploading ? (
                   <>
-                    <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
+                    <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
                     Yuklanmoqda... {uploadProgress > 0 ? `${uploadProgress}%` : ''}
                   </>
                 ) : (
                   <>
-                    <Icon icon="lucide:check-circle" className="w-4 h-4" />
+                    <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4" />
                     Yuklash va tayyor qilish
                   </>
                 )}
@@ -292,7 +292,7 @@ export default function FileUploadModal({
                 onClick={onSkipValidation}
                 className="w-full px-4 py-2.5 bg-orange-50 text-orange-600 border border-orange-200 rounded-xl font-medium text-sm hover:bg-orange-100 transition-colors flex items-center justify-center gap-2"
               >
-                <Icon icon="lucide:skip-forward" className="w-4 h-4" />
+                <Icon icon="solar:skip-next-bold-duotone" className="w-4 h-4" />
                 O'tkazib yuborish va tayyor qilish
               </button>
             )}

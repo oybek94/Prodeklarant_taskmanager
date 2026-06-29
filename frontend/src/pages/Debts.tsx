@@ -81,7 +81,7 @@ const Debts = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-4">
                 <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center flex-shrink-0">
-                        <Icon icon="lucide:wallet" className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        <Icon icon="solar:wallet-bold-duotone" className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <div>
                         <h1 className="text-base font-semibold text-gray-900 dark:text-white tracking-tight">
@@ -97,7 +97,7 @@ const Debts = () => {
                     onClick={() => setIsAddModalOpen(true)}
                     className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors w-full sm:w-auto"
                 >
-                    <Icon icon="lucide:plus" className="w-4 h-4" />
+                    <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />
                     Yangi Qarz
                 </button>
             </div>

@@ -110,7 +110,7 @@ export const StructureTab = () => {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex items-center gap-3 border-b border-gray-200 dark:border-slate-700 pb-3">
         <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center">
-          <Icon icon="lucide:building-2" className="w-5 h-5 text-violet-600" />
+          <Icon icon="solar:buildings-3-bold-duotone" className="w-5 h-5 text-violet-600" />
         </div>
         <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">Tuzilma (Filial va Hududlar)</h2>
       </div>
@@ -120,7 +120,7 @@ export const StructureTab = () => {
             <div className="flex justify-between items-center mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
-                  <Icon icon="lucide:map-pin" className="w-4 h-4 text-violet-600" />
+                  <Icon icon="solar:map-point-bold-duotone" className="w-4 h-4 text-violet-600" />
                 </div>
                 <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">Filiallar</h2>
               </div>
@@ -207,7 +207,7 @@ export const StructureTab = () => {
           <div className="flex justify-between items-center mb-5">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center">
-                <Icon icon="lucide:hash" className="w-4 h-4 text-sky-600" />
+                <Icon icon="solar:hashtag-bold-duotone" className="w-4 h-4 text-sky-600" />
               </div>
               <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">Hudud kodlari</h2>
             </div>

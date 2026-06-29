@@ -125,7 +125,7 @@ export default function WorkerReport() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/70 backdrop-blur-xl p-5 rounded-2xl shadow-sm border border-white/80 ring-1 ring-black/5">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate('/workers')} className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
-            <Icon icon="lucide:arrow-left" className="w-5 h-5 text-gray-600" />
+            <Icon icon="solar:arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
           </button>
           <div>
             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">{workerName}</h1>
@@ -148,7 +148,7 @@ export default function WorkerReport() {
           <div className="absolute -right-4 -top-4 w-20 h-20 bg-amber-200/20 rounded-full blur-2xl"></div>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-amber-500/15 rounded-xl flex items-center justify-center border border-amber-200/50">
-              <Icon icon="lucide:landmark" className="w-5 h-5 text-amber-600" />
+              <Icon icon="solar:buildings-bold-duotone" className="w-5 h-5 text-amber-600" />
             </div>
             <span className="text-xs font-bold text-amber-600/80 uppercase tracking-wider">Eski qarz (USD)</span>
           </div>
@@ -161,7 +161,7 @@ export default function WorkerReport() {
           <div className="absolute -right-4 -top-4 w-20 h-20 bg-emerald-200/20 rounded-full blur-2xl"></div>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-emerald-500/15 rounded-xl flex items-center justify-center border border-emerald-200/50">
-              <Icon icon="lucide:trending-up" className="w-5 h-5 text-emerald-600" />
+              <Icon icon="solar:graph-up-bold-duotone" className="w-5 h-5 text-emerald-600" />
             </div>
             <span className="text-xs font-bold text-emerald-600/80 uppercase tracking-wider">Ishlab topilgan</span>
           </div>
@@ -174,7 +174,7 @@ export default function WorkerReport() {
           <div className="absolute -right-4 -top-4 w-20 h-20 bg-purple-200/20 rounded-full blur-2xl"></div>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-purple-500/15 rounded-xl flex items-center justify-center border border-purple-200/50">
-              <Icon icon="lucide:wallet" className="w-5 h-5 text-purple-600" />
+              <Icon icon="solar:wallet-bold-duotone" className="w-5 h-5 text-purple-600" />
             </div>
             <span className="text-xs font-bold text-purple-600/80 uppercase tracking-wider">To'langan</span>
           </div>
@@ -187,7 +187,7 @@ export default function WorkerReport() {
           <div className="absolute -right-4 -top-4 w-20 h-20 bg-blue-200/20 rounded-full blur-2xl"></div>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-blue-500/15 rounded-xl flex items-center justify-center border border-blue-200/50">
-              <Icon icon="lucide:clock" className="w-5 h-5 text-blue-600" />
+              <Icon icon="solar:clock-circle-bold-duotone" className="w-5 h-5 text-blue-600" />
             </div>
             <span className="text-xs font-bold text-blue-600/80 uppercase tracking-wider">Qolgan haq</span>
           </div>
@@ -199,22 +199,22 @@ export default function WorkerReport() {
       {/* Performance KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-4 ring-1 ring-black/5 text-center">
-          <Icon icon="lucide:check-circle-2" className="w-7 h-7 text-indigo-500 mx-auto mb-2" />
+          <Icon icon="solar:check-circle-bold-duotone" className="w-7 h-7 text-indigo-500 mx-auto mb-2" />
           <p className="text-2xl font-black text-gray-900">{kpiStats.summary.totalTasks}</p>
           <p className="text-xs text-gray-500 font-medium mt-1">Bajarilgan vazifalar</p>
         </div>
         <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-4 ring-1 ring-black/5 text-center">
-          <Icon icon="lucide:calendar-days" className="w-7 h-7 text-teal-500 mx-auto mb-2" />
+          <Icon icon="solar:calendar-date-bold-duotone" className="w-7 h-7 text-teal-500 mx-auto mb-2" />
           <p className="text-2xl font-black text-gray-900">{dailyStats.length}</p>
           <p className="text-xs text-gray-500 font-medium mt-1">Aktiv kunlar</p>
         </div>
         <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-4 ring-1 ring-black/5 text-center">
-          <Icon icon="lucide:layers" className="w-7 h-7 text-amber-500 mx-auto mb-2" />
+          <Icon icon="solar:layers-bold-duotone" className="w-7 h-7 text-amber-500 mx-auto mb-2" />
           <p className="text-2xl font-black text-gray-900">{stageStats.length}</p>
           <p className="text-xs text-gray-500 font-medium mt-1">Bosqich turlari</p>
         </div>
         <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-4 ring-1 ring-black/5 text-center">
-          <Icon icon="lucide:zap" className="w-7 h-7 text-rose-500 mx-auto mb-2" />
+          <Icon icon="solar:bolt-bold-duotone" className="w-7 h-7 text-rose-500 mx-auto mb-2" />
           <p className="text-2xl font-black text-gray-900">{dailyStats.length > 0 ? Math.round(kpiStats.summary.totalTasks / dailyStats.length) : 0}</p>
           <p className="text-xs text-gray-500 font-medium mt-1">O'rtacha kun/vazifa</p>
         </div>
@@ -225,7 +225,7 @@ export default function WorkerReport() {
         <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-6 ring-1 ring-black/5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
-              <Icon icon="lucide:landmark" className="w-5 h-5 text-amber-500" />
+              <Icon icon="solar:buildings-bold-duotone" className="w-5 h-5 text-amber-500" />
               O'tgan mavsum qarzini yopish jarayoni
             </h3>
             <span className="text-sm font-bold text-amber-600">{legacyPaidPct.toFixed(1)}%</span>
@@ -260,7 +260,7 @@ export default function WorkerReport() {
         {/* Daily Earnings Area */}
         <div className="lg:col-span-2 bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-6 ring-1 ring-black/5">
           <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <Icon icon="lucide:area-chart" className="w-5 h-5 text-indigo-500" />
+            <Icon icon="solar:chart-2-bold-duotone" className="w-5 h-5 text-indigo-500" />
             Kunlik daromad dinamikasi
           </h3>
           {dailyStats.length > 0 ? (
@@ -273,7 +273,7 @@ export default function WorkerReport() {
         {/* Donut */}
         <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-6 ring-1 ring-black/5">
           <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <Icon icon="lucide:pie-chart" className="w-5 h-5 text-purple-500" />
+            <Icon icon="solar:pie-chart-2-bold-duotone" className="w-5 h-5 text-purple-500" />
             Vazifalar taqsimoti
           </h3>
           {stageStats.length > 0 ? (
@@ -289,7 +289,7 @@ export default function WorkerReport() {
         {/* Radial - Current paid pct */}
         <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-6 ring-1 ring-black/5 flex flex-col items-center">
           <h3 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2 self-start">
-            <Icon icon="lucide:target" className="w-5 h-5 text-violet-500" />
+            <Icon icon="solar:target-bold-duotone" className="w-5 h-5 text-violet-500" />
             Joriy to'lov holati
           </h3>
           <Chart options={radialOpts} series={[Math.round(currentPaidPct), Math.round(currentErrorsPct)]} type="radialBar" height={250} />
@@ -304,7 +304,7 @@ export default function WorkerReport() {
         {/* Horizontal bar - stage earnings */}
         <div className="lg:col-span-2 bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-6 ring-1 ring-black/5">
           <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <Icon icon="lucide:bar-chart-3" className="w-5 h-5 text-emerald-500" />
+            <Icon icon="solar:chart-square-bold-duotone" className="w-5 h-5 text-emerald-500" />
             Bosqichlar bo'yicha daromad (UZS)
           </h3>
           {stageStats.length > 0 ? (
@@ -320,7 +320,7 @@ export default function WorkerReport() {
         <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 ring-1 ring-black/5 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100/80 bg-purple-50/40">
             <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
-              <Icon icon="lucide:credit-card" className="w-5 h-5 text-purple-500" />
+              <Icon icon="solar:card-bold-duotone" className="w-5 h-5 text-purple-500" />
               Joriy mavsumda olingan to'lovlar ({currentPayments.length} ta)
             </h3>
           </div>
@@ -353,7 +353,7 @@ export default function WorkerReport() {
       <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 ring-1 ring-black/5 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100/80 bg-indigo-50/30 flex justify-between items-center">
           <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
-            <Icon icon="lucide:list-checks" className="w-5 h-5 text-indigo-500" />
+            <Icon icon="solar:checklist-bold-duotone" className="w-5 h-5 text-indigo-500" />
             Oxirgi vazifalar tarixi
           </h3>
           <span className="text-xs text-gray-500 font-medium bg-white px-3 py-1 rounded-full border">{kpiStats.logs?.length || 0} ta yozuv</span>

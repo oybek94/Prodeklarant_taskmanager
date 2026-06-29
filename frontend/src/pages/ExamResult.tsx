@@ -89,12 +89,12 @@ export default function ExamResult() {
       <div className="p-6 min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="text-center p-12 bg-white dark:bg-slate-800 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-700 max-w-lg">
           <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6 text-red-600">
-            <Icon icon="lucide:alert-circle" className="w-10 h-10" />
+            <Icon icon="solar:danger-circle-bold-duotone" className="w-10 h-10" />
           </div>
           <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Natija topilmadi</h2>
           <p className="text-slate-500 mb-8">Ushbu imtihon uchun hali natija qayd etilmagan.</p>
           <Link to="/training" className="inline-flex items-center gap-2 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all">
-            <Icon icon="lucide:arrow-left" className="w-5 h-5" />
+            <Icon icon="solar:arrow-left-bold-duotone" className="w-5 h-5" />
             O'qitish sahifasiga qaytish
           </Link>
         </div>
@@ -116,7 +116,7 @@ export default function ExamResult() {
           <div className={`w-28 h-28 mx-auto mb-8 rounded-[40px] flex items-center justify-center shadow-2xl border-4 border-white/20 backdrop-blur-xl ${result.passed ? 'bg-white/20' : 'bg-red-500/20'
             }`}>
             <Icon
-              icon={result.passed ? "lucide:award" : "lucide:frown"}
+              icon={result.passed ? "solar:medal-star-bold-duotone" : "solar:sad-circle-bold-duotone"}
               className={`w-14 h-14 text-white ${result.passed ? 'animate-bounce' : ''}`}
             />
           </div>
@@ -132,10 +132,10 @@ export default function ExamResult() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: "Olingan Ball", value: result.score, icon: "lucide:star", color: "bg-white/10" },
-              { label: "Maksimal Ball", value: result.maxScore, icon: "lucide:target", color: "bg-white/10" },
-              { label: "Natija", value: `${result.scorePercent}%`, icon: "lucide:percent", color: "bg-white/20" },
-              { label: "O'tish Balli", value: `${result.passingScore}%`, icon: "lucide:shield-check", color: "bg-white/10" },
+              { label: "Olingan Ball", value: result.score, icon: "solar:star-bold-duotone", color: "bg-white/10" },
+              { label: "Maksimal Ball", value: result.maxScore, icon: "solar:target-bold-duotone", color: "bg-white/10" },
+              { label: "Natija", value: `${result.scorePercent}%`, icon: "solar:sale-bold-duotone", color: "bg-white/20" },
+              { label: "O'tish Balli", value: `${result.passingScore}%`, icon: "solar:shield-check-bold-duotone", color: "bg-white/10" },
             ].map((stat, i) => (
               <div key={i} className={`${stat.color} backdrop-blur-md rounded-3xl p-6 border border-white/10`}>
                 <Icon icon={stat.icon} className="w-6 h-6 text-white/60 mx-auto mb-2" />
@@ -154,12 +154,12 @@ export default function ExamResult() {
         {result.evaluation && (
           <div className="bg-indigo-600 rounded-[40px] p-10 mb-12 shadow-2xl shadow-indigo-600/30 text-white relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 transform translate-x-1/4 -translate-y-1/4 opacity-10">
-              <Icon icon="lucide:brain-circuit" className="w-48 h-48" />
+              <Icon icon="solar:cpu-bolt-bold-duotone" className="w-48 h-48" />
             </div>
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Icon icon="lucide:sparkles" className="w-6 h-6" />
+                  <Icon icon="solar:magic-stick-3-bold-duotone" className="w-6 h-6" />
                 </div>
                 <h2 className="text-2xl font-black uppercase tracking-tight">AI Baholash va Tavsiyalar</h2>
               </div>
@@ -174,7 +174,7 @@ export default function ExamResult() {
                     {(result.evaluation as any).strengths && (result.evaluation as any).strengths.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-emerald-300 mb-2 flex items-center gap-2">
-                          <Icon icon="lucide:check-circle" /> Yutuqlar:
+                          <Icon icon="solar:check-circle-bold-duotone" /> Yutuqlar:
                         </h3>
                         <ul className="list-disc pl-5 space-y-1 text-sm md:text-base">
                           {(result.evaluation as any).strengths.map((str: string, i: number) => <li key={i}>{str}</li>)}
@@ -186,7 +186,7 @@ export default function ExamResult() {
                     {(result.evaluation as any).weaknesses && (result.evaluation as any).weaknesses.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-red-300 mb-2 flex items-center gap-2">
-                          <Icon icon="lucide:alert-circle" /> Kamchiliklar:
+                          <Icon icon="solar:danger-circle-bold-duotone" /> Kamchiliklar:
                         </h3>
                         <ul className="list-disc pl-5 space-y-1 text-sm md:text-base">
                           {(result.evaluation as any).weaknesses.map((w: string, i: number) => <li key={i}>{w}</li>)}
@@ -198,7 +198,7 @@ export default function ExamResult() {
                     {(result.evaluation as any).recommendation && (
                       <div>
                         <h3 className="text-lg font-bold text-yellow-300 mb-2 flex items-center gap-2">
-                          <Icon icon="lucide:lightbulb" /> Tavsiya:
+                          <Icon icon="solar:lightbulb-bold-duotone" /> Tavsiya:
                         </h3>
                         <p className="text-sm md:text-base pl-2 border-l-2 border-yellow-300/30">
                           {(result.evaluation as any).recommendation}
@@ -210,7 +210,7 @@ export default function ExamResult() {
                     {(result.evaluation as any).suggested_review && (result.evaluation as any).suggested_review.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-indigo-300 mb-2 flex items-center gap-2">
-                          <Icon icon="lucide:book-open" /> Qayta ko'rib chiqish tavsiya etiladi:
+                          <Icon icon="solar:book-2-bold-duotone" /> Qayta ko'rib chiqish tavsiya etiladi:
                         </h3>
                         <ul className="list-disc pl-5 space-y-1 text-sm md:text-base">
                           {(result.evaluation as any).suggested_review.map((r: string, i: number) => <li key={i}>{r}</li>)}
@@ -231,7 +231,7 @@ export default function ExamResult() {
               onClick={() => navigate(`/exam/${id}`)}
               className="w-full sm:w-auto px-10 py-5 bg-indigo-600 text-white rounded-[24px] font-black shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-3"
             >
-              <Icon icon="lucide:refresh-ccw" className="w-6 h-6" />
+              <Icon icon="solar:refresh-bold-duotone" className="w-6 h-6" />
               Qayta Topshirish
             </button>
           ) : (
@@ -239,7 +239,7 @@ export default function ExamResult() {
               onClick={() => navigate('/training')} // To'g'ridan to'g'ri training ro'yxatiga qaytarsak, ochilgan yangi bosqichni o'sha yerdan tanlashi mumkin
               className="w-full sm:w-auto px-10 py-5 bg-emerald-600 text-white rounded-[24px] font-black shadow-xl shadow-emerald-600/20 hover:bg-emerald-700 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-3"
             >
-              <Icon icon="lucide:arrow-right" className="w-6 h-6" />
+              <Icon icon="solar:arrow-right-bold-duotone" className="w-6 h-6" />
               Keyingi Bosqich
             </button>
           )}
@@ -247,7 +247,7 @@ export default function ExamResult() {
             onClick={() => navigate('/training')}
             className="w-full sm:w-auto px-10 py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[24px] font-black shadow-xl hover:bg-slate-800 dark:hover:bg-slate-100 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-3"
           >
-            <Icon icon="lucide:layout-grid" className="w-6 h-6" />
+            <Icon icon="solar:widget-4-bold-duotone" className="w-6 h-6" />
             Kurslar Ro'yxati
           </button>
         </div>

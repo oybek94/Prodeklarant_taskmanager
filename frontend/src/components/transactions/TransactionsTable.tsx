@@ -37,43 +37,43 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = React.memo(({
             <tr className="bg-white/80 dark:bg-slate-800/90 backdrop-blur-md border-b border-gray-100/80 dark:border-slate-700/80">
               <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
                 <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                  <Icon icon="lucide:hash" className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                  <Icon icon="solar:hashtag-bold-duotone" className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                   Type
                 </span>
               </th>
               <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
                 <span className="inline-flex items-center gap-1.5">
-                  <Icon icon="lucide:user" className="w-4 h-4 text-emerald-500" />
+                  <Icon icon="solar:user-bold-duotone" className="w-4 h-4 text-emerald-500" />
                   Client/Worker/Category
                 </span>
               </th>
               <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
                 <span className="inline-flex items-center justify-end gap-1.5 w-full">
-                  <Icon icon="lucide:coins" className="w-4 h-4 text-amber-500" />
+                  <Icon icon="solar:dollar-minimalistic-bold-duotone" className="w-4 h-4 text-amber-500" />
                   Amount
                 </span>
               </th>
               <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
                 <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                  <Icon icon="lucide:credit-card" className="w-4 h-4 text-indigo-500" />
+                  <Icon icon="solar:card-bold-duotone" className="w-4 h-4 text-indigo-500" />
                   To'lov usuli
                 </span>
               </th>
               <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
                 <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                  <Icon icon="lucide:calendar" className="w-4 h-4 text-cyan-500" />
+                  <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4 text-cyan-500" />
                   Date
                 </span>
               </th>
               <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
                 <span className="inline-flex items-center gap-1.5">
-                  <Icon icon="lucide:message-square" className="w-4 h-4 text-purple-500" />
+                  <Icon icon="solar:chat-square-bold-duotone" className="w-4 h-4 text-purple-500" />
                   Comment
                 </span>
               </th>
               <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
                 <span className="inline-flex items-center gap-1.5 justify-center w-full">
-                  <Icon icon="lucide:sliders-horizontal" className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <Icon icon="solar:tuning-2-bold-duotone" className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   Actions
                 </span>
               </th>
@@ -85,7 +85,7 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = React.memo(({
                 <td colSpan={7} className="px-4 py-16 text-center">
                   <div className="flex flex-col items-center justify-center text-gray-500">
                     <div className="bg-gradient-to-br from-gray-50 to-slate-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-gray-200/50">
-                      <Icon icon="lucide:search" className="w-10 h-10 text-gray-400" />
+                      <Icon icon="solar:magnifer-bold-duotone" className="w-10 h-10 text-gray-400" />
                     </div>
                     <h3 className="text-xl font-bold text-gray-800 mb-2">Ma'lumotlar yo'q</h3>
                     <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Siz qidirayotgan qidiruv so'rovi yoki filtrlarga mos keluvchi tranzaksiya topilmadi.</p>
@@ -145,14 +145,14 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = React.memo(({
                           className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 shadow-sm ring-1 ring-blue-200/60 dark:ring-blue-800/60 transition-all hover:shadow hover:shadow-blue-500/20"
                           title="O'zgartirish"
                         >
-                          <Icon icon="lucide:pencil" className="w-4 h-4" />
+                          <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => onDelete(t.id)}
                           className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 shadow-sm ring-1 ring-rose-200/60 dark:ring-rose-800/60 transition-all hover:shadow hover:shadow-rose-500/20"
                           title="O'chirish"
                         >
-                          <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                          <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                         </button>
                       </div>
                     ) : (
@@ -178,7 +178,7 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = React.memo(({
               disabled={transactionsPage <= 1}
               className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-slate-800 shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow"
             >
-              <Icon icon="lucide:chevron-left" className="w-5 h-5" />
+              <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-0.5 mx-2">
               <span className="px-3 py-1 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-semibold border border-gray-200 dark:border-slate-700 shadow-sm">
@@ -191,7 +191,7 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = React.memo(({
               disabled={transactionsPage >= transactionsTotalPages}
               className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-slate-800 shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow"
             >
-              <Icon icon="lucide:chevron-right" className="w-5 h-5" />
+              <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-5 h-5" />
             </button>
           </div>
         </div>

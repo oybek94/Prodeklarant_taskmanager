@@ -168,7 +168,7 @@ export const SpecsTab = () => {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex items-center gap-3 border-b border-gray-200 dark:border-slate-700 pb-3">
         <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
-          <Icon icon="lucide:box" className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <Icon icon="solar:box-bold-duotone" className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </div>
         <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">Spetsifikatsiyalar</h2>
       </div>
@@ -180,7 +180,7 @@ export const SpecsTab = () => {
           <div className="flex justify-between items-center mb-5">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
-                <Icon icon="lucide:package" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <Icon icon="solar:box-minimalistic-bold-duotone" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </div>
               <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">TNVED Mahsulotlari</h2>
             </div>
@@ -189,7 +189,7 @@ export const SpecsTab = () => {
               className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
               title="Asli holatiga qaytarish"
             >
-              <Icon icon="lucide:rotate-ccw" className="w-4 h-4" />
+              <Icon icon="solar:restart-bold-duotone" className="w-4 h-4" />
               Qaytarish
             </button>
           </div>
@@ -280,13 +280,13 @@ export const SpecsTab = () => {
                       <div className="flex justify-center gap-2">
                         {editingTnvedId === product.id ? (
                           <>
-                            <button onClick={handleSaveTnved} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Saqlash"><Icon icon="lucide:check" className="w-4 h-4" /></button>
-                            <button onClick={cancelEditTnved} className="p-1.5 text-gray-400 dark:text-slate-500 hover:bg-gray-50 dark:bg-slate-900/50 rounded" title="Bekor qilish"><Icon icon="lucide:x" className="w-4 h-4" /></button>
+                            <button onClick={handleSaveTnved} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Saqlash"><Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4" /></button>
+                            <button onClick={cancelEditTnved} className="p-1.5 text-gray-400 dark:text-slate-500 hover:bg-gray-50 dark:bg-slate-900/50 rounded" title="Bekor qilish"><Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" /></button>
                           </>
                         ) : (
                           <>
-                            <button onClick={() => startEditTnved(product)} className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-500/10 rounded text-sm" title="Tahrirlash"><Icon icon="lucide:edit-2" className="w-4 h-4" /></button>
-                            <button onClick={() => handleDeleteTnved(product.id, product.name)} className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-500/10 rounded text-sm" title="O'chirish"><Icon icon="lucide:trash-2" className="w-4 h-4" /></button>
+                            <button onClick={() => startEditTnved(product)} className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-500/10 rounded text-sm" title="Tahrirlash"><Icon icon="solar:pen-2-bold-duotone" className="w-4 h-4" /></button>
+                            <button onClick={() => handleDeleteTnved(product.id, product.name)} className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-500/10 rounded text-sm" title="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                           </>
                         )}
                       </div>
@@ -301,7 +301,7 @@ export const SpecsTab = () => {
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-6 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
-              <Icon icon="lucide:package-2" className="w-4 h-4 text-green-600" />
+              <Icon icon="solar:box-bold-duotone" className="w-4 h-4 text-green-600" />
             </div>
             <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">Qadoq turlari</h2>
           </div>
@@ -359,8 +359,8 @@ export const SpecsTab = () => {
                         {type.code && <div className="text-xs text-gray-400 dark:text-slate-500">Kod: {type.code}</div>}
                       </div>
                       <div className="flex gap-1">
-                        <button onClick={() => startEditPackaging(type)} className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-500/10 rounded"><Icon icon="lucide:edit-2" className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => handleDeletePackaging(type.id, type.name)} className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-500/10 rounded"><Icon icon="lucide:trash-2" className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => startEditPackaging(type)} className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-500/10 rounded"><Icon icon="solar:pen-2-bold-duotone" className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDeletePackaging(type.id, type.name)} className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-500/10 rounded"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-3.5 h-3.5" /></button>
                       </div>
                     </>
                   )}

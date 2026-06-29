@@ -50,7 +50,7 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center">
-              <Icon icon="lucide:filter" className="w-5 h-5 text-white" />
+              <Icon icon="solar:filter-bold-duotone" className="w-5 h-5 text-white" />
             </div>
             <div>
               <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Qidiruv va filtrlash</h3>
@@ -62,18 +62,18 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
             onClick={() => setShowFiltersPanel(false)}
             className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-gray-50 dark:bg-slate-700 rounded-full transition-colors"
           >
-            <Icon icon="lucide:x" className="w-5 h-5" />
+            <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
           </button>
         </div>
         <div className="space-y-5">
           <div>
             <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
-              <Icon icon="lucide:search" className="w-3.5 h-3.5 text-indigo-500" />
+              <Icon icon="solar:magnifer-bold-duotone" className="w-3.5 h-3.5 text-indigo-500" />
               Asosiy qidiruv
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Icon icon="lucide:search" className="w-4 h-4 text-gray-400" />
+                <Icon icon="solar:magnifer-bold-duotone" className="w-4 h-4 text-gray-400" />
               </div>
               <input
                 type="text"
@@ -89,7 +89,7 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
                   onClick={() => setSearchQuery('')}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
-                  <Icon icon="lucide:x" className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                  <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4 text-gray-400 hover:text-gray-600" />
                 </button>
               )}
             </div>
@@ -98,7 +98,7 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
-                <Icon icon="lucide:building" className="w-3.5 h-3.5 text-indigo-500" />
+                <Icon icon="solar:buildings-2-bold-duotone" className="w-3.5 h-3.5 text-indigo-500" />
                 Filial
               </label>
               <select
@@ -116,7 +116,7 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
-                <Icon icon="lucide:users" className="w-3.5 h-3.5 text-indigo-500" />
+                <Icon icon="solar:users-group-rounded-bold-duotone" className="w-3.5 h-3.5 text-indigo-500" />
                 Mijoz
               </label>
               <select
@@ -136,7 +136,7 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
 
           <div>
             <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
-              <Icon icon="lucide:calendar-range" className="w-3.5 h-3.5 text-indigo-500" />
+              <Icon icon="solar:calendar-minimalistic-bold-duotone" className="w-3.5 h-3.5 text-indigo-500" />
               Sana oralig'i
             </label>
             <div className="grid grid-cols-2 gap-3">

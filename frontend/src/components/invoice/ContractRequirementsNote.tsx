@@ -122,7 +122,7 @@ export function ContractRequirementsNote({ requirements: initialRequirements, cl
       {/* Header — always visible */}
       <div className="requirements-header">
         <div className="requirements-title">
-          <Icon icon="lucide:clipboard-list" className="w-3.5 h-3.5 flex-shrink-0" />
+          <Icon icon="solar:clipboard-list-bold-duotone" className="w-3.5 h-3.5 flex-shrink-0" />
           <span>Shartnoma eslatmasi</span>
         </div>
         <div className="requirements-actions">
@@ -137,7 +137,7 @@ export function ContractRequirementsNote({ requirements: initialRequirements, cl
               className="requirements-action-btn"
               title="Tahrirlash"
             >
-              <Icon icon="lucide:edit-2" className="w-3.5 h-3.5" />
+              <Icon icon="solar:pen-2-bold-duotone" className="w-3.5 h-3.5" />
             </button>
           )}
           <button
@@ -150,7 +150,7 @@ export function ContractRequirementsNote({ requirements: initialRequirements, cl
             className="requirements-action-btn"
             title={collapsed ? 'Ochish' : "Yig'ish"}
           >
-            <Icon icon={collapsed ? 'lucide:chevron-down' : 'lucide:chevron-up'} className="w-3.5 h-3.5" />
+            <Icon icon={collapsed ? 'solar:alt-arrow-down-bold-duotone' : 'solar:alt-arrow-up-bold-duotone'} className="w-3.5 h-3.5" />
           </button>
           <button
             type="button"
@@ -162,7 +162,7 @@ export function ContractRequirementsNote({ requirements: initialRequirements, cl
             className="requirements-action-btn"
             title="Yopish"
           >
-            <Icon icon="lucide:x" className="w-3.5 h-3.5" />
+            <Icon icon="solar:close-circle-bold-duotone" className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

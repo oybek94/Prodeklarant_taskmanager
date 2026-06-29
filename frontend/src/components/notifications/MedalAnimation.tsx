@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import Confetti from 'react-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWindowSize } from 'react-use';
-import { X } from 'lucide-react';
 import { MEDAL_DETAILS, type MedalType } from '../../types/medals';
 import { useSocket } from '../../contexts/SocketContext';
 import apiClient from '../../lib/api';

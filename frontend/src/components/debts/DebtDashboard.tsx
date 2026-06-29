@@ -30,7 +30,7 @@ const DebtDashboard: React.FC<DebtDashboardProps> = React.memo(({ stats, loading
             label: 'Aktiv Qarzlar',
             sublabel: 'Jami USD',
             value: formatCurrency(stats?.totalActiveDebtUsd || 0, 'USD'),
-            icon: 'lucide:trending-up',
+            icon: 'solar:graph-up-bold-duotone',
             accent: 'border-l-rose-500',
             iconBg: 'bg-rose-50 dark:bg-rose-900/20',
             iconColor: 'text-rose-500 dark:text-rose-400',
@@ -39,7 +39,7 @@ const DebtDashboard: React.FC<DebtDashboardProps> = React.memo(({ stats, loading
             label: "To'langan",
             sublabel: 'Jami USD',
             value: formatCurrency(stats?.totalPaidUsd || 0, 'USD'),
-            icon: 'lucide:check-circle-2',
+            icon: 'solar:check-circle-bold-duotone',
             accent: 'border-l-emerald-500',
             iconBg: 'bg-emerald-50 dark:bg-emerald-900/20',
             iconColor: 'text-emerald-500 dark:text-emerald-400',
@@ -48,7 +48,7 @@ const DebtDashboard: React.FC<DebtDashboardProps> = React.memo(({ stats, loading
             label: 'Qarz Rekordlari',
             sublabel: 'Umumiy soni',
             value: stats?.totalDebtsCount || 0,
-            icon: 'lucide:users',
+            icon: 'solar:users-group-rounded-bold-duotone',
             accent: 'border-l-indigo-500',
             iconBg: 'bg-indigo-50 dark:bg-indigo-900/20',
             iconColor: 'text-indigo-500 dark:text-indigo-400',
@@ -85,7 +85,7 @@ const DebtDashboard: React.FC<DebtDashboardProps> = React.memo(({ stats, loading
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <div className="flex items-center gap-3 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
-                            <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                            <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
                             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
@@ -139,7 +139,7 @@ const DebtDashboard: React.FC<DebtDashboardProps> = React.memo(({ stats, loading
                                 onClick={() => onPayCertifier && onPayCertifier('ST1', stats.certifierDebt.remaining.st1, stats.certifierDebt.branchId)}
                                 className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                             >
-                                <Icon icon="lucide:credit-card" className="w-4 h-4" />
+                                <Icon icon="solar:card-bold-duotone" className="w-4 h-4" />
                                 ST To'lov
                             </button>
                         </div>
@@ -185,7 +185,7 @@ const DebtDashboard: React.FC<DebtDashboardProps> = React.memo(({ stats, loading
                                 onClick={() => onPayCertifier && onPayCertifier('FITO', stats.certifierDebt.remaining.fito, stats.certifierDebt.branchId)}
                                 className="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                             >
-                                <Icon icon="lucide:credit-card" className="w-4 h-4" />
+                                <Icon icon="solar:card-bold-duotone" className="w-4 h-4" />
                                 FITO To'lov
                             </button>
                         </div>

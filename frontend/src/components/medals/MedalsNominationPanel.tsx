@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Award, Search, Edit2 } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import apiClient from '../../lib/api';
 import { MEDAL_DETAILS, TIER_LABELS, type MedalType } from '../../types/medals';
 import toast from 'react-hot-toast';
@@ -116,7 +116,7 @@ const MedalsNominationPanel: React.FC<MedalsNominationPanelProps> = ({ onClose, 
         <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-lg">
-              <Award className="w-6 h-6" />
+              <Icon icon="solar:medal-star-bold-duotone" className="w-6 h-6" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">Medal Nominatsiyalari</h2>
@@ -124,7 +124,7 @@ const MedalsNominationPanel: React.FC<MedalsNominationPanelProps> = ({ onClose, 
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-            <X className="w-5 h-5" />
+            <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
           </button>
         </div>
 
@@ -225,7 +225,7 @@ const MedalsNominationPanel: React.FC<MedalsNominationPanelProps> = ({ onClose, 
                             }`}
                           >
                             <span className="truncate">{selectedUser?.name || 'Xodim tanlanmagan'}</span>
-                            <Edit2 className="w-3.5 h-3.5 opacity-50 ml-2 shrink-0" />
+                            <Icon icon="solar:pen-2-bold-duotone" className="w-3.5 h-3.5 opacity-50 ml-2 shrink-0" />
                           </div>
                         )}
                       </div>

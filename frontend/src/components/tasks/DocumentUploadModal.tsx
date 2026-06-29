@@ -115,7 +115,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         {isDragOver && (
           <div className="absolute inset-0 z-50 rounded-lg bg-indigo-50/90 border-2 border-dashed border-indigo-400 flex flex-col items-center justify-center gap-3 pointer-events-none">
             <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
-              <Icon icon="lucide:file-down" className="w-8 h-8 text-indigo-500" />
+              <Icon icon="solar:file-download-bold-duotone" className="w-8 h-8 text-indigo-500" />
             </div>
             <p className="text-lg font-semibold text-indigo-700">Fayllarni qo'yib yuboring</p>
             <p className="text-sm text-indigo-500">Bir nechta fayl bir vaqtda qabul qilinadi</p>
@@ -168,7 +168,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               />
               <div className="flex items-center gap-1.5 text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
-                <Icon icon="lucide:move-down-left" className="w-3.5 h-3.5" />
+                <Icon icon="solar:arrow-left-down-bold-duotone" className="w-3.5 h-3.5" />
                 yoki oynaga tashlang
               </div>
             </div>
@@ -188,7 +188,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                         className="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-md hover:shadow-lg hover:scale-110 active:scale-95 z-10"
                         title="O'chirish"
                       >
-                        <Icon icon="lucide:x" className="w-3.5 h-3.5" />
+                        <Icon icon="solar:close-circle-bold-duotone" className="w-3.5 h-3.5" />
                       </button>
                       <div className="flex-shrink-0 mb-2">
                         {getFileIcon(file.type || '', file.name)}
@@ -215,7 +215,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             >
               {uploading ? (
                 <>
-                  <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
+                  <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
                   Yuklanmoqda... {uploadProgress > 0 ? `${uploadProgress}%` : ''}
                 </>
               ) : (

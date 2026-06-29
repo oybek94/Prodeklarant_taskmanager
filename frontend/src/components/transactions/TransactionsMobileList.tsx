@@ -70,7 +70,7 @@ export const TransactionsMobileList: React.FC<TransactionsMobileListProps> = Rea
                   }`}
                   title={t.paymentMethod === 'CASH' ? 'Naqt' : 'Karta'}
                 >
-                  <Icon icon={t.paymentMethod === 'CASH' ? "lucide:banknote" : "lucide:credit-card"} className="w-4 h-4" />
+                  <Icon icon={t.paymentMethod === 'CASH' ? "solar:banknote-2-bold-duotone" : "solar:card-bold-duotone"} className="w-4 h-4" />
                 </span>
               )}
               
@@ -80,13 +80,13 @@ export const TransactionsMobileList: React.FC<TransactionsMobileListProps> = Rea
                     onClick={() => onEdit(t)}
                     className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-400 border border-gray-100 dark:border-slate-700 active:scale-95 transition-all"
                   >
-                    <Icon icon="lucide:pencil" className="w-4 h-4" />
+                    <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => onDelete(t.id)}
                     className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-500 border border-rose-100 dark:border-rose-800/50 active:scale-95 transition-all"
                   >
-                    <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                   </button>
                 </>
               )}

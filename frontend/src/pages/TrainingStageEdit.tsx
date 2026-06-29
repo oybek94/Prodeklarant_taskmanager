@@ -117,12 +117,12 @@ export default function TrainingStageEdit() {
       <div className="p-6 min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="text-center p-12 bg-white dark:bg-slate-800 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-700 max-w-lg">
           <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6 text-red-600">
-            <Icon icon="lucide:alert-circle" className="w-10 h-10" />
+            <Icon icon="solar:danger-circle-bold-duotone" className="w-10 h-10" />
           </div>
           <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Bosqich topilmadi</h2>
           <p className="text-slate-500 mb-8">Ushbu bosqich tizimda mavjud emas yoki o'chirib yuborilgan.</p>
           <Link to={`/training/${trainingId}/manage`} className="inline-flex items-center gap-2 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all">
-            <Icon icon="lucide:arrow-left" className="w-5 h-5" />
+            <Icon icon="solar:arrow-left-bold-duotone" className="w-5 h-5" />
             Boshqaruvga qaytish
           </Link>
         </div>
@@ -140,12 +140,12 @@ export default function TrainingStageEdit() {
               onClick={() => navigate(`/training/${trainingId}/manage`)}
               className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-all active:scale-90"
             >
-              <Icon icon="lucide:chevron-left" className="w-6 h-6" />
+              <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-6 h-6" />
             </button>
             <div>
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
                 <span>O'qitish</span>
-                <Icon icon="lucide:chevron-right" className="w-3 h-3" />
+                <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-3 h-3" />
                 <span>{training.title}</span>
               </div>
               <h1 className="text-2xl font-black text-slate-900 dark:text-white">Bosqichni Tahrirlash</h1>
@@ -164,7 +164,7 @@ export default function TrainingStageEdit() {
               disabled={saving}
               className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 active:scale-95 disabled:opacity-50 transition-all flex items-center gap-2"
             >
-              <Icon icon={saving ? "lucide:loader-2" : "lucide:save"} className={`w-5 h-5 ${saving ? 'animate-spin' : ''}`} />
+              <Icon icon={saving ? "solar:refresh-bold-duotone" : "solar:diskette-bold-duotone"} className={`w-5 h-5 ${saving ? 'animate-spin' : ''}`} />
               {saving ? 'Saqlanmoqda...' : 'O\'zgarishlarni Saqlash'}
             </button>
           </div>
@@ -177,7 +177,7 @@ export default function TrainingStageEdit() {
           <section className="bg-white dark:bg-slate-800 rounded-[40px] p-8 border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/50 dark:shadow-none">
             <div className="flex items-center gap-4 mb-8">
               <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                <Icon icon="lucide:settings-2" className="w-6 h-6" />
+                <Icon icon="solar:settings-minimalistic-bold-duotone" className="w-6 h-6" />
               </div>
               <div>
                 <h2 className="text-xl font-black text-slate-900 dark:text-white">Asosiy Ma'lumotlar</h2>
@@ -214,7 +214,7 @@ export default function TrainingStageEdit() {
           <section className="bg-white dark:bg-slate-800 rounded-[40px] p-8 border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/50 dark:shadow-none min-h-[600px] flex flex-col">
             <div className="flex items-center gap-4 mb-8">
               <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center text-purple-600 dark:text-purple-400">
-                <Icon icon="lucide:layout-template" className="w-6 h-6" />
+                <Icon icon="solar:widget-2-bold-duotone" className="w-6 h-6" />
               </div>
               <div>
                 <h2 className="text-xl font-black text-slate-900 dark:text-white">Maqola Kontenti</h2>
@@ -231,7 +231,7 @@ export default function TrainingStageEdit() {
               </div>
               <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl flex items-center gap-3">
                 <div className="flex-shrink-0 w-8 h-8 bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center rounded-lg">
-                  <Icon icon="lucide:info" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <Icon icon="solar:info-circle-bold-duotone" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <p className="text-xs text-slate-500 leading-snug">
                   Editor orqali jadvallar, kod bloklari, rasm va formatlangan matnlar qo'shishingiz mumkin. Barcha o'zgarishlar saqlanganidan so'ng studentlarga ko'rinadi.

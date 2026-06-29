@@ -29,22 +29,22 @@ const formatDateTime = (dateString: string | Date) => {
 };
 
 const STAGES: { key: LeadStage; label: string; icon: string; color: string }[] = [
-    { key: 'COLD', label: 'Yangi', icon: 'lucide:snowflake', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-    { key: 'IN_PROGRESS', label: 'Aloqada', icon: 'lucide:phone-call', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-    { key: 'MEETING', label: 'Uchrashuv', icon: 'lucide:calendar-check', color: 'bg-violet-100 text-violet-700 border-violet-200' },
-    { key: 'FOLLOW_UP', label: "O'ylanyapti", icon: 'lucide:clock', color: 'bg-orange-100 text-orange-700 border-orange-200' },
-    { key: 'CLOSED_WON', label: 'Mijoz', icon: 'lucide:check-circle-2', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-    { key: 'CLOSED_LOST', label: 'Rad etdi', icon: 'lucide:x-circle', color: 'bg-red-100 text-red-700 border-red-200' },
-    { key: 'WRONG_NUMBER', label: "Raqam xato", icon: 'lucide:phone-off', color: 'bg-rose-100 text-rose-700 border-rose-200' },
-    { key: 'UNREACHABLE', label: "O'chiq / Ko'tarmadi", icon: 'lucide:phone-missed', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+    { key: 'COLD', label: 'Yangi', icon: 'solar:snowflake-bold-duotone', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    { key: 'IN_PROGRESS', label: 'Aloqada', icon: 'solar:phone-calling-bold-duotone', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+    { key: 'MEETING', label: 'Uchrashuv', icon: 'solar:calendar-mark-bold-duotone', color: 'bg-violet-100 text-violet-700 border-violet-200' },
+    { key: 'FOLLOW_UP', label: "O'ylanyapti", icon: 'solar:clock-circle-bold-duotone', color: 'bg-orange-100 text-orange-700 border-orange-200' },
+    { key: 'CLOSED_WON', label: 'Mijoz', icon: 'solar:check-circle-bold-duotone', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    { key: 'CLOSED_LOST', label: 'Rad etdi', icon: 'solar:close-circle-bold-duotone', color: 'bg-red-100 text-red-700 border-red-200' },
+    { key: 'WRONG_NUMBER', label: "Raqam xato", icon: 'solar:phone-bold-duotone', color: 'bg-rose-100 text-rose-700 border-rose-200' },
+    { key: 'UNREACHABLE', label: "O'chiq / Ko'tarmadi", icon: 'solar:phone-rounded-bold-duotone', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
 ];
 
 const ACTIVITY_ICONS: Record<string, { icon: string; color: string }> = {
-    call: { icon: 'lucide:phone', color: 'bg-blue-100 text-blue-600' },
-    comment: { icon: 'lucide:message-square', color: 'bg-gray-100 text-gray-600' },
-    stage_change: { icon: 'lucide:git-branch', color: 'bg-violet-100 text-violet-600' },
-    created: { icon: 'lucide:plus-circle', color: 'bg-emerald-100 text-emerald-600' },
-    import: { icon: 'lucide:upload', color: 'bg-teal-100 text-teal-600' },
+    call: { icon: 'solar:phone-bold-duotone', color: 'bg-blue-100 text-blue-600' },
+    comment: { icon: 'solar:chat-square-bold-duotone', color: 'bg-gray-100 text-gray-600' },
+    stage_change: { icon: 'solar:branching-paths-up-bold-duotone', color: 'bg-violet-100 text-violet-600' },
+    created: { icon: 'solar:add-circle-bold-duotone', color: 'bg-emerald-100 text-emerald-600' },
+    import: { icon: 'solar:upload-bold-duotone', color: 'bg-teal-100 text-teal-600' },
 };
 
 interface Activity {
@@ -470,7 +470,7 @@ export default function LeadDetail() {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-blue-500" />
+                <Icon icon="solar:refresh-bold-duotone" className="w-8 h-8 animate-spin text-blue-500" />
             </div>
         );
     }
@@ -487,7 +487,7 @@ export default function LeadDetail() {
                         onClick={() => navigate('/leads')}
                         className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                     >
-                        <Icon icon="lucide:arrow-left" className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                        <Icon icon="solar:arrow-left-bold-duotone" className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                     </button>
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg font-bold">
                         {lead.companyName.charAt(0).toUpperCase()}
@@ -520,10 +520,10 @@ export default function LeadDetail() {
                     ) : (
                         <>
                             <button onClick={() => setEditing(true)} className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Tahrirlash">
-                                <Icon icon="lucide:pencil" className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                <Icon icon="solar:pen-bold-duotone" className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                             </button>
                             <button onClick={handleDelete} className="p-2 rounded-xl border border-red-200 hover:bg-red-50 transition-colors" title="O'chirish">
-                                <Icon icon="lucide:trash-2" className="w-4 h-4 text-red-500" />
+                                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4 text-red-500" />
                             </button>
                         </>
                     )}
@@ -538,15 +538,15 @@ export default function LeadDetail() {
                         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Ma'lumotlar</h2>
                         <div className="space-y-3">
                             {[
-                                { label: 'Viloyat', field: 'region', icon: 'lucide:map-pin' },
-                                { label: 'Tuman', field: 'district', icon: 'lucide:map' },
-                                { label: 'STIR', field: 'inn', icon: 'lucide:hash' },
-                                { label: 'Telefon', field: 'phone', icon: 'lucide:phone' },
-                                { label: "Mas'ul shaxs", field: 'contactPerson', icon: 'lucide:user' },
-                                { label: 'Tahminiy hajmi', field: 'estimatedExportVolume', icon: 'lucide:bar-chart-3' },
-                                { label: 'Turkumi', field: 'productType', icon: 'lucide:package' },
-                                { label: 'Export davlatlari', field: 'exportedCountries', icon: 'lucide:globe' },
-                                { label: 'Xamkorlari', field: 'partners', icon: 'lucide:users' },
+                                { label: 'Viloyat', field: 'region', icon: 'solar:map-point-bold-duotone' },
+                                { label: 'Tuman', field: 'district', icon: 'solar:map-bold-duotone' },
+                                { label: 'STIR', field: 'inn', icon: 'solar:hashtag-bold-duotone' },
+                                { label: 'Telefon', field: 'phone', icon: 'solar:phone-bold-duotone' },
+                                { label: "Mas'ul shaxs", field: 'contactPerson', icon: 'solar:user-bold-duotone' },
+                                { label: 'Tahminiy hajmi', field: 'estimatedExportVolume', icon: 'solar:chart-square-bold-duotone' },
+                                { label: 'Turkumi', field: 'productType', icon: 'solar:box-minimalistic-bold-duotone' },
+                                { label: 'Export davlatlari', field: 'exportedCountries', icon: 'solar:global-bold-duotone' },
+                                { label: 'Xamkorlari', field: 'partners', icon: 'solar:users-group-rounded-bold-duotone' },
                             ].map(({ label, field, icon }) => (
                                 <div key={field} className="flex items-start gap-3">
                                     <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -590,7 +590,7 @@ export default function LeadDetail() {
                             {/* Assigned To */}
                             <div className="flex items-start gap-3">
                                 <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                    <Icon icon="lucide:user-check" className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                                    <Icon icon="solar:user-check-rounded-bold-duotone" className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-xs text-gray-400 dark:text-gray-500">Sotuvchi</p>
@@ -612,7 +612,7 @@ export default function LeadDetail() {
                             {/* Skidka berildimi section */}
                             <div className="flex items-start gap-3">
                                 <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                    <Icon icon="lucide:percent" className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                                    <Icon icon="solar:sale-bold-duotone" className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">Skidka berildimi?</p>
@@ -670,7 +670,7 @@ export default function LeadDetail() {
                                 >
                                     <Icon icon={s.icon} className="w-4 h-4 flex-shrink-0" />
                                     {s.label}
-                                    {lead.stage === s.key && <Icon icon="lucide:check" className="w-3.5 h-3.5 ml-auto" />}
+                                    {lead.stage === s.key && <Icon icon="solar:check-circle-bold-duotone" className="w-3.5 h-3.5 ml-auto" />}
                                 </button>
                             ))}
                         </div>
@@ -685,10 +685,10 @@ export default function LeadDetail() {
                     {/* AI Assistant Panel */}
                     <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 p-5 shadow-sm overflow-hidden relative">
                         <div className="absolute -right-4 -top-4 opacity-10">
-                            <Icon icon="lucide:bot" className="w-24 h-24 text-indigo-500" />
+                            <Icon icon="solar:chat-round-dots-bold-duotone" className="w-24 h-24 text-indigo-500" />
                         </div>
                         <h2 className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mb-4 flex items-center gap-2">
-                            <Icon icon="lucide:sparkles" className="w-4 h-4" />
+                            <Icon icon="solar:magic-stick-3-bold-duotone" className="w-4 h-4" />
                             AI Yordamchisi
                         </h2>
 
@@ -740,7 +740,7 @@ export default function LeadDetail() {
                                         </div>
                                         <div className="bg-green-50 dark:bg-green-900/10 p-2 rounded-lg border border-green-100 dark:border-green-900/30">
                                             <span className="text-[10px] text-green-600 dark:text-green-500 uppercase tracking-wider block mb-0.5 font-bold flex items-center gap-1">
-                                                <Icon icon="lucide:lightbulb" className="w-3 h-3" /> Tavsiya qadam (NBA)
+                                                <Icon icon="solar:lightbulb-bold-duotone" className="w-3 h-3" /> Tavsiya qadam (NBA)
                                             </span>
                                             <p className="text-xs text-green-700 dark:text-green-400">{summary.nextBestAction}</p>
                                         </div>
@@ -753,7 +753,7 @@ export default function LeadDetail() {
                     {/* Next Call Reminder */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
                         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                            <Icon icon="lucide:bell" className="w-4 h-4 text-amber-500" />
+                            <Icon icon="solar:bell-bold-duotone" className="w-4 h-4 text-amber-500" />
                             Keyingi qo'ng'iroq va vaqti
                         </h2>
                         <div className="flex gap-2">
@@ -769,13 +769,13 @@ export default function LeadDetail() {
                                 className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors disabled:opacity-60"
                             >
                                 {savingReminder
-                                    ? <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
-                                    : <Icon icon="lucide:save" className="w-4 h-4" />}
+                                    ? <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
+                                    : <Icon icon="solar:diskette-bold-duotone" className="w-4 h-4" />}
                             </button>
                         </div>
                         {lead.nextCallAt && (
                             <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5 font-medium">
-                                <Icon icon="lucide:calendar" className="w-3.5 h-3.5 text-blue-500" />
+                                <Icon icon="solar:calendar-bold-duotone" className="w-3.5 h-3.5 text-blue-500" />
                                 {formatDateTime(lead.nextCallAt)}
                             </p>
                         )}
@@ -787,11 +787,11 @@ export default function LeadDetail() {
                     {/* === SUHBAT TAHLILI SECTION === */}
                     <div className="bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50 dark:from-cyan-900/20 dark:via-blue-900/20 dark:to-indigo-900/20 rounded-2xl border border-cyan-200/60 dark:border-cyan-800/50 p-5 shadow-sm relative overflow-hidden">
                         <div className="absolute -right-6 -top-6 opacity-[0.07]">
-                            <Icon icon="lucide:audio-waveform" className="w-32 h-32 text-cyan-500" />
+                            <Icon icon="solar:soundwave-bold-duotone" className="w-32 h-32 text-cyan-500" />
                         </div>
 
                         <h2 className="text-sm font-bold text-cyan-900 dark:text-cyan-300 mb-4 flex items-center gap-2 relative z-10">
-                            <Icon icon="lucide:mic" className="w-4 h-4" />
+                            <Icon icon="solar:microphone-bold-duotone" className="w-4 h-4" />
                             Suhbat Tahlili (AI)
                             {conversations.length > 0 && (
                                 <span className="px-2 py-0.5 text-xs bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-400 rounded-full font-medium">
@@ -829,7 +829,7 @@ export default function LeadDetail() {
                             {uploadingAudio ? (
                                 <div className="flex flex-col items-center gap-2">
                                     <div className="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 flex items-center justify-center">
-                                        <Icon icon="lucide:loader-2" className="w-5 h-5 text-cyan-600 animate-spin" />
+                                        <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 text-cyan-600 animate-spin" />
                                     </div>
                                     <p className="text-sm font-medium text-cyan-700 dark:text-cyan-300">Audio yuklanmoqda...</p>
                                     <p className="text-xs text-gray-400">Iltimos, kuting</p>
@@ -839,7 +839,7 @@ export default function LeadDetail() {
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                                         isDragging ? 'bg-cyan-200 dark:bg-cyan-800 scale-110' : 'bg-gray-100 dark:bg-gray-700'
                                     }`}>
-                                        <Icon icon={isDragging ? 'lucide:download' : 'lucide:mic'} className={`w-5 h-5 transition-colors ${
+                                        <Icon icon={isDragging ? 'solar:download-bold-duotone' : 'solar:microphone-bold-duotone'} className={`w-5 h-5 transition-colors ${
                                             isDragging ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400 dark:text-gray-500'
                                         }`} />
                                     </div>
@@ -869,9 +869,9 @@ export default function LeadDetail() {
                                                 'bg-amber-100 dark:bg-amber-900/30'
                                             }`}>
                                                 <Icon icon={
-                                                    conv.status === 'DONE' ? 'lucide:check-circle' :
-                                                    conv.status === 'ERROR' ? 'lucide:alert-circle' :
-                                                    'lucide:loader-2'
+                                                    conv.status === 'DONE' ? 'solar:check-circle-bold-duotone' :
+                                                    conv.status === 'ERROR' ? 'solar:danger-circle-bold-duotone' :
+                                                    'solar:refresh-bold-duotone'
                                                 } className={`w-4 h-4 ${
                                                     conv.status === 'DONE' ? 'text-emerald-600' :
                                                     conv.status === 'ERROR' ? 'text-red-500' :
@@ -899,10 +899,10 @@ export default function LeadDetail() {
                                                         className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                                         title="O'chirish"
                                                     >
-                                                        <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+                                                        <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-3.5 h-3.5" />
                                                     </button>
                                                 )}
-                                                <Icon icon={expandedConv === conv.id ? 'lucide:chevron-up' : 'lucide:chevron-down'} className="w-4 h-4 text-gray-400" />
+                                                <Icon icon={expandedConv === conv.id ? 'solar:alt-arrow-up-bold-duotone' : 'solar:alt-arrow-down-bold-duotone'} className="w-4 h-4 text-gray-400" />
                                             </div>
                                         </div>
 
@@ -931,7 +931,7 @@ export default function LeadDetail() {
                                                             <div className="mt-2 flex flex-wrap gap-1">
                                                                 {conv.sentiment.moments.map((m: any, i: number) => (
                                                                     <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] bg-white/60 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300">
-                                                                        <Icon icon="lucide:quote" className="w-2.5 h-2.5" />
+                                                                        <Icon icon="solar:chat-round-bold-duotone" className="w-2.5 h-2.5" />
                                                                         {m.emotion}: {m.text?.substring(0, 40)}{m.text?.length > 40 ? '...' : ''}
                                                                     </span>
                                                                 ))}
@@ -944,7 +944,7 @@ export default function LeadDetail() {
                                                 {conv.keyInsights && (
                                                     <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/50">
                                                         <div className="flex items-center gap-2 mb-2">
-                                                            <Icon icon="lucide:lightbulb" className="w-3.5 h-3.5 text-blue-500" />
+                                                            <Icon icon="solar:lightbulb-bold-duotone" className="w-3.5 h-3.5 text-blue-500" />
                                                             <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Muhim nuqtalar</span>
                                                         </div>
                                                         <div className="flex flex-wrap gap-1.5 mb-2">
@@ -987,7 +987,7 @@ export default function LeadDetail() {
                                                     <div className="p-3 rounded-xl bg-violet-50 dark:bg-violet-900/10 border border-violet-200 dark:border-violet-800/50">
                                                         <div className="flex items-center justify-between mb-2">
                                                             <div className="flex items-center gap-2">
-                                                                <Icon icon="lucide:shield-check" className="w-3.5 h-3.5 text-violet-500" />
+                                                                <Icon icon="solar:shield-check-bold-duotone" className="w-3.5 h-3.5 text-violet-500" />
                                                                 <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Qoidalarga rioya</span>
                                                             </div>
                                                             <div className={`text-sm font-black ${
@@ -996,17 +996,17 @@ export default function LeadDetail() {
                                                         </div>
                                                         <div className="space-y-1.5">
                                                             <div className="flex items-center gap-2">
-                                                                <Icon icon={conv.compliance.greeting ? 'lucide:check-circle' : 'lucide:x-circle'} className={`w-3.5 h-3.5 ${conv.compliance.greeting ? 'text-emerald-500' : 'text-red-500'}`} />
+                                                                <Icon icon={conv.compliance.greeting ? 'solar:check-circle-bold-duotone' : 'solar:close-circle-bold-duotone'} className={`w-3.5 h-3.5 ${conv.compliance.greeting ? 'text-emerald-500' : 'text-red-500'}`} />
                                                                 <span className="text-xs text-gray-600 dark:text-gray-400">Salomlashish</span>
                                                                 <span className="text-[10px] text-gray-400 ml-auto truncate max-w-[200px]">{conv.compliance.greetingDetails}</span>
                                                             </div>
                                                             <div className="flex items-center gap-2">
-                                                                <Icon icon={conv.compliance.followedScript ? 'lucide:check-circle' : 'lucide:x-circle'} className={`w-3.5 h-3.5 ${conv.compliance.followedScript ? 'text-emerald-500' : 'text-red-500'}`} />
+                                                                <Icon icon={conv.compliance.followedScript ? 'solar:check-circle-bold-duotone' : 'solar:close-circle-bold-duotone'} className={`w-3.5 h-3.5 ${conv.compliance.followedScript ? 'text-emerald-500' : 'text-red-500'}`} />
                                                                 <span className="text-xs text-gray-600 dark:text-gray-400">Skript bo'yicha</span>
                                                                 <span className="text-[10px] text-gray-400 ml-auto truncate max-w-[200px]">{conv.compliance.scriptDetails}</span>
                                                             </div>
                                                             <div className="flex items-center gap-2">
-                                                                <Icon icon={!conv.compliance.prohibitedWords ? 'lucide:check-circle' : 'lucide:x-circle'} className={`w-3.5 h-3.5 ${!conv.compliance.prohibitedWords ? 'text-emerald-500' : 'text-red-500'}`} />
+                                                                <Icon icon={!conv.compliance.prohibitedWords ? 'solar:check-circle-bold-duotone' : 'solar:close-circle-bold-duotone'} className={`w-3.5 h-3.5 ${!conv.compliance.prohibitedWords ? 'text-emerald-500' : 'text-red-500'}`} />
                                                                 <span className="text-xs text-gray-600 dark:text-gray-400">Taqiqlangan so'zlar</span>
                                                                 <span className="text-[10px] text-gray-400 ml-auto truncate max-w-[200px]">{conv.compliance.prohibitedWordsDetails}</span>
                                                             </div>
@@ -1016,7 +1016,7 @@ export default function LeadDetail() {
                                                                 <span className="text-[10px] text-violet-500 dark:text-violet-400 uppercase font-bold block mb-0.5">Tavsiyalar</span>
                                                                 {conv.compliance.recommendations.map((rec: string, i: number) => (
                                                                     <p key={i} className="text-xs text-gray-500 dark:text-gray-400 flex items-start gap-1">
-                                                                        <Icon icon="lucide:arrow-right" className="w-3 h-3 mt-0.5 flex-shrink-0 text-violet-400" />
+                                                                        <Icon icon="solar:arrow-right-bold-duotone" className="w-3 h-3 mt-0.5 flex-shrink-0 text-violet-400" />
                                                                         {rec}
                                                                     </p>
                                                                 ))}
@@ -1029,7 +1029,7 @@ export default function LeadDetail() {
                                                 {conv.summary && (
                                                     <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-200 dark:border-emerald-800/50">
                                                         <div className="flex items-center gap-2 mb-1.5">
-                                                            <Icon icon="lucide:file-text" className="w-3.5 h-3.5 text-emerald-500" />
+                                                            <Icon icon="solar:document-text-bold-duotone" className="w-3.5 h-3.5 text-emerald-500" />
                                                             <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Xulosa</span>
                                                         </div>
                                                         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{conv.summary}</p>
@@ -1040,7 +1040,7 @@ export default function LeadDetail() {
                                                             }}
                                                             className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors border border-emerald-200 dark:border-emerald-800"
                                                         >
-                                                            <Icon icon="lucide:copy-plus" className="w-3 h-3" />
+                                                            <Icon icon="solar:copy-bold-duotone" className="w-3 h-3" />
                                                             Izohga qo'shish
                                                         </button>
                                                     </div>
@@ -1050,9 +1050,9 @@ export default function LeadDetail() {
                                                 {conv.transcript && (
                                                     <details className="group">
                                                         <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex items-center gap-1">
-                                                            <Icon icon="lucide:file-audio" className="w-3 h-3" />
+                                                            <Icon icon="solar:music-note-bold-duotone" className="w-3 h-3" />
                                                             To'liq transkripsiya
-                                                            <Icon icon="lucide:chevron-down" className="w-3 h-3 transition-transform group-open:rotate-180" />
+                                                            <Icon icon="solar:alt-arrow-down-bold-duotone" className="w-3 h-3 transition-transform group-open:rotate-180" />
                                                         </summary>
                                                         <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
                                                             <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">{conv.transcript}</p>
@@ -1066,7 +1066,7 @@ export default function LeadDetail() {
                                         {expandedConv === conv.id && conv.status === 'ERROR' && (
                                             <div className="border-t border-red-100 dark:border-red-900/30 p-3">
                                                 <div className="flex items-center gap-2 text-red-500">
-                                                    <Icon icon="lucide:alert-triangle" className="w-4 h-4" />
+                                                    <Icon icon="solar:danger-triangle-bold-duotone" className="w-4 h-4" />
                                                     <p className="text-xs">{conv.errorMessage || 'AI tahlil xatoligi'}</p>
                                                 </div>
                                             </div>
@@ -1092,7 +1092,7 @@ export default function LeadDetail() {
                                             : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                                             }`}
                                     >
-                                        <Icon icon={t === 'call' ? 'lucide:phone' : 'lucide:message-square'} className="w-4 h-4" />
+                                        <Icon icon={t === 'call' ? 'solar:phone-bold-duotone' : 'solar:chat-square-bold-duotone'} className="w-4 h-4" />
                                         {t === 'call' ? 'Qo\'ng\'iroq' : 'Izoh'}
                                     </button>
                                 ))}
@@ -1103,7 +1103,7 @@ export default function LeadDetail() {
                                         ? 'bg-purple-600 text-white border-purple-600' 
                                         : 'bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400'}`}
                                 >
-                                    <Icon icon="lucide:sparkles" className="w-4 h-4" />
+                                    <Icon icon="solar:magic-stick-3-bold-duotone" className="w-4 h-4" />
                                     AI
                                 </button>
                             </div>
@@ -1123,7 +1123,7 @@ export default function LeadDetail() {
                                         disabled={generatingMessage || !aiMessageContext}
                                         className="w-full py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex justify-center items-center gap-2 disabled:opacity-50 transition-colors"
                                     >
-                                        {generatingMessage ? <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" /> : <Icon icon="lucide:bot" className="w-4 h-4" />}
+                                        {generatingMessage ? <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" /> : <Icon icon="solar:chat-round-dots-bold-duotone" className="w-4 h-4" />}
                                         Matn yaratish
                                     </button>
                                 </div>
@@ -1144,8 +1144,8 @@ export default function LeadDetail() {
                                 className="w-full py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                             >
                                 {addingAct
-                                    ? <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
-                                    : <Icon icon="lucide:send" className="w-4 h-4" />}
+                                    ? <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
+                                    : <Icon icon="solar:plain-2-bold-duotone" className="w-4 h-4" />}
                                 Saqlash
                             </button>
                         </form>
@@ -1161,13 +1161,13 @@ export default function LeadDetail() {
                         </h2>
                         {lead.activities.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-10 text-gray-300 dark:text-gray-600">
-                                <Icon icon="lucide:activity" className="w-10 h-10 mb-2" />
+                                <Icon icon="solar:pulse-bold-duotone" className="w-10 h-10 mb-2" />
                                 <p className="text-sm">Faoliyat yo'q</p>
                             </div>
                         ) : (
                             <div className="space-y-1">
                                 {lead.activities.map((act, idx) => {
-                                    const def = ACTIVITY_ICONS[act.type] ?? { icon: 'lucide:info', color: 'bg-gray-100 text-gray-500' };
+                                    const def = ACTIVITY_ICONS[act.type] ?? { icon: 'solar:info-circle-bold-duotone', color: 'bg-gray-100 text-gray-500' };
                                     return (
                                         <div key={act.id} className="flex gap-3 py-3 border-b border-gray-50 dark:border-gray-700/50 last:border-0">
                                             <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${def.color}`}>
@@ -1186,7 +1186,7 @@ export default function LeadDetail() {
                                                                 className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                                                 title="O'chirish"
                                                             >
-                                                                <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+                                                                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-3.5 h-3.5" />
                                                             </button>
                                                         )}
                                                     </div>

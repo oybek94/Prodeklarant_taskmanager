@@ -30,11 +30,11 @@ interface Stats {
 }
 
 const FUNNEL_CONFIG = [
-    { key: 'COLD', label: 'Yangi', ext: 'Attention', icon: 'lucide:snowflake', main: 'bg-indigo-600 dark:bg-indigo-500', ribbon: 'bg-indigo-500 dark:bg-indigo-400' },
-    { key: 'IN_PROGRESS', label: 'Aloqada', ext: 'Interest', icon: 'lucide:phone-call', main: 'bg-blue-500 dark:bg-blue-400', ribbon: 'bg-blue-400 dark:bg-blue-300' },
-    { key: 'MEETING', label: 'Uchrashuv', ext: 'Desire', icon: 'lucide:calendar-check', main: 'bg-emerald-500 dark:bg-emerald-400', ribbon: 'bg-emerald-400 dark:bg-emerald-300' },
-    { key: 'FOLLOW_UP', label: "O'ylanyapti", ext: 'Action', icon: 'lucide:clock', main: 'bg-amber-500 dark:bg-amber-400', ribbon: 'bg-amber-400 dark:bg-amber-300' },
-    { key: 'CLOSED_WON', label: 'Mijozlar', ext: 'Post-sales', icon: 'lucide:check-circle-2', main: 'bg-rose-500 dark:bg-rose-400', ribbon: 'bg-rose-400 dark:bg-rose-300' },
+    { key: 'COLD', label: 'Yangi', ext: 'Attention', icon: 'solar:snowflake-bold-duotone', main: 'bg-indigo-600 dark:bg-indigo-500', ribbon: 'bg-indigo-500 dark:bg-indigo-400' },
+    { key: 'IN_PROGRESS', label: 'Aloqada', ext: 'Interest', icon: 'solar:phone-calling-bold-duotone', main: 'bg-blue-500 dark:bg-blue-400', ribbon: 'bg-blue-400 dark:bg-blue-300' },
+    { key: 'MEETING', label: 'Uchrashuv', ext: 'Desire', icon: 'solar:calendar-mark-bold-duotone', main: 'bg-emerald-500 dark:bg-emerald-400', ribbon: 'bg-emerald-400 dark:bg-emerald-300' },
+    { key: 'FOLLOW_UP', label: "O'ylanyapti", ext: 'Action', icon: 'solar:clock-circle-bold-duotone', main: 'bg-amber-500 dark:bg-amber-400', ribbon: 'bg-amber-400 dark:bg-amber-300' },
+    { key: 'CLOSED_WON', label: 'Mijozlar', ext: 'Post-sales', icon: 'solar:check-circle-bold-duotone', main: 'bg-rose-500 dark:bg-rose-400', ribbon: 'bg-rose-400 dark:bg-rose-300' },
 ];
 
 function KpiCard({ label, value, icon, sub }: { label: string; value: string | number; icon: string; sub?: string }) {
@@ -115,7 +115,7 @@ export default function CrmDashboard() {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-indigo-500" />
+                <Icon icon="solar:refresh-bold-duotone" className="w-8 h-8 animate-spin text-indigo-500" />
             </div>
         );
     }
@@ -131,7 +131,7 @@ export default function CrmDashboard() {
                     onClick={() => navigate('/leads')}
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
-                    <Icon icon="lucide:target" className="w-4 h-4" />
+                    <Icon icon="solar:target-bold-duotone" className="w-4 h-4" />
                     Lidlar ro'yxati
                 </button>
             </div>
@@ -139,37 +139,37 @@ export default function CrmDashboard() {
             {/* AI Insights Widget */}
             <div className="bg-gradient-to-r from-indigo-500 to-blue-600 rounded-3xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-6 opacity-20">
-                    <Icon icon="lucide:sparkles" className="w-24 h-24" />
+                    <Icon icon="solar:magic-stick-3-bold-duotone" className="w-24 h-24" />
                 </div>
                 <div className="relative z-10">
                     <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
-                        <Icon icon="lucide:bot" className="w-6 h-6" />
+                        <Icon icon="solar:chat-round-dots-bold-duotone" className="w-6 h-6" />
                         AI Tahlili va Bashorat
                     </h2>
                     {loadingInsights ? (
                         <div className="flex items-center gap-3 animate-pulse">
-                            <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin" />
+                            <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 animate-spin" />
                             <p className="text-indigo-100">Ma'lumotlar tahlil qilinmoqda, kuting...</p>
                         </div>
                     ) : insights ? (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
                                 <div className="flex items-center gap-2 mb-2 text-indigo-100">
-                                    <Icon icon="lucide:trending-up" className="w-4 h-4" />
+                                    <Icon icon="solar:graph-up-bold-duotone" className="w-4 h-4" />
                                     <h3 className="font-semibold">Tendensiya (Trend)</h3>
                                 </div>
                                 <p className="text-sm leading-relaxed">{insights.trend}</p>
                             </div>
                             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
                                 <div className="flex items-center gap-2 mb-2 text-emerald-300">
-                                    <Icon icon="lucide:target" className="w-4 h-4" />
+                                    <Icon icon="solar:target-bold-duotone" className="w-4 h-4" />
                                     <h3 className="font-semibold">Bashorat</h3>
                                 </div>
                                 <p className="text-sm leading-relaxed">{insights.forecast}</p>
                             </div>
                             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
                                 <div className="flex items-center gap-2 mb-2 text-rose-300">
-                                    <Icon icon="lucide:alert-circle" className="w-4 h-4" />
+                                    <Icon icon="solar:danger-circle-bold-duotone" className="w-4 h-4" />
                                     <h3 className="font-semibold">Kuzatuv (Anomaliya)</h3>
                                 </div>
                                 <p className="text-sm leading-relaxed">{insights.anomaly}</p>
@@ -186,7 +186,7 @@ export default function CrmDashboard() {
                                 disabled={loadingInsights}
                                 className="bg-white text-indigo-600 hover:bg-white/90 active:scale-95 font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
-                                <Icon icon="lucide:sparkles" className="w-5 h-5" />
+                                <Icon icon="solar:magic-stick-3-bold-duotone" className="w-5 h-5" />
                                 AI tahlilni boshlash
                             </button>
                         </div>
@@ -196,10 +196,10 @@ export default function CrmDashboard() {
 
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <KpiCard label="Jami lidlar" value={stats?.totalLeads ?? 0} icon="lucide:users-2" />
-                <KpiCard label="Bugungi qo'ng'iroqlar" value={stats?.todayActivities ?? 0} icon="lucide:phone" sub="Bugun" />
-                <KpiCard label="Bugungi uchrashuvlar" value={stats?.todayMeetings ?? 0} icon="lucide:calendar-check" sub="Bugun belgilandi" />
-                <KpiCard label="Konversiya" value={`${wonRate}%`} icon="lucide:trending-up" sub="Liddan mijozga" />
+                <KpiCard label="Jami lidlar" value={stats?.totalLeads ?? 0} icon="solar:users-group-two-rounded-bold-duotone" />
+                <KpiCard label="Bugungi qo'ng'iroqlar" value={stats?.todayActivities ?? 0} icon="solar:phone-bold-duotone" sub="Bugun" />
+                <KpiCard label="Bugungi uchrashuvlar" value={stats?.todayMeetings ?? 0} icon="solar:calendar-mark-bold-duotone" sub="Bugun belgilandi" />
+                <KpiCard label="Konversiya" value={`${wonRate}%`} icon="solar:graph-up-bold-duotone" sub="Liddan mijozga" />
             </div>
 
             {/* Pipeline Funnel */}
@@ -271,21 +271,21 @@ export default function CrmDashboard() {
                 <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700/50 flex flex-wrap justify-center items-center gap-6">
                     <div className="flex items-center gap-3">
                         <div className="bg-red-50 dark:bg-red-900/40 p-2 rounded-xl">
-                            <Icon icon="lucide:x-circle" className="w-6 h-6 text-red-500 dark:text-red-400" />
+                            <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-red-500 dark:text-red-400" />
                         </div>
                         <span className="text-gray-600 dark:text-gray-300 font-semibold">Rad etilgan:</span>
                         <span className="text-red-600 dark:text-red-400 font-black text-2xl">{stats?.byStage['CLOSED_LOST'] ?? 0}</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="bg-rose-50 dark:bg-rose-900/40 p-2 rounded-xl">
-                            <Icon icon="lucide:phone-off" className="w-6 h-6 text-rose-500 dark:text-rose-400" />
+                            <Icon icon="solar:phone-bold-duotone" className="w-6 h-6 text-rose-500 dark:text-rose-400" />
                         </div>
                         <span className="text-gray-600 dark:text-gray-300 font-semibold">Raqam xato:</span>
                         <span className="text-rose-600 dark:text-rose-400 font-black text-2xl">{stats?.byStage['WRONG_NUMBER'] ?? 0}</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="bg-yellow-50 dark:bg-yellow-900/40 p-2 rounded-xl">
-                            <Icon icon="lucide:phone-missed" className="w-6 h-6 text-yellow-500 dark:text-yellow-400" />
+                            <Icon icon="solar:phone-rounded-bold-duotone" className="w-6 h-6 text-yellow-500 dark:text-yellow-400" />
                         </div>
                         <span className="text-gray-600 dark:text-gray-300 font-semibold">Ko'tarmadi:</span>
                         <span className="text-yellow-600 dark:text-yellow-400 font-black text-2xl">{stats?.byStage['UNREACHABLE'] ?? 0}</span>
@@ -311,7 +311,7 @@ export default function CrmDashboard() {
                     </div>
                     {!stats?.todayMeetingsList?.length ? (
                         <div className="flex-1 flex flex-col items-center justify-center py-10 text-gray-300 dark:text-gray-600 border-2 border-dashed border-gray-100 dark:border-gray-700/50 rounded-2xl">
-                            <Icon icon="lucide:calendar-x" className="w-10 h-10 mb-2 opacity-50" />
+                            <Icon icon="solar:calendar-search-bold-duotone" className="w-10 h-10 mb-2 opacity-50" />
                             <p className="text-sm font-medium">Rejalashtirilgan uchrashuvlar yo'q</p>
                         </div>
                     ) : (
@@ -334,17 +334,17 @@ export default function CrmDashboard() {
                                         <div className="flex items-center justify-between mb-1.5">
                                             <span className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate flex-1 mr-2">{m.companyName}</span>
                                             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-colors ${badgeClass}`}>
-                                                <Icon icon={isOverdue ? "lucide:clock-alert" : "lucide:calendar-check"} className="w-3 h-3" />
+                                                <Icon icon={isOverdue ? "solar:alarm-bold-duotone" : "solar:calendar-mark-bold-duotone"} className="w-3 h-3" />
                                                 {formattedDt}
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                                                <div className="flex items-center gap-1 truncate max-w-[150px]"><Icon icon="lucide:user" className="w-3 h-3 shrink-0" /><span className="truncate">{m.contactPerson || '-'}</span></div>
-                                                <div className="flex items-center gap-1"><Icon icon="lucide:phone" className="w-3 h-3 shrink-0" /><span>{m.phone || '-'}</span></div>
+                                                <div className="flex items-center gap-1 truncate max-w-[150px]"><Icon icon="solar:user-bold-duotone" className="w-3 h-3 shrink-0" /><span className="truncate">{m.contactPerson || '-'}</span></div>
+                                                <div className="flex items-center gap-1"><Icon icon="solar:phone-bold-duotone" className="w-3 h-3 shrink-0" /><span>{m.phone || '-'}</span></div>
                                             </div>
                                             <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                                                Ko'rish <Icon icon="lucide:arrow-right" className="w-3 h-3" />
+                                                Ko'rish <Icon icon="solar:arrow-right-bold-duotone" className="w-3 h-3" />
                                             </div>
                                         </div>
                                     </div>
@@ -364,7 +364,7 @@ export default function CrmDashboard() {
                     </div>
                     {!stats?.todayCallsList?.length ? (
                         <div className="flex-1 flex flex-col items-center justify-center py-10 text-gray-300 dark:text-gray-600 border-2 border-dashed border-gray-100 dark:border-gray-700/50 rounded-2xl">
-                            <Icon icon="lucide:phone-off" className="w-10 h-10 mb-2 opacity-50" />
+                            <Icon icon="solar:phone-bold-duotone" className="w-10 h-10 mb-2 opacity-50" />
                             <p className="text-sm font-medium">Rejalashtirilgan qo'ng'iroqlar yo'q</p>
                         </div>
                     ) : (
@@ -387,17 +387,17 @@ export default function CrmDashboard() {
                                         <div className="flex items-center justify-between mb-1.5">
                                             <span className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate flex-1 mr-2">{m.companyName}</span>
                                             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-colors ${badgeClass}`}>
-                                                <Icon icon={isOverdue ? "lucide:phone-incoming" : "lucide:phone"} className="w-3 h-3" />
+                                                <Icon icon={isOverdue ? "solar:incoming-call-bold-duotone" : "solar:phone-bold-duotone"} className="w-3 h-3" />
                                                 {formattedDt}
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                                                <div className="flex items-center gap-1 truncate max-w-[150px]"><Icon icon="lucide:user" className="w-3 h-3 shrink-0" /><span className="truncate">{m.contactPerson || '-'}</span></div>
-                                                <div className="flex items-center gap-1"><Icon icon="lucide:phone" className="w-3 h-3 shrink-0" /><span>{m.phone || '-'}</span></div>
+                                                <div className="flex items-center gap-1 truncate max-w-[150px]"><Icon icon="solar:user-bold-duotone" className="w-3 h-3 shrink-0" /><span className="truncate">{m.contactPerson || '-'}</span></div>
+                                                <div className="flex items-center gap-1"><Icon icon="solar:phone-bold-duotone" className="w-3 h-3 shrink-0" /><span>{m.phone || '-'}</span></div>
                                             </div>
                                             <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                                                Ko'rish <Icon icon="lucide:arrow-right" className="w-3 h-3" />
+                                                Ko'rish <Icon icon="solar:arrow-right-bold-duotone" className="w-3 h-3" />
                                             </div>
                                         </div>
                                     </div>

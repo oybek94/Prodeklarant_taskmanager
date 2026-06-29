@@ -156,7 +156,7 @@ export default function LeadWonAnimation() {
                 {/* Tepada kichik ikonka */}
                 <div className="mb-6 flex justify-center">
                     <div className="w-20 h-20 bg-gradient-to-tr from-amber-400/20 to-yellow-300/20 rounded-full flex items-center justify-center backdrop-blur-sm shadow-[0_0_30px_rgba(251,191,36,0.2)]">
-                        <Icon icon="lucide:party-popper" className="w-10 h-10 text-yellow-400 drop-shadow-md animate-bounce" />
+                        <Icon icon="solar:confetti-bold-duotone" className="w-10 h-10 text-yellow-400 drop-shadow-md animate-bounce" />
                     </div>
                 </div>
 
@@ -176,7 +176,7 @@ export default function LeadWonAnimation() {
                         <div className="flex flex-col items-center gap-1.5 md:gap-2">
                             <span className="text-[10px] md:text-sm text-gray-400 uppercase tracking-[0.2em] font-bold">Sotuvchi</span>
                             <div className="text-base md:text-2xl text-white font-semibold flex items-center gap-2">
-                                <Icon icon="lucide:user" className="w-4 h-4 md:w-6 md:h-6 text-blue-400" />
+                                <Icon icon="solar:user-bold-duotone" className="w-4 h-4 md:w-6 md:h-6 text-blue-400" />
                                 {data.sellerName}
                             </div>
                         </div>
@@ -186,7 +186,7 @@ export default function LeadWonAnimation() {
                         <div className="flex flex-col items-center gap-1.5 md:gap-2">
                             <span className="text-[10px] md:text-sm text-gray-400 uppercase tracking-[0.2em] font-bold">Hajm</span>
                             <div className="text-base md:text-2xl text-white font-semibold flex items-center gap-2">
-                                <Icon icon="lucide:trending-up" className="w-4 h-4 md:w-6 md:h-6 text-amber-400" />
+                                <Icon icon="solar:graph-up-bold-duotone" className="w-4 h-4 md:w-6 md:h-6 text-amber-400" />
                                 {data.amount}
                             </div>
                         </div>
@@ -198,7 +198,7 @@ export default function LeadWonAnimation() {
                     onClick={handleClose}
                     className="mt-4 md:mt-6 px-8 md:px-10 py-3 md:py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-base md:text-xl font-bold rounded-full shadow-[0_0_40px_rgba(245,158,11,0.6)] hover:scale-105 active:scale-95 transition-all z-50 flex items-center gap-2 md:gap-3"
                 >
-                    <Icon icon="lucide:check-circle" className="w-5 h-5 md:w-7 md:h-7" />
+                    <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5 md:w-7 md:h-7" />
                     Zo'r! Davom etish
                 </button>
             </div>

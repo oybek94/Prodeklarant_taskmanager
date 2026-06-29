@@ -368,7 +368,7 @@ export default function TrainingStageDetail() {
                   onClick={() => navigate(`/training/${trainingId}`)}
                   className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all"
                 >
-                  <Icon icon="lucide:arrow-left" className="w-5 h-5" />
+                  <Icon icon="solar:arrow-left-bold-duotone" className="w-5 h-5" />
                 </button>
                 <span className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-widest hidden sm:inline-block">O'qitish Materiali</span>
               </div>
@@ -378,7 +378,7 @@ export default function TrainingStageDetail() {
                     onClick={() => setIsQuestionsModalOpen(true)}
                     className="flex items-center gap-2 p-2.5 md:px-4 md:py-2 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                   >
-                    <Icon icon="lucide:database" className="w-5 h-5 md:w-4 md:h-4" />
+                    <Icon icon="solar:database-bold-duotone" className="w-5 h-5 md:w-4 md:h-4" />
                     <span className="hidden md:inline">Imtihon Savollari</span>
                   </button>
                   <button
@@ -389,7 +389,7 @@ export default function TrainingStageDetail() {
                       : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                   >
-                    <Icon icon={isEditing ? 'lucide:save' : 'lucide:edit-3'} className="w-5 h-5 md:w-4 md:h-4" />
+                    <Icon icon={isEditing ? 'solar:diskette-bold-duotone' : 'solar:pen-new-square-bold-duotone'} className="w-5 h-5 md:w-4 md:h-4" />
                     <span className="hidden md:inline">{isEditing ? (saving ? 'Saqlanmoqda...' : 'Saqlash') : 'Kontentni Tahrirlash'}</span>
                   </button>
                 </div>
@@ -412,13 +412,13 @@ export default function TrainingStageDetail() {
             <div className="flex items-center gap-6 pb-12 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                  <Icon icon="lucide:clock" className="w-4 h-4 text-slate-400" />
+                  <Icon icon="solar:clock-circle-bold-duotone" className="w-4 h-4 text-slate-400" />
                 </div>
                 <span className="text-xs font-bold text-slate-400">{allMaterials.length * 5} daqiqa o'qish</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                  <Icon icon="lucide:layers" className="w-4 h-4 text-slate-400" />
+                  <Icon icon="solar:layers-bold-duotone" className="w-4 h-4 text-slate-400" />
                 </div>
                 <span className="text-xs font-bold text-slate-400">{stage.steps.length} qadam</span>
               </div>
@@ -471,7 +471,7 @@ export default function TrainingStageDetail() {
                             <div className="flex items-center justify-between mb-6">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center">
-                                  <Icon icon="lucide:file-text" className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                  <Icon icon="solar:document-text-bold-duotone" className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                                 </div>
                                 <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-tighter">{material.title || 'Maqola Materiali'}</h4>
                               </div>
@@ -480,7 +480,7 @@ export default function TrainingStageDetail() {
                                   onClick={() => handleStartEditMaterial(material)}
                                   className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-indigo-600 transition-all"
                                 >
-                                  <Icon icon="lucide:maximize-2" className="w-4 h-4" />
+                                  <Icon icon="solar:maximize-bold-duotone" className="w-4 h-4" />
                                 </button>
                               )}
                             </div>
@@ -507,7 +507,7 @@ export default function TrainingStageDetail() {
                             <div className="p-8 border-b border-white/10 flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-                                  <Icon icon={`lucide:${material.type === 'VIDEO' ? 'play-circle' : material.type === 'AUDIO' ? 'mic' : 'image'}`} className="w-5 h-5 text-white" />
+                                  <Icon icon={material.type === 'VIDEO' ? 'solar:play-circle-bold-duotone' : material.type === 'AUDIO' ? 'solar:microphone-bold-duotone' : 'solar:gallery-bold-duotone'} className="w-5 h-5 text-white" />
                                 </div>
                                 <h4 className="font-extrabold text-white">{material.title}</h4>
                               </div>
@@ -545,9 +545,9 @@ export default function TrainingStageDetail() {
                   className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                 >
                   {generatingExam === -1 ? (
-                    <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin" />
+                    <Icon icon="solar:refresh-bold-duotone" className="w-6 h-6 animate-spin" />
                   ) : (
-                    <Icon icon="lucide:brain-circuit" className="w-6 h-6" />
+                    <Icon icon="solar:cpu-bolt-bold-duotone" className="w-6 h-6" />
                   )}
                   <span className="text-lg">
                     {generatingExam === -1 ? "AI Savollar tuzmoqda (Kuting)..." : "Imtihon Topshirish"}
@@ -563,9 +563,9 @@ export default function TrainingStageDetail() {
                   className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                 >
                   {generatingExam === -2 ? (
-                    <Icon icon="lucide:loader-2" className="w-6 h-6 animate-spin" />
+                    <Icon icon="solar:refresh-bold-duotone" className="w-6 h-6 animate-spin" />
                   ) : (
-                    <Icon icon="lucide:send" className="w-6 h-6" />
+                    <Icon icon="solar:plain-2-bold-duotone" className="w-6 h-6" />
                   )}
                   <span className="text-lg">
                     {generatingExam === -2 ? "Yakunlanmoqda..." : "Tugatish va Telegram'ga o'tish"}

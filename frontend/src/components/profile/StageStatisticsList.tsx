@@ -71,7 +71,7 @@ export default function StageStatisticsList({ stageStats, loading, onOpenPartici
           </table>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-            <Icon icon="lucide:clipboard-list" className="w-12 h-12 mb-3 opacity-20" />
+            <Icon icon="solar:clipboard-list-bold-duotone" className="w-12 h-12 mb-3 opacity-20" />
             <p>Ma'lumot topilmadi</p>
           </div>
         )}

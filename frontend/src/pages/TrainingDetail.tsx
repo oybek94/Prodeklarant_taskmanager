@@ -247,7 +247,7 @@ export default function TrainingDetail() {
             className="group flex items-center gap-2 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 mb-6 transition-all"
           >
             <div className="p-1.5 rounded-lg group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
-              <Icon icon="lucide:arrow-left" className="w-5 h-5" />
+              <Icon icon="solar:arrow-left-bold-duotone" className="w-5 h-5" />
             </div>
             <span className="font-semibold text-sm">Kurslar ro'yxatiga qaytish</span>
           </Link>
@@ -393,7 +393,7 @@ export default function TrainingDetail() {
                           ? 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white'
                           : 'bg-slate-50 text-slate-400 dark:bg-slate-700 dark:text-slate-500'
                         }`}>
-                        <Icon icon={isUnlocked ? "lucide:arrow-right" : "lucide:lock"} className="w-5 h-5" />
+                        <Icon icon={isUnlocked ? "solar:arrow-right-bold-duotone" : "solar:lock-keyhole-bold-duotone"} className="w-5 h-5" />
                       </div>
                     </div>
                   </div>
@@ -412,7 +412,7 @@ export default function TrainingDetail() {
             <div className="relative z-10">
               <div className="flex items-center gap-4 mb-10">
                 <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20">
-                  <Icon icon="lucide:brain-circuit" className="w-8 h-8 text-white" />
+                  <Icon icon="solar:cpu-bolt-bold-duotone" className="w-8 h-8 text-white" />
                 </div>
                 <div>
                   <h2 className="text-3xl font-black text-white">Kurs Imtihonlari</h2>
@@ -437,11 +437,11 @@ export default function TrainingDetail() {
                         )}
                         <div className="flex gap-4">
                           <div className="flex items-center gap-2 text-slate-500 text-xs font-bold">
-                            <Icon icon="lucide:help-circle" className="w-4 h-4" />
+                            <Icon icon="solar:question-circle-bold-duotone" className="w-4 h-4" />
                             {exam._count.questions} ta savol
                           </div>
                           <div className="flex items-center gap-2 text-slate-500 text-xs font-bold">
-                            <Icon icon="lucide:target" className="w-4 h-4" />
+                            <Icon icon="solar:target-bold-duotone" className="w-4 h-4" />
                             {exam.passingScore}% o'tish balli
                           </div>
                         </div>
@@ -458,7 +458,7 @@ export default function TrainingDetail() {
                         {canTakeExam ? (
                           <>
                             Boshlash
-                            <Icon icon="lucide:play-circle" className="w-5 h-5" />
+                            <Icon icon="solar:play-circle-bold-duotone" className="w-5 h-5" />
                           </>
                         ) : (
                           'Kursni yakunlang'

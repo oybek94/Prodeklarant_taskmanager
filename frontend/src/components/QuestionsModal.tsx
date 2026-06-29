@@ -187,17 +187,17 @@ export default function QuestionsModal({ stageId, trainingId, onClose }: Questio
             >
                 <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/80">
                     <h2 className="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-3">
-                        <Icon icon="lucide:database" className="text-indigo-600" />
+                        <Icon icon="solar:database-bold-duotone" className="text-indigo-600" />
                         Imtihon Savollari Bazasi
                     </h2>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
-                        <Icon icon="lucide:x" className="w-6 h-6 text-slate-500" />
+                        <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-slate-500" />
                     </button>
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1">
                     {loading ? (
-                        <div className="flex justify-center py-12"><Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-indigo-600" /></div>
+                        <div className="flex justify-center py-12"><Icon icon="solar:refresh-bold-duotone" className="w-8 h-8 animate-spin text-indigo-600" /></div>
                     ) : (
                         <div>
                             {!isFormOpen ? (
@@ -205,7 +205,7 @@ export default function QuestionsModal({ stageId, trainingId, onClose }: Questio
                                     <div className="flex justify-between items-center mb-6">
                                         <p className="text-slate-500 font-medium">Jami {questions.length} ta savol</p>
                                         <button onClick={() => { resetForm(); setIsFormOpen(true); }} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-indigo-700">
-                                            <Icon icon="lucide:plus" /> Savol qo'shish
+                                            <Icon icon="solar:add-circle-bold-duotone" /> Savol qo'shish
                                         </button>
                                     </div>
 
@@ -219,10 +219,10 @@ export default function QuestionsModal({ stageId, trainingId, onClose }: Questio
                                                     </div>
                                                     <div className="flex gap-2">
                                                         <button onClick={() => openEdit(q)} className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-700">
-                                                            <Icon icon="lucide:edit-3" />
+                                                            <Icon icon="solar:pen-new-square-bold-duotone" />
                                                         </button>
                                                         <button onClick={() => handleDelete(q.id)} className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-slate-700">
-                                                            <Icon icon="lucide:trash-2" />
+                                                            <Icon icon="solar:trash-bin-trash-bold-duotone" />
                                                         </button>
                                                     </div>
                                                 </div>
@@ -267,13 +267,13 @@ export default function QuestionsModal({ stageId, trainingId, onClose }: Questio
                                                             )}
                                                             <input type="text" value={opt} onChange={e => handleOptionChange(vIdx, e.target.value)} className="flex-1 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white" placeholder={`${vIdx + 1}-variant`} />
                                                             <button onClick={() => setFormOptions(prev => prev.filter((_, i) => i !== vIdx))} className="p-3 text-red-500 hover:bg-red-50 rounded-xl" disabled={formOptions.length <= 2}>
-                                                                <Icon icon="lucide:minus" />
+                                                                <Icon icon="solar:minus-circle-bold-duotone" />
                                                             </button>
                                                         </div>
                                                     ))}
                                                 </div>
                                                 <button onClick={() => setFormOptions(prev => [...prev, ''])} className="mt-3 text-sm text-indigo-600 font-bold flex items-center gap-1 hover:underline">
-                                                    <Icon icon="lucide:plus" /> Variant qo'shish
+                                                    <Icon icon="solar:add-circle-bold-duotone" /> Variant qo'shish
                                                 </button>
                                             </div>
                                         )}

@@ -11,7 +11,7 @@ const MarginAnalysis = React.memo(({ grossMargin, netMargin }: MarginAnalysisPro
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="mb-6">
                 <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                    <Icon icon="lucide:percent" className="w-5 h-5 text-indigo-500" />
+                    <Icon icon="solar:sale-bold-duotone" className="w-5 h-5 text-indigo-500" />
                     9. Rentabellik (Margin)
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Biznesning daromadlilik darajasini o'lchovchi eng muhim ko'rsatkichlar.</p>

@@ -84,9 +84,9 @@ const Login = () => {
 
           <div className="pt-4 flex flex-col gap-2.5">
             {[
-              { icon: 'lucide:layers', text: 'Jarayonlarni real-vaqtda kuzatish' },
-              { icon: 'lucide:users', text: 'Ko\'p foydalanuvchili rollar tizimi' },
-              { icon: 'lucide:bar-chart-2', text: 'KPI va moliyaviy hisobotlar' },
+              { icon: 'solar:layers-bold-duotone', text: 'Jarayonlarni real-vaqtda kuzatish' },
+              { icon: 'solar:users-group-rounded-bold-duotone', text: 'Ko\'p foydalanuvchili rollar tizimi' },
+              { icon: 'solar:chart-bold-duotone', text: 'KPI va moliyaviy hisobotlar' },
             ].map(({ icon, text }) => (
               <div key={text} className="flex items-center gap-2.5 text-indigo-100 text-sm">
                 <Icon icon={icon} className="w-4 h-4 flex-shrink-0 text-indigo-300" />
@@ -98,7 +98,7 @@ const Login = () => {
 
         {/* Footer */}
         <div className="relative flex items-center gap-2 text-indigo-300 text-xs">
-          <Icon icon="lucide:shield-check" className="w-3.5 h-3.5" />
+          <Icon icon="solar:shield-check-bold-duotone" className="w-3.5 h-3.5" />
           <span>Xavfsiz va ishonchli platforma</span>
         </div>
       </div>
@@ -140,7 +140,7 @@ const Login = () => {
               </label>
               <div className="relative">
                 <Icon
-                  icon="lucide:lock"
+                  icon="solar:lock-keyhole-bold-duotone"
                   className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
                 />
                 <input
@@ -156,7 +156,7 @@ const Login = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
                 >
-                  <Icon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} className="w-4 h-4" />
+                  <Icon icon={showPassword ? 'solar:eye-closed-bold-duotone' : 'solar:eye-bold-duotone'} className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -164,7 +164,7 @@ const Login = () => {
             {/* Xato xabari */}
             {error && (
               <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <Icon icon="lucide:alert-circle" className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <Icon icon="solar:danger-circle-bold-duotone" className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
                 <span className="text-sm text-red-600">{error}</span>
               </div>
             )}
@@ -177,13 +177,13 @@ const Login = () => {
             >
               {isLoading ? (
                 <>
-                  <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" />
+                  <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
                   <span>Kutilmoqda...</span>
                 </>
               ) : (
                 <>
                   <span>Kirish</span>
-                  <Icon icon="lucide:arrow-right" className="w-4 h-4" />
+                  <Icon icon="solar:arrow-right-bold-duotone" className="w-4 h-4" />
                 </>
               )}
             </button>

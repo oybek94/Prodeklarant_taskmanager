@@ -77,10 +77,10 @@ export const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({
   loadingCompletedSummary,
 }) => {
   const cards = [
-    { key: 'today', title: 'BUGUN', suffix: 'kechagiga nisbatan', icon: 'lucide:calendar', bg: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-100/60 dark:border-emerald-800/30', spark: '#10b981', showChart: true },
-    { key: 'week', title: 'HAFTALIK', suffix: 'o‘tgan haftadan', icon: 'lucide:calendar-range', bg: 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20', text: 'text-blue-700 dark:text-blue-400', border: 'border-blue-100/60 dark:border-blue-800/30', spark: '#3b82f6', showChart: true },
-    { key: 'month', title: 'OYLIK', suffix: 'o‘tgan oydan', icon: 'lucide:calendar-days', bg: 'bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20', text: 'text-purple-700 dark:text-purple-400', border: 'border-purple-100/60 dark:border-purple-800/30', spark: '#8b5cf6', showChart: true },
-    { key: 'year', title: 'YILLIK', suffix: 'o‘tgan yildan', icon: 'lucide:calendar', bg: 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20', text: 'text-orange-700 dark:text-orange-400', border: 'border-orange-100/60 dark:border-orange-800/30', spark: '#f97316', showChart: true },
+    { key: 'today', title: 'BUGUN', suffix: 'kechagiga nisbatan', icon: 'solar:calendar-bold-duotone', bg: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-100/60 dark:border-emerald-800/30', spark: '#10b981', showChart: true },
+    { key: 'week', title: 'HAFTALIK', suffix: 'o‘tgan haftadan', icon: 'solar:calendar-minimalistic-bold-duotone', bg: 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20', text: 'text-blue-700 dark:text-blue-400', border: 'border-blue-100/60 dark:border-blue-800/30', spark: '#3b82f6', showChart: true },
+    { key: 'month', title: 'OYLIK', suffix: 'o‘tgan oydan', icon: 'solar:calendar-date-bold-duotone', bg: 'bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20', text: 'text-purple-700 dark:text-purple-400', border: 'border-purple-100/60 dark:border-purple-800/30', spark: '#8b5cf6', showChart: true },
+    { key: 'year', title: 'YILLIK', suffix: 'o‘tgan yildan', icon: 'solar:calendar-bold-duotone', bg: 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20', text: 'text-orange-700 dark:text-orange-400', border: 'border-orange-100/60 dark:border-orange-800/30', spark: '#f97316', showChart: true },
   ];
 
   return (
@@ -119,7 +119,7 @@ export const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({
                 </div>
                 <div className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shrink-0 ${delta === null ? 'bg-white/50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400' : delta >= 0 ? 'bg-emerald-100/60 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-red-100/60 dark:bg-red-500/20 text-red-700 dark:text-red-400'} shadow-sm`}>
                   {delta !== null && delta !== undefined && !loadingCompletedSummary && (
-                    <Icon icon={delta >= 0 ? 'lucide:trending-up' : 'lucide:trending-down'} className="w-2.5 h-2.5" />
+                    <Icon icon={delta >= 0 ? 'solar:graph-up-bold-duotone' : 'solar:graph-down-bold-duotone'} className="w-2.5 h-2.5" />
                   )}
                   <span>{deltaLabel}</span>
                 </div>

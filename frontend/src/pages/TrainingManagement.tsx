@@ -142,7 +142,7 @@ export default function TrainingManagement() {
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-blue-600 rounded-lg shadow-lg shadow-blue-500/30">
-              <Icon icon="lucide:graduation-cap" className="w-6 h-6 text-white" />
+              <Icon icon="solar:square-academic-cap-2-bold-duotone" className="w-6 h-6 text-white" />
             </div>
             <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
               O'qitish Kurslarini Boshqarish
@@ -156,7 +156,7 @@ export default function TrainingManagement() {
           onClick={handleAdd}
           className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 font-semibold"
         >
-          <Icon icon="lucide:plus" className="w-5 h-5" />
+          <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
           Yangi Kurs Qo'shish
         </button>
       </div>
@@ -164,7 +164,7 @@ export default function TrainingManagement() {
       {trainings.length === 0 ? (
         <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl border border-gray-200 dark:border-slate-700 p-12 text-center shadow-xl">
           <div className="w-20 h-20 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Icon icon="lucide:book-open" className="w-10 h-10 text-gray-400" />
+            <Icon icon="solar:book-2-bold-duotone" className="w-10 h-10 text-gray-400" />
           </div>
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Hozircha kurslar yo'q</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-sm mx-auto">
@@ -205,7 +205,7 @@ export default function TrainingManagement() {
                   </span>
                 </div>
                 <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30">
-                  <Icon icon="lucide:book-open" className="w-6 h-6 text-white" />
+                  <Icon icon="solar:book-2-bold-duotone" className="w-6 h-6 text-white" />
                 </div>
                 <div className="absolute -bottom-6 left-6 right-6">
                   <div className="bg-white dark:bg-slate-700 rounded-xl p-4 shadow-lg border border-gray-100 dark:border-slate-600">
@@ -227,7 +227,7 @@ export default function TrainingManagement() {
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="bg-gray-50 dark:bg-slate-700/50 p-3 rounded-xl border border-gray-100 dark:border-slate-700 flex items-center gap-3">
                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                      <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Materiallar</div>
@@ -236,7 +236,7 @@ export default function TrainingManagement() {
                   </div>
                   <div className="bg-gray-50 dark:bg-slate-700/50 p-3 rounded-xl border border-gray-100 dark:border-slate-700 flex items-center gap-3">
                     <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                      <Icon icon="lucide:clipboard-check" className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <Icon icon="solar:clipboard-check-bold-duotone" className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Testlar</div>
@@ -257,7 +257,7 @@ export default function TrainingManagement() {
                       onClick={() => handleEdit(training)}
                       className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2"
                     >
-                      <Icon icon="lucide:edit-2" className="w-4 h-4" />
+                      <Icon icon="solar:pen-2-bold-duotone" className="w-4 h-4" />
                       Tahrirlash
                     </button>
                     <button
@@ -265,7 +265,7 @@ export default function TrainingManagement() {
                       className="px-4 py-2.5 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm font-semibold transition-all"
                       title="O'chirish"
                     >
-                      <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                      <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

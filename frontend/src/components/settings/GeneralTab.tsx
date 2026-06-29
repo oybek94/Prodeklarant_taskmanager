@@ -99,7 +99,7 @@ export const GeneralTab = () => {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex items-center gap-3 border-b border-gray-200 dark:border-slate-700 pb-3">
         <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
-          <Icon icon="lucide:settings" className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <Icon icon="solar:settings-bold-duotone" className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </div>
         <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">Umumiy Ma'lumotlar</h2>
       </div>
@@ -108,7 +108,7 @@ export const GeneralTab = () => {
           <div className="flex justify-between items-center mb-5">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
-                <Icon icon="lucide:building-2" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <Icon icon="solar:buildings-3-bold-duotone" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </div>
               <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">Kompaniya ma'lumotlari</h2>
             </div>
@@ -117,7 +117,7 @@ export const GeneralTab = () => {
               className="inline-flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               title="Tahrirlash"
             >
-              <Icon icon="lucide:edit-2" className="w-5 h-5" />
+              <Icon icon="solar:pen-2-bold-duotone" className="w-5 h-5" />
             </button>
           </div>
           <div className="space-y-4">
@@ -151,7 +151,7 @@ export const GeneralTab = () => {
             <div className="flex justify-between items-center mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
-                  <Icon icon="lucide:target" className="w-4 h-4 text-green-600" />
+                  <Icon icon="solar:target-bold-duotone" className="w-4 h-4 text-green-600" />
                 </div>
                 <h2 className="text-base font-bold text-gray-800 dark:text-slate-200">Yillik maqsad</h2>
               </div>

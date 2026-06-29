@@ -56,24 +56,24 @@ export const getFileIcon = (fileType: string, fileName?: string): React.ReactEle
   const icon = 'w-4 h-4';
 
   if (lowerType.includes('pdf') || lowerName.endsWith('.pdf'))
-    return <span className={`${base} border-red-200 bg-red-50 text-red-600`}><Icon icon="lucide:file-text" className={icon} /></span>;
+    return <span className={`${base} border-red-200 bg-red-50 text-red-600`}><Icon icon="solar:document-text-bold-duotone" className={icon} /></span>;
   if (lowerType.includes('excel') || lowerType.includes('spreadsheet') || lowerName.endsWith('.xls') || lowerName.endsWith('.xlsx'))
-    return <span className={`${base} border-emerald-200 bg-emerald-50 text-emerald-600`}><Icon icon="lucide:file-spreadsheet" className={icon} /></span>;
+    return <span className={`${base} border-emerald-200 bg-emerald-50 text-emerald-600`}><Icon icon="solar:file-smile-bold-duotone" className={icon} /></span>;
   if (lowerType.includes('word') || lowerType.includes('document') || lowerName.endsWith('.doc') || lowerName.endsWith('.docx'))
-    return <span className={`${base} border-blue-200 bg-blue-50 text-blue-600`}><Icon icon="lucide:file-text" className={icon} /></span>;
+    return <span className={`${base} border-blue-200 bg-blue-50 text-blue-600`}><Icon icon="solar:document-text-bold-duotone" className={icon} /></span>;
   if (lowerType.includes('jpeg') || lowerType.includes('jpg') || lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') ||
     lowerType.includes('png') || lowerName.endsWith('.png') || lowerType.includes('image') || lowerType.includes('gif') || lowerType.includes('webp') ||
     lowerName.match(/\.(gif|webp|bmp|svg)$/i))
-    return <span className={`${base} border-amber-200 bg-amber-50 text-amber-600`}><Icon icon="lucide:image" className={icon} /></span>;
+    return <span className={`${base} border-amber-200 bg-amber-50 text-amber-600`}><Icon icon="solar:gallery-bold-duotone" className={icon} /></span>;
   if (lowerType.includes('powerpoint') || lowerType.includes('presentation') || lowerName.endsWith('.ppt') || lowerName.endsWith('.pptx'))
-    return <span className={`${base} border-orange-200 bg-orange-50 text-orange-600`}><Icon icon="lucide:presentation" className={icon} /></span>;
+    return <span className={`${base} border-orange-200 bg-orange-50 text-orange-600`}><Icon icon="solar:presentation-graph-bold-duotone" className={icon} /></span>;
   if (lowerType.includes('rar') || lowerName.endsWith('.rar') || lowerType.includes('zip') || lowerName.endsWith('.zip'))
-    return <span className={`${base} border-gray-200 bg-gray-50 text-gray-600`}><Icon icon="lucide:archive" className={icon} /></span>;
+    return <span className={`${base} border-gray-200 bg-gray-50 text-gray-600`}><Icon icon="solar:archive-bold-duotone" className={icon} /></span>;
   if (lowerType.includes('video') || lowerName.match(/\.(mp4|avi|mov|wmv|flv|mkv)$/i))
-    return <span className={`${base} border-rose-200 bg-rose-50 text-rose-600`}><Icon icon="lucide:video" className={icon} /></span>;
+    return <span className={`${base} border-rose-200 bg-rose-50 text-rose-600`}><Icon icon="solar:videocamera-bold-duotone" className={icon} /></span>;
   if (lowerType.includes('audio') || lowerName.match(/\.(mp3|wav|ogg|m4a)$/i))
-    return <span className={`${base} border-purple-200 bg-purple-50 text-purple-600`}><Icon icon="lucide:music" className={icon} /></span>;
-  return <span className={`${base} border-gray-200 bg-gray-50 text-gray-600`}><Icon icon="lucide:file" className={icon} /></span>;
+    return <span className={`${base} border-purple-200 bg-purple-50 text-purple-600`}><Icon icon="solar:music-note-bold-duotone" className={icon} /></span>;
+  return <span className={`${base} border-gray-200 bg-gray-50 text-gray-600`}><Icon icon="solar:file-bold-duotone" className={icon} /></span>;
 };
 
 /** Fayl preview qilib bo'ladimi? */

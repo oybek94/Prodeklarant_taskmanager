@@ -135,7 +135,7 @@ const TaskCard: React.FC<{ task: Task; isArchive: boolean; onClick: () => void }
           </span>
         )}
         <div className="flex items-center gap-1 ml-auto">
-          <Icon icon="lucide:clock" className={`w-3 h-3 ${totalDuration.color}`} />
+          <Icon icon="solar:clock-circle-bold-duotone" className={`w-3 h-3 ${totalDuration.color}`} />
           <span className={`text-[10px] font-medium ${totalDuration.color}`}>{totalDuration.text}</span>
         </div>
       </div>
@@ -175,7 +175,7 @@ const TaskTable: React.FC<TaskTableProps> = ({
     <div className={`${colors.card} overflow-hidden font-sans`}>
       <div className={`px-5 py-3.5 flex items-center justify-between ${colors.header}`}>
         <h2 className={`text-lg font-bold tracking-tight relative z-10 flex items-center gap-2.5 ${colors.textTitle}`}>
-          <Icon icon={isArchive ? "lucide:archive" : "lucide:building-2"} className="w-5 h-5 opacity-90" />
+          <Icon icon={isArchive ? "solar:archive-bold-duotone" : "solar:buildings-3-bold-duotone"} className="w-5 h-5 opacity-90" />
           {isArchive ? 'Arxiv' : `${branchName} filiali`}
         </h2>
         <div className="bg-black/10 dark:bg-white/10 px-2.5 py-0.5 rounded-lg text-sm font-bold text-white shadow-sm backdrop-blur-sm ring-1 ring-white/20">
@@ -189,7 +189,7 @@ const TaskTable: React.FC<TaskTableProps> = ({
           {branchTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-12 px-4">
               <div className="p-5 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
-                <Icon icon={isArchive ? 'lucide:archive-x' : 'lucide:clipboard-list'} className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                <Icon icon={isArchive ? 'solar:archive-minimalistic-bold-duotone' : 'solar:clipboard-list-bold-duotone'} className="w-10 h-10 text-gray-300 dark:text-gray-600" />
               </div>
               <div className="text-center space-y-1">
                 <p className="font-semibold text-gray-600 dark:text-gray-300 text-sm">
@@ -204,7 +204,7 @@ const TaskTable: React.FC<TaskTableProps> = ({
                   onClick={onCreateTask}
                   className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-2 shadow-sm"
                 >
-                  <Icon icon="lucide:plus" className="w-4 h-4" />
+                  <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />
                   Yangi vazifa yaratish
                 </button>
               )}
@@ -269,7 +269,7 @@ const TaskTable: React.FC<TaskTableProps> = ({
                   <td colSpan={isArchive ? 9 : 5} className={`px-4 py-16 text-center text-sm text-gray-500 ${colors.empty}`}>
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className="p-5 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
-                        <Icon icon={isArchive ? 'lucide:archive-x' : 'lucide:clipboard-list'} className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                        <Icon icon={isArchive ? 'solar:archive-minimalistic-bold-duotone' : 'solar:clipboard-list-bold-duotone'} className="w-10 h-10 text-gray-300 dark:text-gray-600" />
                       </div>
                       <div className="text-center space-y-1">
                         <p className="font-semibold text-gray-600 dark:text-gray-300">
@@ -284,7 +284,7 @@ const TaskTable: React.FC<TaskTableProps> = ({
                           onClick={onCreateTask}
                           className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-2 shadow-sm"
                         >
-                          <Icon icon="lucide:plus" className="w-4 h-4" />
+                          <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />
                           Yangi vazifa yaratish
                         </button>
                       )}
@@ -345,7 +345,7 @@ const TaskTable: React.FC<TaskTableProps> = ({
                       {isArchive && (
                         <td className={`px-3 py-2 whitespace-nowrap text-center text-xs text-gray-900 border-b ${colors.borderCell}`}>
                           <div className="flex items-center justify-center gap-1.5">
-                            <Icon icon="lucide:clock" className={`w-3.5 h-3.5 ${totalDuration.color}`} />
+                            <Icon icon="solar:clock-circle-bold-duotone" className={`w-3.5 h-3.5 ${totalDuration.color}`} />
                             <span className={`font-medium ${totalDuration.color}`}>{totalDuration.text}</span>
                           </div>
                         </td>

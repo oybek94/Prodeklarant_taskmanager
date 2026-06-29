@@ -18,7 +18,7 @@ const ProfitDynamics = React.memo(({ profitDynamics, formatCurrency }: ProfitDyn
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
                     <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2 mb-1">
-                        <Icon icon="lucide:bar-chart-3" className="w-5 h-5 text-indigo-500" />
+                        <Icon icon="solar:chart-square-bold-duotone" className="w-5 h-5 text-indigo-500" />
                         Foyda Dinamikasi
                     </h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Oylik kesimda tushum va xarajatlar tahlili</p>

@@ -45,7 +45,7 @@ export default function ActivityCalendar({ contributions }: ActivityCalendarProp
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider">So'nggi 6 oy</p>
         </div>
         <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-          <Icon icon="lucide:calendar-days" className="w-5 h-5 text-indigo-500" />
+          <Icon icon="solar:calendar-date-bold-duotone" className="w-5 h-5 text-indigo-500" />
         </div>
       </div>
       
@@ -94,7 +94,7 @@ export default function ActivityCalendar({ contributions }: ActivityCalendarProp
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-sm text-gray-400">
-            <Icon icon="lucide:activity" className="w-8 h-8 mb-2 opacity-20" />
+            <Icon icon="solar:pulse-bold-duotone" className="w-8 h-8 mb-2 opacity-20" />
             <p>Faollik yo'q</p>
           </div>
         )}

@@ -14,7 +14,7 @@ export const DashboardActivityHeatmap: React.FC<DashboardActivityHeatmapProps> =
 
       <div className="flex items-center gap-4 mb-5 relative z-10">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 flex items-center justify-center shadow-inner">
-          <Icon icon="lucide:activity" className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+          <Icon icon="solar:pulse-bold-duotone" className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
         </div>
         <div>
           <h2 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">Umumiy Faollik</h2>

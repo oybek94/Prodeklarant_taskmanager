@@ -119,7 +119,7 @@ function AddLeadModal({
                 <div className="flex items-center justify-between mb-5">
                     <h2 className="text-lg font-bold text-gray-900 dark:text-white">Yangi lid qo'shish</h2>
                     <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                        <Icon icon="lucide:x" className="w-5 h-5 text-gray-500" />
+                        <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                     </button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -204,7 +204,7 @@ function AddLeadModal({
                             disabled={saving}
                             className="flex-1 px-4 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                         >
-                            {saving ? <Icon icon="lucide:loader-2" className="w-4 h-4 animate-spin" /> : <Icon icon="lucide:plus" className="w-4 h-4" />}
+                            {saving ? <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" /> : <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />}
                             Qo'shish
                         </button>
                     </div>
@@ -351,8 +351,8 @@ export default function Leads() {
     };
 
     const renderSortIcon = (field: string) => {
-        if (sortField !== field) return <Icon icon="lucide:chevrons-up-down" className="inline w-3 h-3 ml-1 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />;
-        return <Icon icon={sortOrder === 'asc' ? "lucide:chevron-up" : "lucide:chevron-down"} className="inline w-3 h-3 ml-1 text-blue-500" />;
+        if (sortField !== field) return <Icon icon="solar:sort-vertical-bold-duotone" className="inline w-3 h-3 ml-1 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />;
+        return <Icon icon={sortOrder === 'asc' ? "solar:alt-arrow-up-bold-duotone" : "solar:alt-arrow-down-bold-duotone"} className="inline w-3 h-3 ml-1 text-blue-500" />;
     };
 
     // Handle search debounce separately
@@ -441,7 +441,7 @@ export default function Leads() {
                             onClick={handleBulkDelete}
                             className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-all shadow-sm active:scale-95"
                         >
-                            <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-3.5 h-3.5" />
                             {selectedLeads.length} tani o'chirish
                         </button>
                     )}
@@ -450,14 +450,14 @@ export default function Leads() {
                         disabled={importing}
                         className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all disabled:opacity-50"
                     >
-                        {importing ? <Icon icon="lucide:loader-2" className="w-3.5 h-3.5 animate-spin" /> : <Icon icon="lucide:upload" className="w-3.5 h-3.5" />}
+                        {importing ? <Icon icon="solar:refresh-bold-duotone" className="w-3.5 h-3.5 animate-spin" /> : <Icon icon="solar:upload-bold-duotone" className="w-3.5 h-3.5" />}
                         Import
                     </button>
                     <button
                         onClick={() => setShowModal(true)}
                         className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-sm active:scale-95"
                     >
-                        <Icon icon="lucide:plus" className="w-3.5 h-3.5" />
+                        <Icon icon="solar:add-circle-bold-duotone" className="w-3.5 h-3.5" />
                         Yangi lid
                     </button>
                 </div>
@@ -466,7 +466,7 @@ export default function Leads() {
             {/* Filters & Search */}
             <div className="flex flex-col md:flex-row gap-3 items-center">
                 <div className="relative flex-1 group w-full">
-                    <Icon icon="lucide:search" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <Icon icon="solar:magnifer-bold-duotone" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                     <input
                         type="text"
                         placeholder="Firma, STIR, telefon yoki o'zim qidirgan ma'lumot..."
@@ -520,7 +520,7 @@ export default function Leads() {
                         onClick={clearFilters}
                         className="px-3 py-2 text-xs font-medium text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1.5 whitespace-nowrap"
                     >
-                        <Icon icon="lucide:x" className="w-3.5 h-3.5" />
+                        <Icon icon="solar:close-circle-bold-duotone" className="w-3.5 h-3.5" />
                         Tozalash
                     </button>
                 )}
@@ -546,11 +546,11 @@ export default function Leads() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                 {loading ? (
                     <div className="flex items-center justify-center py-16">
-                        <Icon icon="lucide:loader-2" className="w-7 h-7 animate-spin text-blue-500" />
+                        <Icon icon="solar:refresh-bold-duotone" className="w-7 h-7 animate-spin text-blue-500" />
                     </div>
                 ) : leads.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-                        <Icon icon="lucide:inbox" className="w-12 h-12 mb-3 opacity-40" />
+                        <Icon icon="solar:inbox-bold-duotone" className="w-12 h-12 mb-3 opacity-40" />
                         <p className="text-sm font-medium">Lidlar topilmadi</p>
                         <p className="text-xs mt-1">Yangi lid qo'shish yoki Excel import qiling</p>
                     </div>
@@ -589,7 +589,7 @@ export default function Leads() {
                                             </h3>
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-                                                    <Icon icon="lucide:user" className="w-3.5 h-3.5 text-gray-400" />
+                                                    <Icon icon="solar:user-bold-duotone" className="w-3.5 h-3.5 text-gray-400" />
                                                     <span className="font-medium truncate">{lead.contactPerson || '-'}</span>
                                                 </div>
                                                 {lead.phone ? (
@@ -599,12 +599,12 @@ export default function Leads() {
                                                         rel="noopener noreferrer"
                                                         className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1.5 rounded-md w-fit active:bg-indigo-100 dark:active:bg-indigo-900/40"
                                                     >
-                                                        <Icon icon="lucide:phone" className="w-3.5 h-3.5 opacity-70" />
+                                                        <Icon icon="solar:phone-bold-duotone" className="w-3.5 h-3.5 opacity-70" />
                                                         <span className="font-bold">{lead.phone}</span>
                                                     </a>
                                                 ) : (
                                                     <div className="flex items-center gap-1.5 text-xs text-gray-400 px-2 py-1.5">
-                                                        <Icon icon="lucide:phone" className="w-3.5 h-3.5 opacity-70" />
+                                                        <Icon icon="solar:phone-bold-duotone" className="w-3.5 h-3.5 opacity-70" />
                                                         <span className="font-bold">-</span>
                                                     </div>
                                                 )}
@@ -614,7 +614,7 @@ export default function Leads() {
                                             <StageBadge stage={lead.stage} />
                                             {lead.nextCallAt && (
                                                 <div className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${isOverdue ? 'bg-red-50 text-red-600 border-red-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800'}`}>
-                                                    <Icon icon={isOverdue ? "lucide:phone-incoming" : "lucide:clock"} className="w-3 h-3" />
+                                                    <Icon icon={isOverdue ? "solar:incoming-call-bold-duotone" : "solar:clock-circle-bold-duotone"} className="w-3 h-3" />
                                                     {formatDate(lead.nextCallAt)}
                                                 </div>
                                             )}
@@ -630,7 +630,7 @@ export default function Leads() {
                                         <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-2.5 border border-gray-100 dark:border-gray-700/50">
                                             <div className="flex items-center justify-between mb-1">
                                                 <p className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1 font-bold tracking-wider uppercase">
-                                                    <Icon icon="lucide:message-square" className="w-3 h-3" />
+                                                    <Icon icon="solar:chat-square-bold-duotone" className="w-3 h-3" />
                                                     Oxirgi izoh
                                                 </p>
                                                 <p className="text-[9px] text-gray-400">
@@ -649,7 +649,7 @@ export default function Leads() {
                                         </span>
                                         <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider group-hover:translate-x-1 transition-transform">
                                             Batafsil
-                                            <Icon icon="lucide:arrow-right" className="w-3.5 h-3.5" />
+                                            <Icon icon="solar:arrow-right-bold-duotone" className="w-3.5 h-3.5" />
                                         </div>
                                     </div>
                                 </div>
@@ -773,7 +773,7 @@ export default function Leads() {
                                                             ? 'bg-red-100 text-red-700 border-red-200 animate-pulse' 
                                                             : 'bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800'
                                                     }`}>
-                                                        <Icon icon={isOverdue ? "lucide:phone-incoming" : "lucide:calendar-check"} className="w-3.5 h-3.5" />
+                                                        <Icon icon={isOverdue ? "solar:incoming-call-bold-duotone" : "solar:calendar-mark-bold-duotone"} className="w-3.5 h-3.5" />
                                                         {formatDate(lead.nextCallAt)}
                                                     </div>
                                                 ) : (
@@ -787,7 +787,7 @@ export default function Leads() {
                                                             {lead.activities[0].note || lead.activities[0].type}
                                                         </p>
                                                         <p className="text-[9px] text-gray-400 mt-1 flex items-center gap-1">
-                                                            <Icon icon="lucide:clock" className="w-2.5 h-2.5" />
+                                                            <Icon icon="solar:clock-circle-bold-duotone" className="w-2.5 h-2.5" />
                                                             {formatDateTime(lead.activities[0].createdAt)}
                                                         </p>
                                                     </div>
@@ -806,7 +806,7 @@ export default function Leads() {
                                                 </td>
                                             )}
                                             <td className="px-4 py-3.5 text-right">
-                                                <Icon icon="lucide:arrow-right" className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all text-blue-500" />
+                                                <Icon icon="solar:arrow-right-bold-duotone" className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all text-blue-500" />
                                             </td>
                                         </tr>
                                     );
@@ -824,7 +824,7 @@ export default function Leads() {
                                     disabled={page === 1}
                                     className="relative inline-flex items-center p-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
                                 >
-                                    <Icon icon="lucide:chevron-left" className="h-5 w-5" />
+                                    <Icon icon="solar:alt-arrow-left-bold-duotone" className="h-5 w-5" />
                                 </button>
                                 
                                 <div className="flex items-center gap-1.5 overflow-x-auto px-2 scrollbar-hide">
@@ -867,7 +867,7 @@ export default function Leads() {
                                     disabled={page * limit >= total}
                                     className="relative inline-flex items-center p-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
                                 >
-                                    <Icon icon="lucide:chevron-right" className="h-5 w-5" />
+                                    <Icon icon="solar:alt-arrow-right-bold-duotone" className="h-5 w-5" />
                                 </button>
                             </div>
                             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between font-outfit uppercase">
@@ -895,7 +895,7 @@ export default function Leads() {
                                             className="relative inline-flex items-center px-1.5 py-1.5 rounded-l-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
                                         >
                                             <span className="sr-only">Oldingi</span>
-                                            <Icon icon="lucide:chevron-left" className="h-4 w-4" />
+                                            <Icon icon="solar:alt-arrow-left-bold-duotone" className="h-4 w-4" />
                                         </button>
                                         {[...Array(Math.ceil(total / limit))].map((_, i) => {
                                             const p = i + 1;
@@ -936,7 +936,7 @@ export default function Leads() {
                                             className="relative inline-flex items-center px-1.5 py-1.5 rounded-r-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
                                         >
                                             <span className="sr-only">Keyingi</span>
-                                            <Icon icon="lucide:chevron-right" className="h-4 w-4" />
+                                            <Icon icon="solar:alt-arrow-right-bold-duotone" className="h-4 w-4" />
                                         </button>
                                     </nav>
                                 </div>

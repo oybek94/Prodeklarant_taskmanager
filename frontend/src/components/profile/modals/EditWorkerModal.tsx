@@ -76,7 +76,7 @@ export default function EditWorkerModal({ workerDetail, workerId, branches, onCl
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white">Ishchini tahrirlash</h2>
         <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
-          <Icon icon="lucide:x" className="w-5 h-5 text-gray-400" />
+          <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-400" />
         </button>
       </div>
       <form onSubmit={handleUpdate} className="space-y-4">

@@ -217,7 +217,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
     const iconBgClass = isPositive
       ? 'bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400'
       : 'bg-rose-100/80 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400';
-    const icon = isPositive ? 'lucide:badge-dollar-sign' : 'lucide:trending-down';
+    const icon = isPositive ? 'solar:tag-price-bold-duotone' : 'solar:graph-down-bold-duotone';
     const titleClass = isPositive ? 'text-emerald-900 dark:text-emerald-400' : 'text-rose-900 dark:text-rose-400';
     const btnClass = isPositive
       ? 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/50 bg-emerald-50 dark:bg-emerald-900/30'
@@ -270,8 +270,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
           }`}>
             <div className="w-20 h-20 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center">
               {isUploading
-                ? <Icon icon="lucide:loader-2" className="w-10 h-10 text-indigo-500 animate-spin" />
-                : <Icon icon="lucide:file-down" className="w-10 h-10 text-indigo-500" />
+                ? <Icon icon="solar:refresh-bold-duotone" className="w-10 h-10 text-indigo-500 animate-spin" />
+                : <Icon icon="solar:file-download-bold-duotone" className="w-10 h-10 text-indigo-500" />
               }
             </div>
             <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-300">
@@ -290,7 +290,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             onClick={() => onClose()}
             className="fixed top-4 right-4 z-[110] p-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-full shadow-lg border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all"
           >
-            <Icon icon="lucide:x" className="w-6 h-6" />
+            <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
           </button>
         )}
 
@@ -299,7 +299,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight leading-tight">{selectedTask.title}</h2>
             {selectedTask.createdBy && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1.5">
-                <Icon icon="lucide:user" className="w-3.5 h-3.5" />
+                <Icon icon="solar:user-bold-duotone" className="w-3.5 h-3.5" />
                 Yaratdi: <span className="font-medium text-gray-700 dark:text-gray-300">{selectedTask.createdBy.name}</span>
               </p>
             )}
@@ -310,7 +310,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
               className="p-2 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-600 hover:text-white transition-all shadow-sm ring-1 ring-orange-200 dark:ring-orange-800"
               title="Xato"
             >
-              <Icon icon="lucide:alert-circle" className="w-4 h-4" />
+              <Icon icon="solar:danger-circle-bold-duotone" className="w-4 h-4" />
             </button>
             {selectedTask.createdBy && user && (user.role === 'ADMIN' || selectedTask.createdBy.id === user.id) && (
               <button
@@ -318,7 +318,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm ring-1 ring-blue-200 dark:ring-blue-800"
                 title="O'zgartirish"
               >
-                <Icon icon="lucide:pencil" className="w-4 h-4" />
+                <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
               </button>
             )}
             {/* Task o'chirish */}
@@ -331,21 +331,21 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   className="p-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm ring-1 ring-red-200 dark:ring-red-800"
                   title="O'chirish"
                 >
-                  <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                  <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                 </button>
               )}
             <button
               onClick={() => downloadStickerPng(selectedTask.id)}
               className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-semibold flex items-center gap-1.5 shadow-sm text-sm"
             >
-              <Icon icon="lucide:download" className="w-4 h-4" />
+              <Icon icon="solar:download-bold-duotone" className="w-4 h-4" />
               Stiker
             </button>
             <button
               onClick={() => onClose()}
               className="p-1.5 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white transition-all ml-1"
             >
-              <Icon icon="lucide:x" className="w-4 h-4" />
+              <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -412,7 +412,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
         <div className="mb-5 relative z-10 overflow-hidden rounded-2xl border border-blue-100 dark:border-slate-700 bg-blue-50/80 dark:bg-slate-800/80 p-4 shadow-sm dark:shadow-none">
           <div className="flex items-center gap-2 mb-3 border-b border-blue-100/60 dark:border-slate-700/60 pb-2">
             <div className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-700 dark:text-blue-400 shadow-sm">
-              <Icon icon="lucide:file-text" className="w-4 h-4" />
+              <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4" />
             </div>
             <h3 className="text-sm font-bold text-blue-900 dark:text-blue-100 tracking-tight">PSR Ma'lumotlari</h3>
           </div>
@@ -448,14 +448,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   onChange={(e) => handleAfterHoursDeclarationChange(e.target.checked)}
                   className="peer h-4 w-4 cursor-pointer appearance-none rounded border-2 border-slate-300 dark:border-slate-600 checked:border-blue-600 checked:bg-blue-600 transition-all focus:ring-0 focus:ring-offset-0"
                 />
-                <Icon icon="lucide:check" className="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
+                <Icon icon="solar:check-circle-bold-duotone" className="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
               </div>
             </label>
 
             {selectedTask.afterHoursDeclaration && (
               <div className="w-full flex items-center justify-between p-2 bg-amber-50/80 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800">
                 <span className="text-[11px] font-bold text-amber-800 dark:text-amber-500 flex items-center gap-1.5">
-                  <Icon icon="lucide:moon" className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500" />
+                  <Icon icon="solar:moon-bold-duotone" className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500" />
                   Ish vaqtidan tashqari rasmiylashtiruv tasdiqlangan
                 </span>
                 <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-400 shadow-sm border border-amber-200 dark:border-amber-700">Ha</span>
@@ -467,7 +467,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 <div className="flex-1 flex items-center justify-between sm:justify-start sm:gap-4">
                   <div className="flex items-center gap-1.5">
                     <div className="p-1 bg-slate-100 dark:bg-slate-700 rounded-md">
-                      <Icon icon="lucide:phone" className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                      <Icon icon="solar:phone-bold-duotone" className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                     </div>
                     <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400">Haydovchi:</span>
                   </div>
@@ -486,7 +486,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                     onClick={handleOpenSendEmailModal}
                     className="flex-1 sm:flex-none w-auto bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-800/30 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all font-semibold text-xs shadow-sm active:scale-[0.99]"
                   >
-                    <Icon icon="lucide:mail" className="w-4 h-4" />
+                    <Icon icon="solar:letter-bold-duotone" className="w-4 h-4" />
                     <span>Email</span>
                   </button>
                 </div>
@@ -498,7 +498,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   onClick={handleOpenSendEmailModal}
                   className="w-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-800/30 text-emerald-700 dark:text-emerald-400 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all font-semibold text-xs shadow-sm active:scale-[0.99]"
                 >
-                  <Icon icon="lucide:mail" className="w-4 h-4" />
+                  <Icon icon="solar:letter-bold-duotone" className="w-4 h-4" />
                   <span>Hujjatlarni Email orqali yuborish</span>
                 </button>
               </div>
@@ -568,7 +568,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                         }}
                       >
                         {stage.status === 'TAYYOR' && (
-                          <Icon icon="lucide:check" className="w-3.5 h-3.5 text-white" />
+                          <Icon icon="solar:check-circle-bold-duotone" className="w-3.5 h-3.5 text-white" />
                         )}
                       </div>
                       <label
@@ -614,7 +614,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                                   className="ml-1 p-0.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/50 rounded transition-colors"
                                   title="BXM ni o'zgartirish"
                                 >
-                                  <Icon icon="lucide:pencil" className="w-3 h-3" />
+                                  <Icon icon="solar:pen-bold-duotone" className="w-3 h-3" />
                                 </button>
                               )}
                             </span>
@@ -657,7 +657,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 onClick={() => setShowFinancialReport(!showFinancialReport)}
                 className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-sm font-semibold ${financial.btnClass}`}
               >
-                <Icon icon={showFinancialReport ? "lucide:eye-off" : "lucide:eye"} className="w-4 h-4" />
+                <Icon icon={showFinancialReport ? "solar:eye-closed-bold-duotone" : "solar:eye-bold-duotone"} className="w-4 h-4" />
                 <span className="hidden sm:inline">{showFinancialReport ? "Yashirish" : "Ko'rsatish"}</span>
               </button>
             </div>
@@ -755,7 +755,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   if (userKpiLogs.length === 0) {
                     return (
                       <div className="p-4 bg-gray-50/80 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 text-center">
-                        <Icon icon="lucide:coins" className="w-6 h-6 text-gray-400" />
+                        <Icon icon="solar:dollar-minimalistic-bold-duotone" className="w-6 h-6 text-gray-400" />
                         <div className="text-sm font-medium text-gray-500">
                           Siz bu taskdan hozircha pul ishlab topmadingiz
                         </div>
@@ -803,7 +803,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 {/* Agar KPI log'lar bo'lmasa */}
                 {user?.role !== 'ADMIN' && (!selectedTask.kpiLogs || selectedTask.kpiLogs.length === 0) && (
                   <div className="p-4 bg-gray-50/80 dark:bg-slate-800/80 rounded-xl border border-dashed border-gray-300 dark:border-slate-700 flex flex-col items-center justify-center gap-2 text-center">
-                    <Icon icon="lucide:coins" className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                    <Icon icon="solar:dollar-minimalistic-bold-duotone" className="w-6 h-6 text-gray-400 dark:text-gray-500" />
                     <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       Siz bu taskdan hozircha pul ishlab topmadingiz
                     </div>
@@ -817,7 +817,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
         {selectedTask.comments && (
           <div className="mb-5">
             <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
-              <Icon icon="lucide:message-square" className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <Icon icon="solar:chat-square-bold-duotone" className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               Izohlar
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-3 rounded-r-lg">
@@ -874,7 +874,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   className="px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs font-semibold flex items-center gap-1.5 shadow-sm"
                   title="ZIP holatida yuklab olish"
                 >
-                  <Icon icon="lucide:download" className="w-3.5 h-3.5" />
+                  <Icon icon="solar:download-bold-duotone" className="w-3.5 h-3.5" />
                   Barchasi
                 </button>
               )}
@@ -883,7 +883,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   onClick={() => onOpenDocumentUpload()}
                   className="px-2.5 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-semibold flex items-center gap-1.5 shadow-sm"
                 >
-                  <Icon icon="lucide:plus" className="w-3.5 h-3.5" />
+                  <Icon icon="solar:add-circle-bold-duotone" className="w-3.5 h-3.5" />
                   Hujjat qo'shish
                 </button>
               )}
@@ -925,7 +925,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-purple-200 dark:border-purple-800/60 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
                             title="Ko'rish"
                           >
-                            <Icon icon="lucide:eye" className="w-4 h-4" />
+                            <Icon icon="solar:eye-bold-duotone" className="w-4 h-4" />
                           </button>
                         )}
                         <button
@@ -933,7 +933,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                           className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-blue-200 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
                           title="Yuklab olish"
                         >
-                          <Icon icon="lucide:download" className="w-4 h-4" />
+                          <Icon icon="solar:download-bold-duotone" className="w-4 h-4" />
                         </button>
                         {(() => {
                           // Admin har doim o'chira oladi
@@ -961,7 +961,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                                 className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 dark:border-rose-800/60 bg-red-50 dark:bg-rose-900/20 text-red-600 dark:text-rose-400 hover:bg-red-100 dark:hover:bg-rose-900/40 transition-colors"
                                 title="O'chirish (Admin)"
                               >
-                                <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                               </button>
                             );
                           }
@@ -976,7 +976,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                                   className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 dark:border-rose-800/60 bg-red-50 dark:bg-rose-900/20 text-red-600 dark:text-rose-400 hover:bg-red-100 dark:hover:bg-rose-900/40 transition-colors"
                                   title="O'chirish"
                                 >
-                                  <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                                  <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                                 </button>
                               );
                             } else {
@@ -1011,7 +1011,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
                             title="Nusxalash"
                           >
-                            <Icon icon="lucide:copy" className="w-4 h-4" />
+                            <Icon icon="solar:copy-bold-duotone" className="w-4 h-4" />
                             Nusxalash
                           </button>
                         </div>

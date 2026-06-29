@@ -25,11 +25,11 @@ import ChartDataLabels from 'chartjs-plugin-datalabels';
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
 
 const PERIOD_OPTIONS = [
-  { value: 'day', label: 'Bugun', icon: 'lucide:calendar' },
-  { value: 'week', label: 'Hafta', icon: 'lucide:calendar-range' },
-  { value: 'month', label: 'Oy', icon: 'lucide:calendar-days' },
-  { value: 'year', label: 'Yil', icon: 'lucide:calendar-clock' },
-  { value: 'all', label: 'Barchasi', icon: 'lucide:infinity' },
+  { value: 'day', label: 'Bugun', icon: 'solar:calendar-bold-duotone' },
+  { value: 'week', label: 'Hafta', icon: 'solar:calendar-minimalistic-bold-duotone' },
+  { value: 'month', label: 'Oy', icon: 'solar:calendar-date-bold-duotone' },
+  { value: 'year', label: 'Yil', icon: 'solar:calendar-date-bold-duotone' },
+  { value: 'all', label: 'Barchasi', icon: 'solar:infinity-bold-duotone' },
 ];
 
 export default function Profile() {
@@ -121,7 +121,7 @@ export default function Profile() {
                 <>
                   <span className="text-gray-300 dark:text-gray-600">•</span>
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
-                    <Icon icon="lucide:map-pin" className="w-3.5 h-3.5 mr-1" />
+                    <Icon icon="solar:map-point-bold-duotone" className="w-3.5 h-3.5 mr-1" />
                     {workerDetail.branch.name}
                   </span>
                 </>
@@ -151,10 +151,10 @@ export default function Profile() {
           {isAdmin && id && (
             <div className="flex gap-2">
               <button onClick={() => setShowEditModal(true)} className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-300 transition-colors shadow-sm">
-                <Icon icon="lucide:pencil" className="w-4 h-4" />
+                <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
               </button>
               <button onClick={handleDelete} className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl text-red-500 transition-colors shadow-sm">
-                <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
               </button>
             </div>
           )}

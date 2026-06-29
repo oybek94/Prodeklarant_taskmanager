@@ -63,7 +63,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                     : 'bg-indigo-500 dark:bg-slate-700 text-white hover:bg-indigo-600 dark:hover:bg-slate-600'
                     }`}
                 >
-                  <Icon icon="lucide:chevron-left" className="w-4.5 h-4.5" />
+                  <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-4.5 h-4.5" />
                   Oldingi
                 </button>
                 {getPageNumbers(page, archiveTotalPages).map((p: number | string) => (
@@ -89,7 +89,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                     }`}
                 >
                   Keyingi
-                  <Icon icon="lucide:chevron-right" className="w-4.5 h-4.5" />
+                  <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-4.5 h-4.5" />
                 </button>
               </div>
             </div>

@@ -28,7 +28,7 @@ export const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] border border-slate-700/80 bg-gradient-to-br from-slate-800 to-slate-900 relative overflow-hidden shrink-0">
             <div className="absolute inset-0 bg-blue-500/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <Icon icon="lucide:crosshair" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400 relative z-10 animate-[pulse_2s_ease-in-out_infinite]" />
+            <Icon icon="solar:target-bold-duotone" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400 relative z-10 animate-[pulse_2s_ease-in-out_infinite]" />
           </div>
           <div>
             <h2 className="text-lg sm:text-xl font-black text-white tracking-tight uppercase flex items-center gap-2 leading-tight">
@@ -81,7 +81,7 @@ export const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({
         if (!Array.isArray(ranking) || ranking.length === 0) {
           return (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-slate-500 relative z-10">
-              <Icon icon="lucide:award" className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <Icon icon="solar:medal-star-bold-duotone" className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="font-bold text-sm">Reyting uchun ma'lumotlar topilmadi</p>
             </div>
           );

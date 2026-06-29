@@ -60,11 +60,11 @@ const AddDebtModal = React.memo(({ isOpen, onClose, onSuccess }: any) => {
             <motion.div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 w-full max-w-md overflow-hidden" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}>
                 <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-800">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                        <Icon icon="lucide:plus" className="text-gray-500 w-5 h-5"/>
+                        <Icon icon="solar:add-circle-bold-duotone" className="text-gray-500 w-5 h-5"/>
                         Yangi qarz
                     </h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
-                        <Icon icon="lucide:x" className="w-5 h-5" />
+                        <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
                     </button>
                 </div>
                 
@@ -154,7 +154,7 @@ const AddDebtModal = React.memo(({ isOpen, onClose, onSuccess }: any) => {
                             disabled={loading}
                             className="px-4 py-2 flex items-center justify-center text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-lg shadow-sm disabled:opacity-50 transition-colors gap-2"
                         >
-                            {loading ? <Icon icon="lucide:loader-2" className="animate-spin w-4 h-4" /> : 'Saqlash'}
+                            {loading ? <Icon icon="solar:refresh-bold-duotone" className="animate-spin w-4 h-4" /> : 'Saqlash'}
                         </button>
                     </div>
                 </form>

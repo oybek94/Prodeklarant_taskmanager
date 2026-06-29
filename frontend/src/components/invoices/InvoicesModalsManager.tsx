@@ -179,7 +179,7 @@ export const InvoicesModalsManager: React.FC<InvoicesModalsManagerProps> = ({
               {/* Filial */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                  <Icon icon="lucide:building" className="w-4 h-4 text-blue-600" />
+                  <Icon icon="solar:buildings-2-bold-duotone" className="w-4 h-4 text-blue-600" />
                   Filial *
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -208,7 +208,7 @@ export const InvoicesModalsManager: React.FC<InvoicesModalsManagerProps> = ({
               {/* PSR */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                  <Icon icon="lucide:file-text" className="w-4 h-4 text-blue-600" />
+                  <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4 text-blue-600" />
                   PSR *
                 </label>
                 <div className="flex gap-2">
@@ -242,7 +242,7 @@ export const InvoicesModalsManager: React.FC<InvoicesModalsManagerProps> = ({
               {/* Sho'pir tel raqami */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                  <Icon icon="lucide:phone" className="w-4 h-4 text-blue-600" />
+                  <Icon icon="solar:phone-bold-duotone" className="w-4 h-4 text-blue-600" />
                   Sho&apos;pir tel raqami
                 </label>
                 <input
@@ -259,7 +259,7 @@ export const InvoicesModalsManager: React.FC<InvoicesModalsManagerProps> = ({
               {/* Comments */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                  <Icon icon="lucide:message-square" className="w-4 h-4 text-blue-600" />
+                  <Icon icon="solar:chat-square-bold-duotone" className="w-4 h-4 text-blue-600" />
                   Comments
                 </label>
                 <textarea

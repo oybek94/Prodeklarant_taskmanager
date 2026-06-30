@@ -24,7 +24,7 @@ export default defineConfig({
             if (id.includes('@tiptap')) return 'vendor-editor';
             if (id.includes('xlsx')) return 'vendor-xlsx';
             if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf';
-            if (id.includes('framer-motion') || id.includes('lucide-react') || id.includes('@iconify')) return 'vendor-ui';
+            if (id.includes('framer-motion') || id.includes('@iconify')) return 'vendor-ui';
           }
         },
       },

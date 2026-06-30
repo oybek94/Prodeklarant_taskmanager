@@ -418,16 +418,10 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
     }
     return base;
   };
-  const formatPackage = (item: InvoiceItem) => {
-    const places = Math.round(Number(item.packagesCount ?? item.quantity ?? 0));
-    const pack = item.packageType || '';
-    return [places ? String(places) : '', pack].filter(Boolean).join(' ').trim();
-  };
-
   payload.items.forEach((item, index) => {
     const row = tableStartRow + index;
     if (row > tableEndRow) return;
-    
+
     // Qator skrit bo'lsa uni ochamiz
     const sheetRow = sheet.getRow(row);
     if (sheetRow.hidden) {
@@ -435,7 +429,10 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
     }
 
     writeItemCell(row, 'B', String(index + 1));
-    writeItemCell(row, 'K', formatPackage(item));
+    // "Мест + Вид упаковки" maydoni — G:T birlashtirilgan, master G ustuni.
+    // Har bir qatorda poddon ma'lumoti bilan to'liq format: "1600 пласт.ящик на 17 паллетах"
+    writeItemCell(row, 'K', '');
+    writeItemCell(row, 'G', buildG34Text(item));
     writeItemCell(row, 'U', item.name || '');
     writeItemCell(row, 'AM', item.tnvedCode || '');
     writeItemCell(row, 'AT', item.grossWeight ? `${Math.round(Number(item.grossWeight))} кг` : '');
@@ -443,14 +440,11 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
   for (let row = tableStartRow + payload.items.length; row <= tableEndRow; row += 1) {
     writeItemCell(row, 'B', '');
     writeItemCell(row, 'K', '');
+    writeItemCell(row, 'G', '');
     writeItemCell(row, 'U', '');
     writeItemCell(row, 'AM', '');
     writeItemCell(row, 'AT', '');
   }
-
-  // K34 ni tozalash va G34 ni format bo'yicha yozish
-  writeItemCell(34, 'K', '');
-  writeItemCell(34, 'G', buildG34Text(firstItem));
 
   if (additionalInfo.temperature) {
     const tempRow = tableStartRow + payload.items.length + 1;

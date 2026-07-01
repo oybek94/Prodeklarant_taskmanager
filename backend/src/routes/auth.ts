@@ -360,7 +360,16 @@ router.get('/me/xp', requireAuth(), async (req: AuthRequest, res) => {
     });
     const noteXp = noteXpResult._sum.xpReward || 0;
 
-    const totalXP = completedStagesCount + bountyXp + noteXp;
+    const medalXpResult = await prisma.userMedal.aggregate({
+      where: {
+        userId: req.user.id,
+        awardedAt: { gte: yearStart }
+      },
+      _sum: { xpBonus: true }
+    });
+    const medalXp = medalXpResult._sum.xpBonus || 0;
+
+    const totalXP = completedStagesCount + bountyXp + noteXp + medalXp;
 
     res.json({ xp: totalXP });
   } catch (error: any) {

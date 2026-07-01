@@ -430,6 +430,20 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         }
       });
 
+      // Add XP from medals awarded in the same date range
+      const medalXpByWorker = await prisma.userMedal.groupBy({
+        by: ['userId'],
+        where: { awardedAt: { gte: startDate, lte: endDate } },
+        _sum: { xpBonus: true }
+      });
+
+      medalXpByWorker.forEach((item) => {
+        if (item.userId !== null) {
+          const currentCount = completedStagesMap.get(item.userId) || 0;
+          completedStagesMap.set(item.userId, currentCount + (item._sum.xpBonus || 0));
+        }
+      });
+
 
       // Get error count for each worker in the date range
       const errorsByWorker = await prisma.taskError.groupBy({

@@ -152,6 +152,7 @@ router.get('/archive-report', requireAuth(), async (req: AuthRequest, res) => {
             contract: {
               select: {
                 sellerName: true,
+                shipperName: true,
                 buyerName: true,
                 contractNumber: true,
                 deliveryTerms: true,
@@ -180,7 +181,8 @@ router.get('/archive-report', requireAuth(), async (req: AuthRequest, res) => {
         return {
           taskName: t.title,
           clientName: (t as any).client?.name || '',
-          sellerName: inv?.contract?.sellerName || '',
+          // Sotuvchi ustuniga yuk jonatuvchi korxona nomi yoziladi; agar yo'q bo'lsa — sotuvchi nomi
+          sellerName: inv?.contract?.shipperName || inv?.contract?.sellerName || '',
           buyerName: inv?.contract?.buyerName || '',
           contractNumber: inv?.contract?.contractNumber || '',
           invoiceDate: inv?.date ? inv.date.toISOString() : '',

@@ -358,7 +358,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     });
 
     // Helper function to calculate worker ranking for a date range
-    const calculateWorkerRanking = async (startDate: Date, endDate: Date) => {
+    const calculateWorkerRanking = async (startDate: Date, endDate: Date, includeMedalXp = false) => {
       // Get all workers (DEKLARANT, ADMIN, MANAGER, CERTIFICATE_WORKER roles)
       const allWorkers = await prisma.user.findMany({
         where: {
@@ -430,19 +430,22 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         }
       });
 
-      // Add XP from medals awarded in the same date range
-      const medalXpByWorker = await prisma.userMedal.groupBy({
-        by: ['userId'],
-        where: { awardedAt: { gte: startDate, lte: endDate } },
-        _sum: { xpBonus: true }
-      });
+      // Add XP from medals awarded in the same date range — yillik XP hisobiga only.
+      // Haftalik/oylik XP faqat qilingan ishlar (bosqich + bounty + note) uchun sanaladi.
+      if (includeMedalXp) {
+        const medalXpByWorker = await prisma.userMedal.groupBy({
+          by: ['userId'],
+          where: { awardedAt: { gte: startDate, lte: endDate } },
+          _sum: { xpBonus: true }
+        });
 
-      medalXpByWorker.forEach((item) => {
-        if (item.userId !== null) {
-          const currentCount = completedStagesMap.get(item.userId) || 0;
-          completedStagesMap.set(item.userId, currentCount + (item._sum.xpBonus || 0));
-        }
-      });
+        medalXpByWorker.forEach((item) => {
+          if (item.userId !== null) {
+            const currentCount = completedStagesMap.get(item.userId) || 0;
+            completedStagesMap.set(item.userId, currentCount + (item._sum.xpBonus || 0));
+          }
+        });
+      }
 
 
       // Get error count for each worker in the date range
@@ -496,7 +499,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
     const [weeklyRanking, monthlyRanking, yearlyRanking] = await Promise.all([
       calculateWorkerRanking(rankingWeekStart, rankingTodayEnd),
       calculateWorkerRanking(rankingMonthStart, rankingTodayEnd),
-      calculateWorkerRanking(rankingYearStart, rankingTodayEnd),
+      calculateWorkerRanking(rankingYearStart, rankingTodayEnd, true),
     ]);
 
     const workerCompletionRanking = {

@@ -339,15 +339,28 @@ router.get('/me/xp', requireAuth(), async (req: AuthRequest, res) => {
       },
     });
 
+    // Xato topgani uchun mukofot (faqat boshqa ishchining xatosini topsa).
+    // O'z xatosini topsa — bu mukofot emas, jarima (pastdagi penaltyXp'da hisoblanadi).
     const bountyXpResult = await prisma.taskError.aggregate({
-      where: { 
+      where: {
         createdById: req.user.id,
-        adminRatedAt: { gte: yearStart } 
+        workerId: { not: req.user.id },
+        adminRatedAt: { gte: yearStart }
       },
       _sum: { bountyXp: true }
     });
-    
+
     const bountyXp = bountyXpResult._sum.bountyXp || 0;
+
+    // Xato qilgani uchun jarima: baholangan xatolarda workerId shu foydalanuvchi bo'lsa, XP ayriladi.
+    const penaltyXpResult = await prisma.taskError.aggregate({
+      where: {
+        workerId: req.user.id,
+        adminRatedAt: { gte: yearStart }
+      },
+      _sum: { bountyXp: true }
+    });
+    const penaltyXp = penaltyXpResult._sum.bountyXp || 0;
 
     const noteXpResult = await (prisma as any).dashboardNote.aggregate({
       where: {
@@ -369,7 +382,7 @@ router.get('/me/xp', requireAuth(), async (req: AuthRequest, res) => {
     });
     const medalXp = medalXpResult._sum.xpBonus || 0;
 
-    const totalXP = completedStagesCount + bountyXp + noteXp + medalXp;
+    const totalXP = completedStagesCount + bountyXp + noteXp + medalXp - penaltyXp;
 
     res.json({ xp: totalXP });
   } catch (error: any) {

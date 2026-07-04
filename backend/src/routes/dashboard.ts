@@ -402,18 +402,24 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
         }
       });
 
-      // Add Bounty XP from Task Errors generated in the same date range
-      const bountyXpByWorker = await prisma.taskError.groupBy({
-        by: ['createdById'],
+      // Bounty XP from rated Task Errors in the same date range.
+      // Xatoni topgan (createdById) XP oladi, xato qilgan (workerId) XP yo'qotadi —
+      // shu tariqa XP ishchilar o'rtasida ko'chadi. O'z xatosini topsa faqat jarima.
+      const ratedErrors = await prisma.taskError.findMany({
         where: { adminRatedAt: { gte: startDate, lte: endDate } },
-        _sum: { bountyXp: true }
+        select: { createdById: true, workerId: true, bountyXp: true },
       });
-      
-      bountyXpByWorker.forEach((item) => {
-        if (item.createdById !== null) {
-          const currentCount = completedStagesMap.get(item.createdById) || 0;
-          completedStagesMap.set(item.createdById, currentCount + (item._sum.bountyXp || 0));
+
+      ratedErrors.forEach((err) => {
+        const amount = err.bountyXp || 0;
+        if (amount === 0 || err.workerId === null) return;
+
+        if (err.workerId !== err.createdById && err.createdById !== null) {
+          // Topuvchiga qo'shamiz
+          completedStagesMap.set(err.createdById, (completedStagesMap.get(err.createdById) || 0) + amount);
         }
+        // Xato qilgan ishchidan ayiramiz (o'z xatosi bo'lsa ham — jarima)
+        completedStagesMap.set(err.workerId, (completedStagesMap.get(err.workerId) || 0) - amount);
       });
 
       // Add XP from completed Dashboard Notes

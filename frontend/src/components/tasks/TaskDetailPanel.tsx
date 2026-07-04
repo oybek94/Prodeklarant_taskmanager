@@ -289,6 +289,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
           <button
             onClick={() => onClose()}
             className="fixed top-4 right-4 z-[110] p-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-full shadow-lg border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all"
+            title="Yopish"
+            aria-label="Yopish"
           >
             <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
           </button>
@@ -308,7 +310,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             <button
               onClick={() => onOpenErrorModal()}
               className="p-2 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-600 hover:text-white transition-all shadow-sm ring-1 ring-orange-200 dark:ring-orange-800"
-              title="Xato"
+              title="Xato qo'shish"
+              aria-label="Xato qo'shish"
             >
               <Icon icon="solar:danger-circle-bold-duotone" className="w-4 h-4" />
             </button>
@@ -316,7 +319,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
               <button
                 onClick={() => onEdit()}
                 className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm ring-1 ring-blue-200 dark:ring-blue-800"
-                title="O'zgartirish"
+                title="Tahrirlash"
+                aria-label="Vazifani tahrirlash"
               >
                 <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
               </button>
@@ -330,6 +334,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   onClick={() => onDeleteTask()}
                   className="p-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm ring-1 ring-red-200 dark:ring-red-800"
                   title="O'chirish"
+                  aria-label="Vazifani o'chirish"
                 >
                   <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                 </button>
@@ -343,7 +348,9 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             </button>
             <button
               onClick={() => onClose()}
-              className="p-1.5 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white transition-all ml-1"
+              title="Yopish"
+              aria-label="Yopish"
+              className={`p-1.5 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white transition-all ml-1 ${isMobile ? 'hidden' : ''}`}
             >
               <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />
             </button>
@@ -388,7 +395,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
           <div className="mb-5 flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-slate-800 pb-3">
             <div>
               <span className="font-semibold">Oxirgi o'zgartirilgan:</span> {selectedTask.updatedAt ? formatDate(selectedTask.updatedAt) : ''}
-              <span className="ml-1">by {selectedTask.updatedBy.name}</span>
+              <span className="ml-1">{selectedTask.updatedBy.name} tomonidan</span>
             </div>
             {selectedTask.stages && selectedTask.stages.length > 0 && (() => {
               const MathFloor = Math.floor;
@@ -414,7 +421,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             <div className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-700 dark:text-blue-400 shadow-sm">
               <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4" />
             </div>
-            <h3 className="text-sm font-bold text-blue-900 dark:text-blue-100 tracking-tight">PSR Ma'lumotlari</h3>
+            <h3 className="text-sm font-bold text-blue-900 dark:text-blue-100 tracking-tight">PSR ma'lumotlari</h3>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex-1 min-w-max flex items-center justify-between p-2 bg-white/60 dark:bg-white/5 rounded-xl border border-blue-50 dark:border-slate-600/50">
@@ -673,7 +680,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                         {formatMoney(financial.dealAmount, financial.currency)}
                         {financial.rep && financial.dealAmount > financial.dealAmountBase + financial.psrAmount && (
                           <span className="text-xs font-semibold text-gray-400 ml-1.5 whitespace-normal">
-                            (+ extra BXM xisobi qo'shilgan)
+                            (+ qo'shimcha BXM hisobi qo'shilgan)
                           </span>
                         )}
                       </span>
@@ -710,7 +717,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                     )}
                     {!financial.rep && (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Eski usul (barcha harajatlar):</span>
+                        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Barcha xarajatlar:</span>
                         <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
                           - {formatMoney(getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration), financial.currency)}
                         </span>
@@ -892,7 +899,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
           {loadingDocuments ? (
             <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
           ) : !Array.isArray(taskDocuments) || taskDocuments.length === 0 ? (
-            <div className="text-center py-4 text-gray-400">Hujjatlar yo'q</div>
+            <div className="text-center py-6 text-gray-400 dark:text-gray-500">
+              <p className="text-sm font-medium">Hali hujjat yo'q</p>
+              <p className="text-xs mt-1">Fayllarni bu yerga tashlang yoki "Hujjat qo'shish" tugmasini bosing.</p>
+            </div>
           ) : (
             <div className="space-y-1">
               {taskDocuments.map((doc) => {

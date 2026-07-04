@@ -36,11 +36,11 @@ export const getStatusInfo = (status: string): { label: string; color: string } 
     case 'JARAYONDA':
       return { label: 'Jarayonda', color: 'bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30' };
     case 'TAYYOR':
-      return { label: 'Xujjat tayyor', color: 'bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/30' };
+      return { label: 'Hujjat tayyor', color: 'bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/30' };
     case 'TEKSHIRILGAN':
-      return { label: 'Xujjat tekshirilgan', color: 'bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30' };
+      return { label: 'Hujjat tekshirilgan', color: 'bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30' };
     case 'TOPSHIRILDI':
-      return { label: 'Xujjat topshirildi', color: 'bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30' };
+      return { label: 'Hujjat topshirildi', color: 'bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30' };
     case 'YAKUNLANDI':
       return { label: 'Yakunlandi', color: 'bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30' };
     default:

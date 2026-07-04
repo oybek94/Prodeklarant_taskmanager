@@ -69,6 +69,41 @@ export function validateMonetaryFields(data: {
 }
 
 /**
+ * Yuqori chegara: deklaratsiya mijozi uchun USD kelishuv summasi.
+ * Haqiqiy USD xizmat haqi — o'nlab/yuzlab dollar. Shu chegaradan katta qiymat
+ * deyarli har doim so'mdagi summa xato USD deb belgilanganini bildiradi
+ * (masalan 2 700 000 so'm USD deb kiritilib, kursga ko'paytirilib ~12 000x shishadi).
+ */
+export const MAX_PLAUSIBLE_USD_DEAL_AMOUNT = 50_000;
+
+/**
+ * Guardrail: USD kelishuv summasi mantiqan juda katta bo'lsa (valyuta xato
+ * tanlanganidan darak beruvchi) rad etadi. Xato xabar foydalanuvchiga
+ * ko'rsatiladigan, harakatga chorlovchi (o'zbekcha).
+ */
+export function validateDealAmountPlausibility(
+  currency: Currency | string | null | undefined,
+  amount: Decimal | number | string | null | undefined
+): MonetaryValidationResult {
+  const errors: string[] = [];
+
+  if (currency === 'USD' && amount !== null && amount !== undefined && amount !== '') {
+    const value = new Decimal(amount);
+    if (value.gte(MAX_PLAUSIBLE_USD_DEAL_AMOUNT)) {
+      errors.push(
+        `Kelishuv summasi USD uchun juda katta (${value.toString()}). ` +
+        `Ehtimol valyuta noto'g'ri tanlangan — summa so'mda bo'lsa, valyutani UZS qiling.`
+      );
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
  * Validates that exchange rate is provided when currency is not UZS
  */
 export function validateExchangeRateRequired(

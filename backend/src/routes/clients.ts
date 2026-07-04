@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { hashPassword } from '../utils/hash';
 import { getLatestExchangeRate } from '../services/exchange-rate';
-import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
+import { validateMonetaryFields, calculateAmountUzs, validateDealAmountPlausibility } from '../services/monetary-validation';
 import { ClientService } from '../services/client.service';
 import { ClientRepository } from '../repositories/client.repository';
 
@@ -255,6 +255,12 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     let dealAmountInUzs: Decimal | null = null;
 
     if (dealAmount && dealAmountCurrency) {
+      // Guardrail: USD summa mantiqan juda katta bo'lsa (valyuta xato tanlangani), rad etamiz
+      const plausibility = validateDealAmountPlausibility(dealAmountCurrency, dealAmount);
+      if (!plausibility.isValid) {
+        return res.status(400).json({ error: plausibility.errors[0], details: plausibility.errors });
+      }
+
       // Get or calculate exchange rate
       if (parsed.data.dealAmountExchangeRate) {
         dealAmountExchangeRate = new Decimal(parsed.data.dealAmountExchangeRate);
@@ -480,6 +486,12 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       const exchangeSource: ExchangeSource = (req.body.dealAmountExchangeSource as ExchangeSource) || currentClient?.dealAmount_exchange_source || 'CBU';
 
       if (newDealAmount && newCurrency) {
+        // Guardrail: USD summa mantiqan juda katta bo'lsa (valyuta xato tanlangani), rad etamiz
+        const plausibility = validateDealAmountPlausibility(newCurrency, newDealAmount);
+        if (!plausibility.isValid) {
+          return res.status(400).json({ error: plausibility.errors[0], details: plausibility.errors });
+        }
+
         // Get or calculate exchange rate
         let exchangeRate: Decimal;
         if (exchangeRateChanged && req.body.dealAmountExchangeRate) {

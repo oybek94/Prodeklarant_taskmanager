@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import apiClient from '../../lib/api';
 import { useFileHelpers } from './useFileHelpers';
 import { getClientCurrency, formatMoney } from './taskHelpers';
+import { playNotificationSound } from '../../utils/sound';
 import type { TaskStage, TaskDetail } from './types';
 import type { TaskModalsReturn } from './useTaskModals';
 
@@ -67,6 +68,10 @@ export function useTaskActions(params: UseTaskActionsParams) {
         modals.setUpdatingStage(null);
         return;
       }
+
+      // Aktyor socket broadcast'idan istisno qilingani uchun (backend broadcastExcept),
+      // bosqichni belgilagan foydalanuvchining o'ziga ovozni lokal chalamiz — boshqalar socket orqali eshitadi.
+      playNotificationSound();
 
       await loadTaskDetail(selectedTask.id);
       await loadTasks(showArchive, filters as any);
@@ -137,6 +142,10 @@ export function useTaskActions(params: UseTaskActionsParams) {
         modals.setUpdatingStage(null);
         return;
       }
+
+      // Aktyor socket broadcast'idan istisno qilingani uchun (backend broadcastExcept),
+      // bosqichni belgilagan foydalanuvchining o'ziga ovozni lokal chalamiz — boshqalar socket orqali eshitadi.
+      playNotificationSound();
 
       await loadTaskDetail(selectedTask.id);
       await loadTasks(showArchive, filters as any);

@@ -957,7 +957,7 @@ router.get('/ceo-stats', requireAuth('ADMIN'), async (_req: AuthRequest, res) =>
 
     const virtualCards = [
       { id: 1, name: 'Operatsion xarajatlar', description: 'Ishchi va Sertifikatchilarning ulushi', perTask: 400000, total: cardBalances[1] },
-      { id: 2, name: 'Qarzlar kartasi', description: 'Qarzlarni berkitish uchun', perTask: 450000, total: cardBalances[2] },
+      { id: 2, name: 'Jamg\'arma', description: 'Qarzlarni berkitish uchun', perTask: 450000, total: cardBalances[2] },
       { id: 3, name: 'Korxona xarajatlari', description: 'Korxonani ishlab turishi uchun', perTask: 170000, total: cardBalances[3] },
       { id: 4, name: 'Maosh kartam', description: 'Shaxsiy maosh', perTask: 100000, total: cardBalances[4] },
     ];

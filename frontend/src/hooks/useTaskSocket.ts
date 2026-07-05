@@ -56,12 +56,16 @@ export const useTaskSocket = ({
     const onDocumentDeleted = (data: { taskId: number }) => {
       refresh(data.taskId);
     };
+    const onAiCheckCreated = (data: { taskId: number }) => {
+      refresh(data.taskId);
+    };
     socket.on('task:created', onTaskCreated);
     socket.on('task:updated', onTaskUpdated);
     socket.on('task:deleted', onTaskDeleted);
     socket.on('task:stageUpdated', onStageUpdated);
     socket.on('taskDocument:created', onDocumentCreated);
     socket.on('taskDocument:deleted', onDocumentDeleted);
+    socket.on('aiCheck:created', onAiCheckCreated);
     socket.on('task:errorUpdated', onDocumentCreated); // same handler as it just refreshes
     return () => {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
@@ -71,6 +75,7 @@ export const useTaskSocket = ({
       socket.off('task:stageUpdated', onStageUpdated);
       socket.off('taskDocument:created', onDocumentCreated);
       socket.off('taskDocument:deleted', onDocumentDeleted);
+      socket.off('aiCheck:created', onAiCheckCreated);
       socket.off('task:errorUpdated', onDocumentCreated);
     };
   }, [socket, showArchive, JSON.stringify(filters), isModalMode, loadTasks, loadTaskDetail, selectedTaskIdRef]);

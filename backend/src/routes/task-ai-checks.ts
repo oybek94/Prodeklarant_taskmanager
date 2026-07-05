@@ -38,6 +38,7 @@ router.get('/:id/ai-checks', requireAuth(), async (req: AuthRequest, res) => {
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
+          taskDocumentId: true,
           checkType: true,
           result: true,
           details: true,

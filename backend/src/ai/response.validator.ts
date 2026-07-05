@@ -2,6 +2,10 @@ import {
   InvoiceExtraction,
   ST1Extraction,
   FitoExtraction,
+  FitoProductExtraction,
+  CmrExtraction,
+  TirExtraction,
+  ProductExtraction,
   ComparisonResult,
   ComparisonError,
 } from './prompt.builder';
@@ -221,6 +225,37 @@ export function validateST1Response(response: string): ST1Extraction {
   }
 }
 
+// ==================== NARROWING HELPERS ====================
+
+function asNumberOrNull(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return null;
+}
+
+function asStringOrNull(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim() !== '') return value;
+  return null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function normalizeProducts(value: unknown): ProductExtraction[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const p = asRecord(item);
+    return {
+      name: String(p.name ?? ''),
+      package_count: asNumberOrNull(p.package_count),
+      gross_weight: asNumberOrNull(p.gross_weight),
+      net_weight: asNumberOrNull(p.net_weight),
+    };
+  });
+}
+
 /**
  * Validate and normalize Fito extraction response
  */
@@ -229,7 +264,20 @@ export function validateFitoResponse(response: string): FitoExtraction {
     const cleaned = removeMarkdownCodeBlocks(response);
     const parsed = JSON.parse(cleaned);
     const normalized = normalizeFieldNames(parsed, 'fito');
-    
+
+    let products: FitoProductExtraction[] = [];
+    if (Array.isArray(normalized.products)) {
+      products = normalized.products.map((item: unknown) => {
+        const p = asRecord(item);
+        return {
+          name: String(p.name ?? ''),
+          quantity: asNumberOrNull(p.quantity),
+          unit: asStringOrNull(p.unit),
+          net_weight: asNumberOrNull(p.net_weight),
+        };
+      });
+    }
+
     return {
       certificate_number: normalized.certificate_number ?? null,
       issue_date: normalized.issue_date ?? null,
@@ -237,10 +285,68 @@ export function validateFitoResponse(response: string): FitoExtraction {
       importer: normalized.importer ?? null,
       product: normalized.product ?? null,
       origin_country: normalized.origin_country ?? null,
+      products,
+      total_net_weight: asNumberOrNull(normalized.total_net_weight),
+      total_package_count: asNumberOrNull(normalized.total_package_count),
     };
   } catch (error) {
     throw new Error(
       `Invalid Fito response format: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+/**
+ * Validate and normalize CMR extraction response
+ */
+export function validateCmrResponse(response: string): CmrExtraction {
+  try {
+    const cleaned = removeMarkdownCodeBlocks(response);
+    const parsed = asRecord(JSON.parse(cleaned));
+
+    return {
+      sender_name: asStringOrNull(parsed.sender_name),
+      consignee_name: asStringOrNull(parsed.consignee_name),
+      delivery_place: asStringOrNull(parsed.delivery_place),
+      loading_place: asStringOrNull(parsed.loading_place),
+      attached_documents: asStringOrNull(parsed.attached_documents),
+      invoice_ref_number: asStringOrNull(parsed.invoice_ref_number),
+      total_package_count: asNumberOrNull(parsed.total_package_count),
+      goods_description: asStringOrNull(parsed.goods_description),
+      total_gross_weight: asNumberOrNull(parsed.total_gross_weight),
+      vehicle_number: asStringOrNull(parsed.vehicle_number),
+      products: normalizeProducts(parsed.products),
+    };
+  } catch (error) {
+    throw new Error(
+      `Invalid CMR response format: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+/**
+ * Validate and normalize TIR extraction response
+ */
+export function validateTirResponse(response: string): TirExtraction {
+  try {
+    const cleaned = removeMarkdownCodeBlocks(response);
+    const parsed = asRecord(JSON.parse(cleaned));
+
+    return {
+      tir_carnet_number: asStringOrNull(parsed.tir_carnet_number),
+      holder_name: asStringOrNull(parsed.holder_name),
+      departure_customs: asStringOrNull(parsed.departure_customs),
+      destination_customs: asStringOrNull(parsed.destination_customs),
+      consignee_name: asStringOrNull(parsed.consignee_name),
+      invoice_ref_number: asStringOrNull(parsed.invoice_ref_number),
+      total_package_count: asNumberOrNull(parsed.total_package_count),
+      goods_description: asStringOrNull(parsed.goods_description),
+      total_gross_weight: asNumberOrNull(parsed.total_gross_weight),
+      products: normalizeProducts(parsed.products),
+    };
+  } catch (error) {
+    throw new Error(
+      `Invalid TIR response format: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }

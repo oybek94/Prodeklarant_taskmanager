@@ -10,6 +10,7 @@ import {
   calculateStageDuration, evaluateStageTime,
 } from './taskHelpers';
 import type { TaskDetail, TaskStage, TaskVersion, TaskDocument, AiCheck, AiCheckDetails, AiCheckError, AiCheckFinding } from './types';
+import { DocumentVerificationReport } from './DocumentVerificationReport';
 
 const AFTER_HOURS_EXTRA_USD = 8.5;
 const AFTER_HOURS_EXTRA_UZS = 103000;
@@ -910,6 +911,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 const hasOCR = canShowOCR(doc.fileType, doc.name);
                 const extractedText = documentExtractedTexts.get(doc.id) || '';
                 const isLoadingText = loadingExtractedTexts.has(doc.id);
+                // aiChecks createdAt bo'yicha desc — birinchi topilgani eng yangisi
+                const docCheck = aiChecks.find((c) => c.taskDocumentId === doc.id);
 
                 return (
                   <div key={doc.id} className="space-y-1">
@@ -1007,6 +1010,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                         })()}
                       </div>
                     </div>
+                    {docCheck && <DocumentVerificationReport check={docCheck} />}
                     {isExpanded && hasOCR && (
                       <div className="ml-4 mr-4 mb-2 p-4 bg-white dark:bg-slate-800/60 rounded-lg border border-gray-300 dark:border-slate-700 shadow-sm">
                         <div className="flex items-center justify-between mb-2">

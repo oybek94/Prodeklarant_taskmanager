@@ -45,7 +45,7 @@ export interface ValidationResult {
 
 /* ===================== HELPERS ===================== */
 
-function normalize(value: string | null): string {
+export function normalize(value: string | null): string {
   if (!value) return '';
   return value
     .toLowerCase()
@@ -57,7 +57,7 @@ function normalize(value: string | null): string {
 /**
  * Extract company name only (ignore address)
  */
-function extractCompanyName(value: string | null): string {
+export function extractCompanyName(value: string | null): string {
   if (!value) return '';
 
   // 1. quoted name has priority
@@ -100,7 +100,7 @@ function extractCompanyName(value: string | null): string {
     .trim();
 }
 
-function sameCompany(a: string | null, b: string | null): boolean {
+export function sameCompany(a: string | null, b: string | null): boolean {
   return extractCompanyName(a) === extractCompanyName(b);
 }
 

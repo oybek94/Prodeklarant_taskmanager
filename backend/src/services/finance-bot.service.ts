@@ -51,7 +51,7 @@ export const getVirtualCardsBalance = async () => {
 
   return [
     { id: 1, name: 'Operatsion xarajatlar', perTask: 400000, total: cardBalances[1] },
-    { id: 2, name: 'Qarzlar kartasi', perTask: 450000, total: cardBalances[2] },
+    { id: 2, name: 'Jamg\'arma', perTask: 450000, total: cardBalances[2] },
     { id: 3, name: 'Korxona xarajatlari', perTask: 170000, total: cardBalances[3] },
     { id: 4, name: 'Maosh kartam', perTask: 100000, total: cardBalances[4] },
   ];
@@ -311,7 +311,7 @@ export const initFinanceBot = () => {
       if (state.step === 'PARTIAL_1') {
         state.partialData[1] = amount;
         state.step = 'PARTIAL_2';
-        bot!.sendMessage(chatId, `🔹 2. **Qarzlar kartasi** uchun qancha qo'ydingiz? (Standart: 450 000)`, { parse_mode: 'Markdown' });
+        bot!.sendMessage(chatId, `🔹 2. **Jamg'arma** uchun qancha qo'ydingiz? (Standart: 450 000)`, { parse_mode: 'Markdown' });
       } else if (state.step === 'PARTIAL_2') {
         state.partialData[2] = amount;
         state.step = 'PARTIAL_3';
@@ -325,7 +325,7 @@ export const initFinanceBot = () => {
         
         let confirmText = `❓ **Qisman taqsimotni tasdiqlaysizmi?**\n\n`;
         confirmText += `- Operatsion: ${formatMoney(state.partialData[1])} so'm\n`;
-        confirmText += `- Qarzlar: ${formatMoney(state.partialData[2])} so'm\n`;
+        confirmText += `- Jamg'arma: ${formatMoney(state.partialData[2])} so'm\n`;
         confirmText += `- Korxona: ${formatMoney(state.partialData[3])} so'm\n`;
         confirmText += `- Maosh: ${formatMoney(state.partialData[4])} so'm\n`;
         
@@ -771,7 +771,7 @@ export const notifyTaskCompleted = async (taskId: number) => {
 
     if (!task) return;
 
-    const message = `✅ *Yangi yakunlangan ish!*\n\n*Mijoz:* ${task.client.name}\n*Vazifa:* ${task.title}\n*Summa:* 1 120 000 sum\n\n*Taqsimot:*\n- Operatsion xarajatlar: 400 000 so'm\n- Qarzlar kartasi: 450 000 so'm\n- Korxona xarajatlari: 170 000 so'm\n- Maosh: 100 000 so'm`;
+    const message = `✅ *Yangi yakunlangan ish!*\n\n*Mijoz:* ${task.client.name}\n*Vazifa:* ${task.title}\n*Summa:* 1 120 000 sum\n\n*Taqsimot:*\n- Operatsion xarajatlar: 400 000 so'm\n- Jamg'arma: 450 000 so'm\n- Korxona xarajatlari: 170 000 so'm\n- Maosh: 100 000 so'm`;
 
     await bot.sendMessage(chatId, message, {
       parse_mode: 'Markdown',

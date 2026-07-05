@@ -153,6 +153,10 @@ export interface AiCheckError {
   invoice?: string;
   st?: string;
   st1?: string;
+  // Hujjat ↔ bazadagi invoys tekshiruvi (ST_VS_DB, CMR_VS_DB, ...) maydonlari
+  label?: string;
+  documentValue?: string;
+  invoiceValue?: string;
 }
 
 export interface AiCheckFinding {
@@ -167,10 +171,12 @@ export interface AiCheckDetails {
   status?: 'OK' | 'ERROR' | 'XATO';
   errors?: AiCheckError[];
   findings?: AiCheckFinding[];
+  documentName?: string;
 }
 
 export interface AiCheck {
   id: number;
+  taskDocumentId?: number | null;
   checkType: string;
   result: 'PASS' | 'FAIL' | string;
   details: AiCheckDetails | string;

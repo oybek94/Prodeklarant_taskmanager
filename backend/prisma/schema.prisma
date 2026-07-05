@@ -633,6 +633,7 @@ model TaskDocument {
   createdAt      DateTime            @default(now())
   metadata       DocumentMetadata?
   structuredData StructuredDocument?
+  aiChecks       AiCheck[]
   task           Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
   uploadedBy     User                @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
 
@@ -668,15 +669,18 @@ model StructuredDocument {
 }
 
 model AiCheck {
-  id        Int           @id @default(autoincrement())
-  taskId    Int
-  checkType AiCheckType
-  result    AiCheckResult
-  details   Json
-  createdAt DateTime      @default(now())
-  task      Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id             Int           @id @default(autoincrement())
+  taskId         Int
+  taskDocumentId Int?
+  checkType      AiCheckType
+  result         AiCheckResult
+  details        Json
+  createdAt      DateTime      @default(now())
+  task           Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskDocument   TaskDocument? @relation(fields: [taskDocumentId], references: [id], onDelete: SetNull)
 
   @@index([taskId])
+  @@index([taskDocumentId])
   @@index([checkType])
   @@index([result])
   @@index([createdAt])
@@ -1276,6 +1280,10 @@ enum DocumentType {
 
 enum AiCheckType {
   INVOICE_ST
+  ST_VS_DB
+  CMR_VS_DB
+  TIR_VS_DB
+  FITO_VS_DB
 }
 
 enum AiCheckResult {

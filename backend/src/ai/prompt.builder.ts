@@ -34,6 +34,13 @@ export interface ST1Extraction {
   products: ProductExtraction[];
 }
 
+export interface FitoProductExtraction {
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  net_weight: number | null; // kg
+}
+
 export interface FitoExtraction {
   certificate_number: string | null;
   issue_date: string | null; // YYYY-MM-DD format
@@ -41,6 +48,36 @@ export interface FitoExtraction {
   importer: string | null;
   product: string | null;
   origin_country: string | null;
+  products: FitoProductExtraction[];
+  total_net_weight: number | null; // deklaratsiya qilingan miqdor (kg)
+  total_package_count: number | null;
+}
+
+export interface CmrExtraction {
+  sender_name: string | null; // grafa 1 (yuk jo'natuvchi)
+  consignee_name: string | null; // grafa 2 (yuk oluvchi)
+  delivery_place: string | null; // grafa 3
+  loading_place: string | null; // grafa 4
+  attached_documents: string | null; // grafa 5 (ilova hujjatlar)
+  invoice_ref_number: string | null; // grafa 5 dan ajratilgan invoys raqami
+  total_package_count: number | null; // grafa 7 (joylar soni)
+  goods_description: string | null; // grafa 9 (yuk tavsifi)
+  total_gross_weight: number | null; // grafa 11 (kg)
+  vehicle_number: string | null; // grafa 16/25
+  products: ProductExtraction[];
+}
+
+export interface TirExtraction {
+  tir_carnet_number: string | null; // TIR karnet raqami (masalan XX00000000)
+  holder_name: string | null; // karnet egasi (tashuvchi)
+  departure_customs: string | null;
+  destination_customs: string | null;
+  consignee_name: string | null;
+  invoice_ref_number: string | null; // ilova hujjatlardan invoys raqami
+  total_package_count: number | null; // grafa 9/10
+  goods_description: string | null; // grafa 10
+  total_gross_weight: number | null; // grafa 11 (kg)
+  products: ProductExtraction[];
 }
 
 export interface ComparisonError {
@@ -206,21 +243,135 @@ QOIDALAR:
  * Build prompt for Fito certificate document extraction
  */
 export function buildFitoPrompt(): string {
-  return `Extract the following information from the Fito (Phytosanitary Certificate) text and return ONLY valid JSON (no markdown, no explanations):
+  return `Siz hujjat ma'lumotlarini ajratib oluvchi AI ekansiz.
+Fitosanitar sertifikat matnidan quyidagi maydonlarni AJRATIB OLING.
+
+MUHIM:
+- Faqat ma'lumotlarni ajratib oling
+- Taqqoslash, tekshirish, xato topish QILMASLIK
+- Faqat JSON chiqaring
+- Hech qanday qiymatni taxmin qilmang yoki o'ylab topmang
+
+MAYDONLAR:
 
 {
-  "certificate_number": string,
-  "issue_date": string (YYYY-MM-DD format),
-  "exporter": string,
-  "importer": string,
-  "product": string,
-  "origin_country": string
+  "certificate_number": string | null,
+  "issue_date": string | null,             // YYYY-MM-DD formatida
+  "exporter": string | null,               // eksportyor nomi va manzili
+  "importer": string | null,               // yuk oluvchi / importyor
+  "product": string | null,                // asosiy mahsulot nomi (bitta bo'lsa)
+  "origin_country": string | null,
+  "products": [                            // barcha mahsulotlar ro'yxati
+    {
+      "name": string,
+      "quantity": number | null,           // miqdor (raqam)
+      "unit": string | null,               // o'lchov birligi (kg, dona, ...)
+      "net_weight": number | null          // netto og'irlik, kg
+    }
+  ],
+  "total_net_weight": number | null,       // "Deklaratsiya qilingan miqdor" / umumiy netto, kg
+  "total_package_count": number | null     // joylar soni (agar ko'rsatilgan bo'lsa)
 }
 
-Rules:
-- If any field is not found, use null
-- Dates must be in YYYY-MM-DD format
-- Return ONLY the JSON object, no markdown code blocks, no explanations`;
+QOIDALAR:
+- Agar maydon topilmasa → null (products topilmasa → [])
+- Raqamlar raqam bo'lishi kerak (string emas)
+- Og'irlik tonnada berilgan bo'lsa kilogrammga o'giring (1 t = 1000 kg)
+- Sana YYYY-MM-DD formatida bo'lishi kerak
+- Faqat JSON chiqaring, izoh yozmang
+- Markdown kod bloklari ishlatmang`;
+}
+
+/**
+ * Build prompt for CMR (international consignment note) document extraction
+ *
+ * AI ONLY extracts data. NO comparison, NO validation, NO decisions.
+ */
+export function buildCmrExtractionPrompt(): string {
+  return `Siz hujjat ma'lumotlarini ajratib oluvchi AI ekansiz.
+CMR (xalqaro yuk xati / международная товарно-транспортная накладная) matnidan quyidagi maydonlarni AJRATIB OLING.
+
+MUHIM:
+- Faqat ma'lumotlarni ajratib oling
+- Taqqoslash, tekshirish, xato topish QILMASLIK
+- Faqat JSON chiqaring
+- Hech qanday qiymatni taxmin qilmang yoki o'ylab topmang
+
+MAYDONLAR (CMR grafalari bo'yicha):
+
+{
+  "sender_name": string | null,            // grafa 1 — yuk jo'natuvchi (отправитель) nomi
+  "consignee_name": string | null,         // grafa 2 — yuk oluvchi (получатель) nomi
+  "delivery_place": string | null,         // grafa 3 — yuk yetkazish joyi
+  "loading_place": string | null,          // grafa 4 — yuk ortish joyi va sanasi
+  "attached_documents": string | null,     // grafa 5 — ilova hujjatlar matni to'liq
+  "invoice_ref_number": string | null,     // grafa 5 dagi invoys (инвойс/счет) raqami, FAQAT aniq yozilgan bo'lsa
+  "total_package_count": number | null,    // grafa 7 — joylar soni (количество мест)
+  "goods_description": string | null,      // grafa 9 — yuk nomi/tavsifi
+  "total_gross_weight": number | null,     // grafa 11 — brutto og'irlik, kg
+  "vehicle_number": string | null,         // grafa 16/25 — avtomobil davlat raqami
+  "products": [                            // agar tovarlar alohida qatorlarda berilgan bo'lsa
+    {
+      "name": string,
+      "package_count": number | null,
+      "gross_weight": number | null,
+      "net_weight": number | null
+    }
+  ]
+}
+
+QOIDALAR:
+- Agar maydon topilmasa → null (products topilmasa → [])
+- invoice_ref_number faqat grafa 5 da invoys/счет/инвойс raqami aniq yozilgan bo'lsa ajratib oling
+- Raqamlar raqam bo'lishi kerak (string emas)
+- Og'irlik tonnada berilgan bo'lsa kilogrammga o'giring (1 t = 1000 kg)
+- Faqat JSON chiqaring, izoh yozmang
+- Markdown kod bloklari ishlatmang`;
+}
+
+/**
+ * Build prompt for TIR carnet document extraction
+ *
+ * AI ONLY extracts data. NO comparison, NO validation, NO decisions.
+ */
+export function buildTirExtractionPrompt(): string {
+  return `Siz hujjat ma'lumotlarini ajratib oluvchi AI ekansiz.
+TIR karnet (Carnet TIR) matnidan quyidagi maydonlarni AJRATIB OLING.
+
+MUHIM:
+- Faqat ma'lumotlarni ajratib oling
+- Taqqoslash, tekshirish, xato topish QILMASLIK
+- Faqat JSON chiqaring
+- Hech qanday qiymatni taxmin qilmang yoki o'ylab topmang
+
+MAYDONLAR (TIR karnet grafalari bo'yicha):
+
+{
+  "tir_carnet_number": string | null,      // karnet raqami (masalan XX00000000)
+  "holder_name": string | null,            // karnet egasi (tashuvchi tashkilot)
+  "departure_customs": string | null,      // jo'nash bojxonasi
+  "destination_customs": string | null,    // manzil bojxonasi
+  "consignee_name": string | null,         // yuk oluvchi (agar ko'rsatilgan bo'lsa)
+  "invoice_ref_number": string | null,     // ilova hujjatlardagi invoys raqami, FAQAT aniq yozilgan bo'lsa
+  "total_package_count": number | null,    // grafa 9/10 — joylar soni
+  "goods_description": string | null,      // grafa 10 — yuk tavsifi
+  "total_gross_weight": number | null,     // grafa 11 — brutto og'irlik, kg
+  "products": [                            // agar tovarlar alohida qatorlarda berilgan bo'lsa
+    {
+      "name": string,
+      "package_count": number | null,
+      "gross_weight": number | null,
+      "net_weight": number | null
+    }
+  ]
+}
+
+QOIDALAR:
+- Agar maydon topilmasa → null (products topilmasa → [])
+- Raqamlar raqam bo'lishi kerak (string emas)
+- Og'irlik tonnada berilgan bo'lsa kilogrammga o'giring (1 t = 1000 kg)
+- Faqat JSON chiqaring, izoh yozmang
+- Markdown kod bloklari ishlatmang`;
 }
 
 // ==================== LEGACY SUPPORT ====================

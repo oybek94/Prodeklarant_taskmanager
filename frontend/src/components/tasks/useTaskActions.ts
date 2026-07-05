@@ -248,6 +248,8 @@ export function useTaskActions(params: UseTaskActionsParams) {
         documentType = 'ST';
       } else if (modals.fileUploadStageName === 'Fito' || modals.fileUploadStageName === 'FITO') {
         documentType = 'FITO';
+      } else if (modals.fileUploadStageName === 'TIR-SMR') {
+        documentType = /tir/i.test(modals.fileUploadName) ? 'TIR' : 'CMR';
       }
       formData.append('documentType', documentType);
 

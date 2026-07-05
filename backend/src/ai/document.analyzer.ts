@@ -2,11 +2,23 @@ import OpenAIClient from './openai.client';
 import {
   buildInvoiceExtractionPrompt,
   buildST1ExtractionPrompt,
+  buildFitoPrompt,
+  buildCmrExtractionPrompt,
+  buildTirExtractionPrompt,
   InvoiceExtraction,
   ST1Extraction,
+  FitoExtraction,
+  CmrExtraction,
+  TirExtraction,
 } from './prompt.builder';
 import { validateInvoiceWithST } from './rule-engine';
-import { validateInvoiceResponse, validateST1Response } from './response.validator';
+import {
+  validateInvoiceResponse,
+  validateST1Response,
+  validateFitoResponse,
+  validateCmrResponse,
+  validateTirResponse,
+} from './response.validator';
 
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 const DEFAULT_MODEL = 'gpt-4o-mini';
@@ -23,11 +35,11 @@ const DEFAULT_TEMPERATURE = 0.1;
  */
 export async function analyzeDocument(
   text: string,
-  documentType: 'INVOICE' | 'ST' | 'FITO',
+  documentType: 'INVOICE' | 'ST' | 'FITO' | 'CMR' | 'TIR',
   timeout: number = DEFAULT_TIMEOUT
-): Promise<InvoiceExtraction | ST1Extraction> {
+): Promise<InvoiceExtraction | ST1Extraction | FitoExtraction | CmrExtraction | TirExtraction> {
   const startTime = Date.now();
-  
+
   try {
     // Validate input
     if (!text || text.trim().length === 0) {
@@ -39,8 +51,8 @@ export async function analyzeDocument(
 
     // Select appropriate prompt
     let prompt: string;
-    let expectedType: 'invoice' | 'st1';
-    
+    let expectedType: 'invoice' | 'st1' | 'fito' | 'cmr' | 'tir';
+
     switch (documentType) {
       case 'INVOICE':
         prompt = buildInvoiceExtractionPrompt();
@@ -49,6 +61,18 @@ export async function analyzeDocument(
       case 'ST':
         prompt = buildST1ExtractionPrompt();
         expectedType = 'st1';
+        break;
+      case 'FITO':
+        prompt = buildFitoPrompt();
+        expectedType = 'fito';
+        break;
+      case 'CMR':
+        prompt = buildCmrExtractionPrompt();
+        expectedType = 'cmr';
+        break;
+      case 'TIR':
+        prompt = buildTirExtractionPrompt();
+        expectedType = 'tir';
         break;
       default:
         throw new Error(`Unsupported document type: ${documentType}`);
@@ -91,8 +115,8 @@ export async function analyzeDocument(
     }
 
     // Validate and normalize response
-    let structuredData: InvoiceExtraction | ST1Extraction;
-    
+    let structuredData: InvoiceExtraction | ST1Extraction | FitoExtraction | CmrExtraction | TirExtraction;
+
     switch (expectedType) {
       case 'invoice':
         const invoiceData = validateInvoiceResponse(content);
@@ -101,6 +125,15 @@ export async function analyzeDocument(
         break;
       case 'st1':
         structuredData = validateST1Response(content);
+        break;
+      case 'fito':
+        structuredData = validateFitoResponse(content);
+        break;
+      case 'cmr':
+        structuredData = validateCmrResponse(content);
+        break;
+      case 'tir':
+        structuredData = validateTirResponse(content);
         break;
     }
 

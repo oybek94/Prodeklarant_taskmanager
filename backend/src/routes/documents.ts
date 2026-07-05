@@ -154,6 +154,8 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
     });
 
     const documents: any[] = [];
+    // Yuklashdan keyin fonda matn ajratish + invoys bilan solishtirish uchun navbat
+    const verificationQueue: Array<{ documentId: number; filePath: string; extension: string }> = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -162,6 +164,12 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
       const fileType = file.mimetype || path.extname(originalNameDecoded).slice(1);
       const name = names[i] || originalNameDecoded;
       const description = descriptions[i] || null;
+
+      // Hujjat turini nomidan aniqlash (foydalanuvchi bu oqimda turni tanlamaydi)
+      const { inferDocumentType, isVerifiableType } = await import(
+        '../services/document-verification.service'
+      );
+      const inferredType = inferDocumentType(name, originalNameDecoded);
 
       let document: any;
 
@@ -175,6 +183,7 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
             fileSize: file.size,
             description,
             uploadedById: req.user!.id,
+            ...(inferredType ? { documentType: inferredType } : {}),
           },
           include: {
             uploadedBy: {
@@ -186,6 +195,14 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
             },
           },
         });
+
+        const extension = path.extname(originalNameDecoded).toLowerCase();
+        if (
+          isVerifiableType(inferredType) &&
+          ['.pdf', '.jpg', '.jpeg'].includes(extension)
+        ) {
+          verificationQueue.push({ documentId: document.id, filePath: file.path, extension });
+        }
       } else {
         const insertedRows = await prisma.$queryRaw<any[]>`
           INSERT INTO "TaskDocument" ("taskId", "name", "fileUrl", "fileType", "fileSize", "description", "uploadedById", "createdAt")
@@ -203,6 +220,35 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
     socketEmitter.broadcast('taskDocument:created', { taskId: taskId });
 
     res.json(documents);
+
+    // Javobdan keyin fonda: matn ajratish → bazadagi invoys bilan solishtirish.
+    // Xatolar yutiladi — yuklash natijasiga ta'sir qilmaydi.
+    if (verificationQueue.length > 0) {
+      void (async () => {
+        try {
+          const { DocumentService } = await import('../services/document.service');
+          const { DocumentVerificationService } = await import(
+            '../services/document-verification.service'
+          );
+          const documentService = new DocumentService(prisma);
+          const verificationService = new DocumentVerificationService(prisma);
+          for (const item of verificationQueue) {
+            try {
+              if (item.extension === '.pdf') {
+                await documentService.processPdfDocument(item.documentId, item.filePath);
+              } else {
+                await documentService.processImageDocument(item.documentId, item.filePath);
+              }
+              await verificationService.verifyDocumentAgainstInvoice(item.documentId);
+            } catch (err) {
+              console.error(`[DocVerify] Hujjat ${item.documentId} qayta ishlashda xato:`, err);
+            }
+          }
+        } catch (err) {
+          console.error('[DocVerify] Fon qayta ishlash xatosi:', err);
+        }
+      })();
+    }
   } catch (error) {
     console.error('Error uploading documents:', error);
     if (req.files) {

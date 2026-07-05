@@ -223,9 +223,17 @@ export function useTaskData(userRole?: string) {
     }
   }, []);
 
-  // AI Checks o'chirilgan - har doim bo'sh massiv qaytaradi
-  const loadAiChecks = useCallback(async (_taskId: number) => {
-    setAiChecks([]);
+  const loadAiChecks = useCallback(async (taskId: number) => {
+    try {
+      setLoadingAiChecks(true);
+      const response = await apiClient.get(`/tasks/${taskId}/ai-checks`);
+      setAiChecks(Array.isArray(response.data?.checks) ? response.data.checks : []);
+    } catch (error) {
+      console.error('Error loading AI checks:', error);
+      setAiChecks([]);
+    } finally {
+      setLoadingAiChecks(false);
+    }
   }, []);
 
   /** Task detail'ni yuklash (modalni ochish uchun) */
@@ -250,6 +258,7 @@ export function useTaskData(userRole?: string) {
         loadTaskStages(taskId),
         loadTaskVersions(taskId),
         loadTaskDocuments(taskId),
+        loadAiChecks(taskId),
       ]).catch((error) => {
         console.error('Error loading task details:', error);
       });
@@ -259,7 +268,7 @@ export function useTaskData(userRole?: string) {
     } finally {
       setLoadingTask(false);
     }
-  }, [loadTaskStages, loadTaskVersions, loadTaskDocuments]);
+  }, [loadTaskStages, loadTaskVersions, loadTaskDocuments, loadAiChecks]);
 
   const loadExtractedText = useCallback(async (documentId: number, taskId?: number) => {
     const actualTaskId = taskId;

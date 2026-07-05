@@ -226,6 +226,14 @@ router.post(
         );
       }
 
+      // Hujjatni bazadagi invoys bilan avtomatik solishtirish (bloklamaydi, xatolari yutiladi)
+      const { DocumentVerificationService } = await import(
+        '../services/document-verification.service'
+      );
+      void new DocumentVerificationService(prisma)
+        .verifyDocumentAgainstInvoice(result.taskDocument.id)
+        .catch((err: unknown) => console.error('[DocVerify] error:', err));
+
       const { socketEmitter } = require('../services/socketEmitter');
       socketEmitter.broadcast('taskDocument:created', { taskId: taskId });
 

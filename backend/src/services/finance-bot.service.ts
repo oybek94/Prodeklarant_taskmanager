@@ -98,8 +98,9 @@ export const initFinanceBot = () => {
         text += `🔹 **${c.name}**: ${formatMoney(c.total)} so'm\n`;
       });
       bot!.sendMessage(chatId, text, { parse_mode: 'Markdown' });
-    } catch (e) {
-      bot!.sendMessage(chatId, 'Xatolik yuz berdi.');
+    } catch (e: any) {
+      console.error('[FinanceBot /balans error]', e);
+      bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + e.message);
     }
   });
 
@@ -116,8 +117,9 @@ export const initFinanceBot = () => {
       });
       
       userStates[chatId] = { step: 'WAITING_CARD', messageId: sentMsg.message_id };
-    } catch (e) {
-      bot!.sendMessage(chatId, 'Xatolik yuz berdi.');
+    } catch (e: any) {
+      console.error('[FinanceBot /chiqim error]', e);
+      bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + e.message);
     }
   });
 
@@ -131,8 +133,9 @@ export const initFinanceBot = () => {
         reply_markup: { inline_keyboard: keyboard }
       });
       userStates[chatId] = { step: 'QARZ_WAITING_CARD', messageId: sentMsg.message_id };
-    } catch (e) {
-      bot!.sendMessage(chatId, 'Xatolik yuz berdi.');
+    } catch (e: any) {
+      console.error('[FinanceBot /qarz error]', e);
+      bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + e.message);
     }
   });
 
@@ -163,8 +166,9 @@ export const initFinanceBot = () => {
       }
       text += `\n📊 **Umumiy qarz: ${formatMoney(grandTotal)} so'm**`;
       bot!.sendMessage(chatId, text, { parse_mode: 'Markdown' });
-    } catch (e) {
-      bot!.sendMessage(chatId, 'Xatolik yuz berdi.');
+    } catch (e: any) {
+      console.error('[FinanceBot /qarzlar error]', e);
+      bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + e.message);
     }
   });
 
@@ -187,8 +191,9 @@ export const initFinanceBot = () => {
         reply_markup: { inline_keyboard: keyboard }
       });
       userStates[chatId] = { step: 'QAYTARISH_WAITING_CARD', messageId: sentMsg.message_id };
-    } catch (e) {
-      bot!.sendMessage(chatId, 'Xatolik yuz berdi.');
+    } catch (e: any) {
+      console.error('[FinanceBot /qaytarish error]', e);
+      bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + e.message);
     }
   });
 

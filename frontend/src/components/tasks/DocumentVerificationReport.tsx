@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
-import { AiCheck, AiCheckDetails, AiCheckError } from './types';
+import type { AiCheck, AiCheckDetails, AiCheckError } from './types';
 
 interface DocumentVerificationReportProps {
   check: AiCheck;

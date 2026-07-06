@@ -158,11 +158,7 @@ export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
                 label,
                 value: '',
               };
-              if (viewTab === 'spec') {
-                setSpecCustomFields([...specCustomFields, newField]);
-              } else {
-                setCustomFields([...customFields, newField]);
-              }
+              setCustomFields([...customFields, newField]);
               setNewFieldLabel('');
               setShowAddFieldModal(false);
             }}

@@ -20,12 +20,10 @@ interface InvoiceAdditionalInfoDisplayProps {
 
 export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplayProps> = React.memo(({
   form,
-  viewTab,
   selectedContract,
   isBuyerConsignee,
   isAdditionalInfoVisible,
   customFields,
-  specCustomFields,
   addressCopySuccess,
   setAddressCopySuccess,
   setShowAdditionalInfoModal,
@@ -209,17 +207,7 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
           </div>
         )}
 
-        {viewTab === 'spec' ? (
-          specCustomFields.map((field) =>
-            isAdditionalInfoVisible(`spec_${field.id}`) && field.value ? (
-              <div key={field.id}>
-                <strong>{field.label}:</strong> {field.value}
-              </div>
-            ) : null
-          )
-        ) : (
-          fieldOrder.map((key) => renderFieldByKey(key))
-        )}
+        {fieldOrder.map((key) => renderFieldByKey(key))}
       </div>
     </div>
   );

@@ -50,13 +50,90 @@ const H = {
   signaturesSpec: 178,
 };
 
+// Taraflar (Продавец/Покупатель) bloki balandligini kontrakt ma'lumotlaridan
+// hisoblaymiz. Blok ikki ustunli, balandligi ustunlarning KATTASI bilan
+// belgilanadi. Har bir maydon ~1 qator; uzun manzil/rekvizit bir necha qatorga
+// bo'linadi. Ilgari bu qiymat "100" deb belgilangan edi va bank rekvizitlari
+// bo'lgan kontraktlarda haqiqiy balandlik (200–300pt) juda past baholanardi —
+// natijada spec sahifada imzo bloki 2-betga sakrab ketardi.
+const estimatePartiesHeight = (
+  c: any,
+  task: any,
+  isSellerShipper: boolean,
+  isBuyerConsignee: boolean
+): number => {
+  const lineOf = (s: any): number =>
+    String(s || '')
+      .split('\n')
+      .reduce((n, ln) => n + Math.max(1, Math.ceil(ln.length / 45)), 0) || 1;
+
+  let left = 2; // sarlavha + nom
+  let right = 2;
+
+  if (c) {
+    // Chap ustun: Продавец (+ Грузоотправитель)
+    if (c.sellerLegalAddress) left += lineOf(c.sellerLegalAddress);
+    if (c.sellerInn || task?.client?.inn) left += 1;
+    if (c.sellerOgrn) left += 1;
+    if (c.sellerDetails) left += lineOf(c.sellerDetails);
+    else if (c.sellerBankName) {
+      left += 2;
+      if (c.sellerBankAddress) left += 1;
+      if (c.sellerBankAccount) left += 1;
+      if (c.sellerCorrespondentBank) { left += 1; if (c.sellerCorrespondentBankAccount) left += 1; }
+    }
+    if (!isSellerShipper && c.shipperName) {
+      left += 3; // marginTop + sarlavha + nom
+      if (c.shipperAddress) left += lineOf(c.shipperAddress);
+      if (c.shipperInn) left += 1;
+      if (c.shipperOgrn) left += 1;
+      if (c.shipperDetails) left += lineOf(c.shipperDetails);
+      else if (c.shipperBankName) {
+        left += 2;
+        if (c.shipperBankAddress) left += 1;
+        if (c.shipperBankAccount) left += 1;
+      }
+    }
+
+    // O'ng ustun: Покупатель (+ Грузополучатель)
+    if (c.buyerAddress) right += lineOf(c.buyerAddress);
+    if (c.buyerInn) right += 1;
+    if (c.buyerOgrn) right += 1;
+    if (c.buyerDetails) right += lineOf(c.buyerDetails);
+    else if (c.buyerBankName) {
+      right += 2;
+      if (c.buyerBankAddress) right += 1;
+      if (c.buyerBankAccount) right += 1;
+      if (c.buyerCorrespondentBank) { right += 1; if (c.buyerCorrespondentBankAccount) right += 1; }
+    }
+    if (!isBuyerConsignee && c.consigneeName) {
+      right += 3;
+      if (c.consigneeAddress) right += lineOf(c.consigneeAddress);
+      if (c.consigneeInn) right += 1;
+      if (c.consigneeOgrn) right += 1;
+      if (c.consigneeDetails) right += lineOf(c.consigneeDetails);
+      else if (c.consigneeBankName) {
+        right += 2;
+        if (c.consigneeBankAddress) right += 1;
+        if (c.consigneeBankAccount) right += 1;
+      }
+    }
+  }
+
+  const lines = Math.max(left, right);
+  return lines * 15 + 16; // ~15pt/qator + blok marginlari
+};
+
 const calcScale = (
   items: any[],
   form: any,
   addFieldsCount: number,
   viewTab: string,
   pdfIncludeSeal: boolean,
-  selectedContract: any
+  selectedContract: any,
+  task: any,
+  isSellerShipper: boolean,
+  isBuyerConsignee: boolean
 ): number => {
   // Imzo va pechat borligini tekshirish
   const hasImages = pdfIncludeSeal && selectedContract && (
@@ -70,9 +147,10 @@ const calcScale = (
   // Spec uchun rasmlar bo'lsa (imzo ustida pechat) balandligi 230 gacha yetadi.
   const sigH = viewTab === 'spec' ? (hasImages ? 230 : 100) : (hasImages ? 150 : 80);
   
-  // Notes qismi balandligini hisoblash (har 80 ta harf taxminan 1 qator)
+  // Notes qismi balandligini hisoblash (har 80 ta harf taxminan 1 qator).
+  // Spec sahifada Примечания chiqmaydi — joy ham band qilinmaydi.
   let notesHeight = 0;
-  if (form.notes) {
+  if (form.notes && viewTab !== 'spec') {
     const notesStr = String(form.notes);
     const lines = notesStr.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 80)), 0);
     notesHeight = 20 + lines * 12; // 20 - padding/margin, 12 - qator balandligi
@@ -86,15 +164,22 @@ const calcScale = (
     itemsHeight += H.tableRow + (lines - 1) * 12; // har bir qo'shimcha qator uchun +12pt
   }
 
-  const fixed = H.header + H.divider * 3 + H.parties + addInfoH +
+  const partiesH = estimatePartiesHeight(selectedContract, task, isSellerShipper, isBuyerConsignee);
+
+  const fixed = H.header + H.divider * 3 + partiesH + addInfoH +
                 H.tableOverhead + H.sumWords + sigH + notesHeight;
                 
   // Qatorlarni aniq hisoblaganimiz uchun overhead'ni kichraytiramiz
   const overhead = viewTab === 'spec' ? 1.05 : 1.08;
   const total = (fixed + itemsHeight) * overhead;
-  
-  if (total <= AVAILABLE_HEIGHT) return 1.0;
-  const computed = AVAILABLE_HEIGHT / total;
+
+  // Spec sahifada "Подписи сторон" bloki wrap={false} — bo'linmaydi, joy yetmasa
+  // butun blok keyingi betga o'tib ketadi. Shuning uchun spec uchun xavfsizlik
+  // zaxirasini qoldiramiz: kontent biroz zichroq bo'lib 1-betga sig'adi.
+  const available = viewTab === 'spec' ? AVAILABLE_HEIGHT - 80 : AVAILABLE_HEIGHT;
+
+  if (total <= available) return 1.0;
+  const computed = available / total;
   
   // Kichraytirish darajasini hisoblash (shrift va oraliqlar proporsional kichrayadi)
   // Spec va Invoice ham kerak bo'lsa maksimal 0.40 gacha kichrayib 1-betga sig'diriladi
@@ -139,7 +224,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
     ...specCustomFields.map(f => isAdditionalInfoVisible(`spec_${f.id}`) && !!f.value),
   ].filter(Boolean).length;
 
-  const scale = calcScale(items, form, visibleAddFields, viewTab, pdfIncludeSeal, selectedContract);
+  const scale = calcScale(items, form, visibleAddFields, viewTab, pdfIncludeSeal, selectedContract, task, isSellerShipper, isBuyerConsignee);
   const sc = (v: number) => Math.round(v * scale);
 
   const pageStyle = {
@@ -205,7 +290,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
               scale={scale}
             />
 
-            <PdfNotes notes={form.notes} scale={scale} />
+            {viewTab !== 'spec' && <PdfNotes notes={form.notes} scale={scale} />}
 
             <PdfSignatures
               contract={selectedContract || {}}

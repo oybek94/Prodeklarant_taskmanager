@@ -14,7 +14,7 @@ export const PdfParties: React.FC<PdfPartiesProps> = ({
   selectedContract, task, isSellerShipper, isBuyerConsignee, scale = 1,
 }) => {
   const sc = (v: number) => Math.round(v * scale);
-  const fz = sc(9) - (scale < 1 ? 2 : 0); // sig'masa 2px qo'shimcha kichik
+  const fz = sc(9); // rekvizitlar umumiy masshtab bilan bir xil o'lchamda
   const txt = { fontSize: fz, marginBottom: sc(2), lineHeight: 1.4 };
   const nameSt = { ...txt, fontWeight: 'bold' as const };
   const titleSt = { fontSize: fz, fontWeight: 'bold' as const, marginBottom: sc(3) };

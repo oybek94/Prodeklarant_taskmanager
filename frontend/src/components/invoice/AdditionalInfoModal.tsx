@@ -32,14 +32,11 @@ interface AdditionalInfoModalProps {
 export function AdditionalInfoModal({
   form,
   setForm,
-  viewTab,
   canEditEffective,
   selectedContract,
   contractDeliveryTerms,
   customFields,
   setCustomFields,
-  specCustomFields,
-  setSpecCustomFields,
   additionalInfoError,
   setAdditionalInfoError,
   toggleAdditionalInfoVisible,
@@ -359,33 +356,7 @@ export function AdditionalInfoModal({
             </div>
           </div>
 
-          {viewTab === 'spec' ? (
-            <>
-              {specCustomFields.map((field) => (
-                <div key={field.id}>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-sm font-medium text-gray-700">{field.label}:</label>
-                    <button type="button" onClick={() => setSpecCustomFields(specCustomFields.filter(f => f.id !== field.id))} className="text-red-500 hover:text-red-700 text-sm" title="O'chirish">✕</button>
-                  </div>
-                  <input
-                    type="text"
-                    value={field.value}
-                    onChange={(e) => setSpecCustomFields(specCustomFields.map(f => f.id === field.id ? { ...f, value: e.target.value } : f))}
-                    className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm"
-                  />
-                </div>
-              ))}
-              {canEditEffective && (
-                <div className="pt-2 border-t">
-                  <button type="button" onClick={onShowAddField} className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2">
-                    <span>+</span>
-                    <span>Yangi maydon qo&apos;shish</span>
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
+          <>
               {/* Место там. очистки */}
               {selectedContract && (() => {
                 const customsStr = selectedContract.customsAddress || '';
@@ -563,8 +534,7 @@ export function AdditionalInfoModal({
                   </button>
                 </div>
               )}
-            </>
-          )}
+          </>
         </div>
 
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t">

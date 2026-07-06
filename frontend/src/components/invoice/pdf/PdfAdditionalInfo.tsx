@@ -22,10 +22,8 @@ const Row: React.FC<{ label: string; value: string; sc: (v: number) => number }>
 
 export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
   form,
-  viewTab,
   isAdditionalInfoVisible,
   customFields,
-  specCustomFields,
   additionalFieldsOrder,
   scale = 1,
 }) => {
@@ -132,14 +130,7 @@ export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
         <Row label="Место там. очистки" value={form.customsAddress} sc={sc} />
       )}
 
-      {viewTab === 'spec'
-        ? specCustomFields.map((field) =>
-            isAdditionalInfoVisible(`spec_${field.id}`) && field.value
-              ? <Row key={field.id} label={field.label} value={field.value} sc={sc} />
-              : null
-          )
-        : fieldOrder.map((key) => renderFieldByKey(key))
-      }
+      {fieldOrder.map((key) => renderFieldByKey(key))}
     </View>
   );
 };

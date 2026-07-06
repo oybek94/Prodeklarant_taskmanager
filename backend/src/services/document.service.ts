@@ -15,6 +15,19 @@ try {
 }
 
 /**
+ * PDF/rasm hujjatlaridan matnni OCR qilish uchun Vision prompt.
+ * Bojxona hujjatlari (invoys, ST-1, CMR, TIR, fito) ko'pincha skanerlangan
+ * bo'ladi va rus (kirill), o'zbek, ingliz matni + jadvallarni o'z ichiga oladi.
+ */
+const DOCUMENT_OCR_PROMPT = `Extract ALL text from this customs/trade document exactly as it appears. It may be an invoice, ST-1 certificate of origin, CMR, TIR carnet, or phytosanitary certificate, and may contain Russian (Cyrillic), Uzbek, and English text, tables, stamps, numbers, dates, names and addresses.
+
+Rules:
+- Output the raw transcribed text ONLY. Do NOT summarize, translate, explain, or add any commentary or markdown fences.
+- Preserve the document's reading order and structure. Keep each table row on its own line and separate columns with spaces/tabs so the layout is recoverable.
+- Transcribe every number, code, date, weight, and quantity precisely — do not round or reformat them.
+- Do not invent or guess text that is not visible. If a fragment is unreadable, write [unreadable] in its place.`;
+
+/**
  * Document service for PDF ingestion and text extraction
  */
 export class DocumentService {
@@ -663,7 +676,7 @@ export class DocumentService {
       });
 
       const extractedText = response.choices[0]?.message?.content || '';
-      
+
       if (!extractedText || extractedText.trim().length === 0) {
         throw new Error('No text extracted from image');
       }
@@ -674,6 +687,72 @@ export class DocumentService {
         `Image text extraction failed: ${error instanceof Error ? error.message : String(error)}`
       );
     }
+  }
+
+  /**
+   * PDF'dan matnni OpenAI Vision (gpt-4o) orqali ajratish (OCR).
+   *
+   * MUHIM: pdf-parse faqat PDF ichidagi tayyor matn qatlamini o'qiydi. Skanerlangan
+   * yoki shrifti buzuq (ToUnicode CMap yo'q) hujjatlarda u "gibberish" qaytaradi
+   * (masalan: "O(X) OP {)RCr\\Nl(l"), bu esa AI extractor'ga berilib noto'g'ri
+   * tekshiruv natijasiga olib keladi. gpt-4o esa PDF sahifalarini rasm sifatida
+   * ko'radi va haqiqiy OCR qiladi, shu bilan skanerlangan hujjatlarni ham to'g'ri o'qiydi.
+   *
+   * @param filePath PDF fayl yo'li
+   * @returns Ajratilgan matn va sahifalar soni
+   */
+  async extractTextFromPdfViaVision(filePath: string): Promise<{
+    text: string;
+    pageCount: number;
+  }> {
+    if (!this.openai) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const dataBuffer = await fs.readFile(filePath);
+    const base64Pdf = dataBuffer.toString('base64');
+    const filename = path.basename(filePath);
+
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-4o', // Vision-capable: PDF uchun matn + sahifa rasmlarini o'qiydi
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'file',
+              file: {
+                filename,
+                file_data: `data:application/pdf;base64,${base64Pdf}`,
+              },
+            },
+            {
+              type: 'text',
+              text: DOCUMENT_OCR_PROMPT,
+            },
+          ],
+        },
+      ],
+      temperature: 0,
+      max_tokens: 8192,
+    });
+
+    const text = response.choices[0]?.message?.content?.trim() || '';
+    if (!text) {
+      throw new Error('No text extracted from PDF via Vision');
+    }
+
+    // Sahifalar sonini pdf-parse'dan olishga urinamiz (u matnsiz ham sahifa
+    // daraxtini to'g'ri sanaydi). Ishlamasa, standart 1 sahifa.
+    let pageCount = 1;
+    try {
+      const parsed = await this.extractTextFromPdf(filePath);
+      pageCount = parsed.pageCount || 1;
+    } catch {
+      // pdf-parse ishlamasa e'tiborsiz qoldiramiz — matn Vision'dan olindi
+    }
+
+    return { text, pageCount };
   }
 
   /**
@@ -688,8 +767,22 @@ export class DocumentService {
     taskDocumentId: number,
     filePath: string
   ): Promise<void> {
-    // Extract text from PDF first (this doesn't require database)
-    let { text, pageCount } = await this.extractTextFromPdf(filePath);
+    // PDF matnini OpenAI Vision (gpt-4o) OCR orqali ajratamiz. pdf-parse
+    // skanerlangan/buzuq shriftli PDFlarda gibberish qaytaradi va noto'g'ri
+    // tekshiruvga sabab bo'ladi. Vision ishlamasa (kalit yo'q / API xatosi),
+    // ma'lumot yo'qolmasligi uchun pdf-parse'ga qaytamiz.
+    let text: string;
+    let pageCount: number;
+    try {
+      ({ text, pageCount } = await this.extractTextFromPdfViaVision(filePath));
+    } catch (error) {
+      console.warn(
+        `[PDF] Vision OCR ishlamadi, pdf-parse'ga qaytilmoqda: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      ({ text, pageCount } = await this.extractTextFromPdf(filePath));
+    }
 
     // Filter text if it's an Invoice document
     try {

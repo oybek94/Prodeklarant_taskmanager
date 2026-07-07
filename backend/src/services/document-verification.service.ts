@@ -174,6 +174,9 @@ export class DocumentVerificationService {
   constructor(private prisma: PrismaClient) {}
 
   async verifyDocumentAgainstInvoice(taskDocumentId: number): Promise<void> {
+    // Vaqtinchalik AI document checker o'chirib qo'yildi
+    return;
+
     let taskIdForCatch: number | null = null;
     let docNameForCatch: string | null = null;
     let checkTypeForCatch: AiCheckType | null = null;

@@ -9,6 +9,9 @@
     "start": "node dist/index.js",
     "start:server": "node dist/index.js",
     "lint": "echo \"no lint configured\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "eval:extraction": "tsx src/scripts/eval-extraction.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
@@ -76,7 +79,8 @@
     "newman": "^6.2.2",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "flatted": "^3.4.2",

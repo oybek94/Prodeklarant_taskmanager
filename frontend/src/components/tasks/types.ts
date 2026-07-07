@@ -150,6 +150,7 @@ export interface TaskDocument {
 export interface AiCheckError {
   field?: string;
   description?: string;
+  severity?: 'critical' | 'warning';
   invoice?: string;
   st?: string;
   st1?: string;
@@ -167,18 +168,34 @@ export interface AiCheckFinding {
   st_value?: unknown;
 }
 
+export interface AiCheckDismissal {
+  by?: number;
+  reason?: string | null;
+  at?: string;
+}
+
 export interface AiCheckDetails {
   status?: 'OK' | 'ERROR' | 'XATO';
   errors?: AiCheckError[];
   findings?: AiCheckFinding[];
   documentName?: string;
+  /** Tekshiruv o'tkazilmagan/shubhali holat sababi */
+  reason?: 'NO_EXTRACTED_TEXT' | 'NO_INVOICE' | 'EXTRACTION_FAILED' | 'LOW_CONFIDENCE' | string;
+  /** Foydalanuvchiga ko'rsatiladigan o'zbekcha xabar */
+  message?: string;
+  /** Deterministik ishonch bali (0..1) */
+  confidence?: number;
+  /** Taqqoslanmaydigan, lekin odam uchun foydali maydonlar (label → qiymat) */
+  extra?: Record<string, string>;
+  /** False-positive deb belgilangan bo'lsa */
+  dismissed?: AiCheckDismissal;
 }
 
 export interface AiCheck {
   id: number;
   taskDocumentId?: number | null;
   checkType: string;
-  result: 'PASS' | 'FAIL' | string;
+  result: 'PASS' | 'FAIL' | 'NEEDS_REVIEW' | string;
   details: AiCheckDetails | string;
   createdAt: string;
 }

@@ -1280,6 +1280,7 @@ enum DocumentType {
 
 enum AiCheckType {
   INVOICE_ST
+  INVOICE_VS_DB
   ST_VS_DB
   CMR_VS_DB
   TIR_VS_DB
@@ -1289,6 +1290,7 @@ enum AiCheckType {
 enum AiCheckResult {
   PASS
   FAIL
+  NEEDS_REVIEW
 }
 
 enum ProcessType {

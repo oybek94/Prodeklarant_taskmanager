@@ -88,20 +88,14 @@ router.post('/:id/status', requireAuth(), async (req: AuthRequest, res) => {
           const aiService = new AiService(tx);
           const comparison = await aiService.runInvoiceStComparison(taskId);
 
-          // Backend decides status based on AI findings
-          let finalStatus: TaskStatus = newStatus;
-          if (comparison.result === 'FAIL') {
-            finalStatus = 'RETURNED';
-          } else {
-            finalStatus = 'PASSED_AI_CHECK';
-          }
-
-          // Update status if changed (comparing as strings)
-          if (String(finalStatus) !== String(newStatus)) {
+          // AI FAIL vazifani avtomatik RETURNED qilmaydi — AiCheck hisoboti
+          // signal bo'lib qoladi, qarorni odam qabul qiladi. Faqat PASS
+          // avtomatik PASSED_AI_CHECK'ga o'tkazadi.
+          if (comparison.result === 'PASS') {
             return await tx.task.update({
               where: { id: taskId },
               data: {
-                status: finalStatus,
+                status: 'PASSED_AI_CHECK',
                 updatedById: user.id,
               },
               select: {
@@ -111,6 +105,9 @@ router.post('/:id/status', requireAuth(), async (req: AuthRequest, res) => {
               },
             });
           }
+          console.log(
+            `[Task ${taskId}] AI tekshiruvi FAIL (${comparison.findings.length} ta nomuvofiqlik) — vazifa ST_READY holatida qoldi, qaror odamda`
+          );
         } catch (aiError) {
           // Log AI error but don't fail the status update
           console.error('AI comparison error:', aiError);

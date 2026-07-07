@@ -1,6 +1,26 @@
 // rule-engine.ts
-// FINAL production-grade deterministic customs validation engine
-// AI IS NOT USED HERE
+// Invoice-vs-ST deterministik tekshiruv. AI BU YERDA ISHLATILMAYDI.
+//
+// Taqqoslash funksiyalari matchers.ts dan olinadi — Doc-vs-DB dvigateli
+// (db-rule-engine.ts) bilan BIR XIL tolerantlik qo'llanadi: og'irliklarda
+// max(1 kg, 0.5%), nomlarda containment/token-Jaccard, sanalarda format
+// farqidan mustaqil taqqoslash.
+
+import {
+  normalize,
+  extractCompanyName,
+  sameCompany,
+  companiesMatch,
+  productNamesMatch,
+  weightsMatch,
+  countsMatch,
+  invoiceNumbersMatch,
+  datesMatch,
+  dateNotBefore,
+} from './matchers';
+
+// Legacy re-export: bu helperlar oldin shu fayldan export qilingan
+export { normalize, extractCompanyName, sameCompany };
 
 /* ===================== TYPES ===================== */
 
@@ -45,71 +65,8 @@ export interface ValidationResult {
 
 /* ===================== HELPERS ===================== */
 
-export function normalize(value: string | null): string {
-  if (!value) return '';
-  return value
-    .toLowerCase()
-    .replace(/["']/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/**
- * Extract company name only (ignore address)
- */
-export function extractCompanyName(value: string | null): string {
-  if (!value) return '';
-
-  // 1. quoted name has priority
-  const quoted = value.match(/"([^"]+)"/);
-  if (quoted?.[1]) {
-    return normalize(quoted[1]);
-  }
-
-  let text = normalize(value);
-
-  const stopWords = [
-    'республика',
-    'узбекистан',
-    'область',
-    'район',
-    'город',
-    'г.',
-    'улица',
-    'ул',
-    'дом',
-    'д.',
-    'стр',
-    'кв',
-    'индекс',
-    'российская федерация',
-  ];
-
-  let cut = text.length;
-  for (const w of stopWords) {
-    const i = text.indexOf(w);
-    if (i !== -1 && i < cut) cut = i;
-  }
-
-  text = text.substring(0, cut).trim();
-
-  return text
-    .replace(/^сп\s+/i, '')
-    .replace(/^ooo\s+/i, '')
-    .replace(/^ооо\s+/i, '')
-    .trim();
-}
-
-export function sameCompany(a: string | null, b: string | null): boolean {
-  return extractCompanyName(a) === extractCompanyName(b);
-}
-
-function sameProductName(a: string, b: string): boolean {
-  return normalize(a) === normalize(b);
-}
-
 function findProduct(products: Product[], name: string): Product | undefined {
-  return products.find(p => sameProductName(p.name, name));
+  return products.find((p) => productNamesMatch(p.name, name));
 }
 
 function isAutotransport(value: string | null): boolean {
@@ -156,20 +113,28 @@ export function validateInvoiceWithST(
   }
 
   // ---------- EXPORTER / IMPORTER ----------
-  if (!sameCompany(invoice.seller_name, st.exporter_name)) {
+  if (
+    invoice.seller_name &&
+    st.exporter_name &&
+    !companiesMatch(st.exporter_name, invoice.seller_name)
+  ) {
     errors.push({
       field: 'exporter',
-      invoice: invoice.seller_name ?? '',
-      st: st.exporter_name ?? '',
+      invoice: invoice.seller_name,
+      st: st.exporter_name,
       description: 'Eksporter kompaniya nomi mos kelmaydi',
     });
   }
 
-  if (!sameCompany(invoice.buyer_name, st.importer_name)) {
+  if (
+    invoice.buyer_name &&
+    st.importer_name &&
+    !companiesMatch(st.importer_name, invoice.buyer_name)
+  ) {
     errors.push({
       field: 'importer',
-      invoice: invoice.buyer_name ?? '',
-      st: st.importer_name ?? '',
+      invoice: invoice.buyer_name,
+      st: st.importer_name,
       description: 'Importer kompaniya nomi mos kelmaydi',
     });
   }
@@ -214,7 +179,7 @@ export function validateInvoiceWithST(
         description:
           'Mahsulot bo‘yicha joylar soni to‘liq ko‘rsatilmagan',
       });
-    } else if (inv.package_count !== stProd.package_count) {
+    } else if (!countsMatch(inv.package_count, stProd.package_count)) {
       errors.push({
         field: 'package_count',
         invoice: String(inv.package_count),
@@ -224,11 +189,11 @@ export function validateInvoiceWithST(
       });
     }
 
-    // gross
+    // gross (tolerantlik bilan: max(1 kg, 0.5%))
     if (
       inv.gross_weight !== null &&
       stProd.gross_weight !== null &&
-      inv.gross_weight !== stProd.gross_weight
+      !weightsMatch(inv.gross_weight, stProd.gross_weight)
     ) {
       errors.push({
         field: 'gross_weight',
@@ -238,11 +203,11 @@ export function validateInvoiceWithST(
       });
     }
 
-    // net
+    // net (tolerantlik bilan)
     if (
       inv.net_weight !== null &&
       stProd.net_weight !== null &&
-      inv.net_weight !== stProd.net_weight
+      !weightsMatch(inv.net_weight, stProd.net_weight)
     ) {
       errors.push({
         field: 'net_weight',
@@ -257,7 +222,7 @@ export function validateInvoiceWithST(
   if (
     invoice.invoice_number &&
     st.invoice_ref_number &&
-    invoice.invoice_number !== st.invoice_ref_number
+    !invoiceNumbersMatch(invoice.invoice_number, st.invoice_ref_number)
   ) {
     errors.push({
       field: 'invoice_number',
@@ -270,7 +235,7 @@ export function validateInvoiceWithST(
   if (
     invoice.invoice_date &&
     st.invoice_ref_date &&
-    invoice.invoice_date !== st.invoice_ref_date
+    !datesMatch(invoice.invoice_date, st.invoice_ref_date)
   ) {
     errors.push({
       field: 'invoice_date',
@@ -284,7 +249,7 @@ export function validateInvoiceWithST(
   if (
     invoice.invoice_date &&
     st.certification_date &&
-    st.certification_date < invoice.invoice_date
+    !dateNotBefore(st.certification_date, invoice.invoice_date)
   ) {
     errors.push({
       field: 'certification_date',
@@ -298,7 +263,7 @@ export function validateInvoiceWithST(
   if (
     invoice.invoice_date &&
     st.declaration_date &&
-    st.declaration_date < invoice.invoice_date
+    !dateNotBefore(st.declaration_date, invoice.invoice_date)
   ) {
     errors.push({
       field: 'declaration_date',

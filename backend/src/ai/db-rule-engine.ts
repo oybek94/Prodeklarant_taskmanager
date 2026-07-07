@@ -1,19 +1,35 @@
 // db-rule-engine.ts
-// Yuklangan hujjat (ST-1 / CMR / TIR / FITO) ma'lumotlarini
+// Yuklangan hujjat (INVOICE / ST-1 / CMR / TIR / FITO) ma'lumotlarini
 // BAZADAGI invoys (Invoice + InvoiceItem + Contract) bilan solishtiruvchi
 // deterministik tekshiruv. AI BU YERDA ISHLATILMAYDI.
 //
-// Farqi rule-engine.ts dan: u yerda ikkala tomon ham AI extraction'dan keladi,
-// bu yerda DB tomoni odam tomonidan kiritilgan — shuning uchun nomlar uchun
-// fuzzy taqqoslash, og'irliklar uchun tolerans qo'llanadi.
+// Taqqoslash funksiyalari va tolerantlik matchers.ts / verification.config.ts
+// dan olinadi. Har bir nomuvofiqlik severity (critical/warning) bilan
+// belgilanadi — natija xaritasi: critical → FAIL, faqat warning → NEEDS_REVIEW.
 
 import {
+  InvoiceExtraction,
   ST1Extraction,
   CmrExtraction,
   TirExtraction,
   FitoExtraction,
 } from './prompt.builder';
-import { normalize, sameCompany, extractCompanyName } from './rule-engine';
+import {
+  weightsMatch,
+  countsMatch,
+  moneyMatch,
+  invoiceNumbersMatch,
+  productNamesMatch,
+  companiesMatch,
+  datesMatch,
+  dateNotBefore,
+} from './matchers';
+import { normalizeCurrency } from './normalizers';
+import {
+  MismatchSeverity,
+  VerifiableDocType,
+  severityFor,
+} from './verification.config';
 
 /* ===================== TYPES ===================== */
 
@@ -38,6 +54,8 @@ export interface DbInvoiceSnapshot {
   totalGrossWeight: number | null; // itemlar yig'indisi
   totalNetWeight: number | null;
   totalPackagesCount: number | null;
+  totalAmount: number | null; // Invoice.totalAmount
+  currency: string | null; // Invoice.currency (ISO kod)
 }
 
 export interface DocDbMismatch {
@@ -46,6 +64,7 @@ export interface DocDbMismatch {
   documentValue: string; // hujjatdagi qiymat
   invoiceValue: string; // bazadagi invoys qiymati
   description: string; // o'zbekcha izoh
+  severity: MismatchSeverity;
 }
 
 export interface DocDbCheckResult {
@@ -53,60 +72,7 @@ export interface DocDbCheckResult {
   errors: DocDbMismatch[];
 }
 
-/* ===================== TOLERANCE HELPERS ===================== */
-
-/** Og'irliklar: |a-b| <= max(1 kg, 0.5%) — yaxlitlash farqlarini kechiradi */
-function weightsMatch(a: number, b: number): boolean {
-  const tolerance = Math.max(1, Math.max(Math.abs(a), Math.abs(b)) * 0.005);
-  return Math.abs(a - b) <= tolerance;
-}
-
-/** Joylar soni: aniq butun son tengligi */
-function countsMatch(a: number, b: number): boolean {
-  return Math.round(a) === Math.round(b);
-}
-
-/** Invoys raqami: "№", probel, registr, boshidagi nollarni olib tashlab solishtirish */
-function invoiceNumbersMatch(a: string, b: string): boolean {
-  const clean = (s: string): string =>
-    s
-      .toLowerCase()
-      .replace(/[№#]/g, '')
-      .replace(/\s+/g, '')
-      .replace(/^0+(?=\w)/, '');
-  return clean(a) !== '' && clean(a) === clean(b);
-}
-
-function tokenize(value: string): string[] {
-  return normalize(value)
-    .split(/[^a-zа-яё0-9']+/i)
-    .filter((t) => t.length > 1);
-}
-
-/** Token-Jaccard o'xshashligi (0..1) */
-function tokenJaccard(a: string, b: string): number {
-  const setA = new Set(tokenize(a));
-  const setB = new Set(tokenize(b));
-  if (setA.size === 0 || setB.size === 0) return 0;
-  let intersection = 0;
-  for (const t of setA) {
-    if (setB.has(t)) intersection++;
-  }
-  return intersection / (setA.size + setB.size - intersection);
-}
-
-/**
- * Mahsulot nomi: normalize + containment yoki token-Jaccard >= 0.6.
- * DB tomoni qo'lda kiritilgani uchun qat'iy tenglik ishlamaydi.
- */
-function productNamesMatch(docName: string, dbName: string): boolean {
-  const a = normalize(docName);
-  const b = normalize(dbName);
-  if (!a || !b) return false;
-  if (a === b) return true;
-  if (a.includes(b) || b.includes(a)) return true;
-  return tokenJaccard(a, b) >= 0.6;
-}
+/* ===================== HELPERS ===================== */
 
 /** Hujjatdagi mahsulot nomiga mos invoys itemini topish (name va nameEn bo'yicha) */
 function findInvoiceItem(
@@ -118,16 +84,6 @@ function findInvoiceItem(
       productNamesMatch(docName, item.name) ||
       (item.nameEn !== null && productNamesMatch(docName, item.nameEn))
   );
-}
-
-/** Kompaniya nomi: qat'iy sameCompany yoki token-overlap fallback */
-function companiesMatch(docValue: string, dbValue: string): boolean {
-  if (sameCompany(docValue, dbValue)) return true;
-  const a = extractCompanyName(docValue);
-  const b = extractCompanyName(dbValue);
-  if (!a || !b) return false;
-  if (a.includes(b) || b.includes(a)) return true;
-  return tokenJaccard(a, b) >= 0.5;
 }
 
 /** Yuk tavsifi kamida bitta invoys mahsulotiga mos keladimi */
@@ -147,16 +103,33 @@ function fmt(value: number | string | null | undefined): string {
   return String(value);
 }
 
+class MismatchCollector {
+  readonly errors: DocDbMismatch[] = [];
+
+  constructor(private docType: VerifiableDocType) {}
+
+  add(mismatch: Omit<DocDbMismatch, 'severity'>): void {
+    this.errors.push({
+      ...mismatch,
+      severity: severityFor(this.docType, mismatch.field),
+    });
+  }
+
+  result(): DocDbCheckResult {
+    return { status: this.errors.length > 0 ? 'XATO' : 'OK', errors: this.errors };
+  }
+}
+
 /* ===================== SHARED RULES ===================== */
 
 function checkInvoiceRef(
   docRef: string | null,
   inv: DbInvoiceSnapshot,
-  errors: DocDbMismatch[],
+  c: MismatchCollector,
   sourceLabel: string
 ): void {
   if (docRef && !invoiceNumbersMatch(docRef, inv.invoiceNumber)) {
-    errors.push({
+    c.add({
       field: 'invoice_number',
       label: 'Invoys raqami',
       documentValue: docRef,
@@ -169,11 +142,11 @@ function checkInvoiceRef(
 function checkTotalGrossWeight(
   docWeight: number | null,
   inv: DbInvoiceSnapshot,
-  errors: DocDbMismatch[]
+  c: MismatchCollector
 ): void {
   if (docWeight !== null && inv.totalGrossWeight !== null) {
     if (!weightsMatch(docWeight, inv.totalGrossWeight)) {
-      errors.push({
+      c.add({
         field: 'gross_weight',
         label: "Brutto og'irlik",
         documentValue: `${docWeight} kg`,
@@ -187,11 +160,11 @@ function checkTotalGrossWeight(
 function checkTotalPackageCount(
   docCount: number | null,
   inv: DbInvoiceSnapshot,
-  errors: DocDbMismatch[]
+  c: MismatchCollector
 ): void {
   if (docCount !== null && inv.totalPackagesCount !== null) {
     if (!countsMatch(docCount, inv.totalPackagesCount)) {
-      errors.push({
+      c.add({
         field: 'package_count',
         label: 'Joylar soni',
         documentValue: String(docCount),
@@ -202,6 +175,11 @@ function checkTotalPackageCount(
   }
 }
 
+/**
+ * Hujjatdan tekshirish uchun hech narsa ajratilmagan holat.
+ * severity=warning → natija NEEDS_REVIEW bo'ladi (avtomatik FAIL emas,
+ * chunki bu hujjat xatosi emas, extraction muvaffaqiyatsizligi).
+ */
 function emptyExtractionResult(): DocDbCheckResult {
   return {
     status: 'XATO',
@@ -212,9 +190,129 @@ function emptyExtractionResult(): DocDbCheckResult {
         documentValue: '',
         invoiceValue: '',
         description: "Hujjatdan tekshirish uchun ma'lumot ajratib olinmadi",
+        severity: 'warning',
       },
     ],
   };
+}
+
+/* ===================== INVOICE (hujjat) vs DB ===================== */
+
+export function compareInvoiceWithDb(
+  doc: InvoiceExtraction,
+  inv: DbInvoiceSnapshot
+): DocDbCheckResult {
+  const c = new MismatchCollector('INVOICE');
+
+  const hasAnything =
+    doc.invoice_number !== null ||
+    doc.seller_name !== null ||
+    doc.buyer_name !== null ||
+    doc.total_amount !== null ||
+    doc.products.length > 0;
+  if (!hasAnything) return emptyExtractionResult();
+
+  checkInvoiceRef(doc.invoice_number, inv, c, 'Yuklangan invoys');
+
+  if (doc.invoice_date && !datesMatch(doc.invoice_date, inv.invoiceDate)) {
+    c.add({
+      field: 'invoice_date',
+      label: 'Invoys sanasi',
+      documentValue: doc.invoice_date,
+      invoiceValue: inv.invoiceDate,
+      description: 'Yuklangan invoysdagi sana bazadagi invoys sanasi bilan mos kelmaydi',
+    });
+  }
+
+  if (doc.seller_name && inv.sellerName && !companiesMatch(doc.seller_name, inv.sellerName)) {
+    c.add({
+      field: 'seller',
+      label: 'Sotuvchi',
+      documentValue: doc.seller_name,
+      invoiceValue: inv.sellerName,
+      description: 'Yuklangan invoysdagi sotuvchi bazadagi sotuvchi bilan mos kelmaydi',
+    });
+  }
+
+  if (doc.buyer_name && inv.buyerName && !companiesMatch(doc.buyer_name, inv.buyerName)) {
+    c.add({
+      field: 'buyer',
+      label: 'Xaridor',
+      documentValue: doc.buyer_name,
+      invoiceValue: inv.buyerName,
+      description: 'Yuklangan invoysdagi xaridor bazadagi xaridor bilan mos kelmaydi',
+    });
+  }
+
+  // Pul: umumiy summa va valyuta
+  if (doc.total_amount !== null && inv.totalAmount !== null) {
+    if (!moneyMatch(doc.total_amount, inv.totalAmount)) {
+      c.add({
+        field: 'total_amount',
+        label: 'Umumiy summa',
+        documentValue: String(doc.total_amount),
+        invoiceValue: String(inv.totalAmount),
+        description: 'Yuklangan invoysdagi umumiy summa bazadagi invoys summasi bilan mos kelmaydi',
+      });
+    }
+  }
+  const docCurrency = normalizeCurrency(doc.currency);
+  const dbCurrency = normalizeCurrency(inv.currency);
+  if (docCurrency && dbCurrency && docCurrency !== dbCurrency) {
+    c.add({
+      field: 'currency',
+      label: 'Valyuta',
+      documentValue: docCurrency,
+      invoiceValue: dbCurrency,
+      description: 'Yuklangan invoysdagi valyuta bazadagi invoys valyutasi bilan mos kelmaydi',
+    });
+  }
+
+  // Mahsulotlar
+  for (const p of doc.products) {
+    const item = findInvoiceItem(inv.items, p.name);
+    if (!item) {
+      if (inv.items.length > 0) {
+        c.add({
+          field: 'product_name',
+          label: 'Mahsulot',
+          documentValue: p.name,
+          invoiceValue: inv.items.map((i) => i.name).join(', '),
+          description: 'Yuklangan invoysdagi mahsulot bazadagi invoysda topilmadi',
+        });
+      }
+      continue;
+    }
+    if (p.package_count !== null && item.packagesCount !== null && !countsMatch(p.package_count, item.packagesCount)) {
+      c.add({
+        field: 'package_count',
+        label: 'Joylar soni',
+        documentValue: String(p.package_count),
+        invoiceValue: String(item.packagesCount),
+        description: `«${item.name}» bo'yicha joylar soni bazadagi invoys bilan mos kelmaydi`,
+      });
+    }
+    if (p.gross_weight !== null && item.grossWeight !== null && !weightsMatch(p.gross_weight, item.grossWeight)) {
+      c.add({
+        field: 'gross_weight',
+        label: "Brutto og'irlik",
+        documentValue: `${p.gross_weight} kg`,
+        invoiceValue: `${item.grossWeight} kg`,
+        description: `«${item.name}» bo'yicha brutto og'irlik bazadagi invoys bilan mos kelmaydi`,
+      });
+    }
+    if (p.net_weight !== null && item.netWeight !== null && !weightsMatch(p.net_weight, item.netWeight)) {
+      c.add({
+        field: 'net_weight',
+        label: "Netto og'irlik",
+        documentValue: `${p.net_weight} kg`,
+        invoiceValue: `${item.netWeight} kg`,
+        description: `«${item.name}» bo'yicha netto og'irlik bazadagi invoys bilan mos kelmaydi`,
+      });
+    }
+  }
+
+  return c.result();
 }
 
 /* ===================== ST-1 ===================== */
@@ -223,7 +321,7 @@ export function compareStWithDb(
   st: ST1Extraction,
   inv: DbInvoiceSnapshot
 ): DocDbCheckResult {
-  const errors: DocDbMismatch[] = [];
+  const c = new MismatchCollector('ST');
 
   const hasAnything =
     st.products.length > 0 ||
@@ -233,9 +331,9 @@ export function compareStWithDb(
   if (!hasAnything) return emptyExtractionResult();
 
   // Invoys raqami / sanasi (grafa 10)
-  checkInvoiceRef(st.invoice_ref_number, inv, errors, 'ST-1 (10-grafa)');
-  if (st.invoice_ref_date && st.invoice_ref_date !== inv.invoiceDate) {
-    errors.push({
+  checkInvoiceRef(st.invoice_ref_number, inv, c, 'ST-1 (10-grafa)');
+  if (st.invoice_ref_date && !datesMatch(st.invoice_ref_date, inv.invoiceDate)) {
+    c.add({
       field: 'invoice_date',
       label: 'Invoys sanasi',
       documentValue: st.invoice_ref_date,
@@ -246,7 +344,7 @@ export function compareStWithDb(
 
   // Tomonlar
   if (st.exporter_name && inv.sellerName && !companiesMatch(st.exporter_name, inv.sellerName)) {
-    errors.push({
+    c.add({
       field: 'exporter',
       label: 'Eksportyor',
       documentValue: st.exporter_name,
@@ -255,7 +353,7 @@ export function compareStWithDb(
     });
   }
   if (st.importer_name && inv.buyerName && !companiesMatch(st.importer_name, inv.buyerName)) {
-    errors.push({
+    c.add({
       field: 'importer',
       label: 'Importyor',
       documentValue: st.importer_name,
@@ -268,10 +366,10 @@ export function compareStWithDb(
   if (st.products.length === 1 && inv.items.length > 1) {
     // Hujjatda jamlangan bitta qator — umumiy ko'rsatkichlar bilan solishtiramiz
     const p = st.products[0];
-    checkTotalGrossWeight(p.gross_weight, inv, errors);
-    checkTotalPackageCount(p.package_count, inv, errors);
+    checkTotalGrossWeight(p.gross_weight, inv, c);
+    checkTotalPackageCount(p.package_count, inv, c);
     if (p.net_weight !== null && inv.totalNetWeight !== null && !weightsMatch(p.net_weight, inv.totalNetWeight)) {
-      errors.push({
+      c.add({
         field: 'net_weight',
         label: "Netto og'irlik",
         documentValue: `${p.net_weight} kg`,
@@ -283,7 +381,7 @@ export function compareStWithDb(
     for (const p of st.products) {
       const item = findInvoiceItem(inv.items, p.name);
       if (!item) {
-        errors.push({
+        c.add({
           field: 'product_name',
           label: 'Mahsulot',
           documentValue: p.name,
@@ -293,7 +391,7 @@ export function compareStWithDb(
         continue;
       }
       if (p.package_count !== null && item.packagesCount !== null && !countsMatch(p.package_count, item.packagesCount)) {
-        errors.push({
+        c.add({
           field: 'package_count',
           label: 'Joylar soni',
           documentValue: String(p.package_count),
@@ -302,7 +400,7 @@ export function compareStWithDb(
         });
       }
       if (p.gross_weight !== null && item.grossWeight !== null && !weightsMatch(p.gross_weight, item.grossWeight)) {
-        errors.push({
+        c.add({
           field: 'gross_weight',
           label: "Brutto og'irlik",
           documentValue: `${p.gross_weight} kg`,
@@ -311,7 +409,7 @@ export function compareStWithDb(
         });
       }
       if (p.net_weight !== null && item.netWeight !== null && !weightsMatch(p.net_weight, item.netWeight)) {
-        errors.push({
+        c.add({
           field: 'net_weight',
           label: "Netto og'irlik",
           documentValue: `${p.net_weight} kg`,
@@ -323,8 +421,8 @@ export function compareStWithDb(
   }
 
   // Sanalar: sertifikat invoysdan oldin bo'lishi mumkin emas
-  if (st.certification_date && st.certification_date < inv.invoiceDate) {
-    errors.push({
+  if (st.certification_date && !dateNotBefore(st.certification_date, inv.invoiceDate)) {
+    c.add({
       field: 'certification_date',
       label: 'Sertifikat sanasi',
       documentValue: st.certification_date,
@@ -332,8 +430,8 @@ export function compareStWithDb(
       description: "Sertifikat sanasi invoys sanasidan oldin bo'lishi mumkin emas",
     });
   }
-  if (st.declaration_date && st.declaration_date < inv.invoiceDate) {
-    errors.push({
+  if (st.declaration_date && !dateNotBefore(st.declaration_date, inv.invoiceDate)) {
+    c.add({
       field: 'declaration_date',
       label: 'Deklaratsiya sanasi',
       documentValue: st.declaration_date,
@@ -342,7 +440,7 @@ export function compareStWithDb(
     });
   }
 
-  return { status: errors.length > 0 ? 'XATO' : 'OK', errors };
+  return c.result();
 }
 
 /* ===================== CMR ===================== */
@@ -351,7 +449,7 @@ export function compareCmrWithDb(
   cmr: CmrExtraction,
   inv: DbInvoiceSnapshot
 ): DocDbCheckResult {
-  const errors: DocDbMismatch[] = [];
+  const c = new MismatchCollector('CMR');
 
   const hasAnything =
     cmr.sender_name !== null ||
@@ -363,7 +461,7 @@ export function compareCmrWithDb(
   if (!hasAnything) return emptyExtractionResult();
 
   if (cmr.sender_name && inv.sellerName && !companiesMatch(cmr.sender_name, inv.sellerName)) {
-    errors.push({
+    c.add({
       field: 'sender',
       label: "Yuk jo'natuvchi",
       documentValue: cmr.sender_name,
@@ -374,7 +472,7 @@ export function compareCmrWithDb(
 
   const dbConsignee = inv.consigneeName ?? inv.buyerName;
   if (cmr.consignee_name && dbConsignee && !companiesMatch(cmr.consignee_name, dbConsignee)) {
-    errors.push({
+    c.add({
       field: 'consignee',
       label: 'Yuk oluvchi',
       documentValue: cmr.consignee_name,
@@ -383,16 +481,16 @@ export function compareCmrWithDb(
     });
   }
 
-  checkInvoiceRef(cmr.invoice_ref_number, inv, errors, 'CMR (5-grafa)');
-  checkTotalGrossWeight(cmr.total_gross_weight, inv, errors);
-  checkTotalPackageCount(cmr.total_package_count, inv, errors);
+  checkInvoiceRef(cmr.invoice_ref_number, inv, c, 'CMR (5-grafa)');
+  checkTotalGrossWeight(cmr.total_gross_weight, inv, c);
+  checkTotalPackageCount(cmr.total_package_count, inv, c);
 
   if (
     cmr.goods_description &&
     inv.items.length > 0 &&
     !descriptionMentionsAnyItem(cmr.goods_description, inv.items)
   ) {
-    errors.push({
+    c.add({
       field: 'goods_description',
       label: 'Yuk tavsifi',
       documentValue: cmr.goods_description,
@@ -401,7 +499,7 @@ export function compareCmrWithDb(
     });
   }
 
-  return { status: errors.length > 0 ? 'XATO' : 'OK', errors };
+  return c.result();
 }
 
 /* ===================== TIR ===================== */
@@ -410,7 +508,7 @@ export function compareTirWithDb(
   tir: TirExtraction,
   inv: DbInvoiceSnapshot
 ): DocDbCheckResult {
-  const errors: DocDbMismatch[] = [];
+  const c = new MismatchCollector('TIR');
 
   const hasAnything =
     tir.consignee_name !== null ||
@@ -423,7 +521,7 @@ export function compareTirWithDb(
   // Karnet egasi = tashuvchi, shartnoma tomoni emas — solishtirilmaydi
   const dbConsignee = inv.consigneeName ?? inv.buyerName;
   if (tir.consignee_name && dbConsignee && !companiesMatch(tir.consignee_name, dbConsignee)) {
-    errors.push({
+    c.add({
       field: 'consignee',
       label: 'Yuk oluvchi',
       documentValue: tir.consignee_name,
@@ -432,16 +530,16 @@ export function compareTirWithDb(
     });
   }
 
-  checkInvoiceRef(tir.invoice_ref_number, inv, errors, 'TIR karnet');
-  checkTotalGrossWeight(tir.total_gross_weight, inv, errors);
-  checkTotalPackageCount(tir.total_package_count, inv, errors);
+  checkInvoiceRef(tir.invoice_ref_number, inv, c, 'TIR karnet');
+  checkTotalGrossWeight(tir.total_gross_weight, inv, c);
+  checkTotalPackageCount(tir.total_package_count, inv, c);
 
   if (
     tir.goods_description &&
     inv.items.length > 0 &&
     !descriptionMentionsAnyItem(tir.goods_description, inv.items)
   ) {
-    errors.push({
+    c.add({
       field: 'goods_description',
       label: 'Yuk tavsifi',
       documentValue: tir.goods_description,
@@ -450,7 +548,7 @@ export function compareTirWithDb(
     });
   }
 
-  return { status: errors.length > 0 ? 'XATO' : 'OK', errors };
+  return c.result();
 }
 
 /* ===================== FITO ===================== */
@@ -459,7 +557,7 @@ export function compareFitoWithDb(
   fito: FitoExtraction,
   inv: DbInvoiceSnapshot
 ): DocDbCheckResult {
-  const errors: DocDbMismatch[] = [];
+  const c = new MismatchCollector('FITO');
 
   const hasAnything =
     fito.exporter !== null ||
@@ -470,7 +568,7 @@ export function compareFitoWithDb(
   if (!hasAnything) return emptyExtractionResult();
 
   if (fito.exporter && inv.sellerName && !companiesMatch(fito.exporter, inv.sellerName)) {
-    errors.push({
+    c.add({
       field: 'exporter',
       label: 'Eksportyor',
       documentValue: fito.exporter,
@@ -481,7 +579,7 @@ export function compareFitoWithDb(
 
   const dbConsignee = inv.consigneeName ?? inv.buyerName;
   if (fito.importer && dbConsignee && !companiesMatch(fito.importer, dbConsignee)) {
-    errors.push({
+    c.add({
       field: 'importer',
       label: 'Importyor',
       documentValue: fito.importer,
@@ -495,7 +593,7 @@ export function compareFitoWithDb(
     fito.products.length > 0 ? fito.products.map((p) => p.name) : fito.product ? [fito.product] : [];
   for (const name of docProductNames) {
     if (inv.items.length > 0 && !findInvoiceItem(inv.items, name)) {
-      errors.push({
+      c.add({
         field: 'product_name',
         label: 'Mahsulot',
         documentValue: name,
@@ -509,7 +607,7 @@ export function compareFitoWithDb(
   for (const p of fito.products) {
     const item = findInvoiceItem(inv.items, p.name);
     if (item && p.net_weight !== null && item.netWeight !== null && !weightsMatch(p.net_weight, item.netWeight)) {
-      errors.push({
+      c.add({
         field: 'net_weight',
         label: "Netto og'irlik",
         documentValue: `${p.net_weight} kg`,
@@ -524,7 +622,7 @@ export function compareFitoWithDb(
     inv.totalNetWeight !== null &&
     !weightsMatch(fito.total_net_weight, inv.totalNetWeight)
   ) {
-    errors.push({
+    c.add({
       field: 'total_net_weight',
       label: "Umumiy netto og'irlik",
       documentValue: `${fito.total_net_weight} kg`,
@@ -533,7 +631,7 @@ export function compareFitoWithDb(
     });
   }
 
-  checkTotalPackageCount(fito.total_package_count, inv, errors);
+  checkTotalPackageCount(fito.total_package_count, inv, c);
 
-  return { status: errors.length > 0 ? 'XATO' : 'OK', errors };
+  return c.result();
 }

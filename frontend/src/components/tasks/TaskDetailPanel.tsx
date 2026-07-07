@@ -1010,7 +1010,15 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                         })()}
                       </div>
                     </div>
-                    {docCheck && <DocumentVerificationReport check={docCheck} />}
+                    {docCheck && (
+                      <DocumentVerificationReport
+                        check={docCheck}
+                        taskId={selectedTask?.id}
+                        onRefresh={() => {
+                          if (selectedTask?.id) loadAiChecks(selectedTask.id);
+                        }}
+                      />
+                    )}
                     {isExpanded && hasOCR && (
                       <div className="ml-4 mr-4 mb-2 p-4 bg-white dark:bg-slate-800/60 rounded-lg border border-gray-300 dark:border-slate-700 shadow-sm">
                         <div className="flex items-center justify-between mb-2">

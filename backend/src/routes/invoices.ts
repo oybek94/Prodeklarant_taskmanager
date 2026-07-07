@@ -147,6 +147,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
           contract: {
             select: {
               sellerName: true,
+              shipperName: true,
               buyerName: true,
               consigneeName: true,
               contractCurrency: true,
@@ -172,7 +173,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
             contractNumber: invoice.contractNumber,
             clientId: invoice.clientId,
           },
-          select: { sellerName: true, buyerName: true, consigneeName: true, contractCurrency: true },
+          select: { sellerName: true, shipperName: true, buyerName: true, consigneeName: true, contractCurrency: true },
         });
         if (found) contract = found;
       }

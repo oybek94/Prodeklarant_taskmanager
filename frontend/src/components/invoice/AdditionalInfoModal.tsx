@@ -263,36 +263,52 @@ export function AdditionalInfoModal({
             <div className="space-y-2">
               {contractDeliveryTerms.length > 0 ? (
                 <>
-                  <select
-                    value={contractDeliveryTerms.includes(form.deliveryTerms) ? form.deliveryTerms : '__other__'}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      const newDeliveryTerms = value === '__other__' ? '' : value;
-                      let newCustomsAddress = '';
-                      if (selectedContract && newDeliveryTerms) {
-                        const dtArr = (selectedContract.deliveryTerms || '').split('\n').map((s: string) => s.trim());
-                        const caArr = (selectedContract.customsAddress || '').split('\n').map((s: string) => s.trim());
-                        const maxLen = Math.max(dtArr.length, caArr.length);
-                        while (dtArr.length < maxLen) dtArr.push('');
-                        while (caArr.length < maxLen) caArr.push('');
-                        const idx = dtArr.indexOf(newDeliveryTerms);
-                        if (idx >= 0 && caArr[idx]?.trim()) {
-                          newCustomsAddress = caArr[idx].trim();
-                        }
-                      }
-                      setForm({ ...form, deliveryTerms: newDeliveryTerms, customsAddress: newCustomsAddress });
-                      if (additionalInfoError && newDeliveryTerms.trim() && form.vehicleNumber.trim()) {
-                        setAdditionalInfoError(null);
-                      }
-                    }}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm"
-                  >
-                    <option value="">Shartnomadan tanlang...</option>
+                  <div className="flex flex-wrap gap-2.5 mt-2 mb-3">
                     {contractDeliveryTerms.map((term) => (
-                      <option key={term} value={term}>{term}</option>
+                      <button
+                        key={term}
+                        type="button"
+                        onClick={() => {
+                          const newDeliveryTerms = term;
+                          let newCustomsAddress = '';
+                          if (selectedContract && newDeliveryTerms) {
+                            const dtArr = (selectedContract.deliveryTerms || '').split('\n').map((s: string) => s.trim());
+                            const caArr = (selectedContract.customsAddress || '').split('\n').map((s: string) => s.trim());
+                            const maxLen = Math.max(dtArr.length, caArr.length);
+                            while (dtArr.length < maxLen) dtArr.push('');
+                            while (caArr.length < maxLen) caArr.push('');
+                            const idx = dtArr.indexOf(newDeliveryTerms);
+                            if (idx >= 0 && caArr[idx]?.trim()) {
+                              newCustomsAddress = caArr[idx].trim();
+                            }
+                          }
+                          setForm({ ...form, deliveryTerms: newDeliveryTerms, customsAddress: newCustomsAddress });
+                          if (additionalInfoError && newDeliveryTerms.trim() && form.vehicleNumber.trim()) {
+                            setAdditionalInfoError(null);
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium border-2 transition-all duration-200 ${
+                          form.deliveryTerms === term
+                            ? 'bg-blue-50/80 border-blue-500 text-blue-700 shadow-sm shadow-blue-500/10'
+                            : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {term}
+                      </button>
                     ))}
-                    <option value="__other__">Boshqa (qo&apos;lda kiriting)</option>
-                  </select>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, deliveryTerms: '' })}
+                      className={`px-4 py-2 rounded-xl text-sm font-medium border-2 border-dashed transition-all duration-200 flex items-center gap-1.5 ${
+                        !form.deliveryTerms || !contractDeliveryTerms.includes(form.deliveryTerms)
+                          ? 'bg-blue-50/80 border-blue-500 text-blue-700 shadow-sm shadow-blue-500/10'
+                          : 'bg-gray-50 border-gray-300 text-gray-500 hover:border-gray-400 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon icon="solar:pen-new-square-line-duotone" className="w-4 h-4" />
+                      Boshqa
+                    </button>
+                  </div>
                   {(!form.deliveryTerms || !contractDeliveryTerms.includes(form.deliveryTerms)) && (
                     <div className="flex items-center gap-2">
                       <input
@@ -369,13 +385,53 @@ export function AdditionalInfoModal({
                         <Icon icon={isAdditionalInfoVisible('customsAddress') ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
                       </button>
                     </div>
-                    {options.length > 0 ? (
-                      <select value={form.customsAddress ?? ''} onChange={(e) => setForm({ ...form, customsAddress: e.target.value })} className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
-                        <option value="">Shartnomadan tanlang...</option>
-                        {options.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
-                      </select>
-                    ) : (
-                      <input type="text" value={form.customsAddress ?? ''} onChange={(e) => setForm({ ...form, customsAddress: e.target.value })} placeholder="Место там. очистки" className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm" />
+                    {options.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 mb-3">
+                        {options.map((opt, idx) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setForm({ ...form, customsAddress: opt })}
+                            className={`relative flex flex-col items-start p-3.5 rounded-xl border-2 transition-all duration-200 text-left group ${
+                              form.customsAddress === opt
+                                ? 'bg-blue-50/50 border-blue-500 shadow-sm'
+                                : 'bg-white border-gray-100 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm'
+                            }`}
+                            title={opt}
+                          >
+                            <div className="flex items-center justify-between w-full mb-1.5">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider ${form.customsAddress === opt ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'}`}>
+                                Manzil {idx + 1}
+                              </span>
+                              {form.customsAddress === opt && (
+                                <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-blue-500" />
+                              )}
+                            </div>
+                            <span className={`text-xs leading-relaxed line-clamp-3 ${form.customsAddress === opt ? 'text-blue-900 font-medium' : 'text-gray-600'}`}>
+                              {opt}
+                            </span>
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (options.includes(form.customsAddress || '')) {
+                              setForm({ ...form, customsAddress: '' });
+                            }
+                          }}
+                          className={`relative flex flex-col items-center justify-center p-3.5 rounded-xl border-2 transition-all duration-200 min-h-[80px] ${
+                            !options.includes(form.customsAddress || '')
+                              ? 'bg-blue-50/50 border-blue-500 shadow-sm text-blue-700'
+                              : 'bg-gray-50 border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Icon icon="solar:pen-new-square-bold-duotone" className={`w-6 h-6 mb-1.5 ${!options.includes(form.customsAddress || '') ? 'text-blue-500' : 'opacity-50'}`} />
+                          <span className="text-xs font-medium">Boshqa kiritish</span>
+                        </button>
+                      </div>
+                    )}
+                    {(!options.includes(form.customsAddress || '') || options.length === 0) && (
+                      <input type="text" value={form.customsAddress ?? ''} onChange={(e) => setForm({ ...form, customsAddress: e.target.value })} placeholder="Место там. очистки (qo'lda kiriting)" className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm" />
                     )}
                   </div>
                 );

@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Branch } from './types';
 
-export const StatusBadge = ({ status, onClick, isMobile }: { status: string | undefined, onClick: (e: React.MouseEvent) => void, isMobile?: boolean }) => {
+export const StatusBadge = ({ status, onClick, isMobile, progress }: { status: string | undefined, onClick: (e: React.MouseEvent) => void, isMobile?: boolean, progress?: number }) => {
   const config = (() => {
     if (!status) return { text: '—', bg: 'bg-gray-100/80 dark:bg-slate-800/50', textClass: 'text-gray-500 dark:text-slate-400', border: 'border-gray-200 dark:border-slate-700', dot: 'bg-gray-400' };
     const s = status.toUpperCase();
@@ -18,16 +18,24 @@ export const StatusBadge = ({ status, onClick, isMobile }: { status: string | un
 
   const baseClasses = "inline-flex items-center gap-1.5 rounded-full border transition-all duration-200 hover:shadow-sm backdrop-blur-sm cursor-pointer hover:-translate-y-[1px]";
   const sizeClasses = isMobile ? "px-2.5 py-0.5 text-[10px] font-bold tracking-wide" : "px-3 py-1 text-xs font-semibold shadow-sm";
+  const hasProgress = typeof progress === 'number';
+  const buttonBg = hasProgress ? 'bg-white dark:bg-gray-800' : config.bg;
   
   return (
     <button
       type="button"
       onClick={onClick}
-      title="Jarayonlar (task tafsilotlari)"
-      className={`${baseClasses} ${sizeClasses} ${config.bg} ${config.border} ${config.textClass}`}
+      title={hasProgress ? `Jarayonlar: ${progress}%` : "Jarayonlar (task tafsilotlari)"}
+      className={`${baseClasses} ${sizeClasses} ${buttonBg} ${config.border} ${config.textClass} relative overflow-hidden`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${config.dot}`}></span>
-      <span>{config.text}</span>
+      {hasProgress && (
+        <div 
+          className={`absolute left-0 top-0 bottom-0 ${config.bg} transition-all duration-300 pointer-events-none`}
+          style={{ width: `${progress}%` }}
+        />
+      )}
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 relative z-10 ${config.dot}`}></span>
+      <span className="relative z-10">{config.text}</span>
     </button>
   );
 };

@@ -25,6 +25,7 @@ export interface Invoice {
     sellerName: string;
     buyerName: string;
     consigneeName?: string | null;
+    shipperName?: string | null;
     contractCurrency?: string | null;
   };
   branch?: {

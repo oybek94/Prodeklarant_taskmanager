@@ -382,7 +382,7 @@ const Layout = () => {
     <div className="flex h-screen h-[100dvh] bg-gray-50 dark:bg-black relative text-gray-900 dark:text-gray-100 md:p-3 p-0 gap-0 md:gap-3">
       {/* Sidebar */}
       {!isExamPage && (
-        <div className={`${sidebarOpen ? 'w-64' : isDesktop ? 'w-20' : 'w-0'} bg-gradient-to-b from-brand-dark to-brand-blue dark:from-gray-950 dark:to-slate-950 md:rounded-2xl flex flex-col transition-all duration-300 overflow-hidden relative z-20 flex-shrink-0 md:shadow-lg md:shadow-brand-dark/20 dark:shadow-none dark:border dark:border-white/5`}>
+        <div className={`${sidebarOpen ? 'w-56' : isDesktop ? 'w-20' : 'w-0'} bg-gradient-to-b from-brand-dark to-brand-blue dark:from-slate-800 dark:to-slate-900 md:rounded-2xl flex flex-col transition-all duration-300 overflow-hidden relative z-20 flex-shrink-0 md:shadow-lg md:shadow-brand-dark/20 dark:shadow-none dark:border dark:border-white/5`}>
           {/* Nuqta tarmog'i */}
           <div
             className="absolute inset-0 opacity-10 pointer-events-none"
@@ -431,7 +431,7 @@ const Layout = () => {
 
 
           {/* Navigation */}
-          <nav className={`flex-1 overflow-y-auto ${sidebarOpen ? 'p-4 custom-scrollbar' : 'py-4 px-0 hide-scrollbar'} relative z-10`}>
+          <nav className={`flex-1 overflow-y-auto p-4 ${sidebarOpen ? 'custom-scrollbar' : 'hide-scrollbar'} relative z-10`}>
             <div className="space-y-6">
               {Object.entries(groupedNavItems).map(([group, items]) => (
                 <div key={group}>

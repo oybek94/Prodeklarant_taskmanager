@@ -103,14 +103,17 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                   <span className="text-gray-900 dark:text-gray-100 font-bold text-base font-mono">
                     #{invoice.invoiceNumber}
                   </span>
-                  <StatusBadge 
-                    status={invoice.task?.status} 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowTaskModalId(invoice.taskId);
-                    }}
-                    isMobile={true}
-                  />
+                  <div className="flex flex-col items-end gap-1.5">
+                    <StatusBadge 
+                      status={invoice.task?.status} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowTaskModalId(invoice.taskId);
+                      }}
+                      isMobile={true}
+                      progress={invoice.task?.stages && invoice.task.stages.length > 0 ? Math.round((invoice.task.stages.filter((s: any) => s.status === 'TAYYOR').length / invoice.task.stages.length) * 100) : undefined}
+                    />
+                  </div>
                 </div>
 
                 <div className="text-xs space-y-2 pt-1">
@@ -272,7 +275,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           forceOriginal
                         />
                       </td>
-                      <td className="px-6 py-2 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName].filter(Boolean).join(' / ') || undefined}>
+                      <td className="px-6 py-2 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={[invoice.contract?.shipperName || invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName].filter(Boolean).join(' / ') || undefined}>
                         {invoice.clientId ? (
                           <button
                             type="button"
@@ -282,13 +285,13 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                             }}
                             className="text-left w-full hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline focus:outline-none focus:ring-0 truncate block"
                           >
-                            {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
+                            {[invoice.contract?.shipperName || invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
                               .filter(Boolean)
                               .join(' / ') || '-'}
                           </button>
                         ) : (
                           <span>
-                            {[invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
+                            {[invoice.contract?.shipperName || invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
                               .filter(Boolean)
                               .join(' / ') || '-'}
                           </span>
@@ -298,13 +301,16 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                         {formatDateOnly(invoice.date)}
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-center">
-                        <StatusBadge 
-                          status={invoice.task?.status} 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowTaskModalId(invoice.taskId);
-                          }}
-                        />
+                        <div className="flex flex-col items-center justify-center gap-1.5">
+                          <StatusBadge 
+                            status={invoice.task?.status} 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowTaskModalId(invoice.taskId);
+                            }}
+                            progress={invoice.task?.stages && invoice.task.stages.length > 0 ? Math.round((invoice.task.stages.filter((s: any) => s.status === 'TAYYOR').length / invoice.task.stages.length) * 100) : undefined}
+                          />
+                        </div>
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-center">
                         <div className="flex items-center justify-center gap-1">

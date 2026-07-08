@@ -174,8 +174,9 @@ export class DocumentVerificationService {
   constructor(private prisma: PrismaClient) {}
 
   async verifyDocumentAgainstInvoice(taskDocumentId: number): Promise<void> {
-    // Vaqtinchalik AI document checker o'chirib qo'yildi
-    return;
+    // AI hujjat-tekshiruvchi env orqali boshqariladi: DOC_VERIFY_ENABLED=true
+    // bo'lmaguncha ishlamaydi (hozircha vaqtincha o'chirilgan).
+    if (process.env.DOC_VERIFY_ENABLED !== 'true') return;
 
     let taskIdForCatch: number | null = null;
     let docNameForCatch: string | null = null;

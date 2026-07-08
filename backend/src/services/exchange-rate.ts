@@ -4,6 +4,18 @@ import { Decimal } from '@prisma/client/runtime/library';
 const prisma = new PrismaClient();
 
 /**
+ * Sanani LOKAL vaqt bo'yicha YYYY-MM-DD ko'rinishida formatlaydi.
+ * toISOString() ishlatib bo'lmaydi: lokal yarim tun (00:00 +05) UTC'da
+ * oldingi kunning 19:00 iga to'g'ri keladi va sana bir kun adashadi.
+ */
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
  * Get exchange rate for a specific date
  * ExchangeRate table always stores USD to UZS rates
  * Falls back to most recent rate if exact date not found
@@ -201,8 +213,9 @@ export async function fetchRateFromCBU(date?: Date): Promise<Decimal | null> {
     let url: string;
     
     if (date) {
-      // Format date as YYYY-MM-DD for CBU API
-      const dateStr = date.toISOString().split('T')[0];
+      // Format date as YYYY-MM-DD for CBU API.
+      // toISOString emas — lokal yarim tun UTC'da oldingi kunga tushadi.
+      const dateStr = formatLocalDate(date);
       url = `https://cbu.uz/uz/arkhiv-kursov-valyut/json/USD/${dateStr}/`;
       console.log(`[CBU API] Fetching rate for date: ${dateStr} from ${url}`);
     } else {
@@ -327,10 +340,14 @@ export async function fetchUsdToRubRate(): Promise<Decimal | null> {
  * @param date Optional date to fetch rate for. If not provided, uses today's date
  */
 export async function fetchAndSaveDailyRate(date?: Date): Promise<Decimal> {
-  const targetDate = date || new Date();
-  targetDate.setUTCHours(0, 0, 0, 0);
+  // MUHIM: bazada kurs sanasi LOKAL yarim tun sifatida saqlanadi
+  // (upsertExchangeRate ham setHours ishlatadi). Bu yerda setUTCHours
+  // ishlatilsa sana bir kun orqaga siljib, kechagi immutable yozuvga
+  // urilib "Cannot update exchange rate for past date" beradi.
+  const targetDate = date ? new Date(date) : new Date();
+  targetDate.setHours(0, 0, 0, 0);
 
-  console.log(`[CBU API] Fetching daily rate for date: ${targetDate.toISOString().split('T')[0]}`);
+  console.log(`[CBU API] Fetching daily rate for date: ${formatLocalDate(targetDate)}`);
 
   // First, try to fetch latest rate (without date) - this always returns today's rate
   console.log('[CBU API] Trying to fetch latest rate from CBU API...');
@@ -338,7 +355,7 @@ export async function fetchAndSaveDailyRate(date?: Date): Promise<Decimal> {
   
   // If latest rate fetch failed or we need a specific date, try with date
   if (!cbuRate && date) {
-    console.log(`[CBU API] Latest rate fetch failed, trying with specific date: ${targetDate.toISOString().split('T')[0]}`);
+    console.log(`[CBU API] Latest rate fetch failed, trying with specific date: ${formatLocalDate(targetDate)}`);
     cbuRate = await fetchRateFromCBU(targetDate);
   }
   
@@ -346,7 +363,7 @@ export async function fetchAndSaveDailyRate(date?: Date): Promise<Decimal> {
     // Successfully fetched from CBU, save it
     try {
       await upsertExchangeRate(targetDate, cbuRate, 'CBU');
-      console.log(`[CBU API] Successfully fetched and saved rate from CBU: ${cbuRate.toString()} for date ${targetDate.toISOString().split('T')[0]}`);
+      console.log(`[CBU API] Successfully fetched and saved rate from CBU: ${cbuRate.toString()} for date ${formatLocalDate(targetDate)}`);
       return cbuRate;
     } catch (error) {
       console.error('[CBU API] Error saving CBU rate:', error);

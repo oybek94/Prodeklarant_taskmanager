@@ -74,8 +74,18 @@ const getOpenLoansByCard = async () => {
 };
 
 export const initFinanceBot = () => {
+  // Bot faqat serverda ishlashi kerak: bitta tokenni bir nechta instansiya
+  // polling qilsa Telegram 409 Conflict beradi. Shu sababli lokal/dev muhitda
+  // FINANCE_BOT_ENABLED o'rnatilmaydi va bot ishga tushmaydi.
+  if (process.env.FINANCE_BOT_ENABLED !== 'true') {
+    console.warn('[FinanceBot] FINANCE_BOT_ENABLED=true emas — moliya boti bu instansiyada ishga tushirilmadi (faqat serverda yoqiladi).');
+    return;
+  }
   const token = process.env.FINANCE_BOT_TOKEN;
-  if (!token) return;
+  if (!token) {
+    console.warn('[FinanceBot] FINANCE_BOT_TOKEN aniqlanmagan — moliya boti ishga tushmadi, yakunlangan ish xabarlari yuborilmaydi.');
+    return;
+  }
 
   bot = new TelegramBot(token, { polling: true });
 
@@ -376,17 +386,17 @@ export const initFinanceBot = () => {
         }
 
         const newCards = await getVirtualCardsBalance();
-        let balanceText = `\n\n💼 **Seyflardagi joriy qoldiq (To'liq taqsimlandi):**\n`;
+        let balanceText = `\n\n💼 <b>Seyflardagi joriy qoldiq (To'liq taqsimlandi):</b>\n`;
         newCards.forEach(c => {
           balanceText += `🔹 ${c.name}: ${formatMoney(c.total)} so'm\n`;
         });
 
-        const newText = `${originalText}\n\n✅ **Holat:** To'liq taqsimlandi!${balanceText}`;
-        
+        const newText = `${escapeHtml(originalText)}\n\n✅ <b>Holat:</b> To'liq taqsimlandi!${balanceText}`;
+
         await bot!.editMessageText(newText, {
           chat_id: chatId,
           message_id: query.message.message_id,
-          parse_mode: 'Markdown'
+          parse_mode: 'HTML'
         });
         await bot!.answerCallbackQuery(query.id, { text: 'Tasdiqlandi!' });
       } catch (error) {
@@ -429,17 +439,17 @@ export const initFinanceBot = () => {
           }
 
           const newCards = await getVirtualCardsBalance();
-          let balanceText = `\n\n💼 **Seyflardagi joriy qoldiq (Qisman taqsimlandi):**\n`;
+          let balanceText = `\n\n💼 <b>Seyflardagi joriy qoldiq (Qisman taqsimlandi):</b>\n`;
           newCards.forEach(c => {
             balanceText += `🔹 ${c.name}: ${formatMoney(c.total)} so'm\n`;
           });
 
-          const newText = `${state.originalText}\n\n✅ **Holat:** Qisman taqsimlandi!${balanceText}`;
-          
+          const newText = `${escapeHtml(state.originalText)}\n\n✅ <b>Holat:</b> Qisman taqsimlandi!${balanceText}`;
+
           await bot!.editMessageText(newText, {
             chat_id: chatId,
             message_id: state.originalMsgId,
-            parse_mode: 'Markdown'
+            parse_mode: 'HTML'
           });
 
           await bot!.editMessageText('✅ Qisman taqsimot saqlandi.', {
@@ -760,11 +770,20 @@ export const initFinanceBot = () => {
   console.log('Finance Telegram Bot started.');
 };
 
+const escapeHtml = (text: string) =>
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
 export const notifyTaskCompleted = async (taskId: number) => {
-  if (!bot) return;
+  if (!bot) {
+    console.warn(`[FinanceBot] Ish #${taskId} yakunlandi, lekin bot bu instansiyada ishga tushirilmagan — xabar yuborilmadi.`);
+    return;
+  }
 
   const chatId = process.env.FINANCE_GROUP_CHAT_ID;
-  if (!chatId) return;
+  if (!chatId) {
+    console.warn(`[FinanceBot] FINANCE_GROUP_CHAT_ID aniqlanmagan — ish #${taskId} xabari yuborilmadi.`);
+    return;
+  }
 
   try {
     const task = await prisma.task.findUnique({
@@ -776,10 +795,12 @@ export const notifyTaskCompleted = async (taskId: number) => {
 
     if (!task) return;
 
-    const message = `✅ *Yangi yakunlangan ish!*\n\n*Mijoz:* ${task.client.name}\n*Vazifa:* ${task.title}\n*Summa:* 1 120 000 sum\n\n*Taqsimot:*\n- Operatsion xarajatlar: 400 000 so'm\n- Jamg'arma: 450 000 so'm\n- Korxona xarajatlari: 170 000 so'm\n- Maosh: 100 000 so'm`;
+    // Mijoz nomi/vazifa sarlavhasida *, _, [ kabi belgilar bo'lsa Markdown
+    // parse xatosi (400) beradi — shu sababli HTML + escape ishlatiladi.
+    const message = `✅ <b>Yangi yakunlangan ish!</b>\n\n<b>Mijoz:</b> ${escapeHtml(task.client.name)}\n<b>Vazifa:</b> ${escapeHtml(task.title)}\n<b>Summa:</b> 1 120 000 sum\n\n<b>Taqsimot:</b>\n- Operatsion xarajatlar: 400 000 so'm\n- Jamg'arma: 450 000 so'm\n- Korxona xarajatlari: 170 000 so'm\n- Maosh: 100 000 so'm`;
 
     await bot.sendMessage(chatId, message, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
           [
@@ -789,7 +810,8 @@ export const notifyTaskCompleted = async (taskId: number) => {
         ]
       }
     });
+    console.log(`[FinanceBot] Ish #${taskId} yakunlanish xabari guruhga yuborildi.`);
   } catch (error) {
-    console.error('Error sending task notification:', error);
+    console.error(`[FinanceBot] Ish #${taskId} xabarini yuborishda xato:`, error);
   }
 };

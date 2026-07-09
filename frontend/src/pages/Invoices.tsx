@@ -265,6 +265,8 @@ const Invoices = () => {
         showFiltersPanel={showFiltersPanel}
         setShowFiltersPanel={setShowFiltersPanel}
         isMobile={isMobile}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
         onOpenCreateModal={() => {
           setDuplicateInvoiceId(null);
           setShowCreateModal(true);
@@ -277,8 +279,6 @@ const Invoices = () => {
           filtersPanelRef={filtersPanelRef}
           showFiltersPanel={showFiltersPanel}
           setShowFiltersPanel={setShowFiltersPanel}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
           filters={filters}
           setFilters={setFilters}
           setCurrentPage={setCurrentPage}

@@ -25,6 +25,14 @@ interface AdditionalInfoModalProps {
   onShowAddField: () => void;
 }
 
+/* Umumiy input uslubi — indigo accent, bitta radius shkalasi (rounded-lg) */
+const inputCls =
+  'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all';
+
+/* Ixcham input — Поля документа qatorlari uchun */
+const inputCompactCls =
+  'w-full px-2.5 py-1 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all';
+
 /**
  * Дополнительная информация modali.
  * Условия поставки, Transport raqam, FSS, og'irlik, custom maydonlar va boshqalar.
@@ -56,9 +64,9 @@ export function AdditionalInfoModal({
     const activeOrder = order.length > 0 ? order : [...baseFields];
     const customKeys = customFields.map(f => `custom_${f.id}`);
     const allActiveKeys = new Set([...baseFields, ...customKeys]);
-    
+
     let merged = activeOrder.filter(key => allActiveKeys.has(key));
-    
+
     customKeys.forEach(key => {
       if (!merged.includes(key)) {
         const tempIdx = merged.indexOf('temperature');
@@ -69,13 +77,13 @@ export function AdditionalInfoModal({
         }
       }
     });
-    
+
     baseFields.forEach(key => {
       if (!merged.includes(key)) {
         merged.push(key);
       }
     });
-    
+
     return merged;
   }, [additionalFieldsOrder, customFields]);
 
@@ -86,7 +94,7 @@ export function AdditionalInfoModal({
     vehicleW: string
   ): string => {
     let text = currentNotes || '';
-    
+
     // Pattern to catch any previously added auto-notes
     const palletRegex = /Товары уложены на деревянных паллетах которые не являются товаром весом .*? кг\./g;
     const vehicleRegex = /Вес пустого автотранспорта без нагрузки составляет .*? кг\./g;
@@ -195,19 +203,18 @@ export function AdditionalInfoModal({
         );
       case 'harvestYear':
         return (
-          <FieldRow
+          <FieldBlock
+            inline
             label="Урожай:"
             actions={
               <>
-                <button type="button" onClick={() => toggleAdditionalInfoVisible('harvestYear')} className={`${isAdditionalInfoVisible('harvestYear') ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'} p-0.5 rounded hover:bg-gray-100`} title={isAdditionalInfoVisible('harvestYear') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                  <Icon icon={isAdditionalInfoVisible('harvestYear') ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
-                </button>
-                <button type="button" onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })} className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 text-sm font-bold" title="O'chirish">✕</button>
+                <EyeToggle visible={isAdditionalInfoVisible('harvestYear')} onToggle={() => toggleAdditionalInfoVisible('harvestYear')} />
+                <ClearBtn onClick={() => setForm({ ...form, harvestYear: new Date().getFullYear().toString() })} />
               </>
             }
           >
-            <input type="text" value={form.harvestYear} onChange={(e) => setForm({ ...form, harvestYear: e.target.value })} className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
-          </FieldRow>
+            <input type="text" value={form.harvestYear} onChange={(e) => setForm({ ...form, harvestYear: e.target.value })} className={inputCompactCls} />
+          </FieldBlock>
         );
       default:
         if (key.startsWith('custom_')) {
@@ -215,14 +222,13 @@ export function AdditionalInfoModal({
           const field = customFields.find(f => f.id === fieldId);
           if (!field) return null;
           return (
-            <FieldRow
+            <FieldBlock
+              inline
               label={`${field.label}:`}
               actions={
                 <>
-                  <button type="button" onClick={() => toggleAdditionalInfoVisible(`custom_${field.id}`)} className={`${isAdditionalInfoVisible(`custom_${field.id}`) ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'} p-0.5 rounded hover:bg-gray-100`} title={isAdditionalInfoVisible(`custom_${field.id}`) ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                    <Icon icon={isAdditionalInfoVisible(`custom_${field.id}`) ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
-                  </button>
-                  <button type="button" onClick={() => setCustomFields(customFields.filter(f => f.id !== field.id))} className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 text-sm font-bold" title="O'chirish">✕</button>
+                  <EyeToggle visible={isAdditionalInfoVisible(`custom_${field.id}`)} onToggle={() => toggleAdditionalInfoVisible(`custom_${field.id}`)} />
+                  <ClearBtn onClick={() => setCustomFields(customFields.filter(f => f.id !== field.id))} />
                 </>
               }
             >
@@ -230,9 +236,9 @@ export function AdditionalInfoModal({
                 type="text"
                 value={field.value}
                 onChange={(e) => setCustomFields(customFields.map(f => f.id === field.id ? { ...f, value: e.target.value } : f))}
-                className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className={inputCompactCls}
               />
-            </FieldRow>
+            </FieldBlock>
           );
         }
         return null;
@@ -240,30 +246,34 @@ export function AdditionalInfoModal({
   };
 
   return (
-    <motion.div className="invoice-additional-info-modal fixed inset-0 bg-black/50 flex items-center justify-center z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
-      <motion.div className={`bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto${!canEditEffective ? ' invoice-additional-info-modal-readonly' : ''}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Дополнительная информация</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
-            ×
+    <motion.div className="invoice-additional-info-modal fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+      <motion.div className={`bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden${!canEditEffective ? ' invoice-additional-info-modal-readonly' : ''}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}>
+        {/* Sticky sarlavha */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
+              <Icon icon="solar:clipboard-list-bold-duotone" className="w-5 h-5" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-800">Дополнительная информация</h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors shrink-0" title="Yopish">
+            <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="space-y-4">
-          {/* Условия поставки */}
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <label className="block text-sm font-medium text-gray-700">
-                Условия поставки:<span className="text-red-500 ml-1">*</span>
-              </label>
-              <button type="button" onClick={() => toggleAdditionalInfoVisible('deliveryTerms')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('deliveryTerms') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                <Icon icon={isAdditionalInfoVisible('deliveryTerms') ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="space-y-2">
+        {/* Scroll qismi */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {/* ===== Поставка ===== */}
+          <SectionCard icon="solar:delivery-bold-duotone" title="Поставка">
+            {/* Условия поставки */}
+            <FieldBlock
+              label="Условия поставки:"
+              required
+              actions={<EyeToggle visible={isAdditionalInfoVisible('deliveryTerms')} onToggle={() => toggleAdditionalInfoVisible('deliveryTerms')} />}
+            >
               {contractDeliveryTerms.length > 0 ? (
-                <>
-                  <div className="flex flex-wrap gap-2.5 mt-2 mb-3">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
                     {contractDeliveryTerms.map((term) => (
                       <button
                         key={term}
@@ -287,9 +297,9 @@ export function AdditionalInfoModal({
                             setAdditionalInfoError(null);
                           }
                         }}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium border-2 transition-all duration-200 ${
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 ${
                           form.deliveryTerms === term
-                            ? 'bg-blue-50/80 border-blue-500 text-blue-700 shadow-sm shadow-blue-500/10'
+                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm'
                             : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                         }`}
                       >
@@ -299,9 +309,9 @@ export function AdditionalInfoModal({
                     <button
                       type="button"
                       onClick={() => setForm({ ...form, deliveryTerms: '' })}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium border-2 border-dashed transition-all duration-200 flex items-center gap-1.5 ${
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border border-dashed transition-all duration-200 flex items-center gap-1.5 ${
                         !form.deliveryTerms || !contractDeliveryTerms.includes(form.deliveryTerms)
-                          ? 'bg-blue-50/80 border-blue-500 text-blue-700 shadow-sm shadow-blue-500/10'
+                          ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm'
                           : 'bg-gray-50 border-gray-300 text-gray-500 hover:border-gray-400 hover:bg-gray-100'
                       }`}
                     >
@@ -322,7 +332,7 @@ export function AdditionalInfoModal({
                           }
                         }}
                         placeholder="Условия поставки ni qo'lda kiriting"
-                        className="flex-1 px-2.5 py-1 border border-gray-300 rounded-md text-sm"
+                        className={inputCls + ' flex-1'}
                       />
                       {canEditEffective && (
                         <button
@@ -333,14 +343,14 @@ export function AdditionalInfoModal({
                             addDeliveryTermOption(trimmed);
                             setForm({ ...form, deliveryTerms: trimmed });
                           }}
-                          className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 whitespace-nowrap"
+                          className="px-3 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 whitespace-nowrap transition-colors"
                         >
                           Shartnomaga qo&apos;shish
                         </button>
                       )}
                     </div>
                   )}
-                </>
+                </div>
               ) : (
                 <input
                   type="text"
@@ -365,240 +375,226 @@ export function AdditionalInfoModal({
                     }
                   }}
                   required
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm"
+                  className={inputCls}
                   placeholder="Условия поставки ni qo'lda kiriting (shartnomada kiritilmagan)"
                 />
               )}
-            </div>
-          </div>
+            </FieldBlock>
 
-          <>
-              {/* Место там. очистки */}
-              {selectedContract && (() => {
-                const customsStr = selectedContract.customsAddress || '';
-                const options = [...new Set(customsStr.split('\n').map((s: string) => s.trim()).filter(Boolean))];
-                return (
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <label className="block text-sm font-medium text-gray-700">Место там. очистки:</label>
-                      <button type="button" onClick={() => toggleAdditionalInfoVisible('customsAddress')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('customsAddress') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                        <Icon icon={isAdditionalInfoVisible('customsAddress') ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
+            {/* Место там. очистки */}
+            {selectedContract && (() => {
+              const customsStr = selectedContract.customsAddress || '';
+              const options = [...new Set(customsStr.split('\n').map((s: string) => s.trim()).filter(Boolean))];
+              return (
+                <FieldBlock
+                  label="Место там. очистки:"
+                  actions={<EyeToggle visible={isAdditionalInfoVisible('customsAddress')} onToggle={() => toggleAdditionalInfoVisible('customsAddress')} />}
+                >
+                  {options.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-2.5">
+                      {options.map((opt, idx) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => setForm({ ...form, customsAddress: opt })}
+                          className={`relative flex flex-col items-start p-3 rounded-xl border transition-all duration-200 text-left group ${
+                            form.customsAddress === opt
+                              ? 'bg-indigo-50/60 border-indigo-500 shadow-sm'
+                              : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm'
+                          }`}
+                          title={opt}
+                        >
+                          <div className="flex items-center justify-between w-full mb-1">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${form.customsAddress === opt ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'}`}>
+                              Manzil {idx + 1}
+                            </span>
+                            {form.customsAddress === opt && (
+                              <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-indigo-500" />
+                            )}
+                          </div>
+                          <span className={`text-xs leading-relaxed line-clamp-3 ${form.customsAddress === opt ? 'text-indigo-900 font-medium' : 'text-gray-600'}`}>
+                            {opt}
+                          </span>
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (options.includes(form.customsAddress || '')) {
+                            setForm({ ...form, customsAddress: '' });
+                          }
+                        }}
+                        className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200 min-h-[72px] ${
+                          !options.includes(form.customsAddress || '')
+                            ? 'bg-indigo-50/60 border-indigo-500 shadow-sm text-indigo-700'
+                            : 'bg-gray-50 border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:bg-gray-100'
+                        }`}
+                      >
+                        <Icon icon="solar:pen-new-square-bold-duotone" className={`w-6 h-6 mb-1 ${!options.includes(form.customsAddress || '') ? 'text-indigo-500' : 'opacity-50'}`} />
+                        <span className="text-xs font-medium">Boshqa kiritish</span>
                       </button>
                     </div>
-                    {options.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 mb-3">
-                        {options.map((opt, idx) => (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => setForm({ ...form, customsAddress: opt })}
-                            className={`relative flex flex-col items-start p-3.5 rounded-xl border-2 transition-all duration-200 text-left group ${
-                              form.customsAddress === opt
-                                ? 'bg-blue-50/50 border-blue-500 shadow-sm'
-                                : 'bg-white border-gray-100 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm'
-                            }`}
-                            title={opt}
-                          >
-                            <div className="flex items-center justify-between w-full mb-1.5">
-                              <span className={`text-[10px] font-bold uppercase tracking-wider ${form.customsAddress === opt ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'}`}>
-                                Manzil {idx + 1}
-                              </span>
-                              {form.customsAddress === opt && (
-                                <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-blue-500" />
-                              )}
-                            </div>
-                            <span className={`text-xs leading-relaxed line-clamp-3 ${form.customsAddress === opt ? 'text-blue-900 font-medium' : 'text-gray-600'}`}>
-                              {opt}
-                            </span>
-                          </button>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (options.includes(form.customsAddress || '')) {
-                              setForm({ ...form, customsAddress: '' });
-                            }
-                          }}
-                          className={`relative flex flex-col items-center justify-center p-3.5 rounded-xl border-2 transition-all duration-200 min-h-[80px] ${
-                            !options.includes(form.customsAddress || '')
-                              ? 'bg-blue-50/50 border-blue-500 shadow-sm text-blue-700'
-                              : 'bg-gray-50 border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:bg-gray-100'
-                          }`}
-                        >
-                          <Icon icon="solar:pen-new-square-bold-duotone" className={`w-6 h-6 mb-1.5 ${!options.includes(form.customsAddress || '') ? 'text-blue-500' : 'opacity-50'}`} />
-                          <span className="text-xs font-medium">Boshqa kiritish</span>
-                        </button>
+                  )}
+                  {(!options.includes(form.customsAddress || '') || options.length === 0) && (
+                    <input type="text" value={form.customsAddress ?? ''} onChange={(e) => setForm({ ...form, customsAddress: e.target.value })} placeholder="Место там. очистки (qo'lda kiriting)" className={inputCls} />
+                  )}
+                </FieldBlock>
+              );
+            })()}
+          </SectionCard>
+
+          {/* ===== Транспорт ===== */}
+          <SectionCard icon="solar:bus-bold-duotone" title="Транспорт">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <FieldBlock
+                compact
+                label="Номер автотранспорта:"
+                required
+                actions={<EyeToggle visible={isAdditionalInfoVisible('vehicleNumber')} onToggle={() => toggleAdditionalInfoVisible('vehicleNumber')} />}
+              >
+                <input
+                  type="text"
+                  value={form.vehicleNumber}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm({ ...form, vehicleNumber: value });
+                    if (additionalInfoError && form.deliveryTerms.trim() && value.trim()) {
+                      setAdditionalInfoError(null);
+                    }
+                  }}
+                  required
+                  className={inputCompactCls}
+                />
+              </FieldBlock>
+              <FieldBlock compact label="Примечание:">
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.vehicleWeight ?? ''}
+                  onChange={(e) => {
+                    const vWeight = e.target.value;
+                    setForm({
+                      ...form,
+                      vehicleWeight: vWeight,
+                      notes: updateNotesWithWeights(form.notes, form.palletWeight, vWeight)
+                    });
+                  }}
+                  className={inputCompactCls}
+                  placeholder="Masalan: 16400"
+                />
+              </FieldBlock>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5">
+              <FieldBlock compact label="Yuk tortuvchi">
+                <input type="number" min={0} step="any" value={form.loaderWeight} onChange={(e) => setForm({ ...form, loaderWeight: e.target.value })} className={inputCompactCls + ' text-right'} placeholder="кг" />
+              </FieldBlock>
+              <FieldBlock compact label="Pritsep">
+                <input type="number" min={0} step="any" value={form.trailerWeight} onChange={(e) => setForm({ ...form, trailerWeight: e.target.value })} className={inputCompactCls + ' text-right'} placeholder="кг" />
+              </FieldBlock>
+              <FieldBlock compact label="Poddon">
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.palletWeight}
+                  onChange={(e) => {
+                    const pWeight = e.target.value;
+                    setForm({
+                      ...form,
+                      palletWeight: pWeight,
+                      notes: updateNotesWithWeights(form.notes, pWeight, form.vehicleWeight ?? '')
+                    });
+                  }}
+                  className={inputCompactCls + ' text-right'}
+                  placeholder="кг"
+                />
+              </FieldBlock>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <FieldBlock compact label="TIR №:">
+                <input type="text" value={form.tirNumber} onChange={(e) => setForm({ ...form, tirNumber: e.target.value })} className={inputCompactCls} />
+              </FieldBlock>
+              <FieldBlock compact label="SMR №:">
+                <input type="text" value={form.smrNumber} onChange={(e) => setForm({ ...form, smrNumber: e.target.value })} className={inputCompactCls} />
+              </FieldBlock>
+            </div>
+          </SectionCard>
+
+          {/* ===== Поля документа ===== */}
+          <SectionCard icon="solar:documents-bold-duotone" title="Поля документа" subtitle="порядок можно изменить перетаскиванием">
+            <div className="space-y-1.5">
+              {fieldOrder.map((key, idx) => {
+                const isDragging = draggedFieldIdx === idx;
+                const isDragOver = dragOverFieldIdx === idx;
+                return (
+                  <div
+                    key={key}
+                    draggable={canEditEffective}
+                    onDragStart={(e) => {
+                      setDraggedFieldIdx(idx);
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverFieldIdx(idx);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedFieldIdx(null);
+                      setDragOverFieldIdx(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedFieldIdx !== null && draggedFieldIdx !== idx) {
+                        const next = [...fieldOrder];
+                        const [moved] = next.splice(draggedFieldIdx, 1);
+                        next.splice(idx, 0, moved);
+                        setAdditionalFieldsOrder(next);
+                      }
+                      setDraggedFieldIdx(null);
+                      setDragOverFieldIdx(null);
+                    }}
+                    className={`flex items-center gap-1.5 py-1 px-2 rounded-lg border ${
+                      isDragging ? 'opacity-40' : ''
+                    } ${
+                      isDragOver ? 'border-indigo-400 bg-indigo-50/40' : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    {canEditEffective && (
+                      <div
+                        className="cursor-grab active:cursor-grabbing p-0.5 text-gray-300 hover:text-indigo-500 shrink-0"
+                        title="Sudrab joyini o'zgartirish"
+                      >
+                        <Icon icon="solar:menu-dots-bold-duotone" className="w-4 h-4" />
                       </div>
                     )}
-                    {(!options.includes(form.customsAddress || '') || options.length === 0) && (
-                      <input type="text" value={form.customsAddress ?? ''} onChange={(e) => setForm({ ...form, customsAddress: e.target.value })} placeholder="Место там. очистки (qo'lda kiriting)" className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm" />
-                    )}
+                    <div className="flex-1 min-w-0">
+                      {renderFieldByKey(key)}
+                    </div>
                   </div>
                 );
-              })()}
+              })}
+            </div>
+          </SectionCard>
 
-              {/* Номер автотранспорта + Og'irliklar */}
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-                <div className="md:col-span-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Номер автотранспорта:<span className="text-red-500 ml-1">*</span>
-                    </label>
-                    <button type="button" onClick={() => toggleAdditionalInfoVisible('vehicleNumber')} className="text-gray-500 hover:text-gray-700 p-0.5" title={isAdditionalInfoVisible('vehicleNumber') ? "Invoysda yashirish" : "Invoysda ko'rsatish"}>
-                      <Icon icon={isAdditionalInfoVisible('vehicleNumber') ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={form.vehicleNumber}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setForm({ ...form, vehicleNumber: value });
-                      if (additionalInfoError && form.deliveryTerms.trim() && value.trim()) {
-                        setAdditionalInfoError(null);
-                      }
-                    }}
-                    required
-                    className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm"
-                  />
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Примечание:
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      step="any"
-                      value={form.vehicleWeight ?? ''}
-                      onChange={(e) => {
-                        const vWeight = e.target.value;
-                        setForm({
-                          ...form,
-                          vehicleWeight: vWeight,
-                          notes: updateNotesWithWeights(form.notes, form.palletWeight, vWeight)
-                        });
-                      }}
-                      className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm"
-                      placeholder="Masalan: 16400"
-                    />
-                  </div>
-                </div>
-                <div className="md:col-span-1 w-[110px]">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Yuk tortuvchi</label>
-                  <input type="number" min={0} step="any" value={form.loaderWeight} onChange={(e) => setForm({ ...form, loaderWeight: e.target.value })} className="w-full h-[30px] px-2.5 py-1 border border-gray-300 rounded-md text-sm text-right" placeholder="кг" />
-                </div>
-                <div className="md:col-span-1 w-[110px]">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Pritsep</label>
-                  <input type="number" min={0} step="any" value={form.trailerWeight} onChange={(e) => setForm({ ...form, trailerWeight: e.target.value })} className="w-full h-[30px] px-2.5 py-1 border border-gray-300 rounded-md text-sm text-right" placeholder="кг" />
-                </div>
-                <div className="md:col-span-1 w-[110px]">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Poddon</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={form.palletWeight}
-                    onChange={(e) => {
-                      const pWeight = e.target.value;
-                      setForm({
-                        ...form,
-                        palletWeight: pWeight,
-                        notes: updateNotesWithWeights(form.notes, pWeight, form.vehicleWeight ?? '')
-                      });
-                    }}
-                    className="w-full h-[30px] px-2.5 py-1 border border-gray-300 rounded-md text-sm text-right"
-                    placeholder="кг"
-                  />
-                </div>
-              </div>
-
-              {/* TIR / SMR */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">TIR №:</label>
-                  <input type="text" value={form.tirNumber} onChange={(e) => setForm({ ...form, tirNumber: e.target.value })} className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SMR №:</label>
-                  <input type="text" value={form.smrNumber} onChange={(e) => setForm({ ...form, smrNumber: e.target.value })} className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm" />
-                </div>
-              </div>
-
-              {/* Dinamik tartiblangan qo'shimcha maydonlar (Место отгрузки dan boshlab) */}
-              <div className="space-y-1.5 pt-2 mt-2 border-t border-gray-100">
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                  Поля документа (порядок можно изменить перетаскиванием)
-                </div>
-                {fieldOrder.map((key, idx) => {
-                  const isDragging = draggedFieldIdx === idx;
-                  const isDragOver = dragOverFieldIdx === idx;
-                  return (
-                    <div
-                      key={key}
-                      draggable={canEditEffective}
-                      onDragStart={(e) => {
-                        setDraggedFieldIdx(idx);
-                        e.dataTransfer.effectAllowed = 'move';
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setDragOverFieldIdx(idx);
-                      }}
-                      onDragEnd={() => {
-                        setDraggedFieldIdx(null);
-                        setDragOverFieldIdx(null);
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        if (draggedFieldIdx !== null && draggedFieldIdx !== idx) {
-                          const next = [...fieldOrder];
-                          const [moved] = next.splice(draggedFieldIdx, 1);
-                          next.splice(idx, 0, moved);
-                          setAdditionalFieldsOrder(next);
-                        }
-                        setDraggedFieldIdx(null);
-                        setDragOverFieldIdx(null);
-                      }}
-                      className={`flex items-center gap-2 p-1 px-2 border rounded-md transition-all ${
-                        isDragging ? 'opacity-40' : ''
-                      } ${
-                        isDragOver ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 bg-white hover:border-gray-300'
-                      }`}
-                    >
-                      {canEditEffective && (
-                        <div
-                          className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 shrink-0"
-                          title="Sudrab joyini o'zgartirish"
-                        >
-                          <Icon icon="solar:menu-dots-bold-duotone" className="w-4 h-4" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        {renderFieldByKey(key)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Yangi maydon tugmasi */}
-              {canEditEffective && (
-                <div className="pt-2 border-t">
-                  <button type="button" onClick={onShowAddField} className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2">
-                    <span>+</span>
-                    <span>Yangi maydon qo&apos;shish</span>
-                  </button>
-                </div>
-              )}
-          </>
+          {/* Yangi maydon tugmasi */}
+          {canEditEffective && (
+            <button type="button" onClick={onShowAddField} className="w-full px-4 py-2.5 border-2 border-dashed border-gray-300 text-gray-600 rounded-xl hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/40 transition-all text-sm font-medium flex items-center justify-center gap-2">
+              <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
+              <span>Yangi maydon qo&apos;shish</span>
+            </button>
+          )}
         </div>
 
-        <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-          <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors">
+        {/* Sticky footer */}
+        <div className="flex justify-end gap-3 px-5 py-4 border-t border-gray-100 shrink-0 bg-white">
+          <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors">
             Yopish
           </button>
           {canEditEffective && (
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button type="button" onClick={onClose} className="px-5 py-2 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-500/25 active:scale-[0.98]">
               Saqlash
             </button>
           )}
@@ -608,34 +604,104 @@ export function AdditionalInfoModal({
   );
 }
 
-/* Yordamchi inline layout komponenti */
-function FieldRow({
+/* Bo'lim kartasi — ikonka + sarlavha bilan guruhlash */
+function SectionCard({ icon, title, subtitle, children }: { icon: string; title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-gray-200 bg-gray-50/40 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-indigo-500 shrink-0">
+          <Icon icon={icon} className="w-4 h-4" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-gray-700 leading-tight">{title}</h3>
+          {subtitle && <p className="text-[11px] text-gray-400 leading-tight">{subtitle}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/* Maydon bloki — label tepada (default) yoki inline (label chapda, ixcham) */
+function FieldBlock({
   label,
-  children,
+  required,
   actions,
+  children,
+  inline,
+  compact,
 }: {
   label: string;
-  children: React.ReactNode;
+  required?: boolean;
   actions?: React.ReactNode;
+  children: React.ReactNode;
+  inline?: boolean;
+  compact?: boolean;
 }) {
+  if (inline) {
+    return (
+      <div className="flex items-center gap-2.5">
+        <label className="w-44 shrink-0 text-xs font-medium text-gray-600 leading-tight" title={label}>
+          {label}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
+        </label>
+        <div className="flex-1 min-w-0">{children}</div>
+        {actions && (
+          <div className="flex items-center gap-1 shrink-0">
+            {actions}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-3 w-full">
-      <div className="w-56 shrink-0 text-sm font-medium text-gray-700 truncate" title={label}>
-        {label}
+    <div>
+      <div className={`flex items-start justify-between gap-2 ${compact ? 'mb-0.5' : 'mb-1'}`}>
+        <label className={`font-medium leading-snug min-w-0 ${compact ? 'text-xs text-gray-600' : 'text-sm text-gray-700'}`}>
+          {label}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
+        </label>
+        {actions && (
+          <div className="flex items-center gap-1 shrink-0">
+            {actions}
+          </div>
+        )}
       </div>
-      <div className="flex-1 min-w-0">
-        {children}
-      </div>
-      {actions && (
-        <div className="flex items-center gap-1 shrink-0">
-          {actions}
-        </div>
-      )}
+      {children}
     </div>
   );
 }
 
-/* Yordamchi ichki komponent — label + ko'z + ✕ + input */
+/* Invoysda ko'rsatish / yashirish tugmasi */
+function EyeToggle({ visible, onToggle }: { visible: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`${visible ? 'text-gray-400 hover:text-gray-600' : 'text-gray-300 hover:text-gray-500'} p-0.5 rounded hover:bg-gray-100 transition-colors`}
+      title={visible ? 'Invoysda yashirish' : "Invoysda ko'rsatish"}
+    >
+      <Icon icon={visible ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
+    </button>
+  );
+}
+
+/* O'chirish / tozalash tugmasi */
+function ClearBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-red-400 hover:text-red-600 p-0.5 rounded hover:bg-red-50 transition-colors"
+      title="O'chirish"
+    >
+      <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />
+    </button>
+  );
+}
+
+/* Yordamchi ichki komponent — label tepada + ko'z + o'chirish + input */
 function FieldWithVisibility({
   label,
   fieldKey,
@@ -656,26 +722,13 @@ function FieldWithVisibility({
   placeholder?: string;
 }) {
   return (
-    <FieldRow
+    <FieldBlock
+      inline
       label={label}
       actions={
         <>
-          <button
-            type="button"
-            onClick={() => toggleVisible(fieldKey)}
-            className={`${isVisible(fieldKey) ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'} p-0.5 rounded hover:bg-gray-100`}
-            title={isVisible(fieldKey) ? 'Invoysda yashirish' : "Invoysda ko'rsatish"}
-          >
-            <Icon icon={isVisible(fieldKey) ? 'mdi:eye' : 'mdi:eye-off'} className="text-lg" />
-          </button>
-          <button
-            type="button"
-            onClick={onClear}
-            className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 text-sm font-bold"
-            title="O'chirish"
-          >
-            ✕
-          </button>
+          <EyeToggle visible={isVisible(fieldKey)} onToggle={() => toggleVisible(fieldKey)} />
+          <ClearBtn onClick={onClear} />
         </>
       }
     >
@@ -683,9 +736,9 @@ function FieldWithVisibility({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-2.5 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className={inputCompactCls}
         placeholder={placeholder}
       />
-    </FieldRow>
+    </FieldBlock>
   );
 }

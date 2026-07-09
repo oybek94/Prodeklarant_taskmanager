@@ -8,8 +8,6 @@ interface InvoicesFilterPanelProps {
   filtersPanelRef: React.RefObject<HTMLDivElement>;
   showFiltersPanel: boolean;
   setShowFiltersPanel: (val: boolean) => void;
-  searchQuery: string;
-  setSearchQuery: (val: string) => void;
   filters: InvoicesFilters;
   setFilters: (val: InvoicesFilters) => void;
   setCurrentPage: (val: number) => void;
@@ -22,8 +20,6 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
   filtersPanelRef,
   showFiltersPanel,
   setShowFiltersPanel,
-  searchQuery,
-  setSearchQuery,
   filters,
   setFilters,
   setCurrentPage,
@@ -53,8 +49,8 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
               <Icon icon="solar:filter-bold-duotone" className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Qidiruv va filtrlash</h3>
-              <p className="text-[10px] sm:text-xs text-gray-500 font-medium uppercase tracking-wider">Hamma maydonlar bo'yicha</p>
+              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Filtrlash</h3>
+              <p className="text-[10px] sm:text-xs text-gray-500 font-medium uppercase tracking-wider">Filial, mijoz, sana</p>
             </div>
           </div>
           <button
@@ -66,35 +62,6 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
           </button>
         </div>
         <div className="space-y-5">
-          <div>
-            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
-              <Icon icon="solar:magnifer-bold-duotone" className="w-3.5 h-3.5 text-indigo-500" />
-              Asosiy qidiruv
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Icon icon="solar:magnifer-bold-duotone" className="w-4 h-4 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Invoice №, mijoz, avtomobil raqami, shartnoma..."
-                className="w-full pl-10 pr-9 py-2.5 bg-gray-50/50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
-                autoFocus
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                </button>
-              )}
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
@@ -162,7 +129,6 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
               type="button"
               onClick={() => {
                 setFilters({ branchId: '', clientId: '', startDate: '', endDate: '' });
-                setSearchQuery('');
                 setCurrentPage(1);
               }}
               className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition-all text-sm"

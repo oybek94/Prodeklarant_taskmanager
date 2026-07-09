@@ -9,6 +9,8 @@ interface InvoicesHeaderProps {
   setShowFiltersPanel: (val: boolean) => void;
   isMobile: boolean;
   onOpenCreateModal: () => void;
+  searchQuery: string;
+  setSearchQuery: (val: string) => void;
 }
 
 export const InvoicesHeader: React.FC<InvoicesHeaderProps> = ({
@@ -17,30 +19,50 @@ export const InvoicesHeader: React.FC<InvoicesHeaderProps> = ({
   showFiltersPanel,
   setShowFiltersPanel,
   isMobile,
-  onOpenCreateModal
+  onOpenCreateModal,
+  searchQuery,
+  setSearchQuery
 }) => {
   const activeFiltersCount = Object.values(filters).filter(Boolean).length;
 
   return (
-    <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0 px-2">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white shadow-sm shrink-0">
-          <Icon icon="solar:document-text-bold-duotone" className="w-5 h-5" />
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-slate-200 tracking-tight flex items-center gap-3 flex-wrap">
-          Invoice'lar
-          <span className="hidden sm:inline-flex text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-800/80 px-3 py-1 rounded-lg border border-gray-200 dark:border-slate-700/60 shadow-sm items-center">
-            Barcha schyot-fakturalarni boshqarish
-          </span>
-        </h1>
+    <div className="mb-3 flex items-center gap-2 sm:gap-3 shrink-0 px-2">
+      {/* Brend ikonkasi */}
+      <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
+        <Icon icon="solar:document-text-bold-duotone" className="w-5 h-5" />
       </div>
-      <div className="flex items-center gap-2 relative">
-        {/* Qidiruv va filtrlash */}
+
+      {/* Markaziy qidiruv qutisi — har qanday maydon bo'yicha */}
+      <div className="relative flex-1 max-w-2xl mx-auto group">
+        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+          <Icon icon="solar:magnifer-bold-duotone" className="w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+        </div>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Izlash"
+          className="w-full h-11 pl-11 pr-10 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 placeholder:text-gray-400 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-sm focus:ring-4 focus:ring-indigo-500/15 focus:border-indigo-500 hover:border-gray-300 dark:hover:border-slate-600 transition-all outline-none text-sm"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="absolute inset-y-0 right-0 pr-3.5 flex items-center"
+            title="Tozalash"
+          >
+            <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" />
+          </button>
+        )}
+      </div>
+
+      {/* Filtr va yangi invoice */}
+      <div className="flex items-center gap-2 relative shrink-0">
         <button
           type="button"
           onClick={() => setShowFiltersPanel(!showFiltersPanel)}
-          className={`relative flex items-center gap-2 p-2 sm:p-2.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-all shadow-sm z-10 ${showFiltersPanel && !isMobile ? 'opacity-0 pointer-events-none' : ''}`}
-          title="Qidirish va filtrlash"
+          className={`relative flex items-center justify-center gap-2 h-11 w-11 sm:w-auto sm:px-4 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 rounded-2xl hover:bg-gray-50 dark:hover:bg-slate-700 hover:border-gray-300 dark:hover:border-slate-600 transition-all shadow-sm z-10 ${showFiltersPanel && !isMobile ? 'opacity-0 pointer-events-none' : ''}`}
+          title="Filtrlash"
         >
           <Icon icon="solar:filter-bold-duotone" className="w-5 h-5" />
           <span className="hidden sm:inline text-sm font-medium">Filtrlar</span>
@@ -54,7 +76,8 @@ export const InvoicesHeader: React.FC<InvoicesHeaderProps> = ({
         {canEdit && (
           <button
             onClick={onOpenCreateModal}
-            className="inline-flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-sm active:scale-[0.98]"
+            className="inline-flex items-center justify-center gap-2 h-11 w-11 sm:w-auto sm:px-5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/25 active:scale-[0.98]"
+            title="Yangi Invoice"
           >
             <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
             <span className="hidden sm:inline font-semibold text-sm">Yangi Invoice</span>

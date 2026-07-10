@@ -329,7 +329,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const [form, setForm] = useState({
     name: '',
     dealAmount: '',
-    dealAmountCurrency: 'USD' as 'USD' | 'UZS',
+    dealAmountCurrency: 'UZS' as 'USD' | 'UZS',
     phone: '',
     creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
     creditLimit: '',
@@ -1242,7 +1242,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       setForm({
         name: '',
         dealAmount: '',
-        dealAmountCurrency: 'USD',
+        dealAmountCurrency: 'UZS',
         dealAmountExchangeRate: '',
         phone: '',
         creditType: '',

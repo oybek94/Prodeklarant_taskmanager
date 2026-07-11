@@ -12,6 +12,16 @@ export type CmrDocPayload = {
   companySettings?: any;
 };
 
+/**
+ * SMR (CMR) shablonining 3-punktidagi ("Место разгрузки груза") standart
+ * Rossiya shaharlari ro'yxati. "Место назначения" (destination) to'ldirilmagan
+ * bo'lsa shu ro'yxat chiqadi.
+ */
+const DEFAULT_DELIVERY_PLACES =
+  'г. Омск, г.Самара, г.Оренбург, г.Москва, г.Пенза, г.Казань, г. Челябинск, ' +
+  'г. Астрахань, г. Пермь, г. Санкт- Петербург, Краснодар, Новосибирск, ' +
+  'г. Ростов, г. Екатеринбург и другие регионы Российской Федерации';
+
 const formatDate = (value?: Date | string | null) => {
   if (!value) return '';
   const date = value instanceof Date ? value : new Date(value);
@@ -59,15 +69,19 @@ export const generateCmrDocx = async (payload: CmrDocPayload): Promise<Buffer> =
     if (i.quantity && Number(i.quantity) > 0) mqsParts.push(`на ${i.quantity} паллетах`);
     
     return {
-      MTR: String(index + 1),
+      // ")" va "кг" endi shablonda statik emas — faqat to'ldirilgan qatorda
+      // ko'rinishi uchun qiymatning o'ziga qo'shiladi (bo'sh qatorlarda chiqmaydi).
+      MTR: `${index + 1})`,
       MQS: mqsParts.join(' '),
       MN: i.name || '',
       MKT: i.tnvedCode || '',
-      MB: i.grossWeight ? String(i.grossWeight) : '',
+      MB: i.grossWeight ? `${i.grossWeight} кг` : '',
       MUB: ''
     };
   });
 
+  // Temperatura eslatmasi oxirgi yozilgan mahsulotdan 2 qator pastga yoziladi
+  // (1 bo'sh oraliq qator + eslatma). Shu sabab min-6 to'ldirishdan OLDIN qo'shiladi.
   if (additionalInfo.temperature) {
     itemRows.push({ MTR: '', MQS: '', MN: '', MKT: '', MB: '', MUB: '' });
     itemRows.push({
@@ -80,13 +94,22 @@ export const generateCmrDocx = async (payload: CmrDocPayload): Promise<Buffer> =
     });
   }
 
+  // 6-punkt (mahsulot jadvali) doim kamida 6 qatorli bo'lsin — bo'sh bo'lsa ham
+  // 6 ta qator ochiq tursin; mahsulotlar 6 tadan ko'p bo'lsa qatorlar qo'shiladi.
+  const MIN_ITEM_ROWS = 6;
+  while (itemRows.length < MIN_ITEM_ROWS) {
+    itemRows.push({ MTR: '', MQS: '', MN: '', MKT: '', MB: '', MUB: '' });
+  }
+
   const data = {
     Sotuvchi_korxona_nomi: sellerName,
     Sotuvchi_korxona_manzili: sellerAddress,
     Sotib_oluvchi_korxona_nomi: buyerName,
     Sotib_oluvchi_korxona_manzili: buyerAddress,
     smr_number: additionalInfo.smrNumber || '',
-    Место_разгрузки: additionalInfo.destination || '',
+    // "Место назначения" to'ldirilgan bo'lsa — 3-punktdagi standart shaharlar
+    // ro'yxati o'rniga o'sha qiymat yoziladi; bo'sh bo'lsa — standart ro'yxat.
+    Место_разгрузки: String(additionalInfo.destination || '').trim() || DEFAULT_DELIVERY_PLACES,
     Filial: defaultRegion || additionalInfo.origin || '',
     invoys_sanasi: formatDate(invoice.date),
     'Особые примечания': invoice.notes || '',

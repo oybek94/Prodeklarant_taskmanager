@@ -1,0 +1,36 @@
+{
+  "enabledPlugins": {
+    "claude-code-setup@claude-plugins-official": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/block-secrets.mjs",
+            "timeout": 15,
+            "statusMessage": "Secret tekshiruvi..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/typecheck.mjs",
+            "asyncRewake": true,
+            "timeout": 120,
+            "statusMessage": "Type-check...",
+            "rewakeSummary": "tsc xatolari",
+            "rewakeMessage": "TypeScript type-check xato topdi:"
+          }
+        ]
+      }
+    ]
+  }
+}

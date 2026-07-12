@@ -276,6 +276,7 @@ model Transaction {
   @@index([clientId])
   @@index([workerId])
   @@index([branchId])
+  @@index([taskId])
   @@index([type, date])
   @@index([expenseCategory])
 }
@@ -355,6 +356,7 @@ model AuditLog {
   createdAt DateTime @default(now())
   user      User?    @relation(fields: [userId], references: [id])
 
+  @@index([userId])
   @@index([createdAt])
   @@index([entity, entityId])
 }
@@ -850,6 +852,7 @@ model Invoice {
 
   @@index([clientId])
   @@index([taskId])
+  @@index([branchId])
   @@index([invoiceNumber])
   @@index([contractId])
 }
@@ -987,6 +990,8 @@ model CertifierFeeConfig {
   updatedAt       DateTime @updatedAt
 
   branch Branch @relation(fields: [branchId], references: [id])
+
+  @@index([branchId])
 }
 
 model YearlyGoalConfig {
@@ -1371,6 +1376,9 @@ model DashboardNote {
   assignedTo  User? @relation("NoteAssignedTo", fields: [assignedToId], references: [id])
   completedBy User? @relation("NoteCompletedBy", fields: [completedById], references: [id])
 
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([completedById])
   @@index([createdAt])
   @@index([completedAt])
 }
@@ -1444,6 +1452,7 @@ model SellerBonus {
   lead      Lead?           @relation(fields: [leadId], references: [id])
 
   @@index([userId])
+  @@index([leadId])
   @@index([createdAt])
   @@index([type])
 }

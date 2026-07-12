@@ -6,8 +6,12 @@ export const auditLog = (action: string, entity: string) => {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     const originalSend = res.json;
     res.json = function (body: any) {
-      // Log after response
-      if (req.user && res.statusCode < 400) {
+      // Log after response.
+      // Faqat MUTATSIYALARni audit qilamiz — GET/HEAD/OPTIONS (o'qish) yozilmaydi.
+      // AuditLog hech qachon o'qilmaydi; har GET'da INSERT qilish behuda yuk va
+      // cheksiz o'sish (111k+ qator) sababi edi.
+      const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
+      if (req.user && res.statusCode < 400 && isMutation) {
         const entityId = req.params.id || body?.id || null;
         prisma.auditLog
           .create({

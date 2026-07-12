@@ -1,7 +1,6 @@
 import { PrismaClient, Prisma, Currency, ExchangeSource } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
 
 /**
  * Sanani LOKAL vaqt bo'yicha YYYY-MM-DD ko'rinishida formatlaydi.

@@ -285,5 +285,34 @@ export const initCronJobs = () => {
       console.error('[CRON] Yillik medallar xatolik:', e);
     }
   });
+
+  // AuditLog retention: eski access-loglarni tozalash (kunlik 03:30, backupdan keyin).
+  // Jadval faqat yoziladi — retention cheksiz o'sishning (111k+ qator) oldini oladi.
+  // Saqlash muddati: AUDIT_LOG_RETENTION_DAYS env (default 90 kun).
+  cron.schedule('30 3 * * *', async () => {
+    const days = Number(process.env.AUDIT_LOG_RETENTION_DAYS) || 90;
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    console.log(`[CRON] AuditLog retention: ${days} kundan eski yozuvlar tozalanmoqda (< ${cutoff.toISOString()}).`);
+    try {
+      let deleted = 0;
+      // Katta birinchi tozalashda uzoq lock bo'lmasligi uchun partiyalab (5000 tadan) o'chiramiz.
+      for (;;) {
+        const batch = await prisma.auditLog.findMany({
+          where: { createdAt: { lt: cutoff } },
+          select: { id: true },
+          take: 5000,
+        });
+        if (batch.length === 0) break;
+        const r = await prisma.auditLog.deleteMany({
+          where: { id: { in: batch.map((b) => b.id) } },
+        });
+        deleted += r.count;
+        if (batch.length < 5000) break;
+      }
+      console.log(`[CRON] AuditLog retention tugadi: ${deleted} ta yozuv o'chirildi.`);
+    } catch (e) {
+      console.error('[CRON] AuditLog retention xatolik:', e);
+    }
+  });
 };
 

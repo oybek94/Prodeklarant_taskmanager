@@ -1,6 +1,9 @@
 import React, { useMemo } from 'react';
 import { Icon } from '@iconify/react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, type ChartOptions } from 'chart.js';
+
+ChartJS.register(ArcElement, Tooltip);
 
 interface AnalyticsBlocksProps {
     topClientsByRevenue: { name: string; total: number }[];
@@ -23,6 +26,33 @@ const AnalyticsBlocks = React.memo(({
 }: AnalyticsBlocksProps) => {
 
     const totalOp = useMemo(() => expensesByCategory.reduce((s, e) => s + e.sum, 0) || 1, [expensesByCategory]);
+
+    const doughnutData = useMemo(() => ({
+        labels: expensesByCategory.map(e => e.name),
+        datasets: [{
+            data: expensesByCategory.map(e => e.sum),
+            backgroundColor: expensesByCategory.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]),
+            borderWidth: 0,
+            spacing: 5,
+            hoverOffset: 6,
+        }],
+    }), [expensesByCategory]);
+
+    const doughnutOptions: ChartOptions<'doughnut'> = useMemo(() => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '75%',
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#1f2937',
+                borderColor: '#374151',
+                borderWidth: 1,
+                cornerRadius: 8,
+                callbacks: { label: (item) => formatCurrency(Number(item.parsed)) },
+            },
+        },
+    }), [formatCurrency]);
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -85,27 +115,7 @@ const AnalyticsBlocks = React.memo(({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center mt-6">
                     <div className="h-[220px]">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                            <PieChart>
-                                <Pie
-                                    data={expensesByCategory}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={5}
-                                    dataKey="sum"
-                                >
-                                    {expensesByCategory.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    formatter={(val: any) => formatCurrency(Number(val))}
-                                    contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        <Doughnut data={doughnutData} options={doughnutOptions} />
                     </div>
 
                     <div className="space-y-4">

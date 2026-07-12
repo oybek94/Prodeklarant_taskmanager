@@ -1,6 +1,19 @@
 import React, { useMemo } from 'react';
 import { Icon } from '@iconify/react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Line } from 'react-chartjs-2';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Filler,
+    Tooltip,
+    type ChartOptions,
+    type ScriptableContext,
+} from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
 
 interface ProfitDynamicsProps {
     profitDynamics: { month: string; revenue: number; expenses: number }[];
@@ -9,9 +22,86 @@ interface ProfitDynamicsProps {
 
 const ProfitDynamics = React.memo(({ profitDynamics, formatCurrency }: ProfitDynamicsProps) => {
 
-    const chartData = useMemo(() => {
-        return profitDynamics.map(p => ({ ...p, profit: p.revenue - p.expenses }));
-    }, [profitDynamics]);
+    const data = useMemo(() => ({
+        labels: profitDynamics.map(p => p.month),
+        datasets: [
+            {
+                label: 'Tushum',
+                data: profitDynamics.map(p => p.revenue),
+                borderColor: '#10b981',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+            },
+            {
+                label: 'Xarajat',
+                data: profitDynamics.map(p => p.expenses),
+                borderColor: '#f87171',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+            },
+            {
+                label: 'Sof Foyda',
+                data: profitDynamics.map(p => p.revenue - p.expenses),
+                borderColor: '#4f46e5',
+                borderWidth: 4,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                fill: true,
+                backgroundColor: (ctx: ScriptableContext<'line'>) => {
+                    const { ctx: c, chartArea } = ctx.chart;
+                    if (!chartArea) return 'rgba(79,70,229,0.2)';
+                    const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                    g.addColorStop(0, 'rgba(79,70,229,0.8)');
+                    g.addColorStop(1, 'rgba(79,70,229,0)');
+                    return g;
+                },
+            },
+        ],
+    }), [profitDynamics]);
+
+    const options: ChartOptions<'line'> = useMemo(() => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#1f2937',
+                borderColor: '#374151',
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 12,
+                titleColor: '#9ca3af',
+                bodyColor: '#fff',
+                callbacks: {
+                    label: (item) => `${item.dataset.label}: ${formatCurrency(Number(item.parsed.y))}`,
+                },
+            },
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                border: { display: false },
+                ticks: { color: '#9ca3af', font: { size: 12 } },
+            },
+            y: {
+                grid: { color: 'rgba(55,65,81,0.3)' },
+                border: { display: false },
+                ticks: {
+                    color: '#9ca3af',
+                    font: { size: 12 },
+                    callback: (val) => `${(Number(val) / 1000000).toFixed(0)}M`,
+                },
+            },
+        },
+    }), [formatCurrency]);
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
@@ -38,34 +128,7 @@ const ProfitDynamics = React.memo(({ profitDynamics, formatCurrency }: ProfitDyn
             </div>
 
             <div className="h-[350px] w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                        <defs>
-                            <linearGradient id="profitColor" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.8} />
-                                <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.3} />
-                        <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} tickMargin={12} axisLine={false} tickLine={false} />
-                        <YAxis
-                            stroke="#9ca3af"
-                            fontSize={12}
-                            tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`}
-                            axisLine={false}
-                            tickLine={false}
-                            width={60}
-                        />
-                        <Tooltip
-                            formatter={(value: any, name: any) => [formatCurrency(Number(value)), name === 'profit' ? 'Sof Foyda' : name === 'revenue' ? 'Tushum' : 'Xarajat']}
-                            labelStyle={{ color: '#9ca3af', marginBottom: '8px' }}
-                            contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', borderRadius: '12px', padding: '12px' }}
-                        />
-                        <Area type="monotone" dataKey="revenue" stackId="2" stroke="#10b981" strokeWidth={2} fillOpacity={0} />
-                        <Area type="monotone" dataKey="expenses" stackId="3" stroke="#f87171" strokeWidth={2} fillOpacity={0} />
-                        <Area type="monotone" dataKey="profit" stackId="1" stroke="#4f46e5" strokeWidth={4} fillOpacity={1} fill="url(#profitColor)" />
-                    </AreaChart>
-                </ResponsiveContainer>
+                <Line data={data} options={options} />
             </div>
         </div>
     );

@@ -28,6 +28,16 @@ function getCurrencySymbol(currency?: string | null): string {
   return '';
 }
 
+export function filterEnglishColumnsForMode(
+  keys: string[],
+  mode: 'invoice' | 'packing'
+): string[] {
+  if (mode === 'packing') {
+    return keys.filter((k) => k !== 'unitPrice' && k !== 'total');
+  }
+  return keys;
+}
+
 const resolveUploadImagePath = (url?: string | null): string | null => {
   if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return null;

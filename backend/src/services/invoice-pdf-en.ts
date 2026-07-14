@@ -1011,7 +1011,7 @@ function formatDate(date: Date | string): string {
   return `${day}.${month}.${year}`;
 }
 
-function numberToWordsEn(num: number, currency: string): string {
+export function numberToWordsEn(num: number, currency: string): string {
   const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
     'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
   const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
@@ -1033,14 +1033,18 @@ function numberToWordsEn(num: number, currency: string): string {
 
   let result = convert(wholePart);
 
-  if (currency === 'USD') {
-    result += wholePart === 1 ? ' US Dollar' : ' US Dollars';
-  } else {
-    result += wholePart === 1 ? ' Sum' : ' Sums';
-  }
+  const cur = String(currency || '').trim().toUpperCase();
+  const units: Record<string, { one: string; many: string; sub: string }> = {
+    USD: { one: 'US Dollar', many: 'US Dollars', sub: 'cents' },
+    EUR: { one: 'Euro', many: 'Euros', sub: 'eurocents' },
+    RUB: { one: 'Ruble', many: 'Rubles', sub: 'kopecks' },
+    UZS: { one: 'Sum', many: 'Sums', sub: 'tiyin' },
+  };
+  const u = units[cur] || units.UZS;
+  result += wholePart === 1 ? ` ${u.one}` : ` ${u.many}`;
 
   if (decimalPart > 0) {
-    result += ` ${decimalPart} ${currency === 'USD' ? 'cents' : 'tiyin'}`;
+    result += ` ${decimalPart} ${u.sub}`;
   }
 
   return result.charAt(0).toUpperCase() + result.slice(1);

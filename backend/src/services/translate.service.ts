@@ -207,6 +207,26 @@ export function buildTranslatableTexts(data: {
         }
       });
     }
+
+    // Column labels (effektiv ruscha label'lar — ingliz PDF sarlavhalari uchun)
+    const columnLabels = (additionalInfo.columnLabels && typeof additionalInfo.columnLabels === 'object')
+      ? (additionalInfo.columnLabels as Record<string, string>) : {};
+    const DEFAULT_COLUMN_LABELS_RU: Record<string, string> = {
+      index: '№', tnved: 'Код ТН ВЭД', plu: 'Код PLU', name: 'Наименование товара',
+      package: 'Вид упаковки', packagesCount: 'Кол-во упаковки', unit: 'Ед. изм.',
+      quantity: 'Мест', shtCount: 'шт', gross: 'Брутто (кг)', net: 'Нетто (кг)',
+      unitPrice: 'Цена за ед.изм.', total: 'Сумма с НДС',
+    };
+    const cur = String(contract?.contractCurrency || invoice?.currency || 'USD').trim().toUpperCase();
+    const totalLabelRu =
+      cur === 'USD' ? 'Общая сумма в Долл. США' :
+      cur === 'RUB' ? 'Общая сумма Рубли РФ' :
+      cur === 'EUR' ? 'Общая сумма в Евро' :
+      (columnLabels.total || DEFAULT_COLUMN_LABELS_RU.total);
+    for (const key of Object.keys(DEFAULT_COLUMN_LABELS_RU)) {
+      const ru = key === 'total' ? totalLabelRu : (columnLabels[key] || DEFAULT_COLUMN_LABELS_RU[key]);
+      if (ru && ru.trim()) texts[`col_${key}`] = ru;
+    }
   }
 
   if (invoice) {

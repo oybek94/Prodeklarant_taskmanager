@@ -58,6 +58,9 @@ function tr(translated: Record<string, string>, key: string, fallback: string): 
 export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   const t = data.translatedRequisites;
   const mode = data.mode === 'packing' ? 'packing' : 'invoice';
+  const effectiveCurrency = String(
+    data.contract?.contractCurrency || data.invoice.currency || 'USD'
+  ).trim().toUpperCase();
   const doc = new PDFDocument({
     margins: { top: 60, bottom: 30, left: 30, right: 30 },
     size: 'A4',
@@ -527,7 +530,7 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
       buyerCurrentY += _h24 + 3;
     }
     if (data.client.bankAccount) {
-      const _txt25 = ensureUTF8(`Current account (${data.invoice.currency}): ${data.client.bankAccount}`);
+      const _txt25 = ensureUTF8(`Current account (${effectiveCurrency}): ${data.client.bankAccount}`);
       const _h25 = doc.heightOfString(_txt25, { width: buyerColumnWidth });
       doc.text(_txt25, buyerColumnX, buyerCurrentY, { width: buyerColumnWidth });
       buyerCurrentY += _h25 + 3;
@@ -848,15 +851,20 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
 
   doc.fillColor('black');
   
-  // Table header
+  // Table header (haqiqiy ruscha label'dan tarjima; uzun sarlavhalar uchun dinamik balandlik)
   doc.fontSize(7);
+  let headerHeight = 0;
   activeFeKeys.forEach(k => {
-    doc.text(englishHeaders[k], colPositions[k], tableTop, { width: colWidths[k] });
+    const label = ensureUTF8(tr(t, `col_${k}`, englishHeaders[k]));
+    const h = doc.heightOfString(label, { width: colWidths[k] });
+    if (h > headerHeight) headerHeight = h;
+    doc.text(label, colPositions[k], tableTop, { width: colWidths[k] });
   });
 
-  doc.lineWidth(0.5).strokeColor('#4b5563').moveTo(startX, tableTop + 15).lineTo(currentX, tableTop + 15).stroke();
+  const headerBottom = tableTop + Math.max(15, headerHeight + 3);
+  doc.lineWidth(0.5).strokeColor('#4b5563').moveTo(startX, headerBottom).lineTo(currentX, headerBottom).stroke();
 
-  let y = tableTop + 20;
+  let y = headerBottom + 5;
   if (!data.invoice.items || data.invoice.items.length === 0) {
     doc.fontSize(7);
     doc.text('No items', startX, y, { width: currentX - startX });
@@ -925,7 +933,7 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
     else if (k === 'packagesCount') doc.text(totalPackagesCount.toString(), x, totalY, { width: w });
     else if (k === 'gross') doc.text(totalGrossWeight > 0 ? totalGrossWeight.toString() : '', x, totalY, { width: w });
     else if (k === 'net') doc.text(totalNetWeight > 0 ? totalNetWeight.toString() : '', x, totalY, { width: w });
-    else if (k === 'total') doc.text(`${getCurrencySymbol(data.invoice.currency)} ${Number(data.invoice.totalAmount || 0).toFixed(2)}`, x, totalY, { width: w });
+    else if (k === 'total') doc.text(`${getCurrencySymbol(effectiveCurrency)} ${Number(data.invoice.totalAmount || 0).toFixed(2)}`, x, totalY, { width: w });
   });
   setFont('Helvetica');
 
@@ -937,7 +945,7 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
     const nextY = totalY + 30;
     doc.fontSize(8);
     const totalAmount = Number(data.invoice.totalAmount) || 0;
-    const amountInWords = numberToWordsEn(totalAmount, data.invoice.currency);
+    const amountInWords = numberToWordsEn(totalAmount, effectiveCurrency);
     doc.text(ensureUTF8(`Amount in words: ${amountInWords}`), startX, nextY);
     doc.y = nextY + 12;
     doc.moveDown(1);
@@ -1011,7 +1019,7 @@ function formatDate(date: Date | string): string {
   return `${day}.${month}.${year}`;
 }
 
-function numberToWordsEn(num: number, currency: string): string {
+export function numberToWordsEn(num: number, currency: string): string {
   const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
     'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
   const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
@@ -1033,14 +1041,18 @@ function numberToWordsEn(num: number, currency: string): string {
 
   let result = convert(wholePart);
 
-  if (currency === 'USD') {
-    result += wholePart === 1 ? ' US Dollar' : ' US Dollars';
-  } else {
-    result += wholePart === 1 ? ' Sum' : ' Sums';
-  }
+  const cur = String(currency || '').trim().toUpperCase();
+  const units: Record<string, { one: string; many: string; sub: string }> = {
+    USD: { one: 'US Dollar', many: 'US Dollars', sub: 'cents' },
+    EUR: { one: 'Euro', many: 'Euros', sub: 'eurocents' },
+    RUB: { one: 'Ruble', many: 'Rubles', sub: 'kopecks' },
+    UZS: { one: 'Sum', many: 'Sums', sub: 'tiyin' },
+  };
+  const u = units[cur] || units.UZS;
+  result += wholePart === 1 ? ` ${u.one}` : ` ${u.many}`;
 
   if (decimalPart > 0) {
-    result += ` ${decimalPart} ${currency === 'USD' ? 'cents' : 'tiyin'}`;
+    result += ` ${decimalPart} ${u.sub}`;
   }
 
   return result.charAt(0).toUpperCase() + result.slice(1);

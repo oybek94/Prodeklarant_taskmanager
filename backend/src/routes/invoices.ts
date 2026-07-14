@@ -789,6 +789,7 @@ router.get('/:id/pdf-en', requireAuth(), async (req: AuthRequest, res: Response)
     if (!Number.isFinite(id)) {
       return res.status(404).json({ error: 'Invoice topilmadi' });
     }
+    const mode: 'invoice' | 'packing' = req.query.mode === 'packing' ? 'packing' : 'invoice';
 
     const invoice = await prisma.invoice.findUnique({
       where: { id },
@@ -926,10 +927,14 @@ router.get('/:id/pdf-en', requireAuth(), async (req: AuthRequest, res: Response)
       company: companySettings,
       contract,
       translatedRequisites,
+      mode,
     });
 
+    const fileBase = mode === 'packing'
+      ? `packing-${invoice.invoiceNumber}-EN.pdf`
+      : `invoice-${invoice.invoiceNumber}-EN.pdf`;
     res.setHeader('Content-Type', 'application/pdf; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}-EN.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileBase}"`);
 
     doc.on('error', (err: any) => {
       console.error('PDF stream error:', err);

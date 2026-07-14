@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import apiClient from '../../../lib/api';
-import type { Invoice as InvoiceType, RegionCode, FssFilePrefix, Task } from '../types';
+import type { Invoice as InvoiceType, RegionCode, FssFilePrefix, Task, ViewTab } from '../types';
 import {
   sanitizeFileName,
   getVehiclePlate,
@@ -29,6 +29,7 @@ interface UseInvoiceDownloadsParams {
   fssAutoDownload: boolean;
   setFssAutoDownload: (v: boolean) => void;
   setShowFssRegionModal: (v: boolean) => void;
+  viewTab: ViewTab;
 }
 
 export function useInvoiceDownloads({
@@ -46,6 +47,7 @@ export function useInvoiceDownloads({
   fssAutoDownload,
   setFssAutoDownload,
   setShowFssRegionModal,
+  viewTab,
 }: UseInvoiceDownloadsParams) {
 
   // --- Utility builders ---
@@ -69,13 +71,16 @@ export function useInvoiceDownloads({
       return;
     }
     try {
-      const response = await apiClient.get(`/invoices/${invoice.id}/pdf-en`, {
+      const isPacking = viewTab === 'packing';
+      const url = `/invoices/${invoice.id}/pdf-en${isPacking ? '?mode=packing' : ''}`;
+      const response = await apiClient.get(url, {
         responseType: 'blob',
       });
-      const fileName = `${buildInvoiceDownloadBase()}_EN.pdf`;
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const suffix = isPacking ? '_Packing_EN.pdf' : '_EN.pdf';
+      const fileName = `${buildInvoiceDownloadBase()}${suffix}`;
+      const objectUrl = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
-      link.href = url;
+      link.href = objectUrl;
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
@@ -84,7 +89,7 @@ export function useInvoiceDownloads({
       console.error('Error downloading English PDF:', error);
       alert(error instanceof Error ? error.message : 'English PDF yuklab olishda xatolik yuz berdi');
     }
-  }, [invoice?.id, buildInvoiceDownloadBase]);
+  }, [invoice?.id, buildInvoiceDownloadBase, viewTab]);
 
   // --- Process tracking ---
 

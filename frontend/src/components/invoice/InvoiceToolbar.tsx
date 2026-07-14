@@ -335,7 +335,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                   className="w-full px-3 py-2 text-left text-sm font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Icon icon="solar:translation-bold-duotone" className="w-4 h-4" />
-                  English Invoice (AI)
+                  {viewTab === 'packing' ? 'English Packing List (AI)' : 'English Invoice (AI)'}
                 </button>
               </div>
             )}

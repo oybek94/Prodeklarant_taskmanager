@@ -9,6 +9,7 @@ interface InvoiceDataEn {
   company: CompanySettings;
   contract?: any;
   translatedRequisites: Record<string, string>;
+  mode?: 'invoice' | 'packing';
 }
 
 function ensureUTF8(text: any): string {
@@ -26,6 +27,16 @@ function getCurrencySymbol(currency?: string | null): string {
   if (cur === 'EUR') return '€';
   if (cur === 'RUB') return '₽';
   return '';
+}
+
+export function filterEnglishColumnsForMode(
+  keys: string[],
+  mode: 'invoice' | 'packing'
+): string[] {
+  if (mode === 'packing') {
+    return keys.filter((k) => k !== 'unitPrice' && k !== 'total');
+  }
+  return keys;
 }
 
 const resolveUploadImagePath = (url?: string | null): string | null => {
@@ -46,6 +57,7 @@ function tr(translated: Record<string, string>, key: string, fallback: string): 
 
 export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   const t = data.translatedRequisites;
+  const mode = data.mode === 'packing' ? 'packing' : 'invoice';
   const doc = new PDFDocument({
     margins: { top: 60, bottom: 30, left: 30, right: 30 },
     size: 'A4',
@@ -116,16 +128,29 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   setFont('Helvetica');
 
   const invoiceDate = formatDate(data.invoice.date);
+  const firstLabel = mode === 'packing' ? 'Packing List No: ' : 'Invoice No: ';
   setFont('Helvetica-Bold');
-  doc.text('Invoice No: ', leftColumnX, headerY, { continued: true });
+  doc.text(firstLabel, leftColumnX, headerY, { continued: true });
   setFont('Helvetica');
   doc.text(ensureUTF8(`${data.invoice.invoiceNumber} `), { continued: true });
   setFont('Helvetica-Bold');
   doc.text('dated ', { continued: true });
   setFont('Helvetica');
   doc.text(ensureUTF8(`${invoiceDate}`));
-
   headerY += 12;
+
+  if (mode === 'packing') {
+    setFont('Helvetica-Bold');
+    doc.text('Invoice No: ', leftColumnX, headerY, { continued: true });
+    setFont('Helvetica');
+    doc.text(ensureUTF8(`${data.invoice.invoiceNumber} `), { continued: true });
+    setFont('Helvetica-Bold');
+    doc.text('dated ', { continued: true });
+    setFont('Helvetica');
+    doc.text(ensureUTF8(`${invoiceDate}`));
+    headerY += 12;
+  }
+
   if (data.invoice.contractNumber) {
     let contractNumber = data.invoice.contractNumber.trim();
     const contractDate = data.contract?.contractDate ? formatDate(data.contract.contractDate) : '';
@@ -147,11 +172,13 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
     }
   }
 
-  // INVOICE title
-  doc.fontSize(32);
+  // Document title (right-aligned)
+  const titleText = mode === 'packing' ? 'PACKING LIST' : 'INVOICE';
+  const titleFontSize = mode === 'packing' ? 20 : 32;
+  doc.fontSize(titleFontSize);
   setFont('Helvetica-Bold');
-  const invoiceTitleWidth = doc.widthOfString('INVOICE');
-  doc.text('INVOICE', rightColumnX - invoiceTitleWidth, 60);
+  const titleWidth = doc.widthOfString(titleText);
+  doc.text(titleText, rightColumnX - titleWidth, 60);
 
   // Separator
   const separatorY = headerY + 20;
@@ -788,6 +815,8 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
     }
   });
 
+  activeFeKeys = filterEnglishColumnsForMode(activeFeKeys, mode);
+
   const baseWidths: Record<string, number> = {
     index: 15, tnved: 50, plu: 40, unit: 25, package: 40, quantity: 30,
     shtCount: 30, packagesCount: 35, gross: 40, net: 40, unitPrice: 35, total: 45
@@ -900,14 +929,19 @@ export function generateInvoicePDFEnglish(data: InvoiceDataEn): any {
   });
   setFont('Helvetica');
 
-  // Amount in words (English)
-  const nextY = totalY + 30;
-  doc.fontSize(8);
-  const totalAmount = Number(data.invoice.totalAmount) || 0;
-  const amountInWords = numberToWordsEn(totalAmount, data.invoice.currency);
-  doc.text(ensureUTF8(`Amount in words: ${amountInWords}`), startX, nextY);
-  doc.y = nextY + 12;
-  doc.moveDown(1);
+  // Amount in words (English) — faqat invoice uchun
+  if (mode === 'packing') {
+    doc.y = totalY + 20;
+    doc.moveDown(1);
+  } else {
+    const nextY = totalY + 30;
+    doc.fontSize(8);
+    const totalAmount = Number(data.invoice.totalAmount) || 0;
+    const amountInWords = numberToWordsEn(totalAmount, data.invoice.currency);
+    doc.text(ensureUTF8(`Amount in words: ${amountInWords}`), startX, nextY);
+    doc.y = nextY + 12;
+    doc.moveDown(1);
+  }
 
   // Notes
   if (data.invoice.notes) {

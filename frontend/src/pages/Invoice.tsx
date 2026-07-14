@@ -297,6 +297,7 @@ const Invoice = () => {
     fssAutoDownload,
     setFssAutoDownload,
     setShowFssRegionModal,
+    viewTab,
   });
 
   const {

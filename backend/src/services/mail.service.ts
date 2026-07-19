@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { composeEmail } from './mail-footer';
 
 // SMTP config from env. Defaults to Mail.ru (smtp.mail.ru:465, SSL) for
 // backward compatibility; override SMTP_HOST/SMTP_PORT/SMTP_SECURE to use
@@ -28,7 +29,7 @@ export interface SendMailOptions {
   subject: string;
   text?: string;
   html?: string;
-  attachments?: Array<{ filename: string; content: Buffer }>;
+  attachments?: Array<{ filename: string; content: Buffer; cid?: string }>;
 }
 
 /**
@@ -61,7 +62,7 @@ function createSmtpTransport() {
  * .env — dotenv truncates a value that starts with a quote.
  */
 export function buildFrom(): string {
-  const address = process.env.MAIL_FROM || getSmtpUser()!;
+  const address = process.env.MAIL_FROM || getSmtpUser() || '';
   const name = process.env.MAIL_FROM_NAME?.trim();
   if (!name || address.includes('<')) return address;
   return `"${name.replace(/"/g, '')}" <${address}>`;
@@ -84,16 +85,23 @@ export async function sendMail(options: SendMailOptions): Promise<void> {
   const from = buildFrom();
   const transporter = createSmtpTransport();
 
+  // Footer har bir xatga qo'shiladi. Chaqiruvchi tayyor html bergan bo'lsa
+  // (hozir hech kim bermaydi) unga tegilmaydi.
+  const composed = options.html ? null : composeEmail(options.text ?? '');
+  const bodyAttachments = (options.attachments ?? []).map((a) => ({
+    filename: a.filename,
+    content: a.content,
+    ...(a.cid ? { cid: a.cid } : {}),
+  }));
+  const allAttachments = [...bodyAttachments, ...(composed?.attachments ?? [])];
+
   const mailOptions: nodemailer.SendMailOptions = {
     from,
     to: options.to.join(', '),
     subject: options.subject,
-    text: options.text,
-    html: options.html,
-    attachments: options.attachments?.map((a) => ({
-      filename: a.filename,
-      content: a.content,
-    })),
+    text: composed ? composed.text : options.text,
+    html: composed ? composed.html : options.html,
+    attachments: allAttachments.length ? allAttachments : undefined,
   };
   if (options.cc?.length) mailOptions.cc = options.cc.join(', ');
   if (options.bcc?.length) mailOptions.bcc = options.bcc.join(', ');

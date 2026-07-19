@@ -55,6 +55,19 @@ function createSmtpTransport() {
 }
 
 /**
+ * Build the From header. MAIL_FROM holds the address; MAIL_FROM_NAME the
+ * display name shown in mail clients. If MAIL_FROM already contains a display
+ * name (`Name <addr>`), it is used as-is. Keep the name out of MAIL_FROM in
+ * .env — dotenv truncates a value that starts with a quote.
+ */
+export function buildFrom(): string {
+  const address = process.env.MAIL_FROM || getSmtpUser()!;
+  const name = process.env.MAIL_FROM_NAME?.trim();
+  if (!name || address.includes('<')) return address;
+  return `"${name.replace(/"/g, '')}" <${address}>`;
+}
+
+/**
  * Verify SMTP host/port and credentials without sending. Useful for setup
  * checks (e.g. scripts/test-smtp.ts). Resolves true or rejects on failure.
  */
@@ -68,7 +81,7 @@ export async function verifySmtp(): Promise<boolean> {
  * (or legacy MAILRU_USER/MAILRU_PASSWORD); sender from MAIL_FROM.
  */
 export async function sendMail(options: SendMailOptions): Promise<void> {
-  const from = process.env.MAIL_FROM || getSmtpUser()!;
+  const from = buildFrom();
   const transporter = createSmtpTransport();
 
   const mailOptions: nodemailer.SendMailOptions = {

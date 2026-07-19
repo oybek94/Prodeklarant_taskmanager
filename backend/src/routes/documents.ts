@@ -103,7 +103,7 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
 });
 
 // Task hujjatini yuklash (bir nechta fayl)
-router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (req: AuthRequest, res) => {
+router.post('/task/:taskId', requireAuth(), upload.array('files'), async (req: AuthRequest, res) => {
   try {
     const taskId = parseInt(req.params.taskId);
     
@@ -263,7 +263,7 @@ router.post('/task/:taskId', requireAuth(), upload.array('files', 10), async (re
 });
 
 // Arxiv task'iga hujjat qo'shish - faqat arxivga o'tgan task'lar uchun
-router.post('/archive/task/:taskId', requireAuth('ADMIN'), upload.array('files', 10), async (req: AuthRequest, res) => {
+router.post('/archive/task/:taskId', requireAuth('ADMIN'), upload.array('files'), async (req: AuthRequest, res) => {
   try {
     const taskId = parseInt(req.params.taskId);
     

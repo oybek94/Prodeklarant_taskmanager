@@ -8,7 +8,7 @@
  * MAIL_FROM (yoki eski MAILRU_USER/MAILRU_PASSWORD). Parol hech qachon chiqmaydi.
  */
 import 'dotenv/config';
-import { verifySmtp, sendMail } from '../services/mail.service';
+import { verifySmtp, sendMail, buildFrom } from '../services/mail.service';
 
 function getArg(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);
@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   const host = process.env.SMTP_HOST || 'smtp.mail.ru';
   const port = Number(process.env.SMTP_PORT) || 465;
   const user = process.env.SMTP_USER || process.env.MAILRU_USER;
-  const from = process.env.MAIL_FROM || user;
+  const from = process.env.MAIL_FROM || user ? buildFrom() : undefined;
 
   console.log('SMTP config:');
   console.log(`  host: ${host}`);

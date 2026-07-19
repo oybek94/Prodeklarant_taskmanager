@@ -14,7 +14,9 @@
 - Modul tizimi CommonJS — `__dirname` mavjud, ESM `import.meta` ISHLATILMAYDI
 - Footer tili **ruscha**, spec'dagi matn aynan ko'chiriladi
 - Logo formati **PNG** (email mijozlari SVG'ni ko'rsatmaydi)
-- Maket `<table>` + inline CSS (Outlook `<div>`/flexbox maketlarini buzadi)
+- Ko'p ustunli qismlar (logo + kontaktlar yonma-yon) `<table>` + inline CSS
+  bo'lishi shart — Outlook aynan shu yerda `<div>`/flexbox maketlarini buzadi.
+  Bir ustunli tashqi o'ram `<div>` bo'lishi mumkin (2026-07-19 da tasdiqlangan).
 - Logo o'qilmasa xat baribir yuboriladi — footer logosiz chiqadi
 - Logo faylida korxona nomi va shior allaqachon bor — HTML footer'da ular
   matn sifatida TAKRORLANMAYDI. Plain-text nusxada logo yo'q, u yerda nom qoladi.

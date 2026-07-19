@@ -54,11 +54,16 @@ Build vaqtida `dist/assets` ga ko'chiriladi. `src/scripts/copy-fonts.js` da tayy
 ```
 [foydalanuvchi matni]
 ─────────────────────────────
-[logo]  PRODEKLARANT
-        Ваш надежный представитель на таможне.
-        Тел.: +998 91-118-70-07
+[logo]  Тел.: +998 91-118-70-07
         Whatsapp | Telegram | www.prodeklarant.uz
 ```
+
+Logo faylining o'zida korxona nomi va shior (`Bojxonadagi ishonchli vakilingiz`)
+bor, shuning uchun HTML footer'da ular matn sifatida takrorlanmaydi — aks holda
+nom ikki marta, shior esa ikki xil tilda chiqardi.
+
+Plain-text nusxada logo yo'q, shuning uchun u yerda korxona nomi matn sifatida
+qoladi.
 
 Maket `<table>` asosida, inline CSS bilan — Outlook flexbox va `<div>` maketlarini buzadi.
 

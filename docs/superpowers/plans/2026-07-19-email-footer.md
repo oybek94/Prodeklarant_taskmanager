@@ -16,9 +16,10 @@
 - Logo formati **PNG** (email mijozlari SVG'ni ko'rsatmaydi)
 - Maket `<table>` + inline CSS (Outlook `<div>`/flexbox maketlarini buzadi)
 - Logo o'qilmasa xat baribir yuboriladi — footer logosiz chiqadi
+- Logo faylida korxona nomi va shior allaqachon bor — HTML footer'da ular
+  matn sifatida TAKRORLANMAYDI. Plain-text nusxada logo yo'q, u yerda nom qoladi.
 - Kontakt qiymatlari (spec'dan, aynan):
-  - Nom: `PRODEKLARANT`
-  - Shior: `Ваш надежный представитель на таможне.`
+  - Nom: `PRODEKLARANT` (faqat logo `alt` matni va plain-text nusxa uchun)
   - Telefon: `+998 91-118-70-07` (href: `tel:+998911187007`)
   - Whatsapp: `https://wa.me/998911187007`
   - Telegram: `https://t.me/oybek94`
@@ -155,12 +156,18 @@ import { composeEmail } from '../services/mail-footer';
 describe('composeEmail', () => {
   it('HTML ichida kontaktlar bo\'ladi', () => {
     const { html } = composeEmail('Salom');
-    expect(html).toContain('PRODEKLARANT');
-    expect(html).toContain('Ваш надежный представитель на таможне.');
     expect(html).toContain('+998 91-118-70-07');
     expect(html).toContain('https://wa.me/998911187007');
     expect(html).toContain('https://t.me/oybek94');
     expect(html).toContain('https://prodeklarant.uz');
+  });
+
+  it('logo takrorlagan nom va shiorni HTML matnida qaytarmaydi', () => {
+    const { html } = composeEmail('Salom');
+    expect(html).not.toContain('Ваш надежный представитель на таможне.');
+    // "PRODEKLARANT" faqat logo alt matnida bo'lishi mumkin, ko'rinadigan
+    // matn sifatida emas.
+    expect(html).not.toMatch(/>\s*PRODEKLARANT\s*</);
   });
 
   it('foydalanuvchi matnini HTML\'ga qochiradi', () => {
@@ -232,9 +239,11 @@ export interface ComposedEmail {
   attachments: Array<{ filename: string; content: Buffer; cid: string }>;
 }
 
+// Nom logo faylining ichida bor, shuning uchun HTML footer'da matn sifatida
+// takrorlanmaydi — faqat logo alt matni, plain-text nusxa va logo topilmagan
+// holatdagi zaxira sifatida ishlatiladi.
 const COMPANY = {
   name: 'PRODEKLARANT',
-  tagline: 'Ваш надежный представитель на таможне.',
   phone: '+998 91-118-70-07',
   phoneHref: 'tel:+998911187007',
   whatsapp: 'https://wa.me/998911187007',
@@ -282,6 +291,10 @@ function renderFooterHtml(hasLogo: boolean): string {
               style="display:block;border:0;width:195px;height:40px;" />
        </td>`
     : '';
+  // Logo bor bo'lsa nom logoda ko'rinadi; bo'lmasa matn sifatida tushadi.
+  const nameFallback = hasLogo
+    ? ''
+    : `<div style="font-weight:bold;font-size:14px;color:#111827;letter-spacing:0.5px;">${COMPANY.name}</div>`;
   const link = (href: string, label: string) =>
     `<a href="${href}" style="color:${LINK_COLOR};text-decoration:underline;">${label}</a>`;
 
@@ -289,8 +302,7 @@ function renderFooterHtml(hasLogo: boolean): string {
   <tr>
     ${logoCell}
     <td style="vertical-align:top;">
-      <div style="font-weight:bold;font-size:14px;color:#111827;letter-spacing:0.5px;">${COMPANY.name}</div>
-      <div>${COMPANY.tagline}</div>
+      ${nameFallback}
       <div>Тел.: <a href="${COMPANY.phoneHref}" style="color:${MUTED_COLOR};text-decoration:none;">${COMPANY.phone}</a></div>
       <div>${link(COMPANY.whatsapp, 'Whatsapp')} | ${link(COMPANY.telegram, 'Telegram')} | ${link(COMPANY.siteUrl, COMPANY.siteLabel)}</div>
     </td>
@@ -303,7 +315,6 @@ function renderFooterText(): string {
     '',
     '--',
     COMPANY.name,
-    COMPANY.tagline,
     `Тел.: ${COMPANY.phone}`,
     `Whatsapp: ${COMPANY.whatsapp}`,
     `Telegram: ${COMPANY.telegram}`,
@@ -338,7 +349,7 @@ export function composeEmail(bodyText: string): ComposedEmail {
 - [ ] **Step 4: Testlarni ishga tushirish**
 
 Run: `cd backend && npx vitest run src/__tests__/mail-footer.test.ts`
-Expected: PASS — 7 test.
+Expected: PASS — 8 test.
 
 - [ ] **Step 5: Tip tekshiruvi**
 

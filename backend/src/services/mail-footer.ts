@@ -34,23 +34,17 @@ function escapeHtml(value: string): string {
 }
 
 /**
- * Logoni diskdan o'qiydi. dist'da `dist/assets`, tsx dev'da `src/assets`
- * (ikkalasida ham __dirname'ga nisbatan `../assets`). Topilmasa null —
- * xat logosiz ketadi, lekin ketadi.
+ * Logoni diskdan o'qiydi. __dirname'ga nisbatan `../assets`: dist'da
+ * `dist/assets`, tsx dev'da `src/assets` — ikkalasida ham to'g'ri keladi.
+ * Topilmasa null — xat logosiz ketadi, lekin ketadi.
  */
 function readLogo(): Buffer | null {
-  const candidates = [
-    path.join(__dirname, '..', 'assets', 'email-logo.png'),
-    path.join(process.cwd(), 'src', 'assets', 'email-logo.png'),
-  ];
-  for (const candidate of candidates) {
-    try {
-      return fs.readFileSync(candidate);
-    } catch {
-      continue;
-    }
+  const logoPath = path.join(__dirname, '..', 'assets', 'email-logo.png');
+  try {
+    return fs.readFileSync(logoPath);
+  } catch {
+    return null;
   }
-  return null;
 }
 
 function renderFooterHtml(hasLogo: boolean): string {
@@ -82,7 +76,7 @@ function renderFooterHtml(hasLogo: boolean): string {
 function renderFooterText(): string {
   return [
     '',
-    '--',
+    '-- ',
     COMPANY.name,
     `Тел.: ${COMPANY.phone}`,
     `Whatsapp: ${COMPANY.whatsapp}`,
@@ -101,7 +95,7 @@ export function composeEmail(bodyText: string): ComposedEmail {
   const bodyHtml = escapeHtml(bodyText).replace(/\r?\n/g, '<br>');
 
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#111827;">
-  <div>${bodyHtml}</div>
+  <div style="white-space:pre-wrap;">${bodyHtml}</div>
   ${renderFooterHtml(logo !== null)}
 </div>`;
 

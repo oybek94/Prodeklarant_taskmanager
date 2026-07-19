@@ -30,6 +30,19 @@ describe('composeEmail', () => {
     expect(html).toContain('birinchi<br>ikkinchi');
   });
 
+  it('ikki qatorli matn aynan bitta <br> beradi, ikkilanmagan bo\'sh qator yo\'q', () => {
+    const { html } = composeEmail('birinchi\nikkinchi');
+    const brCount = (html.match(/<br>/g) ?? []).length;
+    expect(brCount).toBe(1);
+    expect(html).not.toContain('<br><br>');
+  });
+
+  it('ketma-ket bo\'shliqlar HTML\'da saqlanadi (pre-wrap)', () => {
+    const { html } = composeEmail('Invoice     2 bet');
+    expect(html).toContain('Invoice     2 bet');
+    expect(html).toContain('white-space:pre-wrap');
+  });
+
   it('plain-text nusxasida HTML teglari yo\'q, kontaktlar bor', () => {
     const { text } = composeEmail('Salom');
     expect(text).toContain('Salom');

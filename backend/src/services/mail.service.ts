@@ -62,7 +62,7 @@ function createSmtpTransport() {
  * .env — dotenv truncates a value that starts with a quote.
  */
 export function buildFrom(): string {
-  const address = process.env.MAIL_FROM || getSmtpUser()!;
+  const address = process.env.MAIL_FROM || getSmtpUser() || '';
   const name = process.env.MAIL_FROM_NAME?.trim();
   if (!name || address.includes('<')) return address;
   return `"${name.replace(/"/g, '')}" <${address}>`;

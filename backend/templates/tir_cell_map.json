@@ -9,5 +9,7 @@
   "nameTnvedCol": "E",
   "grossCol": "I",
   "totalGrossCell": "I30",
-  "totalPlacesCell": "D38"
+  "totalPlacesCell": "D38",
+  "importerCountryCellTop": "F7",
+  "importerCountryCellBottom": "C38"
 }

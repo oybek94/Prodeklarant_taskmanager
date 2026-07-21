@@ -51,7 +51,6 @@ export const DashboardTopClients: React.FC<DashboardTopClientsProps> = ({ premiu
                     toolbar: { show: false },
                     animations: {
                       enabled: true,
-                      easing: 'easeinout',
                       speed: 800,
                       animateGradually: {
                           enabled: true,

@@ -7,6 +7,7 @@ import EmptyValue from '../components/common/EmptyValue';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { useIsMobile } from '../utils/useIsMobile';
+import { EXPORT_COUNTRIES } from '../constants/countries';
 
 const resolveUploadUrl = (url?: string | null) => {
   if (!url) return '';
@@ -67,21 +68,7 @@ interface Client {
   };
 }
 
-const destinationCountryOptions = [
-  'Россия',
-  'Казахстан',
-  'Кыргызстан',
-  'Таджикистан',
-  'Туркменистан',
-  'Китай',
-  'Турция',
-  'ОАЭ',
-  'Германия',
-  'Польша',
-  'Литва',
-  'Латвия',
-  'Эстония',
-];
+const destinationCountryOptions = EXPORT_COUNTRIES;
 
 const ClientDetail = () => {
   const { id } = useParams<{ id: string }>();

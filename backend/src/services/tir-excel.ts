@@ -38,6 +38,65 @@ const formatDate = (value?: Date | string | null) => {
 
 const toPlain = (value?: string | null) => (value ? String(value) : '');
 
+/**
+ * Importyor davlat nomini KATTA harfli krill (rus) ko'rinishiga o'giradi.
+ * Shartnomadagi `destinationCountry` erkin matn — rus (Россия) yoki
+ * ingliz (Belarus) ko'rinishida saqlanishi mumkin. TIR shablonining
+ * F7/C38 kataklariga har doim KATTA krill nom yoziladi.
+ * Masalan: "Russia"/"Россия" → "РОССИЯ", "Belarus" → "БЕЛАРУСЬ".
+ */
+const COUNTRY_CYRILLIC: Record<string, string> = {
+  // CIS / EAEU
+  russia: 'РОССИЯ',
+  rossiya: 'РОССИЯ',
+  belarus: 'БЕЛАРУСЬ',
+  belorussia: 'БЕЛАРУСЬ',
+  kazakhstan: 'КАЗАХСТАН',
+  qozogiston: 'КАЗАХСТАН',
+  kyrgyzstan: 'КЫРГЫЗСТАН',
+  kirgizistan: 'КЫРГЫЗСТАН',
+  tajikistan: 'ТАДЖИКИСТАН',
+  tojikiston: 'ТАДЖИКИСТАН',
+  turkmenistan: 'ТУРКМЕНИСТАН',
+  uzbekistan: 'УЗБЕКИСТАН',
+  ozbekiston: 'УЗБЕКИСТАН',
+  armenia: 'АРМЕНИЯ',
+  azerbaijan: 'АЗЕРБАЙДЖАН',
+  georgia: 'ГРУЗИЯ',
+  moldova: 'МОЛДОВА',
+  ukraine: 'УКРАИНА',
+  // Common trade partners
+  china: 'КИТАЙ',
+  turkey: 'ТУРЦИЯ',
+  turkiya: 'ТУРЦИЯ',
+  iran: 'ИРАН',
+  india: 'ИНДИЯ',
+  pakistan: 'ПАКИСТАН',
+  afghanistan: 'АФГАНИСТАН',
+  mongolia: 'МОНГОЛИЯ',
+  'south korea': 'ЮЖНАЯ КОРЕЯ',
+  korea: 'КОРЕЯ',
+  'united arab emirates': 'ОАЭ',
+  uae: 'ОАЭ',
+  germany: 'ГЕРМАНИЯ',
+  poland: 'ПОЛЬША',
+  lithuania: 'ЛИТВА',
+  latvia: 'ЛАТВИЯ',
+  estonia: 'ЭСТОНИЯ',
+};
+
+const toUpperCyrillicCountry = (raw?: string | null): string => {
+  const value = (raw || '').trim();
+  if (!value) return '';
+  const key = value.toLowerCase().replace(/\s+/g, ' ');
+  const mapped = COUNTRY_CYRILLIC[key];
+  if (mapped) return mapped;
+  // Xaritada yo'q bo'lsa: krill nomni KATTA harfga o'girish yetarli
+  // (masalan allaqachon "Россия" saqlangan bo'lsa), aks holda lotin nom
+  // ham KATTA harfga o'giriladi (eng yaxshi harakat).
+  return value.toUpperCase();
+};
+
 /** Filial nomiga qarab viloyat matni (TIR/SMR shablonlarida) */
 const getRegionByBranchName = (branchName?: string | null): string => {
   if (!branchName) return '';
@@ -61,6 +120,11 @@ type TirCellMap = {
   grossCol: string;
   totalGrossCell: string;
   totalPlacesCell: string;
+  // Importyor davlat nomi (KATTA krill) yoziladigan kataklar.
+  // Ixtiyoriy — eski deploy qilingan xaritada bo'lmasligi mumkin, shu bois
+  // fallback qiymatlar (F7/C38) kod ichida beriladi.
+  importerCountryCellTop?: string;
+  importerCountryCellBottom?: string;
 };
 
 const REQUIRED_TIR_KEYS: Array<keyof TirCellMap> = [
@@ -134,6 +198,14 @@ export const generateTirExcel = async (payload: TirInvoicePayload) => {
   const regionText = getRegionByBranchName(branchName);
   if (regionText) {
     sheet.getCell(map.regionCell).value = regionText;
+  }
+
+  // Importyor davlat nomi — shartnomadagi davlatga qarab KATTA krill harflar
+  // bilan F7 va C38 kataklariga yoziladi (masalan: Russia → РОССИЯ).
+  const importerCountry = toUpperCyrillicCountry(payload.contract?.destinationCountry);
+  if (importerCountry) {
+    sheet.getCell(map.importerCountryCellTop || 'F7').value = importerCountry;
+    sheet.getCell(map.importerCountryCellBottom || 'C38').value = importerCountry;
   }
 
   // Fixed cells per template requirements: H10 = invoys raqami va sanasi

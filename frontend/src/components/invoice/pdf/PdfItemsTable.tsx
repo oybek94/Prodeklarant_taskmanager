@@ -133,7 +133,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
     else if (u === 'шт.' || u === 'шт') unitPriceLabel = 'Цена за шт.';
     else unitPriceLabel = `Цена за ${u}`;
   }
-  const effectiveColumnLabels = { ...columnLabels, unitPrice: unitPriceLabel };
+  const effectiveColumnLabels: Record<string, string> = { ...columnLabels, unitPrice: unitPriceLabel };
 
   const flexMap: Record<string, number> = {};
   orderedVisibleColumns.forEach(key => {

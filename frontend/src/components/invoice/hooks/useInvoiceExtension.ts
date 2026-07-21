@@ -34,14 +34,31 @@ export function useInvoiceExtension(
         ? (selectedContract?.sellerLegalAddress || '')
         : [selectedContract?.shipperAddress || '', `п/п ${selectedContract?.sellerName || ''} ${selectedContract?.sellerLegalAddress || ''}`.trim()].filter(Boolean).join('\n');
 
+      // Sotib oluvchi (buyer) va yuk qabul qiluvchi (consignee) boshqa-boshqa korxona bo'lsa,
+      // IMPPN maydonlariga yuk qabul qiluvchi ma'lumotlari + "п/п." orqali sotib oluvchi qo'shiladi.
+      const isBuyerConsignee = !selectedContract?.consigneeName
+        || selectedContract.consigneeName.trim() === (selectedContract.buyerName || '').trim();
+      const imppnNm = isBuyerConsignee
+        ? (selectedContract?.buyerName || '')
+        : (selectedContract?.consigneeName || selectedContract?.buyerName || '');
+      // singlewindow.uz IMPPN_ADDR: yuk qabul qiluvchi manzili + " п/п. " + sotib oluvchi nomi
+      const imppnAddr = isBuyerConsignee
+        ? (selectedContract?.buyerAddress || '')
+        : `${selectedContract?.consigneeAddress || ''} п/п. ${selectedContract?.buyerName || ''}`.replace(/\s+/g, ' ').trim();
+      // expertiza.uz ГрузополучательАдрес: yuk qabul qiluvchi manzili + " п/п. " + sotib oluvchi nomi + sotib oluvchi manzili
+      const imppnAddrSt1 = isBuyerConsignee
+        ? (selectedContract?.buyerAddress || '')
+        : `${selectedContract?.consigneeAddress || ''} п/п. ${selectedContract?.buyerName || ''} ${selectedContract?.buyerAddress || ''}`.replace(/\s+/g, ' ').trim();
+
       const exportData = {
         EXPPN_NM: exppnNm,
         EXPPN_ADDR: exppnAddr,
         EXPPN_ADDR_CLEAN: exppnAddrClean,
         ST1_GRZ_ADDR: st1GrzAddr,
         EXPPN_REGN_TP_NM: form.fssRegionName || '',
-        IMPPN_NM: selectedContract?.buyerName || '',
-        IMPPN_ADDR: selectedContract?.buyerAddress || '',
+        IMPPN_NM: imppnNm,
+        IMPPN_ADDR: imppnAddr,
+        IMPPN_ADDR_ST1: imppnAddrSt1,
         EXP_CTDC_NO: (selectedContract?.contractNumber || form.contractNumber || form.invoiceNumber) || '',
         EXP_CVNT_DT: (selectedContract?.contractDate ? String(selectedContract.contractDate).split('T')[0] : (form.date ? String(form.date).split('T')[0] : '')) || '',
         vehicleNumber: form.vehicleNumber || '',

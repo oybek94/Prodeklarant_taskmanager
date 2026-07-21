@@ -90,7 +90,7 @@ function fillSt1Form(data) {
         "ГрузоотправительНаименование": data.EXPPN_NM,
         "ГрузоотправительАдрес": data.ST1_GRZ_ADDR || data.EXPPN_ADDR,
         "ГрузополучательНаименование": data.IMPPN_NM,
-        "ГрузополучательАдрес": data.IMPPN_ADDR,
+        "ГрузополучательАдрес": data.IMPPN_ADDR_ST1 || data.IMPPN_ADDR,
         "ДатаОтгрузки": formattedDate,
         "ТоварыТекст": "Сельскохозяйственные продукты"
     };

@@ -101,58 +101,9 @@ function fillSt1Form(data) {
         }
     }
 
-    // Tanlovli (dropdown) maydonlar — matn bo'yicha kerakli variantni tanlash
-    const selectMap = {
-        "ВидОтгрузки_Key": "Автодорожный транспорт",
-        "СтранаНазначения_Key": "Российская Федерация"
-    };
-
-    for (const [name, optionText] of Object.entries(selectMap)) {
-        selectOptionByText(name, optionText);
-    }
-}
-
-// <select> maydonda ko'rinadigan matn bo'yicha variantni tanlash
-// (_Key maydonlarda value ichki kalit bo'ladi, shuning uchun matn orqali qidiramiz)
-function selectOptionByText(name, optionText) {
-    const el = document.querySelector(`select[name="${name}"]`) || document.querySelector(`[name="${name}"]`);
-    if (!el) {
-        console.warn(`[AutoFill] Tanlov maydoni topilmadi: ${name}`);
-        return;
-    }
-
-    if (el.tagName.toLowerCase() !== 'select') {
-        console.warn(`[AutoFill] Maydon <select> emas: ${name}`);
-        return;
-    }
-
-    const target = String(optionText).replace(/\s+/g, ' ').trim().toLowerCase();
-    let matched = null;
-
-    for (const opt of el.options) {
-        const label = opt.text.replace(/\s+/g, ' ').trim().toLowerCase();
-        if (label === target) {
-            matched = opt;
-            break;
-        }
-        if (!matched && label.includes(target)) {
-            matched = opt; // to'liq mos kelmasa, ichida bor variantni zaxira sifatida saqlaymiz
-        }
-    }
-
-    if (!matched) {
-        console.warn(`[AutoFill] "${optionText}" varianti topilmadi: ${name}`);
-        return;
-    }
-
-    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value")?.set;
-    if (nativeSetter) {
-        nativeSetter.call(el, matched.value);
-    } else {
-        el.value = matched.value;
-    }
-
-    triggerEvents(el);
+    // Eslatma: "Вид отгрузки" va "Страна назначения" maydonlari expertizada
+    // angular-ui-select (native <select> emas) va so'rov nusxasida allaqachon
+    // to'g'ri keladi, shuning uchun kengaytma ularni to'ldirmaydi.
 }
 
 // Qattiq (majburiy) bosish funksiyasi (barcha frameworklarni chetlab o'tishga harakat)

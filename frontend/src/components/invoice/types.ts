@@ -314,8 +314,8 @@ export const DEFAULT_COLUMN_LABELS = {
   unit: 'Ед. изм.',
   quantity: 'Мест',
   shtCount: 'шт',
-  gross: 'Брутто (кг)',
-  net: 'Нетто (кг)',
+  gross: 'Брутто',
+  net: 'Нетто',
   unitPrice: 'Цена за ед.изм.',
   total: 'Сумма с НДС',
   actions: 'Amallar',
@@ -323,6 +323,27 @@ export const DEFAULT_COLUMN_LABELS = {
 
 export type ColumnLabels = Record<string, string>;
 export type ColumnLabelKey = string;
+
+/** Avval saqlangan invoyslardagi eski ustun nomlari */
+const LEGACY_COLUMN_LABELS: Record<string, string> = {
+  gross: 'Брутто (кг)',
+  net: 'Нетто (кг)',
+};
+
+/**
+ * Saqlangan invoysdan yuklangan ustun nomlarini yangi standartga keltiradi:
+ * eski standart nom ("Брутто (кг)") yangisiga ("Брутто") almashtiriladi.
+ * Foydalanuvchi o'zi yozgan nomlar tegilmaydi.
+ */
+export const normalizeSavedColumnLabels = (saved: Record<string, string>): Record<string, string> => {
+  const result = { ...saved };
+  for (const [key, legacyLabel] of Object.entries(LEGACY_COLUMN_LABELS)) {
+    if (typeof result[key] === 'string' && result[key].trim() === legacyLabel) {
+      result[key] = DEFAULT_COLUMN_LABELS[key as keyof typeof DEFAULT_COLUMN_LABELS];
+    }
+  }
+  return result;
+};
 
 // --- Utility Functions ---
 

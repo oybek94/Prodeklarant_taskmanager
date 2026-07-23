@@ -2,7 +2,7 @@ import apiClient from '../../../lib/api';
 import axios from 'axios';
 import type { InvoiceItem, SpecRow } from '../types';
 import { normalizeItem } from '../invoiceUtils';
-import { getVisibleColumnsFromPayload, getLocalDateString } from '../types';
+import { getVisibleColumnsFromPayload, getLocalDateString, normalizeSavedColumnLabels } from '../types';
 
 interface UseInvoiceLoaderParams {
   clientId: string | undefined;
@@ -134,7 +134,7 @@ export function createLoadData({
               const dupVisible = getVisibleColumnsFromPayload(dupAi ?? undefined);
               if (dupVisible) setVisibleColumns(dupVisible);
               if (dupAi?.columnLabels && typeof dupAi.columnLabels === 'object') {
-                setColumnLabels((prev: any) => ({ ...prev, ...(dupAi.columnLabels as Record<string, string>) }));
+                setColumnLabels((prev: any) => ({ ...prev, ...normalizeSavedColumnLabels(dupAi.columnLabels as Record<string, string>) }));
               }
               if (dupAi?.visibleAdditionalInfoFields && typeof dupAi.visibleAdditionalInfoFields === 'object') {
                 setAdditionalInfoVisible(dupAi.visibleAdditionalInfoFields as Record<string, boolean>);
@@ -355,7 +355,7 @@ export function createLoadData({
             const savedVisible = getVisibleColumnsFromPayload(ai);
             if (savedVisible) setVisibleColumns(savedVisible);
             if (ai?.columnLabels && typeof ai.columnLabels === 'object') {
-              setColumnLabels((prev: any) => ({ ...prev, ...(ai.columnLabels as Record<string, string>) }));
+              setColumnLabels((prev: any) => ({ ...prev, ...normalizeSavedColumnLabels(ai.columnLabels as Record<string, string>) }));
             }
             if (ai?.visibleAdditionalInfoFields && typeof ai.visibleAdditionalInfoFields === 'object') {
               setAdditionalInfoVisible(ai.visibleAdditionalInfoFields as Record<string, boolean>);

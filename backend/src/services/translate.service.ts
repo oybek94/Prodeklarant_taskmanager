@@ -214,7 +214,7 @@ export function buildTranslatableTexts(data: {
     const DEFAULT_COLUMN_LABELS_RU: Record<string, string> = {
       index: '№', tnved: 'Код ТН ВЭД', plu: 'Код PLU', name: 'Наименование товара',
       package: 'Вид упаковки', packagesCount: 'Кол-во упаковки', unit: 'Ед. изм.',
-      quantity: 'Мест', shtCount: 'шт', gross: 'Брутто (кг)', net: 'Нетто (кг)',
+      quantity: 'Мест', shtCount: 'шт', gross: 'Брутто', net: 'Нетто',
       unitPrice: 'Цена за ед.изм.', total: 'Сумма с НДС',
     };
     const cur = String(contract?.contractCurrency || invoice?.currency || 'USD').trim().toUpperCase();

@@ -46,14 +46,28 @@ export const formatNumber = (value?: number): string =>
       })
     : '';
 
-/** Raqamni rus formatida chiqarish (narx uchun, 0-3 kasr) */
+/**
+ * Narxni rus formatida chiqarish — har doim kamida 2 kasr: 1 → "1,00", 0,1 → "0,10".
+ * Uch kasrli narxlar (1,234) o'zgarishsiz qoladi.
+ */
 export const formatUnitPrice = (value?: number): string =>
   value !== undefined && value !== null && !Number.isNaN(value)
     ? value.toLocaleString('ru-RU', {
-        minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+        minimumFractionDigits: 2,
         maximumFractionDigits: 3,
       })
     : '';
+
+/**
+ * Narx inputi (`type="number"`) uchun qiymat — har doim kamida 2 kasr: 1 → "1.00".
+ * Uch kasrli narx saqlanadi (1.234). Input talabiga ko'ra ajratkich — nuqta.
+ */
+export const formatPriceInputValue = (value?: number | null): string => {
+  if (value === null || value === undefined || !Number.isFinite(value) || value === 0) return '';
+  const rounded = Math.round(value * 1000) / 1000;
+  const hasThirdDecimal = Math.abs(rounded * 100 - Math.round(rounded * 100)) > 1e-9;
+  return hasThirdDecimal ? rounded.toFixed(3) : rounded.toFixed(2);
+};
 
 /** Faktura qiymatini rus formatida chiqarish — har doim 2 kasr: "1,00", "0,10" */
 export const formatNumberFixed = (value?: number): string =>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatNumber, formatNumberFixed, formatUnitPrice } from './invoiceUtils';
+import { formatNumber, formatNumberFixed, formatUnitPrice, formatPriceInputValue } from './invoiceUtils';
 
 const UNIT_OPTIONS = ['кг', 'шт.', 'л', 'пог.м', 'м2', 'м3', 'компл', 'пар', 'кор.', 'упак.'];
 
@@ -192,7 +192,7 @@ export const InvoiceItemRow: React.FC<InvoiceItemRowProps> = React.memo(({
           case 'unitPrice':
             return (
               <td key={key} className="px-2 py-2">
-                <input type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()} value={('_unitPriceStr' in item && (item as any)._unitPriceStr !== undefined) ? (item as any)._unitPriceStr : (item.unitPrice === 0 ? '' : item.unitPrice)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_unitPriceStr' as any, raw); const num = parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0); }} onBlur={() => handleItemChange(index, '_unitPriceStr' as any, undefined)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.unitPrice) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} min="0" step="any" required placeholder="" data-nav-row={index} data-nav-col={colIndexMap.unitPrice} onKeyDown={handleCellKeyDown} />
+                <input type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()} value={('_unitPriceStr' in item && (item as any)._unitPriceStr !== undefined) ? (item as any)._unitPriceStr : formatPriceInputValue(item.unitPrice)} onChange={(e) => { const raw = e.target.value; handleItemChange(index, '_unitPriceStr' as any, raw); const num = parseFloat(String(raw).replace(',', '.')); handleItemChange(index, 'unitPrice', Number.isFinite(num) ? num : 0); }} onBlur={() => handleItemChange(index, '_unitPriceStr' as any, undefined)} className={`w-full px-2 py-1 border rounded text-xs text-right ${showItemErrors && !(Number(item.unitPrice) > 0) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} min="0" step="any" required placeholder="" data-nav-row={index} data-nav-col={colIndexMap.unitPrice} onKeyDown={handleCellKeyDown} />
               </td>
             );
           case 'total':

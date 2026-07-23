@@ -7,59 +7,92 @@ interface PdfSignaturesProps {
   contract: any;
   viewTab: 'invoice' | 'spec' | 'packing' | 'pricelist';
   pdfIncludeSeal: boolean;
+  isSellerShipper?: boolean;
+  isBuyerConsignee?: boolean;
   scale?: number;
 }
 
-export const PdfSignatures: React.FC<PdfSignaturesProps> = ({ contract, viewTab, pdfIncludeSeal, scale = 1 }) => {
+interface SpecParty {
+  label: string;
+  name: string;
+  director?: string;
+  /** Direktor F.I.Sh. oldiga "Директор" so'zi qo'shiladimi */
+  directorPrefix: boolean;
+  signatureUrl?: string;
+  sealUrl?: string;
+}
+
+export const PdfSignatures: React.FC<PdfSignaturesProps> = ({
+  contract, viewTab, pdfIncludeSeal, isSellerShipper = true, isBuyerConsignee = true, scale = 1,
+}) => {
   const sc = (v: number) => Math.round(v * scale);
   if (viewTab === 'spec') {
-    const seller = contract.sellerName ? {
-      label: 'Продавец',
-      name: contract.sellerName,
-      director: contract.supplierDirector,
-      signatureUrl: contract.sellerSignatureUrl,
-      sealUrl: contract.sellerSealUrl,
-    } : null;
+    // Kontraktdagi barcha tomonlar — korxona nomi bor bo'lsa direktor
+    // ko'rsatilmagan bo'lsa ham ustun sifatida chiqadi. Yuk jo'natuvchi/qabul
+    // qiluvchi sotuvchi/sotib oluvchi bilan bir xil bo'lsa takrorlanmaydi.
+    const participants = ([
+      contract.sellerName ? {
+        label: 'Продавец',
+        name: contract.sellerName,
+        director: contract.supplierDirector,
+        directorPrefix: true,
+        signatureUrl: contract.sellerSignatureUrl,
+        sealUrl: contract.sellerSealUrl,
+      } : null,
+      contract.buyerName ? {
+        label: 'Покупатель',
+        name: contract.buyerName,
+        director: contract.buyerDirector,
+        directorPrefix: false,
+        signatureUrl: contract.buyerSignatureUrl,
+        sealUrl: contract.buyerSealUrl,
+      } : null,
+      !isSellerShipper && contract.shipperName ? {
+        label: 'Грузоотправитель/Изготовитель',
+        name: contract.shipperName,
+        directorPrefix: false,
+      } : null,
+      !isBuyerConsignee && contract.consigneeName ? {
+        label: 'Грузополучатель',
+        name: contract.consigneeName,
+        director: contract.consigneeDirector,
+        directorPrefix: false,
+        signatureUrl: contract.consigneeSignatureUrl,
+        sealUrl: contract.consigneeSealUrl,
+      } : null,
+    ].filter(Boolean) as SpecParty[]);
 
-    const buyer = contract.buyerName ? {
-      label: 'Покупатель',
-      name: contract.buyerName,
-      director: contract.buyerDirector,
-      signatureUrl: contract.buyerSignatureUrl,
-      sealUrl: contract.buyerSealUrl,
-    } : null;
+    if (!participants.length) return null;
 
-    if (!seller && !buyer) return null;
+    // Tomonlar ko'p bo'lsa ustunlar torayadi — imzo/pechat ham kichrayadi
+    const many = participants.length > 2;
+    const sigImgH = sc(many ? 36 : 50);
+    const sealImgH = sc(many ? 100 : 140);
+    const imgBlockH = sigImgH + sealImgH + sc(6);
 
-    // Imzo + pechat balandligi (scale hisobga olingan)
-    const imgH = sc(50) + sc(140) + sc(6); // imzo + pechat + oraliq
-
-    const InfoCol = ({ party }: { party: NonNullable<typeof seller> }) => (
+    const PartyCol = ({ party }: { party: SpecParty }) => (
       <View style={{ flex: 1, paddingRight: sc(6) }}>
         <Text style={{ fontSize: sc(9), fontWeight: 'bold', marginBottom: sc(3) }}>{party.label}</Text>
         <Text style={{ fontSize: sc(8) }}>{party.name}</Text>
         {party.director && (
           <Text style={{ fontSize: sc(8), color: '#4b5563', marginTop: sc(2) }}>
-            {party.label === 'Покупатель' ? party.director : `Директор ${party.director}`}
+            {party.directorPrefix ? `Директор ${party.director}` : party.director}
           </Text>
         )}
-      </View>
-    );
-
-    const ImgCol = ({ party }: { party: NonNullable<typeof seller> }) => (
-      <View style={{ flex: 1, alignItems: 'center', minHeight: imgH }}>
-        {party.signatureUrl && pdfIncludeSeal && (
-          <Image
-            src={resolveUploadUrl(party.signatureUrl)}
-            style={{ height: sc(50), objectFit: 'contain', marginBottom: sc(4) }}
-          />
-        )}
-        {party.sealUrl && pdfIncludeSeal && (
-          <Image
-            src={resolveUploadUrl(party.sealUrl)}
-            style={{ height: sc(140), objectFit: 'contain' }}
-          />
-        )}
+        <View style={{ alignItems: 'center', minHeight: imgBlockH, marginTop: sc(4) }}>
+          {party.signatureUrl && pdfIncludeSeal && (
+            <Image
+              src={resolveUploadUrl(party.signatureUrl)}
+              style={{ height: sigImgH, objectFit: 'contain', marginBottom: sc(4) }}
+            />
+          )}
+          {party.sealUrl && pdfIncludeSeal && (
+            <Image
+              src={resolveUploadUrl(party.sealUrl)}
+              style={{ height: sealImgH, objectFit: 'contain' }}
+            />
+          )}
+        </View>
       </View>
     );
 
@@ -67,14 +100,9 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({ contract, viewTab,
       <View style={{ marginTop: sc(14) }} wrap={false}>
         <Text style={{ fontSize: sc(9), fontWeight: 'bold', marginBottom: sc(8) }}>Подписи сторон</Text>
         <View style={{ flexDirection: 'row' }}>
-          {/* Col 1: Продавец ma'lumotlari */}
-          {seller && <InfoCol party={seller} />}
-          {/* Col 2: Продавец imzo + pechat */}
-          {seller && <ImgCol party={seller} />}
-          {/* Col 3: Покупатель ma'lumotlari */}
-          {buyer && <InfoCol party={buyer} />}
-          {/* Col 4: Покупатель imzo + pechat */}
-          {buyer && <ImgCol party={buyer} />}
+          {participants.map((p) => (
+            <PartyCol key={`${p.label}-${p.name}`} party={p} />
+          ))}
         </View>
       </View>
     );

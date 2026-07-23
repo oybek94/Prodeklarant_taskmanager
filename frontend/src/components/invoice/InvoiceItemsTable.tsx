@@ -1,7 +1,7 @@
 import React, { type RefObject, useMemo, useState } from 'react';
 import type { InvoiceItem, ViewTab, VisibleColumns, ColumnLabels, ColumnLabelKey, InvoiceFormData } from './types';
 import { UNIT_OPTIONS, DEFAULT_COLUMN_LABELS } from './types';
-import { formatNumber, formatNumberFixed, formatUnitPrice, numberToWordsRu, getCurrencySymbol } from './invoiceUtils';
+import { formatNumber, formatNumberFixed, formatUnitPrice, numberToWordsRu, getCurrencySymbol, sumItemTotals } from './invoiceUtils';
 import { InvoiceWeightSummary } from './InvoiceWeightSummary';
 import { ExportPriceCalculator } from './ExportPriceCalculator';
 import { InvoiceItemRow } from './InvoiceItemRow';
@@ -449,7 +449,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
               case 'total':
                 return (
                   <td key={key} className="px-2 py-1 text-right font-bold" style={{ verticalAlign: 'top' }}>
-                    {getCurrencySymbol(invoiceCurrency)} {formatNumberFixed(items.reduce((sum, i) => sum + i.totalPrice, 0))}
+                    {getCurrencySymbol(invoiceCurrency)} {formatNumberFixed(sumItemTotals(items))}
                   </td>
                 );
               case 'unitPrice':
@@ -701,7 +701,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
             </div>
             {effectiveColumns.total && (
               <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
-                Сумма прописью: {numberToWordsRu(items.reduce((sum, i) => sum + i.totalPrice, 0), invoiceCurrency)}
+                Сумма прописью: {numberToWordsRu(sumItemTotals(items), invoiceCurrency)}
               </div>
             )}
           </>
@@ -744,7 +744,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
             </div>
             {effectiveColumns.total && (
               <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
-                Сумма прописью: {numberToWordsRu(items.reduce((sum, i) => sum + i.totalPrice, 0), invoiceCurrency)}
+                Сумма прописью: {numberToWordsRu(sumItemTotals(items), invoiceCurrency)}
               </div>
             )}
           </>

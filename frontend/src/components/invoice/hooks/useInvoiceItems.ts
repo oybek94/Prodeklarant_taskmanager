@@ -1,15 +1,17 @@
 import { useState, useCallback } from 'react';
 import type { InvoiceItem, SpecRow } from '../types';
 import { createDefaultItem } from '../types';
+import { round2 } from '../invoiceUtils';
 
+/** Qator faktura qiymati — matematik qoida bo'yicha 2 kasrgacha yaxlitlanadi */
 export function calculateTotalPrice(item: InvoiceItem): number {
   const unitPrice = item.unitPrice ?? 0;
   if (item.unit === 'шт' || item.unit === 'шт.') {
-    return (Number(item.customFields?.shtCount) || 0) * unitPrice;
+    return round2((Number(item.customFields?.shtCount) || 0) * unitPrice);
   } else if (item.unit === 'кор' || item.unit === 'кор.' || item.unit === 'упак' || item.unit === 'упак.') {
-    return (item.packagesCount ?? 0) * unitPrice;
+    return round2((item.packagesCount ?? 0) * unitPrice);
   } else {
-    return (item.netWeight ?? 0) * unitPrice;
+    return round2((item.netWeight ?? 0) * unitPrice);
   }
 }
 

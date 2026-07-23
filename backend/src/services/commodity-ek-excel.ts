@@ -87,6 +87,16 @@ const toNum = (v: unknown): number | '' => {
   return Number.isFinite(n) ? n : '';
 };
 
+/**
+ * Faktura qiymatini matematik qoida bo'yicha 2 kasr belgigacha yaxlitlaydi (0.5 → yuqoriga).
+ * `toPrecision(12)` float artefaktlarini tozalaydi (1.005 * 100 = 100.49999999999999).
+ */
+const round2 = (v: number | ''): number | '' => {
+  if (v === '' || !Number.isFinite(v)) return '';
+  const sign = v < 0 ? -1 : 1;
+  return (sign * Math.round(Number((Math.abs(v) * 100).toPrecision(12)))) / 100;
+};
+
 /** Matnni raqamga aylantiradi; raqam bo‘lmasa bo‘sh qator */
 const toNumFromStr = (s: string): number | '' => {
   const t = toStr(s);
@@ -266,7 +276,7 @@ export async function generateCommodityEkExcel(
     set('netWeightN', netWeight === '' ? '' : netWeight);
     set('grossWeight', grossWeight === '' ? '' : grossWeight);
     set('netWeight', netWeight === '' ? '' : netWeight);
-    const fakturaValue = toNum(item.totalPrice);
+    const fakturaValue = round2(toNum(item.totalPrice));
     set('fakturaValue', fakturaValue === '' ? '' : fakturaValue);
   });
 

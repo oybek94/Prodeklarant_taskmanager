@@ -37,10 +37,13 @@ export const useInvoiceCalculations = ({
       (!selectedContract?.shipperName ||
         selectedContract.shipperName.trim() === selectedContract.sellerName.trim());
 
+    // isSellerShipper bilan bir xil mantiq: yuk qabul qiluvchi umuman
+    // ko'rsatilmagan bo'lsa ham sotib oluvchi o'zi yuk qabul qiluvchi hisoblanadi
+    // (sarlavha "Покупатель/Грузополучатель" bo'ladi).
     const isBuyerConsignee =
-      !!selectedContract?.consigneeName &&
       !!selectedContract?.buyerName &&
-      selectedContract.consigneeName.trim() === selectedContract.buyerName.trim();
+      (!selectedContract?.consigneeName ||
+        selectedContract.consigneeName.trim() === selectedContract.buyerName.trim());
 
     const leadingColumnsCount = getLeadingColumnsCount();
     const effectiveColumns = getEffectiveColumns(viewTab, isPdfMode, viewOnly);

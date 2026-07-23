@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { InvoiceItem } from './types';
+import { round2 } from './invoiceUtils';
 
 interface UseInvoiceItemsManagerProps {
   items: InvoiceItem[];
@@ -58,7 +59,7 @@ export function useInvoiceItemsManager({
     if (field === 'netWeight' || field === 'unitPrice' || field === 'grossWeight' || field === 'packagesCount') {
       const netWeight = newItems[index].netWeight ?? 0;
       const unitPrice = newItems[index].unitPrice ?? 0;
-      newItems[index].totalPrice = netWeight * unitPrice;
+      newItems[index].totalPrice = round2(netWeight * unitPrice);
     }
 
     setItems(newItems);
@@ -80,7 +81,7 @@ export function useInvoiceItemsManager({
         const up = specRow.unitPrice != null ? Number(specRow.unitPrice) : 0;
         const tp = specRow.totalPrice != null ? Number(specRow.totalPrice) : up * (newItems[index].netWeight || 0);
         newItems[index].unitPrice = up;
-        newItems[index].totalPrice = tp;
+        newItems[index].totalPrice = round2(tp);
       } else {
         newItems[index].unitPrice = 0;
         newItems[index].totalPrice = 0;
@@ -174,7 +175,7 @@ export function useInvoiceItemsManager({
         ...next[index],
         netWeight: result,
         netWeightFormula: v,
-        totalPrice: result * (next[index].unitPrice ?? 0),
+        totalPrice: round2(result * (next[index].unitPrice ?? 0)),
       };
       return next;
     });
@@ -197,7 +198,7 @@ export function useInvoiceItemsManager({
             ...item,
             netWeight: result,
             netWeightFormula: `*${tareWeight}`,
-            totalPrice: result * (item.unitPrice ?? 0),
+            totalPrice: round2(result * (item.unitPrice ?? 0)),
           };
         }
         return item;

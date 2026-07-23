@@ -14,6 +14,27 @@ export const formatDate = (dateString: string): string => {
   return `${day}.${month}.${year}`;
 };
 
+// --- Raqam yaxlitlash ---
+
+/**
+ * Faktura qiymatini matematik qoida bo'yicha 2 kasr belgigacha yaxlitlaydi
+ * (0.5 va undan katta — yuqoriga, manfiy sonlar noldan uzoqlashadi).
+ *
+ * `toPrecision(12)` float artefaktlarini tozalaydi: 1.005 * 100 = 100.49999999999999
+ * bo'lgani uchun oddiy `Math.round` 1.00 berardi, endi to'g'ri 1.01 chiqadi.
+ */
+export const round2 = (value?: number | string | null): number => {
+  const num = typeof value === 'string' ? Number(value) : value;
+  if (num === null || num === undefined || !Number.isFinite(num)) return 0;
+  const sign = num < 0 ? -1 : 1;
+  const scaled = Number((Math.abs(num) * 100).toPrecision(12));
+  return (sign * Math.round(scaled)) / 100;
+};
+
+/** Barcha qatorlar bo'yicha umumiy faktura qiymati (har bir qator ham, yig'indi ham yaxlitlangan) */
+export const sumItemTotals = (items: Array<{ totalPrice?: number }>): number =>
+  round2(items.reduce((sum, item) => sum + round2(item.totalPrice), 0));
+
 // --- Raqam formatlash ---
 
 /** Raqamni rus formatida chiqarish (vergul separator, 0-2 kasr) */
@@ -34,10 +55,10 @@ export const formatUnitPrice = (value?: number): string =>
       })
     : '';
 
-/** Raqamni rus formatida chiqarish (har doim 2 kasr) */
+/** Faktura qiymatini rus formatida chiqarish — har doim 2 kasr: "1,00", "0,10" */
 export const formatNumberFixed = (value?: number): string =>
   value !== undefined && value !== null && !Number.isNaN(value)
-    ? value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    ? round2(value).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : '';
 
 /** Valyuta ramzini olish */
@@ -63,7 +84,8 @@ export const normalizeItem = (item: InvoiceItem): InvoiceItem => ({
   grossWeight: item.grossWeight != null ? Number(item.grossWeight) : undefined,
   netWeight: item.netWeight != null ? Number(item.netWeight) : undefined,
   unitPrice: item.unitPrice != null ? Number(item.unitPrice) : 0,
-  totalPrice: item.totalPrice != null ? Number(item.totalPrice) : 0,
+  // Faktura qiymati bazaga ham, hujjatlarga ham 2 kasr aniqlikda tushadi
+  totalPrice: round2(item.totalPrice),
 });
 
 /** Shartnoma spetsifikatsiyasidagi nom va boshqa maydonlarni invoys qatorlariga (indeks bo'yicha) yozadi. */
@@ -75,7 +97,7 @@ export const syncItemsFromSpec = (currentItems: InvoiceItem[], spec: SpecRow[]):
     if (row.productName != null && String(row.productName).trim() !== '') next.name = String(row.productName).trim();
     if (row.tnvedCode != null && String(row.tnvedCode).trim() !== '') next.tnvedCode = String(row.tnvedCode).trim();
     if (row.unitPrice != null) next.unitPrice = Number(row.unitPrice);
-    if (row.totalPrice != null) next.totalPrice = Number(row.totalPrice);
+    if (row.totalPrice != null) next.totalPrice = round2(row.totalPrice);
     return next;
   });
 
@@ -174,8 +196,11 @@ export const numberToWordsRu = (num: number, currency: string): string => {
   if (!Number.isFinite(num) || num < 0) return zeroPhrase;
   if (num === 0) return zeroPhrase;
 
-  const whole = Math.floor(num);
-  const dec = Math.round((num - whole) * 100);
+  // So'z bilan yozishdan oldin ham 2 kasrgacha yaxlitlanadi — jadvaldagi
+  // "Всего" qiymati bilan bir xil bo'lishi uchun
+  const rounded = round2(num);
+  const whole = Math.floor(rounded);
+  const dec = Math.round((rounded - whole) * 100);
   let result = '';
 
   const millions = Math.floor(whole / 1_000_000);

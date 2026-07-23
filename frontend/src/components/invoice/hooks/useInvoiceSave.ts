@@ -3,7 +3,7 @@ import axios from 'axios';
 import apiClient from '../../../lib/api';
 import toast from 'react-hot-toast';
 import type { InvoiceItem, Task, ChangeLogEntry } from '../types';
-import { normalizeItem, buildTaskTitle } from '../invoiceUtils';
+import { normalizeItem, buildTaskTitle, round2, sumItemTotals } from '../invoiceUtils';
 import { normalizeText } from '../../../utils/textNormalize';
 
 /* ─── constants ──────────────────────────────────────────────────── */
@@ -345,7 +345,7 @@ export function useInvoiceSave({
           quantity: quantityForBackend,
           packagesCount: pkgCount,
           unitPrice: Number(normalized.unitPrice) || 0,
-          totalPrice: Number(normalized.totalPrice) || 0,
+          totalPrice: round2(normalized.totalPrice),
           orderIndex: index,
         };
       });
@@ -359,7 +359,7 @@ export function useInvoiceSave({
         contractNumber: currentForm.contractNumber,
         contractId: selectedContractId ? Number(selectedContractId) : undefined,
         items: normalizedItems,
-        totalAmount: normalizedItems.reduce((sum: number, item: { totalPrice: number }) => sum + item.totalPrice, 0),
+        totalAmount: sumItemTotals(normalizedItems),
         notes: currentForm.notes,
         additionalInfo: (() => {
           const base: Record<string, unknown> = {

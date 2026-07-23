@@ -62,11 +62,18 @@ interface SpecSignaturesProps {
  * Spetsifikatsiya tabidagi barcha tomonlarning imzolari.
  */
 export const SpecSignatures = React.memo(function SpecSignatures({ contract }: SpecSignaturesProps) {
+  // Yuk jo'natuvchi/qabul qiluvchi sotuvchi/sotib oluvchi bilan bir xil bo'lsa
+  // alohida ustun sifatida takrorlanmaydi (PDF bilan bir xil mantiq).
+  const isSellerShipper = !!contract.sellerName
+    && (!contract.shipperName || contract.shipperName.trim() === contract.sellerName.trim());
+  const isBuyerConsignee = !!contract.buyerName
+    && (!contract.consigneeName || contract.consigneeName.trim() === contract.buyerName.trim());
+
   const participants = [
     contract.sellerName ? { label: 'Продавец', name: contract.sellerName, director: contract.supplierDirector, signatureUrl: contract.sellerSignatureUrl, sealUrl: contract.sellerSealUrl } : null,
     contract.buyerName ? { label: 'Покупатель', name: contract.buyerName, director: contract.buyerDirector, signatureUrl: contract.buyerSignatureUrl, sealUrl: contract.buyerSealUrl } : null,
-    contract.shipperName ? { label: 'Грузоотправитель/Изготовитель', name: contract.shipperName, director: undefined, signatureUrl: undefined, sealUrl: undefined } : null,
-    contract.consigneeName ? { label: 'Грузополучатель', name: contract.consigneeName, director: contract.consigneeDirector, signatureUrl: contract.consigneeSignatureUrl, sealUrl: contract.consigneeSealUrl } : null,
+    !isSellerShipper && contract.shipperName ? { label: 'Грузоотправитель/Изготовитель', name: contract.shipperName, director: undefined, signatureUrl: undefined, sealUrl: undefined } : null,
+    !isBuyerConsignee && contract.consigneeName ? { label: 'Грузополучатель', name: contract.consigneeName, director: contract.consigneeDirector, signatureUrl: contract.consigneeSignatureUrl, sealUrl: contract.consigneeSealUrl } : null,
   ].filter(Boolean) as Array<{ label: string; name: string; director?: string; signatureUrl?: string; sealUrl?: string }>;
 
   if (!participants.length) return null;

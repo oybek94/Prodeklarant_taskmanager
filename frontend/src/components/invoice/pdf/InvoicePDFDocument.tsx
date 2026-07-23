@@ -42,7 +42,7 @@ const H = {
   addInfoRow: 16,      // har bir qo'shimcha maydon satri
   addInfoBottom: 10,
   tableOverhead: 52,   // jadval marginTop + header + footer + marginBottom
-  tableRow: 21,        // har bir mahsulot qatori (paddingVertical×2 + fontSize×lineHeight)
+  tableRow: 23,        // har bir mahsulot qatori (paddingVertical×2 + fontSize×lineHeight; jadval shrifti 10pt)
   sumWords: 15,
   notes: 60,           // Примечания bloki (agar bor bo'lsa)
   signatures: 150,     // Pechat rasmi 120pt bo'lishi mumkin
@@ -160,7 +160,7 @@ const calcScale = (
   let itemsHeight = 0;
   for (const item of items) {
     const nameLen = item.name ? String(item.name).length : 0;
-    const lines = Math.max(1, Math.ceil(nameLen / 35)); // taxminan 35 ta harf 1 qatorga (shriftga qarab)
+    const lines = Math.max(1, Math.ceil(nameLen / 32)); // taxminan 32 ta harf 1 qatorga (10pt jadval shrifti bo'yicha)
     itemsHeight += H.tableRow + (lines - 1) * 12; // har bir qo'shimcha qator uchun +12pt
   }
 
@@ -296,6 +296,8 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
               contract={selectedContract || {}}
               viewTab={viewTab}
               pdfIncludeSeal={pdfIncludeSeal}
+              isSellerShipper={isSellerShipper}
+              isBuyerConsignee={isBuyerConsignee}
               scale={scale}
             />
           </>

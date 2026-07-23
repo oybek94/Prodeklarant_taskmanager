@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { styles } from './PdfStyles';
-import { formatNumber, formatNumberFixed, formatUnitPrice, numberToWordsRu, getCurrencySymbol } from '../invoiceUtils';
+import { formatNumber, formatNumberFixed, formatUnitPrice, numberToWordsRu, getCurrencySymbol, sumItemTotals } from '../invoiceUtils';
 
 interface PdfItemsTableProps {
   items: any[];
@@ -83,15 +83,18 @@ const CELL_H_PADDING = 8;
 // Roboto da kirill harf kengligi ≈ fontSize * 0.62
 const CHAR_WIDTH_RATIO = 0.62;
 
-const calcTableFontSize = (flexValues: number[], numColumns: number): 9 | 8 | 7 => {
+// Mahsulot jadvali matni o'qilishi uchun bazaviy o'lchamlar 1pt kattalashtirildi:
+// eski 9/8/7 → 10/9/8. Kenglik bo'yicha bosqichlar (thresholds) o'zgarmadi —
+// tor jadvallarda matn ko'proq qatorga bo'linishi mumkin, lekin kesilmaydi.
+const calcTableFontSize = (flexValues: number[], numColumns: number): 10 | 9 | 8 => {
   const totalFlex = flexValues.reduce((s, f) => s + f, 0);
   const usableWidth = PAGE_AVAILABLE_WIDTH - numColumns * CELL_H_PADDING;
   // Har bir flex birligiga to'g'ri keladigan kenlik
   const pixPerUnit = usableWidth / totalFlex;
 
-  if (pixPerUnit >= 9 * CHAR_WIDTH_RATIO) return 9;
-  if (pixPerUnit >= 8 * CHAR_WIDTH_RATIO) return 8;
-  return 7;
+  if (pixPerUnit >= 9 * CHAR_WIDTH_RATIO) return 10;
+  if (pixPerUnit >= 8 * CHAR_WIDTH_RATIO) return 9;
+  return 8;
 };
 
 const RIGHT_COLS = new Set(['quantity', 'shtCount', 'packagesCount', 'gross', 'net', 'unitPrice', 'total']);
@@ -247,7 +250,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
                 content = formatNumber(items.reduce((s, i) => s + (i.netWeight || 0), 0));
                 break;
               case 'total':
-                content = `${getCurrencySymbol(invoiceCurrency)} ${formatNumberFixed(items.reduce((s, i) => s + i.totalPrice, 0))}`;
+                content = `${getCurrencySymbol(invoiceCurrency)} ${formatNumberFixed(sumItemTotals(items))}`;
                 break;
             }
 
@@ -262,7 +265,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
 
       {showSumWords && (
         <View style={{ fontSize: sc(7), marginTop: 0, marginBottom: sc(4), paddingLeft: sc(20) }}>
-          <Text>Сумма прописью: {numberToWordsRu(items.reduce((s, i) => s + i.totalPrice, 0), invoiceCurrency)}</Text>
+          <Text>Сумма прописью: {numberToWordsRu(sumItemTotals(items), invoiceCurrency)}</Text>
         </View>
       )}
     </View>

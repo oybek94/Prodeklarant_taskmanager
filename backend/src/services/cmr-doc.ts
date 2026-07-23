@@ -46,10 +46,27 @@ export const generateCmrDocx = async (payload: CmrDocPayload): Promise<Buffer> =
   const { invoice, items, contract, client, companySettings } = payload;
   const additionalInfo = (invoice.additionalInfo || {}) as Record<string, any>;
 
-  const sellerName = contract?.sellerName || companySettings?.name || '';
-  const sellerAddress = contract?.sellerLegalAddress || companySettings?.legalAddress || '';
-  const buyerName = contract?.buyerName || client?.name || '';
-  const buyerAddress = contract?.buyerAddress || client?.address || '';
+  const baseSellerName = contract?.sellerName || companySettings?.name || '';
+  const baseSellerAddress = contract?.sellerLegalAddress || companySettings?.legalAddress || '';
+  const baseBuyerName = contract?.buyerName || client?.name || '';
+  const baseBuyerAddress = contract?.buyerAddress || client?.address || '';
+
+  // Sotuvchi va yuk jo'natuvchi (shipper) boshqa-boshqa korxona bo'lsa — 1-punktga
+  // yuk jo'natuvchi yoziladi, manziliga esa uning yuridik manzili + " п/п. " + sotuvchi nomi.
+  // Xuddi shu qoida sotib oluvchi va yuk qabul qiluvchi (consignee) uchun 2-punktda.
+  const shipperName = (contract?.shipperName || '').trim();
+  const consigneeName = (contract?.consigneeName || '').trim();
+  const isSellerShipper = !shipperName || shipperName === baseSellerName.trim();
+  const isBuyerConsignee = !consigneeName || consigneeName === baseBuyerName.trim();
+
+  const sellerName = isSellerShipper ? baseSellerName : shipperName;
+  const sellerAddress = isSellerShipper
+    ? baseSellerAddress
+    : `${contract?.shipperAddress || ''} п/п. ${baseSellerName}`.replace(/\s+/g, ' ').trim();
+  const buyerName = isBuyerConsignee ? baseBuyerName : consigneeName;
+  const buyerAddress = isBuyerConsignee
+    ? baseBuyerAddress
+    : `${contract?.consigneeAddress || ''} п/п. ${baseBuyerName}`.replace(/\s+/g, ' ').trim();
 
   const branchName = String((invoice as any).branch?.name || '').toLowerCase();
   let defaultRegion = '';

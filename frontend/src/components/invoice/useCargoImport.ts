@@ -23,11 +23,12 @@ interface CargoProduct {
   unit_price: number | null;
   currency: string | null;
   kvant: number | null;
+  calibre: string | null;
   distribution_center: string | null;
 }
 
-/** Jadval ustuni sifatida qo'shiladigan qo'shimcha tovar maydonlari */
 export const KVANT_COLUMN_LABEL = 'Квант';
+export const CALIBRE_LABEL = 'Калибр';
 export const RC_COLUMN_LABEL = 'РЦ';
 
 export interface CargoTextExtraction {
@@ -90,16 +91,25 @@ const normalizeCurrency = (raw: string | null): 'USD' | 'UZS' | null => {
 };
 
 /**
- * Квант qayerga tushishini hal qiladi: ikki va undan ortiq tovar bo'lib
- * kvantlari bir-biridan farq qilsa — jadval ustuni; aks holda bitta qiymat
- * Дополнительная информация bo'limiga.
+ * Tovarga xos qiymat (Квант, Калибр) qayerga tushishini hal qiladi.
+ *
+ * Ikki va undan ortiq tovar bo'lib qiymatlari bir-biridan FARQ qilsa — har
+ * tovarga alohida (Квант uchun jadval ustuni, Калибр uchun tovar nomiga
+ * qo'shimcha); aks holda bitta qiymat Дополнительная информация bo'limiga.
  */
-export const decideKvantPlacement = (products: CargoProduct[]): 'column' | 'info' | 'none' => {
-  const values = products.map((p) => p.kvant).filter((v): v is number => v != null);
+export const decidePerProductPlacement = (
+  products: CargoProduct[],
+  pick: (p: CargoProduct) => string | number | null
+): 'per-product' | 'info' | 'none' => {
+  const values = products.map(pick).filter((v): v is string | number => v != null && v !== '');
   if (values.length === 0) return 'none';
-  if (products.length >= 2 && new Set(values).size > 1) return 'column';
+  if (products.length >= 2 && new Set(values.map(String)).size > 1) return 'per-product';
   return 'info';
 };
+
+/** Tovar nomiga kalibrni qo'shadi: "Нектарины свежие, калибр: 40mm+" */
+export const appendCalibreToName = (name: string, calibre: string): string =>
+  `${name.trim()}, калибр: ${calibre.trim()}`;
 
 /** Berilgan yorliqqa ega mavjud custom ustun kalitini topadi (qayta import uchun) */
 const findCustomColumnKey = (columnLabels: ColumnLabels, label: string): string | undefined =>
@@ -167,9 +177,9 @@ export const buildPreviewRows = (
     });
   });
 
-  // Квант — joylashuviga qarab jadval ustuni yoki Доп. информация qatori
-  const kvantPlacement = decideKvantPlacement(parsed.products);
-  if (kvantPlacement === 'column') {
+  // Квант — farq qilsa jadval ustuni, aks holda Доп. информация
+  const kvantPlacement = decidePerProductPlacement(parsed.products, (p) => p.kvant);
+  if (kvantPlacement === 'per-product') {
     parsed.products.forEach((product, idx) => {
       if (product.kvant == null) return;
       rows.push({
@@ -186,6 +196,28 @@ export const buildPreviewRows = (
       label: `${KVANT_COLUMN_LABEL} (Доп. информация)`,
       newValue: String(kvant),
       currentValue: asText(customFields.find((f) => f.label === KVANT_COLUMN_LABEL)?.value),
+    });
+  }
+
+  // Калибр — farq qilsa tovar nomiga qo'shiladi, aks holda Доп. информация
+  const calibrePlacement = decidePerProductPlacement(parsed.products, (p) => p.calibre);
+  if (calibrePlacement === 'per-product') {
+    parsed.products.forEach((product, idx) => {
+      if (!product.calibre?.trim()) return;
+      rows.push({
+        key: `product:${idx}:calibre`,
+        label: `Товар ${idx + 1} — ${CALIBRE_LABEL} (nomga qo'shiladi)`,
+        newValue: appendCalibreToName(product.name, product.calibre),
+        currentValue: '',
+      });
+    });
+  } else if (calibrePlacement === 'info') {
+    const calibre = parsed.products.find((p) => p.calibre?.trim())?.calibre;
+    rows.push({
+      key: `custom:${CALIBRE_LABEL}`,
+      label: `${CALIBRE_LABEL} (Доп. информация)`,
+      newValue: String(calibre),
+      currentValue: asText(customFields.find((f) => f.label === CALIBRE_LABEL)?.value),
     });
   }
 
@@ -358,11 +390,12 @@ export const useCargoImport = ({
     const ensureColumn = (label: string, afterKey: string): string =>
       findCustomColumnKey(columnLabels, label) ?? addCustomColumn(label, afterKey);
 
-    const kvantPlacement = decideKvantPlacement(parsed.products);
+    const kvantPlacement = decidePerProductPlacement(parsed.products, (p) => p.kvant);
+    const calibrePlacement = decidePerProductPlacement(parsed.products, (p) => p.calibre);
     const kvantSelected = parsed.products.some((_, idx) => isSelected(`product:${idx}:kvant`));
     // Квант ustuni Нетто'dan keyin turadi
     const kvantColumnKey =
-      kvantPlacement === 'column' && kvantSelected ? ensureColumn(KVANT_COLUMN_LABEL, 'net') : null;
+      kvantPlacement === 'per-product' && kvantSelected ? ensureColumn(KVANT_COLUMN_LABEL, 'net') : null;
 
     const rcSelected = parsed.products.some((_, idx) => isSelected(`product:${idx}:rc`));
     // РЦ ustuni "Общая сумма в Долл. США" (total) dan keyin turadi
@@ -374,6 +407,7 @@ export const useCargoImport = ({
       const hasSelectedField = (idx: number) =>
         Object.keys(PRODUCT_FIELD_LABELS).some((field) => isSelected(`product:${idx}:${field}`)) ||
         isSelected(`product:${idx}:kvant`) ||
+        isSelected(`product:${idx}:calibre`) ||
         isSelected(`product:${idx}:rc`);
 
       // Hech bir maydoni belgilanmagan va invoysda mos qatori ham yo'q tovar tashlab ketiladi —
@@ -395,11 +429,21 @@ export const useCargoImport = ({
         });
 
         // Nom bazadagi variant bilan mos kelsa Код ТН ВЭД (va narx) avtomatik to'ladi —
-        // qo'lda tanlanganidagi bilan bir xil qoida
+        // qo'lda tanlanganidagi bilan bir xil qoida. Kalibr qo'shilishidan OLDIN
+        // bajariladi, aks holda nom ro'yxatga mos kelmay kod bo'sh qolardi.
         const defaults = resolveProductDefaults(base.name, invoiceProductOptions, selectedContractSpec);
         if (defaults.tnvedCode) base.tnvedCode = defaults.tnvedCode;
         // Matnda narx berilgan bo'lsa u ustun turadi; bo'lmasa shartnoma narxi olinadi
         if (!base.unitPrice && defaults.unitPrice != null) base.unitPrice = defaults.unitPrice;
+
+        // Kalibrlar har xil bo'lsa tovar nomiga qo'shiladi
+        if (
+          calibrePlacement === 'per-product' &&
+          product.calibre?.trim() &&
+          isSelected(`product:${idx}:calibre`)
+        ) {
+          base.name = appendCalibreToName(base.name, product.calibre);
+        }
 
         // Квант / РЦ — jadval ustuni sifatida item.customFields ichiga
         if (kvantColumnKey && product.kvant != null && isSelected(`product:${idx}:kvant`)) {
@@ -432,11 +476,15 @@ export const useCargoImport = ({
       return merged;
     };
 
-    // Квант ustun bo'lmagan holatda Доп. информация maydoni sifatida qo'shiladi
+    // Квант / Калибр har tovarga alohida tushmagan holatda Доп. информация maydoni bo'ladi
     const infoFields: CargoLabeledField[] = [...parsed.extra_fields];
     if (kvantPlacement === 'info') {
       const kvant = parsed.products.find((p) => p.kvant != null)?.kvant;
       if (kvant != null) infoFields.push({ label: KVANT_COLUMN_LABEL, value: String(kvant) });
+    }
+    if (calibrePlacement === 'info') {
+      const calibre = parsed.products.find((p) => p.calibre?.trim())?.calibre;
+      if (calibre) infoFields.push({ label: CALIBRE_LABEL, value: calibre.trim() });
     }
 
     const nextCustom = mergeFields(customFields, infoFields, 'custom');

@@ -86,8 +86,10 @@ MAYDONLAR MAZMUNI:
   (masalan "RVI-2026-29-31-TKGARDENS-3682719-BGR-DSC_1")
 - customs_address — "Таможня:" sarlavhasidan keyingi BARCHA qatorlar,
   \\n bilan birlashtirilgan bitta matn
-- destination — "Выгрузка:" sarlavhasidan keyingi BARCHA qatorlar,
-  \\n bilan birlashtirilgan bitta matn (raqamli ro'yxat belgilari saqlanadi)
+- destination — FAQAT "Выгрузка:" sarlavhasidan keyingi qatorlar, \\n bilan
+  birlashtirilgan bitta matn (raqamli ro'yxat belgilari saqlanadi).
+  Matnda "Выгрузка:" sarlavhasi YO'Q bo'lsa → null. Manzilni boshqa joydan
+  (masalan "DAP Москва" yoki "Таможня" satridan) OLMANG va O'YLAB TOPMANG
 ${deliveryTermsBlock}
 
 TOVARLAR (products):
@@ -103,11 +105,26 @@ Har bir tovar bloki alohida element bo'ladi. Bir nechta tovar bo'lishi mumkin.
   va extra_fields ga ham qo'shmang
 - unit_price — "Цена $1.25" → 1.25
 - currency — narx belgisidan aniqlang: "$" → "USD", "сум"/"so'm" → "UZS"
-- kvant — "Квант 5.25" qatoridagi son (5.25). Har tovarda o'ziniki bo'lishi mumkin.
-  Квант ni extra_fields ga QO'SHMANG — u faqat shu maydonga yoziladi
-- distribution_center — "РЦ" bilan boshlanadigan qator, to'liq matn holicha
-  (masalan "РЦ Москов Север Алкоголь"). "РЦ" so'zini ham saqlang.
-  Uni extra_fields ga QO'SHMANG
+- kvant — "Квант 5.25" qatoridagi son (5.25). Har tovarda o'ziniki bo'lishi mumkin
+- calibre — "Калибр 40mm+" qatoridagi qiymat ("40mm+"), matndagi yozuv holicha.
+  Har tovarda o'ziniki bo'lishi mumkin
+- distribution_center — "РЦ" bilan boshlanadigan qatorning QATORI BO'YICHA
+  TO'LIQ matni, "РЦ" so'zi BILAN BIRGA. Masalan "РЦ Москов Север Алкоголь"
+  qatoridan qiymat aynan "РЦ Москов Север Алкоголь" bo'ladi — "РЦ" ni
+  tashlab yubormang va qisqartirmang
+
+Квант, Калибр va РЦ — SHU tovar maydonlariga yoziladi. Ularni extra_fields ga
+QO'SHMANG, hatto tovar blokidan tashqarida yozilgan bo'lsa ham.
+
+РЦ QATORLARI QAYERDA TURISHI MUMKIN — HAMMASINI QAMRANG:
+1) Tovar bloki ichida — o'sha tovarga tegishli
+2) Barcha tovarlardan keyin (yoki oldin) alohida ro'yxat bo'lib — bunda
+   RO'YXAT TARTIBI BO'YICHA taqsimlang: 1-РЦ → 1-tovarga, 2-РЦ → 2-tovarga
+3) "Выгрузка:" bo'limi ichida — u yerdan ham РЦ qatorini oling
+   (destination matnida ham qolaversin, bu ikkisi bir-biriga xalaqit bermaydi)
+Agar РЦ bitta bo'lib, tovarlar bir nechta bo'lsa — o'sha bitta РЦ ni HAR BIR
+tovarga yozing. Matnda "РЦ" bilan boshlanadigan qator bo'lsa, hech bo'lmaganda
+bitta tovarning distribution_center maydoni null BO'LMASLIGI kerak.
 ${packagingBlock}
 ${productNameBlock}
 
@@ -120,14 +137,7 @@ qiymat — value. Masalan "Серийный номер датчика -8083254" 
 EXTRA_FIELDS:
 Yuqoridagi maydonlarning HECH BIRIGA tushmagan, lekin nomi bor HAR BIR qiymat
 shu massivga tushishi SHART — hech qaysi ma'lumot yo'qolmasligi kerak.
-Masalan "Калибр 40mm+" → { label: "Калибр", value: "40mm+" }.
-Odatda label — sof nom, qo'shimchasiz: { label: "Калибр", value: "40mm+" }.
-FAQAT bir xil nomli qiymat IKKI YOKI UNDAN ORTIQ tovarda uchraganda, har birini
-alohida element qilib qo'shing va label ga tovar nomini qavs ichida qo'shing —
-tovar nomini yuqorida tanlangan ro'yxat variantidan oling, masalan
-{ label: "Калибр (Нектарины свежие)", value: "40mm+" } va
-{ label: "Калибр (Персики свежие)", value: "55mm+" }.
-Tovar bitta bo'lsa qavs ichida hech narsa yozilmaydi.
-Sarlavhalarni ("Таможня:", "Выгрузка:", "В упаковочный лист:") va yuqorida
-alohida maydoni bor qiymatlarni (Квант, РЦ) extra_fields ga QO'SHMANG.`;
+Har biri { label, value } ko'rinishida, label — sof nom, qo'shimchasiz.
+Sarlavhalarni ("Таможня:", "Выгрузка:", "В упаковочный лист:") va tovarning
+o'z maydoni bor qiymatlarni (Квант, Калибр, РЦ) extra_fields ga QO'SHMANG.`;
 }

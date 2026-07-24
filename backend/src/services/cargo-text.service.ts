@@ -4,6 +4,7 @@ import {
   CARGO_TEXT_RESPONSE_FORMAT,
   CargoTextExtraction,
 } from '../ai/cargo-text.schema';
+import { normalizeCargoExtraction } from '../ai/cargo-text.normalize';
 import { runStructuredExtraction } from '../ai/structured-extractor';
 import { handleAIError } from '../utils/error-handler';
 
@@ -34,7 +35,7 @@ export class CargoTextService {
         responseFormat: CARGO_TEXT_RESPONSE_FORMAT,
       });
 
-      return data;
+      return normalizeCargoExtraction(data, text);
     } catch (error) {
       const aiError = handleAIError(error);
       throw new Error(`Cargo text parsing failed: ${aiError.message}`);

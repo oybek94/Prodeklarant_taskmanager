@@ -32,6 +32,8 @@ export const cargoProductSchema = z.strictObject({
   currency: z.string().nullable(),
   /** "Квант" — qadoqdagi og'irlik koeffitsienti, har tovarda o'ziniki bo'lishi mumkin */
   kvant: z.number().nullable(),
+  /** "Калибр" — o'lcham (masalan "40mm+"), har tovarda o'ziniki bo'lishi mumkin */
+  calibre: z.string().nullable(),
   /** "РЦ ..." — taqsimlash markazi (masalan "РЦ Москов Север Алкоголь") */
   distribution_center: z.string().nullable(),
 });

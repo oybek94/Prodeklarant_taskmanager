@@ -1,4 +1,3 @@
-import OpenAIClient from './openai.client';
 import {
   buildInvoiceExtractionPrompt,
   buildST1ExtractionPrompt,
@@ -18,13 +17,9 @@ import {
 } from './extraction.schemas';
 import { normalizeExtraction } from './normalizers';
 import { validateInvoiceWithST } from './rule-engine';
+import { runStructuredExtraction, DEFAULT_EXTRACTION_TIMEOUT } from './structured-extractor';
 
-const DEFAULT_TIMEOUT = 30000; // 30 seconds
-const DEFAULT_MODEL = 'gpt-4o-mini';
-
-function extractionModel(): string {
-  return process.env.OPENAI_EXTRACTION_MODEL ?? DEFAULT_MODEL;
-}
+const DEFAULT_TIMEOUT = DEFAULT_EXTRACTION_TIMEOUT;
 
 function promptFor(documentType: ExtractableDocType): string {
   switch (documentType) {
@@ -66,98 +61,27 @@ export async function analyzeDocumentDetailed(
     throw new ExtractionError('Document text is empty', 'EMPTY_RESPONSE');
   }
 
-  const openai = OpenAIClient.getClient();
   const { zodSchema, responseFormat } = EXTRACTION_SCHEMAS[documentType];
   const prompt = promptFor(documentType);
 
   console.log(`[AI] Analyzing ${documentType} document (text length: ${text.length} chars)`);
 
-  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-    {
-      role: 'system',
-      content:
-        'You are a customs document extraction assistant. Extract data exactly as it appears in the document; never invent values.',
-    },
-    { role: 'user', content: `${prompt}\n\nDocument text:\n${text}` },
-  ];
+  const { data: extracted, repairUsed } = await runStructuredExtraction<AnyExtraction>({
+    label: documentType,
+    systemPrompt:
+      'You are a customs document extraction assistant. Extract data exactly as it appears in the document; never invent values.',
+    userPrompt: `${prompt}\n\nDocument text:\n${text}`,
+    zodSchema,
+    responseFormat,
+    timeout,
+  });
 
-  const callModel = async (): Promise<string> => {
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new ExtractionError(`AI analysis timeout after ${timeout}ms`, 'API_ERROR'));
-      }, timeout);
-    });
-
-    const apiCall = openai.chat.completions.create({
-      model: extractionModel(),
-      messages,
-      temperature: 0,
-      response_format: responseFormat,
-    });
-
-    const response = await Promise.race([apiCall, timeoutPromise]);
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new ExtractionError('AI response is empty', 'EMPTY_RESPONSE');
-    }
-    return content;
-  };
-
-  const tryParse = (
-    content: string
-  ): { ok: true; data: AnyExtraction } | { ok: false; error: string } => {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(content);
-    } catch (e) {
-      return { ok: false, error: `Invalid JSON: ${e instanceof Error ? e.message : String(e)}` };
-    }
-    const result = zodSchema.safeParse(parsed);
-    if (!result.success) {
-      return { ok: false, error: result.error.message };
-    }
-    return { ok: true, data: result.data };
-  };
-
-  try {
-    let repairUsed = false;
-    let content = await callModel();
-    let parsed = tryParse(content);
-
-    if (!parsed.ok) {
-      // Repair-retry: noto'g'ri javob + validatsiya xatolari bilan qayta so'raymiz
-      console.warn(`[AI] ${documentType} extraction failed validation, retrying with repair`);
-      repairUsed = true;
-      messages.push({ role: 'assistant', content });
-      messages.push({
-        role: 'user',
-        content: `Your previous output failed validation with these errors:\n${parsed.error}\n\nReturn ONLY the corrected JSON matching the required schema.`,
-      });
-      content = await callModel();
-      parsed = tryParse(content);
-      if (!parsed.ok) {
-        throw new ExtractionError(
-          `Extraction failed schema validation after repair retry: ${parsed.error}`,
-          'SCHEMA_MISMATCH'
-        );
-      }
-    }
-
-    const data = normalizeExtraction(parsed.data, documentType);
-    const duration = Date.now() - startTime;
-    console.log(
-      `[AI] ${documentType} analysis completed in ${duration}ms${repairUsed ? ' (repair used)' : ''}`
-    );
-    return { data, repairUsed };
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    console.error(`[AI] ${documentType} analysis failed after ${duration}ms:`, error);
-    if (error instanceof ExtractionError) throw error;
-    throw new ExtractionError(
-      `AI document analysis failed: ${error instanceof Error ? error.message : String(error)}`,
-      'API_ERROR'
-    );
-  }
+  const data = normalizeExtraction(extracted, documentType);
+  const duration = Date.now() - startTime;
+  console.log(
+    `[AI] ${documentType} analysis completed in ${duration}ms${repairUsed ? ' (repair used)' : ''}`
+  );
+  return { data, repairUsed };
 }
 
 /**

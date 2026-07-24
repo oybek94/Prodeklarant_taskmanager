@@ -81,6 +81,7 @@ import {
 } from '../components/invoice/invoiceUtils';
 
 import { useDeliveryTerms } from '../components/invoice/useDeliveryTerms';
+import { useCargoImport } from '../components/invoice/useCargoImport';
 import '../components/invoice/invoice.css';
 
 const Invoice = () => {
@@ -219,6 +220,7 @@ const Invoice = () => {
     additionalInfoError, setAdditionalInfoError,
     customFields, setCustomFields,
     specCustomFields, setSpecCustomFields,
+    packingCustomFields, setPackingCustomFields,
     additionalInfoVisible, setAdditionalInfoVisible,
     toggleAdditionalInfoVisible, isAdditionalInfoVisible,
     showAddFieldModal, setShowAddFieldModal,
@@ -304,7 +306,20 @@ const Invoice = () => {
     markSnapshotAfterSave, setMarkSnapshotAfterSave,
     isDirty, templatesDisabled
   } = useInvoiceSnapshot({
-    form, items, selectedContractId, customFields, specCustomFields, invoiceId: invoice?.id, saving, loading
+    form, items, selectedContractId, customFields, specCustomFields, packingCustomFields, invoiceId: invoice?.id, saving, loading
+  });
+
+  const [showCargoImportModal, setShowCargoImportModal] = useState(false);
+  const cargoImport = useCargoImport({
+    form,
+    setForm,
+    items,
+    setItems,
+    customFields,
+    setCustomFields,
+    packingCustomFields,
+    setPackingCustomFields,
+    contractDeliveryTerms,
   });
 
   useClickOutside(pdfMenuRef, showPdfMenu, useCallback(() => setShowPdfMenu(false), []));
@@ -347,6 +362,7 @@ const Invoice = () => {
     setItems,
     setCustomFields,
     setSpecCustomFields,
+    setPackingCustomFields,
     setVisibleColumns,
     setColumnLabels,
     setColumnOrder,
@@ -383,6 +399,7 @@ const Invoice = () => {
     setSelectedContractId,
     customFields,
     specCustomFields,
+    packingCustomFields,
     additionalInfoVisible,
     visibleColumns,
     columnLabels,
@@ -439,6 +456,10 @@ const Invoice = () => {
 
   const handleOpenTaskModal = useCallback(() => {
     setShowTaskModal(true);
+  }, []);
+
+  const handleOpenCargoImport = useCallback(() => {
+    setShowCargoImportModal(true);
   }, []);
 
 
@@ -512,6 +533,7 @@ const Invoice = () => {
           isAdditionalInfoVisible={isAdditionalInfoVisible}
           customFields={customFields}
           specCustomFields={specCustomFields}
+          packingCustomFields={packingCustomFields}
           additionalFieldsOrder={additionalFieldsOrder}
           items={items}
           orderedVisibleColumns={orderedVisibleColumns}
@@ -633,6 +655,8 @@ const Invoice = () => {
           openFssRegionSelector={openFssRegionSelector}
           openFssRegionPicker={openFssRegionPicker}
           onOpenTaskModal={handleOpenTaskModal}
+          onOpenCargoImport={handleOpenCargoImport}
+          canEditEffective={canEditEffective}
         />
 
         {/* Invoice form + Requirements note side panel */}
@@ -725,6 +749,7 @@ const Invoice = () => {
                     isAdditionalInfoVisible={isAdditionalInfoVisible}
                     customFields={customFields}
                     specCustomFields={specCustomFields}
+                    packingCustomFields={packingCustomFields}
                     addressCopySuccess={addressCopySuccess}
                     setAddressCopySuccess={setAddressCopySuccess}
                     setShowAdditionalInfoModal={setShowAdditionalInfoModal}
@@ -854,6 +879,8 @@ const Invoice = () => {
         setCustomFields={setCustomFields}
         specCustomFields={specCustomFields}
         setSpecCustomFields={setSpecCustomFields}
+        packingCustomFields={packingCustomFields}
+        setPackingCustomFields={setPackingCustomFields}
         additionalInfoError={additionalInfoError}
         setAdditionalInfoError={setAdditionalInfoError}
         toggleAdditionalInfoVisible={toggleAdditionalInfoVisible}
@@ -876,6 +903,9 @@ const Invoice = () => {
         setShowAddFieldModal={setShowAddFieldModal}
         newFieldLabel={newFieldLabel}
         setNewFieldLabel={setNewFieldLabel}
+        showCargoImportModal={showCargoImportModal}
+        setShowCargoImportModal={setShowCargoImportModal}
+        cargoImport={cargoImport}
       />
       {taskModalMounted && taskId && (
         <div style={{ display: showTaskModal ? undefined : 'none' }}>

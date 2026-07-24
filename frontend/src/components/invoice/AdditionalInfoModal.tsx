@@ -14,6 +14,8 @@ interface AdditionalInfoModalProps {
   setCustomFields: (fields: CustomField[]) => void;
   specCustomFields: CustomField[];
   setSpecCustomFields: (fields: CustomField[]) => void;
+  packingCustomFields: CustomField[];
+  setPackingCustomFields: (fields: CustomField[]) => void;
   additionalInfoError: string | null;
   setAdditionalInfoError: (err: string | null) => void;
   toggleAdditionalInfoVisible: (key: string) => void;
@@ -45,6 +47,8 @@ export function AdditionalInfoModal({
   contractDeliveryTerms,
   customFields,
   setCustomFields,
+  packingCustomFields,
+  setPackingCustomFields,
   additionalInfoError,
   setAdditionalInfoError,
   toggleAdditionalInfoVisible,
@@ -579,6 +583,47 @@ export function AdditionalInfoModal({
             </div>
           </SectionCard>
 
+          {/* ===== Упаковочный лист ===== */}
+          <SectionCard
+            icon="solar:box-bold-duotone"
+            title="Упаковочный лист"
+            subtitle="faqat «Упаковочный лист» tabida ko'rinadi"
+          >
+            <div className="space-y-1.5">
+              {packingCustomFields.length === 0 && (
+                <p className="text-xs text-gray-400">Maydon yo&apos;q</p>
+              )}
+              {packingCustomFields.map((field) => (
+                <FieldBlock
+                  key={field.id}
+                  inline
+                  label={`${field.label}:`}
+                  actions={
+                    <>
+                      <EyeToggle
+                        visible={isAdditionalInfoVisible(`packing_${field.id}`)}
+                        onToggle={() => toggleAdditionalInfoVisible(`packing_${field.id}`)}
+                      />
+                      <ClearBtn onClick={() => setPackingCustomFields(packingCustomFields.filter(f => f.id !== field.id))} />
+                    </>
+                  }
+                >
+                  <input
+                    type="text"
+                    value={field.value}
+                    onChange={(e) => setPackingCustomFields(packingCustomFields.map(f => f.id === field.id ? { ...f, value: e.target.value } : f))}
+                    className={inputCompactCls}
+                  />
+                </FieldBlock>
+              ))}
+            </div>
+            {canEditEffective && (
+              <PackingFieldAdder
+                onAdd={(label) => setPackingCustomFields([...packingCustomFields, { id: Date.now().toString(), label, value: '' }])}
+              />
+            )}
+          </SectionCard>
+
           {/* Yangi maydon tugmasi */}
           {canEditEffective && (
             <button type="button" onClick={onShowAddField} className="w-full px-4 py-2.5 border-2 border-dashed border-gray-300 text-gray-600 rounded-xl hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/40 transition-all text-sm font-medium flex items-center justify-center gap-2">
@@ -601,6 +646,42 @@ export function AdditionalInfoModal({
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+/* Упаковочный лист uchun yangi maydon qo'shish qatori */
+function PackingFieldAdder({ onAdd }: { onAdd: (label: string) => void }) {
+  const [label, setLabel] = useState('');
+  const add = () => {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    onAdd(trimmed);
+    setLabel('');
+  };
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <input
+        type="text"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            add();
+          }
+        }}
+        placeholder="Masalan: Серийный номер датчика"
+        className={inputCompactCls + ' flex-1'}
+      />
+      <button
+        type="button"
+        onClick={add}
+        disabled={!label.trim()}
+        className="px-3 py-1 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 transition-colors whitespace-nowrap"
+      >
+        Qo&apos;shish
+      </button>
+    </div>
   );
 }
 

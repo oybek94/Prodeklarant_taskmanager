@@ -72,6 +72,7 @@ interface UseInvoiceSaveParams {
   setSelectedContractId: (id: string) => void;
   customFields: { id: string; label: string; value: string }[];
   specCustomFields: { id: string; label: string; value: string }[];
+  packingCustomFields: { id: string; label: string; value: string }[];
   additionalInfoVisible: Record<string, boolean>;
   visibleColumns: Record<string, boolean>;
   columnLabels: Record<string, string>;
@@ -108,6 +109,7 @@ export function useInvoiceSave({
   setSelectedContractId,
   customFields,
   specCustomFields,
+  packingCustomFields,
   additionalInfoVisible,
   visibleColumns,
   columnLabels,
@@ -403,6 +405,7 @@ export function useInvoiceSave({
             temperature: currentForm.temperature,
             customFields: customFields,
             specCustomFields: specCustomFields,
+            packingCustomFields: packingCustomFields,
             visibleColumns,
             columnLabels,
             columnOrder,
@@ -485,7 +488,7 @@ export function useInvoiceSave({
     } finally {
       setSaving(false);
     }
-  }, [form, items, invoice, task, taskId, clientId, selectedContractId, canEditEffective, invoiceNumberWarning, additionalInfoError, customFields, specCustomFields, additionalInfoVisible, visibleColumns, columnLabels, columnOrder, customColumns, packagingTypes, newInvoiceTaskForm, buildChangeLog, setForm, setItems, setInvoice, setTask, setSelectedContractId, setAdditionalInfoError, setShowAdditionalInfoModal, setSaving, setMarkSnapshotAfterSave, setInvoiceNumberWarning, navigate]);
+  }, [form, items, invoice, task, taskId, clientId, selectedContractId, canEditEffective, invoiceNumberWarning, additionalInfoError, customFields, specCustomFields, packingCustomFields, additionalInfoVisible, visibleColumns, columnLabels, columnOrder, customColumns, packagingTypes, newInvoiceTaskForm, buildChangeLog, setForm, setItems, setInvoice, setTask, setSelectedContractId, setAdditionalInfoError, setShowAdditionalInfoModal, setSaving, setMarkSnapshotAfterSave, setInvoiceNumberWarning, navigate]);
 
   return { handleSubmit, buildChangeLog, showItemErrors };
 }

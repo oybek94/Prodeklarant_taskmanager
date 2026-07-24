@@ -4,6 +4,7 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 import { InvoiceService } from '../services/invoice.service';
 import { ST1Service } from '../services/st1.service';
 import { FitoService } from '../services/fito.service';
+import { CargoTextService } from '../services/cargo-text.service';
 import { compareInvoiceST1 } from '../ai/document.analyzer';
 import { InvoiceExtraction, ST1Extraction, ComparisonResult } from '../ai/prompt.builder';
 import { CrmAnalyzerService } from '../ai/crm.analyzer';
@@ -29,6 +30,11 @@ const compareInvoiceST1Schema = z.object({
   st1Text: z.string().min(1, 'ST-1 text is required'),
   invoiceStructured: z.any().optional(),
   st1Structured: z.any().optional(),
+});
+
+const parseCargoTextSchema = z.object({
+  text: z.string().min(1, 'Text is required').max(20000, 'Text is too long'),
+  deliveryTermsOptions: z.array(z.string().max(500)).max(50).optional(),
 });
 
 /**
@@ -134,6 +140,40 @@ router.post(
       console.error('[AI Route] Fito analysis error:', error);
       res.status(500).json({
         error: error.message || 'Failed to analyze Fito certificate',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/ai/parse/cargo-text
+ * Mijozning Telegram shablon matnidan invoys maydonlarini ajratib olish
+ *
+ * Security: Requires authentication, never exposes OpenAI API key
+ */
+router.post(
+  '/parse/cargo-text',
+  requireAuth(),
+  async (req: AuthRequest, res) => {
+    try {
+      const parsed = parseCargoTextSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.flatten() });
+      }
+
+      const { text, deliveryTermsOptions } = parsed.data;
+
+      const cargoTextService = new CargoTextService();
+      const data = await cargoTextService.parse(text, deliveryTermsOptions ?? []);
+
+      res.json({
+        success: true,
+        data,
+      });
+    } catch (error: any) {
+      console.error('[AI Route] Cargo text parsing error:', error);
+      res.status(500).json({
+        error: error.message || 'Failed to parse cargo text',
       });
     }
   }

@@ -21,6 +21,7 @@ interface InvoicePDFDocumentProps {
   isAdditionalInfoVisible: (key: string) => boolean;
   customFields: { id: string; label: string; value: string }[];
   specCustomFields: { id: string; label: string; value: string }[];
+  packingCustomFields: { id: string; label: string; value: string }[];
   additionalFieldsOrder?: string[];
   items: any[];
   orderedVisibleColumns: string[];
@@ -208,6 +209,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
   isAdditionalInfoVisible,
   customFields,
   specCustomFields,
+  packingCustomFields,
   additionalFieldsOrder,
   items,
   orderedVisibleColumns,
@@ -231,6 +233,9 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
     isAdditionalInfoVisible('harvestYear') && !!form.harvestYear,
     ...customFields.map(f => isAdditionalInfoVisible(`custom_${f.id}`) && !!f.value),
     ...specCustomFields.map(f => isAdditionalInfoVisible(`spec_${f.id}`) && !!f.value),
+    ...(viewTab === 'packing'
+      ? packingCustomFields.map(f => isAdditionalInfoVisible(`packing_${f.id}`) && !!f.value)
+      : []),
   ].filter(Boolean).length;
 
   const scale = calcScale(items, form, visibleAddFields, viewTab, pdfIncludeSeal, selectedContract, task, isSellerShipper, isBuyerConsignee);
@@ -283,6 +288,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
               isAdditionalInfoVisible={isAdditionalInfoVisible}
               customFields={customFields}
               specCustomFields={specCustomFields}
+              packingCustomFields={packingCustomFields}
               additionalFieldsOrder={additionalFieldsOrder}
               scale={scale}
             />

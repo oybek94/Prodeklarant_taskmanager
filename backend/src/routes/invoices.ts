@@ -279,6 +279,12 @@ const invoiceSchema = z.object({
       label: z.string().max(200),
       value: z.string().max(1000).optional().nullable().transform(v => v ?? ''),
     })).max(20).optional(),
+    // Faqat "Упаковочный лист" tabida ko'rinadigan maydonlar
+    packingCustomFields: z.array(z.object({
+      id: z.union([z.string(), z.number()]).optional().transform(v => v !== undefined ? String(v) : undefined),
+      label: z.string().max(200),
+      value: z.string().max(1000).optional().nullable().transform(v => v ?? ''),
+    })).max(20).optional(),
     // Ustunlar sozlamalari
     visibleColumns: z.record(z.string(), z.boolean()).optional(),
     columnLabels: z.record(z.string(), z.string().max(200)).optional(),

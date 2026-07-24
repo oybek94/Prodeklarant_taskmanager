@@ -7,6 +7,7 @@ interface UseInvoiceSnapshotProps {
   selectedContractId: string;
   customFields: Array<{ id: string; label: string; value: string }>;
   specCustomFields: Array<{ id: string; label: string; value: string }>;
+  packingCustomFields: Array<{ id: string; label: string; value: string }>;
   invoiceId?: number;
   saving?: boolean;
   loading?: boolean;
@@ -18,6 +19,7 @@ export const useInvoiceSnapshot = ({
   selectedContractId,
   customFields,
   specCustomFields,
+  packingCustomFields,
   invoiceId,
   saving,
   loading = false,
@@ -28,8 +30,8 @@ export const useInvoiceSnapshot = ({
   const stabilizationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentSnapshot = useMemo(
-    () => JSON.stringify({ form, items, selectedContractId, customFields, specCustomFields }),
-    [form, items, selectedContractId, customFields, specCustomFields]
+    () => JSON.stringify({ form, items, selectedContractId, customFields, specCustomFields, packingCustomFields }),
+    [form, items, selectedContractId, customFields, specCustomFields, packingCustomFields]
   );
   
   // isDirty faqat boshlang'ich snapshot o'rnatilgandan keyin tekshiriladi.

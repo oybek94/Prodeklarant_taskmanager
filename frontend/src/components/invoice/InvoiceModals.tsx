@@ -4,6 +4,8 @@ import type { RegionCode, ViewTab, Contract, CustomField, FssFilePrefix } from '
 import { AdditionalInfoModal } from './AdditionalInfoModal';
 import { FssRegionModal } from './FssRegionModal';
 import { AddFieldModal } from './AddFieldModal';
+import { CargoImportModal } from './CargoImportModal';
+import type { CargoPreviewRow } from './useCargoImport';
 
 interface InvoiceModalsProps {
   showAdditionalInfoModal: boolean;
@@ -18,6 +20,8 @@ interface InvoiceModalsProps {
   setCustomFields: (fields: CustomField[]) => void;
   specCustomFields: CustomField[];
   setSpecCustomFields: (fields: CustomField[]) => void;
+  packingCustomFields: CustomField[];
+  setPackingCustomFields: (fields: CustomField[]) => void;
   additionalInfoError: string | null;
   setAdditionalInfoError: (err: string | null) => void;
   toggleAdditionalInfoVisible: (key: string) => void;
@@ -42,6 +46,21 @@ interface InvoiceModalsProps {
   setNewFieldLabel: (label: string) => void;
   additionalFieldsOrder: string[];
   setAdditionalFieldsOrder: (order: string[]) => void;
+
+  showCargoImportModal: boolean;
+  setShowCargoImportModal: (val: boolean) => void;
+  cargoImport: {
+    text: string;
+    setText: (v: string) => void;
+    loading: boolean;
+    rows: CargoPreviewRow[];
+    selectedKeys: Set<string>;
+    toggleKey: (key: string) => void;
+    toggleAll: (checked: boolean) => void;
+    analyze: () => void;
+    applyCargo: () => void;
+    reset: () => void;
+  };
 }
 
 export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
@@ -57,6 +76,8 @@ export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
   setCustomFields,
   specCustomFields,
   setSpecCustomFields,
+  packingCustomFields,
+  setPackingCustomFields,
   additionalInfoError,
   setAdditionalInfoError,
   toggleAdditionalInfoVisible,
@@ -81,6 +102,10 @@ export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
   setShowAddFieldModal,
   newFieldLabel,
   setNewFieldLabel,
+
+  showCargoImportModal,
+  setShowCargoImportModal,
+  cargoImport,
 }) => {
   return (
     <>
@@ -97,6 +122,8 @@ export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
             setCustomFields={setCustomFields}
             specCustomFields={specCustomFields}
             setSpecCustomFields={setSpecCustomFields}
+            packingCustomFields={packingCustomFields}
+            setPackingCustomFields={setPackingCustomFields}
             additionalInfoError={additionalInfoError}
             setAdditionalInfoError={setAdditionalInfoError}
             toggleAdditionalInfoVisible={toggleAdditionalInfoVisible}
@@ -161,6 +188,29 @@ export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
               setCustomFields([...customFields, newField]);
               setNewFieldLabel('');
               setShowAddFieldModal(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showCargoImportModal && (
+          <CargoImportModal
+            text={cargoImport.text}
+            setText={cargoImport.setText}
+            loading={cargoImport.loading}
+            rows={cargoImport.rows}
+            selectedKeys={cargoImport.selectedKeys}
+            toggleKey={cargoImport.toggleKey}
+            toggleAll={cargoImport.toggleAll}
+            analyze={cargoImport.analyze}
+            applyCargo={() => {
+              cargoImport.applyCargo();
+              setShowCargoImportModal(false);
+            }}
+            onClose={() => {
+              cargoImport.reset();
+              setShowCargoImportModal(false);
             }}
           />
         )}

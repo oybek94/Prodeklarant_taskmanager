@@ -21,6 +21,7 @@ interface UseInvoiceLoaderParams {
   setItems: (items: InvoiceItem[]) => void;
   setCustomFields: (fields: { id: string; label: string; value: string }[]) => void;
   setSpecCustomFields: (fields: { id: string; label: string; value: string }[]) => void;
+  setPackingCustomFields: (fields: { id: string; label: string; value: string }[]) => void;
   setVisibleColumns: (updater: any) => void;
   setColumnLabels: (updater: any) => void;
   setColumnOrder?: (updater: any) => void;
@@ -52,6 +53,7 @@ export function createLoadData({
   setItems,
   setCustomFields,
   setSpecCustomFields,
+  setPackingCustomFields,
   setVisibleColumns,
   setColumnLabels,
   setColumnOrder,
@@ -212,6 +214,16 @@ export function createLoadData({
                   }))
                   : []
               );
+              const dupPackingFields = dupAi?.packingCustomFields;
+              setPackingCustomFields(
+                Array.isArray(dupPackingFields)
+                  ? dupPackingFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
+                    id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
+                    label: String(f?.label ?? ''),
+                    value: String(f?.value ?? ''),
+                  }))
+                  : []
+              );
             } catch (e) {
               console.error('Error loading duplicate invoice:', e);
             }
@@ -345,6 +357,16 @@ export function createLoadData({
             setSpecCustomFields(
               Array.isArray(loadedSpecCustomFields)
                 ? loadedSpecCustomFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
+                  id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
+                  label: String(f?.label ?? ''),
+                  value: String(f?.value ?? ''),
+                }))
+                : []
+            );
+            const loadedPackingCustomFields = inv.additionalInfo?.packingCustomFields;
+            setPackingCustomFields(
+              Array.isArray(loadedPackingCustomFields)
+                ? loadedPackingCustomFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
                   id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
                   label: String(f?.label ?? ''),
                   value: String(f?.value ?? ''),

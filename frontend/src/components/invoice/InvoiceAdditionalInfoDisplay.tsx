@@ -12,6 +12,7 @@ interface InvoiceAdditionalInfoDisplayProps {
   isAdditionalInfoVisible: (key: string) => boolean;
   customFields: { id: string; label: string; value: string }[];
   specCustomFields: { id: string; label: string; value: string }[];
+  packingCustomFields: { id: string; label: string; value: string }[];
   addressCopySuccess: boolean;
   setAddressCopySuccess: (v: boolean) => void;
   setShowAdditionalInfoModal: (v: boolean) => void;
@@ -20,10 +21,12 @@ interface InvoiceAdditionalInfoDisplayProps {
 
 export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplayProps> = React.memo(({
   form,
+  viewTab,
   selectedContract,
   isBuyerConsignee,
   isAdditionalInfoVisible,
   customFields,
+  packingCustomFields,
   addressCopySuccess,
   setAddressCopySuccess,
   setShowAdditionalInfoModal,
@@ -208,6 +211,15 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
         )}
 
         {fieldOrder.map((key) => renderFieldByKey(key))}
+
+        {/* Упаковочный лист maydonlari — faqat shu tabda */}
+        {viewTab === 'packing' && packingCustomFields.map((field) => (
+          isAdditionalInfoVisible(`packing_${field.id}`) && field.value ? (
+            <div key={field.id}>
+              <strong>{field.label}:</strong> {field.value}
+            </div>
+          ) : null
+        ))}
       </div>
     </div>
   );

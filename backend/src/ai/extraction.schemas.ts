@@ -121,7 +121,7 @@ export interface JsonSchemaResponseFormat {
   };
 }
 
-function buildResponseFormat(
+export function buildResponseFormat(
   name: string,
   schema: z.ZodType
 ): JsonSchemaResponseFormat {

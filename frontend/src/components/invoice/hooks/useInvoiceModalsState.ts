@@ -6,7 +6,9 @@ export const useInvoiceModalsState = () => {
   const [additionalInfoError, setAdditionalInfoError] = useState<string | null>(null);
   const [customFields, setCustomFields] = useState<Array<{ id: string; label: string; value: string }>>([]);
   const [specCustomFields, setSpecCustomFields] = useState<Array<{ id: string; label: string; value: string }>>([]);
-  
+  /** Faqat "Упаковочный лист" tabida ko'rinadigan maydonlar (masalan datchik seriya raqami) */
+  const [packingCustomFields, setPackingCustomFields] = useState<Array<{ id: string; label: string; value: string }>>([]);
+
   const [additionalInfoVisible, setAdditionalInfoVisible] = useState<Record<string, boolean>>({});
   const toggleAdditionalInfoVisible = useCallback((key: string) => {
     setAdditionalInfoVisible((prev) => ({ ...prev, [key]: prev[key] === false }));
@@ -35,6 +37,8 @@ export const useInvoiceModalsState = () => {
     setCustomFields,
     specCustomFields,
     setSpecCustomFields,
+    packingCustomFields,
+    setPackingCustomFields,
     additionalInfoVisible,
     setAdditionalInfoVisible,
     toggleAdditionalInfoVisible,

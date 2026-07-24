@@ -9,6 +9,7 @@ interface PdfAdditionalInfoProps {
   isAdditionalInfoVisible: (key: string) => boolean;
   customFields: { id: string; label: string; value: string }[];
   specCustomFields: { id: string; label: string; value: string }[];
+  packingCustomFields: { id: string; label: string; value: string }[];
   additionalFieldsOrder?: string[];
   scale?: number;
 }
@@ -22,8 +23,10 @@ const Row: React.FC<{ label: string; value: string; sc: (v: number) => number }>
 
 export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
   form,
+  viewTab,
   isAdditionalInfoVisible,
   customFields,
+  packingCustomFields,
   additionalFieldsOrder,
   scale = 1,
 }) => {
@@ -99,7 +102,14 @@ export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
     }
   };
 
+  /* Упаковочный лист maydonlari — faqat shu tabda chiqadi */
+  const visiblePackingFields =
+    viewTab === 'packing'
+      ? packingCustomFields.filter((f) => isAdditionalInfoVisible(`packing_${f.id}`) && !!f.value)
+      : [];
+
   const hasAnyField =
+    visiblePackingFields.length > 0 ||
     (isAdditionalInfoVisible('deliveryTerms') && !!form.deliveryTerms) ||
     (isAdditionalInfoVisible('vehicleNumber') && !!form.vehicleNumber) ||
     (isAdditionalInfoVisible('customsAddress') && !!form.customsAddress) ||
@@ -131,6 +141,10 @@ export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
       )}
 
       {fieldOrder.map((key) => renderFieldByKey(key))}
+
+      {visiblePackingFields.map((field) => (
+        <Row key={field.id} label={field.label} value={field.value} sc={sc} />
+      ))}
     </View>
   );
 };

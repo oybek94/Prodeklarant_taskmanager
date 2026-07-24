@@ -1,6 +1,6 @@
 import React from 'react';
 import { Document, Page, View } from '@react-pdf/renderer';
-import { styles } from './PdfStyles';
+import { styles, SEAL_HEIGHT } from './PdfStyles';
 import { PdfHeader } from './PdfHeader';
 import { PdfParties } from './PdfParties';
 import { PdfAdditionalInfo } from './PdfAdditionalInfo';
@@ -45,9 +45,9 @@ const H = {
   tableRow: 23,        // har bir mahsulot qatori (paddingVertical×2 + fontSize×lineHeight; jadval shrifti 10pt)
   sumWords: 15,
   notes: 60,           // Примечания bloki (agar bor bo'lsa)
-  signatures: 150,     // Pechat rasmi 120pt bo'lishi mumkin
-  // spec: sarlavha(18) + imzo(40) + pechat(100) + marginlar(20) ≈ 178
-  signaturesSpec: 178,
+  // Imzo bloki — FAQAT matn va imzo rasmi (pechat alohida, scale'siz hisoblanadi)
+  signatures: 100,
+  signaturesSpec: 130, // sarlavha(18) + label/nom/direktor(45) + imzo(50) + marginlar
 };
 
 // Taraflar (Продавец/Покупатель) bloki balandligini kontrakt ma'lumotlaridan
@@ -135,18 +135,25 @@ const calcScale = (
   isSellerShipper: boolean,
   isBuyerConsignee: boolean
 ): number => {
-  // Imzo va pechat borligini tekshirish
-  const hasImages = pdfIncludeSeal && selectedContract && (
-    selectedContract.sellerSignatureUrl || selectedContract.signatureUrl || 
+  // Imzo rasmi (scale bilan kichrayadi) va pechat (doimiy SEAL_HEIGHT) alohida
+  const hasSignature = !!(pdfIncludeSeal && selectedContract && (
+    selectedContract.sellerSignatureUrl || selectedContract.signatureUrl ||
+    selectedContract.buyerSignatureUrl || selectedContract.consigneeSignatureUrl
+  ));
+  const hasSeal = !!(pdfIncludeSeal && selectedContract && (
     selectedContract.sellerSealUrl || selectedContract.sealUrl ||
-    selectedContract.buyerSignatureUrl || selectedContract.buyerSealUrl
-  );
-  
+    selectedContract.buyerSealUrl || selectedContract.consigneeSealUrl
+  ));
+
   const addInfoH = H.addInfoTitle + addFieldsCount * H.addInfoRow + H.addInfoBottom;
-  // Agar pechat rasmi yo'q bo'lsa, imzo qismi kamroq joy oladi.
-  // Spec uchun rasmlar bo'lsa (imzo ustida pechat) balandligi 230 gacha yetadi.
-  const sigH = viewTab === 'spec' ? (hasImages ? 230 : 100) : (hasImages ? 150 : 80);
-  
+  // Imzo bloki matn qismi — imzo rasmi bo'lmasa kamroq joy oladi
+  const sigH = viewTab === 'spec'
+    ? (hasSignature ? H.signaturesSpec : 100)
+    : (hasSignature ? H.signatures : 80);
+  // Pechat balandligi qat'iy (3.8 sm) — scale bilan kichraymaydi, shuning uchun
+  // uni scale hisobidan chiqarib, mavjud balandlikdan to'g'ridan-to'g'ri ayiramiz
+  const sealH = hasSeal ? SEAL_HEIGHT + 10 : 0;
+
   // Notes qismi balandligini hisoblash (har 80 ta harf taxminan 1 qator).
   // Spec sahifada Примечания chiqmaydi — joy ham band qilinmaydi.
   let notesHeight = 0;
@@ -177,10 +184,12 @@ const calcScale = (
   // butun blok keyingi betga o'tib ketadi. Shuning uchun spec uchun xavfsizlik
   // zaxirasini qoldiramiz: kontent biroz zichroq bo'lib 1-betga sig'adi.
   const available = viewTab === 'spec' ? AVAILABLE_HEIGHT - 80 : AVAILABLE_HEIGHT;
+  // Pechat kichraymagani uchun qolgan kontentga faqat shu qism qoladi
+  const scalable = Math.max(60, available - sealH);
 
-  if (total <= available) return 1.0;
-  const computed = available / total;
-  
+  if (total <= scalable) return 1.0;
+  const computed = scalable / total;
+
   // Kichraytirish darajasini hisoblash (shrift va oraliqlar proporsional kichrayadi)
   // Spec va Invoice ham kerak bo'lsa maksimal 0.40 gacha kichrayib 1-betga sig'diriladi
   const minScale = 0.40;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View, Image } from '@react-pdf/renderer';
-import { styles } from './PdfStyles';
+import { styles, SEAL_HEIGHT } from './PdfStyles';
 import { formatDate, formatUnitPrice } from '../invoiceUtils';
 import { resolveUploadUrl } from '../types';
 
@@ -27,6 +27,7 @@ export const PdfPriceList: React.FC<PdfPriceListProps> = ({
   const contractNumber = form.contractNumber || selectedContract?.contractNumber || '_________';
   const contractDate = selectedContract?.contractDate ? formatDate(selectedContract.contractDate) : '___________';
   const logoUrl = selectedContract?.companyLogoUrl ? resolveUploadUrl(selectedContract.companyLogoUrl) : null;
+  const hasSeal = pdfIncludeSeal && !!(selectedContract?.sellerSealUrl || selectedContract?.sealUrl);
 
   return (
     <View style={{ width: '100%' }}>
@@ -128,17 +129,17 @@ export const PdfPriceList: React.FC<PdfPriceListProps> = ({
               <Text style={{ fontSize: sc(14), color: '#1f2937' }}>{selectedContract.supplierDirector}</Text>
             </View>
             
-            <View style={{ width: '50%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative', height: sc(80) }}>
+            <View style={{ width: '50%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative', height: hasSeal ? SEAL_HEIGHT : sc(80) }}>
               {(selectedContract.sellerSignatureUrl || selectedContract.signatureUrl) && pdfIncludeSeal && (
                 <Image
                   src={resolveUploadUrl(selectedContract.sellerSignatureUrl || selectedContract.signatureUrl)}
                   style={{ position: 'absolute', width: sc(80), height: sc(35), objectFit: 'contain', zIndex: 2 }}
                 />
               )}
-              {(selectedContract.sellerSealUrl || selectedContract.sealUrl) && pdfIncludeSeal && (
+              {hasSeal && (
                 <Image
                   src={resolveUploadUrl(selectedContract.sellerSealUrl || selectedContract.sealUrl)}
-                  style={{ position: 'absolute', width: sc(120), height: sc(120), objectFit: 'contain', zIndex: 1, opacity: 0.8 }}
+                  style={{ position: 'absolute', height: SEAL_HEIGHT, objectFit: 'contain', zIndex: 1, opacity: 0.8 }}
                 />
               )}
             </View>

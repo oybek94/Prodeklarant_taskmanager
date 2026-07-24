@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View, Image } from '@react-pdf/renderer';
-import { styles } from './PdfStyles';
+import { styles, SEAL_HEIGHT } from './PdfStyles';
 import { resolveUploadUrl } from '../types';
 
 interface PdfSignaturesProps {
@@ -64,11 +64,11 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({
 
     if (!participants.length) return null;
 
-    // Tomonlar ko'p bo'lsa ustunlar torayadi — imzo/pechat ham kichrayadi
+    // Tomonlar ko'p bo'lsa ustunlar torayadi — imzo ham kichrayadi.
+    // Pechat esa har doim SEAL_HEIGHT balandlikda (kengligi avto).
     const many = participants.length > 2;
     const sigImgH = sc(many ? 36 : 50);
-    const sealImgH = sc(many ? 100 : 140);
-    const imgBlockH = sigImgH + sealImgH + sc(6);
+    const imgBlockH = sigImgH + SEAL_HEIGHT + sc(6);
 
     const PartyCol = ({ party }: { party: SpecParty }) => (
       <View style={{ flex: 1, paddingRight: sc(6) }}>
@@ -89,7 +89,7 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({
           {party.sealUrl && pdfIncludeSeal && (
             <Image
               src={resolveUploadUrl(party.sealUrl)}
-              style={{ height: sealImgH, objectFit: 'contain' }}
+              style={{ height: SEAL_HEIGHT, objectFit: 'contain' }}
             />
           )}
         </View>
@@ -142,7 +142,7 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({
           {sealUrl && (
             <Image
               src={resolveUploadUrl(sealUrl)}
-              style={{ height: sc(120), objectFit: 'contain' }}
+              style={{ height: SEAL_HEIGHT, objectFit: 'contain' }}
             />
           )}
         </View>

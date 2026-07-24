@@ -310,6 +310,11 @@ const Invoice = () => {
   });
 
   const [showCargoImportModal, setShowCargoImportModal] = useState(false);
+  /** Matndan import Квант/РЦ ustunlarini o'zi qo'shadi — kalitini darrov qaytarishi kerak */
+  const handleAddCargoColumn = useCallback(
+    (label: string, afterKey?: string) => addCustomColumn(label, setColumnLabels, afterKey),
+    [addCustomColumn, setColumnLabels]
+  );
   const cargoImport = useCargoImport({
     form,
     setForm,
@@ -320,6 +325,11 @@ const Invoice = () => {
     packingCustomFields,
     setPackingCustomFields,
     contractDeliveryTerms,
+    packagingTypes,
+    invoiceProductOptions,
+    selectedContractSpec,
+    columnLabels,
+    addCustomColumn: handleAddCargoColumn,
   });
 
   useClickOutside(pdfMenuRef, showPdfMenu, useCallback(() => setShowPdfMenu(false), []));

@@ -1,4 +1,4 @@
-import { buildCargoTextPrompt } from '../ai/cargo-text.prompt';
+import { buildCargoTextPrompt, CargoTextPromptOptions } from '../ai/cargo-text.prompt';
 import {
   cargoTextExtractionSchema,
   CARGO_TEXT_RESPONSE_FORMAT,
@@ -16,10 +16,10 @@ import { handleAIError } from '../utils/error-handler';
 export class CargoTextService {
   /**
    * @param text Mijozdan kelgan xom matn
-   * @param deliveryTermsOptions Shartnomadagi "Условия поставки" variantlari —
-   *   AI eng yaqinini shu ro'yxatdan tanlaydi
+   * @param options Shartnoma/baza ro'yxatlari — AI tanlovli maydonlar uchun
+   *   eng yaqin variantni shulardan tanlaydi
    */
-  async parse(text: string, deliveryTermsOptions: string[] = []): Promise<CargoTextExtraction> {
+  async parse(text: string, options: CargoTextPromptOptions = {}): Promise<CargoTextExtraction> {
     try {
       if (!text || text.trim().length === 0) {
         throw new Error('Cargo text is empty');
@@ -29,7 +29,7 @@ export class CargoTextService {
         label: 'CARGO_TEXT',
         systemPrompt:
           'You are a customs declarant assistant. Extract data exactly as it appears in the message; never invent values.',
-        userPrompt: `${buildCargoTextPrompt(deliveryTermsOptions)}\n\nMijoz xabari:\n${text}`,
+        userPrompt: `${buildCargoTextPrompt(options)}\n\nMijoz xabari:\n${text}`,
         zodSchema: cargoTextExtractionSchema,
         responseFormat: CARGO_TEXT_RESPONSE_FORMAT,
       });

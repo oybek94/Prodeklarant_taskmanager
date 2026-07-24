@@ -30,6 +30,10 @@ export const cargoProductSchema = z.strictObject({
   unit_price: z.number().nullable(),
   /** Narx valyutasi: USD, UZS ... */
   currency: z.string().nullable(),
+  /** "Квант" — qadoqdagi og'irlik koeffitsienti, har tovarda o'ziniki bo'lishi mumkin */
+  kvant: z.number().nullable(),
+  /** "РЦ ..." — taqsimlash markazi (masalan "РЦ Москов Север Алкоголь") */
+  distribution_center: z.string().nullable(),
 });
 
 export const cargoTextExtractionSchema = z.strictObject({

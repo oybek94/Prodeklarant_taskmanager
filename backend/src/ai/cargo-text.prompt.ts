@@ -6,20 +6,60 @@
  * MAZMUNI va shablonga xos qoidalar tushuntiriladi.
  */
 
-/**
- * @param deliveryTermsOptions Shartnomada mavjud "Условия поставки" variantlari —
- *   AI matndagi qisqa yozuvga eng yaqinini shu ro'yxatdan tanlaydi.
- */
-export function buildCargoTextPrompt(deliveryTermsOptions: string[] = []): string {
-  const deliveryTermsBlock =
-    deliveryTermsOptions.length > 0
-      ? `\nУСЛОВИЯ ПОСТАВКИ VARIANTLARI (shartnomadan):\n${deliveryTermsOptions
-          .map((opt) => `- ${opt}`)
-          .join('\n')}\n
-delivery_terms uchun matndagi qisqa yozuvga (masalan "DAP Москва") ENG YAQIN variantni
-shu ro'yxatdan tanlab, uning TO'LIQ matnini qaytaring (masalan "DAP - г.Москва, Российская Федерация").
-Ro'yxatda mos variant bo'lmasa — matndagi xom qiymatni qaytaring.`
-      : `\ndelivery_terms — matndagi yetkazib berish shartini xom holicha qaytaring (masalan "DAP Москва").`;
+export interface CargoTextPromptOptions {
+  /** Shartnomadagi "Условия поставки" variantlari */
+  deliveryTermsOptions?: string[];
+  /** Bazadagi qadoq turlari (masalan "пласт.ящик") */
+  packagingTypeOptions?: string[];
+  /** Bazadagi tovar nomlari — TNVED kodi shu nom orqali avtomatik to'ladi */
+  productNameOptions?: string[];
+}
+
+/** Berilgan variantlardan eng yaqinini tanlash bo'yicha umumiy ko'rsatma bloki */
+function optionBlock(title: string, field: string, options: string[], example: string): string {
+  if (options.length === 0) {
+    return `\n${field} — matndagi qiymatni xom holicha qaytaring.`;
+  }
+  return `
+${title}:
+${options.map((opt) => `- ${opt}`).join('\n')}
+
+${field} uchun MAJBURIY qoida: matndagi yozuvni shu ro'yxat bilan solishtiring va
+ma'nan mos keladigan variantning TO'LIQ matnini qaytaring — matndagi xom yozuvni
+EMAS. Ro'yxatdagi yozuv qisqartirilgan, boshqa sonda (birlik/ko'plik), boshqa
+rod/kelishikda yoki boshqa so'z tartibida bo'lishi mumkin — bular MOS hisoblanadi.
+${example}
+Faqat ro'yxatda ma'nan yaqin variant UMUMAN bo'lmagandagina matndagi xom qiymatni qaytaring.`;
+}
+
+export function buildCargoTextPrompt({
+  deliveryTermsOptions = [],
+  packagingTypeOptions = [],
+  productNameOptions = [],
+}: CargoTextPromptOptions = {}): string {
+  const deliveryTermsBlock = optionBlock(
+    'УСЛОВИЯ ПОСТАВКИ VARIANTLARI (shartnomadan)',
+    'delivery_terms',
+    deliveryTermsOptions,
+    'Masalan "DAP Москва" → "DAP - г.Москва, Российская Федерация".'
+  );
+
+  const packagingBlock = optionBlock(
+    'QADOQ TURLARI (bazadan)',
+    'package_type',
+    packagingTypeOptions,
+    'Masalan "Пластиковый ящик" → "пласт.ящик", "Картонная коробка" → "картон.короб.".'
+  );
+
+  const productNameBlock = optionBlock(
+    'TOVAR NOMLARI (bazadan)',
+    'name',
+    productNameOptions,
+    'Masalan matnda "Персик свежий" bo\'lsa va ro\'yxatda "Персики свежие" tursa — ' +
+      '"Персики свежие" ni qaytaring. "Томат свежий" → "Томаты свежие", ' +
+      '"Свежий гранат" → "Гранат свежий". Bu nom bo\'yicha Код ТН ВЭД topiladi, ' +
+      'shuning uchun xom yozuv qaytarilsa kod bo\'sh qolib ketadi.'
+  );
 
   return `Siz bojxona deklaranti uchun ishlaydigan AI siz. Mijoz Telegram orqali yuborgan
 erkin shablon matnidan invoys maydonlarini AJRATIB OLING.
@@ -52,11 +92,9 @@ ${deliveryTermsBlock}
 
 TOVARLAR (products):
 Har bir tovar bloki alohida element bo'ladi. Bir nechta tovar bo'lishi mumkin.
-- name — tovar nomi (masalan "Нектарины свежие")
 - plu_code — "PLU:" qiymati MATN HOLICHA, ikkala raqam ham
   (masalan "3682719 / 3639748" → "3682719 / 3639748")
-- packages_count va package_type — "3 648 Пластиковый ящик" kabi qatordan:
-  packages_count=3648, package_type="Пластиковый ящик"
+- packages_count — "3 648 Пластиковый ящик" kabi qatordagi SON (3648)
 - net_weight — "нетто" so'zi turgan qatordagi raqam (masalan "19 170 нетто" → 19170)
 - gross_weight — "брутто" so'zi turgan qatordagi raqam (masalan "20 760 брутто" → 20760)
 - places_count — "паллет" so'zi turgan qatordagi BIRINCHI raqam
@@ -65,6 +103,13 @@ Har bir tovar bloki alohida element bo'ladi. Bir nechta tovar bo'lishi mumkin.
   va extra_fields ga ham qo'shmang
 - unit_price — "Цена $1.25" → 1.25
 - currency — narx belgisidan aniqlang: "$" → "USD", "сум"/"so'm" → "UZS"
+- kvant — "Квант 5.25" qatoridagi son (5.25). Har tovarda o'ziniki bo'lishi mumkin.
+  Квант ni extra_fields ga QO'SHMANG — u faqat shu maydonga yoziladi
+- distribution_center — "РЦ" bilan boshlanadigan qator, to'liq matn holicha
+  (masalan "РЦ Москов Север Алкоголь"). "РЦ" so'zini ham saqlang.
+  Uni extra_fields ga QO'SHMANG
+${packagingBlock}
+${productNameBlock}
 
 PACKING_FIELDS:
 "В упаковочный лист:" sarlavhasidan keyingi qatorlar shu massivga tushadi.
@@ -73,8 +118,16 @@ qiymat — value. Masalan "Серийный номер датчика -8083254" 
 { label: "Серийный номер датчика", value: "8083254" }.
 
 EXTRA_FIELDS:
-Yuqoridagi maydonlarning hech biriga tushmagan, lekin nomi bor qiymatlar.
-Masalan "Квант 5.25" → { label: "Квант", value: "5.25" },
-"Калибр 40mm+" → { label: "Калибр", value: "40mm+" }.
-Sarlavhalarni ("Таможня:", "Выгрузка:", "В упаковочный лист:") extra_fields ga qo'shmang.`;
+Yuqoridagi maydonlarning HECH BIRIGA tushmagan, lekin nomi bor HAR BIR qiymat
+shu massivga tushishi SHART — hech qaysi ma'lumot yo'qolmasligi kerak.
+Masalan "Калибр 40mm+" → { label: "Калибр", value: "40mm+" }.
+Odatda label — sof nom, qo'shimchasiz: { label: "Калибр", value: "40mm+" }.
+FAQAT bir xil nomli qiymat IKKI YOKI UNDAN ORTIQ tovarda uchraganda, har birini
+alohida element qilib qo'shing va label ga tovar nomini qavs ichida qo'shing —
+tovar nomini yuqorida tanlangan ro'yxat variantidan oling, masalan
+{ label: "Калибр (Нектарины свежие)", value: "40mm+" } va
+{ label: "Калибр (Персики свежие)", value: "55mm+" }.
+Tovar bitta bo'lsa qavs ichida hech narsa yozilmaydi.
+Sarlavhalarni ("Таможня:", "Выгрузка:", "В упаковочный лист:") va yuqorida
+alohida maydoni bor qiymatlarni (Квант, РЦ) extra_fields ga QO'SHMANG.`;
 }

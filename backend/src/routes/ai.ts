@@ -35,6 +35,8 @@ const compareInvoiceST1Schema = z.object({
 const parseCargoTextSchema = z.object({
   text: z.string().min(1, 'Text is required').max(20000, 'Text is too long'),
   deliveryTermsOptions: z.array(z.string().max(500)).max(50).optional(),
+  packagingTypeOptions: z.array(z.string().max(200)).max(100).optional(),
+  productNameOptions: z.array(z.string().max(300)).max(500).optional(),
 });
 
 /**
@@ -161,10 +163,14 @@ router.post(
         return res.status(400).json({ error: parsed.error.flatten() });
       }
 
-      const { text, deliveryTermsOptions } = parsed.data;
+      const { text, deliveryTermsOptions, packagingTypeOptions, productNameOptions } = parsed.data;
 
       const cargoTextService = new CargoTextService();
-      const data = await cargoTextService.parse(text, deliveryTermsOptions ?? []);
+      const data = await cargoTextService.parse(text, {
+        deliveryTermsOptions,
+        packagingTypeOptions,
+        productNameOptions,
+      });
 
       res.json({
         success: true,

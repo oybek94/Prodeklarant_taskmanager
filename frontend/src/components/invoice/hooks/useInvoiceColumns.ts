@@ -101,11 +101,28 @@ export function useInvoiceColumns({ invoiceId, invoiceAdditionalInfo, duplicateI
     return firstSumColIdx;
   }, [columnOrder, visibleColumns]);
 
-  const addCustomColumn = useCallback((label: string, setColumnLabels: React.Dispatch<React.SetStateAction<ColumnLabels>>) => {
-    const key = `custom_${Date.now()}`;
+  /** Bir tickda bir nechta ustun qo'shilsa Date.now() takrorlanmasligi uchun */
+  const customKeyCounterRef = useRef(0);
+
+  /**
+   * Yangi custom ustun qo'shadi va uning kalitini qaytaradi.
+   * @param afterKey berilsa ustun shu ustundan keyin joylashadi (masalan 'net'),
+   *   aks holda 'actions' dan oldin — oxiriga qo'yiladi.
+   */
+  const addCustomColumn = useCallback((
+    label: string,
+    setColumnLabels: React.Dispatch<React.SetStateAction<ColumnLabels>>,
+    afterKey?: string
+  ): string => {
+    const key = `custom_${Date.now()}_${customKeyCounterRef.current++}`;
     setCustomColumns((prev) => [...prev, key]);
     setColumnOrder((prev) => {
       const next = [...prev];
+      const afterIdx = afterKey ? next.indexOf(afterKey) : -1;
+      if (afterIdx !== -1) {
+        next.splice(afterIdx + 1, 0, key);
+        return next;
+      }
       // Qo'shilayotgan ustun actions dan oldin bo'lishi uchun
       const actionsIdx = next.indexOf('actions');
       if (actionsIdx !== -1) {
@@ -117,6 +134,7 @@ export function useInvoiceColumns({ invoiceId, invoiceAdditionalInfo, duplicateI
     });
     setColumnLabels((prev) => ({ ...prev, [key]: label }));
     setVisibleColumnsAndPersist((prev) => ({ ...prev, [key]: true }));
+    return key;
   }, [setVisibleColumnsAndPersist]);
 
   const removeCustomColumn = useCallback((key: string, setColumnLabels: React.Dispatch<React.SetStateAction<ColumnLabels>>) => {

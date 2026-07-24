@@ -15,6 +15,42 @@ export function calculateTotalPrice(item: InvoiceItem): number {
   }
 }
 
+/**
+ * Tovar nomi bo'yicha TNVED kodi va shartnoma narxini aniqlaydi.
+ *
+ * Nom ro'yxatdagi variant bilan aynan mos kelganda (registrga sezgir emas)
+ * Код ТН ВЭД avtomatik to'ladi — nom qo'lda yozilganda ham, matndan
+ * import qilinganda ham bir xil qoida ishlashi uchun sof funksiya.
+ */
+export function resolveProductDefaults(
+  name: string,
+  invoiceProductOptions: Array<{ name: string; code: string }>,
+  selectedContractSpec: SpecRow[]
+): { tnvedCode?: string; unitPrice?: number } {
+  const nameTrim = name.trim();
+  if (!nameTrim) return {};
+  const result: { tnvedCode?: string; unitPrice?: number } = {};
+
+  // 1-qadam: Global TNVED ro'yxatidan qidirish (ustuvor)
+  const globalMatch = invoiceProductOptions.find(
+    (p) => p.name.trim().toLowerCase() === nameTrim.toLowerCase()
+  );
+  if (globalMatch?.code) result.tnvedCode = globalMatch.code;
+
+  // 2-qadam: Shartnoma spetsifikatsiyasidan qidirish (narx va fallback TNVED)
+  const specRow = selectedContractSpec.find(
+    (r) => (r.productName || '').trim().toLowerCase() === nameTrim.toLowerCase()
+  );
+  if (specRow) {
+    if (!result.tnvedCode && specRow.tnvedCode?.trim()) {
+      result.tnvedCode = specRow.tnvedCode.trim();
+    }
+    if (specRow.unitPrice != null) result.unitPrice = Number(specRow.unitPrice);
+  }
+
+  return result;
+}
+
 // "=N" formulali qatorlar uchun: changedIndex qatori o'zgarganda boshqa qatorlarni qayta hisoblash
 function recalcEqualFormulaRows(items: InvoiceItem[], changedIndex: number): void {
   for (let i = 0; i < items.length; i++) {
@@ -143,35 +179,12 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
     setItems((prev) => {
       const newItems = [...prev];
       newItems[index] = { ...newItems[index], name: value };
-      const nameTrim = value.trim();
-      if (!nameTrim) return newItems;
 
-      let foundTnved = false;
-
-      // 1-qadam: Global TNVED ro'yxatidan qidirish (ustuvor)
-      const globalMatch = invoiceProductOptions.find(
-        (p) => p.name.trim().toLowerCase() === nameTrim.toLowerCase()
-      );
-      if (globalMatch && globalMatch.code) {
-        newItems[index].tnvedCode = globalMatch.code;
-        foundTnved = true;
-      }
-
-      // 2-qadam: Shartnoma spetsifikatsiyasidan qidirish (narx va fallback TNVED)
-      if (selectedContractSpec.length > 0) {
-        const specRow = selectedContractSpec.find(
-          (r) => (r.productName || '').trim().toLowerCase() === nameTrim.toLowerCase()
-        );
-        if (specRow) {
-          if (!foundTnved && specRow.tnvedCode != null && specRow.tnvedCode.trim() !== '') {
-            newItems[index].tnvedCode = specRow.tnvedCode.trim();
-          }
-          if (specRow.unitPrice != null) {
-            const up = Number(specRow.unitPrice);
-            newItems[index].unitPrice = up;
-            newItems[index].totalPrice = calculateTotalPrice(newItems[index]);
-          }
-        }
+      const defaults = resolveProductDefaults(value, invoiceProductOptions, selectedContractSpec);
+      if (defaults.tnvedCode) newItems[index].tnvedCode = defaults.tnvedCode;
+      if (defaults.unitPrice != null) {
+        newItems[index].unitPrice = defaults.unitPrice;
+        newItems[index].totalPrice = calculateTotalPrice(newItems[index]);
       }
 
       return newItems;

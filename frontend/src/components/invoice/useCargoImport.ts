@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '../../lib/api';
-import { calculateTotalPrice } from './hooks/useInvoiceItems';
+import { calculateTotalPrice, resolveProductDefaults } from './hooks/useInvoiceItems';
 import { createDefaultItem, DEFAULT_COLUMN_LABELS } from './types';
-import type { CustomField, InvoiceFormData, InvoiceItem } from './types';
+import type { ColumnLabels, CustomField, InvoiceFormData, InvoiceItem, SpecRow } from './types';
 
 /* ===================== Backend javobi ===================== */
 
@@ -22,7 +22,13 @@ interface CargoProduct {
   net_weight: number | null;
   unit_price: number | null;
   currency: string | null;
+  kvant: number | null;
+  distribution_center: string | null;
 }
+
+/** Jadval ustuni sifatida qo'shiladigan qo'shimcha tovar maydonlari */
+export const KVANT_COLUMN_LABEL = 'Квант';
+export const RC_COLUMN_LABEL = 'РЦ';
 
 export interface CargoTextExtraction {
   invoice_number: string | null;
@@ -82,6 +88,22 @@ const normalizeCurrency = (raw: string | null): 'USD' | 'UZS' | null => {
   if (v === 'UZS') return 'UZS';
   return null;
 };
+
+/**
+ * Квант qayerga tushishini hal qiladi: ikki va undan ortiq tovar bo'lib
+ * kvantlari bir-biridan farq qilsa — jadval ustuni; aks holda bitta qiymat
+ * Дополнительная информация bo'limiga.
+ */
+export const decideKvantPlacement = (products: CargoProduct[]): 'column' | 'info' | 'none' => {
+  const values = products.map((p) => p.kvant).filter((v): v is number => v != null);
+  if (values.length === 0) return 'none';
+  if (products.length >= 2 && new Set(values).size > 1) return 'column';
+  return 'info';
+};
+
+/** Berilgan yorliqqa ega mavjud custom ustun kalitini topadi (qayta import uchun) */
+const findCustomColumnKey = (columnLabels: ColumnLabels, label: string): string | undefined =>
+  Object.keys(columnLabels).find((k) => k.startsWith('custom_') && columnLabels[k] === label);
 
 /** Bitta product elementini invoys qatori maydonlariga o'giradi */
 const productToItemFields = (p: CargoProduct): Partial<InvoiceItem> => ({
@@ -145,6 +167,39 @@ export const buildPreviewRows = (
     });
   });
 
+  // Квант — joylashuviga qarab jadval ustuni yoki Доп. информация qatori
+  const kvantPlacement = decideKvantPlacement(parsed.products);
+  if (kvantPlacement === 'column') {
+    parsed.products.forEach((product, idx) => {
+      if (product.kvant == null) return;
+      rows.push({
+        key: `product:${idx}:kvant`,
+        label: `Товар ${idx + 1} — ${KVANT_COLUMN_LABEL} (yangi ustun)`,
+        newValue: String(product.kvant),
+        currentValue: '',
+      });
+    });
+  } else if (kvantPlacement === 'info') {
+    const kvant = parsed.products.find((p) => p.kvant != null)?.kvant;
+    rows.push({
+      key: `custom:${KVANT_COLUMN_LABEL}`,
+      label: `${KVANT_COLUMN_LABEL} (Доп. информация)`,
+      newValue: String(kvant),
+      currentValue: asText(customFields.find((f) => f.label === KVANT_COLUMN_LABEL)?.value),
+    });
+  }
+
+  // РЦ — har doim jadval ustuni, har tovarga o'ziniki
+  parsed.products.forEach((product, idx) => {
+    if (!product.distribution_center?.trim()) return;
+    rows.push({
+      key: `product:${idx}:rc`,
+      label: `Товар ${idx + 1} — ${RC_COLUMN_LABEL} (yangi ustun)`,
+      newValue: product.distribution_center.trim(),
+      currentValue: '',
+    });
+  });
+
   parsed.extra_fields.forEach((field) => {
     if (!field.label.trim() || !field.value.trim()) return;
     rows.push({
@@ -181,6 +236,16 @@ interface UseCargoImportProps {
   setPackingCustomFields: (fields: CustomField[]) => void;
   /** Shartnomadagi "Условия поставки" variantlari — AI eng yaqinini tanlaydi */
   contractDeliveryTerms: string[];
+  /** Bazadagi qadoq turlari — AI "Вид упаковки" uchun mosini tanlaydi */
+  packagingTypes: Array<{ name: string }>;
+  /** Bazadagi tovar nomlari — tanlanganda Код ТН ВЭД avtomatik to'ladi */
+  invoiceProductOptions: Array<{ name: string; code: string }>;
+  /** Shartnoma spetsifikatsiyasi — nom bo'yicha narx/TNVED fallback */
+  selectedContractSpec: SpecRow[];
+  /** Mavjud ustun yorliqlari — qayta importda ustun takrorlanmasligi uchun */
+  columnLabels: ColumnLabels;
+  /** Yangi custom ustun qo'shadi va kalitini qaytaradi */
+  addCustomColumn: (label: string, afterKey?: string) => string;
 }
 
 export const useCargoImport = ({
@@ -193,6 +258,11 @@ export const useCargoImport = ({
   packingCustomFields,
   setPackingCustomFields,
   contractDeliveryTerms,
+  packagingTypes,
+  invoiceProductOptions,
+  selectedContractSpec,
+  columnLabels,
+  addCustomColumn,
 }: UseCargoImportProps) => {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -227,6 +297,8 @@ export const useCargoImport = ({
       const res = await apiClient.post('/ai/parse/cargo-text', {
         text,
         deliveryTermsOptions: contractDeliveryTerms,
+        packagingTypeOptions: packagingTypes.map((p) => p.name).filter(Boolean),
+        productNameOptions: invoiceProductOptions.map((p) => p.name).filter(Boolean),
       });
       const data = res.data?.data as CargoTextExtraction | undefined;
       if (!data) throw new Error('Bo\'sh javob');
@@ -245,7 +317,16 @@ export const useCargoImport = ({
     } finally {
       setLoading(false);
     }
-  }, [text, contractDeliveryTerms, form, items, customFields, packingCustomFields]);
+  }, [
+    text,
+    contractDeliveryTerms,
+    packagingTypes,
+    invoiceProductOptions,
+    form,
+    items,
+    customFields,
+    packingCustomFields,
+  ]);
 
   /** Belgilangan qatorlarni formaga, jadvalga va custom maydonlarga yozadi */
   const applyCargo = useCallback(() => {
@@ -273,17 +354,33 @@ export const useCargoImport = ({
       setForm((prev) => ({ ...prev, ...formPatch }));
     }
 
+    /* --- Квант / РЦ ustunlari: kerak bo'lsa yaratiladi, bori qayta ishlatiladi --- */
+    const ensureColumn = (label: string, afterKey: string): string =>
+      findCustomColumnKey(columnLabels, label) ?? addCustomColumn(label, afterKey);
+
+    const kvantPlacement = decideKvantPlacement(parsed.products);
+    const kvantSelected = parsed.products.some((_, idx) => isSelected(`product:${idx}:kvant`));
+    // Квант ustuni Нетто'dan keyin turadi
+    const kvantColumnKey =
+      kvantPlacement === 'column' && kvantSelected ? ensureColumn(KVANT_COLUMN_LABEL, 'net') : null;
+
+    const rcSelected = parsed.products.some((_, idx) => isSelected(`product:${idx}:rc`));
+    // РЦ ustuni "Общая сумма в Долл. США" (total) dan keyin turadi
+    const rcColumnKey = rcSelected ? ensureColumn(RC_COLUMN_LABEL, 'total') : null;
+
     /* --- Tovar qatorlari: ro'yxat almashtiriladi, belgilanmagan maydonlar tegilmaydi --- */
     const productKeys = rows.filter((r) => r.key.startsWith('product:') && isSelected(r.key));
     if (productKeys.length > 0) {
+      const hasSelectedField = (idx: number) =>
+        Object.keys(PRODUCT_FIELD_LABELS).some((field) => isSelected(`product:${idx}:${field}`)) ||
+        isSelected(`product:${idx}:kvant`) ||
+        isSelected(`product:${idx}:rc`);
+
       // Hech bir maydoni belgilanmagan va invoysda mos qatori ham yo'q tovar tashlab ketiladi —
       // aks holda bo'sh qator paydo bo'lardi
       const keptProducts = parsed.products
         .map((product, idx) => ({ product, idx }))
-        .filter(({ idx }) =>
-          items[idx] !== undefined ||
-          Object.keys(PRODUCT_FIELD_LABELS).some((field) => isSelected(`product:${idx}:${field}`))
-        );
+        .filter(({ idx }) => items[idx] !== undefined || hasSelectedField(idx));
 
       const nextItems: InvoiceItem[] = keptProducts.map(({ product, idx }) => {
         const base: InvoiceItem = items[idx]
@@ -296,6 +393,22 @@ export const useCargoImport = ({
           if (value === undefined) return;
           (base as Record<string, unknown>)[field] = value;
         });
+
+        // Nom bazadagi variant bilan mos kelsa Код ТН ВЭД (va narx) avtomatik to'ladi —
+        // qo'lda tanlanganidagi bilan bir xil qoida
+        const defaults = resolveProductDefaults(base.name, invoiceProductOptions, selectedContractSpec);
+        if (defaults.tnvedCode) base.tnvedCode = defaults.tnvedCode;
+        // Matnda narx berilgan bo'lsa u ustun turadi; bo'lmasa shartnoma narxi olinadi
+        if (!base.unitPrice && defaults.unitPrice != null) base.unitPrice = defaults.unitPrice;
+
+        // Квант / РЦ — jadval ustuni sifatida item.customFields ichiga
+        if (kvantColumnKey && product.kvant != null && isSelected(`product:${idx}:kvant`)) {
+          base.customFields = { ...base.customFields, [kvantColumnKey]: String(product.kvant) };
+        }
+        if (rcColumnKey && product.distribution_center?.trim() && isSelected(`product:${idx}:rc`)) {
+          base.customFields = { ...base.customFields, [rcColumnKey]: product.distribution_center.trim() };
+        }
+
         // Brutto/netto qo'lda kelgani uchun eski formulalar kuchini yo'qotadi
         base.netWeightFormula = undefined;
         base.grossWeightFormula = undefined;
@@ -319,7 +432,14 @@ export const useCargoImport = ({
       return merged;
     };
 
-    const nextCustom = mergeFields(customFields, parsed.extra_fields, 'custom');
+    // Квант ustun bo'lmagan holatda Доп. информация maydoni sifatida qo'shiladi
+    const infoFields: CargoLabeledField[] = [...parsed.extra_fields];
+    if (kvantPlacement === 'info') {
+      const kvant = parsed.products.find((p) => p.kvant != null)?.kvant;
+      if (kvant != null) infoFields.push({ label: KVANT_COLUMN_LABEL, value: String(kvant) });
+    }
+
+    const nextCustom = mergeFields(customFields, infoFields, 'custom');
     if (nextCustom) setCustomFields(nextCustom);
 
     const nextPacking = mergeFields(packingCustomFields, parsed.packing_fields, 'packing');
@@ -334,6 +454,10 @@ export const useCargoImport = ({
     items,
     customFields,
     packingCustomFields,
+    invoiceProductOptions,
+    selectedContractSpec,
+    columnLabels,
+    addCustomColumn,
     setForm,
     setItems,
     setCustomFields,

@@ -11,11 +11,25 @@ import { CargoTextExtraction } from './cargo-text.schema';
 /** Tovarning o'z maydoni bor qiymatlar — extra_fields ga tushmasligi kerak */
 const PER_PRODUCT_LABELS = ['квант', 'калибр', 'рц'];
 
+/**
+ * Yig'indi qatorlari ("Итого: 18 800 нетто / 20 390 брутто") — invoysga
+ * yozilmaydi. Jadval Брутто/Нетто yig'indisini "Всего:" qatorida o'zi
+ * hisoblaydi, matndan olingani takror bo'lib, qo'lda tahrirlanganda esa
+ * jadval bilan ziddiyatga tushadi.
+ */
+const TOTALS_LABELS = ['итого', 'всего'];
+
 /** "Выгрузка" sarlavhasi — destination faqat shundan keyin keladi */
 const DESTINATION_MARKER = /выгрузка/i;
 
 const normalizeLabel = (label: string): string =>
   label.trim().toLowerCase().replace(/[:.]+$/, '');
+
+/** Yorliq berilgan nomlardan biriga tengmi yoki shu nom bilan boshlanadimi */
+const matchesAny = (label: string, names: string[]): boolean =>
+  names.some(
+    (name) => label === name || label.startsWith(`${name} `) || label.startsWith(`${name}(`)
+  );
 
 /**
  * @param data AI qaytargan xom natija
@@ -25,11 +39,12 @@ export function normalizeCargoExtraction(
   data: CargoTextExtraction,
   rawText: string
 ): CargoTextExtraction {
-  // 1) Квант / Калибр / РЦ tovar maydonlarida yashaydi — extra_fields dan olib tashlaymiz,
+  // 1) Квант / Калибр / РЦ tovar maydonlarida yashaydi, Итого esa jadval o'zi
+  //    hisoblaydigan yig'indi — ikkalasi ham extra_fields dan olib tashlanadi,
   //    aks holda bir xil ma'lumot ikki joyda ikki xil ko'rinishda paydo bo'ladi
   const extra_fields = data.extra_fields.filter((field) => {
     const label = normalizeLabel(field.label);
-    return !PER_PRODUCT_LABELS.some((skip) => label === skip || label.startsWith(`${skip} `) || label.startsWith(`${skip}(`));
+    return !matchesAny(label, PER_PRODUCT_LABELS) && !matchesAny(label, TOTALS_LABELS);
   });
 
   // 2) Matnda "Выгрузка" sarlavhasi bo'lmasa destination bo'sh bo'lishi shart —

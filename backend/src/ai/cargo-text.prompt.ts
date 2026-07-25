@@ -77,6 +77,11 @@ E'TIBORSIZ QOLDIRILADIGAN QATORLAR (ULARNI HECH QAYERGA YOZMANG):
 Bu uchtasi tizimda shartnoma va mijoz yozuvlaridan olinadi, matndan olinmaydi.
 Ularni extra_fields ga ham QO'SHMANG.
 
+YIG'INDI qatorlari ("Итого", "Всего") — masalan
+"Итого: 18 800 нетто / 20 390 брутто" — tovarlar yig'indisi bo'lib, invoys
+jadvali ularni o'zi hisoblaydi. Hech qaysi maydonga, jumladan extra_fields
+ga ham YOZMANG.
+
 MAYDONLAR MAZMUNI:
 - invoice_number — "Номер инвойса" qiymati (masalan "PIN-98")
 - vehicle_number — "Номер ТС" qiymati BUTUN HOLICHA, qismlarga ajratmang

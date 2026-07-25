@@ -394,6 +394,11 @@ export const useCargoImport = ({
     // РЦ ustuni "Общая сумма в Долл. США" (total) dan keyin turadi
     const rcColumnKey = rcSelected ? ensureColumn(RC_COLUMN_LABEL, 'total') : null;
 
+    // Kalibr tovar nomiga qo'shilganda Доп. информация da takrorlanmaydi
+    const calibreAppliedToName =
+      calibrePlacement === 'per-product' &&
+      parsed.products.some((_, idx) => isSelected(`product:${idx}:calibre`));
+
     /* --- Tovar qatorlari: ro'yxat almashtiriladi, belgilanmagan maydonlar tegilmaydi --- */
     const productKeys = rows.filter((r) => r.key.startsWith('product:') && isSelected(r.key));
     if (productKeys.length > 0) {
@@ -480,8 +485,23 @@ export const useCargoImport = ({
       if (calibre) infoFields.push({ label: CALIBRE_LABEL, value: calibre.trim() });
     }
 
-    const nextCustom = mergeFields(customFields, infoFields, 'custom');
-    if (nextCustom) setCustomFields(nextCustom);
+    /*
+     * Har tovarga alohida tushgan qiymat Доп. информация da turmasligi kerak:
+     * Квант jadval ustuniga, Калибр esa tovar nomiga yozilgan bo'lsa, o'sha
+     * yorliq bu bo'limda takror bo'lardi. mergeFields faqat qo'shadi/yangilaydi,
+     * shuning uchun oldingi importdan qolgan maydonni bu yerda olib tashlaymiz.
+     */
+    const perProductLabels = new Set<string>();
+    if (kvantColumnKey) perProductLabels.add(KVANT_COLUMN_LABEL);
+    if (calibreAppliedToName) perProductLabels.add(CALIBRE_LABEL);
+
+    const mergedCustom = mergeFields(customFields, infoFields, 'custom');
+    const baseCustom = mergedCustom ?? customFields;
+    const nextCustom =
+      perProductLabels.size > 0
+        ? baseCustom.filter((field) => !perProductLabels.has(field.label))
+        : baseCustom;
+    if (mergedCustom || nextCustom.length !== customFields.length) setCustomFields(nextCustom);
 
     const nextPacking = mergeFields(packingCustomFields, parsed.packing_fields, 'packing');
     if (nextPacking) setPackingCustomFields(nextPacking);

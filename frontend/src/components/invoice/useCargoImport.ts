@@ -18,6 +18,7 @@ interface CargoProduct {
   package_type: string | null;
   packages_count: number | null;
   places_count: number | null;
+  pallet_weight: number | null;
   gross_weight: number | null;
   net_weight: number | null;
   unit_price: number | null;
@@ -65,6 +66,7 @@ const FORM_FIELD_LABELS: Record<string, string> = {
   customsAddress: 'Место там. очистки',
   destination: 'Место назначения',
   currency: 'Валюта',
+  notes: 'Особые примечания',
 };
 
 /** products elementining maydoni → invoys jadval ustuni yorlig'i */
@@ -105,6 +107,50 @@ export const decidePerProductPlacement = (
   if (values.length === 0) return 'none';
   if (products.length >= 2 && new Set(values.map(String)).size > 1) return 'per-product';
   return 'info';
+};
+
+/** Kasr qismi bo'lmasa butun ko'rinishda: 495 → "495", 15.5 → "15.5" */
+const formatKg = (value: number): string =>
+  Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+
+/**
+ * "Особые примечания" uchun palet izohini yasaydi:
+ * "Вес одного паллета составляет 15 кг, общее количество 33 паллет,
+ *  общий вес паллет составляет 495 кг, общий вес вместе с паллетами 20390 кг."
+ *
+ * Palet og'irligi matndagi "22 паллет х 15 кг" qatoridan, palet soni — barcha
+ * tovarlar Мест yig'indisidan, umumiy palet og'irligi — ko'paytmadan, oxirgi
+ * son esa jami bruttodan olinadi.
+ *
+ * Tovarlarda palet og'irligi har xil bo'lsa bitta son keltirib bo'lmaydi —
+ * u holda birinchi jumla tushiriladi, qolgan sonlar tovarlar bo'yicha
+ * yig'indi sifatida to'g'ri hisoblanadi.
+ */
+export const buildPalletNote = (products: CargoProduct[]): string | null => {
+  const withPallets = products.filter(
+    (p) => p.pallet_weight != null && p.pallet_weight > 0 && p.places_count != null && p.places_count > 0
+  );
+  if (withPallets.length === 0) return null;
+
+  const totalPallets = withPallets.reduce((sum, p) => sum + (p.places_count as number), 0);
+  const totalPalletWeight = withPallets.reduce(
+    (sum, p) => sum + (p.places_count as number) * (p.pallet_weight as number),
+    0
+  );
+  const totalGross = products.reduce((sum, p) => sum + (p.gross_weight ?? 0), 0);
+
+  const weights = new Set(withPallets.map((p) => p.pallet_weight as number));
+  const parts: string[] = [];
+  if (weights.size === 1) {
+    parts.push(`Вес одного паллета составляет ${formatKg([...weights][0])} кг`);
+    parts.push(`общее количество ${formatKg(totalPallets)} паллет`);
+  } else {
+    parts.push(`Общее количество ${formatKg(totalPallets)} паллет`);
+  }
+  parts.push(`общий вес паллет составляет ${formatKg(totalPalletWeight)} кг`);
+  if (totalGross > 0) parts.push(`общий вес вместе с паллетами ${formatKg(totalGross)} кг`);
+
+  return `${parts.join(', ')}.`;
 };
 
 /** Tovar nomiga kalibrni qo'shadi: "Нектарины свежие, калибр: 40mm+" */
@@ -157,6 +203,9 @@ export const buildPreviewRows = (
 
   const currency = normalizeCurrency(parsed.products.find((p) => p.currency)?.currency ?? null);
   if (currency) pushForm('currency', currency);
+
+  // Palet izohi tovarlar sonidan hisoblanadi, matnda tayyor holda turmaydi
+  pushForm('notes', buildPalletNote(parsed.products));
 
   parsed.products.forEach((product, idx) => {
     const fields = productToItemFields(product);
@@ -374,6 +423,7 @@ export const useCargoImport = ({
     setIf('destination', parsed.destination);
     // Matndan kelgan bojxona manzili shartnoma avtomatik qiymatidan ustun turadi
     setIf('customsAddress', parsed.customs_address);
+    setIf('notes', buildPalletNote(parsed.products));
 
     const currency = normalizeCurrency(parsed.products.find((p) => p.currency)?.currency ?? null);
     if (currency && isSelected('form:currency')) formPatch.currency = currency;

@@ -105,9 +105,10 @@ Har bir tovar bloki alohida element bo'ladi. Bir nechta tovar bo'lishi mumkin.
 - net_weight — "нетто" so'zi turgan qatordagi raqam (masalan "19 170 нетто" → 19170)
 - gross_weight — "брутто" so'zi turgan qatordagi raqam (masalan "20 760 брутто" → 20760)
 - places_count — "паллет" so'zi turgan qatordagi BIRINCHI raqam
-  (masalan "33 паллет х 15 кг" → places_count=33).
-  DIQQAT: "х 15 кг" qismi ISHLATILMAYDI — uni hech qaysi maydonga yozmang
-  va extra_fields ga ham qo'shmang
+  (masalan "33 паллет х 15 кг" → places_count=33)
+- pallet_weight — o'sha qatorda "х" dan keyin turgan BITTA paletning og'irligi
+  ("33 паллет х 15 кг" → 15, "11 паллет х 15 кг" → 15). Qatorda "х ..." qismi
+  bo'lmasa → null. Buni extra_fields ga QO'SHMANG — u faqat shu maydonga yoziladi
 - unit_price — "Цена $1.25" → 1.25
 - currency — narx belgisidan aniqlang: "$" → "USD", "сум"/"so'm" → "UZS"
 - kvant — "Квант 5.25" qatoridagi son (5.25). Har tovarda o'ziniki bo'lishi mumkin

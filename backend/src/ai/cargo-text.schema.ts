@@ -25,6 +25,8 @@ export const cargoProductSchema = z.strictObject({
   packages_count: z.number().nullable(),
   /** Joylar soni (Мест) — "33 паллет" dagi 33 */
   places_count: z.number().nullable(),
+  /** Bitta paletning og'irligi (kg) — "33 паллет х 15 кг" dagi 15 */
+  pallet_weight: z.number().nullable(),
   gross_weight: z.number().nullable(),
   net_weight: z.number().nullable(),
   unit_price: z.number().nullable(),

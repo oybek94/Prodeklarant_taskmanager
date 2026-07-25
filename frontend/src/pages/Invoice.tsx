@@ -10,7 +10,7 @@ import { Icon } from '@iconify/react';
 import { useClickOutside } from '../hooks/useClickOutside';
 
 import { useInvoiceSocket } from '../components/invoice/hooks/useInvoiceSocket';
-import { useInvoiceColumns } from '../components/invoice/hooks/useInvoiceColumns';
+import { useInvoiceColumns, findActiveCustomColumnKey } from '../components/invoice/hooks/useInvoiceColumns';
 import { useInvoiceExtension } from '../components/invoice/hooks/useInvoiceExtension';
 import { useInvoiceNumberCheck } from '../components/invoice/hooks/useInvoiceNumberCheck';
 import { useProductOptions } from '../components/invoice/hooks/useProductOptions';
@@ -310,10 +310,26 @@ const Invoice = () => {
   });
 
   const [showCargoImportModal, setShowCargoImportModal] = useState(false);
-  /** Matndan import Квант/РЦ ustunlarini o'zi qo'shadi — kalitini darrov qaytarishi kerak */
-  const handleAddCargoColumn = useCallback(
-    (label: string, afterKey?: string) => addCustomColumn(label, setColumnLabels, afterKey),
-    [addCustomColumn, setColumnLabels]
+  /**
+   * Matndan import Квант/РЦ ustunlarini o'zi qo'shadi — kalitini darrov qaytarishi kerak.
+   *
+   * Mavjud ustunni qayta ishlatish faqat u SHU invoysda faol bo'lganda mumkin:
+   * `columnLabels` localStorage'da shartnoma bo'yicha yashab, eski invoyslardan
+   * qolgan `custom_*` yorliqlarni to'playdi. Faqat yorliqqa qarab kalit tanlansa,
+   * qiymat `columnOrder` da yo'q kalitga yozilib, ustun ham, ma'lumot ham
+   * ko'rinmay qoladi.
+   */
+  const handleEnsureCargoColumn = useCallback(
+    (label: string, afterKey?: string) => {
+      const existing = findActiveCustomColumnKey(columnOrder, columnLabels, label);
+      if (!existing) return addCustomColumn(label, setColumnLabels, afterKey);
+      // Ustun bor, lekin yashirilgan bo'lsa — qiymat ko'rinishi uchun ochamiz
+      if (!visibleColumns[existing as keyof VisibleColumns]) {
+        setVisibleColumnsAndPersist((prev) => ({ ...prev, [existing]: true }));
+      }
+      return existing;
+    },
+    [columnOrder, columnLabels, visibleColumns, setVisibleColumnsAndPersist, addCustomColumn, setColumnLabels]
   );
   const cargoImport = useCargoImport({
     form,
@@ -328,8 +344,7 @@ const Invoice = () => {
     packagingTypes,
     invoiceProductOptions,
     selectedContractSpec,
-    columnLabels,
-    addCustomColumn: handleAddCargoColumn,
+    ensureColumn: handleEnsureCargoColumn,
   });
 
   useClickOutside(pdfMenuRef, showPdfMenu, useCallback(() => setShowPdfMenu(false), []));

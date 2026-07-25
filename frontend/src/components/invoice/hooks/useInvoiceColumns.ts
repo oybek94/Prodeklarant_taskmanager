@@ -3,6 +3,23 @@ import { useClickOutside } from '../../../hooks/useClickOutside';
 import type { VisibleColumns, ColumnLabels, ColumnLabelKey, InvoiceItem, ViewTab } from '../types';
 import { DEFAULT_VISIBLE_COLUMNS, DEFAULT_COLUMN_LABELS, DEFAULT_COLUMN_ORDER, getVisibleColumnsFromPayload } from '../types';
 
+/**
+ * Berilgan yorliqli custom ustun SHU invoysda faolmi — faol bo'lsa kalitini qaytaradi.
+ *
+ * `columnLabels` localStorage'da shartnoma bo'yicha saqlanadi va eski invoyslardan
+ * qolgan `custom_*` yozuvlarni to'playdi, ustun tuzilishi (`columnOrder`) esa har
+ * invoysda `additionalInfo` dan tiklanadi. Shu sababli yorliq mosligi ustun
+ * mavjudligini BILDIRMAYDI — kalit `columnOrder` da ham turishi shart, aks holda
+ * qiymat hech qachon ko'rinmaydigan kalitga yozilib ketadi.
+ */
+export function findActiveCustomColumnKey(
+  columnOrder: string[],
+  columnLabels: ColumnLabels,
+  label: string
+): string | undefined {
+  return columnOrder.find((key) => key.startsWith('custom_') && columnLabels[key] === label);
+}
+
 export interface UseInvoiceColumnsOpts {
   invoiceId: number | undefined;
   invoiceAdditionalInfo: Record<string, unknown> | undefined;

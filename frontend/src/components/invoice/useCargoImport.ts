@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import apiClient from '../../lib/api';
 import { calculateTotalPrice, resolveProductDefaults } from './hooks/useInvoiceItems';
 import { createDefaultItem, DEFAULT_COLUMN_LABELS } from './types';
-import type { ColumnLabels, CustomField, InvoiceFormData, InvoiceItem, SpecRow } from './types';
+import type { CustomField, InvoiceFormData, InvoiceItem, SpecRow } from './types';
 
 /* ===================== Backend javobi ===================== */
 
@@ -110,10 +110,6 @@ export const decidePerProductPlacement = (
 /** Tovar nomiga kalibrni qo'shadi: "Нектарины свежие, калибр: 40mm+" */
 export const appendCalibreToName = (name: string, calibre: string): string =>
   `${name.trim()}, калибр: ${calibre.trim()}`;
-
-/** Berilgan yorliqqa ega mavjud custom ustun kalitini topadi (qayta import uchun) */
-const findCustomColumnKey = (columnLabels: ColumnLabels, label: string): string | undefined =>
-  Object.keys(columnLabels).find((k) => k.startsWith('custom_') && columnLabels[k] === label);
 
 /** Bitta product elementini invoys qatori maydonlariga o'giradi */
 const productToItemFields = (p: CargoProduct): Partial<InvoiceItem> => ({
@@ -274,10 +270,11 @@ interface UseCargoImportProps {
   invoiceProductOptions: Array<{ name: string; code: string }>;
   /** Shartnoma spetsifikatsiyasi — nom bo'yicha narx/TNVED fallback */
   selectedContractSpec: SpecRow[];
-  /** Mavjud ustun yorliqlari — qayta importda ustun takrorlanmasligi uchun */
-  columnLabels: ColumnLabels;
-  /** Yangi custom ustun qo'shadi va kalitini qaytaradi */
-  addCustomColumn: (label: string, afterKey?: string) => string;
+  /**
+   * Berilgan yorliqli custom ustun kalitini qaytaradi — ustun shu invoysda
+   * mavjud bo'lsa o'shanikini, aks holda yangi ustun yaratib.
+   */
+  ensureColumn: (label: string, afterKey?: string) => string;
 }
 
 export const useCargoImport = ({
@@ -293,8 +290,7 @@ export const useCargoImport = ({
   packagingTypes,
   invoiceProductOptions,
   selectedContractSpec,
-  columnLabels,
-  addCustomColumn,
+  ensureColumn,
 }: UseCargoImportProps) => {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -387,9 +383,6 @@ export const useCargoImport = ({
     }
 
     /* --- Квант / РЦ ustunlari: kerak bo'lsa yaratiladi, bori qayta ishlatiladi --- */
-    const ensureColumn = (label: string, afterKey: string): string =>
-      findCustomColumnKey(columnLabels, label) ?? addCustomColumn(label, afterKey);
-
     const kvantPlacement = decidePerProductPlacement(parsed.products, (p) => p.kvant);
     const calibrePlacement = decidePerProductPlacement(parsed.products, (p) => p.calibre);
     const kvantSelected = parsed.products.some((_, idx) => isSelected(`product:${idx}:kvant`));
@@ -504,8 +497,7 @@ export const useCargoImport = ({
     packingCustomFields,
     invoiceProductOptions,
     selectedContractSpec,
-    columnLabels,
-    addCustomColumn,
+    ensureColumn,
     setForm,
     setItems,
     setCustomFields,

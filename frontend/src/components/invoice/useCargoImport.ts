@@ -69,8 +69,12 @@ const FORM_FIELD_LABELS: Record<string, string> = {
   notes: 'Особые примечания',
 };
 
-/** products elementining maydoni → invoys jadval ustuni yorlig'i */
-const PRODUCT_FIELD_LABELS: Record<string, string> = {
+/**
+ * products elementining maydoni → invoys jadval ustuni yorlig'i.
+ * `satisfies` kalitlar haqiqatan InvoiceItem maydoni ekanini tekshiradi va
+ * ayni paytda literal kalit turlarini saqlab qoladi (ProductFieldKey).
+ */
+const PRODUCT_FIELD_LABELS = {
   name: DEFAULT_COLUMN_LABELS.name,
   pluCode: DEFAULT_COLUMN_LABELS.plu,
   packageType: DEFAULT_COLUMN_LABELS.package,
@@ -79,7 +83,11 @@ const PRODUCT_FIELD_LABELS: Record<string, string> = {
   grossWeight: DEFAULT_COLUMN_LABELS.gross,
   netWeight: DEFAULT_COLUMN_LABELS.net,
   unitPrice: DEFAULT_COLUMN_LABELS.unitPrice,
-};
+} satisfies Partial<Record<keyof InvoiceItem, string>>;
+
+type ProductFieldKey = keyof typeof PRODUCT_FIELD_LABELS;
+
+const PRODUCT_FIELD_KEYS = Object.keys(PRODUCT_FIELD_LABELS) as ProductFieldKey[];
 
 const asText = (v: unknown): string =>
   v === null || v === undefined || v === '' ? '' : String(v);
@@ -453,7 +461,7 @@ export const useCargoImport = ({
     const productKeys = rows.filter((r) => r.key.startsWith('product:') && isSelected(r.key));
     if (productKeys.length > 0) {
       const hasSelectedField = (idx: number) =>
-        Object.keys(PRODUCT_FIELD_LABELS).some((field) => isSelected(`product:${idx}:${field}`)) ||
+        PRODUCT_FIELD_KEYS.some((field) => isSelected(`product:${idx}:${field}`)) ||
         isSelected(`product:${idx}:kvant`) ||
         isSelected(`product:${idx}:calibre`) ||
         isSelected(`product:${idx}:rc`);
@@ -469,11 +477,11 @@ export const useCargoImport = ({
           ? { ...items[idx] }
           : { ...createDefaultItem(), unit: items[0]?.unit ?? 'кг' };
         const fields = productToItemFields(product);
-        Object.keys(PRODUCT_FIELD_LABELS).forEach((field) => {
+        PRODUCT_FIELD_KEYS.forEach((field) => {
           if (!isSelected(`product:${idx}:${field}`)) return;
-          const value = fields[field as keyof InvoiceItem];
+          const value = fields[field];
           if (value === undefined) return;
-          (base as Record<string, unknown>)[field] = value;
+          Object.assign(base, { [field]: value });
         });
 
         // Nom bazadagi variant bilan mos kelsa Код ТН ВЭД (va narx) avtomatik to'ladi —

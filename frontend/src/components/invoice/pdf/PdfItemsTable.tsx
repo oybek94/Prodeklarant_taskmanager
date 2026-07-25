@@ -83,18 +83,18 @@ const CELL_H_PADDING = 8;
 // Roboto da kirill harf kengligi ≈ fontSize * 0.62
 const CHAR_WIDTH_RATIO = 0.62;
 
-// Mahsulot jadvali matni o'qilishi uchun bazaviy o'lchamlar 1pt kattalashtirildi:
-// eski 9/8/7 → 10/9/8. Kenglik bo'yicha bosqichlar (thresholds) o'zgarmadi —
-// tor jadvallarda matn ko'proq qatorga bo'linishi mumkin, lekin kesilmaydi.
-const calcTableFontSize = (flexValues: number[], numColumns: number): 10 | 9 | 8 => {
+// Mahsulot jadvali matni bazaviy o'lchamlari 1pt kichraytirildi: 10/9/8 → 9/8/7.
+// Kenglik bo'yicha bosqichlar (thresholds) o'zgarmadi — matn faqat kichrayadi,
+// shuning uchun mavjud kenglikka baribir sig'adi.
+const calcTableFontSize = (flexValues: number[], numColumns: number): 9 | 8 | 7 => {
   const totalFlex = flexValues.reduce((s, f) => s + f, 0);
   const usableWidth = PAGE_AVAILABLE_WIDTH - numColumns * CELL_H_PADDING;
   // Har bir flex birligiga to'g'ri keladigan kenlik
   const pixPerUnit = usableWidth / totalFlex;
 
-  if (pixPerUnit >= 9 * CHAR_WIDTH_RATIO) return 10;
-  if (pixPerUnit >= 8 * CHAR_WIDTH_RATIO) return 9;
-  return 8;
+  if (pixPerUnit >= 9 * CHAR_WIDTH_RATIO) return 9;
+  if (pixPerUnit >= 8 * CHAR_WIDTH_RATIO) return 8;
+  return 7;
 };
 
 const RIGHT_COLS = new Set(['quantity', 'shtCount', 'packagesCount', 'gross', 'net', 'unitPrice', 'total']);

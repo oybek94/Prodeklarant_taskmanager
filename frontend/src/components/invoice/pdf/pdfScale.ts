@@ -164,13 +164,13 @@ export const estimateScale = (
   // uni scale hisobidan chiqarib, mavjud balandlikdan to'g'ridan-to'g'ri ayiramiz
   const sealH = calcSealHeight(pdfIncludeSeal, selectedContract);
 
-  // Notes qismi balandligini hisoblash (har 80 ta harf taxminan 1 qator).
+  // Notes qismi balandligini hisoblash (9pt shriftda har ~62 ta harf 1 qator).
   // Spec sahifada Примечания chiqmaydi — joy ham band qilinmaydi.
   let notesHeight = 0;
   if (form.notes && viewTab !== 'spec') {
     const notesStr = String(form.notes);
-    const lines = notesStr.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 80)), 0);
-    notesHeight = 20 + lines * 12; // 20 - padding/margin, 12 - qator balandligi
+    const lines = notesStr.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 62)), 0);
+    notesHeight = 24 + lines * 15; // 24 - padding/margin, 15 - qator balandligi (9pt)
   }
 
   // Items balandligini hisoblash (uzun nomli tovarlar ko'p qatorga bo'linadi)

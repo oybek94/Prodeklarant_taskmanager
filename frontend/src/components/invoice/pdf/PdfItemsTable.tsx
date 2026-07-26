@@ -34,120 +34,251 @@ const getCellText = (key: string, item: any): string => {
   }
 };
 
-// Kirill harflari lotin harflariga qaraganda ~1.3x kengroq — shu farqni hisobga olamiz
-const effectiveLen = (text: string): number => {
-  let w = 0;
-  for (const ch of text) {
-    const code = ch.charCodeAt(0);
-    w += code >= 0x0400 && code <= 0x04FF ? 1.3 : 1;
-  }
-  return Math.ceil(w);
-};
+// A4 sahifa kengligi (pt)
+const A4_WIDTH = 595.28;
+// PdfStyles.page.paddingHorizontal — `scale` bilan birga o'zgaradi
+const PAGE_H_PADDING = 30;
+// styles.table borderWidth: 1 (chap + o'ng)
+const TABLE_BORDER = 1;
+// Har bir katakchada gorizontal padding: paddingHorizontal:4 × 2 tomon = 8pt.
+// Ustun kengligi taqsimlanganda bu joy ZAXIRA qilib qo'yiladi — shu sababli
+// qo'shni ustunlar matni yopishib qolmaydi.
+const CELL_H_PADDING = 8;
 
-const calcColumnFlex = (
-  key: string,
-  items: any[],
-  columnLabels: Record<string, string>,
-  totalColumnLabel: string
-): number => {
-  const headerLabel = key === 'total' ? totalColumnLabel : (key === 'shtCount' ? 'шт' : (columnLabels[key] || key));
-
-  const getCellLen = (item: any): number => {
-    if (key === 'index') return String(items.length).length + 1;
-    if (key === 'name') return effectiveLen(item.name || '');
-    if (key === 'package') return Math.min(effectiveLen(item.packageType || ''), 14);
-    if (key.startsWith('custom_') || key === 'shtCount') return Math.min(effectiveLen(getCellText(key, item) || ''), 16);
-    return effectiveLen(getCellText(key, item));
-  };
-
-  let flex = Math.max(
-    effectiveLen(headerLabel),
-    items.length > 0 ? Math.max(...items.map(getCellLen)) : 0,
-    3
-  );
-
-  // tnved va name ustunlari yopishib qolmasligi uchun tnved ustuniga qo'shimcha kenglik (flex) beramiz
-  if (key === 'tnved') {
-    flex += 6;
-  } else if (key === 'plu') {
-    flex += 2;
-  }
-
-  return flex;
-};
-
-// A4 sahifa kengligi (595pt) - gorizontal padding (30*2) = 535pt
-const PAGE_AVAILABLE_WIDTH = 535;
+/**
+ * Jadval uchun haqiqiy mavjud kenglik. Sahifaning gorizontal paddingi `scale`
+ * bilan o'zgaradi (masalan scale=1.4 da 30 → 42), shuning uchun bu qiymatni
+ * qat'iy 535pt deb olish mumkin emas — aks holda katta masshtabda ustunlar
+ * hisoblanganidan tor bo'lib matn yopishib qoladi.
+ */
+const tableWidth = (scale: number): number =>
+  A4_WIDTH - 2 * Math.round(PAGE_H_PADDING * scale) - 2 * TABLE_BORDER;
 
 // Jadval matnining bazaviy o'lchami — hujjatning umumiy `scale` iga qarab
-// kattalashadi/kichrayadi, lekin ustun kengligidan oshmaydi (`fitTableFontSize`).
+// kattalashadi/kichrayadi, lekin ustunlarga sig'ishi shart (`fitTable`).
 const BASE_TABLE_FONT = 9;
 // Kenglik yetarli bo'lsa jadval matni shu o'lchamgacha o'sishi mumkin
 const MAX_TABLE_FONT = 12;
-// Ustunlar juda tor bo'lsa ham matn shundan kichraymaydi (uzun so'z ustun
-// paddingiga chiqib ketishi mumkin — bu ilgaridan shunday)
-const MIN_TABLE_FONT = 7;
-// Umumiy `scale` juda kichik bo'lganda (kontent 1-betga sig'masa) mutlaq quyi chegara
+// Quyi chegara: ustunlar juda ko'p bo'lsa ham matn bundan kichraymaydi
 const ABSOLUTE_MIN_TABLE_FONT = 6;
 
 /**
- * Roboto'da o'lchangan o'rtacha belgi kengligi (em, 1pt shrift uchun).
- * Manba: `public/fonts/Roboto-Regular.ttf` metrikasi (fontkit).
- * Qalin (Bold) variant ~2% kengroq — qiymatlar yuqoriga qarab yaxlitlangan.
+ * Roboto'da belgi kengligi (em — 1pt shrift uchun). Qiymatlar
+ * `public/fonts/Roboto-{Regular,Bold}.ttf` metrikasidan (fontkit) olingan;
+ * jadval sarlavhasi qalin bo'lgani uchun ikkisining KATTASI ishlatiladi.
+ *
+ * Alohida belgilar muhim: masalan `№` — 1.02em, ya'ni oddiy tinish belgisidan
+ * 3 baravar keng. Ilgari hammasi 0.31em deb olinganda "№" ustuni kerakligidan
+ * tor chiqib, matn qo'shni ustunga yopishardi.
  */
-const emOfChar = (code: number): number => {
-  if (code >= 0x30 && code <= 0x39) return 0.58;   // 0-9
-  if (code >= 0x0410 && code <= 0x042F) return 0.72; // А-Я
-  if (code >= 0x0430 && code <= 0x044F) return 0.61; // а-я
-  if (code === 0x0401 || code === 0x0451) return 0.72; // Ё/ё
-  if (code >= 0x41 && code <= 0x5A) return 0.65;   // A-Z
-  if (code >= 0x61 && code <= 0x7A) return 0.51;   // a-z
-  return 0.31;                                     // tinish belgilari, bo'shliq
+const WIDE_CHARS: Record<string, number> = {
+  '№': 1.03, '%': 0.74, '&': 0.66, '#': 0.62, '–': 0.66, '—': 1.0,
+  '+': 0.57, '=': 0.57, '$': 0.58, '€': 0.58, '?': 0.50, '*': 0.46,
+  '/': 0.42, '\\': 0.42, '«': 0.50, '»': 0.50, '°': 0.39, '-': 0.39,
+  '(': 0.36, ')': 0.36, '[': 0.29, ']': 0.29,
 };
+/** Ma'lum bo'lmagan belgi uchun xavfsiz (kengaytirilgan) qiymat */
+const EM_UNKNOWN = 0.62;
+/** Tinish belgilari va bo'shliq */
+const EM_PUNCT = 0.30;
+const NARROW_CHARS = new Set([' ', '.', ',', ':', ';', '!', '|', "'", '"']);
+
+const emOfChar = (ch: string): number => {
+  const wide = WIDE_CHARS[ch];
+  if (wide !== undefined) return wide;
+  if (NARROW_CHARS.has(ch)) return EM_PUNCT;
+
+  const code = ch.codePointAt(0) || 0;
+  if (code >= 0x30 && code <= 0x39) return 0.58;      // 0-9
+  if (code >= 0x0410 && code <= 0x042F) return 0.72;  // А-Я
+  if (code >= 0x0430 && code <= 0x044F) return 0.61;  // а-я
+  if (code === 0x0401 || code === 0x0451) return 0.72; // Ё/ё
+  if (code >= 0x41 && code <= 0x5A) return 0.65;      // A-Z
+  if (code >= 0x61 && code <= 0x7A) return 0.51;      // a-z
+  return EM_UNKNOWN;
+};
+
+/**
+ * Kenglik hisobi taxminiy (har bir belgi uchun o'rtacha qiymat), shuning uchun
+ * ustunga kichik zaxira qo'shiladi — model 2-3% xato qilsa ham matn yopishmaydi.
+ */
+const WIDTH_SAFETY = 1.04;
 
 const emWidth = (text: string): number => {
   let w = 0;
-  for (const ch of text) w += emOfChar(ch.codePointAt(0) || 0);
-  return w;
+  for (const ch of text) w += emOfChar(ch);
+  return w * WIDTH_SAFETY;
 };
 
-/** Matndagi eng uzun BO'LINMAYDIGAN so'z kengligi (em) */
+/**
+ * Qator YANGI SATRGA bo'linishi mumkin bo'lgan joylar: oddiy bo'shliq, tab,
+ * yangi satr. `U+00A0` (uzilmas bo'shliq) va `U+202F` ATAYLAB kiritilmagan —
+ * `formatNumber` (`toLocaleString('ru-RU')`) minglikni aynan uzilmas bo'shliq
+ * bilan ajratadi ("229 800"), ya'ni bu matn bo'linmaydi va butunligicha bir
+ * qatorga sig'ishi kerak.
+ */
+const BREAKABLE_SPACE = /[ \t\n\r\f\v]+/;
+
+/** Matndagi eng uzun BO'LINMAYDIGAN bo'lak kengligi (em) */
 const widestWordEm = (text: string): number => {
   let max = 0;
-  for (const word of String(text || '').split(/\s+/)) {
+  for (const word of String(text || '').split(BREAKABLE_SPACE)) {
     if (word) max = Math.max(max, emWidth(word));
   }
   return max;
 };
 
 /**
- * Ustun kengliklariga sig'adigan eng katta shrift.
- *
- * Katak matni bir necha qatorga bo'linishi normal holat — masalan
- * "Кол-во упаковки" sarlavhasi ikki qatorda chiqadi. Shuning uchun chegara
- * butun matn emas, eng uzun BO'LINMAYDIGAN so'z ustunga sig'ishi bilan
- * belgilanadi. (Ilgari butun matn bir qatorga sig'ishi talab qilinardi va
- * belgi kengligi ham ~45% oshirib olinardi — natijada 11 ustunli oddiy
- * invoysda jadval doim eng kichik 7pt da qolib ketardi.)
+ * "Всего" qatoridagi qiymat. Yig'indi har qanday alohida katakdan KATTA bo'ladi
+ * (masalan Брутто: 20 577 → 246 924), shuning uchun ustun kengligini hisoblashda
+ * ham shu matn hisobga olinishi shart.
  */
-const fitTableFontSize = (
-  columns: string[],
-  flexMap: Record<string, number>,
-  longestWordEm: Record<string, number>
-): number => {
-  const totalFlex = columns.reduce((s, key) => s + flexMap[key], 0);
-  let cap = MAX_TABLE_FONT;
+const getFooterText = (key: string, items: any[], invoiceCurrency: string): string => {
+  const sumOf = (pick: (item: any) => number): number =>
+    items.reduce((s, item) => s + (Number(pick(item)) || 0), 0);
 
-  for (const key of columns) {
-    const wordEm = longestWordEm[key];
-    if (wordEm <= 0) continue;
-    // Katak paddingi (2×4pt) zaxira sifatida qoldiriladi: juda uzun so'z unga
-    // chiqib ketsa ham qo'shni ustun matniga tegmaydi
-    const colWidth = (PAGE_AVAILABLE_WIDTH * flexMap[key]) / totalFlex;
-    cap = Math.min(cap, colWidth / wordEm);
+  switch (key) {
+    case 'quantity': {
+      const t = sumOf(i => i.quantity);
+      return t !== 0 ? formatNumber(t) : '';
+    }
+    case 'shtCount': {
+      const t = sumOf(i => i.customFields?.shtCount);
+      return t !== 0 ? formatNumber(t) : '';
+    }
+    case 'packagesCount':
+      return formatNumber(sumOf(i => i.packagesCount ?? 0));
+    case 'gross':
+      return formatNumber(sumOf(i => i.grossWeight));
+    case 'net':
+      return formatNumber(sumOf(i => i.netWeight));
+    case 'total':
+      return `${getCurrencySymbol(invoiceCurrency)} ${formatNumberFixed(sumItemTotals(items))}`;
+    default:
+      return '';
+  }
+};
+
+/**
+ * Ustunning kenglik talabi (em — 1pt shrift uchun; haqiqiy kenglik = em × shrift).
+ */
+interface ColumnDemand {
+  /**
+   * ZARURIY minimum: eng uzun BO'LINMAYDIGAN so'z. Ustun bundan tor bo'lsa so'z
+   * ustundan tashqariga chiqib qo'shni ustun matniga yopishadi.
+   */
+  min: number;
+  /**
+   * QULAY kenglik: matn ko'pi bilan `WRAP_LINES` qatorga bo'linadi. Uzun matnli
+   * ustun (masalan "Наименование товара") butun matnini bir qatorga sig'diradigan
+   * kenglikni TALAB QILMAYDI — u baribir qatorga bo'linadi.
+   */
+  want: number;
+}
+
+/** Uzun matn ideal taqsimlashda shuncha qatorga bo'linishi mumkin deb hisoblanadi */
+const WRAP_LINES = 2;
+/** Hech bir ustunning zaruriy minimumi jadval kengligining shu ulushidan oshmaydi */
+const MAX_MIN_SHARE = 0.3;
+
+const columnDemand = (
+  key: string,
+  items: any[],
+  columnLabels: Record<string, string>,
+  totalColumnLabel: string,
+  invoiceCurrency: string,
+  /** Shu ustunda "Всего:" yozuvi chiqadimi (yig'indi ustunlaridan oldingi ustun) */
+  hasTotalLabel: boolean
+): ColumnDemand => {
+  const headerLabel = key === 'total'
+    ? totalColumnLabel
+    : (key === 'shtCount' ? 'шт' : (columnLabels[key] || key));
+
+  // `index` ustunida getCellText bo'sh qaytaradi — chiziladigan qiymat tartib raqami
+  const cellTexts = key === 'index'
+    ? [String(items.length)]
+    : items.map(item => getCellText(key, item));
+
+  const texts = [
+    headerLabel,
+    ...cellTexts,
+    getFooterText(key, items, invoiceCurrency),
+    hasTotalLabel ? 'Всего:' : '',
+  ];
+
+  let word = 0;
+  let full = 0;
+  for (const text of texts) {
+    word = Math.max(word, widestWordEm(text));
+    full = Math.max(full, emWidth(String(text || '')));
   }
 
-  return Math.max(MIN_TABLE_FONT, Math.min(MAX_TABLE_FONT, Math.floor(cap)));
+  const min = Math.max(word, 1);
+  return { min, want: Math.max(min, full / WRAP_LINES) };
+};
+
+/**
+ * Ustun kengliklarini taqsimlash: har bir ustun avval ZARURIY minimumini oladi,
+ * qolgan joy esa "qulay kenglik"gacha yetishmagan qismga proporsional bo'linadi.
+ *
+ * Ilgari kenglik butun sarlavha/qiymat uzunligiga proporsional taqsimlanardi.
+ * Natijada "Наименование товара" yoki "Общая сумма в Долл. США" kabi uzun matnli
+ * ustunlar keragidan ko'p joy olib, "Брутто"/"Нетто" kabi tor ustunlar matni
+ * yopishib qolardi.
+ *
+ * @returns ustun kengliklari (pt) yoki `null` — bu shriftda minimumlar sig'masa
+ */
+const allocateColumnWidths = (
+  columns: string[],
+  demands: Record<string, ColumnDemand>,
+  fontSize: number,
+  available: number
+): number[] | null => {
+  const minWidths = columns.map(key => demands[key].min * fontSize + CELL_H_PADDING);
+  const wantWidths = columns.map(key => demands[key].want * fontSize + CELL_H_PADDING);
+
+  const sumMin = minWidths.reduce((s, w) => s + w, 0);
+  if (sumMin > available) return null;
+
+  const sumGap = columns.reduce((s, _key, i) => s + (wantWidths[i] - minWidths[i]), 0);
+  const extra = available - sumMin;
+
+  // Qulay kenglikkacha yetishmagan qismga proporsional taqsimlash
+  const ratio = sumGap > 0 ? Math.min(1, extra / sumGap) : 0;
+  const widths = minWidths.map((w, i) => w + (wantWidths[i] - w) * ratio);
+
+  // Hamma ustun qulay kenglikka yetgan bo'lsa, qolgan joyni proporsional to'ldiramiz
+  // (jadval sahifa kengligini to'liq egallashi kerak)
+  const used = widths.reduce((s, w) => s + w, 0);
+  const left = available - used;
+  if (left > 0.5) return widths.map(w => w + (left * w) / used);
+
+  return widths;
+};
+
+/**
+ * Ustunlarga sig'adigan eng katta shriftni topib, kengliklarni taqsimlaydi.
+ * `preferred` — hujjatning umumiy masshtabidan kelib chiqqan xohlanadigan o'lcham.
+ */
+const fitTable = (
+  columns: string[],
+  demands: Record<string, ColumnDemand>,
+  preferred: number,
+  available: number
+): { fontSize: number; widths: number[] } => {
+  for (let size = preferred; size >= ABSOLUTE_MIN_TABLE_FONT; size--) {
+    const widths = allocateColumnWidths(columns, demands, size, available);
+    if (widths) return { fontSize: size, widths };
+  }
+
+  // Eng kichik shriftda ham sig'masa (ustun juda ko'p yoki juda uzun so'zlar bor):
+  // minimumlarga proporsional taqsimlaymiz — uzun so'z ustundan chiqib ketadi
+  const mins = columns.map(key => Math.min(demands[key].min, MAX_MIN_SHARE * available));
+  const sum = mins.reduce((s, w) => s + w, 0) || 1;
+  return {
+    fontSize: ABSOLUTE_MIN_TABLE_FONT,
+    widths: mins.map(w => (available * w) / sum),
+  };
 };
 
 const RIGHT_COLS = new Set(['quantity', 'shtCount', 'packagesCount', 'gross', 'net', 'unitPrice', 'total']);
@@ -191,27 +322,27 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
   }
   const effectiveColumnLabels: Record<string, string> = { ...columnLabels, unitPrice: unitPriceLabel };
 
-  const flexMap: Record<string, number> = {};
-  orderedVisibleColumns.forEach(key => {
-    flexMap[key] = calcColumnFlex(key, items, effectiveColumnLabels, totalColumnLabel);
+  // Har bir ustunning kenglik talabi (zaruriy minimum + qulay kenglik)
+  const demands: Record<string, ColumnDemand> = {};
+  orderedVisibleColumns.forEach((key, idx) => {
+    demands[key] = columnDemand(
+      key, items, effectiveColumnLabels, totalColumnLabel, invoiceCurrency,
+      firstSumColIdx > 0 && idx === firstSumColIdx - 1
+    );
   });
 
-  // Har bir ustundagi eng uzun bo'linmaydigan so'z (sarlavha + kataklar bo'yicha)
-  const longestWordEm: Record<string, number> = {};
-  orderedVisibleColumns.forEach(key => {
-    const headerLabel = key === 'total' ? totalColumnLabel : (key === 'shtCount' ? 'шт' : effectiveColumnLabels[key]);
-    let max = widestWordEm(headerLabel);
-    items.forEach(item => { max = Math.max(max, widestWordEm(getCellText(key, item))); });
-    longestWordEm[key] = max;
-  });
-
-  // Jadval matni umumiy `scale` bilan birga o'zgaradi, lekin ustun kengligidan
-  // oshmaydi
-  const widthCap = fitTableFontSize(orderedVisibleColumns, flexMap, longestWordEm);
-  const fontSize = Math.max(
-    ABSOLUTE_MIN_TABLE_FONT,
-    Math.min(widthCap, Math.round(BASE_TABLE_FONT * scale))
+  // Xohlanadigan shrift — hujjatning umumiy masshtabidan; kenglik yetmasa
+  // `fitTable` uni kichraytiradi va shu shriftga mos kengliklarni taqsimlaydi
+  const preferred = Math.min(
+    MAX_TABLE_FONT,
+    Math.max(ABSOLUTE_MIN_TABLE_FONT, Math.round(BASE_TABLE_FONT * scale))
   );
+  const { fontSize, widths } = fitTable(orderedVisibleColumns, demands, preferred, tableWidth(scale));
+
+  // Yoga kengliklarni flex ga proporsional taqsimlaydi; yig'indi sahifa
+  // kengligiga teng bo'lgani uchun har bir ustun aynan hisoblangan kenglikni oladi
+  const flexMap: Record<string, number> = {};
+  orderedVisibleColumns.forEach((key, i) => { flexMap[key] = widths[i]; });
   const cellPadV = Math.max(1, sc(4) - (scale < 1 ? 1 : 0));
 
   // Ustun uchun gorizontal joylashuv
@@ -292,31 +423,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
               return null;
             }
 
-            let content = '';
-            switch (key) {
-              case 'quantity': {
-                const t = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
-                content = t !== 0 ? formatNumber(t) : '';
-                break;
-              }
-              case 'shtCount': {
-                const sum = items.reduce((s, i) => s + (Number(i.customFields?.shtCount) || 0), 0);
-                content = sum !== 0 ? formatNumber(sum) : '';
-                break;
-              }
-              case 'packagesCount':
-                content = formatNumber(items.reduce((s, i) => s + (i.packagesCount ?? 0), 0));
-                break;
-              case 'gross':
-                content = formatNumber(items.reduce((s, i) => s + (i.grossWeight || 0), 0));
-                break;
-              case 'net':
-                content = formatNumber(items.reduce((s, i) => s + (i.netWeight || 0), 0));
-                break;
-              case 'total':
-                content = `${getCurrencySymbol(invoiceCurrency)} ${formatNumberFixed(sumItemTotals(items))}`;
-                break;
-            }
+            const content = getFooterText(key, items, invoiceCurrency);
 
             return (
               <View key={key} style={fCell(flexMap[key], jc(key))}>

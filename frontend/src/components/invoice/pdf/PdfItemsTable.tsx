@@ -57,10 +57,20 @@ const tableWidth = (scale: number): number =>
 // Jadval matnining bazaviy o'lchami — hujjatning umumiy `scale` iga qarab
 // kattalashadi/kichrayadi, lekin ustunlarga sig'ishi shart (`fitTable`).
 const BASE_TABLE_FONT = 9;
-// Kenglik yetarli bo'lsa jadval matni shu o'lchamgacha o'sishi mumkin.
-// Yuqori chegara bosqichma-bosqich kichraytirildi (12 → 11 → 10): kontent kam
-// bo'lgan invoyslarda jadval matni haddan tashqari yirik ko'rinardi.
-const MAX_TABLE_FONT = 10;
+/**
+ * Jadval matnining QAT'IY yuqori chegarasi.
+ *
+ * DIQQAT: bu qiymat 12 → 11 → 10 qilib tushirilganda PDF'da HECH NARSA
+ * o'zgarmagan edi. Sabab — real invoyslarda chegara umuman ishlamaydi:
+ * standart 13 ustunli jadvalda `fitTable` kenglik bo'yicha o'lchamni baribir
+ * 8pt (yuqori masshtabda 7pt) gacha tushiradi, ya'ni `preferred` 10 bo'lsa ham
+ * natija 8 chiqadi. Chegara faqat 8pt dan PAST bo'lgandagina haqiqiy ta'sir
+ * qiladi — shuning uchun 7pt.
+ *
+ * Ya'ni jadval matni endi hujjat masshtabi bilan kattalashmaydi: 7pt — eng
+ * kattasi, `fitTable` esa kerak bo'lsa yanada kichraytiradi.
+ */
+const MAX_TABLE_FONT = 7;
 // Quyi chegara: ustunlar juda ko'p bo'lsa ham matn bundan kichraymaydi
 const ABSOLUTE_MIN_TABLE_FONT = 6;
 

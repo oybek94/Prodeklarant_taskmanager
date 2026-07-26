@@ -57,8 +57,10 @@ const tableWidth = (scale: number): number =>
 // Jadval matnining bazaviy o'lchami — hujjatning umumiy `scale` iga qarab
 // kattalashadi/kichrayadi, lekin ustunlarga sig'ishi shart (`fitTable`).
 const BASE_TABLE_FONT = 9;
-// Kenglik yetarli bo'lsa jadval matni shu o'lchamgacha o'sishi mumkin
-const MAX_TABLE_FONT = 12;
+// Kenglik yetarli bo'lsa jadval matni shu o'lchamgacha o'sishi mumkin.
+// Yuqori chegara 1pt kichraytirildi (12 → 11): kontent kam bo'lgan invoyslarda
+// jadval matni haddan tashqari yirik ko'rinardi.
+const MAX_TABLE_FONT = 11;
 // Quyi chegara: ustunlar juda ko'p bo'lsa ham matn bundan kichraymaydi
 const ABSOLUTE_MIN_TABLE_FONT = 6;
 

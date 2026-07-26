@@ -78,23 +78,76 @@ const calcColumnFlex = (
 
 // A4 sahifa kengligi (595pt) - gorizontal padding (30*2) = 535pt
 const PAGE_AVAILABLE_WIDTH = 535;
-// Har bir katakchada gorizontal padding: paddingHorizontal:4 * 2 tomon = 8pt
-const CELL_H_PADDING = 8;
-// Roboto da kirill harf kengligi ≈ fontSize * 0.62
-const CHAR_WIDTH_RATIO = 0.62;
 
-// Mahsulot jadvali matni bazaviy o'lchamlari 1pt kichraytirildi: 10/9/8 → 9/8/7.
-// Kenglik bo'yicha bosqichlar (thresholds) o'zgarmadi — matn faqat kichrayadi,
-// shuning uchun mavjud kenglikka baribir sig'adi.
-const calcTableFontSize = (flexValues: number[], numColumns: number): 9 | 8 | 7 => {
-  const totalFlex = flexValues.reduce((s, f) => s + f, 0);
-  const usableWidth = PAGE_AVAILABLE_WIDTH - numColumns * CELL_H_PADDING;
-  // Har bir flex birligiga to'g'ri keladigan kenlik
-  const pixPerUnit = usableWidth / totalFlex;
+// Jadval matnining bazaviy o'lchami — hujjatning umumiy `scale` iga qarab
+// kattalashadi/kichrayadi, lekin ustun kengligidan oshmaydi (`fitTableFontSize`).
+const BASE_TABLE_FONT = 9;
+// Kenglik yetarli bo'lsa jadval matni shu o'lchamgacha o'sishi mumkin
+const MAX_TABLE_FONT = 12;
+// Ustunlar juda tor bo'lsa ham matn shundan kichraymaydi (uzun so'z ustun
+// paddingiga chiqib ketishi mumkin — bu ilgaridan shunday)
+const MIN_TABLE_FONT = 7;
+// Umumiy `scale` juda kichik bo'lganda (kontent 1-betga sig'masa) mutlaq quyi chegara
+const ABSOLUTE_MIN_TABLE_FONT = 6;
 
-  if (pixPerUnit >= 9 * CHAR_WIDTH_RATIO) return 9;
-  if (pixPerUnit >= 8 * CHAR_WIDTH_RATIO) return 8;
-  return 7;
+/**
+ * Roboto'da o'lchangan o'rtacha belgi kengligi (em, 1pt shrift uchun).
+ * Manba: `public/fonts/Roboto-Regular.ttf` metrikasi (fontkit).
+ * Qalin (Bold) variant ~2% kengroq — qiymatlar yuqoriga qarab yaxlitlangan.
+ */
+const emOfChar = (code: number): number => {
+  if (code >= 0x30 && code <= 0x39) return 0.58;   // 0-9
+  if (code >= 0x0410 && code <= 0x042F) return 0.72; // А-Я
+  if (code >= 0x0430 && code <= 0x044F) return 0.61; // а-я
+  if (code === 0x0401 || code === 0x0451) return 0.72; // Ё/ё
+  if (code >= 0x41 && code <= 0x5A) return 0.65;   // A-Z
+  if (code >= 0x61 && code <= 0x7A) return 0.51;   // a-z
+  return 0.31;                                     // tinish belgilari, bo'shliq
+};
+
+const emWidth = (text: string): number => {
+  let w = 0;
+  for (const ch of text) w += emOfChar(ch.codePointAt(0) || 0);
+  return w;
+};
+
+/** Matndagi eng uzun BO'LINMAYDIGAN so'z kengligi (em) */
+const widestWordEm = (text: string): number => {
+  let max = 0;
+  for (const word of String(text || '').split(/\s+/)) {
+    if (word) max = Math.max(max, emWidth(word));
+  }
+  return max;
+};
+
+/**
+ * Ustun kengliklariga sig'adigan eng katta shrift.
+ *
+ * Katak matni bir necha qatorga bo'linishi normal holat — masalan
+ * "Кол-во упаковки" sarlavhasi ikki qatorda chiqadi. Shuning uchun chegara
+ * butun matn emas, eng uzun BO'LINMAYDIGAN so'z ustunga sig'ishi bilan
+ * belgilanadi. (Ilgari butun matn bir qatorga sig'ishi talab qilinardi va
+ * belgi kengligi ham ~45% oshirib olinardi — natijada 11 ustunli oddiy
+ * invoysda jadval doim eng kichik 7pt da qolib ketardi.)
+ */
+const fitTableFontSize = (
+  columns: string[],
+  flexMap: Record<string, number>,
+  longestWordEm: Record<string, number>
+): number => {
+  const totalFlex = columns.reduce((s, key) => s + flexMap[key], 0);
+  let cap = MAX_TABLE_FONT;
+
+  for (const key of columns) {
+    const wordEm = longestWordEm[key];
+    if (wordEm <= 0) continue;
+    // Katak paddingi (2×4pt) zaxira sifatida qoldiriladi: juda uzun so'z unga
+    // chiqib ketsa ham qo'shni ustun matniga tegmaydi
+    const colWidth = (PAGE_AVAILABLE_WIDTH * flexMap[key]) / totalFlex;
+    cap = Math.min(cap, colWidth / wordEm);
+  }
+
+  return Math.max(MIN_TABLE_FONT, Math.min(MAX_TABLE_FONT, Math.floor(cap)));
 };
 
 const RIGHT_COLS = new Set(['quantity', 'shtCount', 'packagesCount', 'gross', 'net', 'unitPrice', 'total']);
@@ -143,11 +196,22 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
     flexMap[key] = calcColumnFlex(key, items, effectiveColumnLabels, totalColumnLabel);
   });
 
-  const baseFontSize = calcTableFontSize(
-    orderedVisibleColumns.map(k => flexMap[k]),
-    orderedVisibleColumns.length
+  // Har bir ustundagi eng uzun bo'linmaydigan so'z (sarlavha + kataklar bo'yicha)
+  const longestWordEm: Record<string, number> = {};
+  orderedVisibleColumns.forEach(key => {
+    const headerLabel = key === 'total' ? totalColumnLabel : (key === 'shtCount' ? 'шт' : effectiveColumnLabels[key]);
+    let max = widestWordEm(headerLabel);
+    items.forEach(item => { max = Math.max(max, widestWordEm(getCellText(key, item))); });
+    longestWordEm[key] = max;
+  });
+
+  // Jadval matni umumiy `scale` bilan birga o'zgaradi, lekin ustun kengligidan
+  // oshmaydi
+  const widthCap = fitTableFontSize(orderedVisibleColumns, flexMap, longestWordEm);
+  const fontSize = Math.max(
+    ABSOLUTE_MIN_TABLE_FONT,
+    Math.min(widthCap, Math.round(BASE_TABLE_FONT * scale))
   );
-  const fontSize = Math.max(6, Math.round(baseFontSize * scale));
   const cellPadV = Math.max(1, sc(4) - (scale < 1 ? 1 : 0));
 
   // Ustun uchun gorizontal joylashuv

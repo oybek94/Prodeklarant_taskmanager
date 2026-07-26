@@ -40,10 +40,9 @@ import { SertifikatErrorWarning } from '../components/invoice/SertifikatErrorWar
 import { ContractRequirementsNote } from '../components/invoice/ContractRequirementsNote';
 import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
 
-import { pdf } from '@react-pdf/renderer';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
-import { InvoicePDFDocument } from '../components/invoice/pdf/InvoicePDFDocument';
+import { renderFittedInvoicePdf } from '../components/invoice/pdf/pdfFit';
 import Tasks from './Tasks';
 
 import type {
@@ -545,31 +544,30 @@ const Invoice = () => {
         return;
       }
 
-      const doc = (
-        <InvoicePDFDocument
-          viewTab={viewTab}
-          form={form}
-          invoice={invoice}
-          selectedContract={selectedContract}
-          contracts={contracts}
-          task={task}
-          isSellerShipper={isSellerShipper}
-          isBuyerConsignee={isBuyerConsignee}
-          isAdditionalInfoVisible={isAdditionalInfoVisible}
-          customFields={customFields}
-          specCustomFields={specCustomFields}
-          packingCustomFields={packingCustomFields}
-          additionalFieldsOrder={additionalFieldsOrder}
-          items={items}
-          orderedVisibleColumns={orderedVisibleColumns}
-          columnLabels={columnLabels}
-          totalColumnLabel={totalColumnLabel}
-          invoiceCurrency={invoiceCurrency}
-          pdfIncludeSeal={includeSeal}
-        />
-      );
-      
-      const blob = await pdf(doc).toBlob();
+      // Shriftlar sahifadagi ma'lumot miqdoriga qarab tanlanadi: hujjat avval
+      // o'lchanadi, so'ng eng katta sig'adigan masshtabda qayta render qilinadi
+      // (qarang: pdf/pdfFit.tsx)
+      const blob = await renderFittedInvoicePdf({
+        viewTab,
+        form,
+        invoice,
+        selectedContract,
+        contracts,
+        task,
+        isSellerShipper,
+        isBuyerConsignee,
+        isAdditionalInfoVisible,
+        customFields,
+        specCustomFields,
+        packingCustomFields,
+        additionalFieldsOrder,
+        items,
+        orderedVisibleColumns,
+        columnLabels,
+        totalColumnLabel,
+        invoiceCurrency,
+        pdfIncludeSeal: includeSeal,
+      });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

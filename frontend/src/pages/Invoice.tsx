@@ -116,6 +116,7 @@ const Invoice = () => {
   const [task, setTask] = useState<Task | null>(null);
 
   const {
+    hasInvoysStage,
     invoysStageReady,
     setInvoysStageReady,
     sertifikatStageCompleted,
@@ -648,6 +649,7 @@ const Invoice = () => {
 
         {/* Header */}
         <InvoiceToolbar
+          hasInvoysStage={hasInvoysStage}
           invoysStageReady={invoysStageReady}
           markingReady={markingReady}
           taskId={taskId}

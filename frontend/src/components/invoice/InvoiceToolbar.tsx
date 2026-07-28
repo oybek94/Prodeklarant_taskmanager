@@ -4,6 +4,8 @@ import { Icon } from '@iconify/react';
 import { InvoiceTabs } from './InvoiceTabs';
 
 interface InvoiceToolbarProps {
+  /** Taskda "Invoys" bosqichi bormi — holat chipi shunga qarab chiqadi */
+  hasInvoysStage: boolean;
   invoysStageReady: boolean;
   markingReady: boolean;
   taskId: string | undefined;
@@ -61,8 +63,13 @@ const READY_BTN =
 const MENU_PANEL =
   'absolute left-0 top-full z-20 mt-1 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg';
 
+/**
+ * `hover:bg-gray-100` ataylab — `hover:bg-gray-50` (#f9fafb) oq menyu fonida
+ * deyarli sezilmaydi, ya'ni hover umuman yo'qdek tuyuladi. Ikkalasi ham
+ * index.css'da dark mode uchun `--pd-elevated` ga o'giriladi.
+ */
 const MENU_ITEM =
-  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40';
+  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40';
 
 /** Ochiladigan menyu tugmasidagi kichik strelka */
 const Chevron: React.FC = () => (
@@ -75,6 +82,7 @@ const Sep: React.FC = () => (
 );
 
 export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
+  hasInvoysStage,
   invoysStageReady,
   markingReady,
   taskId,
@@ -145,12 +153,23 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
           )}
         </div>
 
-        {/* Holat — faqat tayyor bo'lganda. Tayyor emasligini quyidagi
-            "Tayyor qilish" tugmasining o'zi bildiradi, takrorlash shart emas. */}
-        {invoysStageReady && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-            <Icon icon="solar:check-circle-linear" className="h-3.5 w-3.5" aria-hidden="true" />
-            Tayyor
+        {/* "Invoys" bosqichining HAQIQIY holati. Ilgari bu yerda "Tayyor" so'zi
+            qattiq yozilgan edi. `StageStatus` enum'i ikki qiymatli
+            (BOSHLANMAGAN | TAYYOR) — nomlar TaskDetail'dagi bilan bir xil. */}
+        {hasInvoysStage && (
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+              invoysStageReady
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            <Icon
+              icon={invoysStageReady ? 'solar:check-circle-linear' : 'solar:clock-circle-linear'}
+              className="h-3.5 w-3.5"
+              aria-hidden="true"
+            />
+            {invoysStageReady ? 'Tayyor' : 'Boshlanmagan'}
           </span>
         )}
 

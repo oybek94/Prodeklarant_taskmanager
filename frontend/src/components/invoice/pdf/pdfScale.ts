@@ -16,18 +16,41 @@ export const PAGE_PAD_BOTTOM = 20;
 // A4: 841pt balandlik. paddingTop=40, paddingBottom=20 → mavjud: 781pt
 const AVAILABLE_HEIGHT = 781;
 
+/** Hujjatning bazaviy matn o'lchami (`PdfStyles.page.fontSize`), pt */
+export const BASE_FONT_PT = 9;
+/**
+ * Matn o'lchamining QAT'IY yuqori chegarasi (pt).
+ *
+ * Hujjat sarlavhasi ("Инвойс", 24pt bazaviy) bundan MUSTASNO — u masshtab bilan
+ * proporsional kattalashadi, aks holda sarlavha oddiy matn bilan bir xil
+ * o'lchamda chiqib ierarxiya yo'qoladi. Qolgan barcha matnlar — rekvizitlar,
+ * qo'shimcha ma'lumot, Примечания, imzolar — `scaleFont` orqali shu chegarada
+ * ushlab turiladi. Jadval matni bundan ham past chegarada (qarang:
+ * `PdfItemsTable.MAX_TABLE_FONT`).
+ */
+export const MAX_FONT_PT = 11;
+
 /**
  * Masshtab chegaralari.
  *
  * `MIN_SCALE` — kontent juda ko'p bo'lsa 1-betga sig'dirish uchun eng kichik
  * masshtab (bazaviy 9pt → ~4pt, o'qish qiyin, lekin bu oxirgi chora).
  *
- * `MAX_SCALE` — kontent kam bo'lganda shriftlar KATTALASHADI: sahifa bo'sh
- * qolgani uchun bazaviy 9pt matn ~12pt gacha o'sadi. Bundan yuqorisi sarlavhani
- * (24pt → 34pt+) haddan tashqari kattalashtiradi.
+ * `MAX_SCALE` — kontent kam bo'lganda shriftlar KATTALASHADI, lekin bazaviy 9pt
+ * matn aynan `MAX_FONT_PT` (11pt) da to'xtaydi. Chegarani bundan yuqori qo'yish
+ * mantiqsiz: `scaleFont` matnni baribir 11pt da ushlab qoladi va faqat
+ * paddinglar shishib, sahifa bo'sh joyga to'lib qolardi.
  */
 export const MIN_SCALE = 0.4;
-export const MAX_SCALE = 1.4;
+export const MAX_SCALE = MAX_FONT_PT / BASE_FONT_PT; // ≈ 1.22
+
+/**
+ * Matn o'lchamini masshtablash — natija hech qachon `MAX_FONT_PT` dan oshmaydi.
+ * Hujjat sarlavhasidan tashqari BARCHA `fontSize` shu funksiya orqali olinadi
+ * (oddiy `sc()` faqat padding/margin kabi o'lchamlar uchun).
+ */
+export const scaleFont = (base: number, scale: number): number =>
+  Math.min(MAX_FONT_PT, Math.round(base * scale));
 
 // Haqiqiy balandlik taxminlari (scale=1.0, pt):
 const H = {

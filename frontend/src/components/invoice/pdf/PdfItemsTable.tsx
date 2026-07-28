@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { styles } from './PdfStyles';
 import { formatNumber, formatNumberFixed, formatUnitPrice, numberToWordsRu, getCurrencySymbol, sumItemTotals } from '../invoiceUtils';
+import { scaleFont } from './pdfScale';
 
 interface PdfItemsTableProps {
   items: any[];
@@ -447,7 +448,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
       </View>
 
       {showSumWords && (
-        <View style={{ fontSize: sc(7), marginTop: 0, marginBottom: sc(4), paddingLeft: sc(20) }}>
+        <View style={{ fontSize: scaleFont(7, scale), marginTop: 0, marginBottom: sc(4), paddingLeft: sc(20) }}>
           <Text>Сумма прописью: {numberToWordsRu(sumItemTotals(items), invoiceCurrency)}</Text>
         </View>
       )}

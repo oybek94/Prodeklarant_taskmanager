@@ -38,9 +38,9 @@ import { measureLayout, type PdfLayoutNode, type PdfLayoutMeasure } from './pdfL
 /** Sahifa oxirida qoldiriladigan zaxira (yaxlitlash xatolariga qarshi), pt */
 const SAFETY_MARGIN = 2;
 /**
- * Render urinishlari soni. Har bir urinish ~50–200ms; 5 urinish [0.4 … 1.4]
- * oraliqni ~0.06 aniqlikda toraytiradi — shrift o'lchamlari butun songa
- * yaxlitlanganidan (9pt uchun 1 qadam ≈ 0.11) bu yetarli.
+ * Render urinishlari soni. Har bir urinish ~50–200ms; 5 urinish
+ * [`MIN_SCALE` … `MAX_SCALE`] oralig'ini ~0.03 aniqlikda toraytiradi — shrift
+ * o'lchamlari butun songa yaxlitlanganidan (9pt uchun 1 qadam ≈ 0.11) bu yetarli.
  */
 const MAX_PASSES = 5;
 /** Oraliq shu qiymatdan torayganda izlash to'xtaydi (shrift o'zgarmaydi) */

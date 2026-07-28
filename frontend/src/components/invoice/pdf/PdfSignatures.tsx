@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, View, Image } from '@react-pdf/renderer';
 import { styles, SEAL_HEIGHT } from './PdfStyles';
 import { resolveUploadUrl } from '../types';
+import { scaleFont } from './pdfScale';
 
 interface PdfSignaturesProps {
   contract: any;
@@ -26,6 +27,7 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({
   contract, viewTab, pdfIncludeSeal, isSellerShipper = true, isBuyerConsignee = true, scale = 1,
 }) => {
   const sc = (v: number) => Math.round(v * scale);
+  const fz = (v: number) => scaleFont(v, scale);
   if (viewTab === 'spec') {
     // Kontraktdagi barcha tomonlar — korxona nomi bor bo'lsa direktor
     // ko'rsatilmagan bo'lsa ham ustun sifatida chiqadi. Yuk jo'natuvchi/qabul
@@ -72,10 +74,10 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({
 
     const PartyCol = ({ party }: { party: SpecParty }) => (
       <View style={{ flex: 1, paddingRight: sc(6) }}>
-        <Text style={{ fontSize: sc(9), fontWeight: 'bold', marginBottom: sc(3) }}>{party.label}</Text>
-        <Text style={{ fontSize: sc(8) }}>{party.name}</Text>
+        <Text style={{ fontSize: fz(9), fontWeight: 'bold', marginBottom: sc(3) }}>{party.label}</Text>
+        <Text style={{ fontSize: fz(8) }}>{party.name}</Text>
         {party.director && (
-          <Text style={{ fontSize: sc(8), color: '#4b5563', marginTop: sc(2) }}>
+          <Text style={{ fontSize: fz(8), color: '#4b5563', marginTop: sc(2) }}>
             {party.directorPrefix ? `Директор ${party.director}` : party.director}
           </Text>
         )}
@@ -98,7 +100,7 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({
 
     return (
       <View style={{ marginTop: sc(14) }} wrap={false}>
-        <Text style={{ fontSize: sc(9), fontWeight: 'bold', marginBottom: sc(8) }}>Подписи сторон</Text>
+        <Text style={{ fontSize: fz(9), fontWeight: 'bold', marginBottom: sc(8) }}>Подписи сторон</Text>
         <View style={{ flexDirection: 'row' }}>
           {participants.map((p) => (
             <PartyCol key={`${p.label}-${p.name}`} party={p} />
@@ -119,13 +121,13 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({
       {/* Chap ustun: barcha matnlar */}
       <View style={{ flexDirection: 'column', justifyContent: 'flex-start' }}>
         <View style={{ marginBottom: sc(8) }}>
-          <Text style={{ fontSize: sc(9), fontWeight: 'bold' }}>Руководитель Поставщика:</Text>
-          <Text style={{ fontSize: sc(9) }}>{contract.supplierDirector}</Text>
+          <Text style={{ fontSize: fz(9), fontWeight: 'bold' }}>Руководитель Поставщика:</Text>
+          <Text style={{ fontSize: fz(9) }}>{contract.supplierDirector}</Text>
         </View>
         {contract.goodsReleasedBy && (
           <View>
-            <Text style={{ fontSize: sc(9), fontWeight: 'bold' }}>Товар отпустил:</Text>
-            <Text style={{ fontSize: sc(9) }}>{contract.goodsReleasedBy}</Text>
+            <Text style={{ fontSize: fz(9), fontWeight: 'bold' }}>Товар отпустил:</Text>
+            <Text style={{ fontSize: fz(9) }}>{contract.goodsReleasedBy}</Text>
           </View>
         )}
       </View>

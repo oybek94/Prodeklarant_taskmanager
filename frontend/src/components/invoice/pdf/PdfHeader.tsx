@@ -3,6 +3,7 @@ import { Text, View, Image } from '@react-pdf/renderer';
 import { styles } from './PdfStyles';
 import { formatDate } from '../invoiceUtils';
 import { resolveUploadUrl } from '../types';
+import { scaleFont } from './pdfScale';
 
 interface PdfHeaderProps {
   viewTab: 'invoice' | 'spec' | 'packing' | 'pricelist';
@@ -14,6 +15,8 @@ interface PdfHeaderProps {
 
 export const PdfHeader: React.FC<PdfHeaderProps> = ({ viewTab, form, invoice, selectedContract, scale = 1 }) => {
   const sc = (v: number) => Math.round(v * scale);
+  // Hujjat sarlavhasidan tashqari barcha matnlar 11pt bilan cheklanadi
+  const fz = (v: number) => scaleFont(v, scale);
   const title =
     viewTab === 'invoice' ? 'Инвойс' :
     viewTab === 'spec' ? 'Спецификация' :
@@ -46,20 +49,20 @@ export const PdfHeader: React.FC<PdfHeaderProps> = ({ viewTab, form, invoice, se
 
       <View style={styles.headerInfoContainer}>
         <View style={[styles.headerInfoRow, { marginBottom: sc(4) }]}>
-          <Text style={[styles.headerLabel, { fontSize: sc(10) }]}>{documentType}</Text>
-          <Text style={[styles.headerValue, { fontSize: sc(10) }]}>{invoiceNumber} от {invoiceDate} г.</Text>
+          <Text style={[styles.headerLabel, { fontSize: fz(10) }]}>{documentType}</Text>
+          <Text style={[styles.headerValue, { fontSize: fz(10) }]}>{invoiceNumber} от {invoiceDate} г.</Text>
         </View>
 
         {(viewTab === 'spec' || viewTab === 'packing') && (
           <View style={[styles.headerInfoRow, { marginBottom: sc(4) }]}>
-            <Text style={[styles.headerLabel, { fontSize: sc(10) }]}>Инвойс №:</Text>
-            <Text style={[styles.headerValue, { fontSize: sc(10) }]}>{invoiceNumber} от {invoiceDate} г.</Text>
+            <Text style={[styles.headerLabel, { fontSize: fz(10) }]}>Инвойс №:</Text>
+            <Text style={[styles.headerValue, { fontSize: fz(10) }]}>{invoiceNumber} от {invoiceDate} г.</Text>
           </View>
         )}
 
         <View style={[styles.headerInfoRow, { marginBottom: sc(4) }]}>
-          <Text style={[styles.headerLabel, { fontSize: sc(10) }]}>Контракт №:</Text>
-          <Text style={[styles.headerValue, { fontSize: sc(10) }]}>{contractNumber} от {contractDate}</Text>
+          <Text style={[styles.headerLabel, { fontSize: fz(10) }]}>Контракт №:</Text>
+          <Text style={[styles.headerValue, { fontSize: fz(10) }]}>{contractNumber} от {contractDate}</Text>
         </View>
       </View>
     </View>

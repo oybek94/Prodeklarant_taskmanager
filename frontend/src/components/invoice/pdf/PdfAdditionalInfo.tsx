@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { styles } from './PdfStyles';
 import { normalizeText } from '../../../utils/textNormalize';
+import { scaleFont } from './pdfScale';
 
 interface PdfAdditionalInfoProps {
   form: any;
@@ -14,12 +15,15 @@ interface PdfAdditionalInfoProps {
   scale?: number;
 }
 
-const Row: React.FC<{ label: string; value: string; sc: (v: number) => number }> = ({ label, value, sc }) => (
-  <Text style={{ fontSize: sc(9), marginBottom: sc(3), lineHeight: 1.4, color: '#000000', paddingLeft: sc(8) }}>
-    <Text style={{ fontWeight: 'bold' }}>{label}: </Text>
-    {normalizeText(value)}
-  </Text>
-);
+const Row: React.FC<{ label: string; value: string; scale: number }> = ({ label, value, scale }) => {
+  const sc = (v: number) => Math.round(v * scale);
+  return (
+    <Text style={{ fontSize: scaleFont(9, scale), marginBottom: sc(3), lineHeight: 1.4, color: '#000000', paddingLeft: sc(8) }}>
+      <Text style={{ fontWeight: 'bold' }}>{label}: </Text>
+      {normalizeText(value)}
+    </Text>
+  );
+};
 
 export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
   form,
@@ -59,35 +63,35 @@ export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
     switch (key) {
       case 'shipmentPlace':
         return isAdditionalInfoVisible('shipmentPlace') && form.shipmentPlace
-          ? <Row key={key} label="Место отгрузки груза" value={form.shipmentPlace} sc={sc} />
+          ? <Row key={key} label="Место отгрузки груза" value={form.shipmentPlace} scale={scale} />
           : null;
       case 'destination':
         return isAdditionalInfoVisible('destination') && form.destination
-          ? <Row key={key} label="Место назначения" value={form.destination} sc={sc} />
+          ? <Row key={key} label="Место назначения" value={form.destination} scale={scale} />
           : null;
       case 'origin':
         return isAdditionalInfoVisible('origin')
-          ? <Row key={key} label="Происхождение товара" value={form.origin || 'Республика Узбекистан'} sc={sc} />
+          ? <Row key={key} label="Происхождение товара" value={form.origin || 'Республика Узбекистан'} scale={scale} />
           : null;
       case 'manufacturer':
         return isAdditionalInfoVisible('manufacturer') && form.manufacturer
-          ? <Row key={key} label="Производитель" value={form.manufacturer} sc={sc} />
+          ? <Row key={key} label="Производитель" value={form.manufacturer} scale={scale} />
           : null;
       case 'orderNumber':
         return isAdditionalInfoVisible('orderNumber') && form.orderNumber
-          ? <Row key={key} label="Номер заказа" value={form.orderNumber} sc={sc} />
+          ? <Row key={key} label="Номер заказа" value={form.orderNumber} scale={scale} />
           : null;
       case 'gln':
         return isAdditionalInfoVisible('gln') && form.gln
-          ? <Row key={key} label="Глобальный идентификационный номер GS1 (GLN)" value={form.gln} sc={sc} />
+          ? <Row key={key} label="Глобальный идентификационный номер GS1 (GLN)" value={form.gln} scale={scale} />
           : null;
       case 'temperature':
         return isAdditionalInfoVisible('temperature') && form.temperature
-          ? <Row key={key} label="Температура" value={form.temperature} sc={sc} />
+          ? <Row key={key} label="Температура" value={form.temperature} scale={scale} />
           : null;
       case 'harvestYear':
         return isAdditionalInfoVisible('harvestYear') && form.harvestYear
-          ? <Row key={key} label="Урожай" value={form.harvestYear} sc={sc} />
+          ? <Row key={key} label="Урожай" value={form.harvestYear} scale={scale} />
           : null;
       default:
         if (key.startsWith('custom_')) {
@@ -95,7 +99,7 @@ export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
           const field = customFields.find(f => f.id === fieldId);
           if (!field) return null;
           return isAdditionalInfoVisible(`custom_${field.id}`) && field.value
-            ? <Row key={field.id} label={field.label} value={field.value} sc={sc} />
+            ? <Row key={field.id} label={field.label} value={field.value} scale={scale} />
             : null;
         }
         return null;
@@ -126,24 +130,24 @@ export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
 
   return (
     <View style={{ marginTop: sc(6), paddingBottom: sc(4) }}>
-      <Text style={{ fontSize: sc(10), fontWeight: 'bold', marginBottom: sc(2), color: '#1f2937' }}>
+      <Text style={{ fontSize: scaleFont(10, scale), fontWeight: 'bold', marginBottom: sc(2), color: '#1f2937' }}>
         Дополнительная информация
       </Text>
 
       {isAdditionalInfoVisible('deliveryTerms') && form.deliveryTerms && (
-        <Row label="Условия поставки" value={form.deliveryTerms} sc={sc} />
+        <Row label="Условия поставки" value={form.deliveryTerms} scale={scale} />
       )}
       {isAdditionalInfoVisible('vehicleNumber') && form.vehicleNumber && (
-        <Row label="Номер автотранспорта" value={form.vehicleNumber} sc={sc} />
+        <Row label="Номер автотранспорта" value={form.vehicleNumber} scale={scale} />
       )}
       {isAdditionalInfoVisible('customsAddress') && form.customsAddress && (
-        <Row label="Место там. очистки" value={form.customsAddress} sc={sc} />
+        <Row label="Место там. очистки" value={form.customsAddress} scale={scale} />
       )}
 
       {fieldOrder.map((key) => renderFieldByKey(key))}
 
       {visiblePackingFields.map((field) => (
-        <Row key={field.id} label={field.label} value={field.value} sc={sc} />
+        <Row key={field.id} label={field.label} value={field.value} scale={scale} />
       ))}
     </View>
   );

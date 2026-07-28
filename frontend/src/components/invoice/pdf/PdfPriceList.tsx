@@ -53,7 +53,9 @@ export const PdfPriceList: React.FC<PdfPriceListProps> = ({
         </View>
 
         <View style={{ flex: 1, paddingLeft: sc(15), alignItems: 'flex-end' }}>
-          <Text style={{ fontSize: sc(32), fontWeight: 'bold', color: '#1f2937', marginBottom: sc(15) }}>
+          {/* 24pt — invoys/spesifikatsiya sarlavhasi bilan bir xil o'lcham
+              (`PdfStyles.headerTitle`); ilgari 32pt edi va juda katta chiqardi */}
+          <Text style={{ fontSize: sc(24), fontWeight: 'bold', color: '#1f2937', marginBottom: sc(15) }}>
             ПРАЙС-ЛИСТ
           </Text>
         </View>

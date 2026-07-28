@@ -284,6 +284,8 @@ export async function fetchRateFromCBU(date?: Date): Promise<Decimal | null> {
  * - https://www.cbr-xml-daily.ru/daily_json.js (Free, daily updates, JSON)
  * - Fallback: open.er-api.com
  */
+let cachedUsdToRubRate: { rate: Decimal; fetchedAt: Date } | null = null;
+
 export async function fetchUsdToRubRate(): Promise<Decimal | null> {
   try {
     // Primary API: CBR XML Daily JSON (free, no key needed, updates daily)
@@ -302,7 +304,9 @@ export async function fetchUsdToRubRate(): Promise<Decimal | null> {
       if (data && data.Valute && data.Valute.USD && data.Valute.USD.Value) {
         const usdRate = parseFloat(data.Valute.USD.Value);
         console.log(`[EXCHANGE] USD to RUB rate from CBR: ${usdRate}`);
-        return new Decimal(usdRate);
+        const rate = new Decimal(usdRate);
+        cachedUsdToRubRate = { rate, fetchedAt: new Date() };
+        return rate;
       }
     }
 
@@ -319,14 +323,28 @@ export async function fetchUsdToRubRate(): Promise<Decimal | null> {
       if (data && data.rates && data.rates.RUB) {
         const usdRate = parseFloat(data.rates.RUB);
         console.log(`[EXCHANGE] USD to RUB rate from Fallback: ${usdRate}`);
-        return new Decimal(usdRate);
+        const rate = new Decimal(usdRate);
+        cachedUsdToRubRate = { rate, fetchedAt: new Date() };
+        return rate;
       }
     }
 
     console.error('[EXCHANGE] All APIs failed for USD to RUB rate');
+    if (cachedUsdToRubRate) {
+      console.warn(
+        `[EXCHANGE] Using last cached USD to RUB rate: ${cachedUsdToRubRate.rate.toString()} (fetched at ${cachedUsdToRubRate.fetchedAt.toISOString()})`
+      );
+      return cachedUsdToRubRate.rate;
+    }
     return null;
   } catch (error) {
     console.error('[EXCHANGE] Error fetching USD to RUB rate:', error);
+    if (cachedUsdToRubRate) {
+      console.warn(
+        `[EXCHANGE] Using last cached USD to RUB rate after error: ${cachedUsdToRubRate.rate.toString()} (fetched at ${cachedUsdToRubRate.fetchedAt.toISOString()})`
+      );
+      return cachedUsdToRubRate.rate;
+    }
     return null;
   }
 }

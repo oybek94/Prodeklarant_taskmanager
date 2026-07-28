@@ -28,7 +28,7 @@ export const BASE_FONT_PT = 9;
  * ushlab turiladi. Jadval matni bundan ham past chegarada (qarang:
  * `PdfItemsTable.MAX_TABLE_FONT`).
  */
-export const MAX_FONT_PT = 11;
+export const MAX_FONT_PT = 9;
 
 /**
  * Masshtab chegaralari.
@@ -36,13 +36,13 @@ export const MAX_FONT_PT = 11;
  * `MIN_SCALE` — kontent juda ko'p bo'lsa 1-betga sig'dirish uchun eng kichik
  * masshtab (bazaviy 9pt → ~4pt, o'qish qiyin, lekin bu oxirgi chora).
  *
- * `MAX_SCALE` — kontent kam bo'lganda shriftlar KATTALASHADI, lekin bazaviy 9pt
- * matn aynan `MAX_FONT_PT` (11pt) da to'xtaydi. Chegarani bundan yuqori qo'yish
- * mantiqsiz: `scaleFont` matnni baribir 11pt da ushlab qoladi va faqat
- * paddinglar shishib, sahifa bo'sh joyga to'lib qolardi.
+ * `MAX_SCALE` — `MAX_FONT_PT` bazaviy o'lchamga TENG bo'lgani uchun hozir 1.0:
+ * kontent kam bo'lsa ham hujjat kattalashmaydi, faqat kichrayadi. Chegarani
+ * bundan yuqori qo'yish mantiqsiz — `scaleFont` matnni baribir 9pt da ushlab
+ * qoladi va faqat paddinglar shishib, sahifa bo'sh joyga to'lib qolardi.
  */
 export const MIN_SCALE = 0.4;
-export const MAX_SCALE = MAX_FONT_PT / BASE_FONT_PT; // ≈ 1.22
+export const MAX_SCALE = MAX_FONT_PT / BASE_FONT_PT; // = 1.0
 
 /**
  * Matn o'lchamini masshtablash — natija hech qachon `MAX_FONT_PT` dan oshmaydi.

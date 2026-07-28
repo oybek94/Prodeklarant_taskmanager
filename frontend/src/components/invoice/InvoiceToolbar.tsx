@@ -86,16 +86,20 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
           <Icon icon="solar:layers-bold-duotone" className="w-4 h-4" />
           Jarayonlar
         </button>
-        <button
-          type="button"
-          onClick={onOpenCargoImport}
-          disabled={!canEditEffective}
-          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-          title="Mijozning matnli xabaridan invoys maydonlarini avtomatik to'ldirish"
-        >
-          <Icon icon="solar:document-add-bold-duotone" className="w-4 h-4" />
-          Matndan to&apos;ldirish
-        </button>
+        {/* Matndan to'ldirish — faqat invoys "Tayyor" bo'lgunicha: keyin
+            maydonlarni AI bilan qayta yozishning ma'nosi yo'q */}
+        {!invoysStageReady && (
+          <button
+            type="button"
+            onClick={onOpenCargoImport}
+            disabled={!canEditEffective}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            title="Mijozning matnli xabaridan invoys maydonlarini avtomatik to'ldirish"
+          >
+            <Icon icon="solar:document-add-bold-duotone" className="w-4 h-4" />
+            Matndan to&apos;ldirish
+          </button>
+        )}
         {!invoysStageReady && (
           <button
             type="button"

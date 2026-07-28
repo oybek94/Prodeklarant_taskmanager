@@ -41,6 +41,8 @@ interface InvoiceToolbarProps {
   onOpenTaskModal: () => void;
   onOpenCargoImport: () => void;
   canEditEffective: boolean;
+  /** Sertifikatlar tayyor, lekin xatolik hali kiritilmagan — xatolik so'rovi kerak */
+  needsErrorReport: boolean;
 }
 
 /**
@@ -116,6 +118,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
   onOpenTaskModal,
   onOpenCargoImport,
   canEditEffective,
+  needsErrorReport,
 }) => {
   const invoiceNumber = form?.invoiceNumber ? String(form.invoiceNumber).trim() : '';
 
@@ -376,6 +379,21 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
             >
               <Icon icon="solar:document-text-linear" className="h-4 w-4" />
               Deklaratsiya
+            </button>
+          )}
+
+          {/* Xatolik qo'shish — kamdan-kam bosiladi, shuning uchun faqat
+              ikonka. Ilgari bu forma tepasida katta sariq banner edi va
+              har safar butun kenglikni egallab turardi. */}
+          {needsErrorReport && (
+            <button
+              type="button"
+              onClick={() => navigate('/invoices', { state: { openErrorModalForTaskId: task?.id } })}
+              className={`${ACTION_BTN} border-amber-300 bg-amber-50 px-2 text-amber-700 hover:bg-amber-100`}
+              title="Sertifikatlar tayyor bo'lgani sababli, invoysga o'zgartirish kiritishdan oldin aniqlangan xatoliklar haqida to'liq ma'lumotlarni kiriting"
+              aria-label="Xatolik qo'shish"
+            >
+              <Icon icon="solar:danger-triangle-linear" className="h-4 w-4" />
             </button>
           )}
 

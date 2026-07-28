@@ -35,7 +35,6 @@ import { InvoiceItemsTable } from '../components/invoice/InvoiceItemsTable';
 import { InvoiceBottomActions } from '../components/invoice/InvoiceBottomActions';
 import { InvoiceNotes } from '../components/invoice/InvoiceNotes';
 import { InvoiceConflictWarning } from '../components/invoice/InvoiceConflictWarning';
-import { SertifikatErrorWarning } from '../components/invoice/SertifikatErrorWarning';
 import { ContractRequirementsNote } from '../components/invoice/ContractRequirementsNote';
 import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
 
@@ -682,6 +681,7 @@ const Invoice = () => {
           onOpenTaskModal={handleOpenTaskModal}
           onOpenCargoImport={handleOpenCargoImport}
           canEditEffective={canEditEffective}
+          needsErrorReport={sertifikatStageCompleted && canEdit && !taskHasErrors}
         />
 
         {/* Invoice form + Requirements note side panel */}
@@ -703,14 +703,6 @@ const Invoice = () => {
           {user?.role === 'ADMIN' && invoice?.additionalInfo && typeof invoice.additionalInfo === 'object' && Array.isArray((invoice.additionalInfo as any).changeLog) && (invoice.additionalInfo as any).changeLog.length > 0 && (
             <InvoiceChangeLog changeLog={(invoice.additionalInfo as any).changeLog} />
           )}
-
-          <SertifikatErrorWarning
-            sertifikatStageCompleted={sertifikatStageCompleted}
-            canEdit={canEdit}
-            taskHasErrors={taskHasErrors}
-            taskId={task?.id}
-            navigate={navigate}
-          />
 
           <div
             ref={invoiceRef}

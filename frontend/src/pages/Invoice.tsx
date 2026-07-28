@@ -35,7 +35,6 @@ import { InvoiceItemsTable } from '../components/invoice/InvoiceItemsTable';
 import { InvoiceBottomActions } from '../components/invoice/InvoiceBottomActions';
 import { InvoiceNotes } from '../components/invoice/InvoiceNotes';
 import { InvoiceConflictWarning } from '../components/invoice/InvoiceConflictWarning';
-import { InvoiceTabs } from '../components/invoice/InvoiceTabs';
 import { SertifikatErrorWarning } from '../components/invoice/SertifikatErrorWarning';
 import { ContractRequirementsNote } from '../components/invoice/ContractRequirementsNote';
 import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
@@ -654,6 +653,7 @@ const Invoice = () => {
           taskId={taskId}
           handleMarkInvoysReady={handleMarkInvoysReady}
           viewTab={viewTab}
+          setViewTab={setViewTab}
           templatesDisabled={templatesDisabled}
           task={task}
           form={form}
@@ -709,8 +709,6 @@ const Invoice = () => {
             taskId={task?.id}
             navigate={navigate}
           />
-
-          <InvoiceTabs viewTab={viewTab} setViewTab={setViewTab} />
 
           <div
             ref={invoiceRef}

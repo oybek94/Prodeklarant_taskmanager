@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ViewTab, FssFilePrefix } from './types';
 import { Icon } from '@iconify/react';
+import { InvoiceTabs } from './InvoiceTabs';
 
 interface InvoiceToolbarProps {
   invoysStageReady: boolean;
@@ -8,6 +9,7 @@ interface InvoiceToolbarProps {
   taskId: string | undefined;
   handleMarkInvoysReady: () => void;
   viewTab: ViewTab;
+  setViewTab: (tab: ViewTab) => void;
   templatesDisabled: boolean;
   task: any;
   form: any;
@@ -38,12 +40,47 @@ interface InvoiceToolbarProps {
   canEditEffective: boolean;
 }
 
+/**
+ * Panel uslublari bitta joyda saqlanadi.
+ *
+ * Ilgari har bir tugma o'z rangida edi (emerald, sky, amber, indigo, kulrang) va
+ * bu ranglar HECH QANDAY ma'no tashimasdi — nega TIR-SMR yashil, Invoys esa
+ * moviy ekani tushunarsiz edi. Endi rang faqat ma'no tashiydigan ikki joyda:
+ * bosqich holati (`Tayyor` chipi / `Tayyor qilish` tugmasi) va bitta asosiy
+ * amal (`Jarayonlar`). Qolgan hammasi neytral.
+ */
+const ACTION_BTN =
+  'inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:cursor-not-allowed disabled:opacity-40';
+
+const PRIMARY_BTN =
+  'inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:cursor-not-allowed disabled:opacity-40';
+
+const READY_BTN =
+  'inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-40';
+
+const MENU_PANEL =
+  'absolute left-0 top-full z-20 mt-1 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg';
+
+const MENU_ITEM =
+  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40';
+
+/** Ochiladigan menyu tugmasidagi kichik strelka */
+const Chevron: React.FC = () => (
+  <Icon icon="solar:alt-arrow-down-linear" className="h-3.5 w-3.5 opacity-60" aria-hidden="true" />
+);
+
+/** Tugma guruhlarini ajratuvchi ingichka chiziq */
+const Sep: React.FC = () => (
+  <span className="mx-0.5 hidden h-5 w-px bg-gray-200 sm:block" aria-hidden="true" />
+);
+
 export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
   invoysStageReady,
   markingReady,
   taskId,
   handleMarkInvoysReady,
   viewTab,
+  setViewTab,
   templatesDisabled,
   task,
   form,
@@ -71,334 +108,287 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
   onOpenCargoImport,
   canEditEffective,
 }) => {
-  return (
-    <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-      <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Invoice</h1>
+  const invoiceNumber = form?.invoiceNumber ? String(form.invoiceNumber).trim() : '';
 
-      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+  // Faqat "invoice" tabida ma'noga ega bo'lgan blankalar
+  const isInvoiceTab = viewTab === 'invoice';
+
+  // ST-1 / Ichki / Tashqi va Deklaratsiya faqat tuman tanlangan yoki Oltiariq
+  // filiali bo'lganda ma'noga ega
+  const branchName = task?.branch?.name?.toLowerCase() || '';
+  const isOltiariqBranch = branchName.includes('oltiariq');
+  const hasRegionSelected = Boolean(form.fssRegionInternalCode) || Boolean(form.fssRegionName);
+  const hasRegionContext = isOltiariqBranch || hasRegionSelected;
+
+  return (
+    <div className="mb-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      {/* Hujjat nomi + amallar */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2 px-2 py-2 sm:px-3">
         <button
           type="button"
-          onClick={onOpenTaskModal}
-          disabled={!taskId}
-          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-          title="Task jarayonlarini ko'rish va o'zgartirish"
+          onClick={() => navigate(-1)}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
+          title="Orqaga"
+          aria-label="Orqaga"
         >
-          <Icon icon="solar:layers-bold-duotone" className="w-4 h-4" />
-          Jarayonlar
+          <Icon icon="solar:arrow-left-linear" className="h-5 w-5" />
         </button>
-        {/* Matndan to'ldirish — faqat invoys "Tayyor" bo'lgunicha: keyin
-            maydonlarni AI bilan qayta yozishning ma'nosi yo'q */}
-        {!invoysStageReady && (
-          <button
-            type="button"
-            onClick={onOpenCargoImport}
-            disabled={!canEditEffective}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-            title="Mijozning matnli xabaridan invoys maydonlarini avtomatik to'ldirish"
-          >
-            <Icon icon="solar:document-add-bold-duotone" className="w-4 h-4" />
-            Matndan to&apos;ldirish
-          </button>
-        )}
-        {!invoysStageReady && (
-          <button
-            type="button"
-            onClick={handleMarkInvoysReady}
-            disabled={markingReady || !taskId}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:bg-amber-300 disabled:opacity-50"
-            title="Invoys jarayonini tayyor qilish"
-          >
-            <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M7.75 13.5 4.5 10.25l1.4-1.4 1.85 1.85 6.35-6.35 1.4 1.4z"
-              />
-            </svg>
-            {markingReady ? 'Jarayon...' : 'Tayyor'}
-          </button>
-        )}
 
-        {/* TIR-SMR dropdown */}
-        {invoysStageReady && viewTab === 'invoice' && (
-          <div className="relative" ref={tirSmrDropdownRef as React.RefObject<HTMLDivElement>}>
-            <button
-              type="button"
-              onClick={() => setTirSmrDropdownOpen((prev) => !prev)}
-              disabled={templatesDisabled}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="TIR yoki SMR blankasini Excel formatida yuklab olish"
-            >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"
-                />
-              </svg>
-              TIR-SMR
-              <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 ml-0.5" aria-hidden="true">
-                <path fill="currentColor" d="M10 12 5 7h10l-5 5z" />
-              </svg>
-            </button>
-            {tirSmrDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1 w-40 py-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                <button
-                  type="button"
-                  onClick={() => {
-                    generateSmrExcel();
-                    setTirSmrDropdownOpen(false);
-                  }}
-                  disabled={templatesDisabled}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  SMR
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    generateTirExcel();
-                    setTirSmrDropdownOpen(false);
-                  }}
-                  disabled={templatesDisabled}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  TIR
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    generateCmrDoc();
-                    setTirSmrDropdownOpen(false);
-                  }}
-                  disabled={templatesDisabled}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  CMR (Docx)
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="flex min-w-0 items-baseline gap-1.5">
+          <h1 className="truncate text-base font-semibold tracking-tight text-gray-900 sm:text-lg">
+            Invoys
+          </h1>
+          {invoiceNumber && (
+            <span className="truncate text-base font-semibold tabular-nums text-gray-400 sm:text-lg">
+              №{invoiceNumber}
+            </span>
+          )}
+        </div>
 
-        {/* Tuman tugmasi */}
-        {invoysStageReady && viewTab === 'invoice' && (
-          (() => {
-            return (
-              <button
-                type="button"
-                onClick={openFssRegionSelector}
-                disabled={templatesDisabled}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Tuman tanlashni o'zgartirish"
-              >
-                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M4 3h7l5 5v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 1.5V7h3.5L11 4.5z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5 11h10v2H5zm0-4h6v2H5z"
-                  />
-                </svg>
-                Tuman
-              </button>
-            );
-          })()
-        )}
-
-        {/* Sertifikatlar dropdown */}
-        {invoysStageReady && viewTab === 'invoice' && (
-          <div className="relative" ref={sertifikatlarDropdownRef as React.RefObject<HTMLDivElement>}>
-            <button
-              type="button"
-              onClick={() => setSertifikatlarDropdownOpen((prev) => !prev)}
-              disabled={templatesDisabled}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Sertifikatlar va blankalarni yuklab olish"
-            >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
-                />
-              </svg>
-              Sertifikatlar
-              <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 ml-0.5" aria-hidden="true">
-                <path fill="currentColor" d="M10 12 5 7h10l-5 5z" />
-              </svg>
-            </button>
-            {sertifikatlarDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1 w-52 py-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                {(() => {
-                  const branchName = task?.branch?.name?.toLowerCase() || '';
-                  const isOltiariqBranch = branchName.includes('oltiariq');
-                  const hasRegionSelected =
-                    Boolean(form.fssRegionInternalCode) || Boolean(form.fssRegionName);
-                  const showIchkiTashqiSt1 = isOltiariqBranch || hasRegionSelected;
-                  return (
-                    <>
-                      {showIchkiTashqiSt1 && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              openFssRegionPicker('Ichki');
-                              setSertifikatlarDropdownOpen(false);
-                            }}
-                            disabled={templatesDisabled}
-                            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Ichki
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              openFssRegionPicker('Tashqi');
-                              setSertifikatlarDropdownOpen(false);
-                            }}
-                            disabled={templatesDisabled}
-                            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Tashqi
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              generateST1Excel();
-                              setSertifikatlarDropdownOpen(false);
-                            }}
-                            disabled={templatesDisabled}
-                            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            ST-1
-                          </button>
-                        </>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Invoys dropdown */}
+        {/* Holat — faqat tayyor bo'lganda. Tayyor emasligini quyidagi
+            "Tayyor qilish" tugmasining o'zi bildiradi, takrorlash shart emas. */}
         {invoysStageReady && (
-          <div className="relative" ref={invoysDropdownRef as React.RefObject<HTMLDivElement>}>
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+            <Icon icon="solar:check-circle-bold-duotone" className="h-3.5 w-3.5" aria-hidden="true" />
+            Tayyor
+          </span>
+        )}
+
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+          {/* Matndan to'ldirish — faqat invoys "Tayyor" bo'lgunicha: keyin
+              maydonlarni AI bilan qayta yozishning ma'nosi yo'q */}
+          {!invoysStageReady && (
             <button
               type="button"
-              onClick={() => setInvoysDropdownOpen((prev) => !prev)}
-              disabled={templatesDisabled}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Invoysni Excel yoki PDF formatida yuklab olish"
+              onClick={onOpenCargoImport}
+              disabled={!canEditEffective}
+              className={ACTION_BTN}
+              title="Mijozning matnli xabaridan invoys maydonlarini avtomatik to'ldirish"
             >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V7h3.5L12 3.5z"
-                />
-              </svg>
-              Invoys
-              <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 ml-0.5" aria-hidden="true">
-                <path fill="currentColor" d="M10 12 5 7h10l-5 5z" />
-              </svg>
+              <Icon icon="solar:document-add-bold-duotone" className="h-4 w-4" />
+              <span className="hidden sm:inline">Matndan to&apos;ldirish</span>
             </button>
-            {invoysDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1 w-52 py-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                <button
-                  type="button"
-                  onClick={() => {
-                    generateInvoiceExcel();
-                    setInvoysDropdownOpen(false);
-                  }}
-                  disabled={templatesDisabled}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Invoys Excel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    generatePdf(false);
-                    setInvoysDropdownOpen(false);
-                  }}
-                  disabled={templatesDisabled}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Pechatsiz PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    generatePdf(true);
-                    setInvoysDropdownOpen(false);
-                  }}
-                  disabled={templatesDisabled}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Pechatli PDF
-                </button>
-                <div className="border-t border-gray-100 my-1"></div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    generatePdfEn();
-                    setInvoysDropdownOpen(false);
-                  }}
-                  disabled={templatesDisabled}
-                  className="w-full px-3 py-2 text-left text-sm font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Icon icon="solar:translation-bold-duotone" className="w-4 h-4" />
-                  {viewTab === 'packing' ? 'English Packing List (AI)' : 'English Invoice (AI)'}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+          )}
 
-        {/* Deklaratsiya tugmasi */}
-        {invoysStageReady && viewTab === 'invoice' && (
-          (() => {
-            const branchName = task?.branch?.name?.toLowerCase() || '';
-            const isOltiariqBranch = branchName.includes('oltiariq');
-            const hasRegionSelected =
-              Boolean(form.fssRegionInternalCode) || Boolean(form.fssRegionName);
-            if (!isOltiariqBranch && !hasRegionSelected) return null;
-            return (
+          {/* TIR-SMR */}
+          {invoysStageReady && isInvoiceTab && (
+            <div className="relative" ref={tirSmrDropdownRef as React.RefObject<HTMLDivElement>}>
               <button
                 type="button"
-                onClick={generateCommodityEkExcel}
+                onClick={() => setTirSmrDropdownOpen((prev) => !prev)}
                 disabled={templatesDisabled}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:bg-amber-300"
-                title="Deklaratsiya (CommodityEk) shabloniga invoys ma'lumotlarini yozib Excel yuklab olish"
+                className={ACTION_BTN}
+                title="TIR yoki SMR blankasini Excel formatida yuklab olish"
+                aria-expanded={tirSmrDropdownOpen}
+                aria-haspopup="menu"
               >
-                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                  <path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v7.59l2.3-2.3 1.4 1.42-4.7 4.7-4.7-4.7 1.4-1.42 2.3 2.3V3a1 1 0 0 1 1-1z" />
-                  <path fill="currentColor" d="M4 16a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z" />
-                </svg>
-                Deklaratsiya
+                <Icon icon="solar:tram-bold-duotone" className="h-4 w-4" />
+                TIR-SMR
+                <Chevron />
               </button>
-            );
-          })()
-        )}
+              {tirSmrDropdownOpen && (
+                <div className={MENU_PANEL} role="menu">
+                  <button
+                    type="button"
+                    onClick={() => { generateSmrExcel(); setTirSmrDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                  >
+                    SMR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { generateTirExcel(); setTirSmrDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                  >
+                    TIR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { generateCmrDoc(); setTirSmrDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                  >
+                    CMR (Docx)
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* Orqaga tugmasi */}
-        {invoysStageReady && viewTab === 'invoice' && (
+          {/* Tuman */}
+          {invoysStageReady && isInvoiceTab && (
+            <button
+              type="button"
+              onClick={openFssRegionSelector}
+              disabled={templatesDisabled}
+              className={ACTION_BTN}
+              title="Tuman tanlashni o'zgartirish"
+            >
+              <Icon icon="solar:map-point-bold-duotone" className="h-4 w-4" />
+              Tuman
+            </button>
+          )}
+
+          {/* Sertifikatlar */}
+          {invoysStageReady && isInvoiceTab && hasRegionContext && (
+            <div className="relative" ref={sertifikatlarDropdownRef as React.RefObject<HTMLDivElement>}>
+              <button
+                type="button"
+                onClick={() => setSertifikatlarDropdownOpen((prev) => !prev)}
+                disabled={templatesDisabled}
+                className={ACTION_BTN}
+                title="Sertifikatlar va blankalarni yuklab olish"
+                aria-expanded={sertifikatlarDropdownOpen}
+                aria-haspopup="menu"
+              >
+                <Icon icon="solar:diploma-bold-duotone" className="h-4 w-4" />
+                Sertifikatlar
+                <Chevron />
+              </button>
+              {sertifikatlarDropdownOpen && (
+                <div className={MENU_PANEL} role="menu">
+                  <button
+                    type="button"
+                    onClick={() => { openFssRegionPicker('Ichki'); setSertifikatlarDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                  >
+                    Ichki
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { openFssRegionPicker('Tashqi'); setSertifikatlarDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                  >
+                    Tashqi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { generateST1Excel(); setSertifikatlarDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                  >
+                    ST-1
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Invoys yuklab olish */}
+          {invoysStageReady && (
+            <div className="relative" ref={invoysDropdownRef as React.RefObject<HTMLDivElement>}>
+              <button
+                type="button"
+                onClick={() => setInvoysDropdownOpen((prev) => !prev)}
+                disabled={templatesDisabled}
+                className={ACTION_BTN}
+                title="Invoysni Excel yoki PDF formatida yuklab olish"
+                aria-expanded={invoysDropdownOpen}
+                aria-haspopup="menu"
+              >
+                <Icon icon="solar:file-download-bold-duotone" className="h-4 w-4" />
+                Invoys
+                <Chevron />
+              </button>
+              {invoysDropdownOpen && (
+                <div className={MENU_PANEL} role="menu">
+                  <button
+                    type="button"
+                    onClick={() => { generateInvoiceExcel(); setInvoysDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                  >
+                    Invoys Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { generatePdf(false); setInvoysDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                  >
+                    Pechatsiz PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { generatePdf(true); setInvoysDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                  >
+                    Pechatli PDF
+                  </button>
+                  <div className="my-1 border-t border-gray-200" />
+                  <button
+                    type="button"
+                    onClick={() => { generatePdfEn(); setInvoysDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={`${MENU_ITEM} font-medium text-emerald-700`}
+                    role="menuitem"
+                  >
+                    <Icon icon="solar:translation-bold-duotone" className="h-4 w-4" />
+                    {viewTab === 'packing' ? 'English Packing List (AI)' : 'English Invoice (AI)'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Deklaratsiya */}
+          {invoysStageReady && isInvoiceTab && hasRegionContext && (
+            <button
+              type="button"
+              onClick={generateCommodityEkExcel}
+              disabled={templatesDisabled}
+              className={ACTION_BTN}
+              title="Deklaratsiya (CommodityEk) shabloniga invoys ma'lumotlarini yozib Excel yuklab olish"
+            >
+              <Icon icon="solar:document-text-bold-duotone" className="h-4 w-4" />
+              Deklaratsiya
+            </button>
+          )}
+
+          <Sep />
+
+          {!invoysStageReady && (
+            <button
+              type="button"
+              onClick={handleMarkInvoysReady}
+              disabled={markingReady || !taskId}
+              className={READY_BTN}
+              title="Invoys jarayonini tayyor qilish"
+            >
+              <Icon icon="solar:check-circle-bold-duotone" className="h-4 w-4" />
+              {markingReady ? 'Jarayon...' : 'Tayyor'}
+            </button>
+          )}
+
           <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            type="button"
+            onClick={onOpenTaskModal}
+            disabled={!taskId}
+            className={PRIMARY_BTN}
+            title="Task jarayonlarini ko'rish va o'zgartirish"
           >
-            <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-              <path fill="currentColor" d="M12.5 4.5 7 10l5.5 5.5-1.4 1.4L4.2 10l6.9-6.9z" />
-            </svg>
-            Orqaga
+            <Icon icon="solar:layers-bold-duotone" className="h-4 w-4" />
+            Jarayonlar
           </button>
-        )}
+        </div>
       </div>
+
+      {/* Hujjat turlari — shu panelning pastki qirrasiga ulanadi */}
+      <InvoiceTabs viewTab={viewTab} setViewTab={setViewTab} />
     </div>
   );
 });

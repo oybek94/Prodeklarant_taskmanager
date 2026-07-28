@@ -6,28 +6,49 @@ interface InvoiceTabsProps {
   setViewTab: (tab: ViewTab) => void;
 }
 
+const TABS: { id: ViewTab; label: string }[] = [
+  { id: 'invoice', label: 'Invoys' },
+  { id: 'spec', label: 'Spetsifikatsiya' },
+  { id: 'packing', label: 'Upakovochniy list' },
+  { id: 'pricelist', label: 'Прайс-лист' },
+];
+
+/**
+ * Hujjat turlari — `InvoiceToolbar` panelining pastki qirrasiga ulanadigan
+ * qator. Ilgari bular alohida qatordagi to'ldirilgan tugmalar edi va faol tab
+ * indigo tugma bo'lib toolbar ranglariga qo'shilib ketardi; endi tanlov faqat
+ * ostki chiziq bilan ko'rsatiladi — bu tab ekanini aniq bildiradi va tepadagi
+ * amal tugmalari bilan chalkashmaydi.
+ */
 export const InvoiceTabs: React.FC<InvoiceTabsProps> = ({ viewTab, setViewTab }) => {
   return (
-    <div className="mb-4 flex flex-wrap gap-2">
-      {[
-        { id: 'invoice' as const, label: 'Invoys' },
-        { id: 'spec' as const, label: 'Spetsifikatsiya' },
-        { id: 'packing' as const, label: 'Upakovochniy list' },
-        { id: 'pricelist' as const, label: 'Прайс-лист' },
-      ].map((tab) => {
+    <div
+      className="flex items-center gap-1 overflow-x-auto border-t border-gray-200 px-2 sm:px-3"
+      role="tablist"
+    >
+      {TABS.map((tab) => {
         const isActive = viewTab === tab.id;
         return (
           <button
             key={tab.id}
             type="button"
+            role="tab"
+            aria-selected={isActive}
             onClick={() => setViewTab(tab.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-              isActive
-                ? 'bg-indigo-600 text-white border-indigo-600'
-                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            className={`relative shrink-0 px-2.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+              // `text-blue-700` ataylab: dark mode uni index.css'da
+              // text-blue-400 ga o'giradi, `text-blue-600` esa qoplanmagan va
+              // qorong'i fonda kontrasti yetarli emas
+              isActive ? 'text-blue-700' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             {tab.label}
+            {isActive && (
+              <span
+                className="absolute inset-x-2.5 bottom-0 h-0.5 rounded-full bg-blue-600"
+                aria-hidden="true"
+              />
+            )}
           </button>
         );
       })}

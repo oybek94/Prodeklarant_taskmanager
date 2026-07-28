@@ -121,9 +121,9 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
   const hasRegionContext = isOltiariqBranch || hasRegionSelected;
 
   return (
-    <div className="mb-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="mb-4">
       {/* Hujjat nomi + amallar */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-2 px-2 py-2 sm:px-3">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -149,7 +149,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
             "Tayyor qilish" tugmasining o'zi bildiradi, takrorlash shart emas. */}
         {invoysStageReady && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-            <Icon icon="solar:check-circle-bold-duotone" className="h-3.5 w-3.5" aria-hidden="true" />
+            <Icon icon="solar:check-circle-linear" className="h-3.5 w-3.5" aria-hidden="true" />
             Tayyor
           </span>
         )}
@@ -165,7 +165,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
               className={ACTION_BTN}
               title="Mijozning matnli xabaridan invoys maydonlarini avtomatik to'ldirish"
             >
-              <Icon icon="solar:document-add-bold-duotone" className="h-4 w-4" />
+              <Icon icon="solar:document-add-linear" className="h-4 w-4" />
               <span className="hidden sm:inline">Matndan to&apos;ldirish</span>
             </button>
           )}
@@ -182,7 +182,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                 aria-expanded={tirSmrDropdownOpen}
                 aria-haspopup="menu"
               >
-                <Icon icon="solar:tram-bold-duotone" className="h-4 w-4" />
+                <Icon icon="solar:tram-linear" className="h-4 w-4" />
                 TIR-SMR
                 <Chevron />
               </button>
@@ -229,7 +229,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
               className={ACTION_BTN}
               title="Tuman tanlashni o'zgartirish"
             >
-              <Icon icon="solar:map-point-bold-duotone" className="h-4 w-4" />
+              <Icon icon="solar:map-point-linear" className="h-4 w-4" />
               Tuman
             </button>
           )}
@@ -246,7 +246,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                 aria-expanded={sertifikatlarDropdownOpen}
                 aria-haspopup="menu"
               >
-                <Icon icon="solar:diploma-bold-duotone" className="h-4 w-4" />
+                <Icon icon="solar:diploma-linear" className="h-4 w-4" />
                 Sertifikatlar
                 <Chevron />
               </button>
@@ -296,7 +296,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                 aria-expanded={invoysDropdownOpen}
                 aria-haspopup="menu"
               >
-                <Icon icon="solar:file-download-bold-duotone" className="h-4 w-4" />
+                <Icon icon="solar:file-download-linear" className="h-4 w-4" />
                 Invoys
                 <Chevron />
               </button>
@@ -337,7 +337,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     className={`${MENU_ITEM} font-medium text-emerald-700`}
                     role="menuitem"
                   >
-                    <Icon icon="solar:translation-bold-duotone" className="h-4 w-4" />
+                    <Icon icon="solar:translation-linear" className="h-4 w-4" />
                     {viewTab === 'packing' ? 'English Packing List (AI)' : 'English Invoice (AI)'}
                   </button>
                 </div>
@@ -354,7 +354,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
               className={ACTION_BTN}
               title="Deklaratsiya (CommodityEk) shabloniga invoys ma'lumotlarini yozib Excel yuklab olish"
             >
-              <Icon icon="solar:document-text-bold-duotone" className="h-4 w-4" />
+              <Icon icon="solar:document-text-linear" className="h-4 w-4" />
               Deklaratsiya
             </button>
           )}
@@ -369,7 +369,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
               className={READY_BTN}
               title="Invoys jarayonini tayyor qilish"
             >
-              <Icon icon="solar:check-circle-bold-duotone" className="h-4 w-4" />
+              <Icon icon="solar:check-circle-linear" className="h-4 w-4" />
               {markingReady ? 'Jarayon...' : 'Tayyor'}
             </button>
           )}
@@ -381,13 +381,12 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
             className={PRIMARY_BTN}
             title="Task jarayonlarini ko'rish va o'zgartirish"
           >
-            <Icon icon="solar:layers-bold-duotone" className="h-4 w-4" />
+            <Icon icon="solar:layers-linear" className="h-4 w-4" />
             Jarayonlar
           </button>
         </div>
       </div>
 
-      {/* Hujjat turlari — shu panelning pastki qirrasiga ulanadi */}
       <InvoiceTabs viewTab={viewTab} setViewTab={setViewTab} />
     </div>
   );

@@ -14,16 +14,15 @@ const TABS: { id: ViewTab; label: string }[] = [
 ];
 
 /**
- * Hujjat turlari — `InvoiceToolbar` panelining pastki qirrasiga ulanadigan
- * qator. Ilgari bular alohida qatordagi to'ldirilgan tugmalar edi va faol tab
- * indigo tugma bo'lib toolbar ranglariga qo'shilib ketardi; endi tanlov faqat
- * ostki chiziq bilan ko'rsatiladi — bu tab ekanini aniq bildiradi va tepadagi
- * amal tugmalari bilan chalkashmaydi.
+ * Hujjat turlari. Ilgari bular to'ldirilgan tugmalar edi va faol tab indigo
+ * tugma bo'lib tepadagi amal tugmalariga qo'shilib ketardi; endi tanlov faqat
+ * ostki chiziq bilan ko'rsatiladi — bu tab ekanini aniq bildiradi va amal
+ * tugmalari bilan chalkashmaydi.
  */
 export const InvoiceTabs: React.FC<InvoiceTabsProps> = ({ viewTab, setViewTab }) => {
   return (
     <div
-      className="flex items-center gap-1 overflow-x-auto border-t border-gray-200 px-2 sm:px-3"
+      className="mt-3 flex items-center gap-1 overflow-x-auto border-b border-gray-200"
       role="tablist"
     >
       {TABS.map((tab) => {
@@ -45,7 +44,7 @@ export const InvoiceTabs: React.FC<InvoiceTabsProps> = ({ viewTab, setViewTab })
             {tab.label}
             {isActive && (
               <span
-                className="absolute inset-x-2.5 bottom-0 h-0.5 rounded-full bg-blue-600"
+                className="absolute inset-x-2.5 -bottom-px h-0.5 rounded-full bg-blue-600"
                 aria-hidden="true"
               />
             )}

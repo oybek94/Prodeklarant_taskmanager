@@ -2,10 +2,11 @@ import React from 'react';
 import type { ViewTab, FssFilePrefix } from './types';
 import { Icon } from '@iconify/react';
 import { InvoiceTabs } from './InvoiceTabs';
+import type { TaskStageSummary } from './hooks/useInvoiceStages';
 
 interface InvoiceToolbarProps {
-  /** Taskda "Invoys" bosqichi bormi — holat chipi shunga qarab chiqadi */
-  hasInvoysStage: boolean;
+  /** Task hozir qaysi bosqichda turgani — `null` bo'lsa chip chiqmaydi */
+  stageSummary: TaskStageSummary | null;
   invoysStageReady: boolean;
   markingReady: boolean;
   taskId: string | undefined;
@@ -82,7 +83,7 @@ const Sep: React.FC = () => (
 );
 
 export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
-  hasInvoysStage,
+  stageSummary,
   invoysStageReady,
   markingReady,
   taskId,
@@ -153,23 +154,23 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
           )}
         </div>
 
-        {/* "Invoys" bosqichining HAQIQIY holati. Ilgari bu yerda "Tayyor" so'zi
-            qattiq yozilgan edi. `StageStatus` enum'i ikki qiymatli
-            (BOSHLANMAGAN | TAYYOR) — nomlar TaskDetail'dagi bilan bir xil. */}
-        {hasInvoysStage && (
+        {/* Task hozir qaysi bosqichda turgani — TAYYOR bo'lmagan birinchi
+            bosqich nomi (mas. "Sertifikat olib chiqish"). Ilgari bu yerda
+            "Tayyor" so'zi qattiq yozilgan edi va u faqat "Invoys" bosqichiga
+            tegishli bo'lgani uchun deyarli har doim bir xil chiqardi. */}
+        {stageSummary && (
           <span
             className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-              invoysStageReady
-                ? 'bg-emerald-50 text-emerald-700'
-                : 'bg-gray-100 text-gray-600'
+              stageSummary.done ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'
             }`}
+            title={stageSummary.done ? 'Barcha bosqichlar tayyor' : 'Task shu bosqichda turibdi'}
           >
             <Icon
-              icon={invoysStageReady ? 'solar:check-circle-linear' : 'solar:clock-circle-linear'}
+              icon={stageSummary.done ? 'solar:check-circle-linear' : 'solar:clock-circle-linear'}
               className="h-3.5 w-3.5"
               aria-hidden="true"
             />
-            {invoysStageReady ? 'Tayyor' : 'Boshlanmagan'}
+            {stageSummary.label}
           </span>
         )}
 

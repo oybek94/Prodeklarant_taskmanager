@@ -9,6 +9,7 @@ import { generateInvoiceExcel } from '../services/invoice-excel';
 import { generateFssExcel } from '../services/fss-excel';
 import { Prisma } from '@prisma/client';
 import { getNextInvoiceNumber } from '../utils/invoice-number';
+import { attachmentDisposition } from '../utils/content-disposition';
 import { ensureCmrForInvoice } from '../services/cmr-service';
 import { ensureTirForInvoice } from '../services/tir-service';
 import { generateST1Excel } from '../services/st1-excel';
@@ -456,10 +457,7 @@ router.get('/:id/st1', requireAuth(), async (req: AuthRequest, res: Response) =>
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     );
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${fileName}"`
-    );
+    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
     res.setHeader('Content-Length', outputBuffer.length);
     res.end(outputBuffer);
   } catch (error: any) {
@@ -530,10 +528,7 @@ router.get('/:id/commodity-ek', requireAuth(), async (req: AuthRequest, res: Res
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     );
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${fileName}"`
-    );
+    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
     res.setHeader('Content-Length', outputBuffer.length);
     res.end(outputBuffer);
   } catch (error: any) {
@@ -591,10 +586,7 @@ router.get('/:id/cmr-doc', requireAuth(), async (req: AuthRequest, res: Response
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     );
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${fileName}"`
-    );
+    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
     res.setHeader('Content-Length', buffer.length);
     res.end(buffer);
   } catch (error: any) {
@@ -746,7 +738,7 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
       
       try {
         res.setHeader('Content-Type', 'application/pdf; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`);
+      res.setHeader('Content-Disposition', attachmentDisposition(`invoice-${invoice.invoiceNumber}.pdf`));
       
       // Error handling for PDF stream
       doc.on('error', (err) => {
@@ -940,7 +932,7 @@ router.get('/:id/pdf-en', requireAuth(), async (req: AuthRequest, res: Response)
       ? `packing-${invoice.invoiceNumber}-EN.pdf`
       : `invoice-${invoice.invoiceNumber}-EN.pdf`;
     res.setHeader('Content-Type', 'application/pdf; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileBase}"`);
+    res.setHeader('Content-Disposition', attachmentDisposition(fileBase));
 
     doc.on('error', (err: any) => {
       console.error('PDF stream error:', err);
@@ -1009,7 +1001,7 @@ router.get('/:id/xlsx', requireAuth(), async (req: AuthRequest, res: Response) =
     const outputBuffer = Buffer.from(buffer as ArrayBuffer);
     const fileName = `Invoice_${invoice.invoiceNumber || invoice.id}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
     res.setHeader('Content-Length', outputBuffer.length);
     res.end(outputBuffer);
   } catch (error: any) {
@@ -1071,7 +1063,7 @@ router.get('/:id/fss', requireAuth(), async (req: AuthRequest, res: Response) =>
     const outputBuffer = Buffer.from(buffer as ArrayBuffer);
     const fileName = `FSS_${invoice.invoiceNumber || invoice.id}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
     res.setHeader('Content-Length', outputBuffer.length);
     res.end(outputBuffer);
   } catch (error: any) {
@@ -1143,7 +1135,7 @@ router.get('/:id/cmr', requireAuth(), async (req: AuthRequest, res: Response) =>
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
     const buffer = await fs.readFile(outputPath);
     res.setHeader('Content-Length', buffer.length);
     res.end(buffer);
@@ -1171,7 +1163,7 @@ router.get('/:id/tir', requireAuth(), async (req: AuthRequest, res: Response) =>
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
     res.setHeader('Cache-Control', 'no-store');
     const buffer = await fs.readFile(outputPath);
     res.setHeader('Content-Length', buffer.length);

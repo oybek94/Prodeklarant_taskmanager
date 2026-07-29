@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '../lib/api';
+import { fetchUnreadNotifications, invalidateUnreadNotifications } from '../lib/unreadNotifications';
 import { useSocket } from '../contexts/SocketContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -118,8 +119,7 @@ export function useNotifications() {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      const response = await apiClient.get('/notifications?unread=true');
-      const data: AppNotification[] = Array.isArray(response.data) ? response.data : [];
+      const data: AppNotification[] = await fetchUnreadNotifications();
       const newOnes = data.filter((n) => !prevIdsRef.current.has(n.id));
       prevIdsRef.current = new Set(data.map((n) => n.id));
       setNotifications(data);
@@ -161,6 +161,8 @@ export function useNotifications() {
   useEffect(() => {
     if (!socket) return;
     const onNewNotification = () => {
+      // Real-time push kelganda keshni chetlab o'tamiz — yangi bildirishnoma darhol ko'rinsin
+      invalidateUnreadNotifications();
       fetchNotifications();
     };
     socket.on('notification:new', onNewNotification);
@@ -170,6 +172,7 @@ export function useNotifications() {
   const markRead = useCallback(async (id: number) => {
     try {
       await apiClient.patch(`/notifications/${id}/read`);
+      invalidateUnreadNotifications();
       setNotifications(prev => prev.filter(n => n.id !== id));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
@@ -180,6 +183,7 @@ export function useNotifications() {
   const markAllRead = useCallback(async () => {
     try {
       await apiClient.patch('/notifications/read-all');
+      invalidateUnreadNotifications();
       setNotifications([]);
       setUnreadCount(0);
     } catch (error) {
@@ -190,6 +194,7 @@ export function useNotifications() {
   const dismissNotification = useCallback(async (id: number) => {
     try {
       await apiClient.patch(`/notifications/${id}/read`);
+      invalidateUnreadNotifications();
       setNotifications(prev => prev.filter(n => n.id !== id));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {

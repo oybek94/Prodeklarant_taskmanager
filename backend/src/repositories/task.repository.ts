@@ -50,11 +50,14 @@ export class TaskRepository {
       orderBy: { createdAt: 'desc' as const },
     };
 
-    if (skip !== undefined && take !== undefined) {
-      return prisma.task.findMany({ ...baseQuery, skip, take });
-    }
-
-    return prisma.task.findMany(baseQuery);
+    // take doim qo'llanadi — pagination bo'lmaganda ham javob hajmi cheklanadi.
+    // Ilgari `skip !== undefined &&` sharti tufayli take butunlay e'tiborsiz qolar,
+    // natijada limitsiz so'rovlar butun jadvalni qaytarardi.
+    return prisma.task.findMany({
+      ...baseQuery,
+      ...(skip !== undefined ? { skip } : {}),
+      ...(take !== undefined ? { take } : {}),
+    });
   }
 
   async count(filters: TaskFilters, userRole?: string, userBranchId?: number): Promise<number> {

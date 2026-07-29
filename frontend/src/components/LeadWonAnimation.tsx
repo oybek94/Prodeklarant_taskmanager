@@ -3,6 +3,7 @@ import { useSocket } from '../contexts/SocketContext';
 import { Icon } from '@iconify/react';
 import confetti from 'canvas-confetti';
 import apiClient from '../lib/api';
+import { fetchUnreadNotifications } from '../lib/unreadNotifications';
 
 interface LeadWonData {
     leadId: number;
@@ -95,8 +96,7 @@ export default function LeadWonAnimation() {
         const fetchUnreadCelebrations = async () => {
             if (!localStorage.getItem('accessToken')) return;
             try {
-                const res = await apiClient.get('/notifications?unread=true');
-                const notifications = res.data;
+                const notifications = await fetchUnreadNotifications();
                 const celebration = notifications.find((n: any) => n.metadata?.isLeadWonCelebration === true);
                 if (celebration) {
                     setData({

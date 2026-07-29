@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSocket } from '../contexts/SocketContext';
 import { Icon } from '@iconify/react';
 import apiClient from '../lib/api';
+import { fetchUnreadNotifications } from '../lib/unreadNotifications';
 
 interface XpAnimationData {
     type: 'XP_LOSS' | 'XP_GAIN';
@@ -104,8 +105,7 @@ export default function XpAnimation() {
         const fetchUnreadXpAnimations = async () => {
             if (!localStorage.getItem('accessToken')) return;
             try {
-                const res = await apiClient.get('/notifications?unread=true');
-                const notifications = res.data;
+                const notifications = await fetchUnreadNotifications();
                 const xpNotif = notifications.find((n: any) => n.metadata?.isXpAnimation === true);
                 if (xpNotif) {
                     const payload = { ...xpNotif.metadata, notificationId: xpNotif.id };

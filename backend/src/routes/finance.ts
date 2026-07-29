@@ -6,8 +6,9 @@ import { Prisma, Currency } from '@prisma/client';
 // ExchangeSource enum from Prisma schema
 type ExchangeSource = 'CBU' | 'MANUAL';
 import { Decimal } from '@prisma/client/runtime/library';
-import { upsertExchangeRate, getLatestExchangeRate, fetchAndSaveDailyRate, getExchangeRate } from '../services/exchange-rate';
+import { upsertExchangeRate, getLatestExchangeRate, fetchAndSaveDailyRate, getExchangeRate, formatLocalDate } from '../services/exchange-rate';
 import { validateExchangeRateImmutability } from '../services/monetary-validation';
+import { appCache, CACHE_TTL } from '../services/cache';
 
 const router = Router();
 
@@ -648,19 +649,47 @@ router.get('/exchange-rates/for-date', requireAuth(), async (req: AuthRequest, r
 
 // Kurs yangilash (API'dan) - fetches from CBU and saves
 // Changed to requireAuth() instead of requireAuth('ADMIN') so Dashboard can fetch today's rate
+//
+// Dashboard har ochilganda chaqiriladi, shuning uchun uch bosqichli himoya bor:
+//   1) xotira keshi — takroriy chaqiruvlar umuman bazaga tegmaydi
+//   2) baza — bugungi kurs allaqachon saqlangan bo'lsa, CBU API'ga chiqilmaydi
+//   3) faqat shundan keyin CBU API (fetchRateFromCBU ichida 5s timeout bilan)
 router.post('/exchange-rates/fetch', requireAuth(), async (_req: AuthRequest, res) => {
   try {
-    // Always fetch today's rate
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const dateStr = formatLocalDate(today);
+    const cacheKey = `exchange-rate:USD:${dateStr}`;
 
-    console.log('[ExchangeRate] Fetching today\'s rate from CBU API, date:', today.toISOString().split('T')[0]);
-    const rate = await fetchAndSaveDailyRate(today);
+    // 1) Xotira keshi
+    const cached = appCache.get<number>(cacheKey);
+    if (cached !== undefined) {
+      return res.json({ message: 'Kurs (kesh)', rate: cached, date: dateStr, source: 'cache' });
+    }
+
+    // 2) Bugungi kurs bazada bormi? Bo'lsa — tashqi API'ga chiqmaymiz
+    const existing = await prisma.exchangeRate.findUnique({
+      where: { currency_date: { currency: 'USD' as Currency, date: today } },
+    });
+
+    if (existing) {
+      const rate = Number(existing.rate);
+      appCache.set(cacheKey, rate, CACHE_TTL.EXCHANGE_RATE);
+      return res.json({ message: 'Kurs (baza)', rate, date: dateStr, source: 'db' });
+    }
+
+    // 3) Bazada yo'q — CBU API'dan olamiz
+    console.log('[ExchangeRate] Fetching today\'s rate from CBU API, date:', dateStr);
+    const fetched = await fetchAndSaveDailyRate(today);
+    const rate = Number(fetched);
+
+    appCache.set(cacheKey, rate, CACHE_TTL.EXCHANGE_RATE);
 
     res.json({
       message: 'Kurs muvaffaqiyatli yangilandi',
-      rate: Number(rate),
-      date: today.toISOString().split('T')[0],
+      rate,
+      date: dateStr,
+      source: 'cbu',
     });
   } catch (error: any) {
     console.error('[ExchangeRate] Error fetching latest rate:', error);
@@ -711,6 +740,9 @@ router.post('/exchange-rates', requireAuth('ADMIN'), async (req: AuthRequest, re
 
     await upsertExchangeRate(date, rate, source);
 
+    // Kesh eskirib qolmasin — qo'lda kiritilgan kurs darhol kuchga kirsin
+    appCache.invalidate('exchange-rate:USD:');
+
     res.json({ message: 'Kurs muvaffaqiyatli saqlandi' });
   } catch (error: any) {
     console.error('Error setting rate:', error);
@@ -758,6 +790,9 @@ router.put('/exchange-rates/:id', requireAuth('ADMIN'), async (req: AuthRequest,
         source,
       },
     });
+
+    // Kesh eskirib qolmasin — yangilangan kurs darhol kuchga kirsin
+    appCache.invalidate('exchange-rate:USD:');
 
     res.json({ message: 'Kurs muvaffaqiyatli yangilandi' });
   } catch (error: any) {

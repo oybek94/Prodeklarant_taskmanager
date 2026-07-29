@@ -5,8 +5,15 @@ import { useSocket } from '../../contexts/SocketContext';
 import type { Task, TaskDetail, TaskVersion, TaskDocument, AiCheck, Client, Branch, TaskStats } from './types';
 
 /**
+ * Arxivda bir marta yuklanadigan maksimal yozuvlar soni.
+ * Qidiruv va sahifalash client-side bo'lgani uchun kerak (useTaskFilters).
+ * Arxiv shu chegaraga yetganda server-side qidiruvga o'tish shart.
+ */
+const ARCHIVE_FETCH_LIMIT = 2000;
+
+/**
  * useTaskData — Tasks sahifasi uchun asosiy data-fetching hook.
- * 
+ *
  * Barcha API chaqiruvlari, state boshqaruvi va data loading
  * logikasi shu hookda markazlashtirilgan.
  */
@@ -131,6 +138,11 @@ export function useTaskData(userRole?: string) {
       const params: any = {};
       if (showArchive) {
         params.status = 'YAKUNLANDI';
+        // Arxivda qidiruv va sahifalash hozircha client-side (useTaskFilters),
+        // shuning uchun barcha yozuvlar kerak. Limitni aniq yuboramiz —
+        // aks holda serverdagi standart 500 jimgina kesib qo'yadi.
+        params.page = '1';
+        params.limit = String(ARCHIVE_FETCH_LIMIT);
       } else {
         if (filters.status) params.status = filters.status;
         params.page = '1';
@@ -140,6 +152,15 @@ export function useTaskData(userRole?: string) {
       if (filters.branchId) params.branchId = filters.branchId;
 
       const response = await apiClient.get('/tasks', { params });
+
+      // Limit to'lgan bo'lsa — arxiv to'liq ko'rinmayapti, server-side qidiruvga o'tish vaqti keldi
+      if (showArchive && response.data?.pagination?.total > ARCHIVE_FETCH_LIMIT) {
+        console.warn(
+          `[Tasks] Arxivda ${response.data.pagination.total} ta yozuv bor, ` +
+          `faqat ${ARCHIVE_FETCH_LIMIT} tasi yuklandi. Qidiruv to'liq ishlamaydi — ` +
+          `arxivni server-side qidiruvga o'tkazish kerak.`
+        );
+      }
 
       if (response.data.pagination) {
         const { tasks: tasksData } = response.data;

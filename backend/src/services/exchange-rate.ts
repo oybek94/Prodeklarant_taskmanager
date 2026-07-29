@@ -7,7 +7,7 @@ import { prisma } from '../prisma';
  * toISOString() ishlatib bo'lmaydi: lokal yarim tun (00:00 +05) UTC'da
  * oldingi kunning 19:00 iga to'g'ri keladi va sana bir kun adashadi.
  */
-function formatLocalDate(d: Date): string {
+export function formatLocalDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -229,8 +229,9 @@ export async function fetchRateFromCBU(date?: Date): Promise<Decimal | null> {
         'Accept': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
+      signal: AbortSignal.timeout(5000), // 5s timeout — CBU osilib qolsa so'rov cheksiz kutmasin
     });
-    
+
     if (!response.ok) {
       console.error(`[CBU API] HTTP error: ${response.statusText} (${response.status})`);
       console.error(`[CBU API] URL: ${url}`);

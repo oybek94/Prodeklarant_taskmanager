@@ -5,6 +5,7 @@ import { useWindowSize } from 'react-use';
 import { MEDAL_DETAILS, type MedalType } from '../../types/medals';
 import { useSocket } from '../../contexts/SocketContext';
 import apiClient from '../../lib/api';
+import { fetchUnreadNotifications } from '../../lib/unreadNotifications';
 
 interface MedalData {
   medalType: MedalType;
@@ -53,8 +54,7 @@ const MedalAnimation: React.FC = () => {
     const fetchUnreadMedals = async () => {
       if (!localStorage.getItem('accessToken')) return;
       try {
-        const res = await apiClient.get('/notifications?unread=true');
-        const notifications = res.data;
+        const notifications = await fetchUnreadNotifications();
         const medalNotif = notifications.find((n: any) => n.metadata?.isMedalAnimation === true);
         if (medalNotif) {
           setData({

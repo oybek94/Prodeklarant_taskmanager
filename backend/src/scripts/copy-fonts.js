@@ -14,6 +14,13 @@ if (fs.existsSync(srcDir)) {
     const srcFile = path.join(srcDir, file);
     const destFile = path.join(destDir, file);
     try {
+      // Eski nusxa symlink bo'lsa (uzilgan bo'lsa ham) copyFileSync uni kuzatib
+      // ENOENT beradi — shuning uchun avval o'chiramiz.
+      try {
+        fs.unlinkSync(destFile);
+      } catch {
+        // yo'q edi — e'tiborsiz
+      }
       fs.copyFileSync(srcFile, destFile);
       console.log(`Copied ${file} to dist/fonts/`);
     } catch (err) {

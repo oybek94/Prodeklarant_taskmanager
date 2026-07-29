@@ -63,6 +63,10 @@ import sellerKpiRouter from './routes/seller-kpi';
 import { initFinanceBot } from './services/finance-bot.service';
 
 const app = express();
+// Nginx reverse proxy orqasida ishlaymiz (1 ta hop). Busiz req.ip har doim 127.0.0.1
+// bo'lib qoladi va rate limit hamma foydalanuvchilar uchun bitta chelakka tushadi.
+// `true` emas, aynan `1` — mijoz X-Forwarded-For'ni soxtalashtira olmasligi uchun.
+app.set('trust proxy', 1);
 const httpServer = createServer(app);
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 

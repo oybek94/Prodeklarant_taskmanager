@@ -43,6 +43,7 @@ import qrRouter from './routes/qr';
 import stickerRouter from './routes/sticker';
 import { requireAuth } from './middleware/auth';
 import { auditLog } from './middleware/audit';
+import { requestTiming } from './middleware/request-timing';
 import OpenAIClient from './ai/openai.client';
 import path from 'path';
 import fs from 'fs';
@@ -69,6 +70,9 @@ const app = express();
 app.set('trust proxy', 1);
 const httpServer = createServer(app);
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
+
+// Sekin so'rovlarni o'lchash — barcha boshqa middleware'lardan oldin turishi shart
+app.use(requestTiming());
 
 // CORS sozlamalari
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || [

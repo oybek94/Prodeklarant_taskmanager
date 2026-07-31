@@ -41,6 +41,7 @@ import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { renderFittedInvoicePdf } from '../components/invoice/pdf/pdfFit';
+import { PdfMissingGlyphError, describeMissingGlyphs } from '../components/invoice/pdf/pdfGlyphCheck';
 import Tasks from './Tasks';
 
 import type {
@@ -500,8 +501,9 @@ const Invoice = () => {
   }, [columnOrder, effectiveColumns, items]);
 
   const generatePdf = useCallback(async (includeSeal: boolean) => {
+    // `catch` blokida ham kerak — xato bo'lganda o'sha toast almashtiriladi
+    const toastId = toast.loading("PDF tayyorlanmoqda...");
     try {
-      const toastId = toast.loading("PDF tayyorlanmoqda...");
 
       if (viewTab === 'pricelist') {
         setIsPdfMode(true);
@@ -586,7 +588,14 @@ const Invoice = () => {
       toast.success("PDF muvaffaqiyatli yuklab olindi", { id: toastId });
     } catch (err) {
       console.error(err);
-      toast.error("PDF yaratishda xatolik yuz berdi");
+      // Hujjatda shriftda chiqmaydigan belgi bor — bunday PDF'da harf JIMGINA
+      // yo'qoladi ("Valley" -> "alley"), chet el bojxonasida esa bu hujjat
+      // xatosi hisoblanadi. Shuning uchun yuklab olish to'xtatiladi.
+      if (err instanceof PdfMissingGlyphError) {
+        toast.error(describeMissingGlyphs(err.missing), { id: toastId, duration: 20000 });
+        return;
+      }
+      toast.error("PDF yaratishda xatolik yuz berdi", { id: toastId });
     }
   }, [
     viewTab, form, invoice, selectedContract, contracts, task, isSellerShipper, isBuyerConsignee, 

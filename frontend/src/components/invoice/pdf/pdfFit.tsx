@@ -11,6 +11,8 @@ import {
   calcSealHeight,
 } from './pdfScale';
 import { measureLayout, type PdfLayoutNode, type PdfLayoutMeasure } from './pdfLayout';
+import { findMissingGlyphs, PdfMissingGlyphError } from './pdfGlyphCheck';
+import { deepNormalizeStrings } from '../../../utils/textNormalize';
 
 /**
  * Shrift o'lchamini HAQIQIY layout bo'yicha tanlash.
@@ -66,7 +68,7 @@ const renderOnce = async (props: FitProps, scale?: number) => {
     />
   );
   const blob = await pdf(doc).toBlob();
-  return { blob, measure: measureLayout(layout) };
+  return { blob, measure: measureLayout(layout), layout };
 };
 
 /** Kontent 1-betga sig'ganini tekshirish */
@@ -90,9 +92,20 @@ const solveScale = (m: PdfLayoutMeasure, atScale: number, sealH: number): number
  * `hi` — sig'magan eng kichik masshtab. Matn bo'linishi (wrap) masshtabga chiziqli
  * bog'liq bo'lmagani uchun bitta tenglama yechimi yetarli emas — u faqat birinchi
  * qadamni tezlashtiradi, keyin oraliq ikkiga bo'linib toraytiriladi.
+ *
+ * Chizishdan oldin butun matn `normalizeText` (NFKC) dan o'tkaziladi, birinchi
+ * render'dan keyin esa shriftda glifi yo'q belgi qolmaganiga ishonch hosil
+ * qilinadi — aks holda `PdfMissingGlyphError` bilan to'xtaydi va PDF umuman
+ * yaratilmaydi (qarang: `pdfGlyphCheck.ts`).
  */
 export const renderFittedInvoicePdf = async (props: FitProps): Promise<Blob> => {
-  const sealH = calcSealHeight(props.pdfIncludeSeal, props.selectedContract);
+  // Barcha matnni BITTA joyda normallashtiramiz. Har bir `Pdf*` komponentida
+  // alohida chaqirish mo'rt: yangi maydon qo'shilganda unutiladi va harf yana
+  // jimgina yo'qoladi. Normallashtirish o'lchov render'laridan OLDIN bajariladi,
+  // shunda `PdfItemsTable` ustun kengligini aynan chiziladigan matn bo'yicha
+  // hisoblaydi.
+  const clean = deepNormalizeStrings(props);
+  const sealH = calcSealHeight(clean.pdfIncludeSeal, clean.selectedContract);
 
   let lo = Number.NaN;          // sig'adigan eng katta masshtab
   let hi = Number.NaN;          // sig'maydigan eng kichik masshtab
@@ -101,10 +114,18 @@ export const renderFittedInvoicePdf = async (props: FitProps): Promise<Blob> => 
   let candidate = 1;
 
   for (let pass = 0; pass < MAX_PASSES; pass++) {
-    const { blob, measure } = await renderOnce(props, candidate);
+    const { blob, measure, layout } = await renderOnce(clean, candidate);
+
+    // Yo'qolgan glif masshtabga bog'liq emas — bir marta, eng birinchi
+    // render'da tekshirish yetarli (qolgan urinishlar bajarilmasdan to'xtaydi).
+    if (pass === 0) {
+      const missing = findMissingGlyphs(layout);
+      if (missing.length > 0) throw new PdfMissingGlyphError(missing);
+    }
+
     // Layout ma'lumoti bo'lmasa (@react-pdf ichki API o'zgargan bo'lsa) —
     // heuristik taxminga qaytamiz, ya'ni ilgarigi xatti-harakat.
-    if (!measure) return (await renderOnce(props)).blob;
+    if (!measure) return (await renderOnce(clean)).blob;
 
     if (fitsOnePage(measure)) {
       if (Number.isNaN(lo) || candidate > lo) { lo = candidate; bestBlob = blob; }
@@ -119,7 +140,7 @@ export const renderFittedInvoicePdf = async (props: FitProps): Promise<Blob> => 
 
   if (bestBlob) return bestBlob;
   // 1-betga sig'dirish imkonsiz — o'qishga qulay o'lchamda, bir necha betda
-  return (await renderOnce(props, READABLE_FALLBACK_SCALE)).blob;
+  return (await renderOnce(clean, READABLE_FALLBACK_SCALE)).blob;
 };
 
 /**

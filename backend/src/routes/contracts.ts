@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
+import { deepNormalizeStrings } from '../utils/text-normalize';
 
 const router = Router();
 const deliveryTermsSchema = z.object({
@@ -88,7 +89,12 @@ const contractSchema = z.object({
     specNumber: z.string().optional(),
     productNumber: z.string().optional(),
   })).optional(),
-});
+})
+  // Barcha matn maydonlari bazaga yozilishdan oldin normallashtiriladi.
+  // Sabab: nusxa ko'chirilgan nomlarda ko'rinish-egizak Unicode belgilar
+  // (fullwidth Ｖ, rim Ⅴ, ...) uchraydi va ular PDF hujjatdan jimgina tushib
+  // qoladi (qarang: `utils/text-normalize.ts`).
+  .transform(deepNormalizeStrings);
 
 // GET /contracts/client/:clientId - Mijozning barcha shartnomalari
 router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Response) => {

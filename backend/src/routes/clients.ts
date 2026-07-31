@@ -5,6 +5,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { hashPassword } from '../utils/hash';
+import { deepNormalizeStrings } from '../utils/text-normalize';
 import { getLatestExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs, validateDealAmountPlausibility } from '../services/monetary-validation';
 import { ClientService } from '../services/client.service';
@@ -43,7 +44,11 @@ const clientSchema = z.object({
   correspondentBankSwift: z.string().optional(),
   initialDebt: z.number().optional().nullable(),
   initialDebtCurrency: z.enum(['USD', 'UZS']).optional().nullable(),
-});
+})
+  // Matn maydonlari bazaga yozilishdan oldin normallashtiriladi — nusxa
+  // ko'chirilgan nomlardagi ko'rinish-egizak Unicode belgilar PDF hujjatdan
+  // jimgina tushib qolmasligi uchun (qarang: `utils/text-normalize.ts`).
+  .transform(deepNormalizeStrings);
 
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {

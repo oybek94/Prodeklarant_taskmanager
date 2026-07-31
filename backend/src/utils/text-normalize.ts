@@ -1,29 +1,29 @@
-// Matn normalizatsiyasi — eksport hujjatlari (PDF/Excel) uchun.
+// Matn normalizatsiyasi — bazaga yoziladigan matnlar uchun.
 //
-// Muammo: foydalanuvchi maydonlariga (masalan, "Номер автотранспорта") ba'zan
-// ko'rinishidan oddiy lotin/kirill harfiga o'xshash, lekin boshqa Unicode
-// belgilar tushadi (fullwidth «Ｈ», matematik stilizatsiya qilingan harflar,
-// ko'rinmas/nazorat belgilari va h.k.). Bunday belgilar ekranda tizim shrifti
-// bilan ko'rinadi, lekin PDF'ga faqat Roboto joylanadi va @react-pdf glifi
-// yo'q belgini JIMGINA TASHLAB YUBORADI — natijada harf hujjatda yo'qoladi.
+// Muammo: foydalanuvchilar korxona nomi/manzil kabi maydonlarni Excel, 1C,
+// veb-sayt yoki e-maildan NUSXA KO'CHIRADI. Nusxada ko'rinishidan oddiy
+// harfga o'xshash, lekin boshqa Unicode belgilar bo'ladi:
+//   Ｖ (U+FF36, fullwidth), Ⅴ (U+2164, rim raqami), 𝐕 (U+1D415, matematik)
+// Ekranda ular normal ko'rinadi (brauzer tizim shriftidan zaxira oladi), lekin
+// PDF hujjatga faqat Roboto/NotoSans joylanadi va bu shriftlarda bunday
+// belgilarning glifi yo'q — natijada @react-pdf ularni JIMGINA tashlab
+// yuboradi: «Valley» PDF'da «alley» bo'lib chiqadi.
 //
-// `normalizeText` Unicode muvofiqlik normalizatsiyasini (NFKC) qo'llaydi —
-// fullwidth/stilizatsiya qilingan variantlar standart ASCII/asosiy harfga
-// aylanadi — va ko'rinmas/nazorat belgilarni olib tashlaydi.
+// NFKC normalizatsiya bunday muvofiqlik variantlarini standart harfga
+// aylantiradi. Bu — frontend'dagi `frontend/src/utils/textNormalize.ts` ning
+// aynan nusxasi; ikkala tomonda ham bir xil qoida amal qilishi kerak.
 //
 // MUHIM: NFKC "juda ishtiyoqli" — u shriftda MAVJUD bo'lgan belgilarni ham
-// buzadi: «№» -> «No», «м²» -> «м2», uzilmas bo'shliq -> oddiy bo'shliq
-// (natijada jadvalda "229 800" ikki qatorga bo'linib ketishi mumkin). Bunday
-// o'zgarish bojxona hujjatida YANGI xato bo'lardi. Shuning uchun qoida:
+// buzadi: «№» -> «No», «м²» -> «м2», uzilmas bo'shliq -> oddiy bo'shliq.
+// Bunday o'zgarish bojxona hujjatida YANGI xato bo'lardi. Shuning uchun qoida:
 //
 //     PDF shrifti CHIZA OLADIGAN belgiga TEGILMAYDI — faqat chizilmaydigan
 //     (glifi yo'q) belgi NFKC bilan haqiqiy harfga aylantiriladi.
 //
 // `PRESERVED_RANGES` — aynan shu "NFKC buzadi, lekin shrift chiza oladi"
 // belgilar ro'yxati; u `frontend/public/fonts/{Roboto,NotoSans}-Regular.ttf`
-// dan O'LCHAB olingan. Shriftlar almashtirilsa ro'yxat eskiradi — buni
-// `backend/src/__tests__/text-normalize.test.ts` avtomatik ushlaydi va ro'yxatni
-// qanday qayta hosil qilish kerakligini ko'rsatadi.
+// dan O'LCHAB olingan va `__tests__/text-normalize.test.ts` uni shriftlar bilan
+// solishtirib turadi (shrift almashsa test yiqiladi).
 //
 // Belgi sinflari kod-nuqtalardan quriladi, shunda fayl manbasida hech qanday
 // literal ko'rinmas/nazorat bayt bo'lmaydi (toza ASCII).
@@ -53,8 +53,8 @@ export const PRESERVED_CODE_POINTS: ReadonlySet<number> = new Set(
   }),
 );
 
-// Ko'rinmas belgilar: soft hyphen (U+00AD), zero-width (U+200B–200F),
-// yo'nalish belgilari (U+202A–202E), word joiner (U+2060), BOM (U+FEFF).
+// Ko'rinmas belgilar: soft hyphen (U+00AD), zero-width (U+200B-200F),
+// yo'nalish belgilari (U+202A-202E), word joiner (U+2060), BOM (U+FEFF).
 const INVISIBLE_CHARS = new RegExp(
   '[' + cp(0x00ad) + cp(0x200b) + '-' + cp(0x200f) + cp(0x202a) + '-' + cp(0x202e) + cp(0x2060) + cp(0xfeff) + ']',
   'g',
@@ -81,7 +81,7 @@ export function normalizeText(value: string | undefined | null): string | undefi
 
   // Saqlanadigan belgilar bo'yicha bo'laklarga ajratamiz. Har bir bo'lak
   // BUTUNLIGICHA NFKC qilinadi (belgi-ma-belgi emas) — shunda ajratilgan
-  // diakritika ham to'g'ri birlashadi ("e" + U+0301 -> "é").
+  // diakritika ham to'g'ri birlashadi ("e" + U+0301 -> "e" bilan urg'u).
   let result = '';
   let segment = '';
   for (const char of stripped) {
@@ -95,15 +95,7 @@ export function normalizeText(value: string | undefined | null): string | undefi
   return result + segment.normalize('NFKC');
 }
 
-// ---------------------------------------------------------------------------
-// Rekursiv normallashtirish
-//
-// PDF/eksport quvuriga ketayotgan butun props obyektini bir joyda tozalash
-// uchun. Har bir komponentda alohida `normalizeText` chaqirish mo'rt: yangi
-// maydon qo'shilganda unutiladi va harf yana jimgina yo'qoladi.
-// ---------------------------------------------------------------------------
-
-/** Rekursiyada ichiga kirilmaydigan qiymatlar (React element, Date, Blob, ...) */
+/** Rekursiyada ichiga kirilmaydigan qiymatlar (Date, Buffer, sinf nusxalari) */
 const isPlainContainer = (v: unknown): v is Record<string, unknown> => {
   if (v === null || typeof v !== 'object') return false;
   if (Array.isArray(v)) return true;
@@ -114,7 +106,9 @@ const isPlainContainer = (v: unknown): v is Record<string, unknown> => {
 /**
  * Obyekt/massivni rekursiv aylanib, barcha `string` qiymatlarni `normalizeText`
  * dan o'tkazadi. Yangi qiymat qaytaradi — kirish obyekti o'zgarmaydi.
- * `Date`, `Blob`, `File`, React element va sinf nusxalari o'zgarishsiz qoladi.
+ *
+ * DIQQAT: parollar va boshqa aynan bayt-ma-bayt saqlanishi kerak bo'lgan
+ * maydonlarga QO'LLAMANG — NFKC qiymatni o'zgartiradi.
  */
 export function deepNormalizeStrings<T>(value: T): T {
   if (typeof value === 'string') return normalizeText(value) as unknown as T;
@@ -124,27 +118,4 @@ export function deepNormalizeStrings<T>(value: T): T {
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(value)) out[key] = deepNormalizeStrings(value[key]);
   return out as unknown as T;
-}
-
-export interface CollectedString {
-  /** Qiymatning props ichidagi yo'li, masalan `selectedContract.sellerName` yoki `items[3].name` */
-  path: string;
-  text: string;
-}
-
-/**
- * Obyektdagi barcha bo'sh bo'lmagan `string` qiymatlarni yo'li bilan yig'adi.
- * `deepNormalizeStrings` bilan bir xil qoidalar bo'yicha ichiga kiradi, shunda
- * tekshiruv aynan chiziladigan matnni ko'radi.
- */
-export function collectStrings(value: unknown, path = ''): CollectedString[] {
-  if (typeof value === 'string') return value ? [{ path, text: value }] : [];
-  if (Array.isArray(value)) {
-    return value.flatMap((item, i) => collectStrings(item, `${path}[${i}]`));
-  }
-  if (!isPlainContainer(value)) return [];
-
-  return Object.keys(value).flatMap((key) =>
-    collectStrings(value[key], path ? `${path}.${key}` : key),
-  );
 }

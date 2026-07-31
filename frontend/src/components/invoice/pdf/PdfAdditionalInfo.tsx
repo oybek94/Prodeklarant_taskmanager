@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { styles } from './PdfStyles';
-import { normalizeText } from '../../../utils/textNormalize';
 import { sectionFont, sectionTitleFont } from './pdfFontSizes';
 
 interface PdfAdditionalInfoProps {
@@ -21,8 +20,9 @@ const Row: React.FC<{ label: string; value: string; scale: number; fontSize?: nu
   const sc = (v: number) => Math.round(v * scale);
   return (
     <Text style={{ fontSize: sectionFont(fontSize, 9, scale), marginBottom: sc(3), lineHeight: 1.4, color: '#000000', paddingLeft: sc(8) }}>
+      {/* Matn `renderFittedInvoicePdf` da bir joyda normallashtiriladi (pdfFit.tsx) */}
       <Text style={{ fontWeight: 'bold' }}>{label}: </Text>
-      {normalizeText(value)}
+      {value}
     </Text>
   );
 };

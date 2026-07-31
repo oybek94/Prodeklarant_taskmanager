@@ -4,7 +4,7 @@ import apiClient from '../../../lib/api';
 import toast from 'react-hot-toast';
 import type { InvoiceItem, Task, ChangeLogEntry } from '../types';
 import { normalizeItem, buildTaskTitle, round2, sumItemTotals } from '../invoiceUtils';
-import { normalizeText } from '../../../utils/textNormalize';
+import { normalizeText, deepNormalizeStrings } from '../../../utils/textNormalize';
 import type { PdfFontSizes } from '../pdf/pdfFontSizes';
 
 /* ─── constants ──────────────────────────────────────────────────── */
@@ -378,9 +378,7 @@ export function useInvoiceSave({
             amountPaid: currentForm.amountPaid,
             paymentMethod: currentForm.additionalInfo?.paymentMethod,
             deliveryTerms: currentForm.deliveryTerms,
-            // Look-alike/fullwidth/ko'rinmas belgilarni tozalaymiz — aks holda
-            // PDF'da (Roboto) glifi yo'q belgi jimgina tushib qoladi.
-            vehicleNumber: normalizeText(currentForm.vehicleNumber),
+            vehicleNumber: currentForm.vehicleNumber,
             fssRegionInternalCode: currentForm.fssRegionInternalCode,
             fssRegionName: currentForm.fssRegionName,
             fssRegionExternalCode: currentForm.fssRegionExternalCode,
@@ -434,9 +432,15 @@ export function useInvoiceSave({
         })(),
       };
 
+      // Bazaga faqat normallashtirilgan matn yoziladi. Nusxa ko'chirilgan
+      // matnda ko'rinish-egizak Unicode belgilar (fullwidth Ｖ, rim Ⅴ, ...)
+      // uchraydi — ular PDF shriftida glifi yo'qligi sababli hujjatdan
+      // JIMGINA tushib qoladi ("Valley" -> "alley").
+      const payload = deepNormalizeStrings(invoiceData);
+
       const response = invoice
-        ? await apiClient.post(`/invoices`, { ...invoiceData, id: invoice.id })
-        : await apiClient.post('/invoices', invoiceData);
+        ? await apiClient.post(`/invoices`, { ...payload, id: invoice.id })
+        : await apiClient.post('/invoices', payload);
 
       const savedInvoice = response.data;
       setInvoice(savedInvoice);

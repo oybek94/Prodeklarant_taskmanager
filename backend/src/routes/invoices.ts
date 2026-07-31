@@ -1238,11 +1238,19 @@ router.post('/', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthR
   try {
     const parsed = invoiceSchema.safeParse(req.body);
     if (!parsed.success) {
-      const flat = parsed.error.flatten();
-      const firstFieldError = Object.values(flat.fieldErrors as Record<string, string[]>).flat()[0];
-      const firstFormError = flat.formErrors[0];
-      const errMsg = firstFieldError || firstFormError || 'Ma\'lumotlarda xatolik';
-      return res.status(400).json({ error: errMsg });
+      // Maydon yo'lisiz xabar ("Expected number, received string") prodda foydasiz —
+      // qaysi maydon yiqilganini ko'rsatamiz va to'liq ro'yxatni logga yozamiz.
+      const issues = parsed.error.issues;
+      console.warn(
+        '[invoice] validation failed:',
+        issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join(' | ')
+      );
+      const first = issues[0];
+      const path = first?.path.join('.');
+      const errMsg = first
+        ? (path ? `${path}: ${first.message}` : first.message)
+        : 'Ma\'lumotlarda xatolik';
+      return res.status(400).json({ error: errMsg, issues: issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
     }
 
     const { taskId, clientId, invoiceNumber, contractNumber, contractId, date, currency, totalAmount, notes, additionalInfo, items } = parsed.data;

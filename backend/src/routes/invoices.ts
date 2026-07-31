@@ -215,6 +215,8 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
 
 // Invoice yaratish/update uchun schema (null yuborilganda undefined ga aylantiramiz)
 const optionalString = () => z.string().optional().nullable().transform((v) => v ?? undefined);
+/** PDF bo'limi shrifti (pt) — kalit yo'q yoki null bo'lsa "Avto" */
+const pdfFontSize = () => z.number().int().min(5).max(14).optional().nullable().transform((v) => v ?? undefined);
 const invoiceSchema = z.object({
   taskId: z.number().optional(),
   clientId: z.number().optional(),
@@ -293,10 +295,16 @@ const invoiceSchema = z.object({
     additionalFieldsOrder: z.array(z.string()).optional(),
     // PDF bo'limlari uchun qo'lda belgilangan shrift o'lchamlari (pt).
     // Oraliq frontend'dagi PDF_FONT_MIN/PDF_FONT_MAX bilan bir xil.
-    pdfFontSizes: z.record(
-      z.enum(['parties', 'additionalInfo', 'itemsTable', 'notes']),
-      z.number().int().min(5).max(14)
-    ).optional(),
+    // Har bir kalit ALOHIDA ixtiyoriy: frontend'da tip Partial<Record<...>> va
+    // "Avto" holatida kalit umuman yuborilmaydi. z.record(z.enum(...), ...)
+    // ishlatib bo'lmaydi — Zod v4 da enum kalitli record to'liq bo'lishini talab
+    // qiladi va bo'sh {} uchun ham "expected number, received undefined" beradi.
+    pdfFontSizes: z.object({
+      parties: pdfFontSize(),
+      additionalInfo: pdfFontSize(),
+      itemsTable: pdfFontSize(),
+      notes: pdfFontSize(),
+    }).optional(),
     // O'zgarishlar jurnali
     changeLog: z.array(z.object({
       timestamp: z.string().max(50).optional(),
